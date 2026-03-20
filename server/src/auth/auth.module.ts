@@ -13,7 +13,10 @@ import { AuthService } from './auth.service';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: config.get<string>('JWT_ACCESS_EXPIRY', '15m') as import('jsonwebtoken').SignOptions['expiresIn'],
+          expiresIn: config.get<string>(
+            'JWT_ACCESS_EXPIRY',
+            '15m',
+          ) as import('jsonwebtoken').SignOptions['expiresIn'],
         },
       }),
       inject: [ConfigService],

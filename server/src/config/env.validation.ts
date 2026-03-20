@@ -7,9 +7,7 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().port().default(4000),
   DATABASE_URL: Joi.string().min(10).required(),
   DIRECT_URL: Joi.string().min(10).required(),
-  SWAGGER_ENABLED: Joi.string()
-    .valid('true', 'false')
-    .optional(),
+  SWAGGER_ENABLED: Joi.string().valid('true', 'false').optional(),
   CORS_ORIGIN: Joi.string().optional().default('*'),
 
   // Auth: JWT

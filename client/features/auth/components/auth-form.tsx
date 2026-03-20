@@ -19,13 +19,13 @@ import { ENDPOINTS } from "@/lib/endpoints";
 import { useAuth } from "@/providers/auth-provider";
 
 const loginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+  email: z.email({ error: "Enter a valid email address" }).min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 const signupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
-  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+  email: z.email({ error: "Enter a valid email address" }).min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 

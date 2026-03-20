@@ -5,18 +5,31 @@ import { SlidersHorizontal, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreatorCard } from "./creator-card";
-import { CreatorFilters, DEFAULT_FILTERS, type Filters } from "./creator-filters";
+import {
+  CreatorFilters,
+  DEFAULT_FILTERS,
+  type Filters,
+} from "./creator-filters";
 import { MOCK_CREATORS } from "../data";
 import type { Creator } from "../types";
 
-function applyFilters(creators: Creator[], filters: Filters, search: string): Creator[] {
+function applyFilters(
+  creators: Creator[],
+  filters: Filters,
+  search: string,
+): Creator[] {
   return creators.filter((c) => {
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filters.city !== "All Cities" && c.location !== filters.city) return false;
-    if (filters.category !== "All" && c.category !== filters.category) return false;
+    if (search && !c.name.toLowerCase().includes(search.toLowerCase()))
+      return false;
+    if (filters.city !== "All Cities" && c.location !== filters.city)
+      return false;
+    if (filters.category !== "All" && c.category !== filters.category)
+      return false;
     if (filters.gender !== "all" && c.gender !== filters.gender) return false;
-    if (filters.minPrice && c.startingPrice < Number(filters.minPrice)) return false;
-    if (filters.maxPrice && c.startingPrice > Number(filters.maxPrice)) return false;
+    if (filters.minPrice && c.startingPrice < Number(filters.minPrice))
+      return false;
+    if (filters.maxPrice && c.startingPrice > Number(filters.maxPrice))
+      return false;
     if (filters.minRating && c.rating < Number(filters.minRating)) return false;
     if (filters.travelAvailable && !c.travelAvailable) return false;
     if (filters.storeVisit && !c.storeVisit) return false;
@@ -31,7 +44,7 @@ export function CreatorListing() {
 
   const results = useMemo(
     () => applyFilters(MOCK_CREATORS, filters, search),
-    [filters, search]
+    [filters, search],
   );
 
   const hasActiveFilters =
@@ -41,7 +54,8 @@ export function CreatorListing() {
     filters.city !== DEFAULT_FILTERS.city,
     filters.category !== DEFAULT_FILTERS.category,
     filters.gender !== DEFAULT_FILTERS.gender,
-    filters.minPrice !== DEFAULT_FILTERS.minPrice || filters.maxPrice !== DEFAULT_FILTERS.maxPrice,
+    filters.minPrice !== DEFAULT_FILTERS.minPrice ||
+      filters.maxPrice !== DEFAULT_FILTERS.maxPrice,
     filters.minRating !== DEFAULT_FILTERS.minRating,
     filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable,
     filters.storeVisit !== DEFAULT_FILTERS.storeVisit,
@@ -118,7 +132,11 @@ export function CreatorListing() {
               }`}
             >
               {results.map((creator) => (
-                <CreatorCard key={creator.id} creator={creator} variant="listing" />
+                <CreatorCard
+                  key={creator.id}
+                  creator={creator}
+                  variant="listing"
+                />
               ))}
             </div>
           ) : (
@@ -126,9 +144,12 @@ export function CreatorListing() {
               <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
                 <Users className="size-6 text-primary" />
               </div>
-              <p className="text-sm font-medium">No creators match your filters</p>
+              <p className="text-sm font-medium">
+                No creators match your filters
+              </p>
               <p className="mt-1 max-w-xs text-center text-xs text-muted-foreground">
-                Try adjusting your search or filter criteria to find more creators.
+                Try adjusting your search or filter criteria to find more
+                creators.
               </p>
               <Button
                 variant="outline"

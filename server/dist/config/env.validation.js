@@ -52,11 +52,21 @@ function _interop_require_wildcard(obj, nodeInterop) {
 }
 const envValidationSchema = _joi.object({
     NODE_ENV: _joi.string().valid('development', 'production', 'test').default('development'),
-    PORT: _joi.number().port().default(3000),
+    PORT: _joi.number().port().default(4000),
     DATABASE_URL: _joi.string().min(10).required(),
     DIRECT_URL: _joi.string().min(10).required(),
     SWAGGER_ENABLED: _joi.string().valid('true', 'false').optional(),
-    CORS_ORIGIN: _joi.string().optional().default('*')
+    CORS_ORIGIN: _joi.string().optional().default('*'),
+    // Auth: JWT
+    JWT_ACCESS_SECRET: _joi.string().min(16).required(),
+    JWT_REFRESH_SECRET: _joi.string().min(16).required(),
+    JWT_ACCESS_EXPIRY: _joi.string().optional().default('15m'),
+    JWT_REFRESH_EXPIRY: _joi.string().optional().default('7d'),
+    // Auth: Google OAuth
+    GOOGLE_CLIENT_ID: _joi.string().min(1).required(),
+    GOOGLE_CLIENT_SECRET: _joi.string().min(1).required(),
+    GOOGLE_CALLBACK_URL: _joi.string().uri().required(),
+    FRONTEND_URL: _joi.string().uri().required()
 });
 
 //# sourceMappingURL=env.validation.js.map

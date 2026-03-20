@@ -4,9 +4,11 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { CreatorProfileModule } from './creator-profile/creator-profile.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { PrismaModule } from './prisma/prisma.module';
     ]),
     PrismaModule,
     HealthModule,
+    AuthModule,
+    CreatorProfileModule,
   ],
   controllers: [AppController],
   providers: [

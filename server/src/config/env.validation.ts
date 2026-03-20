@@ -4,11 +4,21 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
     .default('development'),
-  PORT: Joi.number().port().default(3000),
+  PORT: Joi.number().port().default(4000),
   DATABASE_URL: Joi.string().min(10).required(),
   DIRECT_URL: Joi.string().min(10).required(),
-  SWAGGER_ENABLED: Joi.string()
-    .valid('true', 'false')
-    .optional(),
+  SWAGGER_ENABLED: Joi.string().valid('true', 'false').optional(),
   CORS_ORIGIN: Joi.string().optional().default('*'),
+
+  // Auth: JWT
+  JWT_ACCESS_SECRET: Joi.string().min(16).required(),
+  JWT_REFRESH_SECRET: Joi.string().min(16).required(),
+  JWT_ACCESS_EXPIRY: Joi.string().optional().default('15m'),
+  JWT_REFRESH_EXPIRY: Joi.string().optional().default('7d'),
+
+  // Auth: Google OAuth
+  GOOGLE_CLIENT_ID: Joi.string().min(1).required(),
+  GOOGLE_CLIENT_SECRET: Joi.string().min(1).required(),
+  GOOGLE_CALLBACK_URL: Joi.string().uri().required(),
+  FRONTEND_URL: Joi.string().uri().required(),
 });

@@ -21,8 +21,6 @@ export class HealthController {
   @HealthCheck()
   @ApiOperation({ summary: 'Liveness and readiness check' })
   check(): Promise<HealthCheckResult> {
-    return this.health.check([
-      () => this.prismaHealth.isHealthy('database'),
-    ]);
+    return this.health.check([() => this.prismaHealth.isHealthy('database')]);
   }
 }

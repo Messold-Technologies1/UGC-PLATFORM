@@ -33,7 +33,11 @@ export class JwtAuthGuard implements CanActivate {
       if (!user) {
         throw new UnauthorizedException('User not found or inactive');
       }
-      (request as Request & { user: { id: string; email: string; name: string | null } }).user = user;
+      (
+        request as Request & {
+          user: { id: string; email: string; name: string | null };
+        }
+      ).user = user;
       return true;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');

@@ -136,7 +136,10 @@ export class AuthService {
       include: { user: true },
     });
     if (!session || session.expiresAt < new Date()) {
-      if (session) await this.prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      if (session)
+        await this.prisma.session
+          .delete({ where: { id: session.id } })
+          .catch(() => {});
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -215,7 +218,10 @@ export class AuthService {
     }
     const profile = (await userInfoRes.json()) as GoogleUserInfo;
 
-    const user = await this.findOrCreateGoogleUser(profile, tokenData.refresh_token);
+    const user = await this.findOrCreateGoogleUser(
+      profile,
+      tokenData.refresh_token,
+    );
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
     const safeUser = { id: user.id, email: user.email, name: user.name };
@@ -232,7 +238,7 @@ export class AuthService {
       throw new UnauthorizedException('Google account has no email');
     }
 
-    let authAccount = await this.prisma.authAccount.findUnique({
+    const authAccount = await this.prisma.authAccount.findUnique({
       where: {
         provider_providerUserId: {
           provider: AuthProvider.GOOGLE,

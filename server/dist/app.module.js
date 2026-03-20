@@ -18,6 +18,7 @@ const _authmodule = require("./auth/auth.module");
 const _envvalidation = require("./config/env.validation");
 const _healthmodule = require("./health/health.module");
 const _prismamodule = require("./prisma/prisma.module");
+const _creatorprofilemodule = require("./creator-profile/creator-profile.module");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -44,7 +45,8 @@ AppModule = _ts_decorate([
             ]),
             _prismamodule.PrismaModule,
             _healthmodule.HealthModule,
-            _authmodule.AuthModule
+            _authmodule.AuthModule,
+            _creatorprofilemodule.CreatorProfileModule
         ],
         controllers: [
             _appcontroller.AppController

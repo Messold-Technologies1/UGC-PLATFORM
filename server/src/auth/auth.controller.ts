@@ -11,7 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiExtraModels,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import {
@@ -39,8 +45,15 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register with name, email, password' })
-  @ApiResponse({ status: 201, description: 'Registered; tokens set in HttpOnly cookies; body returns user only' })
-  @ApiResponse({ status: 409, description: 'User with this email already exists' })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Registered; tokens set in HttpOnly cookies; body returns user only',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'User with this email already exists',
+  })
   async register(
     @Body() dto: RegisterDto,
     @Req() req: Request,
@@ -64,7 +77,10 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
-  @ApiResponse({ status: 200, description: 'Tokens set in HttpOnly cookies; body returns user only' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens set in HttpOnly cookies; body returns user only',
+  })
   @ApiResponse({ status: 401, description: 'Invalid email or password' })
   async login(
     @Body() dto: LoginDto,
@@ -98,17 +114,20 @@ export class AuthController {
 
   @Get('google/callback')
   @ApiOperation({ summary: 'Google OAuth callback' })
-  @ApiResponse({ status: 302, description: 'Redirect to FRONTEND_URL/auth/callback with cookies set' })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirect to FRONTEND_URL/auth/callback with cookies set',
+  })
   @ApiResponse({ status: 401, description: 'Invalid state or Google error' })
-  async googleCallback(
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
     const code = req.query.code as string | undefined;
     const state = req.query.state as string | undefined;
     const storedState = req.cookies?.[OAUTH_STATE_COOKIE];
 
-    const frontendUrl = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     clearOAuthStateCookie(res);
 
     if (!code || !state) {
@@ -142,10 +161,15 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Refresh access token using refresh token from cookie' })
+  @ApiOperation({
+    summary: 'Refresh access token using refresh token from cookie',
+  })
   @ApiResponse({ status: 204, description: 'New tokens set in cookies' })
   @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token required');
@@ -162,7 +186,9 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Logout; invalidate session and clear auth cookies' })
+  @ApiOperation({
+    summary: 'Logout; invalidate session and clear auth cookies',
+  })
   @ApiResponse({ status: 204, description: 'Logged out' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
@@ -178,7 +204,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user' })
   @ApiResponse({ status: 200, description: 'Current user' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  me(@Req() req: Request & { user: { id: string; email: string; name: string | null } }) {
+  me(
+    @Req()
+    req: Request & { user: { id: string; email: string; name: string | null } },
+  ) {
     return { user: req.user };
   }
 }

@@ -268,7 +268,7 @@ let AuthService = class AuthService {
         if (!email) {
             throw new _common.UnauthorizedException('Google account has no email');
         }
-        let authAccount = await this.prisma.authAccount.findUnique({
+        const authAccount = await this.prisma.authAccount.findUnique({
             where: {
                 provider_providerUserId: {
                     provider: _client.AuthProvider.GOOGLE,

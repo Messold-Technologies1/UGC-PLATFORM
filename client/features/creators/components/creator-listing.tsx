@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,21 @@ import {
   DEFAULT_FILTERS,
   type Filters,
 } from "./creator-filters";
-import { MOCK_CREATORS } from "../data";
+import { useDebouncedCallback } from "@/hooks/use-debounce";
 import type { Creator } from "../types";
+
+function filtersEqual(a: Filters, b: Filters): boolean {
+  return (
+    a.city === b.city &&
+    a.category === b.category &&
+    a.gender === b.gender &&
+    a.minPrice === b.minPrice &&
+    a.maxPrice === b.maxPrice &&
+    a.minRating === b.minRating &&
+    a.travelAvailable === b.travelAvailable &&
+    a.storeVisit === b.storeVisit
+  );
+}
 
 function applyFilters(
   creators: Creator[],
@@ -37,18 +51,64 @@ function applyFilters(
   });
 }
 
-export function CreatorListing() {
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+interface CreatorListingProps {
+  creators: Creator[];
+}
+
+export function CreatorListing({ creators }: CreatorListingProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [filters, setFilters] = useState<Filters>(() => ({
+    city: searchParams.get("city") ?? DEFAULT_FILTERS.city,
+    category: searchParams.get("category") ?? DEFAULT_FILTERS.category,
+    gender: searchParams.get("gender") ?? DEFAULT_FILTERS.gender,
+    minPrice: searchParams.get("minPrice") ?? DEFAULT_FILTERS.minPrice,
+    maxPrice: searchParams.get("maxPrice") ?? DEFAULT_FILTERS.maxPrice,
+    minRating: searchParams.get("minRating") ?? DEFAULT_FILTERS.minRating,
+    travelAvailable: searchParams.get("travel") === "true",
+    storeVisit: searchParams.get("storeVisit") === "true",
+  }));
   const [showFilters, setShowFilters] = useState(false);
 
+  const deferredSearch = useDeferredValue(search);
+
+  const syncUrlImmediate = useCallback(
+    (nextFilters: Filters, nextSearch: string) => {
+      const params = new URLSearchParams();
+      if (nextSearch) params.set("q", nextSearch);
+      if (nextFilters.city !== DEFAULT_FILTERS.city) params.set("city", nextFilters.city);
+      if (nextFilters.category !== DEFAULT_FILTERS.category) params.set("category", nextFilters.category);
+      if (nextFilters.gender !== DEFAULT_FILTERS.gender) params.set("gender", nextFilters.gender);
+      if (nextFilters.minPrice) params.set("minPrice", nextFilters.minPrice);
+      if (nextFilters.maxPrice) params.set("maxPrice", nextFilters.maxPrice);
+      if (nextFilters.minRating) params.set("minRating", nextFilters.minRating);
+      if (nextFilters.travelAvailable) params.set("travel", "true");
+      if (nextFilters.storeVisit) params.set("storeVisit", "true");
+      const qs = params.toString();
+      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+    },
+    [router],
+  );
+
+  const syncUrl = useDebouncedCallback(syncUrlImmediate, 300);
+
+  const handleFiltersChange = useCallback(
+    (next: Filters) => {
+      setFilters(next);
+      syncUrl(next, search);
+    },
+    [search, syncUrl],
+  );
+
   const results = useMemo(
-    () => applyFilters(MOCK_CREATORS, filters, search),
-    [filters, search],
+    () => applyFilters(creators, filters, deferredSearch),
+    [creators, filters, deferredSearch],
   );
 
   const hasActiveFilters = useMemo(
-    () => JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS),
+    () => !filtersEqual(filters, DEFAULT_FILTERS),
     [filters],
   );
 
@@ -67,12 +127,18 @@ export function CreatorListing() {
     [filters],
   );
 
-  const handleResetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
+  const handleResetFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+    syncUrlImmediate(DEFAULT_FILTERS, search);
+  }, [search, syncUrlImmediate]);
+
   const handleCloseFilters = useCallback(() => setShowFilters(false), []);
+
   const handleClearAll = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
     setSearch("");
-  }, []);
+    syncUrlImmediate(DEFAULT_FILTERS, "");
+  }, [syncUrlImmediate]);
 
   return (
     <div className="space-y-5">
@@ -128,7 +194,7 @@ export function CreatorListing() {
           <div className="w-72">
             <CreatorFilters
               filters={filters}
-              onChange={setFilters}
+              onChange={handleFiltersChange}
               onReset={handleResetFilters}
               onClose={handleCloseFilters}
             />

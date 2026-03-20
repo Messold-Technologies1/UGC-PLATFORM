@@ -1,10 +1,12 @@
+import { memo } from "react";
+
 interface PageHeaderProps {
   title: string;
   description?: string;
   children?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, children }: PageHeaderProps) {
+export const PageHeader = memo(function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -16,4 +18,4 @@ export function PageHeader({ title, description, children }: PageHeaderProps) {
       {children && <div className="flex items-center gap-2">{children}</div>}
     </div>
   );
-}
+});

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Star, Play, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,14 +17,24 @@ export const CreatorCard = memo(function CreatorCard({ creator, variant = "listi
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-xl hover:shadow-primary/5">
       <div className="relative aspect-4/3 overflow-hidden bg-muted">
-        <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-muted via-muted to-muted/80">
-          <div className="flex size-12 items-center justify-center rounded-full bg-background/80 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110">
-            <Play className="size-5 text-foreground ml-0.5" />
+        <Image
+          src={creator.thumbnail}
+          alt={`${creator.name}'s content`}
+          fill
+          className="object-cover"
+          sizes={isFeatured
+            ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          }
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+          <div className="flex size-12 items-center justify-center rounded-full bg-background/80 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110" aria-label="Play video">
+            <Play className="size-5 text-foreground ml-0.5" aria-hidden="true" />
           </div>
         </div>
 
         {creator.available && (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
             <span className="size-1.5 rounded-full bg-white animate-pulse" />
             Available
           </span>
@@ -44,7 +55,7 @@ export const CreatorCard = memo(function CreatorCard({ creator, variant = "listi
             <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
               {creator.rating}
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               ({creator.reviewCount})
             </span>
           </div>
@@ -60,7 +71,7 @@ export const CreatorCard = memo(function CreatorCard({ creator, variant = "listi
         {!isFeatured && creator.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
             {creator.tags.map((tag) => (
-              <Badge key={tag} variant="muted" className="text-[10px] px-1.5 py-0">
+              <Badge key={tag} variant="muted" className="text-xs px-1.5 py-0">
                 {tag}
               </Badge>
             ))}
@@ -69,18 +80,16 @@ export const CreatorCard = memo(function CreatorCard({ creator, variant = "listi
 
         <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
               Starting from
             </p>
             <p className="text-sm font-bold">
               ₹{creator.startingPrice.toLocaleString("en-IN")}
             </p>
           </div>
-          <Link href={`/creators/${creator.id}`}>
-            <Button size="sm" variant="outline" className="text-xs">
-              View Profile
-            </Button>
-          </Link>
+          <Button asChild size="sm" variant="outline" className="text-xs">
+            <Link href={`/creators/${creator.id}`}>View Profile</Link>
+          </Button>
         </div>
       </div>
     </div>

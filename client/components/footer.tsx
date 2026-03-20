@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
@@ -27,10 +28,10 @@ const columns = [
   },
 ];
 
-export function Footer() {
+export const Footer = memo(function Footer() {
   return (
     <footer className="border-t border-border bg-muted/30">
-      <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <Link href="/" className="flex items-center gap-2">
@@ -74,4 +75,4 @@ export function Footer() {
       </div>
     </footer>
   );
-}
+});

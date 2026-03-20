@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type SubmitEvent, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { isAxiosError } from "axios";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -12,87 +15,56 @@ import { Label } from "@/components/ui/label";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/lib/api";
+import { ENDPOINTS } from "@/lib/endpoints";
+import { useAuth } from "@/providers/auth-provider";
+
+const loginSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+const signupSchema = z.object({
+  name: z.string().min(1, "Full name is required"),
+  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+type LoginData = z.infer<typeof loginSchema>;
+type SignupData = z.infer<typeof signupSchema>;
 
 interface AuthFormProps {
   mode: "login" | "signup";
 }
 
-interface FormErrors {
-  name: string;
-  email: string;
-  password: string;
-}
-
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState(mode);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({ name: "", email: "", password: "" });
 
-  const isLogin = activeTab === "login";
+  const loginForm = useForm<LoginData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
-  const validate = useCallback((): boolean => {
-    const next: FormErrors = { name: "", email: "", password: "" };
-    let valid = true;
+  const signupForm = useForm<SignupData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { name: "", email: "", password: "" },
+  });
 
-    if (!isLogin && !name.trim()) {
-      next.name = "Full name is required";
-      valid = false;
-    }
-
-    if (!email.trim()) {
-      next.email = "Email is required";
-      valid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      next.email = "Enter a valid email address";
-      valid = false;
-    }
-
-    if (!password) {
-      next.password = "Password is required";
-      valid = false;
-    } else if (password.length < 8) {
-      next.password = "Password must be at least 8 characters";
-      valid = false;
-    }
-
-    setErrors(next);
-    return valid;
-  }, [isLogin, name, email, password]);
-
-  const handleSubmit = useCallback(
-    async (e: SubmitEvent) => {
-      e.preventDefault();
-      if (!validate()) return;
-
+  const handleLogin = useCallback(
+    async (data: LoginData) => {
       setIsLoading(true);
-
       try {
-        if (isLogin) {
-          const res = await api.post("/api/auth/login/normal", { email, password });
-
-          if (res.data.success) {
-            toast.success("Login successful!", { description: "Redirecting to your dashboard." });
-            router.push("/brand/dashboard");
-          }
-        } else {
-          const res = await api.post("/api/auth/signup", {
-            username: name,
-            email,
-            password,
+        const res = await api.post(ENDPOINTS.AUTH.LOGIN, data);
+        if (res.data.success) {
+          toast.success("Login successful!", {
+            description: "Redirecting to your dashboard.",
           });
-
-          if (res.data.success) {
-            toast.success("Account created!", { description: "Please log in with your new account." });
-            setActiveTab("login");
-            setName("");
-            setEmail("");
-            setPassword("");
-          }
+          await refreshUser();
+          const callback = searchParams.get("callbackUrl");
+          router.push(callback || "/brand/dashboard");
         }
       } catch (error) {
         if (isAxiosError(error) && error.response) {
@@ -104,13 +76,43 @@ export function AuthForm({ mode }: AuthFormProps) {
         setIsLoading(false);
       }
     },
-    [validate, isLogin, email, password, name, router],
+    [router, refreshUser, searchParams],
+  );
+
+  const handleSignup = useCallback(
+    async (data: SignupData) => {
+      setIsLoading(true);
+      try {
+        const res = await api.post(ENDPOINTS.AUTH.SIGNUP, {
+          username: data.name,
+          email: data.email,
+          password: data.password,
+        });
+        if (res.data.success) {
+          toast.success("Account created!", {
+            description: "Please log in with your new account.",
+          });
+          setActiveTab("login");
+          signupForm.reset();
+          loginForm.reset();
+        }
+      } catch (error) {
+        if (isAxiosError(error) && error.response) {
+          toast.error(error.response.data.message || "An error occurred");
+        } else {
+          toast.error("An unexpected error occurred");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [signupForm, loginForm],
   );
 
   const handleGoogleLogin = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await api.get("/api/auth/google?context=userLogin");
+      const res = await api.get(ENDPOINTS.AUTH.GOOGLE);
       window.location.href = res.data.authUrl;
     } catch {
       toast.error("Failed to connect to Google");
@@ -142,20 +144,23 @@ export function AuthForm({ mode }: AuthFormProps) {
           </TabsList>
 
           <TabsContent value="login" className="mt-0">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="login-email">Email</Label>
                 <Input
                   id="login-email"
                   type="email"
                   placeholder="you@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                   autoComplete="email"
                   className="h-10"
+                  {...loginForm.register("email")}
                 />
-                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                {loginForm.formState.errors.email && (
+                  <p className="text-sm text-destructive">
+                    {loginForm.formState.errors.email.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -164,19 +169,22 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="login-password"
                   type="password"
                   placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                   autoComplete="current-password"
                   className="h-10"
+                  {...loginForm.register("password")}
                 />
-                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                {loginForm.formState.errors.password && (
+                  <p className="text-sm text-destructive">
+                    {loginForm.formState.errors.password.message}
+                  </p>
+                )}
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="h-11 w-full bg-black text-white hover:bg-gray-600 cursor-pointer"
+                className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
                 size="lg"
               >
                 {isLoading ? (
@@ -207,20 +215,23 @@ export function AuthForm({ mode }: AuthFormProps) {
           </TabsContent>
 
           <TabsContent value="signup" className="mt-0">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="signup-name">Full name</Label>
                 <Input
                   id="signup-name"
                   type="text"
                   placeholder="Your full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
                   disabled={isLoading}
                   autoComplete="name"
                   className="h-10"
+                  {...signupForm.register("name")}
                 />
-                {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                {signupForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">
+                    {signupForm.formState.errors.name.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -229,13 +240,16 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="signup-email"
                   type="email"
                   placeholder="you@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                   autoComplete="email"
                   className="h-10"
+                  {...signupForm.register("email")}
                 />
-                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                {signupForm.formState.errors.email && (
+                  <p className="text-sm text-destructive">
+                    {signupForm.formState.errors.email.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -244,20 +258,25 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="signup-password"
                   type="password"
                   placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                   autoComplete="new-password"
                   className="h-10"
+                  {...signupForm.register("password")}
                 />
-                <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
-                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                <p className="text-xs text-muted-foreground">
+                  Must be at least 8 characters
+                </p>
+                {signupForm.formState.errors.password && (
+                  <p className="text-sm text-destructive">
+                    {signupForm.formState.errors.password.message}
+                  </p>
+                )}
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="h-11 w-full bg-black text-white hover:bg-gray-600 cursor-pointer"
+                className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
                 size="lg"
               >
                 {isLoading ? (

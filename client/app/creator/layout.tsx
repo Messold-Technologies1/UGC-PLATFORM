@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { CreatorSidebar } from "@/components/dashboard/creator-sidebar";
 
 export const metadata: Metadata = {
-  title: "Creator Dashboard | UGC Platform",
+  title: {
+    default: "Creator Dashboard",
+    template: "%s — Creator | UGC Platform",
+  },
   description: "Manage your portfolio, campaigns, and earnings.",
 };
 
@@ -14,7 +17,7 @@ export default function CreatorLayout({
   return (
     <div className="flex min-h-svh">
       <CreatorSidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main id="main-content" className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           {children}
         </div>

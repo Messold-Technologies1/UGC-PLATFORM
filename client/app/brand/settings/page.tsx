@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Building2, Bell, CreditCard, Shield } from "lucide-react";
+
+export const metadata: Metadata = { title: "Settings" };
 
 const sections = [
   {

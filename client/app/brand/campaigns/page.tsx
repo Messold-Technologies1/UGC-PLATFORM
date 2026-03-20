@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, Megaphone } from "lucide-react";
+
+export const metadata: Metadata = { title: "Campaigns" };
 
 export default function BrandCampaignsPage() {
   return (

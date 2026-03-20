@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,8 @@ import {
   ArrowRight,
   Plus,
 } from "lucide-react";
+
+export const metadata: Metadata = { title: "Dashboard" };
 
 const stats = [
   { label: "Active Campaigns", value: "0", icon: Megaphone, trend: undefined },
@@ -43,12 +47,15 @@ export default function BrandDashboardPage() {
               Launch a new UGC campaign and start receiving creator submissions.
             </p>
             <Button
+              asChild
               variant="ghost"
               size="sm"
               className="mt-4 gap-1.5 px-0 text-primary hover:text-primary/80"
             >
-              Get started
-              <ArrowRight className="size-3.5" />
+              <Link href="/brand/campaigns">
+                Get started
+                <ArrowRight className="size-3.5" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -65,12 +72,15 @@ export default function BrandDashboardPage() {
               brand.
             </p>
             <Button
+              asChild
               variant="ghost"
               size="sm"
               className="mt-4 gap-1.5 px-0 text-primary hover:text-primary/80"
             >
-              Browse creators
-              <ArrowRight className="size-3.5" />
+              <Link href="/brand/creators">
+                Browse creators
+                <ArrowRight className="size-3.5" />
+              </Link>
             </Button>
           </div>
         </div>

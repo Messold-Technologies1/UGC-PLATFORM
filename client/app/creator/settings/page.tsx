@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { UserCircle, Bell, CreditCard, Shield } from "lucide-react";
+
+export const metadata: Metadata = { title: "Settings" };
 
 const sections = [
   {

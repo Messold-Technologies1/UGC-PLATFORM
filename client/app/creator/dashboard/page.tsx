@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,8 @@ import {
   ArrowRight,
   Megaphone,
 } from "lucide-react";
+
+export const metadata: Metadata = { title: "Creator Dashboard" };
 
 const stats = [
   { label: "Total Videos", value: "0", icon: Video, trend: undefined },
@@ -43,12 +47,15 @@ export default function CreatorDashboardPage() {
               Discover brand campaigns looking for creators like you.
             </p>
             <Button
+              asChild
               variant="ghost"
               size="sm"
               className="mt-4 gap-1.5 px-0 text-primary hover:text-primary/80"
             >
-              Explore campaigns
-              <ArrowRight className="size-3.5" />
+              <Link href="/creator/campaigns">
+                Explore campaigns
+                <ArrowRight className="size-3.5" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -64,12 +71,15 @@ export default function CreatorDashboardPage() {
               Upload your best content to stand out and attract top brands.
             </p>
             <Button
+              asChild
               variant="ghost"
               size="sm"
               className="mt-4 gap-1.5 px-0 text-primary hover:text-primary/80"
             >
-              Add content
-              <ArrowRight className="size-3.5" />
+              <Link href="/creator/portfolio">
+                Add content
+                <ArrowRight className="size-3.5" />
+              </Link>
             </Button>
           </div>
         </div>

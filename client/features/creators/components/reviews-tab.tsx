@@ -1,4 +1,6 @@
+import { memo } from "react";
 import { Star } from "lucide-react";
+import { StarRating } from "@/components/ui/star-rating";
 import type { Review } from "../types";
 
 interface ReviewsTabProps {
@@ -7,23 +9,14 @@ interface ReviewsTabProps {
   totalReviews: number;
 }
 
-export function ReviewsTab({ reviews, overallRating, totalReviews }: ReviewsTabProps) {
+export const ReviewsTab = memo(function ReviewsTab({ reviews, overallRating, totalReviews }: ReviewsTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
         <div className="text-center">
           <p className="text-4xl font-bold">{overallRating}</p>
-          <div className="mt-1 flex items-center gap-0.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star
-                key={i}
-                className={`size-3.5 ${
-                  i < Math.round(overallRating)
-                    ? "fill-amber-400 text-amber-400"
-                    : "text-muted-foreground/30"
-                }`}
-              />
-            ))}
+          <div className="mt-1">
+            <StarRating rating={overallRating} size="md" />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{totalReviews} reviews</p>
         </div>
@@ -65,18 +58,7 @@ export function ReviewsTab({ reviews, overallRating, totalReviews }: ReviewsTabP
                   <p className="text-xs text-muted-foreground">{review.brand} · {review.date}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`size-3 ${
-                      i < review.rating
-                        ? "fill-amber-400 text-amber-400"
-                        : "text-muted-foreground/30"
-                    }`}
-                  />
-                ))}
-              </div>
+              <StarRating rating={review.rating} />
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {review.comment}
@@ -86,4 +68,4 @@ export function ReviewsTab({ reviews, overallRating, totalReviews }: ReviewsTabP
       </div>
     </div>
   );
-}
+});

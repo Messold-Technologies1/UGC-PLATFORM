@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { PanelLeft, LogOut, type LucideIcon } from "lucide-react";
+import { useTheme } from "next-themes";
+import { PanelLeft, LogOut, Moon, Sun, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,7 @@ interface SidebarProps {
 export function DashboardSidebar({ navItems, role, roleIcon: RoleIcon }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
+  const { resolvedTheme, setTheme } = useTheme();
 
   return (
     <>
@@ -95,7 +97,16 @@ export function DashboardSidebar({ navItems, role, roleIcon: RoleIcon }: Sidebar
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3">
+        <div className="space-y-1 border-t border-sidebar-border p-3">
+          <button
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <Sun className="size-4 shrink-0 dark:hidden" />
+            <Moon className="hidden size-4 shrink-0 dark:block" />
+            <span className="dark:hidden">Dark mode</span>
+            <span className="hidden dark:inline">Light mode</span>
+          </button>
           <Link
             href="/"
             className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

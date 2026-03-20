@@ -1,5 +1,12 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { CreatorListing } from "@/features/creators";
+import { MOCK_CREATORS } from "@/features/creators/data";
+
+export const metadata: Metadata = { title: "Browse Creators" };
+
+export const revalidate = 300;
 
 export default function BrandCreatorsPage() {
   return (
@@ -8,7 +15,9 @@ export default function BrandCreatorsPage() {
         title="Browse Creators"
         description="Find and hire talented UGC creators"
       />
-      <CreatorListing />
+      <Suspense>
+        <CreatorListing creators={MOCK_CREATORS} />
+      </Suspense>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Check, Zap, Crown, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Package, AddOn } from "../types";
@@ -29,7 +30,7 @@ const TIER_CONFIG = {
   },
 } as const;
 
-export function PackagesTab({
+export const PackagesTab = memo(function PackagesTab({
   packages,
   addOns,
   selectedPackageId,
@@ -49,6 +50,10 @@ export function PackagesTab({
           return (
             <div
               key={pkg.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectPackage(pkg.id); } }}
               className={`relative flex flex-col rounded-2xl border-2 bg-card p-5 transition-all cursor-pointer ${
                 isSelected
                   ? `border-foreground shadow-lg ${config.ring} ring-4`
@@ -57,7 +62,7 @@ export function PackagesTab({
               onClick={() => onSelectPackage(pkg.id)}
             >
               {isPopular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3 py-0.5 text-[10px] font-semibold text-background">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3 py-0.5 text-xs font-semibold text-background">
                   Most Popular
                 </span>
               )}
@@ -153,4 +158,4 @@ export function PackagesTab({
       </div>
     </div>
   );
-}
+});

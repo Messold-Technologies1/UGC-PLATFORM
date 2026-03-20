@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, Image } from "lucide-react";
+
+export const metadata: Metadata = { title: "Portfolio" };
 
 export default function CreatorPortfolioPage() {
   return (

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Package, AddOn } from "../types";
@@ -8,7 +9,7 @@ interface OrderSummaryProps {
   selectedAddOnIds: string[];
 }
 
-export function OrderSummary({ selectedPackage, addOns, selectedAddOnIds }: OrderSummaryProps) {
+export const OrderSummary = memo(function OrderSummary({ selectedPackage, addOns, selectedAddOnIds }: OrderSummaryProps) {
   const selectedAddOns = addOns.filter((a) => selectedAddOnIds.includes(a.id));
   const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
   const packagePrice = selectedPackage?.price ?? 0;
@@ -77,13 +78,14 @@ export function OrderSummary({ selectedPackage, addOns, selectedAddOnIds }: Orde
       <Button
         className="mt-5 w-full gap-1.5 bg-foreground border-0 text-background hover:opacity-90"
         size="lg"
+        aria-label="Continue to checkout"
       >
         Continue
       </Button>
 
-      <p className="mt-3 text-center text-[10px] text-muted-foreground">
+      <p className="mt-3 text-center text-xs text-muted-foreground">
         You won&apos;t be charged yet
       </p>
     </div>
   );
-}
+});

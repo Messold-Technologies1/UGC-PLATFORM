@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { MapPin, Star, Clock, Calendar, CheckCircle2, XCircle, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ interface ProfileHeaderProps {
   creator: CreatorProfile;
 }
 
-export function ProfileHeader({ creator }: ProfileHeaderProps) {
+export const ProfileHeader = memo(function ProfileHeader({ creator }: ProfileHeaderProps) {
   const attributes: { ok: boolean; text: string }[] = [
     { ok: creator.storeVisit, text: creator.storeVisit ? "Accepts store visits" : "No store visits" },
     { ok: true, text: `Speaks ${creator.languages.join(", ")}` },
@@ -102,13 +103,13 @@ export function ProfileHeader({ creator }: ProfileHeaderProps) {
       </div>
     </div>
   );
-}
+});
 
 function StatBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-center">
       <p className="text-lg font-bold">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
     </div>
   );
 }

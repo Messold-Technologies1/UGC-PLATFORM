@@ -256,7 +256,7 @@ export default function Home() {
           <Button
             asChild
             size="lg"
-            className="mt-8 gap-2 bg-background text-foreground hover:bg-background/90 border-0"
+            className="mt-8 gap-2 bg-background text-foreground border-0 hover:opacity-90 [a]:hover:bg-background"
           >
             <Link href="/signup">
               Start for Free

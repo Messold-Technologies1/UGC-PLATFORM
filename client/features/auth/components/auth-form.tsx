@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type SubmitEvent, useState } from "react";
-import axios from "axios";
+import { type SubmitEvent, useCallback, useState } from "react";
+import { isAxiosError } from "axios";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   const isLogin = activeTab === "login";
 
-  function validate(): boolean {
+  const validate = useCallback((): boolean => {
     const next: FormErrors = { name: "", email: "", password: "" };
     let valid = true;
 
@@ -62,56 +62,62 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     setErrors(next);
     return valid;
-  }
+  }, [isLogin, name, email, password]);
 
-  async function handleSubmit(e: SubmitEvent) {
-    e.preventDefault();
-    if (!validate()) return;
+  const handleSubmit = useCallback(
+    async (e: SubmitEvent) => {
+      e.preventDefault();
+      if (!validate()) return;
 
+      setIsLoading(true);
+
+      try {
+        if (isLogin) {
+          const res = await api.post("/api/auth/login/normal", { email, password });
+
+          if (res.data.success) {
+            toast.success("Login successful!", { description: "Redirecting to your dashboard." });
+            router.push("/brand/dashboard");
+          }
+        } else {
+          const res = await api.post("/api/auth/signup", {
+            username: name,
+            email,
+            password,
+          });
+
+          if (res.data.success) {
+            toast.success("Account created!", { description: "Please log in with your new account." });
+            setActiveTab("login");
+            setName("");
+            setEmail("");
+            setPassword("");
+          }
+        }
+      } catch (error) {
+        if (isAxiosError(error) && error.response) {
+          toast.error(error.response.data.message || "An error occurred");
+        } else {
+          toast.error("An unexpected error occurred");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [validate, isLogin, email, password, name, router],
+  );
+
+  const handleGoogleLogin = useCallback(async () => {
     setIsLoading(true);
-
-    try {
-      if (isLogin) {
-        const res = await api.post("/api/auth/login/normal", { email, password });
-
-        if (res.data.success) {
-          toast.success("Login successful!", { description: "Redirecting to your dashboard." });
-          router.push("/brand/dashboard");
-        }
-      } else {
-        const res = await api.post("/api/auth/signup", {
-          username: name,
-          email,
-          password,
-        });
-
-        if (res.data.success) {
-          toast.success("Account created!", { description: "Please log in with your new account." });
-          setActiveTab("login");
-          setName("");
-          setEmail("");
-          setPassword("");
-        }
-      }
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
-        toast.error(error.response.data.message || "An error occurred");
-      } else {
-        toast.error("An unexpected error occurred");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleGoogleLogin() {
     try {
       const res = await api.get("/api/auth/google?context=userLogin");
       window.location.href = res.data.authUrl;
     } catch {
       toast.error("Failed to connect to Google");
+    } finally {
+      setIsLoading(false);
     }
-  }
+  }, []);
 
   return (
     <div className="flex min-h-full w-full flex-col items-center justify-center px-6 py-12 lg:px-16">
@@ -309,7 +315,7 @@ function Divider() {
 
 function GoogleIcon() {
   return (
-    <svg className="size-4" viewBox="0 0 24 24">
+    <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
         fill="#4285F4"

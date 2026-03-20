@@ -1,20 +1,10 @@
-"use client";
+import type { Metadata } from "next";
+import { BrandSidebar } from "@/components/dashboard/brand-sidebar";
 
-import { DashboardSidebar, type NavItem } from "@/components/dashboard/sidebar";
-import {
-  Building2,
-  LayoutDashboard,
-  Megaphone,
-  Users,
-  Settings,
-} from "lucide-react";
-
-const brandNav: NavItem[] = [
-  { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/brand/creators", label: "Browse Creators", icon: Users },
-  { href: "/brand/settings", label: "Settings", icon: Settings },
-];
+export const metadata: Metadata = {
+  title: "Brand Dashboard | UGC Platform",
+  description: "Manage your campaigns, browse creators, and track performance.",
+};
 
 export default function BrandLayout({
   children,
@@ -23,7 +13,7 @@ export default function BrandLayout({
 }) {
   return (
     <div className="flex min-h-svh">
-      <DashboardSidebar navItems={brandNav} role="brand" roleIcon={Building2} />
+      <BrandSidebar />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl px-4 pt-4 pb-8 sm:px-6 lg:px-8">
           {children}

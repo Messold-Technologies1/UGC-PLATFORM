@@ -63,12 +63,17 @@ export function Navbar() {
           className="md:hidden"
           onClick={() => setMobileOpen((v) => !v)}
           aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav"
         >
           {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </Button>
       </div>
 
       <div
+        id="mobile-nav"
+        role="navigation"
+        aria-label="Mobile navigation"
         className={cn(
           "overflow-hidden border-t border-border/60 transition-all duration-200 md:hidden",
           mobileOpen ? "max-h-72" : "max-h-0 border-t-0",

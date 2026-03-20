@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Link from "next/link";
 import { MapPin, Star, Play, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ interface CreatorCardProps {
   variant?: "featured" | "listing";
 }
 
-export function CreatorCard({ creator, variant = "listing" }: CreatorCardProps) {
+export const CreatorCard = memo(function CreatorCard({ creator, variant = "listing" }: CreatorCardProps) {
   const isFeatured = variant === "featured";
 
   return (
@@ -84,4 +85,4 @@ export function CreatorCard({ creator, variant = "listing" }: CreatorCardProps) 
       </div>
     </div>
   );
-}
+});

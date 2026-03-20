@@ -1,10 +1,4 @@
 export { CreatorCard } from "./creator-card";
 export { CreatorFilters } from "./creator-filters";
 export { CreatorListing } from "./creator-listing";
-export { CreatorProfile } from "./creator-profile";
 export { FeaturedCreators } from "./featured-creators";
-export { OrderSummary } from "./order-summary";
-export { PackagesTab } from "./packages-tab";
-export { PortfolioTab } from "./portfolio-tab";
-export { ProfileHeader } from "./profile-header";
-export { ReviewsTab } from "./reviews-tab";

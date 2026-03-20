@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { ProfileHeader } from "./profile-header";
-import { PortfolioTab } from "./portfolio-tab";
-import { PackagesTab } from "./packages-tab";
-import { ReviewsTab } from "./reviews-tab";
-import { OrderSummary } from "./order-summary";
 import type { CreatorProfile as CreatorProfileType } from "../types";
+
+const PortfolioTab = dynamic(() =>
+  import("./portfolio-tab").then((m) => ({ default: m.PortfolioTab })),
+);
+const PackagesTab = dynamic(() =>
+  import("./packages-tab").then((m) => ({ default: m.PackagesTab })),
+);
+const ReviewsTab = dynamic(() =>
+  import("./reviews-tab").then((m) => ({ default: m.ReviewsTab })),
+);
+const OrderSummary = dynamic(() =>
+  import("./order-summary").then((m) => ({ default: m.OrderSummary })),
+);
 
 interface CreatorProfileProps {
   creator: CreatorProfileType;
@@ -20,14 +30,16 @@ export function CreatorProfile({ creator }: CreatorProfileProps) {
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
 
-  const selectedPackage =
-    creator.packages.find((p) => p.id === selectedPackageId) ?? null;
+  const selectedPackage = useMemo(
+    () => creator.packages.find((p) => p.id === selectedPackageId) ?? null,
+    [creator.packages, selectedPackageId],
+  );
 
-  function handleToggleAddOn(id: string) {
+  const handleToggleAddOn = useCallback((id: string) => {
     setSelectedAddOnIds((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
     );
-  }
+  }, []);
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">

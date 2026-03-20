@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronUp, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -40,7 +40,7 @@ interface CreatorFiltersProps {
   onClose: () => void;
 }
 
-export function CreatorFilters({
+export const CreatorFilters = memo(function CreatorFilters({
   filters,
   onChange,
   onReset,
@@ -216,10 +216,9 @@ export function CreatorFilters({
       )}
     </aside>
   );
-}
+});
 
-/* ── Star Rating Display ── */
-function StarRating({ count }: { count: number }) {
+const StarRating = memo(function StarRating({ count }: { count: number }) {
   const full = Math.floor(count);
   const hasHalf = count % 1 !== 0;
   const empty = 5 - full - (hasHalf ? 1 : 0);
@@ -248,10 +247,9 @@ function StarRating({ count }: { count: number }) {
       ))}
     </span>
   );
-}
+});
 
-/* ── Collapsible Section ── */
-function CollapsibleSection({
+const CollapsibleSection = memo(function CollapsibleSection({
   title,
   defaultOpen = false,
   children,
@@ -279,10 +277,9 @@ function CollapsibleSection({
       {open && <div className="mt-3">{children}</div>}
     </div>
   );
-}
+});
 
-/* ── Checkbox Item ── */
-function CheckboxItem({
+const CheckboxItem = memo(function CheckboxItem({
   label,
   checked,
   onChange,
@@ -322,4 +319,4 @@ function CheckboxItem({
       <span className="text-sm text-foreground">{label}</span>
     </label>
   );
-}
+});

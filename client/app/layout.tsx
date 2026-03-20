@@ -14,8 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "UGC Platform",
-  description: "Connect creators and brands",
+  title: {
+    default: "UGC Platform — Where Creators Meet Brands",
+    template: "%s | UGC Platform",
+  },
+  description:
+    "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://ugcplatform.com"),
+  openGraph: {
+    type: "website",
+    siteName: "UGC Platform",
+    title: "UGC Platform — Where Creators Meet Brands",
+    description:
+      "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "UGC Platform — Where Creators Meet Brands",
+    description:
+      "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
+  },
 };
 
 export default function RootLayout({

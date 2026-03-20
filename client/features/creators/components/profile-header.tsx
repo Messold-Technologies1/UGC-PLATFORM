@@ -17,7 +17,11 @@ export function ProfileHeader({ creator }: ProfileHeaderProps) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted text-3xl font-bold text-foreground sm:size-28">
+        <div
+          className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted text-3xl font-bold text-foreground sm:size-28"
+          role="img"
+          aria-label={creator.name}
+        >
           {creator.name.split(" ").map((n) => n[0]).join("")}
         </div>
 

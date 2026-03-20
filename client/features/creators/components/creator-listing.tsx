@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { SlidersHorizontal, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,19 +47,32 @@ export function CreatorListing() {
     [filters, search],
   );
 
-  const hasActiveFilters =
-    JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
+  const hasActiveFilters = useMemo(
+    () => JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS),
+    [filters],
+  );
 
-  const activeFilterCount = [
-    filters.city !== DEFAULT_FILTERS.city,
-    filters.category !== DEFAULT_FILTERS.category,
-    filters.gender !== DEFAULT_FILTERS.gender,
-    filters.minPrice !== DEFAULT_FILTERS.minPrice ||
-      filters.maxPrice !== DEFAULT_FILTERS.maxPrice,
-    filters.minRating !== DEFAULT_FILTERS.minRating,
-    filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable,
-    filters.storeVisit !== DEFAULT_FILTERS.storeVisit,
-  ].filter(Boolean).length;
+  const activeFilterCount = useMemo(
+    () =>
+      [
+        filters.city !== DEFAULT_FILTERS.city,
+        filters.category !== DEFAULT_FILTERS.category,
+        filters.gender !== DEFAULT_FILTERS.gender,
+        filters.minPrice !== DEFAULT_FILTERS.minPrice ||
+          filters.maxPrice !== DEFAULT_FILTERS.maxPrice,
+        filters.minRating !== DEFAULT_FILTERS.minRating,
+        filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable,
+        filters.storeVisit !== DEFAULT_FILTERS.storeVisit,
+      ].filter(Boolean).length,
+    [filters],
+  );
+
+  const handleResetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
+  const handleCloseFilters = useCallback(() => setShowFilters(false), []);
+  const handleClearAll = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+    setSearch("");
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -82,7 +95,7 @@ export function CreatorListing() {
 
           {hasActiveFilters && (
             <button
-              onClick={() => setFilters(DEFAULT_FILTERS)}
+              onClick={handleResetFilters}
               className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
             >
               Clear all
@@ -116,8 +129,8 @@ export function CreatorListing() {
             <CreatorFilters
               filters={filters}
               onChange={setFilters}
-              onReset={() => setFilters(DEFAULT_FILTERS)}
-              onClose={() => setShowFilters(false)}
+              onReset={handleResetFilters}
+              onClose={handleCloseFilters}
             />
           </div>
         </div>
@@ -155,10 +168,7 @@ export function CreatorListing() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => {
-                  setFilters(DEFAULT_FILTERS);
-                  setSearch("");
-                }}
+                onClick={handleClearAll}
               >
                 Clear all filters
               </Button>

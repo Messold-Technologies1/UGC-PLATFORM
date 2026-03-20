@@ -4,7 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTheme } from "next-themes";
-import { PanelLeft, LogOut, Moon, Sun, type LucideIcon } from "lucide-react";
+import {
+  PanelLeft, LogOut, Moon, Sun,
+  Building2, Video,
+  LayoutDashboard, Megaphone, Users, Briefcase, Settings,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -14,16 +19,45 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-interface SidebarProps {
+interface RoleConfig {
   navItems: NavItem[];
-  role: "creator" | "brand";
-  roleIcon: LucideIcon;
+  icon: LucideIcon;
+  label: string;
 }
 
-export function DashboardSidebar({ navItems, role, roleIcon: RoleIcon }: SidebarProps) {
+const roleConfigs: Record<string, RoleConfig> = {
+  brand: {
+    icon: Building2,
+    label: "Brand Hub",
+    navItems: [
+      { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/brand/creators", label: "Browse Creators", icon: Users },
+      { href: "/brand/settings", label: "Settings", icon: Settings },
+    ],
+  },
+  creator: {
+    icon: Video,
+    label: "Creator Hub",
+    navItems: [
+      { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
+      { href: "/creator/settings", label: "Settings", icon: Settings },
+    ],
+  },
+};
+
+function getRoleFromPath(pathname: string): RoleConfig {
+  const segment = pathname.split("/")[1];
+  return roleConfigs[segment] ?? roleConfigs.brand;
+}
+
+export function DashboardSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const { resolvedTheme, setTheme } = useTheme();
+  const { navItems, icon: RoleIcon, label: roleLabel } = getRoleFromPath(pathname);
 
   return (
     <>
@@ -56,8 +90,8 @@ export function DashboardSidebar({ navItems, role, roleIcon: RoleIcon }: Sidebar
             <RoleIcon className="size-4 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium capitalize text-sidebar-foreground">
-              {role} Hub
+            <p className="truncate text-sm font-medium text-sidebar-foreground">
+              {roleLabel}
             </p>
             <p className="truncate text-xs text-muted-foreground">Manage everything</p>
           </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BrandSidebar } from "@/components/dashboard/brand-sidebar";
+import { DashboardSidebar } from "@/components/dashboard/sidebar";
 
 export const metadata: Metadata = {
   title: {
@@ -16,7 +16,7 @@ export default function BrandLayout({
 }) {
   return (
     <div className="flex min-h-svh">
-      <BrandSidebar />
+      <DashboardSidebar />
       <main id="main-content" className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl px-4 pt-4 pb-8 sm:px-6 lg:px-8">
           {children}

@@ -1,17 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-
-const AUTH_COOKIE = process.env.AUTH_COOKIE_NAME || "token";
+import { env } from "@/lib/env";
 
 const PROTECTED_PREFIXES = ["/brand", "/creator"];
 const AUTH_ROUTES = ["/login", "/signup"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (process.env.NODE_ENV === "development") {
     return NextResponse.next();
   }
 
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get(AUTH_COOKIE)?.value;
+  const token = request.cookies.get(env.authCookieName)?.value;
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));

@@ -1,9 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { Menu, X, User, Video, Building2, Sparkles, Moon, Sun, LogOut } from "lucide-react";
+import {
+  Menu,
+  X,
+  User,
+  Video,
+  Building2,
+  Sparkles,
+  Moon,
+  Sun,
+  LogOut,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/auth-provider";
@@ -15,6 +25,26 @@ const navLinks = [
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Toggle theme"
+        className="relative overflow-hidden"
+        disabled
+      >
+        <Sun className="absolute size-4" />
+      </Button>
+    );
+  }
+
   const isDark = resolvedTheme === "dark";
 
   return (
@@ -122,7 +152,11 @@ export function Navbar() {
             aria-expanded={mobileOpen}
             aria-controls="mobile-nav"
           >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            {mobileOpen ? (
+              <X className="size-5" />
+            ) : (
+              <Menu className="size-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -159,7 +193,10 @@ export function Navbar() {
                 Dashboard
               </Link>
               <button
-                onClick={() => { setMobileOpen(false); logout(); }}
+                onClick={() => {
+                  setMobileOpen(false);
+                  logout();
+                }}
                 className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
               >
                 <LogOut className="size-4" />

@@ -4,22 +4,22 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import {
+  authMeQueryKey,
+  type AuthUser,
+  useMeQuery,
+} from "@/features/auth/hooks/use-me-query";
 
-interface User {
-  id: string;
-  email: string;
-  username: string;
-}
+export type { AuthUser };
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   refreshUser: () => Promise<void>;
@@ -29,35 +29,30 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: user = null, isPending: isLoading, refetch } = useMeQuery();
 
   const refreshUser = useCallback(async () => {
-    try {
-      const res = await api.get(ENDPOINTS.AUTH.ME);
-      setUser(res.data.user ?? null);
-    } catch {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    await refetch();
+  }, [refetch]);
 
   const logout = useCallback(async () => {
     try {
       await api.post(ENDPOINTS.AUTH.LOGOUT);
     } finally {
-      setUser(null);
+      queryClient.setQueryData(authMeQueryKey, null);
       window.location.href = "/login";
     }
-  }, []);
-
-  useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+  }, [queryClient]);
 
   const value = useMemo(
-    () => ({ user, isLoading, isAuthenticated: !!user, refreshUser, logout }),
+    () => ({
+      user,
+      isLoading,
+      isAuthenticated: !!user,
+      refreshUser,
+      logout,
+    }),
     [user, isLoading, refreshUser, logout],
   );
 

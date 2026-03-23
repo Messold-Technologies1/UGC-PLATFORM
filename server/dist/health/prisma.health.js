@@ -8,9 +8,6 @@ Object.defineProperty(exports, "PrismaHealthIndicator", {
         return PrismaHealthIndicator;
     }
 });
-<<<<<<< HEAD
-const _terminus = require("@nestjs/terminus");
-=======
 const _common = require("@nestjs/common");
 const _terminus = require("@nestjs/terminus");
 const _prismaservice = require("../prisma/prisma.service");
@@ -23,17 +20,13 @@ function _ts_decorate(decorators, target, key, desc) {
 function _ts_metadata(k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 }
->>>>>>> origin/development
 let PrismaHealthIndicator = class PrismaHealthIndicator extends _terminus.HealthIndicator {
     async isHealthy(key) {
         try {
             await this.prisma.$queryRaw`SELECT 1`;
             return this.getStatus(key, true);
         } catch (error) {
-<<<<<<< HEAD
-=======
             console.error('Prisma check failed:', error);
->>>>>>> origin/development
             throw new _terminus.HealthCheckError('Prisma check failed', error);
         }
     }
@@ -41,8 +34,6 @@ let PrismaHealthIndicator = class PrismaHealthIndicator extends _terminus.Health
         super(), this.prisma = prisma;
     }
 };
-<<<<<<< HEAD
-=======
 PrismaHealthIndicator = _ts_decorate([
     (0, _common.Injectable)(),
     _ts_metadata("design:type", Function),
@@ -50,6 +41,5 @@ PrismaHealthIndicator = _ts_decorate([
         typeof _prismaservice.PrismaService === "undefined" ? Object : _prismaservice.PrismaService
     ])
 ], PrismaHealthIndicator);
->>>>>>> origin/development
 
 //# sourceMappingURL=prisma.health.js.map

@@ -14,18 +14,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import api from "@/lib/api";
+import { useLoginMutation } from "@/features/auth/hooks/use-login-mutation";
+import { useRegisterMutation } from "@/features/auth/hooks/use-register-mutation";
 import { ENDPOINTS } from "@/lib/endpoints";
 import { useAuth } from "@/providers/auth-provider";
 
 const loginSchema = z.object({
-  email: z.email({ error: "Enter a valid email address" }).min(1, "Email is required"),
+  email: z
+    .email({ error: "Enter a valid email address" })
+    .min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 const signupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
-  email: z.email({ error: "Enter a valid email address" }).min(1, "Email is required"),
+  email: z
+    .email({ error: "Enter a valid email address" })
+    .min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
@@ -40,8 +45,12 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshUser } = useAuth();
+  const loginMutation = useLoginMutation();
+  const registerMutation = useRegisterMutation();
   const [activeTab, setActiveTab] = useState(mode);
-  const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const pendingAuth =
+    loginMutation.isPending || registerMutation.isPending || googleLoading;
 
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
@@ -54,71 +63,62 @@ export function AuthForm({ mode }: AuthFormProps) {
   });
 
   const handleLogin = useCallback(
-    async (data: LoginData) => {
-      setIsLoading(true);
-      try {
-        const res = await api.post(ENDPOINTS.AUTH.LOGIN, data);
-        if (res.data.success) {
+    (data: LoginData) => {
+      loginMutation.mutate(data, {
+        onSuccess: async (result) => {
+          if (!result.user) return;
           toast.success("Login successful!", {
             description: "Redirecting to your dashboard.",
           });
           await refreshUser();
           const callback = searchParams.get("callbackUrl");
           router.push(callback || "/brand/dashboard");
-        }
-      } catch (error) {
-        if (isAxiosError(error) && error.response) {
-          toast.error(error.response.data.message || "An error occurred");
-        } else {
-          toast.error("An unexpected error occurred");
-        }
-      } finally {
-        setIsLoading(false);
-      }
+        },
+        onError: (error) => {
+          if (isAxiosError(error) && error.response) {
+            toast.error(error.response.data.message || "An error occurred");
+          } else {
+            toast.error("An unexpected error occurred");
+          }
+        },
+      });
     },
-    [router, refreshUser, searchParams],
+    [loginMutation, refreshUser, router, searchParams],
   );
 
   const handleSignup = useCallback(
-    async (data: SignupData) => {
-      setIsLoading(true);
-      try {
-        const res = await api.post(ENDPOINTS.AUTH.SIGNUP, {
-          username: data.name,
+    (data: SignupData) => {
+      registerMutation.mutate(
+        {
+          name: data.name,
           email: data.email,
           password: data.password,
-        });
-        if (res.data.success) {
-          toast.success("Account created!", {
-            description: "Please log in with your new account.",
-          });
-          setActiveTab("login");
-          signupForm.reset();
-          loginForm.reset();
-        }
-      } catch (error) {
-        if (isAxiosError(error) && error.response) {
-          toast.error(error.response.data.message || "An error occurred");
-        } else {
-          toast.error("An unexpected error occurred");
-        }
-      } finally {
-        setIsLoading(false);
-      }
+        },
+        {
+          onSuccess: async () => {
+            toast.success("Account created!", {
+              description: "Redirecting to your dashboard.",
+            });
+            await refreshUser();
+            const callback = searchParams.get("callbackUrl");
+            router.push(callback || "/brand/dashboard");
+          },
+          onError: (error) => {
+            if (isAxiosError(error) && error.response) {
+              toast.error(error.response.data.message || "An error occurred");
+            } else {
+              toast.error("An unexpected error occurred");
+            }
+          },
+        },
+      );
     },
-    [signupForm, loginForm],
+    [registerMutation, refreshUser, router, searchParams],
   );
 
-  const handleGoogleLogin = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.get(ENDPOINTS.AUTH.GOOGLE);
-      window.location.href = res.data.authUrl;
-    } catch {
-      toast.error("Failed to connect to Google");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleGoogleLogin = useCallback(() => {
+    setGoogleLoading(true);
+    window.location.href = ENDPOINTS.AUTH.GOOGLE;
   }, []);
 
   return (
@@ -144,14 +144,17 @@ export function AuthForm({ mode }: AuthFormProps) {
           </TabsList>
 
           <TabsContent value="login" className="mt-0">
-            <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+            <form
+              onSubmit={loginForm.handleSubmit(handleLogin)}
+              className="space-y-4"
+            >
               <div className="space-y-1.5">
                 <Label htmlFor="login-email">Email</Label>
                 <Input
                   id="login-email"
                   type="email"
                   placeholder="you@company.com"
-                  disabled={isLoading}
+                  disabled={pendingAuth}
                   autoComplete="email"
                   className="h-10"
                   {...loginForm.register("email")}
@@ -169,7 +172,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="login-password"
                   type="password"
                   placeholder="Enter your password"
-                  disabled={isLoading}
+                  disabled={pendingAuth}
                   autoComplete="current-password"
                   className="h-10"
                   {...loginForm.register("password")}
@@ -183,11 +186,11 @@ export function AuthForm({ mode }: AuthFormProps) {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={pendingAuth}
                 className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
                 size="lg"
               >
-                {isLoading ? (
+                {loginMutation.isPending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     Logging in…
@@ -205,24 +208,31 @@ export function AuthForm({ mode }: AuthFormProps) {
                 variant="outline"
                 className="h-11 w-full"
                 size="lg"
-                disabled={isLoading}
+                disabled={pendingAuth}
                 onClick={handleGoogleLogin}
               >
-                <GoogleIcon />
+                {googleLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <GoogleIcon />
+                )}
                 Continue with Google
               </Button>
             </div>
           </TabsContent>
 
           <TabsContent value="signup" className="mt-0">
-            <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
+            <form
+              onSubmit={signupForm.handleSubmit(handleSignup)}
+              className="space-y-4"
+            >
               <div className="space-y-1.5">
                 <Label htmlFor="signup-name">Full name</Label>
                 <Input
                   id="signup-name"
                   type="text"
                   placeholder="Your full name"
-                  disabled={isLoading}
+                  disabled={pendingAuth}
                   autoComplete="name"
                   className="h-10"
                   {...signupForm.register("name")}
@@ -240,7 +250,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="signup-email"
                   type="email"
                   placeholder="you@company.com"
-                  disabled={isLoading}
+                  disabled={pendingAuth}
                   autoComplete="email"
                   className="h-10"
                   {...signupForm.register("email")}
@@ -258,7 +268,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                   id="signup-password"
                   type="password"
                   placeholder="Create a password"
-                  disabled={isLoading}
+                  disabled={pendingAuth}
                   autoComplete="new-password"
                   className="h-10"
                   {...signupForm.register("password")}
@@ -275,11 +285,11 @@ export function AuthForm({ mode }: AuthFormProps) {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={pendingAuth}
                 className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
                 size="lg"
               >
-                {isLoading ? (
+                {registerMutation.isPending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     Creating account…
@@ -297,10 +307,14 @@ export function AuthForm({ mode }: AuthFormProps) {
                 variant="outline"
                 className="h-11 w-full"
                 size="lg"
-                disabled={isLoading}
+                disabled={pendingAuth}
                 onClick={handleGoogleLogin}
               >
-                <GoogleIcon />
+                {googleLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <GoogleIcon />
+                )}
                 Continue with Google
               </Button>
             </div>

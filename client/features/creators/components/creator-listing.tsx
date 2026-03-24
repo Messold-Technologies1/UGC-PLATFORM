@@ -53,9 +53,11 @@ function applyFilters(
 
 interface CreatorListingProps {
   creators: Creator[];
+  /** First-page stats from `GET /api/creators` (more pages: TODO infinite scroll). */
+  listMeta?: { page: number; limit: number; total: number };
 }
 
-export function CreatorListing({ creators }: CreatorListingProps) {
+export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -78,9 +80,12 @@ export function CreatorListing({ creators }: CreatorListingProps) {
     (nextFilters: Filters, nextSearch: string) => {
       const params = new URLSearchParams();
       if (nextSearch) params.set("q", nextSearch);
-      if (nextFilters.city !== DEFAULT_FILTERS.city) params.set("city", nextFilters.city);
-      if (nextFilters.category !== DEFAULT_FILTERS.category) params.set("category", nextFilters.category);
-      if (nextFilters.gender !== DEFAULT_FILTERS.gender) params.set("gender", nextFilters.gender);
+      if (nextFilters.city !== DEFAULT_FILTERS.city)
+        params.set("city", nextFilters.city);
+      if (nextFilters.category !== DEFAULT_FILTERS.category)
+        params.set("category", nextFilters.category);
+      if (nextFilters.gender !== DEFAULT_FILTERS.gender)
+        params.set("gender", nextFilters.gender);
       if (nextFilters.minPrice) params.set("minPrice", nextFilters.minPrice);
       if (nextFilters.maxPrice) params.set("maxPrice", nextFilters.maxPrice);
       if (nextFilters.minRating) params.set("minRating", nextFilters.minRating);
@@ -140,8 +145,20 @@ export function CreatorListing({ creators }: CreatorListingProps) {
     syncUrlImmediate(DEFAULT_FILTERS, "");
   }, [syncUrlImmediate]);
 
+  const totalPages =
+    listMeta && listMeta.limit > 0
+      ? Math.max(1, Math.ceil(listMeta.total / listMeta.limit))
+      : null;
+
   return (
     <div className="space-y-5">
+      {listMeta && totalPages != null && (
+        <p className="text-xs text-muted-foreground">
+          Page {listMeta.page} of {totalPages} · {listMeta.total} creator
+          {listMeta.total !== 1 ? "s" : ""} total
+          {/* TODO: infinite scroll — append further pages as the user scrolls instead of pagination controls. */}
+        </p>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button

@@ -3,6 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import type { AuthUser } from "./use-me-query";
 
 export type RegisterPayload = {
   name: string;
@@ -11,7 +12,7 @@ export type RegisterPayload = {
 };
 
 export type RegisterResponse = {
-  user: { id: string; email: string; name: string | null };
+  user: AuthUser;
 };
 
 async function registerAccount(

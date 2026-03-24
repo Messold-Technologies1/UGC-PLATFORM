@@ -5,13 +5,22 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTheme } from "next-themes";
 import {
-  PanelLeft, LogOut, Moon, Sun,
-  Building2, Video,
-  LayoutDashboard, Megaphone, Users, Briefcase, Settings,
+  PanelLeft,
+  LogOut,
+  Moon,
+  Sun,
+  Building2,
+  Video,
+  LayoutDashboard,
+  Megaphone,
+  Users,
+  Briefcase,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 
 export interface NavItem {
   href: string;
@@ -57,7 +66,12 @@ export function DashboardSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const { resolvedTheme, setTheme } = useTheme();
-  const { navItems, icon: RoleIcon, label: roleLabel } = getRoleFromPath(pathname);
+  const { goWorkspace } = useWorkspaceNavigation();
+  const {
+    navItems,
+    icon: RoleIcon,
+    label: roleLabel,
+  } = getRoleFromPath(pathname);
 
   return (
     <>
@@ -93,7 +107,9 @@ export function DashboardSidebar() {
             <p className="truncate text-sm font-medium text-sidebar-foreground">
               {roleLabel}
             </p>
-            <p className="truncate text-xs text-muted-foreground">Manage everything</p>
+            <p className="truncate text-xs text-muted-foreground">
+              Manage everything
+            </p>
           </div>
           <Button
             variant="ghost"
@@ -132,8 +148,29 @@ export function DashboardSidebar() {
         </nav>
 
         <div className="space-y-1 border-t border-sidebar-border p-3">
+          <p className="mb-1 px-3 text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground">
+            Workspace
+          </p>
           <button
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            type="button"
+            onClick={() => void goWorkspace("BRAND")}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <Building2 className="size-4 shrink-0" />
+            Brand hub
+          </button>
+          <button
+            type="button"
+            onClick={() => void goWorkspace("CREATOR")}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <Video className="size-4 shrink-0" />
+            Creator hub
+          </button>
+          <button
+            onClick={() =>
+              setTheme(resolvedTheme === "dark" ? "light" : "dark")
+            }
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           >
             <Sun className="size-4 shrink-0 dark:hidden" />

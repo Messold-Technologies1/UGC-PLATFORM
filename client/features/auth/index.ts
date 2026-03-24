@@ -5,4 +5,5 @@ export {
   useMeQuery,
   type AuthUser,
   type MeResponse,
+  type WorkspaceRole,
 } from "./hooks/use-me-query";

@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { CreatorPackageCreateDto } from '../creator-profile/dto/create-creator-profile.dto';
+
+/** Client passed to interactive `$transaction` callbacks */
+type PrismaTransactionClient = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
 
 @Injectable()
 export class CreatorPackageService {
@@ -9,7 +15,7 @@ export class CreatorPackageService {
    * This method is meant to be used inside the caller's Prisma transaction.
    */
   async createPackages(
-    tx: any,
+    tx: PrismaTransactionClient,
     creatorId: string,
     packages: CreatorPackageCreateDto[],
   ) {

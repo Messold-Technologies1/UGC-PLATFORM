@@ -28,14 +28,16 @@ import {
   OAUTH_STATE_COOKIE,
 } from './cookie-helper';
 import { LoginDto } from './dto/login.dto';
+import { MeUserDto } from './dto/me-user.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SelectWorkspaceDto } from './dto/select-workspace.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AUTH_COOKIE_NAMES } from './auth.service';
 import { AuthService } from './auth.service';
 
 @ApiTags('auth')
-@ApiExtraModels(UserResponseDto)
+@ApiExtraModels(UserResponseDto, MeUserDto)
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -201,13 +203,33 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user' })
+  @ApiOperation({ summary: 'Get current user and workspace state' })
   @ApiResponse({ status: 200, description: 'Current user' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  me(
-    @Req()
-    req: Request & { user: { id: string; email: string; name: string | null } },
+  async me(
+    @Req() req: Request & { user: { id: string; email: string; name: string | null } },
   ) {
-    return { user: req.user };
+    const user = await this.authService.getMeForClient(req.user.id);
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    return { user };
+  }
+
+  @Post('workspace')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Select or switch workspace (creator/brand); adds role if missing',
+  })
+  @ApiResponse({ status: 200, description: 'Updated user' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async selectWorkspace(
+    @Req() req: Request & { user: { id: string } },
+    @Body() dto: SelectWorkspaceDto,
+  ) {
+    const user = await this.authService.selectWorkspace(req.user.id, dto.role);
+    return { user };
   }
 }

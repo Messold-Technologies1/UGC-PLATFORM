@@ -2,8 +2,9 @@ import { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Star, Play, ShoppingBag } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import type { Creator } from "../types";
 
 interface CreatorCardProps {
@@ -11,25 +12,35 @@ interface CreatorCardProps {
   variant?: "featured" | "listing";
 }
 
-export const CreatorCard = memo(function CreatorCard({ creator, variant = "listing" }: CreatorCardProps) {
+export const CreatorCard = memo(function CreatorCard({
+  creator,
+  variant = "listing",
+}: CreatorCardProps) {
   const isFeatured = variant === "featured";
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-xl hover:shadow-primary/5">
+    <Card interactive="emphasized">
       <div className="relative aspect-4/3 overflow-hidden bg-muted">
         <Image
           src={creator.thumbnail}
           alt={`${creator.name}'s content`}
           fill
           className="object-cover"
-          sizes={isFeatured
-            ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          sizes={
+            isFeatured
+              ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
           }
         />
         <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-          <div className="flex size-12 items-center justify-center rounded-full bg-background/80 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110" aria-label="Play video">
-            <Play className="size-5 text-foreground ml-0.5" aria-hidden="true" />
+          <div
+            className="flex size-12 items-center justify-center rounded-full bg-background/80 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110"
+            aria-label="Play video"
+          >
+            <Play
+              className="size-5 text-foreground ml-0.5"
+              aria-hidden="true"
+            />
           </div>
         </div>
 
@@ -41,7 +52,7 @@ export const CreatorCard = memo(function CreatorCard({ creator, variant = "listi
         )}
       </div>
 
-      <div className="p-4">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-medium">{creator.name}</h3>
@@ -91,7 +102,7 @@ export const CreatorCard = memo(function CreatorCard({ creator, variant = "listi
             <Link href={`/creators/${creator.id}`}>View Profile</Link>
           </Button>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 });

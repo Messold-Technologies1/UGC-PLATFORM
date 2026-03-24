@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,10 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { useLoginMutation } from "@/features/auth/hooks/use-login-mutation";
 import { useRegisterMutation } from "@/features/auth/hooks/use-register-mutation";
+import { resolvePostAuthRedirectPath } from "@/features/auth/lib/post-auth-destination";
 import { ENDPOINTS } from "@/lib/endpoints";
-import { useAuth } from "@/providers/auth-provider";
 
 const loginSchema = z.object({
   email: z
@@ -44,7 +46,7 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refreshUser } = useAuth();
+  const queryClient = useQueryClient();
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
   const [activeTab, setActiveTab] = useState(mode);
@@ -68,11 +70,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         onSuccess: async (result) => {
           if (!result.user) return;
           toast.success("Login successful!", {
-            description: "Redirecting to your dashboard.",
+            description: "Choose how you want to continue.",
           });
-          await refreshUser();
+          queryClient.setQueryData(authMeQueryKey, result.user);
           const callback = searchParams.get("callbackUrl");
-          router.push(callback || "/brand/dashboard");
+          router.replace(resolvePostAuthRedirectPath(result.user, callback));
         },
         onError: (error) => {
           if (isAxiosError(error) && error.response) {
@@ -83,7 +85,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         },
       });
     },
-    [loginMutation, refreshUser, router, searchParams],
+    [loginMutation, queryClient, router, searchParams],
   );
 
   const handleSignup = useCallback(
@@ -95,13 +97,13 @@ export function AuthForm({ mode }: AuthFormProps) {
           password: data.password,
         },
         {
-          onSuccess: async () => {
+          onSuccess: async (result) => {
             toast.success("Account created!", {
-              description: "Redirecting to your dashboard.",
+              description: "Choose how you want to continue.",
             });
-            await refreshUser();
+            queryClient.setQueryData(authMeQueryKey, result.user);
             const callback = searchParams.get("callbackUrl");
-            router.push(callback || "/brand/dashboard");
+            router.replace(resolvePostAuthRedirectPath(result.user, callback));
           },
           onError: (error) => {
             if (isAxiosError(error) && error.response) {
@@ -113,7 +115,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         },
       );
     },
-    [registerMutation, refreshUser, router, searchParams],
+    [registerMutation, queryClient, router, searchParams],
   );
 
   const handleGoogleLogin = useCallback(() => {

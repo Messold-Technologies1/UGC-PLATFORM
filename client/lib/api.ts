@@ -67,7 +67,6 @@ if (typeof window !== "undefined") {
         await refreshSession();
         return api(originalRequest);
       } catch {
-        /** Guest / expired session: /me stays 401; do not redirect (avoids /login reload loops). */
         const isMe = authPathMatches(
           originalRequest.url ?? "",
           ENDPOINTS.AUTH.ME,

@@ -3,6 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import type { AuthUser } from "./use-me-query";
 
 export type LoginPayload = {
   email: string;
@@ -10,16 +11,13 @@ export type LoginPayload = {
 };
 
 export type LoginResponse = {
-  user: { id: string; email: string; name: string | null };
+  user: AuthUser;
 };
 
 async function loginWithPassword(
   payload: LoginPayload,
 ): Promise<LoginResponse> {
-  const { data } = await api.post<LoginResponse>(
-    ENDPOINTS.AUTH.LOGIN,
-    payload,
-  );
+  const { data } = await api.post<LoginResponse>(ENDPOINTS.AUTH.LOGIN, payload);
   return data;
 }
 

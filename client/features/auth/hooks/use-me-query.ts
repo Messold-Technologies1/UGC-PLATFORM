@@ -4,11 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
-/** Matches Nest `UserResponseDto` from `GET /api/auth/me`. */
+export type WorkspaceRole = "CREATOR" | "BRAND";
+
 export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  roles: WorkspaceRole[];
+  primaryRole: WorkspaceRole | null;
+  hasCreatorProfile: boolean;
+  hasBrandProfile: boolean;
 };
 
 export type MeResponse = {

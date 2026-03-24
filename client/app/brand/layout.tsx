@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
+import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
 
 export const metadata: Metadata = {
   title: {
@@ -17,10 +18,15 @@ export default function BrandLayout({
   return (
     <div className="flex min-h-svh">
       <DashboardSidebar />
-      <main id="main-content" className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-4 pt-4 pb-8 sm:px-6 lg:px-8">
-          {children}
-        </div>
+      <main
+        id="main-content"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+      >
+        <PostLoginSetupShell role="brand">
+          <div className="mx-auto max-w-6xl px-4 pt-4 pb-8 sm:px-6 lg:px-8">
+            {children}
+          </div>
+        </PostLoginSetupShell>
       </main>
     </div>
   );

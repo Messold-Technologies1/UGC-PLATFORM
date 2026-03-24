@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.post(ENDPOINTS.AUTH.LOGOUT);
     } finally {
       queryClient.setQueryData(authMeQueryKey, null);
-      window.location.href = "/login";
+      window.location.href = "/";
     }
   }, [queryClient]);
 

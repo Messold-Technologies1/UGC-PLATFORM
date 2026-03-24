@@ -3,25 +3,12 @@
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import {
-  Menu,
-  X,
-  User,
-  Video,
-  Building2,
-  Sparkles,
-  Moon,
-  Sun,
-  LogOut,
-} from "lucide-react";
+import { Building2, Menu, X, User, Sparkles, Moon, Sun, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { NavbarProfileMenu } from "@/components/navbar-profile-menu";
+import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useAuth } from "@/providers/auth-provider";
-
-const navLinks = [
-  { href: "/creator/dashboard", label: "For Creators", icon: Video },
-  { href: "/brand/dashboard", label: "For Brands", icon: Building2 },
-];
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -77,7 +64,8 @@ function ThemeToggle() {
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const { goWorkspace } = useWorkspaceNavigation();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125">
@@ -91,40 +79,35 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {navLinks.map(({ href, label, icon: Icon }) => (
-            <Button
-              key={href}
-              asChild
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <Link href={href}>
-                <Icon className="size-4" />
-                {label}
-              </Link>
-            </Button>
-          ))}
-        </nav>
-
         <div className="hidden items-center gap-2 md:flex">
           <ThemeToggle />
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
             <>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/brand/dashboard">Dashboard</Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={logout}
-                aria-label="Log out"
-              >
-                <LogOut className="size-4" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1 border-l border-border/60 pl-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-foreground/80"
+                  onClick={() => void goWorkspace("BRAND")}
+                >
+                  <Building2 className="size-4" />
+                  As Brand
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-foreground/80"
+                  onClick={() => void goWorkspace("CREATOR")}
+                >
+                  <Video className="size-4" />
+                  As Creator
+                </Button>
+              </div>
+              <NavbarProfileMenu />
             </>
           ) : (
             <>
@@ -167,41 +150,37 @@ export function Navbar() {
         aria-label="Mobile navigation"
         className={cn(
           "overflow-hidden border-t border-border/60 transition-all duration-200 md:hidden",
-          mobileOpen ? "max-h-80" : "max-h-0 border-t-0",
+          mobileOpen ? "max-h-[min(100dvh-5rem,28rem)] overflow-y-auto" : "max-h-0 border-t-0",
         )}
       >
         <div className="flex flex-col gap-1 px-4 py-3">
-          {navLinks.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <Icon className="size-4" />
-              {label}
-            </Link>
-          ))}
-          <hr className="my-1 border-border/60" />
           {isAuthenticated ? (
             <>
-              <Link
-                href="/brand/dashboard"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-              >
-                Dashboard
-              </Link>
-              <button
-                onClick={() => {
-                  setMobileOpen(false);
-                  logout();
-                }}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <LogOut className="size-4" />
-                Log out
-              </button>
+              <div className="mb-2 flex flex-col gap-1 border-b border-border/60 pb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    void goWorkspace("BRAND");
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Building2 className="size-4 text-muted-foreground" />
+                  As Brand
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    void goWorkspace("CREATOR");
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Video className="size-4 text-muted-foreground" />
+                  As Creator
+                </button>
+              </div>
+              <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
             </>
           ) : (
             <>

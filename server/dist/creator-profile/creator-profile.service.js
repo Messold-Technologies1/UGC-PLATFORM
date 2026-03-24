@@ -21,13 +21,28 @@ function _ts_decorate(decorators, target, key, desc) {
 function _ts_metadata(k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 }
+const creatorProfileWithRelationsInclude = {
+    languages: true,
+    services: {
+        include: {
+            serviceType: true
+        }
+    },
+    packages: true
+};
+function mapJsonDeliverables(value) {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item)=>typeof item === 'string');
+}
 let CreatorProfileService = class CreatorProfileService {
     mapCreatorProfile(profile) {
+        const packages = profile.packages ?? [];
         return {
             ...profile,
-            packages: (profile.packages ?? []).map((p)=>({
-                    ...p,
-                    priceAmount: p.priceAmount?.toString?.() ?? p.priceAmount
+            packages: packages.map(({ deliverables, priceAmount, ...rest })=>({
+                    ...rest,
+                    deliverables: mapJsonDeliverables(deliverables),
+                    priceAmount: typeof priceAmount?.toString === 'function' ? priceAmount.toString() : String(priceAmount)
                 }))
         };
     }
@@ -187,15 +202,7 @@ let CreatorProfileService = class CreatorProfileService {
             where: {
                 id: creatorProfileId
             },
-            include: {
-                languages: true,
-                services: {
-                    include: {
-                        serviceType: true
-                    }
-                },
-                packages: true
-            }
+            include: creatorProfileWithRelationsInclude
         });
         if (!profile) {
             throw new Error('Creator profile creation failed');
@@ -214,15 +221,7 @@ let CreatorProfileService = class CreatorProfileService {
                 orderBy: {
                     createdAt: 'desc'
                 },
-                include: {
-                    languages: true,
-                    services: {
-                        include: {
-                            serviceType: true
-                        }
-                    },
-                    packages: true
-                }
+                include: creatorProfileWithRelationsInclude
             })
         ]);
         return {
@@ -237,15 +236,7 @@ let CreatorProfileService = class CreatorProfileService {
             where: {
                 id
             },
-            include: {
-                languages: true,
-                services: {
-                    include: {
-                        serviceType: true
-                    }
-                },
-                packages: true
-            }
+            include: creatorProfileWithRelationsInclude
         });
         if (!profile) {
             throw new _common.NotFoundException('Creator not found');
@@ -361,15 +352,7 @@ let CreatorProfileService = class CreatorProfileService {
                 where: {
                     id: creatorProfileId
                 },
-                include: {
-                    languages: true,
-                    services: {
-                        include: {
-                            serviceType: true
-                        }
-                    },
-                    packages: true
-                }
+                include: creatorProfileWithRelationsInclude
             });
             if (!updated) {
                 throw new Error('Creator profile update failed');

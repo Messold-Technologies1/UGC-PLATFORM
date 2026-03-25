@@ -114,47 +114,49 @@ export const PackagesTab = memo(function PackagesTab({
       <div>
         <h3 className="text-sm font-medium">Add-ons</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Enhance your order with extras
+          Optional extras — tap to include or remove from your order
         </p>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <ul className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-2">
           {addOns.map((addon) => {
             const isChecked = selectedAddOnIds.includes(addon.id);
             return (
-              <label
-                key={addon.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all ${
-                  isChecked
-                    ? "border-foreground bg-foreground/5"
-                    : "border-border hover:border-foreground/20"
-                }`}
-              >
-                <div
-                  role="checkbox"
-                  aria-checked={isChecked}
-                  tabIndex={0}
-                  onClick={() => onToggleAddOn(addon.id)}
-                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") onToggleAddOn(addon.id); }}
-                  className={`flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+              <li key={addon.id}>
+                <label
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all ${
                     isChecked
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border"
+                      ? "border-foreground bg-foreground/5"
+                      : "border-border hover:border-foreground/20"
                   }`}
                 >
-                  {isChecked && (
-                    <Check className="size-3" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{addon.label}</p>
-                </div>
-                <span className="shrink-0 text-sm font-medium">
-                  +₹{addon.price.toLocaleString("en-IN")}
-                </span>
-              </label>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={isChecked}
+                    onChange={() => onToggleAddOn(addon.id)}
+                    aria-label={`${addon.label} (+₹${addon.price.toLocaleString("en-IN")})`}
+                  />
+                  <span
+                    className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                      isChecked
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border"
+                    }`}
+                    aria-hidden
+                  >
+                    {isChecked && <Check className="size-3" strokeWidth={3} />}
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
+                    {addon.label}{" "}
+                    <span className="text-muted-foreground">
+                      (+₹{addon.price.toLocaleString("en-IN")})
+                    </span>
+                  </span>
+                </label>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </div>
     </div>
   );

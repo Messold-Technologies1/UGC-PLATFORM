@@ -1,7 +1,8 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
 import { CreatorListing } from "@/features/creators/components/creator-listing";
 import { useCreatorsListQuery } from "@/features/creators/hooks/use-creators-list-query";
 
@@ -16,13 +17,21 @@ export function BrandCreatorsBrowser() {
 
   if (isPending) {
     return (
-      <Card
-        variant="dashed"
-        className="flex min-h-[320px] flex-col items-center justify-center gap-3 text-muted-foreground"
-      >
-        <Loader2 className="size-8 animate-spin" aria-hidden />
-        <p className="text-sm">Loading creators…</p>
-      </Card>
+      <div className="space-y-6" aria-busy="true" aria-label="Loading creators">
+        <Skeleton className="h-4 w-52 max-w-full" />
+        <div className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <Skeleton className="h-9 w-36 rounded-full" />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+            <Skeleton className="h-9 w-full rounded-md sm:w-64" />
+            <Skeleton className="h-4 w-16 shrink-0" />
+          </div>
+        </div>
+        <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }, (_, i) => (
+            <CreatorCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
     );
   }
 

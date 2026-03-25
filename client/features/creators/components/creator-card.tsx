@@ -5,6 +5,7 @@ import { MapPin, Star, Play, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
 
 interface CreatorCardProps {
@@ -106,3 +107,33 @@ export const CreatorCard = memo(function CreatorCard({
     </Card>
   );
 });
+
+export function CreatorCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <Skeleton className="aspect-4/3 w-full rounded-none rounded-t-2xl" />
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-[70%]" />
+            <Skeleton className="h-3 w-[45%]" />
+          </div>
+          <Skeleton className="h-7 w-20 shrink-0 rounded-md" />
+        </div>
+        <Skeleton className="h-3 w-36" />
+        <div className="flex flex-wrap gap-1">
+          <Skeleton className="h-5 w-14 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-12 rounded-full" />
+        </div>
+        <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+          <Skeleton className="h-8 w-22 rounded-lg" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

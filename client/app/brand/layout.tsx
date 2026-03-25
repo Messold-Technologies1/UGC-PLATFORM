@@ -16,11 +16,11 @@ export default function BrandLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-svh">
+    <div className="flex h-svh min-h-0 overflow-hidden">
       <DashboardSidebar />
       <main
         id="main-content"
-        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
         <PostLoginSetupShell role="brand">
           <div className="mx-auto max-w-6xl px-4 pt-4 pb-8 sm:px-6 lg:px-8">

@@ -5,8 +5,6 @@ import { ChevronUp, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { CATEGORIES, CITIES } from "../data";
-
 const PRICE_MIN = 0;
 const PRICE_MAX = 10000;
 const PRICE_STEP = 500;
@@ -38,6 +36,10 @@ interface CreatorFiltersProps {
   onChange: (filters: Filters) => void;
   onReset: () => void;
   onClose: () => void;
+  /** From current listing (API); drives category checkboxes */
+  categoryOptions: string[];
+  /** From current listing (API); drives city checkboxes */
+  cityOptions: string[];
 }
 
 export const CreatorFilters = memo(function CreatorFilters({
@@ -45,6 +47,8 @@ export const CreatorFilters = memo(function CreatorFilters({
   onChange,
   onReset,
   onClose,
+  categoryOptions,
+  cityOptions,
 }: CreatorFiltersProps) {
   function set<K extends keyof Filters>(key: K, value: Filters[K]) {
     onChange({ ...filters, [key]: value });
@@ -64,40 +68,52 @@ export const CreatorFilters = memo(function CreatorFilters({
   const sliderMax = filters.maxPrice ? Number(filters.maxPrice) : PRICE_MAX;
 
   return (
-    <aside className="h-full overflow-y-auto border-r border-border bg-background">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-5 py-4">
-        <h3 className="text-base font-medium">Filters</h3>
-        <Button variant="ghost" size="icon-sm" onClick={onClose}>
+    <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm ring-1 ring-foreground/4 dark:ring-white/6 lg:min-h-80 lg:max-h-[calc(100svh-9.5rem)]">
+      <div className="flex shrink-0 items-center justify-between border-b border-border/80 px-5 py-4">
+        <h3 className="text-base font-semibold tracking-tight">Filters</h3>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close filters">
           <X className="size-4" />
         </Button>
       </div>
 
-      <div className="px-5 py-4 space-y-1">
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-y-contain px-5 py-4">
         <CollapsibleSection title="Category" defaultOpen>
           <div className="space-y-2">
-            {CATEGORIES.filter((c) => c !== "All").map((cat) => (
-              <CheckboxItem
-                key={cat}
-                label={cat}
-                checked={filters.category === cat}
-                onChange={(checked) => set("category", checked ? cat : "All")}
-              />
-            ))}
+            {categoryOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No categories in the loaded creators yet.
+              </p>
+            ) : (
+              categoryOptions.map((cat) => (
+                <CheckboxItem
+                  key={cat}
+                  label={cat}
+                  checked={filters.category === cat}
+                  onChange={(checked) => set("category", checked ? cat : "All")}
+                />
+              ))
+            )}
           </div>
         </CollapsibleSection>
 
         <CollapsibleSection title="Location" defaultOpen>
           <div className="space-y-2">
-            {CITIES.filter((c) => c !== "All Cities").map((city) => (
-              <CheckboxItem
-                key={city}
-                label={city}
-                checked={filters.city === city}
-                onChange={(checked) =>
-                  set("city", checked ? city : "All Cities")
-                }
-              />
-            ))}
+            {cityOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No locations in the loaded creators yet.
+              </p>
+            ) : (
+              cityOptions.map((city) => (
+                <CheckboxItem
+                  key={city}
+                  label={city}
+                  checked={filters.city === city}
+                  onChange={(checked) =>
+                    set("city", checked ? city : "All Cities")
+                  }
+                />
+              ))
+            )}
           </div>
         </CollapsibleSection>
 
@@ -203,7 +219,7 @@ export const CreatorFilters = memo(function CreatorFilters({
       </div>
 
       {hasActiveFilters && (
-        <div className="sticky bottom-0 border-t border-border bg-background px-5 py-3">
+        <div className="shrink-0 border-t border-border/80 bg-card px-5 py-3">
           <Button
             variant="outline"
             size="sm"
@@ -234,16 +250,16 @@ const StarRating = memo(function StarRating({ count }: { count: number }) {
       {hasHalf && (
         <span className="relative">
           <Star className="size-3.5 text-amber-400/30" />
-          <span className="absolute inset-0 overflow-hidden" style={{ width: "50%" }}>
+          <span
+            className="absolute inset-0 overflow-hidden"
+            style={{ width: "50%" }}
+          >
             <Star className="size-3.5 fill-amber-400 text-amber-400" />
           </span>
         </span>
       )}
       {Array.from({ length: empty }, (_, i) => (
-        <Star
-          key={`e-${i}`}
-          className="size-3.5 text-amber-400/30"
-        />
+        <Star key={`e-${i}`} className="size-3.5 text-amber-400/30" />
       ))}
     </span>
   );

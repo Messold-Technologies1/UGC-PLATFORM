@@ -1,3 +1,4 @@
+import { DEFAULT_CREATOR_ADD_ONS } from "../constants/default-add-ons";
 import type { Creator, CreatorProfile, Package } from "../types";
 import type { CreatorProfileItemApi } from "./types";
 
@@ -91,7 +92,7 @@ export function mapProfileItemToCreatorProfile(
     joinedDate: "—",
     portfolio: [],
     packages: mapApiPackages(profile.packages),
-    addOns: [],
+    addOns: DEFAULT_CREATOR_ADD_ONS,
     reviews: [],
   };
 }

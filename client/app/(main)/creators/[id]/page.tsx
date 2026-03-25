@@ -7,7 +7,6 @@ import {
   isCreatorProfileUuid,
 } from "@/features/creators/api/fetch-creator-profile";
 import { mapProfileItemToCreatorProfile } from "@/features/creators/api/map-profile-to-creator";
-import { getCreatorProfile } from "@/features/creators/data";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -19,65 +18,55 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
 
-  if (isCreatorProfileUuid(id)) {
-    const result = await fetchCreatorProfileById(id);
-    if (result.ok) {
-      const name = result.profile.displayName;
-      return {
-        title: name,
-        description: `View ${name}'s profile, portfolio, and packages on UGC Platform.`,
-      };
-    }
+  if (!isCreatorProfileUuid(id)) {
     return { title: "Creator" };
   }
 
-  const creator = getCreatorProfile(id);
-  if (!creator) return { title: "Creator" };
-  return {
-    title: creator.name,
-    description: `View ${creator.name}'s profile, portfolio, and packages on UGC Platform.`,
-  };
+  const result = await fetchCreatorProfileById(id);
+  if (result.ok) {
+    const name = result.profile.displayName;
+    return {
+      title: name,
+      description: `View ${name}'s profile, portfolio, and packages on UGC Platform.`,
+    };
+  }
+  return { title: "Creator" };
 }
 
 export default async function CreatorProfilePage({ params }: PageProps) {
   const { id } = await params;
 
-  if (isCreatorProfileUuid(id)) {
-    const result = await fetchCreatorProfileById(id);
-
-    if (result.ok) {
-      const creator = mapProfileItemToCreatorProfile(result.profile);
-      return <CreatorProfile creator={creator} />;
-    }
-
-    if (result.status === 401) {
-      const callbackUrl = `/creators/${id}`;
-      return (
-        <div className="mx-auto max-w-site px-4 py-20 text-center sm:px-6 lg:px-8">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Sign in to view this creator
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Log in to load creator profiles from your account.
-          </p>
-          <Button asChild className="mt-6">
-            <Link
-              href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-            >
-              Log in
-            </Link>
-          </Button>
-        </div>
-      );
-    }
-
+  if (!isCreatorProfileUuid(id)) {
     notFound();
   }
 
-  const creator = getCreatorProfile(id);
-  if (!creator) {
-    notFound();
+  const result = await fetchCreatorProfileById(id);
+
+  if (result.ok) {
+    const creator = mapProfileItemToCreatorProfile(result.profile);
+    return <CreatorProfile creator={creator} />;
   }
 
-  return <CreatorProfile creator={creator} />;
+  if (result.status === 401) {
+    const callbackUrl = `/creators/${id}`;
+    return (
+      <div className="mx-auto max-w-site px-4 py-20 text-center sm:px-6 lg:px-8">
+        <h1 className="text-xl font-semibold tracking-tight">
+          Sign in to view this creator
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Log in to load creator profiles from your account.
+        </p>
+        <Button asChild className="mt-6">
+          <Link
+            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          >
+            Log in
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  notFound();
 }

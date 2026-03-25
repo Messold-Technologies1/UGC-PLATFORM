@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ProfileHeader } from "./profile-header";
 import type { CreatorProfile as CreatorProfileType } from "../types";
@@ -58,6 +58,11 @@ export function CreatorProfile({ creator }: CreatorProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Portfolio");
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSelectedPackageId(null);
+    setSelectedAddOnIds([]);
+  }, [creator.id]);
 
   const selectedPackage = useMemo(
     () => creator.packages.find((p) => p.id === selectedPackageId) ?? null,

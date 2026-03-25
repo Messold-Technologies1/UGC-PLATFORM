@@ -1,0 +1,71 @@
+"use client";
+
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  authMeQueryKey,
+  fetchAuthMe,
+  type AuthUser,
+} from "@/features/auth/hooks/use-me-query";
+import {
+  postAuthContinuePath,
+  resolvePostAuthRedirectPath,
+} from "@/features/auth/lib/post-auth-destination";
+
+function AuthCallbackInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    const callbackUrl = searchParams.get("callbackUrl");
+
+    void (async () => {
+      if (error) {
+        const message =
+          error === "missing_code_or_state"
+            ? "Sign-in was incomplete. Try again."
+            : "Google sign-in failed. Try again.";
+        toast.error(message);
+        router.replace("/login");
+        return;
+      }
+      // Same key/queryFn as `useMeQuery` — joins the in-flight request instead
+      // of `refetch()` forcing a duplicate `/auth/me`.
+      await queryClient.fetchQuery({
+        queryKey: authMeQueryKey,
+        queryFn: fetchAuthMe,
+      });
+      const user = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
+      router.replace(
+        user
+          ? resolvePostAuthRedirectPath(user, callbackUrl)
+          : postAuthContinuePath(callbackUrl),
+      );
+    })();
+  }, [queryClient, router, searchParams]);
+
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center">
+      <Loader2 className="size-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen w-full items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <AuthCallbackInner />
+    </Suspense>
+  );
+}

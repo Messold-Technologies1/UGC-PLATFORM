@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -22,8 +23,18 @@ export interface AuthTokens {
   expiresIn: string;
 }
 
+export type MeUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  roles: ('CREATOR' | 'BRAND')[];
+  primaryRole: 'CREATOR' | 'BRAND' | null;
+  hasCreatorProfile: boolean;
+  hasBrandProfile: boolean;
+};
+
 export interface AuthResult {
-  user: { id: string; email: string; name: string | null };
+  user: MeUser;
   accessToken: string;
   refreshToken: string;
   expiresIn: string;
@@ -77,29 +88,22 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const defaultRole = await this.prisma.role.findUnique({
-      where: { name: 'BRAND' },
-    });
 
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         name: dto.name ?? null,
         passwordHash,
-        primaryRoleId: defaultRole?.id ?? undefined,
       },
     });
 
-    if (defaultRole) {
-      await this.prisma.userRole.create({
-        data: { userId: user.id, roleId: defaultRole.id },
-      });
-    }
-
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const safeUser = { id: user.id, email: user.email, name: user.name };
-    return { user: safeUser, accessToken, refreshToken, expiresIn };
+    const me = await this.getMeForClient(user.id);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
   }
 
   async login(
@@ -124,8 +128,11 @@ export class AuthService {
 
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const safeUser = { id: user.id, email: user.email, name: user.name };
-    return { user: safeUser, accessToken, refreshToken, expiresIn };
+    const me = await this.getMeForClient(user.id);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
@@ -224,8 +231,11 @@ export class AuthService {
     );
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const safeUser = { id: user.id, email: user.email, name: user.name };
-    return { user: safeUser, accessToken, refreshToken, expiresIn };
+    const me = await this.getMeForClient(user.id);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
   }
 
   private async findOrCreateGoogleUser(
@@ -274,23 +284,14 @@ export class AuthService {
       return user;
     }
 
-    const defaultRole = await this.prisma.role.findUnique({
-      where: { name: 'BRAND' },
-    });
     user = await this.prisma.user.create({
       data: {
         email,
         name: profile.name ?? null,
         passwordHash: null,
         emailVerified: true,
-        primaryRoleId: defaultRole?.id ?? undefined,
       },
     });
-    if (defaultRole) {
-      await this.prisma.userRole.create({
-        data: { userId: user.id, roleId: defaultRole.id },
-      });
-    }
     await this.prisma.authAccount.create({
       data: {
         userId: user.id,
@@ -383,6 +384,87 @@ export class AuthService {
     });
     if (!user || user.status !== 'ACTIVE') return null;
     return { id: user.id, email: user.email, name: user.name };
+  }
+
+  async getMeForClient(userId: string): Promise<MeUser | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        primaryRole: { select: { name: true } },
+        userRoles: { select: { role: { select: { name: true } } } },
+        creatorProfile: { select: { id: true } },
+        brandProfile: { select: { id: true } },
+      },
+    });
+    if (!user || user.status !== 'ACTIVE') return null;
+
+    const roleSet = new Set<'CREATOR' | 'BRAND'>();
+    for (const ur of user.userRoles) {
+      const n = ur.role.name;
+      if (n === 'CREATOR' || n === 'BRAND') {
+        roleSet.add(n);
+      }
+    }
+    const pr = user.primaryRole?.name;
+    if (pr === 'CREATOR' || pr === 'BRAND') {
+      roleSet.add(pr);
+    }
+    const roles = Array.from(roleSet);
+
+    let primaryRole: 'CREATOR' | 'BRAND' | null =
+      pr === 'CREATOR' || pr === 'BRAND' ? pr : null;
+    if (primaryRole === null && roles.length > 0) {
+      primaryRole = roles[0];
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles,
+      primaryRole,
+      hasCreatorProfile: !!user.creatorProfile,
+      hasBrandProfile: !!user.brandProfile,
+    };
+  }
+
+  async selectWorkspace(
+    userId: string,
+    role: 'CREATOR' | 'BRAND',
+  ): Promise<MeUser> {
+    const roleRow = await this.prisma.role.findUnique({
+      where: { name: role },
+      select: { id: true },
+    });
+    if (!roleRow) {
+      throw new BadRequestException('Workspace role is not configured');
+    }
+
+    const [, updateResult] = await this.prisma.$transaction([
+      this.prisma.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: roleRow.id } },
+        create: { userId, roleId: roleRow.id },
+        update: {},
+      }),
+      this.prisma.user.updateMany({
+        where: { id: userId, status: 'ACTIVE' },
+        data: { primaryRoleId: roleRow.id },
+      }),
+    ]);
+
+    if (updateResult.count === 0) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    const me = await this.getMeForClient(userId);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return me;
   }
 }
 

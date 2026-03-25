@@ -1,0 +1,61 @@
+export interface Creator {
+  id: string;
+  name: string;
+  location: string;
+  rating: number;
+  reviewCount: number;
+  startingPrice: number;
+  ordersCompleted: number;
+  thumbnail: string;
+  tags: string[];
+  available: boolean;
+  storeVisit: boolean;
+  travelAvailable: boolean;
+  gender: "male" | "female" | "other";
+  category: string;
+}
+
+export interface CreatorProfile extends Creator {
+  bio: string;
+  languages: string[];
+  acceptsLingerie: boolean;
+  responseTime: string;
+  joinedDate: string;
+  portfolio: PortfolioItem[];
+  packages: Package[];
+  addOns: AddOn[];
+  reviews: Review[];
+}
+
+export interface PortfolioItem {
+  id: string;
+  title: string;
+  thumbnail: string;
+  views: number;
+  category: string;
+}
+
+export interface Package {
+  id: string;
+  tier: "basic" | "standard" | "premium";
+  label: string;
+  price: number;
+  deliveryDays: number;
+  revisions: number;
+  features: string[];
+}
+
+export interface AddOn {
+  id: string;
+  label: string;
+  price: number;
+}
+
+export interface Review {
+  id: string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+  brand: string;
+}

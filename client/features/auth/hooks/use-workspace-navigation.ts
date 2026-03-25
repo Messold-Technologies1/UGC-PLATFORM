@@ -18,6 +18,9 @@ export function useWorkspaceNavigation() {
 
   const goWorkspace = async (role: WorkspaceRole) => {
     const current = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
+    if (current?.primaryRole === role) {
+      return;
+    }
     const from = pathname;
 
     if (current) {

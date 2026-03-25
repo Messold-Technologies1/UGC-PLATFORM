@@ -36,9 +36,7 @@ interface CreatorFiltersProps {
   onChange: (filters: Filters) => void;
   onReset: () => void;
   onClose: () => void;
-  /** From current listing (API); drives category checkboxes */
   categoryOptions: string[];
-  /** From current listing (API); drives city checkboxes */
   cityOptions: string[];
 }
 
@@ -71,7 +69,12 @@ export const CreatorFilters = memo(function CreatorFilters({
     <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm ring-1 ring-foreground/4 dark:ring-white/6 lg:min-h-80 lg:max-h-[calc(100svh-9.5rem)]">
       <div className="flex shrink-0 items-center justify-between border-b border-border/80 px-5 py-4">
         <h3 className="text-base font-semibold tracking-tight">Filters</h3>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close filters">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClose}
+          aria-label="Close filters"
+        >
           <X className="size-4" />
         </Button>
       </div>
@@ -314,10 +317,10 @@ const CheckboxItem = memo(function CheckboxItem({
           if (e.key === " " || e.key === "Enter") onChange(!checked);
         }}
         tabIndex={0}
-        className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
+        className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
           checked
-            ? "border-primary bg-primary text-white"
-            : "border-border bg-background group-hover:border-foreground/30"
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-muted-foreground/40 bg-card group-hover:border-muted-foreground/60 dark:border-muted-foreground/50 dark:bg-muted/30"
         }`}
       >
         {checked && (

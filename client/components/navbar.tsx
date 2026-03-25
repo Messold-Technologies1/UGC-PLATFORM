@@ -91,7 +91,9 @@ export function Navbar() {
                   variant="ghost"
                   size="sm"
                   className="gap-1.5 text-foreground/80"
-                  onClick={() => void goWorkspace("BRAND")}
+                  onClick={() =>
+                    void goWorkspace("BRAND", { redirectIfCurrent: true })
+                  }
                 >
                   <Building2 className="size-4" />
                   As Brand
@@ -101,7 +103,9 @@ export function Navbar() {
                   variant="ghost"
                   size="sm"
                   className="gap-1.5 text-foreground/80"
-                  onClick={() => void goWorkspace("CREATOR")}
+                  onClick={() =>
+                    void goWorkspace("CREATOR", { redirectIfCurrent: true })
+                  }
                 >
                   <Video className="size-4" />
                   As Creator
@@ -161,7 +165,7 @@ export function Navbar() {
                   type="button"
                   onClick={() => {
                     setMobileOpen(false);
-                    void goWorkspace("BRAND");
+                    void goWorkspace("BRAND", { redirectIfCurrent: true });
                   }}
                   className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >
@@ -172,7 +176,7 @@ export function Navbar() {
                   type="button"
                   onClick={() => {
                     setMobileOpen(false);
-                    void goWorkspace("CREATOR");
+                    void goWorkspace("CREATOR", { redirectIfCurrent: true });
                   }}
                   className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >

@@ -132,7 +132,7 @@ export function DashboardSidebar() {
           )}
         >
           <div className="bg-foreground flex size-8 shrink-0 items-center justify-center rounded-lg">
-            <RoleIcon className="size-4 text-white" />
+            <RoleIcon className="size-4 text-background" aria-hidden />
           </div>
           <div
             className={cn(
@@ -210,12 +210,7 @@ export function DashboardSidebar() {
         </nav>
 
         <div className="shrink-0 space-y-1 border-t border-sidebar-border p-3">
-          <Accordion
-            type="single"
-            collapsible
-            defaultValue="workspace"
-            className="w-full"
-          >
+          <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="workspace" className="border-0">
               <AccordionTrigger
                 className={cn(

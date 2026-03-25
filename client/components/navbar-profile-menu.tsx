@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, UserRound } from "lucide-react";
+import { Loader2, LogOut, UserRound } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ export function NavbarProfileMenu({
   onNavigate?: () => void;
   className?: string;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoggingOut } = useAuth();
 
   if (!user) return null;
 
@@ -68,11 +68,20 @@ export function NavbarProfileMenu({
         <div className={cn("space-y-0.5 rounded-xl p-1", glassPanel)}>
           <button
             type="button"
+            disabled={isLoggingOut}
             onClick={wrapNavigate(() => void logout())}
-            className={cn(menuItemLogoutClass, "text-left")}
+            className={cn(
+              menuItemLogoutClass,
+              "text-left",
+              isLoggingOut && "pointer-events-none opacity-60",
+            )}
           >
-            <LogOut className="size-4 shrink-0" />
-            Log out
+            {isLoggingOut ? (
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+            ) : (
+              <LogOut className="size-4 shrink-0" />
+            )}
+            {isLoggingOut ? "Logging out…" : "Log out"}
           </button>
         </div>
       </div>
@@ -116,11 +125,20 @@ export function NavbarProfileMenu({
             <button
               type="button"
               role="menuitem"
+              disabled={isLoggingOut}
               onClick={() => void logout()}
-              className={cn(menuItemLogoutClass, "w-full text-left")}
+              className={cn(
+                menuItemLogoutClass,
+                "w-full text-left",
+                isLoggingOut && "pointer-events-none opacity-60",
+              )}
             >
-              <LogOut className="size-4 shrink-0" />
-              Log out
+              {isLoggingOut ? (
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="size-4 shrink-0" />
+              )}
+              {isLoggingOut ? "Logging out…" : "Log out"}
             </button>
           </div>
         </div>

@@ -21,6 +21,28 @@ function shouldSkipRefreshOn401(url: string) {
   );
 }
 
+function isPublicBrowsingPath(pathname: string) {
+  if (pathname === "/") return true;
+  if (pathname === "/login" || pathname === "/signup") return true;
+  if (pathname.startsWith("/auth/")) return true;
+  if (pathname.startsWith("/creators/")) return true;
+  return false;
+}
+
+function notifySessionExpiredAndGoToLogin() {
+  if (
+    typeof window === "undefined" ||
+    isPublicBrowsingPath(window.location.pathname)
+  ) {
+    return;
+  }
+  toast.error("Session expired", {
+    id: "session-expired",
+    description: "Please log in again.",
+  });
+  window.location.href = "/login";
+}
+
 let refreshPromise: Promise<void> | null = null;
 
 function refreshSession() {
@@ -53,11 +75,7 @@ if (typeof window !== "undefined") {
 
       if (originalRequest._retry) {
         if (!authPathMatches(url, ENDPOINTS.AUTH.ME)) {
-          toast.error("Session expired", {
-            id: "session-expired",
-            description: "Please log in again.",
-          });
-          window.location.href = "/login";
+          notifySessionExpiredAndGoToLogin();
         }
         return Promise.reject(error);
       }
@@ -72,11 +90,7 @@ if (typeof window !== "undefined") {
           ENDPOINTS.AUTH.ME,
         );
         if (!isMe) {
-          toast.error("Session expired", {
-            id: "session-expired",
-            description: "Please log in again.",
-          });
-          window.location.href = "/login";
+          notifySessionExpiredAndGoToLogin();
         }
         return Promise.reject(error);
       }

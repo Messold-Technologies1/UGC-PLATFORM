@@ -80,7 +80,7 @@ export class CreatorProfileService {
       .filter(Boolean);
     const normalizedServiceTypeNamesUnique = [...new Set((dto.serviceTypeNames ?? []).map((n) => n.trim()).filter(Boolean))];
 
-    // Resolve service types OUTSIDE the transaction to keep it short.
+
     const resolvedServiceTypes = await this.resolveServiceTypes(
       normalizedServiceTypeNamesUnique,
     );

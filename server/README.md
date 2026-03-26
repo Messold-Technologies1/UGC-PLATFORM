@@ -1,4 +1,4 @@
-# Collabry API
+# UGC Platform API
 
 NestJS backend with Swagger, Prisma, and Neon PostgreSQL.
 

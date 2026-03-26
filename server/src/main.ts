@@ -33,8 +33,8 @@ async function bootstrap() {
 
   if (swaggerEnabled) {
     const config = new DocumentBuilder()
-      .setTitle('Collabry API')
-      .setDescription('API documentation for Collabry')
+      .setTitle('UGC Platform API')
+      .setDescription('API documentation for UGC Platform')
       .setVersion('1.0')
       .addBearerAuth()
       .build();

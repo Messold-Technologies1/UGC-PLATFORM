@@ -1,12 +1,14 @@
 "use client";
 
-import { memo, useState } from "react";
-import { ChevronUp, Star, X } from "lucide-react";
+import { memo, useMemo } from "react";
+import { Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-const PRICE_MIN = 0;
-const PRICE_MAX = 10000;
+import { cn } from "@/lib/utils";
+
+export const CREATOR_PRICE_MIN = 0;
+export const CREATOR_PRICE_MAX = 10_000;
 const PRICE_STEP = 500;
 
 export interface Filters {
@@ -34,7 +36,6 @@ export const DEFAULT_FILTERS: Filters = {
 interface CreatorFiltersProps {
   filters: Filters;
   onChange: (filters: Filters) => void;
-  onReset: () => void;
   onClose: () => void;
   categoryOptions: string[];
   cityOptions: string[];
@@ -43,7 +44,6 @@ interface CreatorFiltersProps {
 export const CreatorFilters = memo(function CreatorFilters({
   filters,
   onChange,
-  onReset,
   onClose,
   categoryOptions,
   cityOptions,
@@ -52,35 +52,45 @@ export const CreatorFilters = memo(function CreatorFilters({
     onChange({ ...filters, [key]: value });
   }
 
-  const hasActiveFilters =
-    filters.city !== DEFAULT_FILTERS.city ||
-    filters.category !== DEFAULT_FILTERS.category ||
-    filters.gender !== DEFAULT_FILTERS.gender ||
-    filters.minPrice !== DEFAULT_FILTERS.minPrice ||
-    filters.maxPrice !== DEFAULT_FILTERS.maxPrice ||
-    filters.minRating !== DEFAULT_FILTERS.minRating ||
-    filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable ||
-    filters.storeVisit !== DEFAULT_FILTERS.storeVisit;
+  const sliderMin = filters.minPrice
+    ? Number(filters.minPrice)
+    : CREATOR_PRICE_MIN;
+  const sliderMax = filters.maxPrice
+    ? Number(filters.maxPrice)
+    : CREATOR_PRICE_MAX;
 
-  const sliderMin = filters.minPrice ? Number(filters.minPrice) : PRICE_MIN;
-  const sliderMax = filters.maxPrice ? Number(filters.maxPrice) : PRICE_MAX;
+  const priceSummary = useMemo(() => {
+    const lo = sliderMin;
+    const hiLabel =
+      sliderMax >= CREATOR_PRICE_MAX
+        ? "₹10,000+"
+        : `₹${sliderMax.toLocaleString("en-IN")}`;
+    const loLabel = `₹${lo.toLocaleString("en-IN")}`;
+    return `${loLabel} – ${hiLabel}`;
+  }, [sliderMin, sliderMax]);
+
+  const priceFilterActive =
+    filters.minPrice !== "" || filters.maxPrice !== "";
 
   return (
-    <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm ring-1 ring-foreground/4 dark:ring-white/6 lg:min-h-80 lg:max-h-[calc(100svh-9.5rem)]">
-      <div className="flex shrink-0 items-center justify-between border-b border-border/80 px-5 py-4">
-        <h3 className="text-base font-semibold tracking-tight">Filters</h3>
+    <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:min-h-80 lg:max-h-[calc(100svh-9.5rem)]">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <h3 className="text-base font-semibold tracking-tight text-foreground">
+          Filters
+        </h3>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onClose}
           aria-label="Close filters"
+          className="text-muted-foreground hover:text-foreground"
         >
           <X className="size-4" />
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-y-contain px-5 py-4">
-        <CollapsibleSection title="Category" defaultOpen>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-2">
+        <FilterSection label="Category">
           <div className="space-y-2">
             {categoryOptions.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -97,9 +107,9 @@ export const CreatorFilters = memo(function CreatorFilters({
               ))
             )}
           </div>
-        </CollapsibleSection>
+        </FilterSection>
 
-        <CollapsibleSection title="Location" defaultOpen>
+        <FilterSection label="Location">
           <div className="space-y-2">
             {cityOptions.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -118,9 +128,9 @@ export const CreatorFilters = memo(function CreatorFilters({
               ))
             )}
           </div>
-        </CollapsibleSection>
+        </FilterSection>
 
-        <CollapsibleSection title="Gender" defaultOpen>
+        <FilterSection label="Gender">
           <div className="space-y-2">
             {(["male", "female", "other"] as const).map((g) => (
               <CheckboxItem
@@ -131,38 +141,46 @@ export const CreatorFilters = memo(function CreatorFilters({
               />
             ))}
           </div>
-        </CollapsibleSection>
+        </FilterSection>
 
-        {/* ── Price Range Slider ── */}
-        <CollapsibleSection title="Price Range" defaultOpen>
-          <div className="space-y-4">
+        <FilterSection
+          label="Price range"
+          action={
+            <span
+              className={cn(
+                "text-xs font-semibold tabular-nums",
+                priceFilterActive ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {priceSummary}
+            </span>
+          }
+        >
+          <div className="space-y-4 pt-1">
             <Slider
-              min={PRICE_MIN}
-              max={PRICE_MAX}
+              min={CREATOR_PRICE_MIN}
+              max={CREATOR_PRICE_MAX}
               step={PRICE_STEP}
               value={[sliderMin, sliderMax]}
               onValueChange={([min, max]) => {
                 onChange({
                   ...filters,
-                  minPrice: min === PRICE_MIN ? "" : String(min),
-                  maxPrice: max === PRICE_MAX ? "" : String(max),
+                  minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
+                  maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
                 });
               }}
+              trackClassName="h-2"
+              rangeClassName="bg-primary"
+              thumbClassName="size-4 border-primary bg-background"
             />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="rounded-md bg-muted px-2 py-1 font-medium text-foreground">
-                ₹{sliderMin.toLocaleString("en-IN")}
-              </span>
-              <span className="text-[10px]">to</span>
-              <span className="rounded-md bg-muted px-2 py-1 font-medium text-foreground">
-                ₹{sliderMax.toLocaleString("en-IN")}
-              </span>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>₹{CREATOR_PRICE_MIN.toLocaleString("en-IN")}</span>
+              <span>₹10,000+</span>
             </div>
           </div>
-        </CollapsibleSection>
+        </FilterSection>
 
-        {/* ── Rating Star Filter ── */}
-        <CollapsibleSection title="Rating">
+        <FilterSection label="Rating">
           <div className="space-y-2">
             {[
               { value: "4.8", label: "4.8 & above", stars: 5 },
@@ -176,11 +194,12 @@ export const CreatorFilters = memo(function CreatorFilters({
                   key={r.value}
                   type="button"
                   onClick={() => set("minRating", isActive ? "" : r.value)}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
                     isActive
-                      ? "bg-primary/10 text-primary ring-1 ring-primary/30"
-                      : "hover:bg-muted"
-                  }`}
+                      ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
+                      : "hover:bg-muted",
+                  )}
                 >
                   <StarRating count={r.stars} />
                   <span className={isActive ? "font-medium" : ""}>
@@ -190,9 +209,9 @@ export const CreatorFilters = memo(function CreatorFilters({
               );
             })}
           </div>
-        </CollapsibleSection>
+        </FilterSection>
 
-        <CollapsibleSection title="Travel Availability">
+        <FilterSection label="Travel availability">
           <div className="space-y-2">
             <CheckboxItem
               label="Can travel to shoot"
@@ -200,16 +219,15 @@ export const CreatorFilters = memo(function CreatorFilters({
               onChange={(checked) => set("travelAvailable", checked)}
             />
           </div>
-        </CollapsibleSection>
+        </FilterSection>
 
-        {/* ── Store Visit Toggle ── */}
-        <CollapsibleSection title="Store Visit">
+        <FilterSection label="Store visit">
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
             <div className="space-y-0.5">
               <p className="text-sm font-medium leading-none">
                 {filters.storeVisit ? "Yes" : "No"}
               </p>
-              <p className="text-[11px] text-muted-foreground leading-tight">
+              <p className="text-[11px] leading-tight text-muted-foreground">
                 Available for store visits
               </p>
             </div>
@@ -218,21 +236,8 @@ export const CreatorFilters = memo(function CreatorFilters({
               onCheckedChange={(checked) => set("storeVisit", checked)}
             />
           </div>
-        </CollapsibleSection>
+        </FilterSection>
       </div>
-
-      {hasActiveFilters && (
-        <div className="shrink-0 border-t border-border/80 bg-card px-5 py-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onReset}
-            className="w-full"
-          >
-            Reset all filters
-          </Button>
-        </div>
-      )}
     </aside>
   );
 });
@@ -268,32 +273,24 @@ const StarRating = memo(function StarRating({ count }: { count: number }) {
   );
 });
 
-const CollapsibleSection = memo(function CollapsibleSection({
-  title,
-  defaultOpen = false,
+const FilterSection = memo(function FilterSection({
+  label,
+  action,
   children,
 }: {
-  title: string;
-  defaultOpen?: boolean;
+  label: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
-    <div className="border-b border-border/60 py-3">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between py-1 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors"
-      >
-        {title}
-        <ChevronUp
-          className={`size-4 text-muted-foreground transition-transform duration-200 ${
-            open ? "" : "rotate-180"
-          }`}
-        />
-      </button>
-      {open && <div className="mt-3">{children}</div>}
+    <div className="border-b border-border py-4 last:border-b-0">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </p>
+        {action}
+      </div>
+      {children}
     </div>
   );
 });
@@ -308,7 +305,7 @@ const CheckboxItem = memo(function CheckboxItem({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2.5 group">
+    <label className="group flex cursor-pointer items-center gap-3">
       <div
         role="checkbox"
         aria-checked={checked}
@@ -317,11 +314,12 @@ const CheckboxItem = memo(function CheckboxItem({
           if (e.key === " " || e.key === "Enter") onChange(!checked);
         }}
         tabIndex={0}
-        className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
+        className={cn(
+          "flex size-4 shrink-0 items-center justify-center rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           checked
             ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/40 bg-card group-hover:border-muted-foreground/60 dark:border-muted-foreground/50 dark:bg-muted/30"
-        }`}
+            : "border-muted-foreground/40 bg-background group-hover:border-muted-foreground/60",
+        )}
       >
         {checked && (
           <svg className="size-3" viewBox="0 0 12 12" fill="none">

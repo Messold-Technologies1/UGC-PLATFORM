@@ -10,6 +10,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { GlobalOnboardingPage } from "@/components/onboarding/global-onboarding-page";
 import type { PostAuthRole } from "@/features/auth/lib/post-auth-destination";
+import { useAuth } from "@/providers/auth-provider";
 
 export type DashboardOnboardingGateProps = {
   role: PostAuthRole;
@@ -25,13 +26,12 @@ export function DashboardOnboardingGate({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { user, isLoading } = useAuth();
 
+  /** Full-screen setup only on settings so dashboard can show overview + banner. */
   const pathnameAllowsFullPageOnboarding = useMemo(() => {
     const prefix = `/${role}`;
-    return (
-      pathname === `${prefix}/dashboard` ||
-      pathname === `${prefix}/settings`
-    );
+    return pathname === `${prefix}/settings`;
   }, [pathname, role]);
 
   const paramRequestsOnboarding = useMemo(() => {
@@ -39,11 +39,21 @@ export function DashboardOnboardingGate({
     return raw === role || raw === "1";
   }, [searchParams, role]);
 
+  const profileComplete =
+    !isLoading &&
+    !!user &&
+    (role === "creator"
+      ? user.hasCreatorProfile
+      : user.hasBrandProfile);
+
   const showFullPageOnboarding =
-    paramRequestsOnboarding && pathnameAllowsFullPageOnboarding;
+    paramRequestsOnboarding &&
+    pathnameAllowsFullPageOnboarding &&
+    !profileComplete;
 
   useEffect(() => {
-    if (!paramRequestsOnboarding || pathnameAllowsFullPageOnboarding) return;
+    if (!paramRequestsOnboarding) return;
+    if (pathnameAllowsFullPageOnboarding && !profileComplete) return;
     const next = new URLSearchParams(searchParams.toString());
     next.delete(PARAM);
     const q = next.toString();
@@ -53,6 +63,7 @@ export function DashboardOnboardingGate({
   }, [
     paramRequestsOnboarding,
     pathnameAllowsFullPageOnboarding,
+    profileComplete,
     pathname,
     router,
     searchParams,

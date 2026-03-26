@@ -17,18 +17,24 @@ export function BrandCreatorsBrowser() {
 
   if (isPending) {
     return (
-      <div className="space-y-6" aria-busy="true" aria-label="Loading creators">
-        <Skeleton className="h-4 w-52 max-w-full" />
-        <div className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <Skeleton className="h-9 w-36 rounded-full" />
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
-            <Skeleton className="h-9 w-full rounded-md sm:w-64" />
-            <Skeleton className="h-4 w-16 shrink-0" />
+      <div className="space-y-10" aria-busy="true" aria-label="Loading creators">
+        <header className="space-y-3">
+          <Skeleton className="h-12 w-full max-w-md md:h-14" />
+          <Skeleton className="h-5 w-full max-w-2xl md:h-6" />
+        </header>
+        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <Skeleton className="h-10 w-36 rounded-full" />
+              <Skeleton className="hidden h-8 w-px md:block" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <Skeleton className="h-10 w-full flex-1 rounded-full md:min-w-0" />
           </div>
         </div>
         <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (
-            <CreatorCardSkeleton key={i} />
+            <CreatorCardSkeleton key={i} appearance="browse" />
           ))}
         </div>
       </div>

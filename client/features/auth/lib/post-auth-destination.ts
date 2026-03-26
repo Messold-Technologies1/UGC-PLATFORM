@@ -21,20 +21,13 @@ export function resolvePostAuthRedirectPath(
   if (!role) {
     return postAuthContinuePath(callbackUrl);
   }
-  const dest = postAuthDestinationForRole(toPostAuthRole(role), callbackUrl);
-  if (role === "CREATOR" && !user.hasCreatorProfile) {
-    return withDashboardOnboarding(dest, "creator");
-  }
-  if (role === "BRAND" && !user.hasBrandProfile) {
-    return withDashboardOnboarding(dest, "brand");
-  }
-  return dest;
+  return postAuthDestinationForRole(toPostAuthRole(role), callbackUrl);
 }
 
 export type PathAfterWorkspaceSelectionOptions = {
   /**
-   * When true (default), incomplete profile adds `?onboarding=` — used after login / role picker.
-   * When false (hub switch in sidebar), destination stays clean so users see the real page + optional in-app CTA.
+   * When false (hub switch in sidebar), strips `?onboarding=` from the destination if present.
+   * Incomplete profiles still land on the hub dashboard; setup is linked from Settings and in-page banners.
    */
   promptIncompleteProfileOnboarding?: boolean;
 };
@@ -63,12 +56,6 @@ export function pathAfterWorkspaceSelection(
     return stripOnboardingFromHref(dest);
   }
 
-  if (role === "CREATOR" && !user.hasCreatorProfile) {
-    return withDashboardOnboarding(dest, "creator");
-  }
-  if (role === "BRAND" && !user.hasBrandProfile) {
-    return withDashboardOnboarding(dest, "brand");
-  }
   return dest;
 }
 

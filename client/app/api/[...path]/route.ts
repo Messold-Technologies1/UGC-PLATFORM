@@ -37,8 +37,7 @@ async function proxy(request: NextRequest, path: string[]) {
   const data = await upstream.text();
   /** 204/205/304 must not have a body per Fetch — NextResponse throws otherwise. */
   const status = upstream.status;
-  const mustBeEmptyBody =
-    status === 204 || status === 205 || status === 304;
+  const mustBeEmptyBody = status === 204 || status === 205 || status === 304;
   const res = new NextResponse(mustBeEmptyBody ? null : data, {
     status,
     headers: mustBeEmptyBody

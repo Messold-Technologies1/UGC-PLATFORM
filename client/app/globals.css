@@ -186,3 +186,11 @@
     @apply font-bold;
   }
 }
+
+@layer components {
+  @media (prefers-reduced-motion: reduce) {
+    .creator-browse-lift:hover {
+      transform: none;
+    }
+  }
+}

@@ -17,15 +17,15 @@ export function resolvePostAuthRedirectPath(
   if (user.roles.length === 0) {
     return postAuthContinuePath(callbackUrl);
   }
-  const primary = user.primaryRole ?? user.roles[0];
-  if (!primary) {
+  const role = user.activeRole ?? user.primaryRole ?? user.roles[0];
+  if (!role) {
     return postAuthContinuePath(callbackUrl);
   }
-  const dest = postAuthDestinationForRole(toPostAuthRole(primary), callbackUrl);
-  if (primary === "CREATOR" && !user.hasCreatorProfile) {
+  const dest = postAuthDestinationForRole(toPostAuthRole(role), callbackUrl);
+  if (role === "CREATOR" && !user.hasCreatorProfile) {
     return withDashboardOnboarding(dest, "creator");
   }
-  if (primary === "BRAND" && !user.hasBrandProfile) {
+  if (role === "BRAND" && !user.hasBrandProfile) {
     return withDashboardOnboarding(dest, "brand");
   }
   return dest;

@@ -17,7 +17,16 @@ export class MeUserDto {
   @ApiPropertyOptional({
     enum: ['CREATOR', 'BRAND'],
     nullable: true,
-    description: 'Active workspace; null until the user picks or switches role',
+    description:
+      'Session-scoped active workspace (what the user is currently acting as)',
+  })
+  activeRole!: 'CREATOR' | 'BRAND' | null;
+
+  @ApiPropertyOptional({
+    enum: ['CREATOR', 'BRAND'],
+    nullable: true,
+    description:
+      'Default workspace role preference (cross-session fallback when activeRole is null)',
   })
   primaryRole!: 'CREATOR' | 'BRAND' | null;
 

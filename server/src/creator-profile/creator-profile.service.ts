@@ -131,7 +131,7 @@ export class CreatorProfileService {
       ),
     ];
 
-    // Resolve service types OUTSIDE the transaction to keep it short.
+
     const resolvedServiceTypes = await this.resolveServiceTypes(
       normalizedServiceTypeNamesUnique,
     );

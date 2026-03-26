@@ -91,19 +91,16 @@ export function useWorkspaceNavigation() {
     options?: GoWorkspaceOptions,
   ) => {
     const current = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
-    const sameWorkspace = current?.primaryRole === role;
-
-    if (sameWorkspace && !options?.redirectIfCurrent) {
-      return;
-    }
+    const currentRole = current?.activeRole ?? current?.primaryRole ?? null;
+    /** Server already has this workspace; skip POST /auth/workspace but may still navigate. */
+    const sameWorkspace = currentRole === role;
 
     const fullCurrent = `${pathname}${searchParams.toString() ? `?${searchParams}` : ""}`;
 
-    const leaving = current?.primaryRole;
-    if (leaving && !sameWorkspace) {
-      const prefix = pathPrefixForWorkspaceRole(leaving);
+    if (currentRole && !sameWorkspace) {
+      const prefix = pathPrefixForWorkspaceRole(currentRole);
       if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
-        saveLastPathForWorkspaceRole(leaving, fullCurrent);
+        saveLastPathForWorkspaceRole(currentRole, fullCurrent);
       }
     }
 

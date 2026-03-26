@@ -11,7 +11,8 @@ export function CreatorIncompleteProfileBanner() {
   const { user, isLoading } = useAuth();
 
   if (isLoading || !user) return null;
-  if (user.primaryRole !== "CREATOR") return null;
+  const workspaceRole = user.activeRole ?? user.primaryRole;
+  if (workspaceRole !== "CREATOR") return null;
   if (user.hasCreatorProfile) return null;
 
   return (

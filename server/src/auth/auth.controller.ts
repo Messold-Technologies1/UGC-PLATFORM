@@ -32,9 +32,9 @@ import { MeUserDto } from './dto/me-user.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SelectWorkspaceDto } from './dto/select-workspace.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { AdminGuard } from './guards/admin.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { AUTH_COOKIE_NAMES } from './auth.service';
-import { AuthService } from './auth.service';
+import { AUTH_COOKIE_NAMES, AuthService } from './auth.service';
 
 @ApiTags('auth')
 @ApiExtraModels(UserResponseDto, MeUserDto)
@@ -66,6 +66,35 @@ export class AuthController {
       userAgent: req.headers['user-agent'],
     };
     const result = await this.authService.register(dto, meta);
+    setAuthCookies(
+      res,
+      result.accessToken,
+      result.refreshToken,
+      result.expiresIn,
+      this.config.get<string>('JWT_REFRESH_EXPIRY', '7d'),
+    );
+    return { user: result.user };
+  }
+
+  @Post('register-admin')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create an admin user (admin-only)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Admin user created',
+    type: UserResponseDto,
+  })
+  async registerAdmin(
+    @Body() dto: RegisterDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const meta = {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    };
+    const result = await this.authService.registerAdmin(dto, meta);
     setAuthCookies(
       res,
       result.accessToken,
@@ -209,7 +238,8 @@ export class AuthController {
   async me(
     @Req() req: Request & { user: { id: string; email: string; name: string | null } },
   ) {
-    const user = await this.authService.getMeForClient(req.user.id);
+    const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
+    const user = await this.authService.getMeForClient(req.user.id, refreshToken);
     if (!user) {
       throw new UnauthorizedException();
     }
@@ -229,7 +259,12 @@ export class AuthController {
     @Req() req: Request & { user: { id: string } },
     @Body() dto: SelectWorkspaceDto,
   ) {
-    const user = await this.authService.selectWorkspace(req.user.id, dto.role);
+    const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
+    const user = await this.authService.selectWorkspace(
+      req.user.id,
+      dto.role,
+      refreshToken,
+    );
     return { user };
   }
 }

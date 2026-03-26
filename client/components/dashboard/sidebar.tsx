@@ -135,10 +135,7 @@ export function DashboardSidebar() {
             <RoleIcon className="size-4 text-background" aria-hidden />
           </div>
           <div
-            className={cn(
-              "min-w-0 flex-1",
-              desktopCollapsed && "lg:hidden",
-            )}
+            className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}
           >
             <p className="truncate text-sm font-medium text-sidebar-foreground">
               {roleLabel}
@@ -161,7 +158,9 @@ export function DashboardSidebar() {
             size="icon-sm"
             className="hidden shrink-0 lg:flex"
             onClick={() => setDesktopCollapsed((v) => !v)}
-            aria-label={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={
+              desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"
+            }
           >
             {desktopCollapsed ? (
               <ChevronRight className="size-4" aria-hidden />
@@ -186,6 +185,7 @@ export function DashboardSidebar() {
               <Link
                 key={href}
                 href={href}
+                prefetch
                 onClick={closeMobile}
                 title={label}
                 className={cn(
@@ -199,9 +199,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <Icon className="size-4 shrink-0" />
-                <span
-                  className={cn(desktopCollapsed && "lg:sr-only")}
-                >
+                <span className={cn(desktopCollapsed && "lg:sr-only")}>
                   {label}
                 </span>
               </Link>
@@ -329,6 +327,7 @@ export function DashboardSidebar() {
           </button>
           <Link
             href="/"
+            prefetch
             title="Back to Home"
             className={cn(
               "flex items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",

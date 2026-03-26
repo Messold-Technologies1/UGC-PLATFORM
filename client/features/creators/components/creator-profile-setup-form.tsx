@@ -1,18 +1,52 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { useAuth } from "@/providers/auth-provider";
 import {
   createCreatorProfile,
   type CreateCreatorProfilePayload,
 } from "@/features/creators/api/create-creator-profile";
+
+/** Frontend-only; increase or remove to allow more packages without server changes. */
+const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
+
+/** Radix Select requires a non-empty value for the default option. */
+const GENDER_VALUE_UNSPECIFIED = "__unspecified__";
+
+type PackageDraft = {
+  id: string;
+  name: string;
+  priceAmount: string;
+  deliveryDays: string;
+  deliverables: string;
+};
+
+function createPackageDraft(
+  id: string,
+  overrides?: Partial<Omit<PackageDraft, "id">>,
+): PackageDraft {
+  return {
+    id,
+    name: overrides?.name ?? "",
+    priceAmount: overrides?.priceAmount ?? "",
+    deliveryDays: overrides?.deliveryDays ?? "",
+    deliverables: overrides?.deliverables ?? "",
+  };
+}
 
 function splitCommaList(raw: string): string[] {
   return raw
@@ -46,10 +80,36 @@ export function CreatorProfileSetupForm({
   const [travelRadius, setTravelRadius] = useState("");
   const [languages, setLanguages] = useState("");
   const [serviceTypeNames, setServiceTypeNames] = useState("");
-  const [packageName, setPackageName] = useState("Starter");
-  const [priceAmount, setPriceAmount] = useState("");
-  const [deliveryDays, setDeliveryDays] = useState("3");
-  const [deliverables, setDeliverables] = useState("");
+  /** Monotonic ids for new rows (initial row is always pkg-0 — stable for SSR hydration). */
+  const nextPackageIdRef = useRef(1);
+  const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
+    createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
+  ]);
+
+  const updatePackageDraft = useCallback(
+    (id: string, patch: Partial<Omit<PackageDraft, "id">>) => {
+      setPackageDrafts((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+      );
+    },
+    [],
+  );
+
+  const addPackageDraft = useCallback(() => {
+    setPackageDrafts((rows) => {
+      if (rows.length >= MAX_PACKAGES_IN_CREATOR_SETUP_FORM) return rows;
+      const nextNum = rows.length + 1;
+      const defaultNames = ["Starter", "Standard", "Pro"] as const;
+      const name = defaultNames[nextNum - 1] ?? `Package ${nextNum}`;
+      const deliveryDays = nextNum === 1 ? "3" : "5";
+      const id = `pkg-${nextPackageIdRef.current++}`;
+      return [...rows, createPackageDraft(id, { name, deliveryDays })];
+    });
+  }, []);
+
+  const removePackageDraft = useCallback((id: string) => {
+    setPackageDrafts((rows) => rows.filter((row) => row.id !== id));
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -66,30 +126,47 @@ export function CreatorProfileSetupForm({
         return;
       }
 
-      const days = Number.parseInt(deliveryDays, 10);
       const radiusRaw = travelRadius.trim();
       const radius =
         radiusRaw === "" ? undefined : Number.parseInt(radiusRaw, 10);
 
       const langs = splitCommaList(languages);
       const services = splitCommaList(serviceTypeNames);
-      const dels = splitLines(deliverables);
 
-      const price = priceAmount.trim();
-      const pkgName = packageName.trim();
+      const builtPackages: NonNullable<
+        CreateCreatorProfilePayload["packages"]
+      > = [];
+
+      for (const row of packageDrafts) {
+        const pkgName = row.name.trim();
+        const price = row.priceAmount.trim();
+        const dels = splitLines(row.deliverables);
+        const rowDays = Number.parseInt(row.deliveryDays, 10);
+        const hasDeliveryInput = row.deliveryDays.trim() !== "";
+        const touched =
+          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput;
+        const daysOk = !Number.isNaN(rowDays) && rowDays >= 0;
+        const isComplete = !!pkgName && !!price && daysOk;
+
+        if (touched && !isComplete) {
+          toast.error(
+            "Complete each package (name, price, delivery days) or clear unused rows.",
+          );
+          return;
+        }
+
+        if (isComplete) {
+          builtPackages.push({
+            name: pkgName,
+            deliverables: dels.length ? dels : ["Deliverables to be confirmed"],
+            priceAmount: price,
+            deliveryDays: rowDays,
+          });
+        }
+      }
+
       const packages: CreateCreatorProfilePayload["packages"] =
-        price && pkgName && !Number.isNaN(days) && days >= 0
-          ? [
-              {
-                name: pkgName,
-                deliverables: dels.length
-                  ? dels
-                  : ["Deliverables to be confirmed"],
-                priceAmount: price,
-                deliveryDays: days,
-              },
-            ]
-          : undefined;
+        builtPackages.length > 0 ? builtPackages : undefined;
 
       const payload: CreateCreatorProfilePayload = {
         displayName: name,
@@ -137,10 +214,7 @@ export function CreatorProfileSetupForm({
       travelRadius,
       languages,
       serviceTypeNames,
-      packageName,
-      priceAmount,
-      deliveryDays,
-      deliverables,
+      packageDrafts,
       onSuccess,
       queryClient,
     ],
@@ -188,18 +262,25 @@ export function CreatorProfileSetupForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
-            <select
-              id="gender"
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="dark:bg-input/30 border-input h-9 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            <Select
+              value={gender === "" ? GENDER_VALUE_UNSPECIFIED : gender}
+              onValueChange={(v) =>
+                setGender(v === GENDER_VALUE_UNSPECIFIED ? "" : v)
+              }
             >
-              <option value="">Prefer not to say</option>
-              <option value="Female">Female</option>
-              <option value="Male">Male</option>
-              <option value="Non-binary">Non-binary</option>
-              <option value="Other">Other</option>
-            </select>
+              <SelectTrigger id="gender" aria-label="Gender">
+                <SelectValue placeholder="Prefer not to say" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={GENDER_VALUE_UNSPECIFIED}>
+                  Prefer not to say
+                </SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Non-binary">Non-binary</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -262,55 +343,113 @@ export function CreatorProfileSetupForm({
           />
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-          <p className="text-sm font-medium text-foreground">Starter package</p>
-          <p className="text-xs text-muted-foreground">
-            Optional — helps brands see your pricing. Add more packages in
-            settings later.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-2 sm:col-span-1">
-              <Label htmlFor="pkgName">Name</Label>
-              <Input
-                id="pkgName"
-                className={inputClass}
-                value={packageName}
-                onChange={(e) => setPackageName(e.target.value)}
-              />
+        <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">Packages</p>
+              {/* <p className="text-xs text-muted-foreground">
+                Optional — up to {MAX_PACKAGES_IN_CREATOR_SETUP_FORM} packages.
+                Brands see your pricing; you can edit later in settings.
+              </p> */}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                className={inputClass}
-                value={priceAmount}
-                onChange={(e) => setPriceAmount(e.target.value)}
-                placeholder="199.99"
-                inputMode="decimal"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="days">Delivery (days)</Label>
-              <Input
-                id="days"
-                type="number"
-                min={0}
-                className={inputClass}
-                value={deliveryDays}
-                onChange={(e) => setDeliveryDays(e.target.value)}
-              />
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={
+                packageDrafts.length >= MAX_PACKAGES_IN_CREATOR_SETUP_FORM
+              }
+              onClick={addPackageDraft}
+            >
+              Add package
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="deliverables">Deliverables (one per line)</Label>
-            <textarea
-              id="deliverables"
-              value={deliverables}
-              onChange={(e) => setDeliverables(e.target.value)}
-              rows={3}
-              placeholder={"1 UGC video (30–60s)\nBasic editing"}
-              className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
-            />
+
+          <div className="space-y-4">
+            {packageDrafts.map((row, index) => (
+              <div
+                key={row.id}
+                className="space-y-3 rounded-lg border border-border/80 bg-background/60 p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Package {index + 1}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removePackageDraft(row.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-2 sm:col-span-1">
+                    <Label htmlFor={`pkg-name-${row.id}`}>Name</Label>
+                    <Input
+                      id={`pkg-name-${row.id}`}
+                      className={inputClass}
+                      value={row.name}
+                      onChange={(e) =>
+                        updatePackageDraft(row.id, { name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`pkg-price-${row.id}`}>Price</Label>
+                    <Input
+                      id={`pkg-price-${row.id}`}
+                      className={inputClass}
+                      value={row.priceAmount}
+                      onChange={(e) =>
+                        updatePackageDraft(row.id, {
+                          priceAmount: e.target.value,
+                        })
+                      }
+                      placeholder="199.99"
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`pkg-days-${row.id}`}>
+                      Delivery (days)
+                    </Label>
+                    <Input
+                      id={`pkg-days-${row.id}`}
+                      type="number"
+                      min={0}
+                      className={inputClass}
+                      value={row.deliveryDays}
+                      onChange={(e) =>
+                        updatePackageDraft(row.id, {
+                          deliveryDays: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`pkg-deliverables-${row.id}`}>
+                    Deliverables (one per line)
+                  </Label>
+                  <textarea
+                    id={`pkg-deliverables-${row.id}`}
+                    value={row.deliverables}
+                    onChange={(e) =>
+                      updatePackageDraft(row.id, {
+                        deliverables: e.target.value,
+                      })
+                    }
+                    rows={3}
+                    placeholder={"1 UGC video (30–60s)\nBasic editing"}
+                    className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -245,7 +245,7 @@ export function LandingPageContent() {
             Ready to create amazing content?
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-background/70">
-            Join thousands of creators and brands already using UGC Platform to
+            Join thousands of creators and brands already using Collabry to
             create authentic, high-performing content.
           </p>
           <Button

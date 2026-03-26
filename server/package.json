@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "0.0.1",
-  "description": "",
+  "description": "Collabry API (NestJS)",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

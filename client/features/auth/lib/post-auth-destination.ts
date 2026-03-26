@@ -31,12 +31,38 @@ export function resolvePostAuthRedirectPath(
   return dest;
 }
 
+export type PathAfterWorkspaceSelectionOptions = {
+  /**
+   * When true (default), incomplete profile adds `?onboarding=` — used after login / role picker.
+   * When false (hub switch in sidebar), destination stays clean so users see the real page + optional in-app CTA.
+   */
+  promptIncompleteProfileOnboarding?: boolean;
+};
+
+/** Remove onboarding query from a path; keeps other params. */
+export function stripOnboardingFromHref(href: string): string {
+  const q = href.indexOf("?");
+  if (q === -1) return href;
+  const path = href.slice(0, q);
+  const params = new URLSearchParams(href.slice(q + 1));
+  params.delete("onboarding");
+  const rest = params.toString();
+  return rest ? `${path}?${rest}` : path;
+}
+
 export function pathAfterWorkspaceSelection(
   user: AuthUser,
   role: WorkspaceRole,
   callbackUrl: string | null,
+  options?: PathAfterWorkspaceSelectionOptions,
 ): string {
   const dest = postAuthDestinationForRole(toPostAuthRole(role), callbackUrl);
+  const promptOnboarding = options?.promptIncompleteProfileOnboarding !== false;
+
+  if (!promptOnboarding) {
+    return stripOnboardingFromHref(dest);
+  }
+
   if (role === "CREATOR" && !user.hasCreatorProfile) {
     return withDashboardOnboarding(dest, "creator");
   }

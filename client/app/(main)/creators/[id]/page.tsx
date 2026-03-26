@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const name = result.profile.displayName;
     return {
       title: name,
-      description: `View ${name}'s profile, portfolio, and packages on UGC Platform.`,
+      description: `View ${name}'s profile, portfolio, and packages on Collabry.`,
     };
   }
   return { title: "Creator" };

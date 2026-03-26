@@ -46,8 +46,7 @@ export function AuthContinueOverlay() {
     }
   }, [callbackUrl, isLoading, router, user]);
 
-  const showPicker =
-    Boolean(user) && !isLoading && user!.roles.length === 0;
+  const showPicker = Boolean(user) && !isLoading && user!.roles.length === 0;
 
   const runSelect = async (role: WorkspaceRole) => {
     if (!user) return;

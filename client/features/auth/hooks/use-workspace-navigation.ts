@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,6 +16,38 @@ export type GoWorkspaceOptions = {
   redirectIfCurrent?: boolean;
 };
 
+const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
+
+function pathPrefixForWorkspaceRole(role: WorkspaceRole): string {
+  return role === "CREATOR" ? "/creator" : "/brand";
+}
+
+function lastPathStorageKey(role: WorkspaceRole): string {
+  return `${LAST_PATH_STORAGE_PREFIX}${role}`;
+}
+
+function saveLastPathForWorkspaceRole(role: WorkspaceRole, href: string): void {
+  try {
+    sessionStorage.setItem(lastPathStorageKey(role), href);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
+  try {
+    const raw = sessionStorage.getItem(lastPathStorageKey(role));
+    if (!raw?.trim() || !raw.startsWith("/") || raw.startsWith("//")) {
+      return null;
+    }
+    const pathOnly = raw.split("?")[0] ?? raw;
+    const prefix = pathPrefixForWorkspaceRole(role);
+    return pathOnly.startsWith(prefix) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeQueryString(raw: string): string {
   const params = new URLSearchParams(raw);
   const keys = [...new Set([...params.keys()])].sort();
@@ -27,11 +60,13 @@ function normalizeQueryString(raw: string): string {
   return out.toString();
 }
 
-function destinationPathAndQuery(destHref: string): { path: string; query: string } {
+function destinationPathAndQuery(destHref: string): {
+  path: string;
+  query: string;
+} {
   const q = destHref.indexOf("?");
   const path = (q === -1 ? destHref : destHref.slice(0, q)).split("#")[0] ?? "";
-  const queryPart =
-    q === -1 ? "" : (destHref.slice(q + 1).split("#")[0] ?? "");
+  const queryPart = q === -1 ? "" : (destHref.slice(q + 1).split("#")[0] ?? "");
   return { path, query: normalizeQueryString(queryPart) };
 }
 
@@ -62,12 +97,28 @@ export function useWorkspaceNavigation() {
       return;
     }
 
-    const from = pathname;
+    const fullCurrent = `${pathname}${searchParams.toString() ? `?${searchParams}` : ""}`;
+
+    const leaving = current?.primaryRole;
+    if (leaving && !sameWorkspace) {
+      const prefix = pathPrefixForWorkspaceRole(leaving);
+      if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+        saveLastPathForWorkspaceRole(leaving, fullCurrent);
+      }
+    }
+
+    const remembered = readLastPathForWorkspaceRole(role);
+    const callbackUrl =
+      options?.redirectIfCurrent && sameWorkspace ? null : remembered;
 
     if (current) {
-      const dest = pathAfterWorkspaceSelection(current, role, null);
+      const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
+        promptIncompleteProfileOnboarding: false,
+      });
       if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-        router.push(dest);
+        startTransition(() => {
+          router.push(dest);
+        });
       }
     }
 
@@ -79,15 +130,21 @@ export function useWorkspaceNavigation() {
       const next = await selectWorkspaceApi(role);
       queryClient.setQueryData(authMeQueryKey, next);
       if (!current) {
-        const dest = pathAfterWorkspaceSelection(next, role, null);
+        const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
+          promptIncompleteProfileOnboarding: false,
+        });
         if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-          router.push(dest);
+          startTransition(() => {
+            router.push(dest);
+          });
         }
       }
     } catch {
       toast.error("Could not switch workspace. Try again.");
       if (current) {
-        router.replace(from);
+        startTransition(() => {
+          router.replace(fullCurrent);
+        });
       }
     }
   };

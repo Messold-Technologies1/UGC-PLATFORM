@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { Building2, Menu, X, User, Sparkles, Moon, Sun, Video } from "lucide-react";
+import { Building2, Menu, X, User, Moon, Sun, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NavbarProfileMenu } from "@/components/navbar-profile-menu";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useAuth } from "@/providers/auth-provider";
+import { SITE_NAME } from "@/config/site";
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -70,13 +71,11 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125">
       <div className="mx-auto flex h-16 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="bg-foreground flex size-8 items-center justify-center rounded-lg">
+        <Link href="/" prefetch className="flex items-center gap-2">
+          {/* <div className="bg-foreground flex size-8 items-center justify-center rounded-lg">
             <Sparkles className="size-4 text-white" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">
-            UGC<span className="font-bold">Platform</span>
-          </span>
+          </div> */}
+          <span className="text-lg font-bold tracking-tight">{SITE_NAME}</span>
         </Link>
 
         <div className="hidden items-center gap-2 md:flex">

@@ -4,12 +4,44 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RoleName } from '@prisma/client';
+import { Prisma, PrismaClient, RoleName } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
+
+const creatorProfileWithRelationsInclude = {
+  languages: true,
+  services: { include: { serviceType: true } },
+  packages: true,
+} satisfies Prisma.CreatorProfileInclude;
+
+type CreatorProfileWithRelations = Prisma.CreatorProfileGetPayload<{
+  include: typeof creatorProfileWithRelationsInclude;
+}>;
+
+type CreatorPackageRow = CreatorProfileWithRelations['packages'][number];
+
+type CreatorProfileMapped = Omit<CreatorProfileWithRelations, 'packages'> & {
+  packages: Array<
+    Omit<CreatorPackageRow, 'priceAmount' | 'deliverables'> & {
+      priceAmount: string;
+      deliverables: string[];
+    }
+  >;
+};
+
+function mapJsonDeliverables(value: Prisma.JsonValue): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+/** Client passed to interactive `$transaction` callbacks */
+type PrismaTransactionClient = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
 
 @Injectable()
 export class CreatorProfileService {
@@ -18,17 +50,33 @@ export class CreatorProfileService {
     private readonly creatorPackageService: CreatorPackageService,
   ) {}
 
-  private mapCreatorProfile(profile: any) {
+  private mapCreatorProfile(
+    profile: CreatorProfileWithRelations,
+  ): CreatorProfileMapped {
+    const packages = profile.packages ?? [];
     return {
       ...profile,
-      packages: (profile.packages ?? []).map((p: any) => ({
-        ...p,
-        priceAmount: p.priceAmount?.toString?.() ?? p.priceAmount,
-      })),
+      packages: packages.map(
+        ({
+          deliverables,
+          priceAmount,
+          ...rest
+        }): CreatorProfileMapped['packages'][number] => ({
+          ...rest,
+          deliverables: mapJsonDeliverables(deliverables),
+          priceAmount:
+            typeof priceAmount?.toString === 'function'
+              ? priceAmount.toString()
+              : String(priceAmount),
+        }),
+      ),
     };
   }
 
-  private async isAdmin(userId: string, tx: any): Promise<boolean> {
+  private async isAdmin(
+    userId: string,
+    tx: PrismaTransactionClient,
+  ): Promise<boolean> {
     const user = await tx.user.findUnique({
       where: { id: userId },
       select: {
@@ -40,8 +88,7 @@ export class CreatorProfileService {
     if (!user) return false;
     if (user.primaryRole?.name === RoleName.ADMIN) return true;
     return (
-      user.userRoles?.some((ur: any) => ur.role?.name === RoleName.ADMIN) ??
-      false
+      user.userRoles?.some((ur) => ur.role?.name === RoleName.ADMIN) ?? false
     );
   }
 
@@ -78,7 +125,11 @@ export class CreatorProfileService {
     const normalizedLanguages = (dto.languages ?? [])
       .map((l) => l.trim())
       .filter(Boolean);
-    const normalizedServiceTypeNamesUnique = [...new Set((dto.serviceTypeNames ?? []).map((n) => n.trim()).filter(Boolean))];
+    const normalizedServiceTypeNamesUnique = [
+      ...new Set(
+        (dto.serviceTypeNames ?? []).map((n) => n.trim()).filter(Boolean),
+      ),
+    ];
 
 
     const resolvedServiceTypes = await this.resolveServiceTypes(
@@ -172,11 +223,7 @@ export class CreatorProfileService {
     // Fetch after commit to keep the transaction fast and avoid interactive tx timeouts.
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
-      include: {
-        languages: true,
-        services: { include: { serviceType: true } },
-        packages: true,
-      },
+      include: creatorProfileWithRelationsInclude,
     });
 
     if (!profile) {
@@ -197,11 +244,7 @@ export class CreatorProfileService {
         take: limit,
         skip,
         orderBy: { createdAt: 'desc' },
-        include: {
-          languages: true,
-          services: { include: { serviceType: true } },
-          packages: true,
-        },
+        include: creatorProfileWithRelationsInclude,
       }),
     ]);
 
@@ -216,11 +259,7 @@ export class CreatorProfileService {
   async getCreatorById(id: string) {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id },
-      include: {
-        languages: true,
-        services: { include: { serviceType: true } },
-        packages: true,
-      },
+      include: creatorProfileWithRelationsInclude,
     });
 
     if (!profile) {
@@ -237,113 +276,111 @@ export class CreatorProfileService {
   ) {
     return this.prisma.$transaction(
       async (tx) => {
-      const profile = await tx.creatorProfile.findUnique({
-        where: { id: creatorProfileId },
-      });
-
-      if (!profile) {
-        throw new NotFoundException('Creator not found');
-      }
-
-      const allowed =
-        profile.userId === actingUserId ||
-        (await this.isAdmin(actingUserId, tx));
-      if (!allowed) {
-        throw new ForbiddenException(
-          'Not allowed to update this creator profile',
-        );
-      }
-
-      await tx.creatorProfile.update({
-        where: { id: creatorProfileId },
-        data: {
-          displayName: dto.displayName ?? undefined,
-          city: dto.city ?? undefined,
-          bio: dto.bio ?? undefined,
-          gender: dto.gender ?? undefined,
-          ageRange: dto.ageRange ?? undefined,
-          travelRadius: dto.travelRadius ?? undefined,
-        },
-      });
-
-      if (dto.languages) {
-        const normalized = dto.languages.map((l) => l.trim()).filter(Boolean);
-        await tx.creatorLanguage.deleteMany({
-          where: { creatorId: creatorProfileId },
+        const profile = await tx.creatorProfile.findUnique({
+          where: { id: creatorProfileId },
         });
-        if (normalized.length > 0) {
-          await tx.creatorLanguage.createMany({
-            data: normalized.map((language) => ({
-              creatorId: creatorProfileId,
-              language,
-            })),
-            skipDuplicates: true,
-          });
+
+        if (!profile) {
+          throw new NotFoundException('Creator not found');
         }
-      }
 
-      if (dto.serviceTypeNames) {
-        const names = dto.serviceTypeNames.map((n) => n.trim()).filter(Boolean);
-        const uniqueNames = [...new Set(names)];
+        const allowed =
+          profile.userId === actingUserId ||
+          (await this.isAdmin(actingUserId, tx));
+        if (!allowed) {
+          throw new ForbiddenException(
+            'Not allowed to update this creator profile',
+          );
+        }
 
-        let serviceTypes = await tx.serviceType.findMany({
-          where: { name: { in: uniqueNames } },
-          select: { id: true, name: true },
+        await tx.creatorProfile.update({
+          where: { id: creatorProfileId },
+          data: {
+            displayName: dto.displayName ?? undefined,
+            city: dto.city ?? undefined,
+            bio: dto.bio ?? undefined,
+            gender: dto.gender ?? undefined,
+            ageRange: dto.ageRange ?? undefined,
+            travelRadius: dto.travelRadius ?? undefined,
+          },
         });
-        const found = new Set(serviceTypes.map((s) => s.name));
-        const missing = uniqueNames.filter((n) => !found.has(n));
 
-        if (missing.length > 0) {
-          // Allow "free-form" service types by auto-creating missing `ServiceType.name` values.
-          await tx.serviceType.createMany({
-            data: missing.map((name) => ({ name })),
-            skipDuplicates: true,
+        if (dto.languages) {
+          const normalized = dto.languages.map((l) => l.trim()).filter(Boolean);
+          await tx.creatorLanguage.deleteMany({
+            where: { creatorId: creatorProfileId },
           });
-          serviceTypes = await tx.serviceType.findMany({
+          if (normalized.length > 0) {
+            await tx.creatorLanguage.createMany({
+              data: normalized.map((language) => ({
+                creatorId: creatorProfileId,
+                language,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        if (dto.serviceTypeNames) {
+          const names = dto.serviceTypeNames
+            .map((n) => n.trim())
+            .filter(Boolean);
+          const uniqueNames = [...new Set(names)];
+
+          let serviceTypes = await tx.serviceType.findMany({
             where: { name: { in: uniqueNames } },
             select: { id: true, name: true },
           });
-        }
+          const found = new Set(serviceTypes.map((s) => s.name));
+          const missing = uniqueNames.filter((n) => !found.has(n));
 
-        await tx.creatorService.deleteMany({
-          where: { creatorId: creatorProfileId },
-        });
-        if (serviceTypes.length > 0) {
-          await tx.creatorService.createMany({
-            data: serviceTypes.map((st) => ({
-              creatorId: creatorProfileId,
-              serviceTypeId: st.id,
-            })),
-            skipDuplicates: true,
+          if (missing.length > 0) {
+            // Allow "free-form" service types by auto-creating missing `ServiceType.name` values.
+            await tx.serviceType.createMany({
+              data: missing.map((name) => ({ name })),
+              skipDuplicates: true,
+            });
+            serviceTypes = await tx.serviceType.findMany({
+              where: { name: { in: uniqueNames } },
+              select: { id: true, name: true },
+            });
+          }
+
+          await tx.creatorService.deleteMany({
+            where: { creatorId: creatorProfileId },
           });
+          if (serviceTypes.length > 0) {
+            await tx.creatorService.createMany({
+              data: serviceTypes.map((st) => ({
+                creatorId: creatorProfileId,
+                serviceTypeId: st.id,
+              })),
+              skipDuplicates: true,
+            });
+          }
         }
-      }
 
-      if (dto.packages) {
-        await tx.creatorPackage.deleteMany({
-          where: { creatorId: creatorProfileId },
+        if (dto.packages) {
+          await tx.creatorPackage.deleteMany({
+            where: { creatorId: creatorProfileId },
+          });
+          await this.creatorPackageService.createPackages(
+            tx,
+            creatorProfileId,
+            dto.packages,
+          );
+        }
+
+        const updated = await tx.creatorProfile.findUnique({
+          where: { id: creatorProfileId },
+          include: creatorProfileWithRelationsInclude,
         });
-        await this.creatorPackageService.createPackages(
-          tx,
-          creatorProfileId,
-          dto.packages,
-        );
-      }
 
-      const updated = await tx.creatorProfile.findUnique({
-        where: { id: creatorProfileId },
-        include: {
-          languages: true,
-          services: { include: { serviceType: true } },
-          packages: true,
-        },
-      });
+        if (!updated) {
+          throw new Error('Creator profile update failed');
+        }
 
-      if (!updated) {
-        throw new Error('Creator profile update failed');
-      }
-
-      return this.mapCreatorProfile(updated);
+        return this.mapCreatorProfile(updated);
       },
       { timeout: 30_000, maxWait: 10_000 },
     );

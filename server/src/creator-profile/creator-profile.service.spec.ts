@@ -1,43 +1,87 @@
 import { ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { CreatorPackageService } from '../creator-package/creator-package.service';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  CreateCreatorProfileDto,
+  CreatorPackageCreateDto,
+} from './dto/create-creator-profile.dto';
 import { CreatorProfileService } from './creator-profile.service';
+
+/** Async Prisma delegate mock used in interactive transaction tests */
+type TxAsyncMock = jest.Mock<Promise<unknown>, unknown[]>;
+
+function createTxAsyncMock(): TxAsyncMock {
+  return jest.fn() as unknown as TxAsyncMock;
+}
+
+interface TxMock {
+  creatorProfile: {
+    findUnique: TxAsyncMock;
+    create: TxAsyncMock;
+  };
+  serviceType: {
+    findMany: TxAsyncMock;
+    createMany: TxAsyncMock;
+  };
+  creatorLanguage: {
+    createMany: TxAsyncMock;
+  };
+  creatorService: {
+    createMany: TxAsyncMock;
+  };
+  role: {
+    findUnique: TxAsyncMock;
+  };
+  user: {
+    update: TxAsyncMock;
+  };
+  userRole: {
+    upsert: TxAsyncMock;
+  };
+  creatorPackage: {
+    createMany: TxAsyncMock;
+  };
+}
 
 describe('CreatorProfileService', () => {
   const creatorId = 'creator-user-1';
 
   // We only mock the subset of Prisma methods used by the service.
-  const txMock = {
+  const txMock: TxMock = {
     creatorProfile: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
+      findUnique: createTxAsyncMock(),
+      create: createTxAsyncMock(),
     },
     serviceType: {
-      findMany: jest.fn(),
-      createMany: jest.fn(),
+      findMany: createTxAsyncMock(),
+      createMany: createTxAsyncMock(),
     },
     creatorLanguage: {
-      createMany: jest.fn(),
+      createMany: createTxAsyncMock(),
     },
     creatorService: {
-      createMany: jest.fn(),
+      createMany: createTxAsyncMock(),
     },
     role: {
-      findUnique: jest.fn(),
+      findUnique: createTxAsyncMock(),
     },
     user: {
-      update: jest.fn(),
+      update: createTxAsyncMock(),
     },
     userRole: {
-      upsert: jest.fn(),
+      upsert: createTxAsyncMock(),
     },
     creatorPackage: {
-      // Used by CreatorPackageService
-      createMany: jest.fn(),
+      createMany: createTxAsyncMock(),
     },
-  } as any;
+  };
 
   const prismaMock = {
-    $transaction: jest.fn().mockImplementation(async (fn: any) => fn(txMock)),
+    $transaction: jest.fn(
+      (fn: (tx: TxMock) => Promise<unknown>): Promise<unknown> =>
+        Promise.resolve(fn(txMock)),
+    ),
     creatorProfile: txMock.creatorProfile,
     serviceType: txMock.serviceType,
     creatorLanguage: txMock.creatorLanguage,
@@ -46,21 +90,27 @@ describe('CreatorProfileService', () => {
     user: txMock.user,
     userRole: txMock.userRole,
     creatorPackage: txMock.creatorPackage,
-  } as any;
+  };
 
   const creatorPackageService = {
-    createPackages: jest.fn(async (tx: any, id: string, packages: any[]) => {
-      await tx.creatorPackage.createMany({
-        data: packages.map((pkg) => ({
-          creatorId: id,
-          name: pkg.name,
-          deliverables: pkg.deliverables,
-          priceAmount: new Prisma.Decimal(pkg.priceAmount),
-          deliveryDays: pkg.deliveryDays,
-        })),
-      });
-    }),
-  } as any;
+    createPackages: jest.fn(
+      async (
+        tx: TxMock,
+        id: string,
+        packages: CreatorPackageCreateDto[],
+      ): Promise<void> => {
+        await tx.creatorPackage.createMany({
+          data: packages.map((pkg) => ({
+            creatorId: id,
+            name: pkg.name,
+            deliverables: pkg.deliverables,
+            priceAmount: new Prisma.Decimal(pkg.priceAmount),
+            deliveryDays: pkg.deliveryDays,
+          })),
+        });
+      },
+    ),
+  };
 
   let service: CreatorProfileService;
 
@@ -79,16 +129,19 @@ describe('CreatorProfileService', () => {
     txMock.creatorPackage.createMany.mockReset();
     creatorPackageService.createPackages.mockReset();
 
-    service = new CreatorProfileService(prismaMock, creatorPackageService);
+    service = new CreatorProfileService(
+      prismaMock as unknown as PrismaService,
+      creatorPackageService as unknown as CreatorPackageService,
+    );
   });
 
   it('throws ConflictException if profile already exists', async () => {
     txMock.creatorProfile.findUnique.mockResolvedValueOnce({ id: 'profile-1' });
 
+    const dto: CreateCreatorProfileDto = { displayName: 'Jane' };
+
     await expect(
-      service.createCreatorProfile(creatorId, {
-        displayName: 'Jane',
-      } as any),
+      service.createCreatorProfile(creatorId, dto),
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(txMock.creatorProfile.create).not.toHaveBeenCalled();
@@ -134,7 +187,7 @@ describe('CreatorProfileService', () => {
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
 
-    const dto = {
+    const dto: CreateCreatorProfileDto = {
       displayName: 'Jane',
       languages: ['English'],
       serviceTypeNames: ['Video Editing'],
@@ -148,7 +201,7 @@ describe('CreatorProfileService', () => {
       ],
     };
 
-    const result = await service.createCreatorProfile(creatorId, dto as any);
+    const result = await service.createCreatorProfile(creatorId, dto);
 
     expect(result.id).toBe(profileId);
     expect(txMock.creatorLanguage.createMany).toHaveBeenCalled();
@@ -182,8 +235,16 @@ describe('CreatorProfileService', () => {
         travelRadius: null,
         languages: [],
         services: [
-          { id: 'cs-1', serviceTypeId: st1.id, serviceType: { id: st1.id, name: st1.name } },
-          { id: 'cs-2', serviceTypeId: st2.id, serviceType: { id: st2.id, name: st2.name } },
+          {
+            id: 'cs-1',
+            serviceTypeId: st1.id,
+            serviceType: { id: st1.id, name: st1.name },
+          },
+          {
+            id: 'cs-2',
+            serviceTypeId: st2.id,
+            serviceType: { id: st2.id, name: st2.name },
+          },
         ],
         packages: [],
       }); // final fetch
@@ -197,12 +258,12 @@ describe('CreatorProfileService', () => {
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
 
-    const dto = {
+    const dto: CreateCreatorProfileDto = {
       displayName: 'Jane',
       serviceTypeNames: ['Video Editing', 'Unknown Service'],
     };
 
-    const result = await service.createCreatorProfile(creatorId, dto as any);
+    const result = await service.createCreatorProfile(creatorId, dto);
 
     expect(result.id).toBe(profileId);
     expect(txMock.serviceType.createMany).toHaveBeenCalled();

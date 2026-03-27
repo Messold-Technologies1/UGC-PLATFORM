@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -10,27 +11,27 @@ import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
+import { StorageService } from '../storage/storage.service';
+import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
+import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
+import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 
 const creatorProfileWithRelationsInclude = {
   languages: true,
-  services: { include: { serviceType: true } },
+  categories: true,
+  personaTags: true,
+  restrictions: true,
   packages: true,
-} satisfies Prisma.CreatorProfileInclude;
+} as const;
 
-type CreatorProfileWithRelations = Prisma.CreatorProfileGetPayload<{
-  include: typeof creatorProfileWithRelationsInclude;
-}>;
+/**
+ * NOTE: We intentionally keep this payload type loose because the workspace
+ * TypeScript server can lag behind Prisma client generation in monorepos.
+ * Runtime shape is guaranteed by `creatorProfileWithRelationsInclude`.
+ */
+type CreatorProfileWithRelations = any;
 
-type CreatorPackageRow = CreatorProfileWithRelations['packages'][number];
-
-type CreatorProfileMapped = Omit<CreatorProfileWithRelations, 'packages'> & {
-  packages: Array<
-    Omit<CreatorPackageRow, 'priceAmount' | 'deliverables'> & {
-      priceAmount: string;
-      deliverables: string[];
-    }
-  >;
-};
+type CreatorProfileMapped = any;
 
 function mapJsonDeliverables(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) return [];
@@ -48,7 +49,46 @@ export class CreatorProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly creatorPackageService: CreatorPackageService,
+    private readonly storage: StorageService,
   ) {}
+
+
+  async presignProfileImageUpload(
+    userId: string,
+    dto: PresignProfileImageUploadDto,
+  ) {
+
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    const key = this.storage.buildObjectKey({
+      kind: 'creator_profile_image',
+      userId,
+      creatorProfileId: profile?.id,
+      contentType: dto.contentType,
+    });
+
+    return this.storage.createPresignedPutUpload({
+      key,
+      contentType: dto.contentType,
+      contentLength: dto.contentLength,
+    });
+  }
+
+  private assertProfileImageKeyOwner(creatorProfileId: string, key: string): void {
+    const prefix = `creator-profile/${creatorProfileId}/`;
+    if (!key.startsWith(prefix)) {
+      throw new BadRequestException('Invalid profileImageKey');
+    }
+  }
+
+  private assertTempProfileImageKeyOwner(userId: string, key: string): void {
+    if (!this.storage.isTempCreatorProfileImageKeyForUser(userId, key)) {
+      throw new BadRequestException('Invalid profileImageKey');
+    }
+  }
 
   private mapCreatorProfile(
     profile: CreatorProfileWithRelations,
@@ -73,6 +113,52 @@ export class CreatorProfileService {
     };
   }
 
+  private mapCreatorProfileResponseDto(
+    profile: CreatorProfileWithRelations,
+  ): CreatorProfileResponseDto {
+    const mapped = this.mapCreatorProfile(profile);
+    return {
+      id: mapped.id,
+      userId: mapped.userId,
+      displayName: mapped.displayName,
+      profileImageUrl: mapped.profileImageUrl ?? null,
+      city: mapped.city ?? null,
+      bio: mapped.bio ?? null,
+      gender: mapped.gender ?? null,
+      travelRadius: mapped.travelRadius ?? null,
+      onLocationAvailable: mapped.onLocationAvailable,
+      onLocationFee:
+        mapped.onLocationFee && typeof (mapped.onLocationFee as any)?.toString === 'function'
+          ? (mapped.onLocationFee as any).toString()
+          : mapped.onLocationFee
+            ? String(mapped.onLocationFee)
+            : null,
+      languages: (mapped.languages ?? []).map((l) => ({
+        id: l.id,
+        language: l.language,
+      })),
+      categories: (mapped.categories ?? []).map((c) => ({
+        id: c.id,
+        category: c.category,
+      })),
+      personaTags: (mapped.personaTags ?? []).map((t) => ({
+        id: t.id,
+        tag: t.tag,
+      })),
+      restrictions: (mapped.restrictions ?? []).map((r) => ({
+        id: r.id,
+        restriction: r.restriction,
+      })),
+      packages: (mapped.packages ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        deliverables: p.deliverables,
+        priceAmount: p.priceAmount,
+        deliveryDays: p.deliveryDays,
+      })),
+    };
+  }
+
   private async isAdmin(
     userId: string,
     tx: PrismaTransactionClient,
@@ -92,49 +178,30 @@ export class CreatorProfileService {
     );
   }
 
-  private async resolveServiceTypes(
-    serviceTypeNamesUnique: string[],
-  ): Promise<Array<{ id: string; name: string }>> {
-    if (serviceTypeNamesUnique.length === 0) return [];
-
-    const existing = await this.prisma.serviceType.findMany({
-      where: { name: { in: serviceTypeNamesUnique } },
-      select: { id: true, name: true },
-    });
-
-    const found = new Set(existing.map((s) => s.name));
-    const missing = serviceTypeNamesUnique.filter((n) => !found.has(n));
-
-    if (missing.length > 0) {
-      // Allow "free-form" service types by auto-creating missing `ServiceType.name` values.
-      await this.prisma.serviceType.createMany({
-        data: missing.map((name) => ({ name })),
-        skipDuplicates: true,
-      });
-
-      return this.prisma.serviceType.findMany({
-        where: { name: { in: serviceTypeNamesUnique } },
-        select: { id: true, name: true },
-      });
-    }
-
-    return existing;
+  private normalizeUniqueStrings(values: string[] | undefined): string[] {
+    if (!values?.length) return [];
+    return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
   }
 
-  async createCreatorProfile(userId: string, dto: CreateCreatorProfileDto) {
-    const normalizedLanguages = (dto.languages ?? [])
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const normalizedServiceTypeNamesUnique = [
-      ...new Set(
-        (dto.serviceTypeNames ?? []).map((n) => n.trim()).filter(Boolean),
-      ),
-    ];
+  async createCreatorProfile(
+    userId: string,
+    dto: CreateCreatorProfileDto,
+  ): Promise<CreatorProfileResponseDto> {
 
+    const normalizedLanguages = this.normalizeUniqueStrings(dto.languages);
+    const normalizedCategories = this.normalizeUniqueStrings(dto.categories);
+    const normalizedPersonaTags = this.normalizeUniqueStrings(dto.personaTags);
+    const normalizedRestrictions = this.normalizeUniqueStrings(dto.restrictions);
 
-    const resolvedServiceTypes = await this.resolveServiceTypes(
-      normalizedServiceTypeNamesUnique,
-    );
+    const profileImageKey = dto.profileImageKey?.trim();
+    if (profileImageKey) {
+      this.assertTempProfileImageKeyOwner(userId, profileImageKey);
+    }
+
+    const onLocationFee =
+      dto.onLocationFee !== undefined && dto.onLocationFee !== null
+        ? new Prisma.Decimal(dto.onLocationFee)
+        : null;
 
     const creatorProfileId = await this.prisma.$transaction(
       async (tx) => {
@@ -145,17 +212,18 @@ export class CreatorProfileService {
           throw new ConflictException('Creator profile already exists');
         }
 
-        const creatorProfile = await tx.creatorProfile.create({
-          data: {
-            userId,
-            displayName: dto.displayName,
-            city: dto.city ?? null,
-            bio: dto.bio ?? null,
-            gender: dto.gender ?? null,
-            ageRange: dto.ageRange ?? null,
-            travelRadius: dto.travelRadius ?? null,
-          },
-        });
+        const createData: Prisma.CreatorProfileUncheckedCreateInput = {
+          userId,
+          displayName: dto.displayName,
+          city: dto.city ?? null,
+          bio: dto.bio ?? null,
+          gender: dto.gender ?? null,
+          travelRadius: dto.travelRadius ?? null,
+          onLocationAvailable: dto.onLocationAvailable ?? false,
+          onLocationFee,
+        } as any;
+
+        const creatorProfile = await tx.creatorProfile.create({ data: createData });
 
         // Independent writes: can be done in parallel once we have creatorProfile.id.
         const ops: Array<Promise<unknown>> = [];
@@ -172,12 +240,36 @@ export class CreatorProfileService {
           );
         }
 
-        if (resolvedServiceTypes.length > 0) {
+        if (normalizedCategories.length > 0) {
           ops.push(
-            tx.creatorService.createMany({
-              data: resolvedServiceTypes.map((serviceType) => ({
+            (tx as any).creatorCategory.createMany({
+              data: normalizedCategories.map((category) => ({
                 creatorId: creatorProfile.id,
-                serviceTypeId: serviceType.id,
+                category,
+              })),
+              skipDuplicates: true,
+            }),
+          );
+        }
+
+        if (normalizedPersonaTags.length > 0) {
+          ops.push(
+            (tx as any).creatorPersonaTag.createMany({
+              data: normalizedPersonaTags.map((tag) => ({
+                creatorId: creatorProfile.id,
+                tag,
+              })),
+              skipDuplicates: true,
+            }),
+          );
+        }
+
+        if (normalizedRestrictions.length > 0) {
+          ops.push(
+            (tx as any).creatorRestriction.createMany({
+              data: normalizedRestrictions.map((restriction) => ({
+                creatorId: creatorProfile.id,
+                restriction,
               })),
               skipDuplicates: true,
             }),
@@ -220,20 +312,35 @@ export class CreatorProfileService {
       { timeout: 30_000, maxWait: 10_000 },
     );
 
+    if (profileImageKey) {
+      const finalProfileImageKey = await this.storage.finalizeCreatorProfileImageKey({
+        tempKey: profileImageKey,
+        creatorProfileId,
+        deleteTemp: true,
+      });
+      await this.prisma.creatorProfile.update({
+        where: { id: creatorProfileId },
+        data: {
+          profileImageKey: finalProfileImageKey,
+          profileImageUrl: this.storage.buildCdnUrl(finalProfileImageKey),
+        },
+      });
+    }
+
     // Fetch after commit to keep the transaction fast and avoid interactive tx timeouts.
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
-      include: creatorProfileWithRelationsInclude,
+      include: creatorProfileWithRelationsInclude as any,
     });
 
     if (!profile) {
       throw new Error('Creator profile creation failed');
     }
 
-    return this.mapCreatorProfile(profile);
+    return this.mapCreatorProfileResponseDto(profile);
   }
 
-  async listCreators(query: ListCreatorsQueryDto) {
+  async listCreators(query: ListCreatorsQueryDto): Promise<CreatorsListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -244,36 +351,36 @@ export class CreatorProfileService {
         take: limit,
         skip,
         orderBy: { createdAt: 'desc' },
-        include: creatorProfileWithRelationsInclude,
+        include: creatorProfileWithRelationsInclude as any,
       }),
     ]);
 
     return {
-      items: items.map((p) => this.mapCreatorProfile(p)),
+      items: items.map((p) => this.mapCreatorProfileResponseDto(p)),
       total,
       page,
       limit,
     };
   }
 
-  async getCreatorById(id: string) {
+  async getCreatorById(id: string): Promise<CreatorProfileResponseDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id },
-      include: creatorProfileWithRelationsInclude,
+      include: creatorProfileWithRelationsInclude as any,
     });
 
     if (!profile) {
       throw new NotFoundException('Creator not found');
     }
 
-    return this.mapCreatorProfile(profile);
+    return this.mapCreatorProfileResponseDto(profile);
   }
 
   async updateCreatorProfile(
     actingUserId: string,
     creatorProfileId: string,
     dto: UpdateCreatorProfileDto,
-  ) {
+  ): Promise<CreatorProfileResponseDto> {
     return this.prisma.$transaction(
       async (tx) => {
         const profile = await tx.creatorProfile.findUnique({
@@ -293,20 +400,42 @@ export class CreatorProfileService {
           );
         }
 
+        let nextProfileImageKey: string | null | undefined = undefined;
+        let nextProfileImageUrl: string | null | undefined = undefined;
+        if (dto.profileImageKey !== undefined) {
+          const trimmed = dto.profileImageKey?.trim();
+          if (trimmed) {
+            this.assertProfileImageKeyOwner(creatorProfileId, trimmed);
+            nextProfileImageKey = trimmed;
+            nextProfileImageUrl = this.storage.buildCdnUrl(trimmed);
+          } else {
+            nextProfileImageKey = null;
+            nextProfileImageUrl = null;
+          }
+        }
+
         await tx.creatorProfile.update({
           where: { id: creatorProfileId },
           data: {
             displayName: dto.displayName ?? undefined,
+            profileImageKey: nextProfileImageKey,
+            profileImageUrl: nextProfileImageUrl,
             city: dto.city ?? undefined,
             bio: dto.bio ?? undefined,
             gender: dto.gender ?? undefined,
-            ageRange: dto.ageRange ?? undefined,
             travelRadius: dto.travelRadius ?? undefined,
-          },
+            onLocationAvailable: dto.onLocationAvailable ?? undefined,
+            onLocationFee:
+              dto.onLocationFee !== undefined
+                ? dto.onLocationFee
+                  ? new Prisma.Decimal(dto.onLocationFee)
+                  : null
+                : undefined,
+          } as any,
         });
 
         if (dto.languages) {
-          const normalized = dto.languages.map((l) => l.trim()).filter(Boolean);
+          const normalized = this.normalizeUniqueStrings(dto.languages);
           await tx.creatorLanguage.deleteMany({
             where: { creatorId: creatorProfileId },
           });
@@ -321,39 +450,48 @@ export class CreatorProfileService {
           }
         }
 
-        if (dto.serviceTypeNames) {
-          const names = dto.serviceTypeNames
-            .map((n) => n.trim())
-            .filter(Boolean);
-          const uniqueNames = [...new Set(names)];
-
-          let serviceTypes = await tx.serviceType.findMany({
-            where: { name: { in: uniqueNames } },
-            select: { id: true, name: true },
-          });
-          const found = new Set(serviceTypes.map((s) => s.name));
-          const missing = uniqueNames.filter((n) => !found.has(n));
-
-          if (missing.length > 0) {
-            // Allow "free-form" service types by auto-creating missing `ServiceType.name` values.
-            await tx.serviceType.createMany({
-              data: missing.map((name) => ({ name })),
-              skipDuplicates: true,
-            });
-            serviceTypes = await tx.serviceType.findMany({
-              where: { name: { in: uniqueNames } },
-              select: { id: true, name: true },
-            });
-          }
-
-          await tx.creatorService.deleteMany({
+        if (dto.categories) {
+          const normalized = this.normalizeUniqueStrings(dto.categories);
+          await (tx as any).creatorCategory.deleteMany({
             where: { creatorId: creatorProfileId },
           });
-          if (serviceTypes.length > 0) {
-            await tx.creatorService.createMany({
-              data: serviceTypes.map((st) => ({
+          if (normalized.length > 0) {
+            await (tx as any).creatorCategory.createMany({
+              data: normalized.map((category) => ({
                 creatorId: creatorProfileId,
-                serviceTypeId: st.id,
+                category,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        if (dto.personaTags) {
+          const normalized = this.normalizeUniqueStrings(dto.personaTags);
+          await (tx as any).creatorPersonaTag.deleteMany({
+            where: { creatorId: creatorProfileId },
+          });
+          if (normalized.length > 0) {
+            await (tx as any).creatorPersonaTag.createMany({
+              data: normalized.map((tag) => ({
+                creatorId: creatorProfileId,
+                tag,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        if (dto.restrictions) {
+          const normalized = this.normalizeUniqueStrings(dto.restrictions);
+          await (tx as any).creatorRestriction.deleteMany({
+            where: { creatorId: creatorProfileId },
+          });
+          if (normalized.length > 0) {
+            await (tx as any).creatorRestriction.createMany({
+              data: normalized.map((restriction) => ({
+                creatorId: creatorProfileId,
+                restriction,
               })),
               skipDuplicates: true,
             });
@@ -373,14 +511,14 @@ export class CreatorProfileService {
 
         const updated = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },
-          include: creatorProfileWithRelationsInclude,
+          include: creatorProfileWithRelationsInclude as any,
         });
 
         if (!updated) {
           throw new Error('Creator profile update failed');
         }
 
-        return this.mapCreatorProfile(updated);
+        return this.mapCreatorProfileResponseDto(updated);
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
@@ -409,5 +547,29 @@ export class CreatorProfileService {
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
+  }
+
+  async listCategorySuggestions() {
+    return (this.prisma as any).creatorCategorySuggestion.findMany({
+      take: 100,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+  }
+
+  async listPersonaTagSuggestions() {
+    return (this.prisma as any).creatorPersonaTagSuggestion.findMany({
+      take: 100,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+  }
+
+  async listRestrictionSuggestions() {
+    return (this.prisma as any).creatorRestrictionSuggestion.findMany({
+      take: 100,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
   }
 }

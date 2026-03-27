@@ -17,6 +17,8 @@ const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
 const _creatorslistresponsedto = require("./dto/creators-list-response.dto");
 const _creatorprofileresponsedto = require("./dto/creator-profile-response.dto");
 const _creatorprofileservice = require("./creator-profile.service");
+const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
+const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -35,8 +37,20 @@ let CreatorProfileController = class CreatorProfileController {
     async createProfile(dto, req) {
         return this.creatorProfileService.createCreatorProfile(req.user.id, dto);
     }
+    async presignProfileImageUpload(dto, req) {
+        return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
+    }
     async listCreators(query) {
         return this.creatorProfileService.listCreators(query);
+    }
+    async listCategorySuggestions() {
+        return this.creatorProfileService.listCategorySuggestions();
+    }
+    async listPersonaTagSuggestions() {
+        return this.creatorProfileService.listPersonaTagSuggestions();
+    }
+    async listRestrictionSuggestions() {
+        return this.creatorProfileService.listRestrictionSuggestions();
     }
     async getCreator(id) {
         return this.creatorProfileService.getCreatorById(id);
@@ -71,6 +85,25 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "createProfile", null);
 _ts_decorate([
+    (0, _common.Post)('profile/uploads/presign'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.HttpCode)(_common.HttpStatus.CREATED),
+    (0, _swagger.ApiOperation)({
+        summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image'
+    }),
+    (0, _swagger.ApiCreatedResponse)({
+        type: _presignprofileimageuploaddto.PresignUploadResponseDto
+    }),
+    _ts_param(0, (0, _common.Body)()),
+    _ts_param(1, (0, _common.Req)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        typeof _presignprofileimageuploaddto.PresignProfileImageUploadDto === "undefined" ? Object : _presignprofileimageuploaddto.PresignProfileImageUploadDto,
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "presignProfileImageUpload", null);
+_ts_decorate([
     (0, _common.Get)(),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
@@ -86,6 +119,51 @@ _ts_decorate([
     ]),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "listCreators", null);
+_ts_decorate([
+    (0, _common.Get)('suggestions/categories'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _swagger.ApiOperation)({
+        summary: 'List creator category suggestions'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: ()=>[
+                _creatorsuggestionitemdto.CreatorSuggestionItemDto
+            ]
+    }),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", []),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listCategorySuggestions", null);
+_ts_decorate([
+    (0, _common.Get)('suggestions/persona-tags'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _swagger.ApiOperation)({
+        summary: 'List creator persona tag suggestions'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: ()=>[
+                _creatorsuggestionitemdto.CreatorSuggestionItemDto
+            ]
+    }),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", []),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listPersonaTagSuggestions", null);
+_ts_decorate([
+    (0, _common.Get)('suggestions/restrictions'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _swagger.ApiOperation)({
+        summary: 'List creator restriction suggestions'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: ()=>[
+                _creatorsuggestionitemdto.CreatorSuggestionItemDto
+            ]
+    }),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", []),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listRestrictionSuggestions", null);
 _ts_decorate([
     (0, _common.Get)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
@@ -106,7 +184,7 @@ _ts_decorate([
     (0, _common.Patch)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
-        summary: 'Update creator profile (replace languages/services/packages if provided)'
+        summary: 'Update creator profile (replace languages/categories/persona/restrictions/packages if provided)'
     }),
     (0, _swagger.ApiOkResponse)({
         type: _creatorprofileresponsedto.CreatorProfileResponseDto

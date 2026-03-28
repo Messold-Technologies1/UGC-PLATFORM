@@ -1,5 +1,6 @@
-import { memo } from "react";
-import { MapPin, Star, Clock, Calendar, CheckCircle2, XCircle, MessageSquare } from "lucide-react";
+import { memo, useMemo } from "react";
+import Image from "next/image";
+import { MapPin, Star, CheckCircle2, XCircle, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { CreatorProfile } from "../types";
@@ -8,29 +9,116 @@ interface ProfileHeaderProps {
   creator: CreatorProfile;
 }
 
-export const ProfileHeader = memo(function ProfileHeader({ creator }: ProfileHeaderProps) {
-  const attributes: { ok: boolean; text: string }[] = [
-    { ok: creator.storeVisit, text: creator.storeVisit ? "Accepts store visits" : "No store visits" },
-    { ok: true, text: `Speaks ${creator.languages.join(", ")}` },
-    { ok: !creator.acceptsLingerie, text: creator.acceptsLingerie ? "Accepts lingerie" : "Does not accept lingerie" },
-  ];
+function isRemoteImage(src: string): boolean {
+  return src.startsWith("http://") || src.startsWith("https://");
+}
+
+export const ProfileHeader = memo(function ProfileHeader({
+  creator,
+}: ProfileHeaderProps) {
+  const initials = useMemo(
+    () =>
+      creator.name
+        .split(" ")
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "?",
+    [creator.name],
+  );
+
+  const attributeRows = useMemo(() => {
+    const rows: { ok: boolean; text: string }[] = [];
+
+    if (creator.languages.length > 0) {
+      rows.push({
+        ok: true,
+        text: `Speaks ${creator.languages.join(", ")}`,
+      });
+    }
+
+    if (creator.travelRadiusKm != null && creator.travelRadiusKm > 0) {
+      rows.push({
+        ok: true,
+        text: `Travels up to ${creator.travelRadiusKm} km`,
+      });
+    }
+
+    if (creator.storeVisit) {
+      rows.push({
+        ok: true,
+        text: "Available for on-location / store shoots",
+      });
+      if (creator.onLocationFee) {
+        const fee = Number.parseFloat(creator.onLocationFee);
+        const feeLabel = Number.isFinite(fee)
+          ? fee.toLocaleString("en-IN")
+          : creator.onLocationFee;
+        rows.push({
+          ok: true,
+          text: `On-location fee: ₹${feeLabel}`,
+        });
+      }
+    }
+
+    for (const r of creator.restrictions) {
+      const t = r.trim();
+      if (t)
+        rows.push({
+          ok: false,
+          text: t,
+        });
+    }
+
+    if (rows.length === 0) {
+      rows.push({
+        ok: true,
+        text: "Open to brand collaborations",
+      });
+    }
+
+    return rows;
+  }, [
+    creator.languages,
+    creator.travelRadiusKm,
+    creator.storeVisit,
+    creator.onLocationFee,
+    creator.restrictions,
+  ]);
+
+  const showReviewsLine = creator.reviewCount > 0;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div
-          className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted text-3xl font-bold text-foreground sm:size-28"
+          className="relative flex size-24 shrink-0 overflow-hidden rounded-full bg-muted sm:size-28"
           role="img"
           aria-label={creator.name}
         >
-          {creator.name.split(" ").map((n) => n[0]).join("")}
+          {isRemoteImage(creator.thumbnail) ? (
+            <Image
+              src={creator.thumbnail}
+              alt={creator.name}
+              fill
+              className="object-cover"
+              sizes="112px"
+            />
+          ) : (
+            <span className="flex size-full items-center justify-center text-3xl font-bold text-foreground">
+              {initials}
+            </span>
+          )}
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{creator.name}</h1>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {creator.name}
+            </h1>
             {creator.available && (
-              <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+              <Badge className="border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
                 Available
               </Badge>
             )}
@@ -38,38 +126,38 @@ export const ProfileHeader = memo(function ProfileHeader({ creator }: ProfileHea
 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
-              <MapPin className="size-3.5" />
+              <MapPin className="size-3.5 shrink-0" />
               {creator.location}
             </span>
-            <span className="flex items-center gap-1">
-              <Star className="size-3.5 fill-amber-400 text-amber-400" />
-              <span className="font-medium text-foreground">{creator.rating}</span>
-              <span>({creator.reviewCount} reviews)</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="size-3.5" />
-              Responds {creator.responseTime}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="size-3.5" />
-              Member since {creator.joinedDate}
-            </span>
+            {showReviewsLine ? (
+              <span className="flex items-center gap-1">
+                <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
+                <span className="font-medium text-foreground">
+                  {creator.rating}
+                </span>
+                <span>({creator.reviewCount} reviews)</span>
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">No reviews yet</span>
+            )}
           </div>
 
-          <p className="mt-3 max-w-2xl text-sm text-muted-foreground leading-relaxed">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             {creator.bio}
           </p>
 
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {creator.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
+          {creator.tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {creator.tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5">
-            {attributes.map(({ ok, text }) => (
+            {attributeRows.map(({ ok, text }) => (
               <span
                 key={text}
                 className={`flex items-center gap-1.5 text-xs ${
@@ -77,9 +165,9 @@ export const ProfileHeader = memo(function ProfileHeader({ creator }: ProfileHea
                 }`}
               >
                 {ok ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-500" />
+                  <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
                 ) : (
-                  <XCircle className="size-3.5 text-muted-foreground/60" />
+                  <XCircle className="size-3.5 shrink-0 text-muted-foreground/60" />
                 )}
                 {text}
               </span>
@@ -95,10 +183,19 @@ export const ProfileHeader = memo(function ProfileHeader({ creator }: ProfileHea
         </div>
 
         <div className="hidden shrink-0 grid-cols-2 gap-3 sm:grid">
-          <StatBlock label="Orders" value={String(creator.ordersCompleted)} />
+          <StatBlock
+            label="Orders"
+            value={String(creator.ordersCompleted)}
+          />
           <StatBlock label="Rating" value={String(creator.rating)} />
-          <StatBlock label="Reviews" value={String(creator.reviewCount)} />
-          <StatBlock label="Starting" value={`₹${creator.startingPrice.toLocaleString("en-IN")}`} />
+          <StatBlock
+            label="Reviews"
+            value={String(creator.reviewCount)}
+          />
+          <StatBlock
+            label="Starting"
+            value={`₹${creator.startingPrice.toLocaleString("en-IN")}`}
+          />
         </div>
       </div>
     </div>
@@ -109,7 +206,9 @@ function StatBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-center">
       <p className="text-lg font-bold">{value}</p>
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }

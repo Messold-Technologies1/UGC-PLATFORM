@@ -5,10 +5,10 @@ export type CreatorProfileLanguageApi = {
   language: string;
 };
 
-export type CreatorProfileServiceApi = {
+/** Matches Nest `CreatorCategoryResponseDto`. */
+export type CreatorProfileCategoryApi = {
   id: string;
-  serviceTypeId: string;
-  serviceType: { id: string; name: string };
+  category: string;
 };
 
 export type CreatorProfilePackageApi = {
@@ -19,17 +19,33 @@ export type CreatorProfilePackageApi = {
   deliveryDays: number;
 };
 
+export type CreatorProfilePersonaTagApi = {
+  id: string;
+  tag: string;
+};
+
+export type CreatorProfileRestrictionApi = {
+  id: string;
+  restriction: string;
+};
+
+/** Aligns with Nest `CreatorProfileResponseDto` / `GET /api/creators` list items. */
 export type CreatorProfileItemApi = {
   id: string;
   userId: string;
   displayName: string;
+  profileImageUrl?: string | null;
   city?: string | null;
   bio?: string | null;
   gender?: string | null;
   ageRange?: string | null;
   travelRadius?: number | null;
+  onLocationAvailable?: boolean;
+  onLocationFee?: string | null;
   languages: CreatorProfileLanguageApi[];
-  services: CreatorProfileServiceApi[];
+  categories: CreatorProfileCategoryApi[];
+  personaTags?: CreatorProfilePersonaTagApi[];
+  restrictions?: CreatorProfileRestrictionApi[];
   packages: CreatorProfilePackageApi[];
 };
 

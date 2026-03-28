@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { cn } from "@/lib/utils";
-import { DashboardSidebar } from "@/components/dashboard/sidebar";
+import { DashboardSidebar } from "./sidebar";
 
 const sk = cn(
   "rounded-md bg-muted/60 motion-safe:animate-pulse motion-reduce:opacity-90",

@@ -12,6 +12,7 @@ export const ENDPOINTS = {
   CREATORS: {
     LIST: "/api/creators",
     PROFILE: "/api/creators/profile",
+    PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
   },
 } as const;
 

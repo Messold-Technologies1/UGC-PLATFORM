@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -18,6 +19,7 @@ export type DashboardOnboardingGateProps = {
 };
 
 const PARAM = "onboarding";
+const BRAND_OVERLAY_DISMISS_KEY = "ugc_brand_onboarding_overlay_dismissed_v1";
 
 export function DashboardOnboardingGate({
   role,
@@ -27,12 +29,17 @@ export function DashboardOnboardingGate({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
+  const [brandOverlayDismissed, setBrandOverlayDismissed] = useState(false);
 
-  /** Full-screen setup only on settings so dashboard can show overview + banner. */
-  const pathnameAllowsFullPageOnboarding = useMemo(() => {
-    const prefix = `/${role}`;
-    return pathname === `${prefix}/settings`;
-  }, [pathname, role]);
+  useEffect(() => {
+    try {
+      setBrandOverlayDismissed(
+        sessionStorage.getItem(BRAND_OVERLAY_DISMISS_KEY) === "1",
+      );
+    } catch {
+      setBrandOverlayDismissed(false);
+    }
+  }, []);
 
   const paramRequestsOnboarding = useMemo(() => {
     const raw = searchParams.get(PARAM);
@@ -46,14 +53,30 @@ export function DashboardOnboardingGate({
       ? user.hasCreatorProfile
       : user.hasBrandProfile);
 
-  const showFullPageOnboarding =
-    paramRequestsOnboarding &&
-    pathnameAllowsFullPageOnboarding &&
-    !profileComplete;
+  /** First-time creator: full-screen overlay until profile exists (POST create). */
+  const showCreatorBlockingOnboarding =
+    role === "creator" &&
+    !isLoading &&
+    !!user &&
+    !user.hasCreatorProfile;
+
+  /**
+   * Brand profile is not exposed via API yet; allow a session dismiss so users
+   * are not trapped behind an empty overlay forever.
+   */
+  const showBrandBlockingOnboarding =
+    role === "brand" &&
+    !isLoading &&
+    !!user &&
+    !user.hasBrandProfile &&
+    !brandOverlayDismissed;
+
+  const showBlockingOnboarding =
+    showCreatorBlockingOnboarding || showBrandBlockingOnboarding;
 
   useEffect(() => {
     if (!paramRequestsOnboarding) return;
-    if (pathnameAllowsFullPageOnboarding && !profileComplete) return;
+    if (showBlockingOnboarding) return;
     const next = new URLSearchParams(searchParams.toString());
     next.delete(PARAM);
     const q = next.toString();
@@ -62,8 +85,7 @@ export function DashboardOnboardingGate({
     });
   }, [
     paramRequestsOnboarding,
-    pathnameAllowsFullPageOnboarding,
-    profileComplete,
+    showBlockingOnboarding,
     pathname,
     router,
     searchParams,
@@ -78,9 +100,24 @@ export function DashboardOnboardingGate({
     });
   }, [pathname, router, searchParams]);
 
-  if (!showFullPageOnboarding) {
-    return <>{children}</>;
+  const handleBrandDismiss = useCallback(() => {
+    try {
+      sessionStorage.setItem(BRAND_OVERLAY_DISMISS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setBrandOverlayDismissed(true);
+  }, []);
+
+  if (showBlockingOnboarding) {
+    return (
+      <GlobalOnboardingPage
+        role={role}
+        onClose={clearParam}
+        onBrandDismiss={handleBrandDismiss}
+      />
+    );
   }
 
-  return <GlobalOnboardingPage role={role} onClose={clearParam} />;
+  return <>{children}</>;
 }

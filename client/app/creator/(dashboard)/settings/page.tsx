@@ -5,7 +5,7 @@ import { UserCircle, Bell, CreditCard, Shield } from "lucide-react";
 
 export const metadata: Metadata = { title: "Settings" };
 
-const PROFILE_ONBOARDING_HREF = "/creator/settings?onboarding=creator" as const;
+const PROFILE_SETTINGS_HREF = "/creator/settings/profile" as const;
 
 const sections = [
   {
@@ -13,7 +13,7 @@ const sections = [
     title: "Profile",
     description:
       "Update your display name, bio, profile picture, and social links.",
-    href: PROFILE_ONBOARDING_HREF,
+    href: PROFILE_SETTINGS_HREF,
   },
   {
     icon: Bell,

@@ -1,33 +1,40 @@
 "use client";
 
-import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form";
+import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form.lazy";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type GlobalOnboardingPageProps = {
   role: "creator" | "brand";
   onClose: () => void;
+  /** Brand has no profile API yet; dismiss overlay for this session only. */
+  onBrandDismiss?: () => void;
   className?: string;
 };
 
 export function GlobalOnboardingPage({
   role,
   onClose,
+  onBrandDismiss,
   className,
 }: GlobalOnboardingPageProps) {
   return (
     <div
       className={cn(
-        "flex min-h-0 w-full flex-1 flex-col overflow-y-auto bg-background",
+        "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background/80 px-4 py-8 backdrop-blur-md",
         className,
       )}
     >
       {role === "creator" ? (
-        <div className="mx-auto w-full max-w-4xl flex-1">
-          <CreatorProfileSetupForm onSuccess={onClose} />
+        <div className="w-full max-w-4xl rounded-2xl border border-border bg-card shadow-2xl shadow-black/20">
+          <CreatorProfileSetupForm
+            variant="onboarding"
+            mode="create"
+            onSuccess={onClose}
+          />
         </div>
       ) : (
-        <div className="mx-auto w-full max-w-4xl flex-1 px-8 pb-10 pt-8 md:px-10 md:pt-10">
+        <div className="w-full max-w-4xl rounded-2xl border border-border bg-card p-8 shadow-2xl shadow-black/20 md:p-10">
           <section
             aria-labelledby="brand-onboarding-heading"
             className="flex flex-col gap-6"
@@ -42,7 +49,14 @@ export function GlobalOnboardingPage({
               Organization and billing onboarding will live here. For now,
               continue to your dashboard when you are ready.
             </p>
-            <Button type="button" onClick={onClose} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              onClick={() => {
+                onBrandDismiss?.();
+                onClose();
+              }}
+              className="w-full sm:w-auto"
+            >
               Continue to dashboard
             </Button>
           </section>

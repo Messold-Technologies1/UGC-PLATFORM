@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { Building2, Menu, X, User, Moon, Sun, Video } from "lucide-react";
+import { Menu, X, User, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NavbarProfileMenu } from "@/components/navbar-profile-menu";
-import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 
@@ -66,7 +65,6 @@ function ThemeToggle() {
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
-  const { goWorkspace } = useWorkspaceNavigation();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125">
@@ -83,35 +81,7 @@ export function Navbar() {
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
-            <>
-              <div className="flex shrink-0 items-center gap-1 border-l border-border/60 pl-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-foreground/80"
-                  onClick={() =>
-                    void goWorkspace("BRAND", { redirectIfCurrent: true })
-                  }
-                >
-                  <Building2 className="size-4" />
-                  As Brand
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-foreground/80"
-                  onClick={() =>
-                    void goWorkspace("CREATOR", { redirectIfCurrent: true })
-                  }
-                >
-                  <Video className="size-4" />
-                  As Creator
-                </Button>
-              </div>
-              <NavbarProfileMenu />
-            </>
+            <NavbarProfileMenu />
           ) : (
             <>
               <Button asChild variant="outline" size="sm">
@@ -158,33 +128,7 @@ export function Navbar() {
       >
         <div className="flex flex-col gap-1 px-4 py-3">
           {isAuthenticated ? (
-            <>
-              <div className="mb-2 flex flex-col gap-1 border-b border-border/60 pb-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileOpen(false);
-                    void goWorkspace("BRAND", { redirectIfCurrent: true });
-                  }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <Building2 className="size-4 text-muted-foreground" />
-                  As Brand
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileOpen(false);
-                    void goWorkspace("CREATOR", { redirectIfCurrent: true });
-                  }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <Video className="size-4 text-muted-foreground" />
-                  As Creator
-                </button>
-              </div>
-              <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
-            </>
+            <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
           ) : (
             <>
               <Link

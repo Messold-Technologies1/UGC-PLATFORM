@@ -5,7 +5,7 @@ import { ArrowRight, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/auth-provider";
 
-const PROFILE_SETUP_HREF = "/creator/settings?onboarding=creator";
+const PROFILE_SETUP_HREF = "/creator/dashboard";
 
 export function CreatorIncompleteProfileBanner() {
   const { user, isLoading } = useAuth();

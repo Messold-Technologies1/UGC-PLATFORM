@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -20,9 +23,21 @@ import {
   createCreatorProfile,
   type CreateCreatorProfilePayload,
 } from "@/features/creators/api/create-creator-profile";
+import type { CreatorProfileItemApi } from "@/features/creators/api/types";
+import {
+  updateCreatorProfile,
+  type UpdateCreatorProfilePayload,
+} from "@/features/creators/api/update-creator-profile";
+import {
+  presignCreatorProfileImageUpload,
+  putFileToPresignedUrl,
+} from "@/features/creators/api/presign-creator-profile-image";
 
 /** Frontend-only; increase or remove to allow more packages without server changes. */
 const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
+
+const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
+const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
 /** Radix Select requires a non-empty value for the default option. */
 const GENDER_VALUE_UNSPECIFIED = "__unspecified__";
@@ -63,10 +78,20 @@ function splitLines(raw: string): string[] {
 }
 
 export type CreatorProfileSetupFormProps = {
+  /** Full-screen onboarding vs in-dashboard settings page. */
+  variant: "onboarding" | "settings";
+  mode: "create" | "update";
+  /** Required when `mode="update"`. */
+  profileId?: string;
+  initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void;
 };
 
 export function CreatorProfileSetupForm({
+  variant,
+  mode,
+  profileId,
+  initialProfile,
   onSuccess,
 }: CreatorProfileSetupFormProps) {
   const queryClient = useQueryClient();
@@ -76,15 +101,26 @@ export function CreatorProfileSetupForm({
   const [city, setCity] = useState("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
-  const [ageRange, setAgeRange] = useState("");
   const [travelRadius, setTravelRadius] = useState("");
   const [languages, setLanguages] = useState("");
-  const [serviceTypeNames, setServiceTypeNames] = useState("");
+  /** Comma-separated — maps to `categories` / `personaTags` / `restrictions` on the API. */
+  const [categoriesInput, setCategoriesInput] = useState("");
+  const [personaTagsInput, setPersonaTagsInput] = useState("");
+  const [restrictionsInput, setRestrictionsInput] = useState("");
+  const [onLocationAvailable, setOnLocationAvailable] = useState(false);
+  const [onLocationFee, setOnLocationFee] = useState("");
   /** Monotonic ids for new rows (initial row is always pkg-0 — stable for SSR hydration). */
   const nextPackageIdRef = useRef(1);
   const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
     createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
   ]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  /** Temp S3 key after presign + PUT; sent as `profileImageKey` on create/update. */
+  const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
+    string | null
+  >(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const updatePackageDraft = useCallback(
     (id: string, patch: Partial<Omit<PackageDraft, "id">>) => {
@@ -112,10 +148,125 @@ export function CreatorProfileSetupForm({
   }, []);
 
   useEffect(() => {
+    if (mode === "update" && initialProfile) {
+      const url = initialProfile.profileImageUrl?.trim();
+      setImagePreviewUrl(
+        url && (url.startsWith("http://") || url.startsWith("https://"))
+          ? url
+          : null,
+      );
+      setPendingProfileImageKey(null);
+      setDisplayName(initialProfile.displayName);
+      setCity(initialProfile.city?.trim() ?? "");
+      setBio(initialProfile.bio?.trim() ?? "");
+      setGender(initialProfile.gender?.trim() ?? "");
+      setTravelRadius(
+        initialProfile.travelRadius != null
+          ? String(initialProfile.travelRadius)
+          : "",
+      );
+      setLanguages(initialProfile.languages.map((l) => l.language).join(", "));
+      setCategoriesInput(
+        initialProfile.categories.map((c) => c.category).join(", "),
+      );
+      setPersonaTagsInput(
+        (initialProfile.personaTags ?? []).map((t) => t.tag).join(", "),
+      );
+      setRestrictionsInput(
+        (initialProfile.restrictions ?? [])
+          .map((r) => r.restriction)
+          .join(", "),
+      );
+      setOnLocationAvailable(initialProfile.onLocationAvailable ?? false);
+      setOnLocationFee(
+        initialProfile.onLocationFee != null &&
+          String(initialProfile.onLocationFee).trim() !== ""
+          ? String(initialProfile.onLocationFee)
+          : "",
+      );
+      if (initialProfile.packages.length > 0) {
+        nextPackageIdRef.current = initialProfile.packages.length;
+        setPackageDrafts(
+          initialProfile.packages.map((p) => ({
+            id: p.id,
+            name: p.name,
+            priceAmount: p.priceAmount,
+            deliveryDays: String(p.deliveryDays),
+            deliverables: p.deliverables.join("\n"),
+          })),
+        );
+      } else {
+        setPackageDrafts([
+          createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
+        ]);
+        nextPackageIdRef.current = 1;
+      }
+      return;
+    }
     if (!user) return;
+    setImagePreviewUrl(null);
+    setPendingProfileImageKey(null);
+    setCategoriesInput("");
+    setPersonaTagsInput("");
+    setRestrictionsInput("");
+    setOnLocationAvailable(false);
+    setOnLocationFee("");
     const name = user.name?.trim() || user.email.split("@")[0] || "";
     setDisplayName(name);
-  }, [user]);
+  }, [user, mode, initialProfile]);
+
+  const displayInitials = useCallback(() => {
+    const base =
+      displayName.trim() ||
+      user?.name?.trim() ||
+      user?.email?.split("@")[0] ||
+      "?";
+    const parts = base.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase().slice(0, 2);
+    }
+    return base.slice(0, 2).toUpperCase();
+  }, [displayName, user]);
+
+  const handleProfileImageSelected = useCallback(async (file: File | null) => {
+    if (!file) return;
+    if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
+      toast.error("Use JPEG, PNG, WebP, or GIF.");
+      return;
+    }
+    if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+      toast.error("Image must be 8 MB or smaller.");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const presign = await presignCreatorProfileImageUpload({
+        contentType: file.type,
+        contentLength: file.size,
+      });
+      await putFileToPresignedUrl(file, presign);
+      setPendingProfileImageKey(presign.key);
+      setImagePreviewUrl(presign.cdnUrl);
+      toast.success("Photo uploaded — save your profile to apply.");
+    } catch {
+      toast.error("Could not upload image. Try again.");
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, []);
+
+  const clearProfileImage = useCallback(() => {
+    setPendingProfileImageKey(null);
+    if (mode === "update" && initialProfile?.profileImageUrl?.trim()) {
+      const u = initialProfile.profileImageUrl.trim();
+      setImagePreviewUrl(
+        u.startsWith("http://") || u.startsWith("https://") ? u : null,
+      );
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, [mode, initialProfile]);
 
   const handleSubmit = useCallback(
     async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -125,13 +276,19 @@ export function CreatorProfileSetupForm({
         toast.error("Display name is required");
         return;
       }
+      if (mode === "update" && !profileId) {
+        toast.error("Missing profile id");
+        return;
+      }
 
       const radiusRaw = travelRadius.trim();
       const radius =
         radiusRaw === "" ? undefined : Number.parseInt(radiusRaw, 10);
 
       const langs = splitCommaList(languages);
-      const services = splitCommaList(serviceTypeNames);
+      const cats = splitCommaList(categoriesInput);
+      const personas = splitCommaList(personaTagsInput);
+      const rests = splitCommaList(restrictionsInput);
 
       const builtPackages: NonNullable<
         CreateCreatorProfilePayload["packages"]
@@ -168,29 +325,78 @@ export function CreatorProfileSetupForm({
       const packages: CreateCreatorProfilePayload["packages"] =
         builtPackages.length > 0 ? builtPackages : undefined;
 
-      const payload: CreateCreatorProfilePayload = {
+      const createPayload: CreateCreatorProfilePayload = {
         displayName: name,
+        ...(pendingProfileImageKey
+          ? { profileImageKey: pendingProfileImageKey }
+          : {}),
         city: city.trim() || undefined,
         bio: bio.trim() || undefined,
         gender: gender.trim() || undefined,
-        ageRange: ageRange.trim() || undefined,
         travelRadius:
           radius !== undefined && !Number.isNaN(radius) && radius >= 0
             ? radius
             : undefined,
         languages: langs.length ? langs : undefined,
-        serviceTypeNames: services.length ? services : undefined,
+        categories: cats.length ? cats : undefined,
+        personaTags: personas.length ? personas : undefined,
+        restrictions: rests.length ? rests : undefined,
+        onLocationAvailable,
+        ...(onLocationAvailable && onLocationFee.trim()
+          ? { onLocationFee: onLocationFee.trim() }
+          : {}),
         packages,
       };
 
       setPending(true);
       try {
-        await createCreatorProfile(payload);
+        if (mode === "update") {
+          if (!profileId) {
+            toast.error("Missing profile id");
+            return;
+          }
+          const patchPayload: UpdateCreatorProfilePayload = {
+            displayName: name,
+            ...(pendingProfileImageKey
+              ? { profileImageKey: pendingProfileImageKey }
+              : {}),
+            city: city.trim() || undefined,
+            bio: bio.trim() || undefined,
+            gender: gender.trim() || undefined,
+            travelRadius:
+              radius !== undefined && !Number.isNaN(radius) && radius >= 0
+                ? radius
+                : undefined,
+            onLocationAvailable,
+            ...(onLocationAvailable && onLocationFee.trim()
+              ? { onLocationFee: onLocationFee.trim() }
+              : {}),
+            languages: langs,
+            categories: cats,
+            personaTags: personas,
+            restrictions: rests,
+            packages: builtPackages,
+          };
+          await updateCreatorProfile(profileId, patchPayload);
+          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
+          await queryClient.invalidateQueries({
+            queryKey: ["creator-profile-me"],
+          });
+          toast.success("Profile updated");
+          onSuccess();
+          return;
+        }
+
+        await createCreatorProfile(createPayload);
         await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
         toast.success("Creator profile created");
         onSuccess();
       } catch (err) {
-        if (isAxiosError(err) && err.response?.status === 409) {
+        if (
+          mode === "create" &&
+          isAxiosError(err) &&
+          err.response?.status === 409
+        ) {
           toast.message("Profile already exists", {
             description: "Continuing to your dashboard.",
           });
@@ -198,45 +404,133 @@ export function CreatorProfileSetupForm({
           onSuccess();
           return;
         }
-        toast.error("Could not create profile", {
-          description: "Check your connection and try again.",
-        });
+        toast.error(
+          mode === "update"
+            ? "Could not update profile"
+            : "Could not create profile",
+          {
+            description: "Check your connection and try again.",
+          },
+        );
       } finally {
         setPending(false);
       }
     },
     [
+      mode,
+      profileId,
       displayName,
       city,
       bio,
       gender,
-      ageRange,
       travelRadius,
       languages,
-      serviceTypeNames,
+      categoriesInput,
+      personaTagsInput,
+      restrictionsInput,
+      onLocationAvailable,
+      onLocationFee,
       packageDrafts,
       onSuccess,
       queryClient,
+      pendingProfileImageKey,
     ],
   );
 
   const inputClass = "h-9 text-sm";
 
+  /** Settings: parent `<main>` scrolls — no inner overflow (avoids double scrollbars + bottom gap). Onboarding: outer overlay scrolls (`GlobalOnboardingPage`). */
+  const shellClass =
+    variant === "onboarding"
+      ? "flex flex-col bg-transparent p-6 md:p-8"
+      : "flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8";
+
+  const heading =
+    mode === "update"
+      ? "Edit your creator profile"
+      : "Set up your creator profile";
+  const subheading =
+    variant === "settings"
+      ? "Changes apply to how brands see you in search and on your public profile."
+      : "Brands see this in search. You can edit everything later in settings.";
+
   return (
-    <form
-      onSubmit={(e) => void handleSubmit(e)}
-      className="flex max-h-[inherit] flex-col overflow-y-auto bg-background p-8 md:p-10"
-    >
+    <form onSubmit={(e) => void handleSubmit(e)} className={shellClass}>
       <div className="mb-6 space-y-2">
         <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-          Set up your creator profile
+          {heading}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Brands see this in search. You can edit everything later in settings.
-        </p>
+        <p className="text-sm text-muted-foreground">{subheading}</p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-start">
+        <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+          {imagePreviewUrl ? (
+            <Image
+              src={imagePreviewUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="96px"
+              unoptimized
+            />
+          ) : (
+            <div
+              className="flex size-full items-center justify-center bg-primary/15 text-lg font-semibold text-primary"
+              aria-hidden
+            >
+              {displayInitials()}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <Label className="text-base">Profile photo</Label>
+          <p className="text-xs text-muted-foreground">
+            Upload a square image. Shown in search and on your public profile.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={PROFILE_IMAGE_ACCEPT}
+            className="sr-only"
+            aria-label="Upload profile photo"
+            onChange={(e) =>
+              void handleProfileImageSelected(e.target.files?.[0] ?? null)
+            }
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={uploadingImage || pending}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadingImage ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Upload className="size-4" aria-hidden />
+              )}
+              {uploadingImage ? "Uploading…" : "Upload photo"}
+            </Button>
+            {pendingProfileImageKey ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={uploadingImage || pending}
+                onClick={clearProfileImage}
+              >
+                Discard new photo
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
         <div className="space-y-2">
           <Label htmlFor="displayName">Display name</Label>
           <Input
@@ -296,29 +590,17 @@ export function CreatorProfileSetupForm({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ageRange">Age range</Label>
-            <Input
-              id="ageRange"
-              className={inputClass}
-              value={ageRange}
-              onChange={(e) => setAgeRange(e.target.value)}
-              placeholder="e.g. 18-24"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="travelRadius">Travel radius (km)</Label>
-            <Input
-              id="travelRadius"
-              type="number"
-              min={0}
-              className={inputClass}
-              value={travelRadius}
-              onChange={(e) => setTravelRadius(e.target.value)}
-              placeholder="0 if none"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="travelRadius">Travel radius (km)</Label>
+          <Input
+            id="travelRadius"
+            type="number"
+            min={0}
+            className={inputClass}
+            value={travelRadius}
+            onChange={(e) => setTravelRadius(e.target.value)}
+            placeholder="0 if none"
+          />
         </div>
 
         <div className="space-y-2">
@@ -333,15 +615,68 @@ export function CreatorProfileSetupForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="services">Services / niches</Label>
+          <Label htmlFor="categories">Categories (niches)</Label>
           <Input
-            id="services"
+            id="categories"
             className={inputClass}
-            value={serviceTypeNames}
-            onChange={(e) => setServiceTypeNames(e.target.value)}
-            placeholder="Comma-separated, e.g. Video Editing, Unboxing"
+            value={categoriesInput}
+            onChange={(e) => setCategoriesInput(e.target.value)}
+            placeholder="Comma-separated, e.g. UGC Video, Voice Over"
           />
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="personaTags">Persona tags</Label>
+          <Input
+            id="personaTags"
+            className={inputClass}
+            value={personaTagsInput}
+            onChange={(e) => setPersonaTagsInput(e.target.value)}
+            placeholder="Comma-separated, e.g. Friendly, Clean aesthetic"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="restrictions">Content restrictions</Label>
+          <Input
+            id="restrictions"
+            className={inputClass}
+            value={restrictionsInput}
+            onChange={(e) => setRestrictionsInput(e.target.value)}
+            placeholder="Comma-separated, e.g. does not accept alcohol"
+          />
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="onLocation" className="text-sm font-medium">
+              On-location / store shoots
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Enable if you offer on-location or in-store shoots. Optional fee
+              below.
+            </p>
+          </div>
+          <Switch
+            id="onLocation"
+            checked={onLocationAvailable}
+            onCheckedChange={setOnLocationAvailable}
+          />
+        </div>
+
+        {onLocationAvailable ? (
+          <div className="space-y-2">
+            <Label htmlFor="onLocationFee">On-location fee</Label>
+            <Input
+              id="onLocationFee"
+              className={inputClass}
+              value={onLocationFee}
+              onChange={(e) => setOnLocationFee(e.target.value)}
+              placeholder="499.00"
+              inputMode="decimal"
+            />
+          </div>
+        ) : null}
 
         <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -459,7 +794,13 @@ export function CreatorProfileSetupForm({
         className="mt-8 w-full sm:w-auto"
         disabled={pending}
       >
-        {pending ? "Creating…" : "Create profile"}
+        {pending
+          ? mode === "update"
+            ? "Saving…"
+            : "Creating…"
+          : mode === "update"
+            ? "Save changes"
+            : "Create profile"}
       </Button>
     </form>
   );

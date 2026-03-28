@@ -59,8 +59,10 @@ function applyFilters(
     if (q && !c.name.toLowerCase().includes(q)) return false;
     if (filters.city !== "All Cities" && c.location !== filters.city)
       return false;
-    if (filters.category !== "All" && c.category !== filters.category)
-      return false;
+    if (filters.category !== "All") {
+      const cats = c.categories?.length ? c.categories : [c.category];
+      if (!cats.includes(filters.category)) return false;
+    }
     if (filters.gender !== "all" && c.gender !== filters.gender) return false;
     if (minP != null && c.startingPrice < minP) return false;
     if (maxP != null && c.startingPrice > maxP) return false;

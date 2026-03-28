@@ -4,6 +4,7 @@ import {
   ArrayNotEmpty,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsInt,
   IsNumberString,
   IsOptional,
@@ -39,6 +40,15 @@ export class CreateCreatorProfileDto {
   @IsString()
   displayName!: string;
 
+  @ApiPropertyOptional({
+    example: 'creator-profile-temp/<userId>/<uuid>.jpg',
+    description:
+      'Temporary S3 object key returned by profile-image presign endpoint before profile creation (optional).',
+  })
+  @IsOptional()
+  @IsString()
+  profileImageKey?: string;
+
   @ApiPropertyOptional({ example: 'Bengaluru' })
   @IsOptional()
   @IsString()
@@ -54,16 +64,25 @@ export class CreateCreatorProfileDto {
   @IsString()
   gender?: string;
 
-  @ApiPropertyOptional({ example: '18-24' })
-  @IsOptional()
-  @IsString()
-  ageRange?: string;
-
   @ApiPropertyOptional({ example: 15 })
   @IsOptional()
   @IsInt()
   @Min(0)
   travelRadius?: number;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  onLocationAvailable?: boolean;
+
+  @ApiPropertyOptional({
+    example: '499.00',
+    description:
+      'Optional on-location fee. Required only when onLocationAvailable is true (validation handled in service if needed).',
+  })
+  @IsOptional()
+  @IsNumberString()
+  onLocationFee?: string;
 
   @ApiPropertyOptional({ type: [String], example: ['English', 'Hindi'] })
   @IsOptional()
@@ -74,13 +93,33 @@ export class CreateCreatorProfileDto {
 
   @ApiPropertyOptional({
     type: [String],
-    example: ['Video Editing', 'Photo Shoot'],
+    example: ['UGC Video', 'Voice Over'],
   })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })
-  serviceTypeNames?: string[];
+  categories?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['Clean aesthetic', 'Friendly'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  personaTags?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['does not accept alcohol', 'does not accept gambling'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  restrictions?: string[];
 
   @ApiPropertyOptional({
     type: [CreatorPackageCreateDto],

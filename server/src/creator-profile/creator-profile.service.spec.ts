@@ -160,7 +160,7 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorProfile.create).not.toHaveBeenCalled();
   });
 
-  it('creates profile, languages, categories, packages, and updates CREATOR role', async () => {
+  it('creates profile, languages, categories, packages', async () => {
     const profileId = 'profile-1';
     const role = { id: 'role-creator' };
 
@@ -218,12 +218,5 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorPersonaTag.createMany).toHaveBeenCalled();
     expect(txMock.creatorRestriction.createMany).toHaveBeenCalled();
     expect(creatorPackageService.createPackages).toHaveBeenCalled();
-
-    expect(txMock.user.update).toHaveBeenCalledWith({
-      where: { id: creatorId },
-      data: { primaryRoleId: role.id },
-    });
-
-    expect(txMock.userRole.upsert).toHaveBeenCalled();
   });
 });

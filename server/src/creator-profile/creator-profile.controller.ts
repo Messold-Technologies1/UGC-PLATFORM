@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
 import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
@@ -42,7 +43,7 @@ export class CreatorProfileController {
   constructor(private readonly creatorProfileService: CreatorProfileService) {}
 
   @Post('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create creator profile for the authenticated user',
@@ -57,7 +58,7 @@ export class CreatorProfileController {
   }
 
   @Post('profile/uploads/presign')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image',

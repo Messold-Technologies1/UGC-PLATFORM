@@ -11,6 +11,7 @@ Object.defineProperty(exports, "CreatorProfileController", {
 const _common = require("@nestjs/common");
 const _swagger = require("@nestjs/swagger");
 const _jwtauthguard = require("../auth/guards/jwt-auth.guard");
+const _activeworkspaceguard = require("../auth/guards/active-workspace.guard");
 const _createcreatorprofiledto = require("./dto/create-creator-profile.dto");
 const _listcreatorsquerydto = require("./dto/list-creators-query.dto");
 const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
@@ -67,7 +68,7 @@ let CreatorProfileController = class CreatorProfileController {
 };
 _ts_decorate([
     (0, _common.Post)('profile'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
         summary: 'Create creator profile for the authenticated user'
@@ -86,7 +87,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "createProfile", null);
 _ts_decorate([
     (0, _common.Post)('profile/uploads/presign'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
         summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image'

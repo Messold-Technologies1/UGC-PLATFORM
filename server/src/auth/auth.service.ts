@@ -100,23 +100,14 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const brandRole = await this.prisma.role.findUnique({
-      where: { name: RoleName.BRAND },
-      select: { id: true },
-    });
-    if (!brandRole) {
-      throw new BadRequestException('Workspace role is not configured');
-    }
-
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         name: dto.name ?? null,
         passwordHash,
-        primaryRoleId: brandRole.id,
-        userRoles: {
-          create: { roleId: brandRole.id },
-        },
+        // New users may start without any workspace role selected.
+        // They must call `POST /auth/workspace` to pick CREATOR or BRAND.
+        primaryRoleId: null,
       },
     });
 
@@ -314,14 +305,6 @@ export class AuthService {
       throw new UnauthorizedException('Google account has no email');
     }
 
-    const brandRole = await this.prisma.role.findUnique({
-      where: { name: RoleName.BRAND },
-      select: { id: true },
-    });
-    if (!brandRole) {
-      throw new BadRequestException('Workspace role is not configured');
-    }
-
     const authAccount = await this.prisma.authAccount.findUnique({
       where: {
         provider_providerUserId: {
@@ -339,21 +322,6 @@ export class AuthService {
           data: { refreshToken: googleRefreshToken },
         });
       }
-      if (!authAccount.user.primaryRoleId) {
-        await this.prisma.$transaction([
-          this.prisma.user.update({
-            where: { id: authAccount.user.id },
-            data: { primaryRoleId: brandRole.id },
-          }),
-          this.prisma.userRole.upsert({
-            where: {
-              userId_roleId: { userId: authAccount.user.id, roleId: brandRole.id },
-            },
-            create: { userId: authAccount.user.id, roleId: brandRole.id },
-            update: {},
-          }),
-        ]);
-      }
       return {
         id: authAccount.user.id,
         primaryRoleId: authAccount.user.primaryRoleId,
@@ -365,20 +333,6 @@ export class AuthService {
     });
 
     if (user) {
-      if (!user.primaryRoleId) {
-        await this.prisma.$transaction([
-          this.prisma.user.update({
-            where: { id: user.id },
-            data: { primaryRoleId: brandRole.id },
-          }),
-          this.prisma.userRole.upsert({
-            where: { userId_roleId: { userId: user.id, roleId: brandRole.id } },
-            create: { userId: user.id, roleId: brandRole.id },
-            update: {},
-          }),
-        ]);
-        user = await this.prisma.user.findUnique({ where: { id: user.id } });
-      }
       if (!user) {
         throw new UnauthorizedException('Account could not be loaded');
       }
@@ -399,10 +353,7 @@ export class AuthService {
         name: profile.name ?? null,
         passwordHash: null,
         emailVerified: true,
-        primaryRoleId: brandRole.id,
-        userRoles: {
-          create: { roleId: brandRole.id },
-        },
+        primaryRoleId: null,
       },
     });
     await this.prisma.authAccount.create({
@@ -589,11 +540,15 @@ export class AuthService {
     const hash = this.hashRefreshToken(refreshToken);
     const now = new Date();
 
-    const [, sessionUpdate] = await this.prisma.$transaction([
+    const [, , sessionUpdate] = await this.prisma.$transaction([
       this.prisma.userRole.upsert({
         where: { userId_roleId: { userId, roleId: roleRow.id } },
         create: { userId, roleId: roleRow.id },
         update: {},
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { primaryRoleId: roleRow.id },
       }),
       this.prisma.session.updateMany({
         where: {

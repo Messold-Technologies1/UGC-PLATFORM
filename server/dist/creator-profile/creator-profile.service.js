@@ -221,38 +221,6 @@ let CreatorProfileService = class CreatorProfileService {
                 ops.push(this.creatorPackageService.createPackages(tx, creatorProfile.id, dto.packages));
             }
             await Promise.all(ops);
-            // Strict consistency: role update stays in the same transaction.
-            const creatorRole = await tx.role.findUnique({
-                where: {
-                    name: _client.RoleName.CREATOR
-                }
-            });
-            if (!creatorRole) {
-                throw new Error('Missing Role: CREATOR');
-            }
-            await tx.user.update({
-                where: {
-                    id: userId
-                },
-                data: {
-                    primaryRoleId: creatorRole.id
-                }
-            });
-            await tx.userRole.upsert({
-                where: {
-                    userId_roleId: {
-                        userId,
-                        roleId: creatorRole.id
-                    }
-                },
-                create: {
-                    userId,
-                    roleId: creatorRole.id
-                },
-                update: {
-                    roleId: creatorRole.id
-                }
-            });
             return creatorProfile.id;
         }, {
             timeout: 30_000,

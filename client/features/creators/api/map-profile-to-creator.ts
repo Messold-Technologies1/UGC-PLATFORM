@@ -46,8 +46,7 @@ export function mapProfileToListingCreator(
     .map((c) => c.category.trim())
     .filter(Boolean);
   const category = categoryNames[0] ?? "General";
-  const categories =
-    categoryNames.length > 0 ? categoryNames : [category];
+  const categories = categoryNames.length > 0 ? categoryNames : [category];
 
   const thumb = profile.profileImageUrl?.trim();
   const thumbnail =
@@ -112,7 +111,6 @@ export function mapProfileItemToCreatorProfile(
         ? profile.travelRadius
         : null,
     onLocationFee: profile.onLocationFee?.trim() ?? null,
-    portfolio: [],
     packages: mapApiPackages(profile.packages),
     addOns: DEFAULT_CREATOR_ADD_ONS,
     reviews: [],

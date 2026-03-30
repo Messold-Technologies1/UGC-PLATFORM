@@ -1,6 +1,12 @@
 import { memo, useMemo } from "react";
 import Image from "next/image";
-import { MapPin, Star, CheckCircle2, XCircle, MessageSquare } from "lucide-react";
+import {
+  MapPin,
+  Star,
+  CheckCircle2,
+  XCircle,
+  MessageSquare,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { CreatorProfile } from "../types";
@@ -138,7 +144,9 @@ export const ProfileHeader = memo(function ProfileHeader({
                 <span>({creator.reviewCount} reviews)</span>
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground">No reviews yet</span>
+              <span className="text-xs text-muted-foreground">
+                No reviews yet
+              </span>
             )}
           </div>
 
@@ -183,15 +191,9 @@ export const ProfileHeader = memo(function ProfileHeader({
         </div>
 
         <div className="hidden shrink-0 grid-cols-2 gap-3 sm:grid">
-          <StatBlock
-            label="Orders"
-            value={String(creator.ordersCompleted)}
-          />
+          <StatBlock label="Orders" value={String(creator.ordersCompleted)} />
           <StatBlock label="Rating" value={String(creator.rating)} />
-          <StatBlock
-            label="Reviews"
-            value={String(creator.reviewCount)}
-          />
+          <StatBlock label="Reviews" value={String(creator.reviewCount)} />
           <StatBlock
             label="Starting"
             value={`₹${creator.startingPrice.toLocaleString("en-IN")}`}

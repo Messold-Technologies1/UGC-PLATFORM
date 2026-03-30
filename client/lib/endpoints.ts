@@ -30,6 +30,11 @@ export function creatorPortfolioVideoPath(id: string): string {
   return `/api/creator-portfolio/videos/${encodeURIComponent(id)}`;
 }
 
+/** GET public portfolio videos for a creator (brand / profile view). */
+export function creatorPortfolioPublicVideosPath(creatorId: string): string {
+  return `/api/creator-portfolio/creators/${encodeURIComponent(creatorId)}/videos`;
+}
+
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;
 }

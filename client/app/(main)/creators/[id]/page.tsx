@@ -44,7 +44,7 @@ export default async function CreatorProfilePage({ params }: PageProps) {
 
   if (result.ok) {
     const creator = mapProfileItemToCreatorProfile(result.profile);
-    return <CreatorProfile creator={creator} />;
+    return <CreatorProfile key={id} creator={creator} />;
   }
 
   if (result.status === 401) {

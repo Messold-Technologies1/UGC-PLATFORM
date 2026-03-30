@@ -29,38 +29,23 @@ export function DashboardOnboardingGate({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
-  const [brandOverlayDismissed, setBrandOverlayDismissed] = useState(false);
-
-  useEffect(() => {
+  const [brandOverlayDismissed, setBrandOverlayDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      setBrandOverlayDismissed(
-        sessionStorage.getItem(BRAND_OVERLAY_DISMISS_KEY) === "1",
-      );
+      return sessionStorage.getItem(BRAND_OVERLAY_DISMISS_KEY) === "1";
     } catch {
-      setBrandOverlayDismissed(false);
+      return false;
     }
-  }, []);
+  });
 
   const paramRequestsOnboarding = useMemo(() => {
     const raw = searchParams.get(PARAM);
     return raw === role || raw === "1";
   }, [searchParams, role]);
 
-  const profileComplete =
-    !isLoading &&
-    !!user &&
-    (role === "creator"
-      ? user.hasCreatorProfile
-      : user.hasBrandProfile);
-
-  
   const showCreatorBlockingOnboarding =
-    role === "creator" &&
-    !isLoading &&
-    !!user &&
-    !user.hasCreatorProfile;
+    role === "creator" && !isLoading && !!user && !user.hasCreatorProfile;
 
-  
   const showBrandBlockingOnboarding =
     role === "brand" &&
     !isLoading &&

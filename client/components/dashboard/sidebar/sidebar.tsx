@@ -65,6 +65,13 @@ function getRoleFromPath(pathname: string): RoleConfig {
   return roleConfigs[segment] ?? roleConfigs.brand;
 }
 
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href.length > 1 && pathname.startsWith(`${href}/`)) return true;
+  return false;
+}
+
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -107,7 +114,7 @@ export function DashboardSidebar() {
           "fixed inset-y-0 left-0 z-50 flex min-h-0 w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[transform,width] duration-300 ease-out",
           !mobileOpen && "max-lg:-translate-x-full",
           mobileOpen && "max-lg:translate-x-0",
-          "lg:static lg:z-auto lg:h-full lg:translate-x-0",
+          "lg:static lg:z-20 lg:h-full lg:translate-x-0",
           desktopCollapsed ? "lg:w-[72px]" : "lg:w-[260px]",
         )}
       >
@@ -167,7 +174,7 @@ export function DashboardSidebar() {
             Menu
           </p>
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href;
+            const isActive = isNavItemActive(pathname, href);
             return (
               <Link
                 key={href}

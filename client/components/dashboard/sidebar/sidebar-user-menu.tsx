@@ -65,8 +65,14 @@ export function SidebarUserMenu({
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const hub = pathname.startsWith("/brand") ? "brand" : "creator";
-  const settingsHref = `/${hub}/settings`;
+  const settingsHref =
+    hub === "brand" ? "/brand/account" : "/creator/settings";
   const accountHref = `/${hub}/account`;
+
+  const isAccountSectionActive =
+    pathname === accountHref || pathname.startsWith(`${accountHref}/`);
+  const isSettingsSectionActive =
+    pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
 
   const closeMobile = useCallback(() => {
     setMobileOpen(false);
@@ -197,7 +203,11 @@ export function SidebarUserMenu({
           <Link
             href={settingsHref}
             role="menuitem"
-            className={cn(accountMenuItemClass, "w-full")}
+            className={cn(
+              accountMenuItemClass,
+              "w-full",
+              isSettingsSectionActive && "bg-accent/80 text-accent-foreground",
+            )}
             onClick={closeMobile}
           >
             <Bell className="size-4" aria-hidden />
@@ -206,7 +216,11 @@ export function SidebarUserMenu({
           <Link
             href={settingsHref}
             role="menuitem"
-            className={cn(accountMenuItemClass, "w-full")}
+            className={cn(
+              accountMenuItemClass,
+              "w-full",
+              isSettingsSectionActive && "bg-accent/80 text-accent-foreground",
+            )}
             onClick={closeMobile}
           >
             <Shield className="size-4" aria-hidden />
@@ -215,7 +229,11 @@ export function SidebarUserMenu({
           <Link
             href={accountHref}
             role="menuitem"
-            className={cn(accountMenuItemClass, "w-full")}
+            className={cn(
+              accountMenuItemClass,
+              "w-full",
+              isAccountSectionActive && "bg-accent/80 text-accent-foreground",
+            )}
             onClick={closeMobile}
           >
             <UserRound className="size-4" aria-hidden />

@@ -67,8 +67,8 @@ export function Navbar() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125">
-      <div className="mx-auto flex h-16 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 w-full bg-background/50 backdrop-blur-sm backdrop-saturate-125">
+      <div className="mx-auto flex h-17 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" prefetch className="flex items-center gap-2">
           {/* <div className="bg-foreground flex size-8 items-center justify-center rounded-lg">
             <Sparkles className="size-4 text-white" />
@@ -123,7 +123,9 @@ export function Navbar() {
         aria-label="Mobile navigation"
         className={cn(
           "overflow-hidden border-t border-border/60 transition-all duration-200 md:hidden",
-          mobileOpen ? "max-h-[min(100dvh-5rem,28rem)] overflow-y-auto" : "max-h-0 border-t-0",
+          mobileOpen
+            ? "max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto"
+            : "max-h-0 border-t-0",
         )}
       >
         <div className="flex flex-col gap-1 px-4 py-3">

@@ -5,17 +5,17 @@ const sk = cn(
 );
 
 /**
- * Mirrors {@link Navbar} chrome (h-16, logo row, desktop actions, mobile controls)
+ * Mirrors {@link Navbar} chrome (h-17, logo row, desktop actions, mobile controls)
  * to limit layout shift while `useSearchParams` / workspace nav hydrates.
  */
 export function NavbarFallback() {
   return (
     <header
-      className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125"
+      className="sticky top-0 z-50 w-full bg-background/50 backdrop-blur-sm backdrop-saturate-125"
       aria-busy="true"
       aria-label="Loading navigation"
     >
-      <div className="mx-auto flex h-16 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-17 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2">
           <div
             className="bg-foreground flex size-8 shrink-0 items-center justify-center rounded-lg"

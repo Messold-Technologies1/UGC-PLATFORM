@@ -14,6 +14,11 @@ export const ENDPOINTS = {
     PROFILE: "/api/creators/profile",
     PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
   },
+  CREATOR_PORTFOLIO: {
+    UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
+    VIDEOS: "/api/creator-portfolio/videos",
+    VIDEOS_ME: "/api/creator-portfolio/videos/me",
+  },
 } as const;
 
 export function creatorsByIdPath(id: string): string {

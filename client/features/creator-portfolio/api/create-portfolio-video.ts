@@ -2,7 +2,7 @@ import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import type { PortfolioVideoApi } from "./types";
 
-/** Matches Nest `CreatePortfolioVideoDto`. */
+
 export type CreatePortfolioVideoPayload = {
   videoKey: string;
   thumbnailKey?: string;

@@ -130,7 +130,7 @@ function EmptyBrowseState({
 
 interface CreatorListingProps {
   creators: Creator[];
-  /** First-page stats from `GET /api/creators` (more pages: TODO infinite scroll). */
+  
   listMeta?: { page: number; limit: number; total: number };
 }
 

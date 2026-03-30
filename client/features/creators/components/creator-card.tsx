@@ -12,7 +12,7 @@ import type { Creator } from "../types";
 interface CreatorCardProps {
   creator: Creator;
   variant?: "featured" | "listing";
-  /** Rich browse-marketplace styling (brand creators page). */
+  
   appearance?: "standard" | "browse";
 }
 

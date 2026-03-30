@@ -36,7 +36,7 @@ function roleSentence(
 export function DashboardAccountProfile({
   profileEditHref,
 }: {
-  /** Creator: `/creator/settings/profile`. Brand: `/brand/account` until a dedicated editor route exists. */
+  
   profileEditHref: string;
 }) {
   const { user } = useAuth();

@@ -9,7 +9,7 @@ function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
   return r === "CREATOR" ? "creator" : "brand";
 }
 
-/** After login/OAuth: skip role picker when the user already has a workspace role. */
+
 export function resolvePostAuthRedirectPath(
   user: AuthUser,
   callbackUrl: string | null,
@@ -25,14 +25,11 @@ export function resolvePostAuthRedirectPath(
 }
 
 export type PathAfterWorkspaceSelectionOptions = {
-  /**
-   * When false (hub switch in sidebar), strips `?onboarding=` from the destination if present.
-   * Incomplete profiles still land on the hub dashboard; setup is linked from Settings and in-page banners.
-   */
+  
   promptIncompleteProfileOnboarding?: boolean;
 };
 
-/** Remove onboarding query from a path; keeps other params. */
+
 export function stripOnboardingFromHref(href: string): string {
   const q = href.indexOf("?");
   if (q === -1) return href;

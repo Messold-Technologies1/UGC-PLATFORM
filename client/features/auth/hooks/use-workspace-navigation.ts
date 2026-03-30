@@ -29,9 +29,7 @@ function lastPathStorageKey(role: WorkspaceRole): string {
 function saveLastPathForWorkspaceRole(role: WorkspaceRole, href: string): void {
   try {
     sessionStorage.setItem(lastPathStorageKey(role), href);
-  } catch {
-    /* ignore quota / private mode */
-  }
+  } catch {}
 }
 
 function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
@@ -92,7 +90,7 @@ export function useWorkspaceNavigation() {
   ) => {
     const current = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
     const currentRole = current?.activeRole ?? current?.primaryRole ?? null;
-    /** Server already has this workspace; skip POST /auth/workspace but may still navigate. */
+    
     const sameWorkspace = currentRole === role;
 
     const fullCurrent = `${pathname}${searchParams.toString() ? `?${searchParams}` : ""}`;

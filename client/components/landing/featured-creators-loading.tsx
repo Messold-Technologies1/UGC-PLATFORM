@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** SSR-friendly placeholder while the featured creators chunk loads. */
+
 export function FeaturedCreatorsLoading() {
   return (
     <section

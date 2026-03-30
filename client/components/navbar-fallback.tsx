@@ -4,10 +4,7 @@ const sk = cn(
   "rounded-md bg-muted/65 motion-safe:animate-pulse motion-reduce:opacity-90",
 );
 
-/**
- * Mirrors {@link Navbar} chrome (h-17, logo row, desktop actions, mobile controls)
- * to limit layout shift while `useSearchParams` / workspace nav hydrates.
- */
+
 export function NavbarFallback() {
   return (
     <header

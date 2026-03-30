@@ -1,6 +1,6 @@
 import type { Creator } from "../types";
 
-/** Unique categories and cities from the current creators list (API data). */
+
 export function deriveCreatorFilterOptions(creators: Creator[]) {
   const categories = new Set<string>();
   const cities = new Set<string>();

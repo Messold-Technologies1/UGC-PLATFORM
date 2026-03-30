@@ -70,9 +70,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full bg-background/50 backdrop-blur-sm backdrop-saturate-125">
       <div className="mx-auto flex h-17 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" prefetch className="flex items-center gap-2">
-          {/* <div className="bg-foreground flex size-8 items-center justify-center rounded-lg">
-            <Sparkles className="size-4 text-white" />
-          </div> */}
+          {}
           <span className="text-lg font-bold tracking-tight">{SITE_NAME}</span>
         </Link>
 

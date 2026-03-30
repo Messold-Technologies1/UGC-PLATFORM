@@ -11,9 +11,9 @@ export type AuthUser = {
   email: string;
   name: string | null;
   roles: WorkspaceRole[];
-  /** Session-scoped active role. */
+  
   activeRole: WorkspaceRole | null;
-  /** Cross-session default role preference. */
+  
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;

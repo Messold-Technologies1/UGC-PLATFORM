@@ -13,10 +13,7 @@ export type OnboardingOverlayShellProps = {
   left: React.ReactNode;
   right: React.ReactNode;
   className?: string;
-  /**
-   * `compact` — short flows (e.g. role picker), capped height.
-   * `scrollable` — long forms; inner column scrolls within ~viewport height.
-   */
+  
   contentVariant?: "compact" | "scrollable";
 };
 

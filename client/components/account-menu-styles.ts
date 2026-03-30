@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Shared by navbar profile menu and sidebar account menu. */
+
 export const accountMenuGlassPanel =
   "border border-border/60 bg-background/50 shadow-lg backdrop-blur-md backdrop-saturate-125";
 

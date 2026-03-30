@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Match next-themes (`attribute="class"` on html); default `dark:` uses prefers-color-scheme only */
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @keyframes accordion-down {
@@ -21,7 +21,7 @@
   }
 }
 
-/* Match sidebar workspace accordion timing (ease-out, ~280ms) */
+
 @keyframes select-content-in {
   from {
     opacity: 0;
@@ -52,13 +52,7 @@
   }
 }
 
-/*
- * DESIGN SYSTEM
- * Frame:      Desktop 1440px · Mobile 375px · 12-col grid
- * Spacing:    8px base (Tailwind units: 2=8px, 4=16px, 6=24px, 8=32px …)
- * Colors:     Primary=Black, Background=White, Accent=Light grey, CTA=Black/White
- * Typography: Heading=font-bold, Subheading=font-medium, Body=font-normal
- */
+
 
 @theme inline {
   --container-site: 1440px;

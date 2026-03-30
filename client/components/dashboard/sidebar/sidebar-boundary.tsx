@@ -72,7 +72,7 @@ function DashboardSidebarFallback() {
   );
 }
 
-/** Suspense required: sidebar uses `useSearchParams` via workspace navigation. */
+
 export function DashboardSidebarBoundary() {
   return (
     <Suspense fallback={<DashboardSidebarFallback />}>

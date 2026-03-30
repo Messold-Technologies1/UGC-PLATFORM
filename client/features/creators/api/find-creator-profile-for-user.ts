@@ -3,10 +3,7 @@ import type { CreatorProfileItemApi } from "./types";
 
 const PAGE_LIMIT = 50;
 
-/**
- * Resolves the current user's creator profile id by scanning the public list.
- * Used client-side because `/auth/me` does not expose `creatorProfileId`.
- */
+
 export async function findCreatorProfileForUserId(
   userId: string,
 ): Promise<CreatorProfileItemApi | null> {

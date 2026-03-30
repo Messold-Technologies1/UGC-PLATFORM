@@ -53,17 +53,14 @@ export function DashboardOnboardingGate({
       ? user.hasCreatorProfile
       : user.hasBrandProfile);
 
-  /** First-time creator: full-screen overlay until profile exists (POST create). */
+  
   const showCreatorBlockingOnboarding =
     role === "creator" &&
     !isLoading &&
     !!user &&
     !user.hasCreatorProfile;
 
-  /**
-   * Brand profile is not exposed via API yet; allow a session dismiss so users
-   * are not trapped behind an empty overlay forever.
-   */
+  
   const showBrandBlockingOnboarding =
     role === "brand" &&
     !isLoading &&
@@ -103,9 +100,7 @@ export function DashboardOnboardingGate({
   const handleBrandDismiss = useCallback(() => {
     try {
       sessionStorage.setItem(BRAND_OVERLAY_DISMISS_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     setBrandOverlayDismissed(true);
   }, []);
 

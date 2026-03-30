@@ -15,7 +15,7 @@ import { CreatorCard } from "./creator-card";
 
 const PAGE = 1;
 const LIMIT = 4;
-/** Matches `BrandCreatorsBrowser` so hover prefetch warms the browse page cache. */
+
 const BROWSE_PAGE = 1;
 const BROWSE_LIMIT = 20;
 

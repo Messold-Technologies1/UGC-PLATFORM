@@ -12,20 +12,20 @@ export interface Creator {
   storeVisit: boolean;
   travelAvailable: boolean;
   gender: "male" | "female" | "other";
-  /** Primary category for display (mirrors first server category). */
+  
   category: string;
-  /** All categories from the API for browse filters. */
+  
   categories: string[];
 }
 
 export interface CreatorProfile extends Creator {
   bio: string;
   languages: string[];
-  /** `CreatorRestrictionResponseDto.restriction` from the API. */
+  
   restrictions: string[];
-  /** Server `travelRadius` (km), null when unset. */
+  
   travelRadiusKm: number | null;
-  /** Server `onLocationFee` when on-location work is available. */
+  
   onLocationFee: string | null;
   portfolio: PortfolioItem[];
   packages: Package[];

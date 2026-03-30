@@ -33,13 +33,13 @@ import {
   putFileToPresignedUrl,
 } from "@/features/creators/api/presign-creator-profile-image";
 
-/** Frontend-only; increase or remove to allow more packages without server changes. */
+
 const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
 
 const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
 const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
-/** Radix Select requires a non-empty value for the default option. */
+
 const GENDER_VALUE_UNSPECIFIED = "__unspecified__";
 
 type PackageDraft = {
@@ -78,10 +78,10 @@ function splitLines(raw: string): string[] {
 }
 
 export type CreatorProfileSetupFormProps = {
-  /** Full-screen onboarding vs in-dashboard settings page. */
+  
   variant: "onboarding" | "settings";
   mode: "create" | "update";
-  /** Required when `mode="update"`. */
+  
   profileId?: string;
   initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void;
@@ -103,20 +103,20 @@ export function CreatorProfileSetupForm({
   const [gender, setGender] = useState("");
   const [travelRadius, setTravelRadius] = useState("");
   const [languages, setLanguages] = useState("");
-  /** Comma-separated — maps to `categories` / `personaTags` / `restrictions` on the API. */
+  
   const [categoriesInput, setCategoriesInput] = useState("");
   const [personaTagsInput, setPersonaTagsInput] = useState("");
   const [restrictionsInput, setRestrictionsInput] = useState("");
   const [onLocationAvailable, setOnLocationAvailable] = useState(false);
   const [onLocationFee, setOnLocationFee] = useState("");
-  /** Monotonic ids for new rows (initial row is always pkg-0 — stable for SSR hydration). */
+  
   const nextPackageIdRef = useRef(1);
   const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
     createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
   ]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  /** Temp S3 key after presign + PUT; sent as `profileImageKey` on create/update. */
+  
   const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
     string | null
   >(null);
@@ -439,7 +439,7 @@ export function CreatorProfileSetupForm({
 
   const inputClass = "h-9 text-sm";
 
-  /** Settings: parent `<main>` scrolls — card chrome. Onboarding: padded column inside `OnboardingOverlayShell` (`GlobalOnboardingPage`). */
+  
   const shellClass =
     variant === "onboarding"
       ? "flex flex-col bg-transparent p-0"
@@ -682,10 +682,6 @@ export function CreatorProfileSetupForm({
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <p className="text-sm font-medium text-foreground">Packages</p>
-              {/* <p className="text-xs text-muted-foreground">
-                Optional — up to {MAX_PACKAGES_IN_CREATOR_SETUP_FORM} packages.
-                Brands see your pricing; you can edit later in settings.
-              </p> */}
             </div>
             <Button
               type="button"

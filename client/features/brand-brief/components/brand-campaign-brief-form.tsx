@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  // CardDescription,
+  
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -79,10 +79,7 @@ export function BrandCampaignBriefForm() {
       <Card>
         <CardHeader>
           <CardTitle>Brief details</CardTitle>
-          {/* <CardDescription>
-            Fields map to your future campaign brief API. All optional except
-            where you mark requirements in product later.
-          </CardDescription> */}
+          {}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">

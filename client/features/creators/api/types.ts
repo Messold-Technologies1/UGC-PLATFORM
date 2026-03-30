@@ -1,11 +1,11 @@
-/** Shapes returned by `GET /api/creators` (Nest `CreatorsListResponseDto` + nested DTOs). */
+
 
 export type CreatorProfileLanguageApi = {
   id: string;
   language: string;
 };
 
-/** Matches Nest `CreatorCategoryResponseDto`. */
+
 export type CreatorProfileCategoryApi = {
   id: string;
   category: string;
@@ -29,7 +29,7 @@ export type CreatorProfileRestrictionApi = {
   restriction: string;
 };
 
-/** Aligns with Nest `CreatorProfileResponseDto` / `GET /api/creators` list items. */
+
 export type CreatorProfileItemApi = {
   id: string;
   userId: string;

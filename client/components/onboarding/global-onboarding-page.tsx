@@ -8,7 +8,7 @@ import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overl
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
 import { cn } from "@/lib/utils";
 
-/** Aligned with `PostLoginRoleOverlay` — same story and visual language after choosing creator vs brand. */
+
 const ONBOARDING_MARKETING_POINTS = [
   "Connect with brands or creators in one place",
   "Manage briefs, deliverables, and payouts",
@@ -27,7 +27,7 @@ const ONBOARDING_MARKETING_FOOTER = (
 export type GlobalOnboardingPageProps = {
   role: "creator" | "brand";
   onClose: () => void;
-  /** Brand has no profile API yet; dismiss overlay for this session only. */
+  
   onBrandDismiss?: () => void;
   className?: string;
 };

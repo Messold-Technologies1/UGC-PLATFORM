@@ -153,7 +153,6 @@ export function SidebarUserMenu({
         </div>
       </button>
 
-      {/* Same interaction model as navbar profile: hover + focus-within on lg; tap on small screens */}
       <div
         className={cn(
           "absolute z-50 transition-[opacity,visibility] duration-150",

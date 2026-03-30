@@ -12,14 +12,14 @@ export type CreatorPackageCreatePayload = {
 
 export type CreateCreatorProfilePayload = {
   displayName: string;
-  /** Temp key from `POST .../uploads/presign` after successful PUT upload. */
+  
   profileImageKey?: string;
   city?: string;
   bio?: string;
   gender?: string;
   travelRadius?: number;
   onLocationAvailable?: boolean;
-  /** `IsNumberString` on server — e.g. `"499.00"`. */
+  
   onLocationFee?: string;
   languages?: string[];
   categories?: string[];

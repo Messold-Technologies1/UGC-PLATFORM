@@ -6,7 +6,7 @@ export type PresignProfileImageUploadPayload = {
   contentLength?: number;
 };
 
-/** Matches Nest `PresignUploadResponseDto`. */
+
 export type PresignProfileImageUploadResponse = {
   key: string;
   uploadUrl: string;
@@ -25,9 +25,7 @@ export async function presignCreatorProfileImageUpload(
   return data;
 }
 
-/**
- * PUT the file to the presigned URL using headers from the presign response.
- */
+
 export async function putFileToPresignedUrl(
   file: File,
   presign: PresignProfileImageUploadResponse,

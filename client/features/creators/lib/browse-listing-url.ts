@@ -1,7 +1,7 @@
 import type { Filters } from "../components/creator-filters";
 import { DEFAULT_FILTERS } from "../components/creator-filters";
 
-/** Read browse listing state from the URL (shareable / back-forward safe). */
+
 export function parseBrowseListingParams(
   sp: Pick<URLSearchParams, "get">,
 ): { filters: Filters; search: string } {
@@ -20,7 +20,7 @@ export function parseBrowseListingParams(
   };
 }
 
-/** Serialize filters + search to query string (no leading `?`). */
+
 export function serializeBrowseListingParams(
   filters: Filters,
   search: string,

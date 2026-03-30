@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         timeout: 12_000,
       });
     } catch {
-      // Still clear client state and leave; server cookie may already be gone.
+      
     } finally {
       queryClient.clear();
       router.replace("/");

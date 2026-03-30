@@ -1,4 +1,4 @@
-/** Matches Nest `PortfolioVideoResponseDto`. */
+
 export type PortfolioVideoApi = {
   id: string;
   creatorId: string;

@@ -47,7 +47,7 @@ export function OnboardingOverlayShell({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px]" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-black/50 backdrop-blur-[2px]" />
         <DialogPrimitive.Content
           ref={contentRef}
           tabIndex={-1}
@@ -58,7 +58,7 @@ export function OnboardingOverlayShell({
           onPointerDownOutside={handleInteractOutside}
           onEscapeKeyDown={handleEscape}
           className={cn(
-            "fixed top-[50%] left-[50%] z-50 w-[calc(100%-1.5rem)] max-w-[min(100%,52rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%]",
+            "fixed top-[50%] left-[50%] z-100 w-[calc(100%-1.5rem)] max-w-[min(100%,52rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%]",
             "overflow-hidden rounded-2xl border border-border bg-background shadow-lg outline-none",
             className,
           )}

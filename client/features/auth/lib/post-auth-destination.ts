@@ -9,7 +9,6 @@ function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
   return r === "CREATOR" ? "creator" : "brand";
 }
 
-
 export function resolvePostAuthRedirectPath(
   user: AuthUser,
   callbackUrl: string | null,
@@ -25,10 +24,8 @@ export function resolvePostAuthRedirectPath(
 }
 
 export type PathAfterWorkspaceSelectionOptions = {
-  
   promptIncompleteProfileOnboarding?: boolean;
 };
-
 
 export function stripOnboardingFromHref(href: string): string {
   const q = href.indexOf("?");

@@ -11,7 +11,15 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { GlobalOnboardingPage } from "@/components/onboarding/global-onboarding-page";
 import type { PostAuthRole } from "@/features/auth/lib/post-auth-destination";
+import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import { useAuth } from "@/providers/auth-provider";
+
+function hasWorkspaceRole(
+  user: { roles: WorkspaceRole[] },
+  role: WorkspaceRole,
+): boolean {
+  return user.roles.includes(role);
+}
 
 export type DashboardOnboardingGateProps = {
   role: PostAuthRole;
@@ -19,7 +27,19 @@ export type DashboardOnboardingGateProps = {
 };
 
 const PARAM = "onboarding";
-const BRAND_OVERLAY_DISMISS_KEY = "ugc_brand_onboarding_overlay_dismissed_v1";
+/** Per-user key so dismiss state does not leak across accounts or block first-time brand onboarding. */
+function brandOverlayDismissStorageKey(userId: string) {
+  return `ugc_brand_onboarding_overlay_dismissed_v2:${userId}`;
+}
+
+function readBrandOverlayDismissedFromStorage(userId: string | undefined) {
+  if (typeof window === "undefined" || !userId) return false;
+  try {
+    return sessionStorage.getItem(brandOverlayDismissStorageKey(userId)) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function DashboardOnboardingGate({
   role,
@@ -29,51 +49,39 @@ export function DashboardOnboardingGate({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
-  const [brandOverlayDismissed, setBrandOverlayDismissed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return sessionStorage.getItem(BRAND_OVERLAY_DISMISS_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  /** Bumps after dismiss so React re-renders and picks up the new sessionStorage value. */
+  const [, bumpBrandDismissEpoch] = useState(0);
+
+  const brandOverlayDismissed = readBrandOverlayDismissedFromStorage(user?.id);
 
   const paramRequestsOnboarding = useMemo(() => {
     const raw = searchParams.get(PARAM);
     return raw === role || raw === "1";
   }, [searchParams, role]);
 
-  const showCreatorBlockingOnboarding =
-    role === "creator" && !isLoading && !!user && !user.hasCreatorProfile;
-
-  const showBrandBlockingOnboarding =
-    role === "brand" &&
-    !isLoading &&
-    !!user &&
-    !user.hasBrandProfile &&
-    !brandOverlayDismissed;
+  const { showCreatorBlockingOnboarding, showBrandBlockingOnboarding } =
+    useMemo(() => {
+      const creator =
+        role === "creator" &&
+        !isLoading &&
+        !!user &&
+        (!hasWorkspaceRole(user, "CREATOR") || !user.hasCreatorProfile);
+      const brand =
+        role === "brand" &&
+        !isLoading &&
+        !!user &&
+        (!hasWorkspaceRole(user, "BRAND") ||
+          (!user.hasBrandProfile && !brandOverlayDismissed));
+      return {
+        showCreatorBlockingOnboarding: creator,
+        showBrandBlockingOnboarding: brand,
+      };
+    }, [role, isLoading, user, brandOverlayDismissed]);
 
   const showBlockingOnboarding =
     showCreatorBlockingOnboarding || showBrandBlockingOnboarding;
 
-  useEffect(() => {
-    if (!paramRequestsOnboarding) return;
-    if (showBlockingOnboarding) return;
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete(PARAM);
-    const q = next.toString();
-    startTransition(() => {
-      router.replace(q ? `${pathname}?${q}` : pathname);
-    });
-  }, [
-    paramRequestsOnboarding,
-    showBlockingOnboarding,
-    pathname,
-    router,
-    searchParams,
-  ]);
-
-  const clearParam = useCallback(() => {
+  const replaceUrlWithoutOnboardingParam = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
     next.delete(PARAM);
     const q = next.toString();
@@ -82,18 +90,28 @@ export function DashboardOnboardingGate({
     });
   }, [pathname, router, searchParams]);
 
+  useEffect(() => {
+    if (!paramRequestsOnboarding || showBlockingOnboarding) return;
+    replaceUrlWithoutOnboardingParam();
+  }, [
+    paramRequestsOnboarding,
+    showBlockingOnboarding,
+    replaceUrlWithoutOnboardingParam,
+  ]);
+
   const handleBrandDismiss = useCallback(() => {
+    if (!user?.id) return;
     try {
-      sessionStorage.setItem(BRAND_OVERLAY_DISMISS_KEY, "1");
+      sessionStorage.setItem(brandOverlayDismissStorageKey(user.id), "1");
     } catch {}
-    setBrandOverlayDismissed(true);
-  }, []);
+    bumpBrandDismissEpoch((n) => n + 1);
+  }, [user]);
 
   if (showBlockingOnboarding) {
     return (
       <GlobalOnboardingPage
         role={role}
-        onClose={clearParam}
+        onClose={replaceUrlWithoutOnboardingParam}
         onBrandDismiss={handleBrandDismiss}
       />
     );

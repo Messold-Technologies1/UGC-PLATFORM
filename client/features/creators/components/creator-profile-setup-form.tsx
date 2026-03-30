@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
+import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { useAuth } from "@/providers/auth-provider";
 import {
   createCreatorProfile,
@@ -255,6 +256,11 @@ export function CreatorProfileSetupForm({
     return base.slice(0, 2).toUpperCase();
   }, [displayName, user]);
 
+  const ensureCreatorWorkspace = useCallback(
+    () => ensureWorkspaceSelection(queryClient, user, "CREATOR"),
+    [queryClient, user],
+  );
+
   const handleProfileImageSelected = useCallback(async (file: File | null) => {
     if (!file) return;
     if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
@@ -264,6 +270,10 @@ export function CreatorProfileSetupForm({
     if (file.size > MAX_PROFILE_IMAGE_BYTES) {
       toast.error("Image must be 8 MB or smaller.");
       return;
+    }
+    if (mode === "create") {
+      const ok = await ensureCreatorWorkspace();
+      if (!ok) return;
     }
     setUploadingImage(true);
     try {
@@ -281,7 +291,7 @@ export function CreatorProfileSetupForm({
       setUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }, []);
+  }, [mode, ensureCreatorWorkspace]);
 
   const clearProfileImage = useCallback(() => {
     setPendingProfileImageKey(null);
@@ -414,6 +424,9 @@ export function CreatorProfileSetupForm({
           return;
         }
 
+        const workspaceOk = await ensureCreatorWorkspace();
+        if (!workspaceOk) return;
+
         await createCreatorProfile(createPayload);
         await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
         toast.success("Creator profile created");
@@ -461,6 +474,7 @@ export function CreatorProfileSetupForm({
       onSuccess,
       queryClient,
       pendingProfileImageKey,
+      ensureCreatorWorkspace,
     ],
   );
 
@@ -664,7 +678,7 @@ export function CreatorProfileSetupForm({
           {personaTagSuggestionsQuery.isSuccess &&
           personaTagSuggestionsQuery.data.length > 0 ? (
             <div className="space-y-1.5 pt-0.5">
-              {/* <p className="text-xs text-muted-foreground">Suggestions</p> */}
+             
               <div className="flex flex-wrap gap-1.5">
                 {personaTagSuggestionsQuery.data.map((s) => (
                   <button
@@ -698,7 +712,7 @@ export function CreatorProfileSetupForm({
           {restrictionSuggestionsQuery.isSuccess &&
           restrictionSuggestionsQuery.data.length > 0 ? (
             <div className="space-y-1.5 pt-0.5">
-              {/* <p className="text-xs text-muted-foreground">Suggestions</p> */}
+             
               <div className="flex flex-wrap gap-1.5">
                 {restrictionSuggestionsQuery.data.map((s) => (
                   <button

@@ -1,15 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { PostLoginRoleOverlay } from "@/components/ui/post-login-role-overlay";
-import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
-import {
-  authMeQueryKey,
-  type WorkspaceRole,
-} from "@/features/auth/hooks/use-me-query";
+import { type WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
@@ -20,7 +14,6 @@ import { useAuth } from "@/providers/auth-provider";
 export function AuthContinueOverlay() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const callbackUrl = searchParams.get("callbackUrl");
   const autoRedirectRef = useRef(false);
@@ -48,34 +41,29 @@ export function AuthContinueOverlay() {
 
   const showPicker = Boolean(user) && !isLoading && user!.roles.length === 0;
 
-  const runSelect = async (role: WorkspaceRole) => {
-    if (!user) return;
-    const returnToContinue = postAuthContinuePath(callbackUrl);
-    const target = pathAfterWorkspaceSelection(user, role, callbackUrl);
-    router.replace(target);
-    try {
-      const next = await selectWorkspaceApi(role);
-      queryClient.setQueryData(authMeQueryKey, next);
-    } catch {
-      toast.error(
-        role === "CREATOR"
-          ? "Could not continue as creator. Try again."
-          : "Could not continue as brand. Try again.",
-      );
-      router.replace(returnToContinue);
-    }
-  };
+  const runSelect = useCallback(
+    (workspaceRole: WorkspaceRole) => {
+      if (!user) return;
+      const target = pathAfterWorkspaceSelection(user, workspaceRole, callbackUrl);
+      router.replace(target);
+    },
+    [user, callbackUrl, router],
+  );
+
+  const onContinueAsCreator = useCallback(() => {
+    runSelect("CREATOR");
+  }, [runSelect]);
+
+  const onContinueAsBrand = useCallback(() => {
+    runSelect("BRAND");
+  }, [runSelect]);
 
   return (
     <PostLoginRoleOverlay
       open={showPicker}
       dismissible={false}
-      onContinueAsCreator={async () => {
-        await runSelect("CREATOR");
-      }}
-      onContinueAsBrand={async () => {
-        await runSelect("BRAND");
-      }}
+      onContinueAsCreator={onContinueAsCreator}
+      onContinueAsBrand={onContinueAsBrand}
     />
   );
 }

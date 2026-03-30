@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,11 @@ import {
   updateCreatorProfile,
   type UpdateCreatorProfilePayload,
 } from "@/features/creators/api/update-creator-profile";
+import {
+  creatorSuggestionListsQueryKeys,
+  fetchCreatorPersonaTagSuggestions,
+  fetchCreatorRestrictionSuggestions,
+} from "@/features/creators/api/creator-suggestion-lists";
 import {
   presignCreatorProfileImageUpload,
   putFileToPresignedUrl,
@@ -70,6 +75,14 @@ function splitCommaList(raw: string): string[] {
     .filter(Boolean);
 }
 
+function appendCommaListItem(current: string, item: string): string {
+  const t = item.trim();
+  if (!t) return current;
+  const parts = splitCommaList(current);
+  if (parts.some((p) => p.toLowerCase() === t.toLowerCase())) return current;
+  return parts.length ? `${parts.join(", ")}, ${t}` : t;
+}
+
 function splitLines(raw: string): string[] {
   return raw
     .split(/\r?\n/)
@@ -96,6 +109,20 @@ export function CreatorProfileSetupForm({
 }: CreatorProfileSetupFormProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  const personaTagSuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.personaTags,
+    queryFn: fetchCreatorPersonaTagSuggestions,
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  });
+
+  const restrictionSuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.restrictions,
+    queryFn: fetchCreatorRestrictionSuggestions,
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  });
   const [pending, setPending] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [city, setCity] = useState("");
@@ -634,6 +661,29 @@ export function CreatorProfileSetupForm({
             onChange={(e) => setPersonaTagsInput(e.target.value)}
             placeholder="Comma-separated, e.g. Friendly, Clean aesthetic"
           />
+          {personaTagSuggestionsQuery.isSuccess &&
+          personaTagSuggestionsQuery.data.length > 0 ? (
+            <div className="space-y-1.5 pt-0.5">
+              <p className="text-xs text-muted-foreground">Suggestions</p>
+              <div className="flex flex-wrap gap-1.5">
+                {personaTagSuggestionsQuery.data.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
+                    onClick={() =>
+                      setPersonaTagsInput((prev) =>
+                        appendCommaListItem(prev, s.name),
+                      )
+                    }
+                    aria-label={`Add ${s.name} to persona tags`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -645,6 +695,29 @@ export function CreatorProfileSetupForm({
             onChange={(e) => setRestrictionsInput(e.target.value)}
             placeholder="Comma-separated, e.g. does not accept alcohol"
           />
+          {restrictionSuggestionsQuery.isSuccess &&
+          restrictionSuggestionsQuery.data.length > 0 ? (
+            <div className="space-y-1.5 pt-0.5">
+              <p className="text-xs text-muted-foreground">Suggestions</p>
+              <div className="flex flex-wrap gap-1.5">
+                {restrictionSuggestionsQuery.data.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
+                    onClick={() =>
+                      setRestrictionsInput((prev) =>
+                        appendCommaListItem(prev, s.name),
+                      )
+                    }
+                    aria-label={`Add ${s.name} to content restrictions`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">

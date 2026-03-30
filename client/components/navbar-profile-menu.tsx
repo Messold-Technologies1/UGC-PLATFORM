@@ -61,7 +61,10 @@ export function NavbarProfileMenu({
             )}
             aria-hidden
           >
-            <UserRound className="size-5 text-muted-foreground" strokeWidth={1.75} />
+            <UserRound
+              className="size-5 text-muted-foreground"
+              strokeWidth={1.75}
+            />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">Account</p>
@@ -69,7 +72,9 @@ export function NavbarProfileMenu({
           </div>
         </div>
         {showWorkspace ? (
-          <div className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}>
+          <div
+            className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
+          >
             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Workspace
             </p>
@@ -80,8 +85,8 @@ export function NavbarProfileMenu({
                   workspaceItemClass(activeWorkspace === "BRAND"),
                   "w-full",
                 )}
-                onClick={wrapNavigate(() =>
-                  void goWorkspace("BRAND", { redirectIfCurrent: true }),
+                onClick={wrapNavigate(
+                  () => void goWorkspace("BRAND", { redirectIfCurrent: true }),
                 )}
               >
                 <Building2 className="size-4" />
@@ -102,8 +107,9 @@ export function NavbarProfileMenu({
                   workspaceItemClass(activeWorkspace === "CREATOR"),
                   "w-full",
                 )}
-                onClick={wrapNavigate(() =>
-                  void goWorkspace("CREATOR", { redirectIfCurrent: true }),
+                onClick={wrapNavigate(
+                  () =>
+                    void goWorkspace("CREATOR", { redirectIfCurrent: true }),
                 )}
               >
                 <Video className="size-4" />
@@ -119,7 +125,9 @@ export function NavbarProfileMenu({
             ) : null}
           </div>
         ) : null}
-        <div className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}>
+        <div
+          className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
+        >
           <button
             type="button"
             disabled={isLoggingOut}
@@ -185,7 +193,10 @@ export function NavbarProfileMenu({
                   <button
                     type="button"
                     role="menuitem"
-                    className={cn(workspaceItemClass(activeWorkspace === "BRAND"), "w-full")}
+                    className={cn(
+                      workspaceItemClass(activeWorkspace === "BRAND"),
+                      "w-full",
+                    )}
                     onClick={() =>
                       void goWorkspace("BRAND", { redirectIfCurrent: true })
                     }

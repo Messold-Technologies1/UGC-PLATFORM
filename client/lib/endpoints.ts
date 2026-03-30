@@ -13,6 +13,8 @@ export const ENDPOINTS = {
     LIST: "/api/creators",
     PROFILE: "/api/creators/profile",
     PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
+    SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
+    SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",

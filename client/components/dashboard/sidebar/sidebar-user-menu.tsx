@@ -71,8 +71,14 @@ export function SidebarUserMenu({
 
   const isAccountSectionActive =
     pathname === accountHref || pathname.startsWith(`${accountHref}/`);
-  const isSettingsSectionActive =
-    pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
+
+  const notificationsHref = `${settingsHref}/notifications`;
+  const securityHref = `${settingsHref}/security`;
+  const isNotificationsActive =
+    pathname === notificationsHref ||
+    pathname.startsWith(`${notificationsHref}/`);
+  const isSecurityActive =
+    pathname === securityHref || pathname.startsWith(`${securityHref}/`);
 
   const closeMobile = useCallback(() => {
     setMobileOpen(false);
@@ -205,7 +211,7 @@ export function SidebarUserMenu({
             className={cn(
               accountMenuItemClass,
               "w-full",
-              isSettingsSectionActive && "bg-accent/80 text-accent-foreground",
+              isNotificationsActive && "bg-accent/80 text-accent-foreground",
             )}
             onClick={closeMobile}
           >
@@ -218,7 +224,7 @@ export function SidebarUserMenu({
             className={cn(
               accountMenuItemClass,
               "w-full",
-              isSettingsSectionActive && "bg-accent/80 text-accent-foreground",
+              isSecurityActive && "bg-accent/80 text-accent-foreground",
             )}
             onClick={closeMobile}
           >

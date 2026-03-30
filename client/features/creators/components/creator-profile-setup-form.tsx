@@ -664,7 +664,7 @@ export function CreatorProfileSetupForm({
           {personaTagSuggestionsQuery.isSuccess &&
           personaTagSuggestionsQuery.data.length > 0 ? (
             <div className="space-y-1.5 pt-0.5">
-              <p className="text-xs text-muted-foreground">Suggestions</p>
+              {/* <p className="text-xs text-muted-foreground">Suggestions</p> */}
               <div className="flex flex-wrap gap-1.5">
                 {personaTagSuggestionsQuery.data.map((s) => (
                   <button
@@ -698,7 +698,7 @@ export function CreatorProfileSetupForm({
           {restrictionSuggestionsQuery.isSuccess &&
           restrictionSuggestionsQuery.data.length > 0 ? (
             <div className="space-y-1.5 pt-0.5">
-              <p className="text-xs text-muted-foreground">Suggestions</p>
+              {/* <p className="text-xs text-muted-foreground">Suggestions</p> */}
               <div className="flex flex-wrap gap-1.5">
                 {restrictionSuggestionsQuery.data.map((s) => (
                   <button

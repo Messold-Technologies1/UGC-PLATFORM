@@ -148,7 +148,7 @@ export function CreatorPortfolioUploadForm() {
 
       <PageHeader
         title="Add portfolio video"
-        description="Upload a video and optional thumbnail. Files go to storage via a presigned URL, then your portfolio entry is created."
+        description="Upload a video and optional thumbnail."
       />
 
       <Card>

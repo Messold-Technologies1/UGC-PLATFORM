@@ -13,6 +13,11 @@ export type OnboardingOverlayShellProps = {
   left: React.ReactNode;
   right: React.ReactNode;
   className?: string;
+  /**
+   * `compact` — short flows (e.g. role picker), capped height.
+   * `scrollable` — long forms; inner column scrolls within ~viewport height.
+   */
+  contentVariant?: "compact" | "scrollable";
 };
 
 export function OnboardingOverlayShell({
@@ -24,6 +29,7 @@ export function OnboardingOverlayShell({
   left,
   right,
   className,
+  contentVariant = "compact",
 }: OnboardingOverlayShellProps) {
   const contentRef = React.useRef<HTMLDivElement>(null);
 
@@ -67,7 +73,14 @@ export function OnboardingOverlayShell({
             {srDescription}
           </DialogPrimitive.Description>
 
-          <div className="grid max-h-[inherit] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:max-h-[min(100dvh-2rem,36rem)]">
+          <div
+            className={cn(
+              "grid min-h-0 max-h-[inherit] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]",
+              contentVariant === "compact"
+                ? "md:max-h-[min(100dvh-2rem,36rem)]"
+                : "md:max-h-[min(100dvh-2rem,90dvh)]",
+            )}
+          >
             {left}
             {right}
           </div>

@@ -439,10 +439,10 @@ export function CreatorProfileSetupForm({
 
   const inputClass = "h-9 text-sm";
 
-  /** Settings: parent `<main>` scrolls — no inner overflow (avoids double scrollbars + bottom gap). Onboarding: outer overlay scrolls (`GlobalOnboardingPage`). */
+  /** Settings: parent `<main>` scrolls — card chrome. Onboarding: padded column inside `OnboardingOverlayShell` (`GlobalOnboardingPage`). */
   const shellClass =
     variant === "onboarding"
-      ? "flex flex-col bg-transparent p-6 md:p-8"
+      ? "flex flex-col bg-transparent p-0"
       : "flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8";
 
   const heading =

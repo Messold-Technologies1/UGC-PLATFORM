@@ -20,8 +20,15 @@ export const ENDPOINTS = {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
     VIDEOS: "/api/creator-portfolio/videos",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
+    SUGGESTIONS_INDUSTRIES: "/api/creator-portfolio/suggestions/industries",
+    SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
+    SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
   },
 } as const;
+
+export function creatorPortfolioVideoPath(id: string): string {
+  return `/api/creator-portfolio/videos/${encodeURIComponent(id)}`;
+}
 
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;

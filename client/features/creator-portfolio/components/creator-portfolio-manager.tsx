@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Eye, Image as ImageIcon, Loader2, Play, Plus } from "lucide-react";
+import { Eye, Image as ImageIcon, Loader2, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import type { PortfolioVideoApi } from "../api/types";
-import { listMyPortfolioVideos } from "../api/list-my-portfolio-videos";
+import { deletePortfolioVideo } from "../api/delete-portfolio-video";
+import {
+  listMyPortfolioVideos,
+  portfolioMyVideosQueryKey,
+} from "../api/list-my-portfolio-videos";
 
 function errorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -23,23 +28,72 @@ function errorMessage(err: unknown): string {
 }
 
 export function CreatorPortfolioManager() {
-  const [videos, setVideos] = useState<PortfolioVideoApi[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadVideos = useCallback(async () => {
-    try {
-      const list = await listMyPortfolioVideos();
-      setVideos(list);
-    } catch (e) {
-      toast.error("Could not load portfolio", { description: errorMessage(e) });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const videosQuery = useQuery({
+    queryKey: portfolioMyVideosQueryKey,
+    queryFn: listMyPortfolioVideos,
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    void loadVideos();
-  }, [loadVideos]);
+  const videos = videosQuery.data ?? [];
+  const loading = videosQuery.isPending;
+
+  const handleDelete = useCallback(
+    async (video: PortfolioVideoApi) => {
+      const label = video.description?.trim() || "this video";
+      if (
+        !window.confirm(
+          `Remove "${label}" from your portfolio? This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+      setDeletingId(video.id);
+      try {
+        await deletePortfolioVideo(video.id);
+        queryClient.setQueryData<PortfolioVideoApi[]>(
+          portfolioMyVideosQueryKey,
+          (prev) => (prev ?? []).filter((x) => x.id !== video.id),
+        );
+        toast.success("Video removed from portfolio");
+      } catch (e) {
+        toast.error("Could not delete video", { description: errorMessage(e) });
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [queryClient],
+  );
+
+  if (videosQuery.isError) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Portfolio"
+          description="Showcase your best work to attract brands"
+        />
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
+          <p className="text-sm font-medium text-destructive">
+            Could not load portfolio
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {errorMessage(videosQuery.error)}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => void videosQuery.refetch()}
+          >
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -89,7 +143,9 @@ export function CreatorPortfolioManager() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((v) => (
+          {videos.map((v) => {
+            const cardTitle = v.description?.trim() || "Portfolio video";
+            return (
             <div
               key={v.id}
               className="group relative overflow-hidden rounded-xl border border-border bg-card text-left transition-shadow hover:shadow-lg hover:shadow-primary/5"
@@ -116,9 +172,26 @@ export function CreatorPortfolioManager() {
                 </a>
               </div>
               <div className="p-3">
-                <p className="line-clamp-2 text-sm font-medium">
-                  {v.description?.trim() || "Portfolio video"}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="line-clamp-2 min-w-0 flex-1 text-sm font-medium">
+                    {cardTitle}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={deletingId !== null}
+                    aria-label={`Delete ${cardTitle}`}
+                    onClick={() => void handleDelete(v)}
+                  >
+                    {deletingId === v.id ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Trash2 className="size-3.5" aria-hidden />
+                    )}
+                  </Button>
+                </div>
                 <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                   <Eye className="size-3" aria-hidden />
                   {v.visibilityStatus === "public" ? "Public" : "Private"}
@@ -126,7 +199,8 @@ export function CreatorPortfolioManager() {
                 </p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

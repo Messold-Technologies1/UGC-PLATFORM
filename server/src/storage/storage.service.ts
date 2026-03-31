@@ -33,7 +33,11 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
   const isVideo =
     ct === 'video/mp4' || ct === 'video/quicktime' || ct === 'video/webm';
 
-  if (kind === 'creator_profile_image' || kind === 'creator_portfolio_thumbnail') {
+  if (
+    kind === 'creator_profile_image' ||
+    kind === 'creator_portfolio_thumbnail' ||
+    kind === 'brand_logo'
+  ) {
     if (!isImage) throw new Error('Unsupported image content type');
     return;
   }
@@ -80,6 +84,7 @@ export class StorageService {
     kind: StorageUploadKind;
     userId: string;
     creatorProfileId?: string;
+    brandProfileId?: string;
     contentType: string;
   }): string {
     validateContentType(input.kind, input.contentType);
@@ -95,6 +100,14 @@ export class StorageService {
         return `creator-profile/${creatorId}/${id}.${ext}`;
       }
       return this.buildTempCreatorProfileImageKey(input.userId, ext);
+    }
+
+    if (input.kind === 'brand_logo') {
+      const brandId = input.brandProfileId;
+      if (brandId) {
+        return `brand-logo/${brandId}/${id}.${ext}`;
+      }
+      return this.buildTempBrandLogoKey(input.userId, ext);
     }
 
     const creatorId = input.creatorProfileId;
@@ -121,6 +134,21 @@ export class StorageService {
     return key.startsWith(`creator-profile-temp/${userId}/`);
   }
 
+  buildTempBrandLogoKey(userId: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `brand-logo-temp/${userId}/${randomUUID()}.${ext}`;
+  }
+
+  isTempBrandLogoKeyForUser(userId: string, key: string): boolean {
+    return key.startsWith(`brand-logo-temp/${userId}/`);
+  }
+
   async finalizeCreatorProfileImageKey(input: {
     tempKey: string;
     creatorProfileId: string;
@@ -131,6 +159,37 @@ export class StorageService {
       throw new Error('Invalid temporary profile image key');
     }
     const finalKey = `creator-profile/${input.creatorProfileId}/${fileName}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.tempKey}`,
+      }),
+    );
+
+    if (input.deleteTemp ?? true) {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: input.tempKey,
+        }),
+      );
+    }
+
+    return finalKey;
+  }
+
+  async finalizeBrandLogoKey(input: {
+    tempKey: string;
+    brandProfileId: string;
+    deleteTemp?: boolean;
+  }): Promise<string> {
+    const fileName = input.tempKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid temporary brand logo key');
+    }
+    const finalKey = `brand-logo/${input.brandProfileId}/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

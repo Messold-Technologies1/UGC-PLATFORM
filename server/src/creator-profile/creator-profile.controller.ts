@@ -106,6 +106,21 @@ export class CreatorProfileController {
     return this.creatorProfileService.listRestrictionSuggestions();
   }
 
+  @Get('profile/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get creator profile for the authenticated user',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async getMyCreatorProfile(
+    @Req()
+    req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.getCreatorProfileForCurrentUser(
+      req.user.id,
+    );
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get creator by creator profile id' })

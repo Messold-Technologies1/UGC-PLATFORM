@@ -5,7 +5,10 @@ import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
-import { findCreatorProfileForUserId } from "@/features/creators/api/find-creator-profile-for-user";
+import {
+  creatorProfileMeQueryKey,
+  fetchCreatorProfileMe,
+} from "@/features/creators/api/fetch-creator-profile-me";
 import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form.lazy";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -16,9 +19,10 @@ export default function CreatorSettingsProfilePage() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["creator-profile-me", user?.id],
-    queryFn: () => findCreatorProfileForUserId(user!.id),
+    queryKey: creatorProfileMeQueryKey,
+    queryFn: fetchCreatorProfileMe,
     enabled: Boolean(user?.id && user.hasCreatorProfile),
+    staleTime: 2 * 60_000,
   });
 
   if (authLoading) {

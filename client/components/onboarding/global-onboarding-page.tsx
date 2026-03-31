@@ -5,6 +5,7 @@ import { Building2, Clapperboard } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form.lazy";
+import { BrandProfileSetupForm } from "@/features/brands/components/brand-profile-setup-form.lazy";
 import { Button } from "@/components/ui/button";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
@@ -109,29 +110,24 @@ export function GlobalOnboardingPage({
           </div>
         ) : (
           <div className={rightColumnClass}>
-            <section
-              aria-labelledby="brand-onboarding-heading"
-              className="flex flex-col gap-6"
-            >
-              <h1
-                id="brand-onboarding-heading"
-                className="text-xl font-bold tracking-tight text-foreground md:text-2xl"
-              >
-                Brand setup coming soon
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Organization and billing onboarding will live here. For now,
-                continue to your dashboard when you are ready.
-              </p>
+            <BrandProfileSetupForm
+              variant="onboarding"
+              mode="create"
+              onSuccess={async () => {
+                onBrandDismiss?.();
+                onClose();
+              }}
+            />
+            <div className="mt-6 flex items-center justify-end">
               <Button
                 type="button"
+                variant="ghost"
                 disabled={brandContinuePending}
                 onClick={() => void handleBrandContinue()}
-                className="w-full bg-emerald-700 text-white hover:bg-emerald-800 sm:w-auto"
               >
-                {brandContinuePending ? "Continuing…" : "Continue to dashboard"}
+                Skip for now
               </Button>
-            </section>
+            </div>
           </div>
         )
       }

@@ -105,6 +105,7 @@ export function mapProfileItemToCreatorProfile(
     ...base,
     bio: profile.bio?.trim() || "No bio yet.",
     languages: (profile.languages ?? []).map((l) => l.language),
+    personaTags: (profile.personaTags ?? []).map((t) => t.tag),
     restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
     travelRadiusKm:
       profile.travelRadius != null && !Number.isNaN(profile.travelRadius)

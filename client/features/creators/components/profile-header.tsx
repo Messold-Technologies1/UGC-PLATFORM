@@ -4,7 +4,6 @@ import {
   MapPin,
   Star,
   CheckCircle2,
-  XCircle,
   MessageSquare,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -37,13 +36,6 @@ export const ProfileHeader = memo(function ProfileHeader({
   const attributeRows = useMemo(() => {
     const rows: { ok: boolean; text: string }[] = [];
 
-    if (creator.languages.length > 0) {
-      rows.push({
-        ok: true,
-        text: `Speaks ${creator.languages.join(", ")}`,
-      });
-    }
-
     if (creator.travelRadiusKm != null && creator.travelRadiusKm > 0) {
       rows.push({
         ok: true,
@@ -68,15 +60,6 @@ export const ProfileHeader = memo(function ProfileHeader({
       }
     }
 
-    for (const r of creator.restrictions) {
-      const t = r.trim();
-      if (t)
-        rows.push({
-          ok: false,
-          text: t,
-        });
-    }
-
     if (rows.length === 0) {
       rows.push({
         ok: true,
@@ -86,11 +69,9 @@ export const ProfileHeader = memo(function ProfileHeader({
 
     return rows;
   }, [
-    creator.languages,
     creator.travelRadiusKm,
     creator.storeVisit,
     creator.onLocationFee,
-    creator.restrictions,
   ]);
 
   const showReviewsLine = creator.reviewCount > 0;
@@ -154,15 +135,51 @@ export const ProfileHeader = memo(function ProfileHeader({
             {creator.bio}
           </p>
 
-          {creator.tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {creator.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
+          <div className="mt-4 space-y-2.5">
+            {creator.languages.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {creator.languages.map((l) => (
+                  <Badge key={l} variant="secondary" className="text-xs">
+                    {l}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
+            {creator.personaTags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {creator.personaTags.map((t) => (
+                  <Badge key={t} variant="secondary" className="text-xs">
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
+            {creator.categories.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {creator.categories.map((c) => (
+                  <Badge key={c} variant="secondary" className="text-xs">
+                    {c}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
+            {creator.restrictions.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {creator.restrictions.map((r) => (
+                  <Badge
+                    key={r}
+                    variant="outline"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {r}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5">
             {attributeRows.map(({ ok, text }) => (
@@ -174,9 +191,7 @@ export const ProfileHeader = memo(function ProfileHeader({
               >
                 {ok ? (
                   <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
-                ) : (
-                  <XCircle className="size-3.5 shrink-0 text-muted-foreground/60" />
-                )}
+                ) : null}
                 {text}
               </span>
             ))}

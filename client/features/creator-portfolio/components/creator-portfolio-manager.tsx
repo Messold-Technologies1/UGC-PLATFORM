@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Eye, Image as ImageIcon, Loader2, Play, Plus, Trash2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -17,7 +17,9 @@ import {
 
 function errorMessage(err: unknown): string {
   if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string | string[] } | undefined;
+    const data = err.response?.data as
+      | { message?: string | string[] }
+      | undefined;
     const m = data?.message;
     if (Array.isArray(m)) return m.join(", ");
     if (typeof m === "string") return m;
@@ -142,63 +144,100 @@ export function CreatorPortfolioManager() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid justify-items-center gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {videos.map((v) => {
             const cardTitle = v.description?.trim() || "Portfolio video";
+            const createdLabel = new Date(v.createdAt).toLocaleDateString(
+              undefined,
+              {
+                year: "numeric",
+                month: "short",
+              },
+            );
             return (
-            <div
-              key={v.id}
-              className="group relative overflow-hidden rounded-xl border border-border bg-card text-left transition-shadow hover:shadow-lg hover:shadow-primary/5"
-            >
-              <div className="relative aspect-9/16 max-h-72 overflow-hidden bg-muted">
-                <video
-                  className="size-full object-cover"
-                  src={v.videoUrl}
-                  poster={v.thumbnailUrl ?? undefined}
-                  preload="metadata"
-                  muted
-                  playsInline
-                />
-                <a
-                  href={v.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/20"
-                  aria-label="Open video"
-                >
-                  <span className="flex size-11 items-center justify-center rounded-full bg-background/80 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110">
-                    <Play className="ml-0.5 size-4 text-foreground" aria-hidden />
-                  </span>
-                </a>
-              </div>
-              <div className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-2 min-w-0 flex-1 text-sm font-medium">
-                    {cardTitle}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    disabled={deletingId !== null}
-                    aria-label={`Delete ${cardTitle}`}
-                    onClick={() => void handleDelete(v)}
+              <div
+                key={v.id}
+                className="group relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+              >
+                <div className="relative h-[420px] overflow-hidden bg-muted sm:h-[460px]">
+                  <video
+                    className="absolute inset-0 h-full w-full object-cover"
+                    src={v.videoUrl}
+                    poster={v.thumbnailUrl ?? undefined}
+                    preload="metadata"
+                    muted
+                    playsInline
+                  />
+
+                  <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/10 via-black/0 to-black/55 opacity-90 transition-opacity group-hover:opacity-100" />
+
+                  <a
+                    href={v.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/10"
+                    aria-label={`Open ${cardTitle}`}
                   >
-                    {deletingId === v.id ? (
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                    ) : (
-                      <Trash2 className="size-3.5" aria-hidden />
-                    )}
-                  </Button>
+                    <span className="flex size-12 items-center justify-center rounded-full bg-background/85 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110">
+                      <Play
+                        className="ml-0.5 size-4 text-foreground"
+                        aria-hidden
+                      />
+                    </span>
+                  </a>
+
+                  <span className="absolute left-2.5 top-2.5 rounded-full border border-border/70 bg-background/85 px-2.5 py-1 text-[11px] font-medium leading-none backdrop-blur-sm">
+                    {v.visibilityStatus === "public" ? "Public" : "Private"}
+                  </span>
+
+                  <div className="absolute right-2.5 top-2.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="h-8 w-8 rounded-full bg-background/75 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-background hover:text-destructive group-hover:opacity-100"
+                      disabled={deletingId !== null}
+                      aria-label={`Delete ${cardTitle}`}
+                      onClick={() => void handleDelete(v)}
+                    >
+                      {deletingId === v.id ? (
+                        <Loader2
+                          className="size-3.5 animate-spin"
+                          aria-hidden
+                        />
+                      ) : (
+                        <Trash2 className="size-3.5" aria-hidden />
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="absolute inset-x-0 bottom-0 p-3">
+                    <p className="line-clamp-2 text-sm font-semibold text-white drop-shadow-sm">
+                      {cardTitle}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
+                      {v.industryLabel?.trim() ? (
+                        <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
+                          {v.industryLabel.trim()}
+                        </span>
+                      ) : null}
+                      {v.language?.trim() ? (
+                        <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
+                          {v.language.trim()}
+                        </span>
+                      ) : null}
+                      {v.tags?.[0]?.trim() ? (
+                        <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
+                          {v.tags[0].trim()}
+                        </span>
+                      ) : null}
+                      <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
+                        {createdLabel}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Eye className="size-3" aria-hidden />
-                  {v.visibilityStatus === "public" ? "Public" : "Private"}
-                  {v.industryLabel ? ` · ${v.industryLabel}` : ""}
-                </p>
               </div>
-            </div>
             );
           })}
         </div>

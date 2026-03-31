@@ -72,7 +72,7 @@ export function OnboardingOverlayShell({
 
           <div
             className={cn(
-              "grid min-h-0 max-h-[inherit] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]",
+              "grid min-h-0 max-h-[inherit] md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]",
               contentVariant === "compact"
                 ? "md:max-h-[min(100dvh-2rem,36rem)]"
                 : "md:max-h-[min(100dvh-2rem,90dvh)]",

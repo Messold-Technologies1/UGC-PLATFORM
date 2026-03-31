@@ -22,6 +22,8 @@ export interface CreatorProfile extends Creator {
   bio: string;
   languages: string[];
 
+  personaTags: string[];
+
   restrictions: string[];
 
   travelRadiusKm: number | null;

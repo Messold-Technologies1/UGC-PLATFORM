@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
+import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
 import { useAuth } from "@/providers/auth-provider";
 import {
   createCreatorProfile,
@@ -39,12 +40,10 @@ import {
   putFileToPresignedUrl,
 } from "@/features/creators/api/presign-creator-profile-image";
 
-
 const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
 
 const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
 const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
-
 
 const GENDER_VALUE_UNSPECIFIED = "__unspecified__";
 
@@ -92,10 +91,9 @@ function splitLines(raw: string): string[] {
 }
 
 export type CreatorProfileSetupFormProps = {
-  
   variant: "onboarding" | "settings";
   mode: "create" | "update";
-  
+
   profileId?: string;
   initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void;
@@ -131,20 +129,20 @@ export function CreatorProfileSetupForm({
   const [gender, setGender] = useState("");
   const [travelRadius, setTravelRadius] = useState("");
   const [languages, setLanguages] = useState("");
-  
+
   const [categoriesInput, setCategoriesInput] = useState("");
   const [personaTagsInput, setPersonaTagsInput] = useState("");
   const [restrictionsInput, setRestrictionsInput] = useState("");
   const [onLocationAvailable, setOnLocationAvailable] = useState(false);
   const [onLocationFee, setOnLocationFee] = useState("");
-  
+
   const nextPackageIdRef = useRef(1);
   const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
     createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
   ]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  
+
   const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
     string | null
   >(null);
@@ -261,37 +259,36 @@ export function CreatorProfileSetupForm({
     [queryClient, user],
   );
 
-  const handleProfileImageSelected = useCallback(async (file: File | null) => {
-    if (!file) return;
-    if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
-      toast.error("Use JPEG, PNG, WebP, or GIF.");
-      return;
-    }
-    if (file.size > MAX_PROFILE_IMAGE_BYTES) {
-      toast.error("Image must be 8 MB or smaller.");
-      return;
-    }
-    if (mode === "create") {
-      const ok = await ensureCreatorWorkspace();
-      if (!ok) return;
-    }
-    setUploadingImage(true);
-    try {
-      const presign = await presignCreatorProfileImageUpload({
-        contentType: file.type,
-        contentLength: file.size,
-      });
-      await putFileToPresignedUrl(file, presign);
-      setPendingProfileImageKey(presign.key);
-      setImagePreviewUrl(presign.cdnUrl);
-      toast.success("Photo uploaded — save your profile to apply.");
-    } catch {
-      toast.error("Could not upload image. Try again.");
-    } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }, [mode, ensureCreatorWorkspace]);
+  const handleProfileImageSelected = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
+        toast.error("Use JPEG, PNG, WebP, or GIF.");
+        return;
+      }
+      if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+        toast.error("Image must be 8 MB or smaller.");
+        return;
+      }
+      setUploadingImage(true);
+      try {
+        const presign = await presignCreatorProfileImageUpload({
+          contentType: file.type,
+          contentLength: file.size,
+        });
+        await putFileToPresignedUrl(file, presign);
+        setPendingProfileImageKey(presign.key);
+        setImagePreviewUrl(presign.cdnUrl);
+        toast.success("Photo uploaded — save your profile to apply.");
+      } catch {
+        toast.error("Could not upload image. Try again.");
+      } finally {
+        setUploadingImage(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [],
+  );
 
   const clearProfileImage = useCallback(() => {
     setPendingProfileImageKey(null);
@@ -417,17 +414,15 @@ export function CreatorProfileSetupForm({
           await updateCreatorProfile(profileId, patchPayload);
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
           await queryClient.invalidateQueries({
-            queryKey: ["creator-profile-me"],
+            queryKey: creatorProfileMeQueryKey,
           });
           toast.success("Profile updated");
           onSuccess();
           return;
         }
 
-        const workspaceOk = await ensureCreatorWorkspace();
-        if (!workspaceOk) return;
-
         await createCreatorProfile(createPayload);
+        await ensureCreatorWorkspace();
         await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
         toast.success("Creator profile created");
         onSuccess();
@@ -440,6 +435,7 @@ export function CreatorProfileSetupForm({
           toast.message("Profile already exists", {
             description: "Continuing to your dashboard.",
           });
+          await ensureCreatorWorkspace();
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
           onSuccess();
           return;
@@ -480,7 +476,6 @@ export function CreatorProfileSetupForm({
 
   const inputClass = "h-9 text-sm";
 
-  
   const shellClass =
     variant === "onboarding"
       ? "flex flex-col bg-transparent p-0"
@@ -678,7 +673,6 @@ export function CreatorProfileSetupForm({
           {personaTagSuggestionsQuery.isSuccess &&
           personaTagSuggestionsQuery.data.length > 0 ? (
             <div className="space-y-1.5 pt-0.5">
-             
               <div className="flex flex-wrap gap-1.5">
                 {personaTagSuggestionsQuery.data.map((s) => (
                   <button
@@ -712,7 +706,6 @@ export function CreatorProfileSetupForm({
           {restrictionSuggestionsQuery.isSuccess &&
           restrictionSuggestionsQuery.data.length > 0 ? (
             <div className="space-y-1.5 pt-0.5">
-             
               <div className="flex flex-wrap gap-1.5">
                 {restrictionSuggestionsQuery.data.map((s) => (
                   <button

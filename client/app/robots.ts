@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ugcplatform.com";
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://collabry.com";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,7 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/brand/dashboard",
-          "/brand/settings",
           "/creator/dashboard",
           "/creator/settings",
         ],

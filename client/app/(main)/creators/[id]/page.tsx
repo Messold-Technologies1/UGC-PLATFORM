@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const name = result.profile.displayName;
     return {
       title: name,
-      description: `View ${name}'s profile, portfolio, and packages on UGC Platform.`,
+      description: `View ${name}'s profile, portfolio, and packages on Collabry.`,
     };
   }
   return { title: "Creator" };
@@ -44,7 +44,7 @@ export default async function CreatorProfilePage({ params }: PageProps) {
 
   if (result.ok) {
     const creator = mapProfileItemToCreatorProfile(result.profile);
-    return <CreatorProfile creator={creator} />;
+    return <CreatorProfile key={id} creator={creator} />;
   }
 
   if (result.status === 401) {

@@ -1,24 +1,87 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
+import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
+import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
 import { useAuth } from "@/providers/auth-provider";
 import {
   createCreatorProfile,
   type CreateCreatorProfilePayload,
 } from "@/features/creators/api/create-creator-profile";
+import type { CreatorProfileItemApi } from "@/features/creators/api/types";
+import {
+  updateCreatorProfile,
+  type UpdateCreatorProfilePayload,
+} from "@/features/creators/api/update-creator-profile";
+import {
+  creatorSuggestionListsQueryKeys,
+  fetchCreatorPersonaTagSuggestions,
+  fetchCreatorRestrictionSuggestions,
+} from "@/features/creators/api/creator-suggestion-lists";
+import {
+  presignCreatorProfileImageUpload,
+  putFileToPresignedUrl,
+} from "@/features/creators/api/presign-creator-profile-image";
+
+const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
+
+const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
+const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+
+const GENDER_VALUE_UNSPECIFIED = "__unspecified__";
+
+type PackageDraft = {
+  id: string;
+  name: string;
+  priceAmount: string;
+  deliveryDays: string;
+  deliverables: string;
+};
+
+function createPackageDraft(
+  id: string,
+  overrides?: Partial<Omit<PackageDraft, "id">>,
+): PackageDraft {
+  return {
+    id,
+    name: overrides?.name ?? "",
+    priceAmount: overrides?.priceAmount ?? "",
+    deliveryDays: overrides?.deliveryDays ?? "",
+    deliverables: overrides?.deliverables ?? "",
+  };
+}
 
 function splitCommaList(raw: string): string[] {
   return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function appendCommaListItem(current: string, item: string): string {
+  const t = item.trim();
+  if (!t) return current;
+  const parts = splitCommaList(current);
+  if (parts.some((p) => p.toLowerCase() === t.toLowerCase())) return current;
+  return parts.length ? `${parts.join(", ")}, ${t}` : t;
 }
 
 function splitLines(raw: string): string[] {
@@ -29,33 +92,219 @@ function splitLines(raw: string): string[] {
 }
 
 export type CreatorProfileSetupFormProps = {
+  variant: "onboarding" | "settings";
+  mode: "create" | "update";
+
+  profileId?: string;
+  initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void;
 };
 
 export function CreatorProfileSetupForm({
+  variant,
+  mode,
+  profileId,
+  initialProfile,
   onSuccess,
 }: CreatorProfileSetupFormProps) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  const personaTagSuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.personaTags,
+    queryFn: fetchCreatorPersonaTagSuggestions,
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  });
+
+  const restrictionSuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.restrictions,
+    queryFn: fetchCreatorRestrictionSuggestions,
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  });
   const [pending, setPending] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [city, setCity] = useState("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
-  const [ageRange, setAgeRange] = useState("");
   const [travelRadius, setTravelRadius] = useState("");
   const [languages, setLanguages] = useState("");
-  const [serviceTypeNames, setServiceTypeNames] = useState("");
-  const [packageName, setPackageName] = useState("Starter");
-  const [priceAmount, setPriceAmount] = useState("");
-  const [deliveryDays, setDeliveryDays] = useState("3");
-  const [deliverables, setDeliverables] = useState("");
+
+  const [categoriesInput, setCategoriesInput] = useState("");
+  const [personaTagsInput, setPersonaTagsInput] = useState("");
+  const [restrictionsInput, setRestrictionsInput] = useState("");
+  const [onLocationAvailable, setOnLocationAvailable] = useState(false);
+  const [onLocationFee, setOnLocationFee] = useState("");
+
+  const nextPackageIdRef = useRef(1);
+  const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
+    createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
+  ]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
+  const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
+    string | null
+  >(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const updatePackageDraft = useCallback(
+    (id: string, patch: Partial<Omit<PackageDraft, "id">>) => {
+      setPackageDrafts((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+      );
+    },
+    [],
+  );
+
+  const addPackageDraft = useCallback(() => {
+    setPackageDrafts((rows) => {
+      if (rows.length >= MAX_PACKAGES_IN_CREATOR_SETUP_FORM) return rows;
+      const nextNum = rows.length + 1;
+      const defaultNames = ["Starter", "Standard", "Pro"] as const;
+      const name = defaultNames[nextNum - 1] ?? `Package ${nextNum}`;
+      const deliveryDays = nextNum === 1 ? "3" : "5";
+      const id = `pkg-${nextPackageIdRef.current++}`;
+      return [...rows, createPackageDraft(id, { name, deliveryDays })];
+    });
+  }, []);
+
+  const removePackageDraft = useCallback((id: string) => {
+    setPackageDrafts((rows) => rows.filter((row) => row.id !== id));
+  }, []);
 
   useEffect(() => {
+    if (mode === "update" && initialProfile) {
+      const url = initialProfile.profileImageUrl?.trim();
+      setImagePreviewUrl(
+        url && (url.startsWith("http://") || url.startsWith("https://"))
+          ? url
+          : null,
+      );
+      setPendingProfileImageKey(null);
+      setDisplayName(initialProfile.displayName);
+      setCity(initialProfile.city?.trim() ?? "");
+      setBio(initialProfile.bio?.trim() ?? "");
+      setGender(initialProfile.gender?.trim() ?? "");
+      setTravelRadius(
+        initialProfile.travelRadius != null
+          ? String(initialProfile.travelRadius)
+          : "",
+      );
+      setLanguages(initialProfile.languages.map((l) => l.language).join(", "));
+      setCategoriesInput(
+        initialProfile.categories.map((c) => c.category).join(", "),
+      );
+      setPersonaTagsInput(
+        (initialProfile.personaTags ?? []).map((t) => t.tag).join(", "),
+      );
+      setRestrictionsInput(
+        (initialProfile.restrictions ?? [])
+          .map((r) => r.restriction)
+          .join(", "),
+      );
+      setOnLocationAvailable(initialProfile.onLocationAvailable ?? false);
+      setOnLocationFee(
+        initialProfile.onLocationFee != null &&
+          String(initialProfile.onLocationFee).trim() !== ""
+          ? String(initialProfile.onLocationFee)
+          : "",
+      );
+      if (initialProfile.packages.length > 0) {
+        nextPackageIdRef.current = initialProfile.packages.length;
+        setPackageDrafts(
+          initialProfile.packages.map((p) => ({
+            id: p.id,
+            name: p.name,
+            priceAmount: p.priceAmount,
+            deliveryDays: String(p.deliveryDays),
+            deliverables: p.deliverables.join("\n"),
+          })),
+        );
+      } else {
+        setPackageDrafts([
+          createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
+        ]);
+        nextPackageIdRef.current = 1;
+      }
+      return;
+    }
     if (!user) return;
+    setImagePreviewUrl(null);
+    setPendingProfileImageKey(null);
+    setCategoriesInput("");
+    setPersonaTagsInput("");
+    setRestrictionsInput("");
+    setOnLocationAvailable(false);
+    setOnLocationFee("");
     const name = user.name?.trim() || user.email.split("@")[0] || "";
     setDisplayName(name);
-  }, [user]);
+  }, [user, mode, initialProfile]);
+
+  const displayInitials = useCallback(() => {
+    const base =
+      displayName.trim() ||
+      user?.name?.trim() ||
+      user?.email?.split("@")[0] ||
+      "?";
+    const parts = base.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase().slice(0, 2);
+    }
+    return base.slice(0, 2).toUpperCase();
+  }, [displayName, user]);
+
+  const ensureCreatorWorkspace = useCallback(
+    () => ensureWorkspaceSelection(queryClient, user, "CREATOR"),
+    [queryClient, user],
+  );
+
+  const handleProfileImageSelected = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      const ok = await ensureCreatorWorkspace();
+      if (!ok) return;
+      if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
+        toast.error("Use JPEG, PNG, WebP, or GIF.");
+        return;
+      }
+      if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+        toast.error("Image must be 8 MB or smaller.");
+        return;
+      }
+      setUploadingImage(true);
+      try {
+        const presign = await presignCreatorProfileImageUpload({
+          contentType: file.type,
+          contentLength: file.size,
+        });
+        await putFileToPresignedUrl(file, presign);
+        setPendingProfileImageKey(presign.key);
+        setImagePreviewUrl(presign.cdnUrl);
+        toast.success("Photo uploaded — save your profile to apply.");
+      } catch {
+        toast.error("Could not upload image. Try again.");
+      } finally {
+        setUploadingImage(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [ensureCreatorWorkspace],
+  );
+
+  const clearProfileImage = useCallback(() => {
+    setPendingProfileImageKey(null);
+    if (mode === "update" && initialProfile?.profileImageUrl?.trim()) {
+      const u = initialProfile.profileImageUrl.trim();
+      setImagePreviewUrl(
+        u.startsWith("http://") || u.startsWith("https://") ? u : null,
+      );
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, [mode, initialProfile]);
 
   const handleSubmit = useCallback(
     async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -65,104 +314,268 @@ export function CreatorProfileSetupForm({
         toast.error("Display name is required");
         return;
       }
+      if (mode === "update" && !profileId) {
+        toast.error("Missing profile id");
+        return;
+      }
 
-      const days = Number.parseInt(deliveryDays, 10);
       const radiusRaw = travelRadius.trim();
       const radius =
         radiusRaw === "" ? undefined : Number.parseInt(radiusRaw, 10);
 
       const langs = splitCommaList(languages);
-      const services = splitCommaList(serviceTypeNames);
-      const dels = splitLines(deliverables);
+      const cats = splitCommaList(categoriesInput);
+      const personas = splitCommaList(personaTagsInput);
+      const rests = splitCommaList(restrictionsInput);
 
-      const price = priceAmount.trim();
-      const pkgName = packageName.trim();
+      const builtPackages: NonNullable<
+        CreateCreatorProfilePayload["packages"]
+      > = [];
+
+      for (const row of packageDrafts) {
+        const pkgName = row.name.trim();
+        const price = row.priceAmount.trim();
+        const dels = splitLines(row.deliverables);
+        const rowDays = Number.parseInt(row.deliveryDays, 10);
+        const hasDeliveryInput = row.deliveryDays.trim() !== "";
+        const touched =
+          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput;
+        const daysOk = !Number.isNaN(rowDays) && rowDays >= 0;
+        const isComplete = !!pkgName && !!price && daysOk;
+
+        if (touched && !isComplete) {
+          toast.error(
+            "Complete each package (name, price, delivery days) or clear unused rows.",
+          );
+          return;
+        }
+
+        if (isComplete) {
+          builtPackages.push({
+            name: pkgName,
+            deliverables: dels.length ? dels : ["Deliverables to be confirmed"],
+            priceAmount: price,
+            deliveryDays: rowDays,
+          });
+        }
+      }
+
       const packages: CreateCreatorProfilePayload["packages"] =
-        price && pkgName && !Number.isNaN(days) && days >= 0
-          ? [
-              {
-                name: pkgName,
-                deliverables: dels.length
-                  ? dels
-                  : ["Deliverables to be confirmed"],
-                priceAmount: price,
-                deliveryDays: days,
-              },
-            ]
-          : undefined;
+        builtPackages.length > 0 ? builtPackages : undefined;
 
-      const payload: CreateCreatorProfilePayload = {
+      const createPayload: CreateCreatorProfilePayload = {
         displayName: name,
+        ...(pendingProfileImageKey
+          ? { profileImageKey: pendingProfileImageKey }
+          : {}),
         city: city.trim() || undefined,
         bio: bio.trim() || undefined,
         gender: gender.trim() || undefined,
-        ageRange: ageRange.trim() || undefined,
         travelRadius:
           radius !== undefined && !Number.isNaN(radius) && radius >= 0
             ? radius
             : undefined,
         languages: langs.length ? langs : undefined,
-        serviceTypeNames: services.length ? services : undefined,
+        categories: cats.length ? cats : undefined,
+        personaTags: personas.length ? personas : undefined,
+        restrictions: rests.length ? rests : undefined,
+        onLocationAvailable,
+        ...(onLocationAvailable && onLocationFee.trim()
+          ? { onLocationFee: onLocationFee.trim() }
+          : {}),
         packages,
       };
 
       setPending(true);
       try {
-        await createCreatorProfile(payload);
-        await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-        toast.success("Creator profile created");
-        onSuccess();
-      } catch (err) {
-        if (isAxiosError(err) && err.response?.status === 409) {
-          toast.message("Profile already exists", {
-            description: "Continuing to your dashboard.",
-          });
+        if (mode === "update") {
+          if (!profileId) {
+            toast.error("Missing profile id");
+            return;
+          }
+          const patchPayload: UpdateCreatorProfilePayload = {
+            displayName: name,
+            ...(pendingProfileImageKey
+              ? { profileImageKey: pendingProfileImageKey }
+              : {}),
+            city: city.trim() || undefined,
+            bio: bio.trim() || undefined,
+            gender: gender.trim() || undefined,
+            travelRadius:
+              radius !== undefined && !Number.isNaN(radius) && radius >= 0
+                ? radius
+                : undefined,
+            onLocationAvailable,
+            ...(onLocationAvailable && onLocationFee.trim()
+              ? { onLocationFee: onLocationFee.trim() }
+              : {}),
+            languages: langs,
+            categories: cats,
+            personaTags: personas,
+            restrictions: rests,
+            packages: builtPackages,
+          };
+          await updateCreatorProfile(profileId, patchPayload);
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
+          await queryClient.invalidateQueries({
+            queryKey: creatorProfileMeQueryKey,
+          });
+          toast.success("Profile updated");
           onSuccess();
           return;
         }
-        toast.error("Could not create profile", {
-          description: "Check your connection and try again.",
-        });
+
+        const ok = await ensureCreatorWorkspace();
+        if (!ok) return;
+        await createCreatorProfile(createPayload);
+        await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
+        toast.success("Creator profile created");
+        onSuccess();
+        router.replace("/creator/account");
+      } catch (err) {
+        if (
+          mode === "create" &&
+          isAxiosError(err) &&
+          err.response?.status === 409
+        ) {
+          toast.message("Profile already exists", {
+            description: "Continuing to your dashboard.",
+          });
+          const ok = await ensureCreatorWorkspace();
+          if (!ok) return;
+          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
+          onSuccess();
+          router.replace("/creator/account");
+          return;
+        }
+        toast.error(
+          mode === "update"
+            ? "Could not update profile"
+            : "Could not create profile",
+          {
+            description: "Check your connection and try again.",
+          },
+        );
       } finally {
         setPending(false);
       }
     },
     [
+      mode,
+      profileId,
       displayName,
       city,
       bio,
       gender,
-      ageRange,
       travelRadius,
       languages,
-      serviceTypeNames,
-      packageName,
-      priceAmount,
-      deliveryDays,
-      deliverables,
+      categoriesInput,
+      personaTagsInput,
+      restrictionsInput,
+      onLocationAvailable,
+      onLocationFee,
+      packageDrafts,
       onSuccess,
       queryClient,
+      pendingProfileImageKey,
+      ensureCreatorWorkspace,
+      router,
     ],
   );
 
   const inputClass = "h-9 text-sm";
 
+  const shellClass =
+    variant === "onboarding"
+      ? "flex flex-col bg-transparent p-0"
+      : "flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8";
+
+  const heading =
+    mode === "update"
+      ? "Edit your creator profile"
+      : "Set up your creator profile";
+  const subheading =
+    variant === "settings"
+      ? "Changes apply to how brands see you in search and on your public profile."
+      : "Brands see this in search. You can edit everything later in settings.";
+
   return (
-    <form
-      onSubmit={(e) => void handleSubmit(e)}
-      className="flex max-h-[inherit] flex-col overflow-y-auto bg-background p-8 md:p-10"
-    >
+    <form onSubmit={(e) => void handleSubmit(e)} className={shellClass}>
       <div className="mb-6 space-y-2">
         <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-          Set up your creator profile
+          {heading}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Brands see this in search. You can edit everything later in settings.
-        </p>
+        <p className="text-sm text-muted-foreground">{subheading}</p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-start">
+        <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+          {imagePreviewUrl ? (
+            <Image
+              src={imagePreviewUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="96px"
+              unoptimized
+            />
+          ) : (
+            <div
+              className="flex size-full items-center justify-center bg-primary/15 text-lg font-semibold text-primary"
+              aria-hidden
+            >
+              {displayInitials()}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <Label className="text-base">Profile photo</Label>
+          <p className="text-xs text-muted-foreground">
+            Upload a square image. Shown in search and on your public profile.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={PROFILE_IMAGE_ACCEPT}
+            className="sr-only"
+            aria-label="Upload profile photo"
+            onChange={(e) =>
+              void handleProfileImageSelected(e.target.files?.[0] ?? null)
+            }
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={uploadingImage || pending}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadingImage ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Upload className="size-4" aria-hidden />
+              )}
+              {uploadingImage ? "Uploading…" : "Upload photo"}
+            </Button>
+            {pendingProfileImageKey ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={uploadingImage || pending}
+                onClick={clearProfileImage}
+              >
+                Discard new photo
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
         <div className="space-y-2">
           <Label htmlFor="displayName">Display name</Label>
           <Input
@@ -188,18 +601,25 @@ export function CreatorProfileSetupForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
-            <select
-              id="gender"
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="dark:bg-input/30 border-input h-9 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            <Select
+              value={gender === "" ? GENDER_VALUE_UNSPECIFIED : gender}
+              onValueChange={(v) =>
+                setGender(v === GENDER_VALUE_UNSPECIFIED ? "" : v)
+              }
             >
-              <option value="">Prefer not to say</option>
-              <option value="Female">Female</option>
-              <option value="Male">Male</option>
-              <option value="Non-binary">Non-binary</option>
-              <option value="Other">Other</option>
-            </select>
+              <SelectTrigger id="gender" aria-label="Gender">
+                <SelectValue placeholder="Prefer not to say" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={GENDER_VALUE_UNSPECIFIED}>
+                  Prefer not to say
+                </SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Non-binary">Non-binary</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -215,29 +635,17 @@ export function CreatorProfileSetupForm({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ageRange">Age range</Label>
-            <Input
-              id="ageRange"
-              className={inputClass}
-              value={ageRange}
-              onChange={(e) => setAgeRange(e.target.value)}
-              placeholder="e.g. 18-24"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="travelRadius">Travel radius (km)</Label>
-            <Input
-              id="travelRadius"
-              type="number"
-              min={0}
-              className={inputClass}
-              value={travelRadius}
-              onChange={(e) => setTravelRadius(e.target.value)}
-              placeholder="0 if none"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="travelRadius">Travel radius (km)</Label>
+          <Input
+            id="travelRadius"
+            type="number"
+            min={0}
+            className={inputClass}
+            value={travelRadius}
+            onChange={(e) => setTravelRadius(e.target.value)}
+            placeholder="0 if none"
+          />
         </div>
 
         <div className="space-y-2">
@@ -252,65 +660,216 @@ export function CreatorProfileSetupForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="services">Services / niches</Label>
+          <Label htmlFor="categories">Categories (niches)</Label>
           <Input
-            id="services"
+            id="categories"
             className={inputClass}
-            value={serviceTypeNames}
-            onChange={(e) => setServiceTypeNames(e.target.value)}
-            placeholder="Comma-separated, e.g. Video Editing, Unboxing"
+            value={categoriesInput}
+            onChange={(e) => setCategoriesInput(e.target.value)}
+            placeholder="Comma-separated, e.g. UGC Video, Voice Over"
           />
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-          <p className="text-sm font-medium text-foreground">Starter package</p>
-          <p className="text-xs text-muted-foreground">
-            Optional — helps brands see your pricing. Add more packages in
-            settings later.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-2 sm:col-span-1">
-              <Label htmlFor="pkgName">Name</Label>
-              <Input
-                id="pkgName"
-                className={inputClass}
-                value={packageName}
-                onChange={(e) => setPackageName(e.target.value)}
-              />
+        <div className="space-y-2">
+          <Label htmlFor="personaTags">Persona tags</Label>
+          <Input
+            id="personaTags"
+            className={inputClass}
+            value={personaTagsInput}
+            onChange={(e) => setPersonaTagsInput(e.target.value)}
+            placeholder="Comma-separated, e.g. Friendly, Clean aesthetic"
+          />
+          {personaTagSuggestionsQuery.isSuccess &&
+          personaTagSuggestionsQuery.data.length > 0 ? (
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex flex-wrap gap-1.5">
+                {personaTagSuggestionsQuery.data.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
+                    onClick={() =>
+                      setPersonaTagsInput((prev) =>
+                        appendCommaListItem(prev, s.name),
+                      )
+                    }
+                    aria-label={`Add ${s.name} to persona tags`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                className={inputClass}
-                value={priceAmount}
-                onChange={(e) => setPriceAmount(e.target.value)}
-                placeholder="199.99"
-                inputMode="decimal"
-              />
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="restrictions">Content restrictions</Label>
+          <Input
+            id="restrictions"
+            className={inputClass}
+            value={restrictionsInput}
+            onChange={(e) => setRestrictionsInput(e.target.value)}
+            placeholder="Comma-separated, e.g. does not accept alcohol"
+          />
+          {restrictionSuggestionsQuery.isSuccess &&
+          restrictionSuggestionsQuery.data.length > 0 ? (
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex flex-wrap gap-1.5">
+                {restrictionSuggestionsQuery.data.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
+                    onClick={() =>
+                      setRestrictionsInput((prev) =>
+                        appendCommaListItem(prev, s.name),
+                      )
+                    }
+                    aria-label={`Add ${s.name} to content restrictions`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="days">Delivery (days)</Label>
-              <Input
-                id="days"
-                type="number"
-                min={0}
-                className={inputClass}
-                value={deliveryDays}
-                onChange={(e) => setDeliveryDays(e.target.value)}
-              />
-            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="onLocation" className="text-sm font-medium">
+              On-location / store shoots
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Enable if you offer on-location or in-store shoots. Optional fee
+              below.
+            </p>
           </div>
+          <Switch
+            id="onLocation"
+            checked={onLocationAvailable}
+            onCheckedChange={setOnLocationAvailable}
+          />
+        </div>
+
+        {onLocationAvailable ? (
           <div className="space-y-2">
-            <Label htmlFor="deliverables">Deliverables (one per line)</Label>
-            <textarea
-              id="deliverables"
-              value={deliverables}
-              onChange={(e) => setDeliverables(e.target.value)}
-              rows={3}
-              placeholder={"1 UGC video (30–60s)\nBasic editing"}
-              className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
+            <Label htmlFor="onLocationFee">On-location fee</Label>
+            <Input
+              id="onLocationFee"
+              className={inputClass}
+              value={onLocationFee}
+              onChange={(e) => setOnLocationFee(e.target.value)}
+              placeholder="499.00"
+              inputMode="decimal"
             />
+          </div>
+        ) : null}
+
+        <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">Packages</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={
+                packageDrafts.length >= MAX_PACKAGES_IN_CREATOR_SETUP_FORM
+              }
+              onClick={addPackageDraft}
+            >
+              Add package
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {packageDrafts.map((row, index) => (
+              <div
+                key={row.id}
+                className="space-y-3 rounded-lg border border-border/80 bg-background/60 p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Package {index + 1}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removePackageDraft(row.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-2 sm:col-span-1">
+                    <Label htmlFor={`pkg-name-${row.id}`}>Name</Label>
+                    <Input
+                      id={`pkg-name-${row.id}`}
+                      className={inputClass}
+                      value={row.name}
+                      onChange={(e) =>
+                        updatePackageDraft(row.id, { name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`pkg-price-${row.id}`}>Price</Label>
+                    <Input
+                      id={`pkg-price-${row.id}`}
+                      className={inputClass}
+                      value={row.priceAmount}
+                      onChange={(e) =>
+                        updatePackageDraft(row.id, {
+                          priceAmount: e.target.value,
+                        })
+                      }
+                      placeholder="199.99"
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`pkg-days-${row.id}`}>
+                      Delivery (days)
+                    </Label>
+                    <Input
+                      id={`pkg-days-${row.id}`}
+                      type="number"
+                      min={0}
+                      className={inputClass}
+                      value={row.deliveryDays}
+                      onChange={(e) =>
+                        updatePackageDraft(row.id, {
+                          deliveryDays: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`pkg-deliverables-${row.id}`}>
+                    Deliverables (one per line)
+                  </Label>
+                  <textarea
+                    id={`pkg-deliverables-${row.id}`}
+                    value={row.deliverables}
+                    onChange={(e) =>
+                      updatePackageDraft(row.id, {
+                        deliverables: e.target.value,
+                      })
+                    }
+                    rows={3}
+                    placeholder={"1 UGC video (30–60s)\nBasic editing"}
+                    className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -320,7 +879,13 @@ export function CreatorProfileSetupForm({
         className="mt-8 w-full sm:w-auto"
         disabled={pending}
       >
-        {pending ? "Creating…" : "Create profile"}
+        {pending
+          ? mode === "update"
+            ? "Saving…"
+            : "Creating…"
+          : mode === "update"
+            ? "Save changes"
+            : "Create profile"}
       </Button>
     </form>
   );

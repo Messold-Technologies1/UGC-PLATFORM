@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
@@ -51,6 +52,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   const registerMutation = useRegisterMutation();
   const [activeTab, setActiveTab] = useState(mode);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const pendingAuth =
     loginMutation.isPending || registerMutation.isPending || googleLoading;
 
@@ -133,7 +136,11 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         <Tabs
           value={activeTab}
-          onValueChange={(val) => setActiveTab(val as "login" | "signup")}
+          onValueChange={(val) => {
+            setActiveTab(val as "login" | "signup");
+            setShowLoginPassword(false);
+            setShowSignupPassword(false);
+          }}
           className="mt-8 w-full"
         >
           <TabsList className="w-full grid grid-cols-2 h-11 mb-6">
@@ -168,23 +175,17 @@ export function AuthForm({ mode }: AuthFormProps) {
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="login-password">Password</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  placeholder="Enter your password"
-                  disabled={pendingAuth}
-                  autoComplete="current-password"
-                  className="h-10"
-                  {...loginForm.register("password")}
-                />
-                {loginForm.formState.errors.password && (
-                  <p className="text-sm text-destructive">
-                    {loginForm.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
+              <PasswordField
+                id="login-password"
+                label="Password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                disabled={pendingAuth}
+                show={showLoginPassword}
+                onToggleShow={() => setShowLoginPassword((v) => !v)}
+                registration={loginForm.register("password")}
+                errorMessage={loginForm.formState.errors.password?.message}
+              />
 
               <Button
                 type="submit"
@@ -264,26 +265,22 @@ export function AuthForm({ mode }: AuthFormProps) {
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="Create a password"
-                  disabled={pendingAuth}
-                  autoComplete="new-password"
-                  className="h-10"
-                  {...signupForm.register("password")}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Must be at least 8 characters
-                </p>
-                {signupForm.formState.errors.password && (
-                  <p className="text-sm text-destructive">
-                    {signupForm.formState.errors.password.message}
+              <PasswordField
+                id="signup-password"
+                label="Password"
+                placeholder="Create a password"
+                autoComplete="new-password"
+                disabled={pendingAuth}
+                show={showSignupPassword}
+                onToggleShow={() => setShowSignupPassword((v) => !v)}
+                registration={signupForm.register("password")}
+                errorMessage={signupForm.formState.errors.password?.message}
+                hint={
+                  <p className="text-xs text-muted-foreground">
+                    Must be at least 8 characters
                   </p>
-                )}
-              </div>
+                }
+              />
 
               <Button
                 type="submit"
@@ -334,6 +331,85 @@ export function AuthForm({ mode }: AuthFormProps) {
           </Link>
         </p>
       </div>
+    </div>
+  );
+}
+
+type PasswordFieldProps = {
+  id: string;
+  label: string;
+  placeholder: string;
+  autoComplete: string;
+  disabled: boolean;
+  show: boolean;
+  onToggleShow: () => void;
+  registration: UseFormRegisterReturn;
+  errorMessage?: string;
+  hint?: ReactNode;
+};
+
+function PasswordField({
+  id,
+  label,
+  placeholder,
+  autoComplete,
+  disabled,
+  show,
+  onToggleShow,
+  registration,
+  errorMessage,
+  hint,
+}: PasswordFieldProps) {
+  const describedByIds = [
+    hint ? `${id}-hint` : null,
+    errorMessage ? `${id}-error` : null,
+  ].filter(Boolean);
+  const describedBy =
+    describedByIds.length > 0 ? describedByIds.join(" ") : undefined;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type={show ? "text" : "password"}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          className="h-10 pr-10"
+          aria-invalid={errorMessage ? true : undefined}
+          aria-describedby={describedBy}
+          {...registration}
+        />
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onToggleShow}
+          className={cn(
+            "absolute top-1/2 right-1.5 flex size-8 -translate-y-1/2 items-center justify-center rounded-md",
+            "text-muted-foreground outline-none transition-colors",
+            "hover:text-foreground",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "disabled:pointer-events-none disabled:opacity-50",
+          )}
+          aria-label={show ? "Hide password" : "Show password"}
+          aria-controls={id}
+          aria-pressed={show}
+        >
+          {show ? (
+            <EyeOff className="size-4 shrink-0" aria-hidden />
+          ) : (
+            <Eye className="size-4 shrink-0" aria-hidden />
+          )}
+        </button>
+      </div>
+      {hint ? <div id={`${id}-hint`}>{hint}</div> : null}
+      {errorMessage ? (
+        <p id={`${id}-error`} className="text-sm text-destructive" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

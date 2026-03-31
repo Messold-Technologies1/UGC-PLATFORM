@@ -56,12 +56,15 @@ export class StorageService {
   private readonly cdnBaseUrl: string;
 
   constructor(private readonly config: ConfigService) {
+    // Browser PUTs cannot satisfy SDK-default CRC32 checksums baked into presigned URLs.
+    // WHEN_REQUIRED avoids signing x-amz-checksum-* into the URL for PutObject.
     this.s3 = new S3Client({
       region: config.getOrThrow<string>('AWS_REGION'),
       credentials: {
         accessKeyId: config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
         secretAccessKey: config.getOrThrow<string>('AWS_SECRET_ACCESS_KEY'),
       },
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     });
     this.bucket = config.getOrThrow<string>('S3_BUCKET_NAME');
     this.ttlSeconds = Number(

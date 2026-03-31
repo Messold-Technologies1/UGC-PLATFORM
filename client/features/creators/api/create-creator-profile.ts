@@ -12,13 +12,19 @@ export type CreatorPackageCreatePayload = {
 
 export type CreateCreatorProfilePayload = {
   displayName: string;
+  
+  profileImageKey?: string;
   city?: string;
   bio?: string;
   gender?: string;
-  ageRange?: string;
   travelRadius?: number;
+  onLocationAvailable?: boolean;
+  
+  onLocationFee?: string;
   languages?: string[];
-  serviceTypeNames?: string[];
+  categories?: string[];
+  personaTags?: string[];
+  restrictions?: string[];
   packages?: CreatorPackageCreatePayload[];
 };
 

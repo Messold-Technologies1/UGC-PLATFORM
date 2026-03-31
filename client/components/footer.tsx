@@ -1,6 +1,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { SITE_NAME } from "@/config/site";
 
 const columns = [
   {
@@ -38,7 +39,7 @@ export const Footer = memo(function Footer() {
               <div className="bg-foreground flex size-7 items-center justify-center rounded-lg">
                 <Sparkles className="size-3.5 text-white" />
               </div>
-              <span className="text-sm font-bold">UGC Platform</span>
+              <span className="text-sm font-bold">{SITE_NAME}</span>
             </Link>
             <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted-foreground">
               The marketplace connecting talented creators with brands that need authentic,
@@ -69,7 +70,7 @@ export const Footer = memo(function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} UGC Platform. All rights reserved.
+            &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
           </p>
         </div>
       </div>

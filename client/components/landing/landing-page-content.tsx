@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { FeaturedCreators } from "@/features/creators";
+import dynamic from "next/dynamic";
 import {
   InstagramIcon,
   YouTubeShortsIcon,
@@ -17,6 +16,16 @@ import {
   Star,
   CheckCircle2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FeaturedCreatorsLoading } from "@/components/landing/featured-creators-loading";
+
+const FeaturedCreators = dynamic(
+  () =>
+    import("@/features/creators/components/featured-creators").then((m) => ({
+      default: m.FeaturedCreators,
+    })),
+  { loading: () => <FeaturedCreatorsLoading /> },
+);
 
 const features = [
   {
@@ -245,7 +254,7 @@ export function LandingPageContent() {
             Ready to create amazing content?
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-background/70">
-            Join thousands of creators and brands already using UGC Platform to
+            Join thousands of creators and brands already using Collabry to
             create authentic, high-performing content.
           </p>
           <Button

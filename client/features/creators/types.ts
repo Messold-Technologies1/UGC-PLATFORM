@@ -12,27 +12,26 @@ export interface Creator {
   storeVisit: boolean;
   travelAvailable: boolean;
   gender: "male" | "female" | "other";
+
   category: string;
+
+  categories: string[];
 }
 
 export interface CreatorProfile extends Creator {
   bio: string;
   languages: string[];
-  acceptsLingerie: boolean;
-  responseTime: string;
-  joinedDate: string;
-  portfolio: PortfolioItem[];
+
+  personaTags: string[];
+
+  restrictions: string[];
+
+  travelRadiusKm: number | null;
+
+  onLocationFee: string | null;
   packages: Package[];
   addOns: AddOn[];
   reviews: Review[];
-}
-
-export interface PortfolioItem {
-  id: string;
-  title: string;
-  thumbnail: string;
-  views: number;
-  category: string;
 }
 
 export interface Package {

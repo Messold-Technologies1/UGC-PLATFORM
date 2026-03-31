@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Navbar } from "@/components/navbar";
+import { NavbarFallback } from "@/components/navbar-fallback";
 import { Footer } from "@/components/footer";
 
 export default function MainLayout({
@@ -8,8 +10,12 @@ export default function MainLayout({
 }>) {
   return (
     <>
-      <Navbar />
-      <main id="main-content" className="flex-1">{children}</main>
+      <Suspense fallback={<NavbarFallback />}>
+        <Navbar />
+      </Suspense>
+      <main id="main-content" className="flex-1">
+        {children}
+      </main>
       <Footer />
     </>
   );

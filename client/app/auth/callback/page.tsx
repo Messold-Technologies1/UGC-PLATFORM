@@ -34,8 +34,8 @@ function AuthCallbackInner() {
         router.replace("/login");
         return;
       }
-      // Same key/queryFn as `useMeQuery` — joins the in-flight request instead
-      // of `refetch()` forcing a duplicate `/auth/me`.
+      
+      
       await queryClient.fetchQuery({
         queryKey: authMeQueryKey,
         queryFn: fetchAuthMe,

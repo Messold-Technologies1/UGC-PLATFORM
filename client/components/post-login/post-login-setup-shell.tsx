@@ -4,6 +4,15 @@ import { Suspense, type ReactNode } from "react";
 import { DashboardOnboardingGate } from "@/components/onboarding/dashboard-onboarding-gate";
 import type { PostAuthRole } from "@/features/auth/lib/post-auth-destination";
 
+
+const dashboardMainColumnClass =
+  "w-full max-w-none px-4 pt-4 pb-8 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
+
+const dashboardContentClass: Record<PostAuthRole, string> = {
+  creator: dashboardMainColumnClass,
+  brand: dashboardMainColumnClass,
+};
+
 export function PostLoginSetupShell({
   role,
   children,
@@ -12,11 +21,12 @@ export function PostLoginSetupShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 w-full flex-col">
+    <div className="flex min-h-0 w-full flex-1 flex-col">
       <Suspense fallback={null}>
-        <DashboardOnboardingGate role={role} />
+        <DashboardOnboardingGate role={role}>
+          <div className={dashboardContentClass[role]}>{children}</div>
+        </DashboardOnboardingGate>
       </Suspense>
-      {children}
     </div>
   );
 }

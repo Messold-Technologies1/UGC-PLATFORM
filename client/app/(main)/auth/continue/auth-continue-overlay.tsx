@@ -1,20 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { PostLoginRoleOverlay } from "@/components/ui/post-login-role-overlay";
-import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
-import {
-  authMeQueryKey,
-  type WorkspaceRole,
-} from "@/features/auth/hooks/use-me-query";
+import { type WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
   resolvePostAuthRedirectPath,
 } from "@/features/auth/lib/post-auth-destination";
+import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { useAuth } from "@/providers/auth-provider";
 
 export function AuthContinueOverlay() {
@@ -32,51 +28,71 @@ export function AuthContinueOverlay() {
       router.replace("/login");
       return;
     }
+    if (autoRedirectRef.current) return;
     if (user.roles.length === 0) {
       autoRedirectRef.current = false;
       return;
     }
-    if (autoRedirectRef.current) return;
-    autoRedirectRef.current = true;
-    const path = resolvePostAuthRedirectPath(user, callbackUrl);
-    if (path !== postAuthContinuePath(callbackUrl)) {
-      router.replace(path);
-    } else {
-      autoRedirectRef.current = false;
+
+    const activeRole = user.activeRole;
+    if (activeRole) {
+      autoRedirectRef.current = true;
+      const path = resolvePostAuthRedirectPath(user, callbackUrl);
+      if (path !== postAuthContinuePath(callbackUrl)) {
+        router.replace(path);
+      } else {
+        autoRedirectRef.current = false;
+      }
+      return;
     }
-  }, [callbackUrl, isLoading, router, user]);
+
+    if (user.roles.length === 1) {
+      autoRedirectRef.current = true;
+      void (async () => {
+        const ok = await ensureWorkspaceSelection(queryClient, user, user.roles[0]);
+        if (!ok) {
+          autoRedirectRef.current = false;
+          return;
+        }
+        const target = pathAfterWorkspaceSelection(user, user.roles[0], callbackUrl);
+        router.replace(target);
+      })();
+      return;
+    }
+
+    autoRedirectRef.current = false;
+  }, [callbackUrl, isLoading, queryClient, router, user]);
 
   const showPicker =
-    Boolean(user) && !isLoading && user!.roles.length === 0;
+    Boolean(user) &&
+    !isLoading &&
+    (user!.roles.length === 0 || (user!.roles.length > 1 && !user!.activeRole));
 
-  const runSelect = async (role: WorkspaceRole) => {
-    if (!user) return;
-    const returnToContinue = postAuthContinuePath(callbackUrl);
-    const target = pathAfterWorkspaceSelection(user, role, callbackUrl);
-    router.replace(target);
-    try {
-      const next = await selectWorkspaceApi(role);
-      queryClient.setQueryData(authMeQueryKey, next);
-    } catch {
-      toast.error(
-        role === "CREATOR"
-          ? "Could not continue as creator. Try again."
-          : "Could not continue as brand. Try again.",
-      );
-      router.replace(returnToContinue);
-    }
-  };
+  const runSelect = useCallback(
+    async (workspaceRole: WorkspaceRole) => {
+      if (!user) return;
+      const ok = await ensureWorkspaceSelection(queryClient, user, workspaceRole);
+      if (!ok) return;
+      const target = pathAfterWorkspaceSelection(user, workspaceRole, callbackUrl);
+      router.replace(target);
+    },
+    [user, callbackUrl, queryClient, router],
+  );
+
+  const onContinueAsCreator = useCallback(() => {
+    void runSelect("CREATOR");
+  }, [runSelect]);
+
+  const onContinueAsBrand = useCallback(() => {
+    void runSelect("BRAND");
+  }, [runSelect]);
 
   return (
     <PostLoginRoleOverlay
       open={showPicker}
       dismissible={false}
-      onContinueAsCreator={async () => {
-        await runSelect("CREATOR");
-      }}
-      onContinueAsBrand={async () => {
-        await runSelect("BRAND");
-      }}
+      onContinueAsCreator={onContinueAsCreator}
+      onContinueAsBrand={onContinueAsBrand}
     />
   );
 }

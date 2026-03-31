@@ -1,20 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Loader2 } from "lucide-react";
+import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useCreatorsListQuery } from "../hooks/use-creators-list-query";
+import {
+  creatorsListQueryKey,
+  fetchCreatorsList,
+  useCreatorsListQuery,
+} from "../hooks/use-creators-list-query";
 import { CreatorCard } from "./creator-card";
 
 const PAGE = 1;
 const LIMIT = 4;
 
+const BROWSE_PAGE = 1;
+const BROWSE_LIMIT = 20;
+
 export function FeaturedCreators() {
+  const queryClient = useQueryClient();
   const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
     PAGE,
     LIMIT,
   );
+
+  const prefetchBrandCreatorsPage = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: creatorsListQueryKey(BROWSE_PAGE, BROWSE_LIMIT),
+      queryFn: () =>
+        fetchCreatorsList({ page: BROWSE_PAGE, limit: BROWSE_LIMIT }),
+      staleTime: 30_000,
+    });
+  }, [queryClient]);
 
   return (
     <section className="mx-auto max-w-site px-4 py-24 sm:px-6 lg:px-8">
@@ -36,7 +55,12 @@ export function FeaturedCreators() {
           variant="outline"
           className="hidden gap-1.5 sm:inline-flex"
         >
-          <Link href="/brand/creators">
+          <Link
+            href="/brand/creators"
+            prefetch
+            onMouseEnter={prefetchBrandCreatorsPage}
+            onFocus={prefetchBrandCreatorsPage}
+          >
             Browse All
             <ArrowRight className="size-4" />
           </Link>
@@ -79,7 +103,12 @@ export function FeaturedCreators() {
             No creators to show yet. Check back soon.
           </p>
           <Button asChild variant="outline" className="mt-4 gap-1.5">
-            <Link href="/brand/creators">
+            <Link
+              href="/brand/creators"
+              prefetch
+              onMouseEnter={prefetchBrandCreatorsPage}
+              onFocus={prefetchBrandCreatorsPage}
+            >
               Browse creators
               <ArrowRight className="size-4" />
             </Link>
@@ -99,7 +128,12 @@ export function FeaturedCreators() {
 
       <div className="mt-8 text-center sm:hidden">
         <Button asChild variant="outline" className="gap-1.5">
-          <Link href="/brand/creators">
+          <Link
+            href="/brand/creators"
+            prefetch
+            onMouseEnter={prefetchBrandCreatorsPage}
+            onFocus={prefetchBrandCreatorsPage}
+          >
             Browse All Creators
             <ArrowRight className="size-4" />
           </Link>

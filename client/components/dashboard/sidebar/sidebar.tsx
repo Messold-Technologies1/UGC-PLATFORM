@@ -2,15 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
-import { useTheme } from "next-themes";
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  LogOut,
-  Moon,
-  Sun,
   Building2,
   Video,
   LayoutDashboard,
@@ -18,7 +14,6 @@ import {
   Megaphone,
   Users,
   Briefcase,
-  Settings,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,6 +24,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { SidebarUserMenu } from "./sidebar-user-menu";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 
 export interface NavItem {
@@ -51,7 +47,6 @@ const roleConfigs: Record<string, RoleConfig> = {
       { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/brand/creators", label: "Browse Creators", icon: Users },
-      { href: "/brand/settings", label: "Settings", icon: Settings },
     ],
   },
   creator: {
@@ -61,7 +56,6 @@ const roleConfigs: Record<string, RoleConfig> = {
       { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
-      { href: "/creator/settings", label: "Settings", icon: Settings },
     ],
   },
 };
@@ -71,18 +65,18 @@ function getRoleFromPath(pathname: string): RoleConfig {
   return roleConfigs[segment] ?? roleConfigs.brand;
 }
 
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href.length > 1 && pathname.startsWith(`${href}/`)) return true;
+  return false;
+}
+
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const { resolvedTheme, setTheme } = useTheme();
-  const themeReady = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
   const { goWorkspace } = useWorkspaceNavigation();
-  const isDark = themeReady && resolvedTheme === "dark";
   const {
     navItems,
     icon: RoleIcon,
@@ -120,7 +114,7 @@ export function DashboardSidebar() {
           "fixed inset-y-0 left-0 z-50 flex min-h-0 w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[transform,width] duration-300 ease-out",
           !mobileOpen && "max-lg:-translate-x-full",
           mobileOpen && "max-lg:translate-x-0",
-          "lg:static lg:z-auto lg:h-full lg:translate-x-0",
+          "lg:static lg:z-20 lg:h-full lg:translate-x-0",
           desktopCollapsed ? "lg:w-[72px]" : "lg:w-[260px]",
         )}
       >
@@ -135,10 +129,7 @@ export function DashboardSidebar() {
             <RoleIcon className="size-4 text-background" aria-hidden />
           </div>
           <div
-            className={cn(
-              "min-w-0 flex-1",
-              desktopCollapsed && "lg:hidden",
-            )}
+            className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}
           >
             <p className="truncate text-sm font-medium text-sidebar-foreground">
               {roleLabel}
@@ -161,7 +152,9 @@ export function DashboardSidebar() {
             size="icon-sm"
             className="hidden shrink-0 lg:flex"
             onClick={() => setDesktopCollapsed((v) => !v)}
-            aria-label={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={
+              desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"
+            }
           >
             {desktopCollapsed ? (
               <ChevronRight className="size-4" aria-hidden />
@@ -181,11 +174,12 @@ export function DashboardSidebar() {
             Menu
           </p>
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href;
+            const isActive = isNavItemActive(pathname, href);
             return (
               <Link
                 key={href}
                 href={href}
+                prefetch
                 onClick={closeMobile}
                 title={label}
                 className={cn(
@@ -199,9 +193,7 @@ export function DashboardSidebar() {
                 )}
               >
                 <Icon className="size-4 shrink-0" />
-                <span
-                  className={cn(desktopCollapsed && "lg:sr-only")}
-                >
+                <span className={cn(desktopCollapsed && "lg:sr-only")}>
                   {label}
                 </span>
               </Link>
@@ -288,60 +280,10 @@ export function DashboardSidebar() {
             aria-hidden
           />
 
-          <button
-            type="button"
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className={cn(
-              "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
-              desktopCollapsed
-                ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
-                : "gap-3 px-3",
-            )}
-          >
-            {!themeReady ? (
-              <Sun className="size-4 shrink-0 opacity-50" aria-hidden />
-            ) : (
-              <span className="relative inline-flex size-4 shrink-0 items-center justify-center">
-                <Sun
-                  className={cn(
-                    "size-4 transition-all duration-300 ease-out",
-                    isDark
-                      ? "absolute scale-0 rotate-90 opacity-0"
-                      : "scale-100 rotate-0 opacity-100",
-                  )}
-                  aria-hidden
-                />
-                <Moon
-                  className={cn(
-                    "size-4 transition-all duration-300 ease-out",
-                    isDark
-                      ? "scale-100 rotate-0 opacity-100"
-                      : "absolute scale-0 -rotate-90 opacity-0",
-                  )}
-                  aria-hidden
-                />
-              </span>
-            )}
-            <span className={cn(desktopCollapsed && "lg:sr-only")}>
-              {!themeReady ? "Theme" : isDark ? "Light mode" : "Dark mode"}
-            </span>
-          </button>
-          <Link
-            href="/"
-            title="Back to Home"
-            className={cn(
-              "flex items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
-              desktopCollapsed
-                ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
-                : "gap-3 px-3",
-            )}
-          >
-            <LogOut className="size-4 shrink-0" />
-            <span className={cn(desktopCollapsed && "lg:sr-only")}>
-              Back to Home
-            </span>
-          </Link>
+          <SidebarUserMenu
+            desktopCollapsed={desktopCollapsed}
+            onNavigate={closeMobile}
+          />
         </div>
       </aside>
     </>

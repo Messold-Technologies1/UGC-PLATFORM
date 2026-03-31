@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Match next-themes (`attribute="class"` on html); default `dark:` uses prefers-color-scheme only */
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @keyframes accordion-down {
@@ -21,13 +21,38 @@
   }
 }
 
-/*
- * DESIGN SYSTEM
- * Frame:      Desktop 1440px · Mobile 375px · 12-col grid
- * Spacing:    8px base (Tailwind units: 2=8px, 4=16px, 6=24px, 8=32px …)
- * Colors:     Primary=Black, Background=White, Accent=Light grey, CTA=Black/White
- * Typography: Heading=font-bold, Subheading=font-medium, Body=font-normal
- */
+
+@keyframes select-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nav-route-enter {
+  from {
+    opacity: 0.88;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.nav-route-enter {
+  animation: nav-route-enter 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-route-enter {
+    animation: none;
+  }
+}
+
+
 
 @theme inline {
   --container-site: 1440px;
@@ -72,6 +97,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --animate-accordion-down: accordion-down 0.28s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-accordion-up: accordion-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-select-content-in: select-content-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 :root {
@@ -152,5 +178,13 @@
   }
   h1, h2, h3 {
     @apply font-bold;
+  }
+}
+
+@layer components {
+  @media (prefers-reduced-motion: reduce) {
+    .creator-browse-lift:hover {
+      transform: none;
+    }
   }
 }

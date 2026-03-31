@@ -12,8 +12,33 @@ export const ENDPOINTS = {
   CREATORS: {
     LIST: "/api/creators",
     PROFILE: "/api/creators/profile",
+    PROFILE_ME: "/api/creators/profile/me",
+    PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
+    SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
+    SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
+  },
+  BRANDS: {
+    PROFILE: "/api/brands/profile",
+    PROFILE_LOGO_PRESIGN: "/api/brands/profile/uploads/presign",
+  },
+  CREATOR_PORTFOLIO: {
+    UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
+    VIDEOS: "/api/creator-portfolio/videos",
+    VIDEOS_ME: "/api/creator-portfolio/videos/me",
+    SUGGESTIONS_INDUSTRIES: "/api/creator-portfolio/suggestions/industries",
+    SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
+    SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
   },
 } as const;
+
+export function creatorPortfolioVideoPath(id: string): string {
+  return `/api/creator-portfolio/videos/${encodeURIComponent(id)}`;
+}
+
+/** GET public portfolio videos for a creator (brand / profile view). */
+export function creatorPortfolioPublicVideosPath(creatorId: string): string {
+  return `/api/creator-portfolio/creators/${encodeURIComponent(creatorId)}/videos`;
+}
 
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;

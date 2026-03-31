@@ -10,7 +10,10 @@ function normalizeGender(
   return "other";
 }
 
-function minPackagePrice(packages: CreatorProfileItemApi["packages"]): number {
+function minPackagePrice(
+  packages: CreatorProfileItemApi["packages"] | undefined,
+): number {
+  if (!packages?.length) return 0;
   let min: number | null = null;
   for (const p of packages) {
     const n = Number.parseFloat(p.priceAmount);
@@ -21,11 +24,12 @@ function minPackagePrice(packages: CreatorProfileItemApi["packages"]): number {
 }
 
 function buildTags(profile: CreatorProfileItemApi): string[] {
-  const fromLang = profile.languages.map((l) => l.language);
-  const fromServices = profile.services.map((s) => s.serviceType.name);
+  const fromLang = (profile.languages ?? []).map((l) => l.language);
+  const fromCategories = (profile.categories ?? []).map((c) => c.category);
+  const fromPersona = (profile.personaTags ?? []).map((t) => t.tag);
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const t of [...fromLang, ...fromServices]) {
+  for (const t of [...fromLang, ...fromCategories, ...fromPersona]) {
     const key = t.trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -38,7 +42,17 @@ function buildTags(profile: CreatorProfileItemApi): string[] {
 export function mapProfileToListingCreator(
   profile: CreatorProfileItemApi,
 ): Creator {
-  const category = profile.services[0]?.serviceType.name ?? "General";
+  const categoryNames = (profile.categories ?? [])
+    .map((c) => c.category.trim())
+    .filter(Boolean);
+  const category = categoryNames[0] ?? "General";
+  const categories = categoryNames.length > 0 ? categoryNames : [category];
+
+  const thumb = profile.profileImageUrl?.trim();
+  const thumbnail =
+    thumb && (thumb.startsWith("http://") || thumb.startsWith("https://"))
+      ? thumb
+      : "/globe.svg";
 
   return {
     id: profile.id,
@@ -48,21 +62,25 @@ export function mapProfileToListingCreator(
     reviewCount: 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
     ordersCompleted: 0,
-    thumbnail: "/globe.svg",
+    thumbnail,
     tags: buildTags(profile),
     available: true,
-    storeVisit: false,
-    travelAvailable: profile.travelRadius != null && profile.travelRadius > 0,
+    storeVisit: profile.onLocationAvailable ?? false,
+    travelAvailable:
+      (profile.travelRadius != null && profile.travelRadius > 0) ||
+      (profile.onLocationAvailable ?? false),
     gender: normalizeGender(profile.gender),
     category,
+    categories,
   };
 }
 
 const PACKAGE_TIERS: Package["tier"][] = ["basic", "standard", "premium"];
 
 function mapApiPackages(
-  packages: CreatorProfileItemApi["packages"],
+  packages: CreatorProfileItemApi["packages"] | undefined,
 ): Package[] {
+  if (!packages?.length) return [];
   const sorted = [...packages].sort(
     (a, b) =>
       Number.parseFloat(a.priceAmount) - Number.parseFloat(b.priceAmount),
@@ -86,11 +104,14 @@ export function mapProfileItemToCreatorProfile(
   return {
     ...base,
     bio: profile.bio?.trim() || "No bio yet.",
-    languages: profile.languages.map((l) => l.language),
-    acceptsLingerie: false,
-    responseTime: "Not specified",
-    joinedDate: "—",
-    portfolio: [],
+    languages: (profile.languages ?? []).map((l) => l.language),
+    personaTags: (profile.personaTags ?? []).map((t) => t.tag),
+    restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
+    travelRadiusKm:
+      profile.travelRadius != null && !Number.isNaN(profile.travelRadius)
+        ? profile.travelRadius
+        : null,
+    onLocationFee: profile.onLocationFee?.trim() ?? null,
     packages: mapApiPackages(profile.packages),
     addOns: DEFAULT_CREATOR_ADD_ONS,
     reviews: [],

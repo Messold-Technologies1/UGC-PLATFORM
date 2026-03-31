@@ -78,7 +78,7 @@ export function PostLoginRoleOverlay({
                   await onContinueAsCreator?.();
                   onOpenChange?.(false);
                 } catch {
-                  /* Caller handles errors */
+                  
                 }
               }}
             >
@@ -103,7 +103,7 @@ export function PostLoginRoleOverlay({
                   await onContinueAsBrand?.();
                   onOpenChange?.(false);
                 } catch {
-                  /* Caller handles errors */
+                  
                 }
               }}
             >

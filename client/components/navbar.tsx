@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { Building2, Menu, X, User, Sparkles, Moon, Sun, Video } from "lucide-react";
+import { Menu, X, User, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NavbarProfileMenu } from "@/components/navbar-profile-menu";
-import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useAuth } from "@/providers/auth-provider";
+import { SITE_NAME } from "@/config/site";
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -65,18 +65,13 @@ function ThemeToggle() {
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
-  const { goWorkspace } = useWorkspaceNavigation();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125">
-      <div className="mx-auto flex h-16 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="bg-foreground flex size-8 items-center justify-center rounded-lg">
-            <Sparkles className="size-4 text-white" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">
-            UGC<span className="font-bold">Platform</span>
-          </span>
+    <header className="sticky top-0 z-50 w-full bg-background/50 backdrop-blur-sm backdrop-saturate-125">
+      <div className="mx-auto flex h-17 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link href="/" prefetch className="flex items-center gap-2">
+          {}
+          <span className="text-lg font-bold tracking-tight">{SITE_NAME}</span>
         </Link>
 
         <div className="hidden items-center gap-2 md:flex">
@@ -84,31 +79,7 @@ export function Navbar() {
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
-            <>
-              <div className="flex shrink-0 items-center gap-1 border-l border-border/60 pl-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-foreground/80"
-                  onClick={() => void goWorkspace("BRAND")}
-                >
-                  <Building2 className="size-4" />
-                  As Brand
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-foreground/80"
-                  onClick={() => void goWorkspace("CREATOR")}
-                >
-                  <Video className="size-4" />
-                  As Creator
-                </Button>
-              </div>
-              <NavbarProfileMenu />
-            </>
+            <NavbarProfileMenu />
           ) : (
             <>
               <Button asChild variant="outline" size="sm">
@@ -150,38 +121,14 @@ export function Navbar() {
         aria-label="Mobile navigation"
         className={cn(
           "overflow-hidden border-t border-border/60 transition-all duration-200 md:hidden",
-          mobileOpen ? "max-h-[min(100dvh-5rem,28rem)] overflow-y-auto" : "max-h-0 border-t-0",
+          mobileOpen
+            ? "max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto"
+            : "max-h-0 border-t-0",
         )}
       >
         <div className="flex flex-col gap-1 px-4 py-3">
           {isAuthenticated ? (
-            <>
-              <div className="mb-2 flex flex-col gap-1 border-b border-border/60 pb-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileOpen(false);
-                    void goWorkspace("BRAND");
-                  }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <Building2 className="size-4 text-muted-foreground" />
-                  As Brand
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileOpen(false);
-                    void goWorkspace("CREATOR");
-                  }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <Video className="size-4 text-muted-foreground" />
-                  As Creator
-                </button>
-              </div>
-              <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
-            </>
+            <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
           ) : (
             <>
               <Link

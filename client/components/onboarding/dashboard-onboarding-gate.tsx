@@ -27,7 +27,7 @@ export type DashboardOnboardingGateProps = {
 };
 
 const PARAM = "onboarding";
-/** Per-user key so dismiss state does not leak across accounts or block first-time brand onboarding. */
+
 function brandOverlayDismissStorageKey(userId: string) {
   return `ugc_brand_onboarding_overlay_dismissed_v2:${userId}`;
 }
@@ -35,7 +35,9 @@ function brandOverlayDismissStorageKey(userId: string) {
 function readBrandOverlayDismissedFromStorage(userId: string | undefined) {
   if (typeof window === "undefined" || !userId) return false;
   try {
-    return sessionStorage.getItem(brandOverlayDismissStorageKey(userId)) === "1";
+    return (
+      sessionStorage.getItem(brandOverlayDismissStorageKey(userId)) === "1"
+    );
   } catch {
     return false;
   }
@@ -49,7 +51,7 @@ export function DashboardOnboardingGate({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
-  /** Bumps after dismiss so React re-renders and picks up the new sessionStorage value. */
+
   const [, bumpBrandDismissEpoch] = useState(0);
 
   const brandOverlayDismissed = readBrandOverlayDismissedFromStorage(user?.id);

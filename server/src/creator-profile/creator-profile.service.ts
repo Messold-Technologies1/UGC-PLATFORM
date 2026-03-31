@@ -357,6 +357,22 @@ export class CreatorProfileService {
     return this.mapCreatorProfileResponseDto(profile);
   }
 
+ 
+  async getCreatorProfileForCurrentUser(
+    userId: string,
+  ): Promise<CreatorProfileResponseDto> {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { userId },
+      include: creatorProfileWithRelationsInclude as any,
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Creator profile not found');
+    }
+
+    return this.mapCreatorProfileResponseDto(profile);
+  }
+
   async updateCreatorProfile(
     actingUserId: string,
     creatorProfileId: string,

@@ -53,6 +53,9 @@ let CreatorProfileController = class CreatorProfileController {
     async listRestrictionSuggestions() {
         return this.creatorProfileService.listRestrictionSuggestions();
     }
+    async getMyCreatorProfile(req) {
+        return this.creatorProfileService.getCreatorProfileForCurrentUser(req.user.id);
+    }
     async getCreator(id) {
         return this.creatorProfileService.getCreatorById(id);
     }
@@ -165,6 +168,22 @@ _ts_decorate([
     _ts_metadata("design:paramtypes", []),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "listRestrictionSuggestions", null);
+_ts_decorate([
+    (0, _common.Get)('profile/me'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _swagger.ApiOperation)({
+        summary: 'Get creator profile for the authenticated user'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatorprofileresponsedto.CreatorProfileResponseDto
+    }),
+    _ts_param(0, (0, _common.Req)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "getMyCreatorProfile", null);
 _ts_decorate([
     (0, _common.Get)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),

@@ -288,6 +288,18 @@ let CreatorProfileService = class CreatorProfileService {
         }
         return this.mapCreatorProfileResponseDto(profile);
     }
+    async getCreatorProfileForCurrentUser(userId) {
+        const profile = await this.prisma.creatorProfile.findUnique({
+            where: {
+                userId
+            },
+            include: creatorProfileWithRelationsInclude
+        });
+        if (!profile) {
+            throw new _common.NotFoundException('Creator profile not found');
+        }
+        return this.mapCreatorProfileResponseDto(profile);
+    }
     async updateCreatorProfile(actingUserId, creatorProfileId, dto) {
         return this.prisma.$transaction(async (tx)=>{
             const profile = await tx.creatorProfile.findUnique({

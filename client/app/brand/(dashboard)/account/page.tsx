@@ -1,7 +1,7 @@
 "use client";
 
-import { DashboardAccountProfile } from "@/features/account/components/dashboard-account-profile";
+import { DashboardBrandAccountProfile } from "@/features/account/components/dashboard-brand-account-profile";
 
 export default function BrandAccountPage() {
-  return <DashboardAccountProfile profileEditHref="/brand/account" />;
+  return <DashboardBrandAccountProfile />;
 }

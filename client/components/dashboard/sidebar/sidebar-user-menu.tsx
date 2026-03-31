@@ -64,7 +64,15 @@ export function SidebarUserMenu({
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const hub = pathname.startsWith("/brand") ? "brand" : "creator";
+  const activeWorkspace = user?.activeRole ?? user?.primaryRole ?? null;
+  const hub =
+    pathname.startsWith("/brand")
+      ? "brand"
+      : pathname.startsWith("/creator")
+        ? "creator"
+        : activeWorkspace === "BRAND"
+          ? "brand"
+          : "creator";
   const settingsHref =
     hub === "brand" ? "/brand/account" : "/creator/settings";
   const accountHref = `/${hub}/account`;

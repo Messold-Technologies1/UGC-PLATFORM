@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Loader2, Upload } from "lucide-react";
@@ -106,6 +107,7 @@ export function CreatorProfileSetupForm({
   initialProfile,
   onSuccess,
 }: CreatorProfileSetupFormProps) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -262,6 +264,8 @@ export function CreatorProfileSetupForm({
   const handleProfileImageSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
+      const ok = await ensureCreatorWorkspace();
+      if (!ok) return;
       if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
         toast.error("Use JPEG, PNG, WebP, or GIF.");
         return;
@@ -287,7 +291,7 @@ export function CreatorProfileSetupForm({
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [],
+    [ensureCreatorWorkspace],
   );
 
   const clearProfileImage = useCallback(() => {
@@ -421,11 +425,13 @@ export function CreatorProfileSetupForm({
           return;
         }
 
+        const ok = await ensureCreatorWorkspace();
+        if (!ok) return;
         await createCreatorProfile(createPayload);
-        await ensureCreatorWorkspace();
         await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
         toast.success("Creator profile created");
         onSuccess();
+        router.replace("/creator/account");
       } catch (err) {
         if (
           mode === "create" &&
@@ -435,9 +441,11 @@ export function CreatorProfileSetupForm({
           toast.message("Profile already exists", {
             description: "Continuing to your dashboard.",
           });
-          await ensureCreatorWorkspace();
+          const ok = await ensureCreatorWorkspace();
+          if (!ok) return;
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
           onSuccess();
+          router.replace("/creator/account");
           return;
         }
         toast.error(
@@ -471,6 +479,7 @@ export function CreatorProfileSetupForm({
       queryClient,
       pendingProfileImageKey,
       ensureCreatorWorkspace,
+      router,
     ],
   );
 

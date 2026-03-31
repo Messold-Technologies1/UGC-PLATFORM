@@ -26,14 +26,14 @@ export function DashboardAccountProfile({
   profileEditHref: string;
 }) {
   const { user } = useAuth();
-  if (!user) return null;
-
   const profileQuery = useQuery({
     queryKey: creatorProfileMeQueryKey,
     queryFn: fetchCreatorProfileMe,
-    enabled: Boolean(user.hasCreatorProfile),
+    enabled: Boolean(user?.hasCreatorProfile),
     staleTime: 2 * 60_000,
   });
+
+  if (!user) return null;
 
   if (!user.hasCreatorProfile) {
     return (
@@ -60,7 +60,10 @@ export function DashboardAccountProfile({
   if (profileQuery.isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
+        <Loader2
+          className="size-8 animate-spin text-muted-foreground"
+          aria-hidden
+        />
       </div>
     );
   }
@@ -79,10 +82,7 @@ export function DashboardAccountProfile({
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Profile"
-        description="Your creator profile details."
-      />
+      <PageHeader title="Profile" description="Your creator profile details." />
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -112,7 +112,10 @@ export function DashboardAccountProfile({
               {profile.city?.trim() ? (
                 <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="size-4 shrink-0 opacity-80" aria-hidden />
+                    <MapPin
+                      className="size-4 shrink-0 opacity-80"
+                      aria-hidden
+                    />
                     {profile.city.trim()}
                   </span>
                 </div>
@@ -140,7 +143,9 @@ export function DashboardAccountProfile({
         <dl className="mt-6 grid gap-6 sm:grid-cols-2">
           {profile.gender?.trim() ? (
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">Gender</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Gender
+              </dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
                 {profile.gender.trim()}
               </dd>
@@ -149,7 +154,9 @@ export function DashboardAccountProfile({
 
           {profile.ageRange?.trim() ? (
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">Age range</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Age range
+              </dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
                 {profile.ageRange.trim()}
               </dd>
@@ -158,7 +165,9 @@ export function DashboardAccountProfile({
 
           {typeof profile.travelRadius === "number" ? (
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">Travel radius</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Travel radius
+              </dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
                 {profile.travelRadius} km
               </dd>
@@ -178,7 +187,9 @@ export function DashboardAccountProfile({
 
           {profile.onLocationFee?.trim() ? (
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">On-location fee</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                On-location fee
+              </dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
                 {profile.onLocationFee.trim()}
               </dd>
@@ -187,7 +198,9 @@ export function DashboardAccountProfile({
 
           {profile.languages.length ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium text-muted-foreground">Languages</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Languages
+              </dt>
               <dd className="mt-2 flex flex-wrap gap-2">
                 {profile.languages.map((l) => (
                   <span
@@ -203,7 +216,9 @@ export function DashboardAccountProfile({
 
           {profile.categories.length ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium text-muted-foreground">Categories</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Categories
+              </dt>
               <dd className="mt-2 flex flex-wrap gap-2">
                 {profile.categories.map((c) => (
                   <span
@@ -219,7 +234,9 @@ export function DashboardAccountProfile({
 
           {profile.personaTags?.length ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium text-muted-foreground">Persona tags</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Persona tags
+              </dt>
               <dd className="mt-2 flex flex-wrap gap-2">
                 {profile.personaTags.map((t) => (
                   <span
@@ -235,7 +252,9 @@ export function DashboardAccountProfile({
 
           {profile.restrictions?.length ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium text-muted-foreground">Restrictions</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Restrictions
+              </dt>
               <dd className="mt-2 flex flex-wrap gap-2">
                 {profile.restrictions.map((r) => (
                   <span
@@ -251,7 +270,9 @@ export function DashboardAccountProfile({
 
           {profile.packages.length ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium text-muted-foreground">Packages</dt>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Packages
+              </dt>
               <dd className="mt-2 space-y-2">
                 {profile.packages.map((p) => (
                   <div

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
+import { requireAuthenticatedUser } from "@/lib/server-auth-guard";
 
 export const metadata: Metadata = {
   title: {
@@ -10,11 +11,13 @@ export const metadata: Metadata = {
   description: "Manage your portfolio, campaigns, and earnings.",
 };
 
-export default function CreatorLayout({
+export default async function CreatorLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAuthenticatedUser("/creator/dashboard");
+
   return (
     <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-background">
       <DashboardSidebarBoundary />

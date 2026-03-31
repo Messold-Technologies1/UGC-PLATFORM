@@ -118,11 +118,11 @@ export function CreatorPortfolioManager() {
       )}
 
       {loading ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
+        <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : videos.length === 0 ? (
-        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
+        <div className="flex min-h-100 flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
           <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
             <ImageIcon className="size-6 text-primary" />
           </div>

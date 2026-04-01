@@ -52,6 +52,31 @@ export class CreatorPackageResponseDto {
   deliveryDays!: number;
 }
 
+export class CreatorPortfolioVideoPreviewResponseDto {
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'uuid' })
+  creatorId!: string;
+
+  @ApiProperty({ example: 'https://cdn.example.com/creator-portfolio/...mp4' })
+  videoUrl!: string;
+
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/creator-portfolio/...jpg',
+  })
+  thumbnailUrl?: string | null;
+
+  @ApiPropertyOptional({ example: 'fitness' })
+  industryLabel?: string | null;
+
+  @ApiProperty({ type: [String], example: ['testimonial', 'skincare'] })
+  tags!: string[];
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class CreatorProfileResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -99,4 +124,7 @@ export class CreatorProfileResponseDto {
 
   @ApiProperty({ type: () => [CreatorPackageResponseDto] })
   packages!: CreatorPackageResponseDto[];
+
+  @ApiPropertyOptional({ type: () => CreatorPortfolioVideoPreviewResponseDto })
+  firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
 }

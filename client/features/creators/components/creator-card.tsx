@@ -1,7 +1,7 @@
 import { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Star, Play, ShoppingBag } from "lucide-react";
+import { MapPin, Star, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,16 @@ export const CreatorCard = memo(function CreatorCard({
 }: CreatorCardProps) {
   const isFeatured = variant === "featured";
   const isBrowse = appearance === "browse" && !isFeatured;
-  const browseTags = creator.tags.slice(0, 4);
+  const browseTags = creator.tags.slice(0, 3);
+  const standardTags = creator.tags.slice(0, 3);
+  const hasPreviewVideo =
+    typeof creator.previewVideoUrl === "string" &&
+    (creator.previewVideoUrl.startsWith("http://") ||
+      creator.previewVideoUrl.startsWith("https://"));
+  const previewPoster = creator.previewVideoThumbnail || creator.thumbnail;
+  const mediaAlt = `${creator.name}'s content`;
+  const locationLabel = creator.location || "Location not set";
+  const categoryLabel = creator.category || "General";
 
   if (isBrowse) {
     return (
@@ -32,60 +41,81 @@ export const CreatorCard = memo(function CreatorCard({
           "group creator-browse-lift relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
         )}
       >
-        <div className="relative aspect-4/3 overflow-hidden bg-muted">
-          <Image
-            src={creator.thumbnail}
-            alt={`${creator.name}'s content`}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, (max-width: 1536px) 25vw, 20vw"
-          />
-          <div className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/5" />
-          {creator.available && (
-            <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
-              <span className="size-1.5 rounded-full bg-white/90" />
-              Available
-            </span>
+        <div className="relative aspect-4/5 overflow-hidden bg-muted">
+          {hasPreviewVideo ? (
+            <video
+              key={creator.previewVideoUrl}
+              src={creator.previewVideoUrl ?? undefined}
+              poster={previewPoster}
+              className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <Image
+              src={creator.thumbnail}
+              alt={mediaAlt}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, (max-width: 1536px) 25vw, 20vw"
+            />
           )}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <div
-              className="flex size-12 items-center justify-center rounded-full border border-border/80 bg-background/90 shadow-lg backdrop-blur-sm dark:bg-card/95"
-              aria-label="Play showreel"
-            >
-              <Play className="ml-0.5 size-5 text-foreground" aria-hidden />
+          <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10 transition-opacity duration-300 group-hover:opacity-90" />
+          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-white backdrop-blur-sm">
+            <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
+            <span className="text-xs font-semibold">{creator.rating}</span>
+            <span className="text-[10px] text-white/70">({creator.reviewCount})</span>
+          </div>
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
+            <div className="min-w-0">
+              <p className="line-clamp-2 text-lg font-semibold leading-6">
+                {creator.name}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
+                  <MapPin className="size-3.5 shrink-0" />
+                  <span className="line-clamp-1">{locationLabel}</span>
+                </span>
+                <span className="rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
+                  {categoryLabel}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="flex flex-1 flex-col p-5">
-          <div className="mb-2 flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-2 min-h-[3.5rem] text-lg font-semibold leading-7 text-foreground">
-                {creator.name}
-              </h3>
-              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="size-3.5 shrink-0" />
-                <span className="line-clamp-1">{creator.location}</span>
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-1 dark:bg-amber-950/30">
-              <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-semibold text-amber-800 dark:text-amber-400">
-                {creator.rating}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                ({creator.reviewCount})
-              </span>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              variant="outline"
+              className="border-border/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+            >
+              <ShoppingBag className="mr-1 size-3" />
+              {creator.ordersCompleted} orders
+            </Badge>
+            {creator.travelAvailable && (
+              <Badge
+                variant="outline"
+                className="border-border/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+              >
+                Travels
+              </Badge>
+            )}
+            {creator.storeVisit && (
+              <Badge
+                variant="outline"
+                className="border-border/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+              >
+                On-location
+              </Badge>
+            )}
           </div>
 
-          <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ShoppingBag className="size-3.5 shrink-0" />
-            {creator.ordersCompleted} orders completed
-          </div>
-
-          <div className="mb-5 min-h-14">
-            <div className="flex max-h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+          <div className="mt-4 min-h-12">
+            <div className="flex max-h-12 flex-wrap content-start gap-1.5 overflow-hidden">
               {browseTags.map((tag) => (
                 <Badge
                   key={tag}
@@ -118,68 +148,88 @@ export const CreatorCard = memo(function CreatorCard({
 
   return (
     <Card interactive="emphasized">
-      <div className="relative aspect-4/3 overflow-hidden bg-muted">
-        <Image
-          src={creator.thumbnail}
-          alt={`${creator.name}'s content`}
-          fill
-          className="object-cover"
-          sizes={
-            isFeatured
-              ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-          }
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-          <div
-            className="flex size-12 items-center justify-center rounded-full bg-background/80 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110"
-            aria-label="Play video"
-          >
-            <Play
-              className="ml-0.5 size-5 text-foreground"
-              aria-hidden="true"
-            />
+      <div className="relative aspect-4/5 overflow-hidden bg-muted">
+        {hasPreviewVideo ? (
+          <video
+            key={creator.previewVideoUrl}
+            src={creator.previewVideoUrl ?? undefined}
+            poster={previewPoster}
+            className="size-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+          />
+        ) : (
+          <Image
+            src={creator.thumbnail}
+            alt={mediaAlt}
+            fill
+            className="object-cover"
+            sizes={
+              isFeatured
+                ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            }
+          />
+        )}
+        <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/20 to-black/5" />
+        <div className="absolute left-3 top-3 right-3 flex items-start justify-end gap-2">
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-white backdrop-blur-sm">
+            <Star className="size-3 fill-amber-400 text-amber-400" />
+            <span className="text-xs font-medium">{creator.rating}</span>
+            <span className="text-[10px] text-white/70">({creator.reviewCount})</span>
           </div>
         </div>
-
-        {creator.available && (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
-            <span className="size-1.5 animate-pulse rounded-full bg-white" />
-            Available
-          </span>
-        )}
+        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+          <p className="line-clamp-2 text-lg font-semibold leading-6">
+            {creator.name}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
+              <MapPin className="size-3 shrink-0" />
+              <span className="line-clamp-1">{locationLabel}</span>
+            </span>
+            <span className="rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
+              {categoryLabel}
+            </span>
+          </div>
+        </div>
       </div>
 
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-medium">{creator.name}</h3>
-            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="size-3 shrink-0" />
-              {creator.location}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 dark:bg-amber-950/30">
-            <Star className="size-3 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-              {creator.rating}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              ({creator.reviewCount})
-            </span>
-          </div>
-        </div>
-
         {!isFeatured && (
-          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-            <ShoppingBag className="size-3 shrink-0" />
-            {creator.ordersCompleted} orders completed
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              variant="outline"
+              className="border-border/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+            >
+              <ShoppingBag className="mr-1 size-3" />
+              {creator.ordersCompleted} orders
+            </Badge>
+            {creator.travelAvailable && (
+              <Badge
+                variant="outline"
+                className="border-border/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+              >
+                Travels
+              </Badge>
+            )}
+            {creator.storeVisit && (
+              <Badge
+                variant="outline"
+                className="border-border/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+              >
+                On-location
+              </Badge>
+            )}
           </div>
         )}
 
         {!isFeatured && creator.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
-            {creator.tags.map((tag) => (
+            {standardTags.map((tag) => (
               <Badge key={tag} variant="muted" className="px-1.5 py-0 text-xs">
                 {tag}
               </Badge>
@@ -213,19 +263,15 @@ export function CreatorCardSkeleton({
   if (appearance === "browse") {
     return (
       <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card">
-        <Skeleton className="aspect-4/3 w-full rounded-none" />
+        <Skeleton className="aspect-4/5 w-full rounded-none" />
         <div className="flex flex-1 flex-col p-5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-5 w-[70%]" />
-              <Skeleton className="h-5 w-[52%]" />
-              <Skeleton className="h-3.5 w-[45%]" />
-            </div>
-            <Skeleton className="h-8 w-20 shrink-0 rounded-lg" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-18 rounded-full" />
           </div>
-          <Skeleton className="h-3.5 w-36" />
-          <div className="mb-5 min-h-14">
-            <div className="flex max-h-14 flex-wrap content-start gap-2 overflow-hidden">
+          <div className="mt-4 min-h-12">
+            <div className="flex max-h-12 flex-wrap content-start gap-2 overflow-hidden">
               <Skeleton className="h-6 w-14 rounded-full" />
               <Skeleton className="h-6 w-16 rounded-full" />
               <Skeleton className="h-6 w-12 rounded-full" />
@@ -245,16 +291,12 @@ export function CreatorCardSkeleton({
 
   return (
     <Card className="overflow-hidden">
-      <Skeleton className="aspect-4/3 w-full rounded-none rounded-t-2xl" />
+      <Skeleton className="aspect-4/5 w-full rounded-none rounded-t-2xl" />
       <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-4 w-[70%]" />
-            <Skeleton className="h-3 w-[45%]" />
-          </div>
-          <Skeleton className="h-7 w-20 shrink-0 rounded-md" />
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-14 rounded-full" />
         </div>
-        <Skeleton className="h-3 w-36" />
         <div className="flex flex-wrap gap-1">
           <Skeleton className="h-5 w-14 rounded-full" />
           <Skeleton className="h-5 w-16 rounded-full" />

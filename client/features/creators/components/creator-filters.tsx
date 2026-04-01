@@ -141,7 +141,7 @@ export const CreatorFilters = memo(function CreatorFilters({
   );
 
   return (
-    <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:min-h-80 lg:max-h-[calc(100svh-9.5rem)]">
+    <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:h-auto lg:min-h-80 lg:max-h-[calc(100svh-7rem)]">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
         <h3 className="text-base font-semibold tracking-tight text-foreground">
           Filters

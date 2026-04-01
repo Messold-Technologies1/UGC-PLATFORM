@@ -53,6 +53,9 @@ export function mapProfileToListingCreator(
     thumb && (thumb.startsWith("http://") || thumb.startsWith("https://"))
       ? thumb
       : "/globe.svg";
+  const previewVideoUrl = profile.firstPortfolioVideo?.videoUrl?.trim() ?? null;
+  const previewVideoThumbnail =
+    profile.firstPortfolioVideo?.thumbnailUrl?.trim() || thumbnail;
 
   return {
     id: profile.id,
@@ -63,6 +66,8 @@ export function mapProfileToListingCreator(
     startingPrice: Math.round(minPackagePrice(profile.packages)),
     ordersCompleted: 0,
     thumbnail,
+    previewVideoUrl,
+    previewVideoThumbnail,
     tags: buildTags(profile),
     available: true,
     storeVisit: profile.onLocationAvailable ?? false,

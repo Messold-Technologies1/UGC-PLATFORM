@@ -7,6 +7,8 @@ export interface Creator {
   startingPrice: number;
   ordersCompleted: number;
   thumbnail: string;
+  previewVideoUrl?: string | null;
+  previewVideoThumbnail?: string | null;
   tags: string[];
   available: boolean;
   storeVisit: boolean;

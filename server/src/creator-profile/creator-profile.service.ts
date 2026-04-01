@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PrismaClient, RoleName } from '@prisma/client';
+import { PortfolioVisibilityStatus, Prisma, PrismaClient, RoleName } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
@@ -22,6 +22,20 @@ const creatorProfileWithRelationsInclude = {
   personaTags: true,
   restrictions: true,
   packages: true,
+  portfolioVideos: {
+    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: {
+      id: true,
+      creatorId: true,
+      videoUrl: true,
+      thumbnailUrl: true,
+      industryLabel: true,
+      tags: { select: { tag: true } },
+      createdAt: true,
+    },
+  },
 } as const;
 
 /**
@@ -117,6 +131,13 @@ export class CreatorProfileService {
     profile: CreatorProfileWithRelations,
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
+    const first = (mapped.portfolioVideos ?? [])[0] ?? null;
+    const firstPortfolioVideo = first
+      ? {
+          ...first,
+          tags: (first.tags ?? []).map((t: any) => t.tag).filter(Boolean),
+        }
+      : null;
     return {
       id: mapped.id,
       userId: mapped.userId,
@@ -156,6 +177,7 @@ export class CreatorProfileService {
         priceAmount: p.priceAmount,
         deliveryDays: p.deliveryDays,
       })),
+      firstPortfolioVideo,
     };
   }
 

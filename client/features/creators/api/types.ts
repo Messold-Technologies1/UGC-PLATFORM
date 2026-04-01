@@ -29,6 +29,15 @@ export type CreatorProfileRestrictionApi = {
   restriction: string;
 };
 
+export type CreatorPortfolioVideoPreviewApi = {
+  id: string;
+  creatorId: string;
+  videoUrl: string;
+  thumbnailUrl?: string | null;
+  industryLabel?: string | null;
+  tags: string[];
+  createdAt: string;
+};
 
 export type CreatorProfileItemApi = {
   id: string;
@@ -47,6 +56,7 @@ export type CreatorProfileItemApi = {
   personaTags?: CreatorProfilePersonaTagApi[];
   restrictions?: CreatorProfileRestrictionApi[];
   packages: CreatorProfilePackageApi[];
+  firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
 };
 
 export type CreatorsListResponse = {

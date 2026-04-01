@@ -27,7 +27,29 @@ const creatorProfileWithRelationsInclude = {
     categories: true,
     personaTags: true,
     restrictions: true,
-    packages: true
+    packages: true,
+    portfolioVideos: {
+        where: {
+            visibilityStatus: _client.PortfolioVisibilityStatus.PUBLIC
+        },
+        orderBy: {
+            createdAt: 'desc'
+        },
+        take: 1,
+        select: {
+            id: true,
+            creatorId: true,
+            videoUrl: true,
+            thumbnailUrl: true,
+            industryLabel: true,
+            tags: {
+                select: {
+                    tag: true
+                }
+            },
+            createdAt: true
+        }
+    }
 };
 function mapJsonDeliverables(value) {
     if (!Array.isArray(value)) return [];
@@ -79,6 +101,11 @@ let CreatorProfileService = class CreatorProfileService {
     }
     mapCreatorProfileResponseDto(profile) {
         const mapped = this.mapCreatorProfile(profile);
+        const first = (mapped.portfolioVideos ?? [])[0] ?? null;
+        const firstPortfolioVideo = first ? {
+            ...first,
+            tags: (first.tags ?? []).map((t)=>t.tag).filter(Boolean)
+        } : null;
         return {
             id: mapped.id,
             userId: mapped.userId,
@@ -112,7 +139,8 @@ let CreatorProfileService = class CreatorProfileService {
                     deliverables: p.deliverables,
                     priceAmount: p.priceAmount,
                     deliveryDays: p.deliveryDays
-                }))
+                })),
+            firstPortfolioVideo
         };
     }
     async isAdmin(userId, tx) {

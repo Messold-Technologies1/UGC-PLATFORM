@@ -312,19 +312,19 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
       <div
         className={cn(
           "mt-6 flex min-h-[min(22rem,50vh)] flex-col lg:min-h-112",
-          showFilters ? "gap-8 lg:flex-row lg:items-stretch" : "lg:flex-row",
+          showFilters ? "gap-8 lg:flex-row lg:items-start" : "lg:flex-row lg:items-start",
         )}
       >
         <div
           className={cn(
-            "shrink-0 overflow-hidden transition-[width,max-height,opacity] duration-300 ease-out",
+            "shrink-0 overflow-hidden transition-[width,max-height,opacity] duration-300 ease-out lg:overflow-visible",
             showFilters
-              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80"
+              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:h-fit lg:sticky lg:top-24 lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80 lg:self-start"
               : "pointer-events-none max-h-0 w-full opacity-0 lg:max-h-none lg:w-0 lg:min-w-0",
           )}
           aria-hidden={!showFilters}
         >
-          <div className="h-full lg:sticky lg:top-36 lg:self-start">
+          <div className="h-auto">
             <CreatorFilters
               filters={filters}
               onChange={handleFiltersChange}

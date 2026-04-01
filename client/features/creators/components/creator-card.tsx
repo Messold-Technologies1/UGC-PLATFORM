@@ -23,12 +23,13 @@ export const CreatorCard = memo(function CreatorCard({
 }: CreatorCardProps) {
   const isFeatured = variant === "featured";
   const isBrowse = appearance === "browse" && !isFeatured;
+  const browseTags = creator.tags.slice(0, 4);
 
   if (isBrowse) {
     return (
       <article
         className={cn(
-          "group creator-browse-lift relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+          "group creator-browse-lift relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
         )}
       >
         <div className="relative aspect-4/3 overflow-hidden bg-muted">
@@ -56,15 +57,15 @@ export const CreatorCard = memo(function CreatorCard({
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="flex flex-1 flex-col p-5">
           <div className="mb-2 flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="truncate text-lg font-semibold leading-tight text-foreground">
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-2 min-h-[3.5rem] text-lg font-semibold leading-7 text-foreground">
                 {creator.name}
               </h3>
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="size-3.5 shrink-0" />
-                {creator.location}
+                <span className="line-clamp-1">{creator.location}</span>
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-1 dark:bg-amber-950/30">
@@ -83,9 +84,9 @@ export const CreatorCard = memo(function CreatorCard({
             {creator.ordersCompleted} orders completed
           </div>
 
-          {creator.tags.length > 0 && (
-            <div className="mb-5 flex flex-wrap gap-1.5">
-              {creator.tags.map((tag) => (
+          <div className="mb-5 min-h-14">
+            <div className="flex max-h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+              {browseTags.map((tag) => (
                 <Badge
                   key={tag}
                   variant="outline"
@@ -95,9 +96,9 @@ export const CreatorCard = memo(function CreatorCard({
                 </Badge>
               ))}
             </div>
-          )}
+          </div>
 
-          <div className="flex items-center justify-between border-t border-border pt-4">
+          <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
             <div className="flex flex-col">
               <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Starting from
@@ -211,23 +212,26 @@ export function CreatorCardSkeleton({
 }) {
   if (appearance === "browse") {
     return (
-      <div className="overflow-hidden rounded-3xl border border-border bg-card">
+      <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card">
         <Skeleton className="aspect-4/3 w-full rounded-none" />
-        <div className="space-y-3 p-5">
+        <div className="flex flex-1 flex-col p-5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-5 w-[70%]" />
+              <Skeleton className="h-5 w-[52%]" />
               <Skeleton className="h-3.5 w-[45%]" />
             </div>
             <Skeleton className="h-8 w-20 shrink-0 rounded-lg" />
           </div>
           <Skeleton className="h-3.5 w-36" />
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-6 w-14 rounded-full" />
-            <Skeleton className="h-6 w-16 rounded-full" />
-            <Skeleton className="h-6 w-12 rounded-full" />
+          <div className="mb-5 min-h-14">
+            <div className="flex max-h-14 flex-wrap content-start gap-2 overflow-hidden">
+              <Skeleton className="h-6 w-14 rounded-full" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-6 w-12 rounded-full" />
+            </div>
           </div>
-          <div className="flex items-center justify-between border-t border-border pt-4">
+          <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
             <div className="space-y-2">
               <Skeleton className="h-3 w-24" />
               <Skeleton className="h-6 w-20" />

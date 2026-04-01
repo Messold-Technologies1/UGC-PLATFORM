@@ -4,7 +4,6 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -150,7 +149,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
   const listingRef = useRef({ filters, search });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     listingRef.current = { filters, search };
   }, [filters, search]);
 

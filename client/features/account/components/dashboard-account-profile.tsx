@@ -9,22 +9,16 @@ import {
   creatorProfileMeQueryKey,
   fetchCreatorProfileMe,
 } from "@/features/creators/api/fetch-creator-profile-me";
+import { getInitials } from "@/lib/account-user";
 import { useAuth } from "@/providers/auth-provider";
 
-function initials(displayName: string) {
-  const base = displayName.trim() || "?";
-  const parts = base.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase().slice(0, 2);
-  }
-  return base.slice(0, 2).toUpperCase();
-}
+export type DashboardAccountProfileProps = {
+  profileEditHref: string;
+};
 
 export function DashboardAccountProfile({
   profileEditHref,
-}: {
-  profileEditHref: string;
-}) {
+}: DashboardAccountProfileProps) {
   const { user } = useAuth();
   const profileQuery = useQuery({
     queryKey: creatorProfileMeQueryKey,
@@ -102,7 +96,7 @@ export function DashboardAccountProfile({
                 className="flex size-20 shrink-0 items-center justify-center rounded-full bg-primary/15 text-2xl font-semibold text-primary sm:size-24 sm:text-3xl"
                 aria-hidden
               >
-                {initials(profile.displayName)}
+                {getInitials(profile.displayName)}
               </div>
             )}
             <div className="min-w-0 flex-1">

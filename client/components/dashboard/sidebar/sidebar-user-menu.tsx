@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -24,6 +24,10 @@ import {
   accountMenuItemClass,
   accountMenuItemLogoutClass,
 } from "@/components/account-menu-styles";
+import {
+  getDisplayNameFromUser,
+  getInitialsFromUser,
+} from "@/lib/account-user";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
@@ -36,19 +40,6 @@ function useThemeMounted() {
   );
 }
 
-function displayName(user: { name: string | null; email: string }) {
-  return user.name?.trim() || user.email.split("@")[0] || "Account";
-}
-
-function initials(user: { name: string | null; email: string }) {
-  const base = user.name?.trim() || user.email.split("@")[0] || "?";
-  const parts = base.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase().slice(0, 2);
-  }
-  return base.slice(0, 2).toUpperCase();
-}
-
 export function SidebarUserMenu({
   desktopCollapsed,
   onNavigate,
@@ -57,7 +48,6 @@ export function SidebarUserMenu({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const themeMounted = useThemeMounted();
@@ -66,16 +56,14 @@ export function SidebarUserMenu({
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const activeWorkspace = user?.activeRole ?? user?.primaryRole ?? null;
-  const hub =
-    pathname.startsWith("/brand")
-      ? "brand"
-      : pathname.startsWith("/creator")
-        ? "creator"
-        : activeWorkspace === "BRAND"
-          ? "brand"
-          : "creator";
-  const settingsHref =
-    hub === "brand" ? "/brand/account" : "/creator/settings";
+  const hub = pathname.startsWith("/brand")
+    ? "brand"
+    : pathname.startsWith("/creator")
+      ? "creator"
+      : activeWorkspace === "BRAND"
+        ? "brand"
+        : "creator";
+  const settingsHref = hub === "brand" ? "/brand/account" : "/creator/settings";
   const accountHref = `/${hub}/account`;
 
   const isAccountSectionActive =
@@ -102,11 +90,6 @@ export function SidebarUserMenu({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [mobileOpen]);
-
-  useEffect(() => {
-    router.prefetch(settingsHref);
-    router.prefetch(accountHref);
-  }, [accountHref, router, settingsHref]);
 
   const themeToggle = () => setTheme(isDark ? "light" : "dark");
 
@@ -135,7 +118,7 @@ export function SidebarUserMenu({
 
   if (!user) return null;
 
-  const name = displayName(user);
+  const name = getDisplayNameFromUser(user);
   const label = `Account menu (${name})`;
 
   const panelVisibleMobile = mobileOpen;
@@ -164,7 +147,7 @@ export function SidebarUserMenu({
           )}
           aria-hidden
         >
-          {initials(user)}
+          {getInitialsFromUser(user)}
         </span>
         <div className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}>
           <p className="truncate text-sm font-medium text-sidebar-foreground">

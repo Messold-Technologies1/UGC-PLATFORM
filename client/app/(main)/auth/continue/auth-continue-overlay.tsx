@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { PostLoginRoleOverlay } from "@/components/ui/post-login-role-overlay";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   authMeQueryKey,
   type AuthUser,
@@ -29,6 +30,7 @@ export function AuthContinueOverlay() {
     if (isLoading) return;
     if (!user) {
       autoRedirectRef.current = false;
+      beginClientNavigation();
       router.replace("/login");
       return;
     }
@@ -43,7 +45,7 @@ export function AuthContinueOverlay() {
       autoRedirectRef.current = true;
       const path = resolvePostAuthRedirectPath(user, callbackUrl);
       if (path !== postAuthContinuePath(callbackUrl)) {
-        router.prefetch(path);
+        beginClientNavigation();
         router.replace(path);
       } else {
         autoRedirectRef.current = false;
@@ -66,7 +68,7 @@ export function AuthContinueOverlay() {
           user.roles[0],
           callbackUrl,
         );
-        router.prefetch(target);
+        beginClientNavigation();
         router.replace(target);
       })();
       return;
@@ -92,7 +94,7 @@ export function AuthContinueOverlay() {
         workspaceRole,
         callbackUrl,
       );
-      router.prefetch(target);
+      beginClientNavigation();
       router.replace(target);
     },
     [user, callbackUrl, queryClient, router],

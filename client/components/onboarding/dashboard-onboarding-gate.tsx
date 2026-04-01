@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { GlobalOnboardingPage } from "@/components/onboarding/global-onboarding-page";
 import type { PostAuthRole } from "@/features/auth/lib/post-auth-destination";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
@@ -52,7 +51,6 @@ export function DashboardOnboardingGate({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const { goWorkspace } = useWorkspaceNavigation();
 

@@ -25,6 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SuggestionChips } from "@/components/ui/suggestion-chips";
+import {
+  appendUniqueCommaSeparatedItem,
+  splitCommaSeparatedList,
+} from "@/lib/string-lists";
 import { cn } from "@/lib/utils";
 import { createPortfolioVideo } from "../api/create-portfolio-video";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
@@ -44,22 +49,7 @@ import {
 } from "../api/update-portfolio-video";
 
 function parseTags(raw: string): string[] {
-  return [
-    ...new Set(
-      raw
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-    ),
-  ];
-}
-
-function appendCommaListItem(current: string, item: string): string {
-  const t = item.trim();
-  if (!t) return current;
-  const parts = parseTags(current);
-  if (parts.some((p) => p.toLowerCase() === t.toLowerCase())) return current;
-  return parts.length ? `${parts.join(", ")}, ${t}` : t;
+  return [...new Set(splitCommaSeparatedList(raw))];
 }
 
 function buildMetadataPatch(input: {
@@ -292,20 +282,15 @@ export function CreatorPortfolioUploadForm() {
                 ) : null}
                 {industrySuggestionsQuery.isSuccess &&
                 industrySuggestionsQuery.data.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {industrySuggestionsQuery.data.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
-                        disabled={submitting}
-                        onClick={() => setIndustryLabel(name)}
-                        aria-label={`Use ${name} as industry`}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
+                  <SuggestionChips
+                    items={industrySuggestionsQuery.data.map((name) => ({
+                      key: name,
+                      label: name,
+                      ariaLabel: `Use ${name} as industry`,
+                    }))}
+                    disabled={submitting}
+                    onSelect={setIndustryLabel}
+                  />
                 ) : null}
               </div>
               <div className="space-y-2">
@@ -328,20 +313,15 @@ export function CreatorPortfolioUploadForm() {
                 ) : null}
                 {languageSuggestionsQuery.isSuccess &&
                 languageSuggestionsQuery.data.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {languageSuggestionsQuery.data.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
-                        disabled={submitting}
-                        onClick={() => setLanguage(name)}
-                        aria-label={`Use ${name} as language`}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
+                  <SuggestionChips
+                    items={languageSuggestionsQuery.data.map((name) => ({
+                      key: name,
+                      label: name,
+                      ariaLabel: `Use ${name} as language`,
+                    }))}
+                    disabled={submitting}
+                    onSelect={setLanguage}
+                  />
                 ) : null}
               </div>
             </div>
@@ -357,22 +337,19 @@ export function CreatorPortfolioUploadForm() {
               />
               {tagSuggestionsQuery.isSuccess &&
               tagSuggestionsQuery.data.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {tagSuggestionsQuery.data.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
-                      disabled={submitting}
-                      onClick={() =>
-                        setTagsRaw((prev) => appendCommaListItem(prev, name))
-                      }
-                      aria-label={`Add ${name} to tags`}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
+                <SuggestionChips
+                  items={tagSuggestionsQuery.data.map((name) => ({
+                    key: name,
+                    label: name,
+                    ariaLabel: `Add ${name} to tags`,
+                  }))}
+                  disabled={submitting}
+                  onSelect={(name) =>
+                    setTagsRaw((prev) =>
+                      appendUniqueCommaSeparatedItem(prev, name),
+                    )
+                  }
+                />
               ) : null}
             </div>
 

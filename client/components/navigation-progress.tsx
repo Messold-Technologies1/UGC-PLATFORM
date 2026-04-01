@@ -1,7 +1,12 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  beginClientNavigation,
+  resetClientNavigation,
+  useClientNavigationState,
+} from "@/lib/client-navigation-state";
 
 function isPlainLeftClick(event: MouseEvent) {
   return (
@@ -29,45 +34,83 @@ function shouldTrackAnchor(anchor: HTMLAnchorElement) {
 export function NavigationProgress() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { pendingCount } = useClientNavigationState();
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(0);
   const intervalRef = useRef<number | null>(null);
   const finishTimeoutRef = useRef<number | null>(null);
+  const startFrameRef = useRef<number | null>(null);
+  const finishFrameRef = useRef<number | null>(null);
+  const progressRunIdRef = useRef(0);
+
+  const clearProgressTimers = useCallback(() => {
+    if (intervalRef.current != null) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (finishTimeoutRef.current != null) {
+      window.clearTimeout(finishTimeoutRef.current);
+      finishTimeoutRef.current = null;
+    }
+  }, []);
+
+  const start = useCallback(() => {
+    const runId = ++progressRunIdRef.current;
+    clearProgressTimers();
+    setVisible(true);
+    setProgress((current) => (current > 0.15 ? current : 0.15));
+    intervalRef.current = window.setInterval(() => {
+      if (progressRunIdRef.current !== runId) return;
+      setProgress((current) => {
+        if (current >= 0.9) return current;
+        const next = current + (1 - current) * 0.12;
+        return Math.min(0.9, next);
+      });
+    }, 120);
+  }, [clearProgressTimers]);
+
+  const finish = useCallback(() => {
+    const runId = ++progressRunIdRef.current;
+    clearProgressTimers();
+    setVisible(true);
+    setProgress(1);
+    finishTimeoutRef.current = window.setTimeout(() => {
+      if (progressRunIdRef.current !== runId) return;
+      setVisible(false);
+      setProgress(0);
+    }, 180);
+  }, [clearProgressTimers]);
 
   useEffect(() => {
-    const clearTimers = () => {
-      if (intervalRef.current != null) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
+    startFrameRef.current = window.requestAnimationFrame(() => {
+      if (pendingCount > 0) {
+        start();
+        return;
       }
-      if (finishTimeoutRef.current != null) {
-        window.clearTimeout(finishTimeoutRef.current);
-        finishTimeoutRef.current = null;
+      finish();
+    });
+    return () => {
+      if (startFrameRef.current != null) {
+        window.cancelAnimationFrame(startFrameRef.current);
+        startFrameRef.current = null;
       }
     };
+  }, [finish, pendingCount, start]);
 
-    const start = () => {
-      clearTimers();
-      setVisible(true);
-      setProgress((current) => (current > 0.15 ? current : 0.15));
-      intervalRef.current = window.setInterval(() => {
-        setProgress((current) => {
-          if (current >= 0.9) return current;
-          const next = current + (1 - current) * 0.12;
-          return Math.min(0.9, next);
-        });
-      }, 120);
+  useEffect(() => {
+    resetClientNavigation();
+    finishFrameRef.current = window.requestAnimationFrame(() => {
+      finish();
+    });
+    return () => {
+      if (finishFrameRef.current != null) {
+        window.cancelAnimationFrame(finishFrameRef.current);
+        finishFrameRef.current = null;
+      }
     };
+  }, [finish, pathname, searchParams]);
 
-    const finish = () => {
-      clearTimers();
-      setVisible(true);
-      setProgress(1);
-      finishTimeoutRef.current = window.setTimeout(() => {
-        setVisible(false);
-        setProgress(0);
-      }, 180);
-    };
+  useEffect(() => {
 
     const handleClick = (event: MouseEvent) => {
       if (!isPlainLeftClick(event)) return;
@@ -76,7 +119,7 @@ export function NavigationProgress() {
       const anchor = target instanceof HTMLAnchorElement ? target : target.parentElement?.closest("a");
       if (!(anchor instanceof HTMLAnchorElement)) return;
       if (!shouldTrackAnchor(anchor)) return;
-      start();
+      beginClientNavigation();
     };
 
     const handlePopState = () => {
@@ -85,14 +128,21 @@ export function NavigationProgress() {
 
     document.addEventListener("click", handleClick, true);
     window.addEventListener("popstate", handlePopState);
-    finish();
 
     return () => {
       document.removeEventListener("click", handleClick, true);
       window.removeEventListener("popstate", handlePopState);
-      clearTimers();
+      clearProgressTimers();
+      if (startFrameRef.current != null) {
+        window.cancelAnimationFrame(startFrameRef.current);
+        startFrameRef.current = null;
+      }
+      if (finishFrameRef.current != null) {
+        window.cancelAnimationFrame(finishFrameRef.current);
+        finishFrameRef.current = null;
+      }
     };
-  }, [pathname, searchParams]);
+  }, [clearProgressTimers, start]);
 
   return (
     <div

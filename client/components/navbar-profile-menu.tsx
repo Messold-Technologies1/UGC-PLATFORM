@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Loader2, LogOut, UserRound, Video } from "lucide-react";
+import { Building2, Loader2, LogOut, Video } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -9,7 +9,12 @@ import {
   accountMenuItemClass,
   accountMenuItemLogoutClass,
 } from "@/components/account-menu-styles";
+import {
+  getDisplayNameFromUser,
+  getInitialsFromUser,
+} from "@/lib/account-user";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
+import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -30,11 +35,13 @@ export function NavbarProfileMenu({
 }) {
   const { user, logout, isLoggingOut } = useAuth();
   const { goWorkspace } = useWorkspaceNavigation();
+  const { isSwitching, targetRole } = useWorkspaceSwitchState();
   const pathname = usePathname();
 
   if (!user) return null;
 
-  const display = user.name?.trim() || user.email;
+  const display = getDisplayNameFromUser(user);
+  const initials = getInitialsFromUser(user);
   const activeWorkspace: WorkspaceRole | null =
     user.activeRole ?? user.primaryRole ?? null;
   const showProfiles = true;
@@ -48,6 +55,19 @@ export function NavbarProfileMenu({
     onNavigate?.();
     fn?.();
   };
+
+  const brandPending = isSwitching && targetRole === "BRAND";
+  const creatorPending = isSwitching && targetRole === "CREATOR";
+
+  function workspaceActionLabel(
+    baseLabel: string,
+    isCurrentPath: boolean,
+    isPending: boolean,
+  ) {
+    if (isPending) return "Opening...";
+    if (isCurrentPath) return "Open";
+    return baseLabel;
+  }
 
   if (onNavigate) {
     return (
@@ -65,16 +85,16 @@ export function NavbarProfileMenu({
             )}
             aria-hidden
           >
-            <UserRound
-              className="size-5 text-muted-foreground"
-              strokeWidth={1.75}
-            />
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Account</p>
-            <p className="sr-only">{display}</p>
+              <span className="text-sm font-semibold text-muted-foreground">
+                {initials}
+              </span>
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">
+                {display}
+              </p>
+            </div>
           </div>
-        </div>
         {showProfiles ? (
           <div
             className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
@@ -87,7 +107,9 @@ export function NavbarProfileMenu({
               className={cn(
                 workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
                 "w-full",
+                brandPending && "pointer-events-none opacity-70",
               )}
+              disabled={isSwitching}
               onClick={wrapNavigate(
                 () =>
                   void goWorkspace("BRAND", {
@@ -96,12 +118,16 @@ export function NavbarProfileMenu({
                   }),
               )}
             >
-              <Building2 className="size-4" />
+              {brandPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Building2 className="size-4" />
+              )}
               <span className="flex flex-1 items-center justify-between gap-2">
                 As Brand
-                {isBrandPath ? (
+                {isBrandPath || brandPending ? (
                   <span className="text-[10px] font-medium text-primary">
-                    Open
+                    {workspaceActionLabel("Open", isBrandPath, brandPending)}
                   </span>
                 ) : null}
               </span>
@@ -111,7 +137,9 @@ export function NavbarProfileMenu({
               className={cn(
                 workspaceItemClass(isCreatorPath || activeWorkspace === "CREATOR"),
                 "w-full",
+                creatorPending && "pointer-events-none opacity-70",
               )}
+              disabled={isSwitching}
               onClick={wrapNavigate(
                 () =>
                   void goWorkspace("CREATOR", {
@@ -120,12 +148,20 @@ export function NavbarProfileMenu({
                   }),
               )}
             >
-              <Video className="size-4" />
+              {creatorPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Video className="size-4" />
+              )}
               <span className="flex flex-1 items-center justify-between gap-2">
                 As Creator
-                {isCreatorPath ? (
+                {isCreatorPath || creatorPending ? (
                   <span className="text-[10px] font-medium text-primary">
-                    Open
+                    {workspaceActionLabel(
+                      "Open",
+                      isCreatorPath,
+                      creatorPending,
+                    )}
                   </span>
                 ) : null}
               </span>
@@ -173,10 +209,7 @@ export function NavbarProfileMenu({
           aria-haspopup="menu"
           aria-label={`Account menu (${display})`}
         >
-          <UserRound
-            className="size-4.5 transition-colors duration-200"
-            strokeWidth={1.75}
-          />
+          <span className="text-sm font-semibold">{initials}</span>
         </button>
 
         <div
@@ -201,7 +234,9 @@ export function NavbarProfileMenu({
                   className={cn(
                     workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
                     "w-full",
+                    brandPending && "pointer-events-none opacity-70",
                   )}
+                  disabled={isSwitching}
                   onClick={() =>
                     void goWorkspace("BRAND", {
                       redirectIfCurrent: true,
@@ -209,12 +244,16 @@ export function NavbarProfileMenu({
                     })
                   }
                 >
-                  <Building2 className="size-4" />
+                  {brandPending ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Building2 className="size-4" />
+                  )}
                   <span className="flex flex-1 items-center justify-between gap-2">
                     As Brand
-                    {isBrandPath ? (
+                    {isBrandPath || brandPending ? (
                       <span className="text-[10px] font-medium text-primary">
-                        Open
+                        {workspaceActionLabel("Open", isBrandPath, brandPending)}
                       </span>
                     ) : null}
                   </span>
@@ -227,7 +266,9 @@ export function NavbarProfileMenu({
                       isCreatorPath || activeWorkspace === "CREATOR",
                     ),
                     "w-full",
+                    creatorPending && "pointer-events-none opacity-70",
                   )}
+                  disabled={isSwitching}
                   onClick={() =>
                     void goWorkspace("CREATOR", {
                       redirectIfCurrent: true,
@@ -235,12 +276,20 @@ export function NavbarProfileMenu({
                     })
                   }
                 >
-                  <Video className="size-4" />
+                  {creatorPending ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Video className="size-4" />
+                  )}
                   <span className="flex flex-1 items-center justify-between gap-2">
                     As Creator
-                    {isCreatorPath ? (
+                    {isCreatorPath || creatorPending ? (
                       <span className="text-[10px] font-medium text-primary">
-                        Open
+                        {workspaceActionLabel(
+                          "Open",
+                          isCreatorPath,
+                          creatorPending,
+                        )}
                       </span>
                     ) : null}
                   </span>

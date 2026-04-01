@@ -45,7 +45,14 @@ export function useCreatorsListQuery(
   return useQuery({
     queryKey: creatorsListQueryKey(page, limit),
     queryFn: () => fetchCreatorsList({ page, limit }),
-    initialData,
-    staleTime: 30_000,
+    ...(initialData
+      ? {
+          initialData,
+          refetchOnMount: false,
+        }
+      : {}),
+    staleTime: initialData ? 5 * 60_000 : 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }

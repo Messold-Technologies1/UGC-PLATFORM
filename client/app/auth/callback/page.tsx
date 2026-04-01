@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   authMeQueryKey,
   fetchAuthMe,
@@ -29,6 +30,7 @@ function AuthCallbackInner() {
             ? "Sign-in was incomplete. Try again."
             : "Google sign-in failed. Try again.";
         toast.error(message);
+        beginClientNavigation();
         router.replace("/login");
         return;
       }
@@ -42,7 +44,7 @@ function AuthCallbackInner() {
       const target = user
         ? await resolveImmediatePostAuthPath(queryClient, user, callbackUrl)
         : postAuthContinuePath(callbackUrl);
-      router.prefetch(target);
+      beginClientNavigation();
       router.replace(target);
     })();
   }, [queryClient, router, searchParams]);

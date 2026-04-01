@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -82,7 +83,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             result.user,
             callback,
           );
-          router.prefetch(target);
+          beginClientNavigation();
           router.replace(target);
         },
         onError: (error) => {
@@ -117,7 +118,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               result.user,
               callback,
             );
-            router.prefetch(target);
+            beginClientNavigation();
             router.replace(target);
           },
           onError: (error) => {

@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
 import {
   authMeQueryKey,
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       queryClient.setQueryData(authMeQueryKey, null);
       queryClient.clear();
+      beginClientNavigation();
       router.replace("/");
       logoutStartedRef.current = false;
       setIsLoggingOut(false);

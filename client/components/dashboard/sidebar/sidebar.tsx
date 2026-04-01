@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -74,7 +74,6 @@ function isNavItemActive(pathname: string, href: string): boolean {
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const { goWorkspace } = useWorkspaceNavigation();
@@ -85,12 +84,6 @@ export function DashboardSidebar() {
   } = getRoleFromPath(pathname);
 
   const closeMobile = () => setMobileOpen(false);
-
-  useEffect(() => {
-    for (const { href } of navItems) {
-      router.prefetch(href);
-    }
-  }, [navItems, router]);
 
   return (
     <>

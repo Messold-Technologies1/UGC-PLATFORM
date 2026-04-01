@@ -19,7 +19,7 @@ function DashboardSidebarFallback() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-svh min-h-0 w-[260px] max-w-[85vw] shrink-0 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar transition-[transform] duration-300 ease-out",
+          "fixed inset-y-0 left-0 z-50 flex h-svh min-h-0 w-65 max-w-[85vw] shrink-0 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar transition-[transform] duration-300 ease-out",
           "lg:static lg:z-auto lg:h-full lg:max-w-none lg:translate-x-0",
         )}
         aria-busy="true"

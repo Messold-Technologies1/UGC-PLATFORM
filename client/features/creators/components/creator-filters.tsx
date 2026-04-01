@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { memo, useMemo, useRef, useEffect, useCallback } from "react";
 import { Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -49,7 +49,7 @@ export const CreatorFilters = memo(function CreatorFilters({
   cityOptions,
 }: CreatorFiltersProps) {
   const filtersRef = useRef(filters);
-  useLayoutEffect(() => {
+  useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
 

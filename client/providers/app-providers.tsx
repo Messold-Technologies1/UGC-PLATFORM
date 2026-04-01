@@ -6,20 +6,30 @@ import { WorkspaceSwitchingOverlay } from "@/components/workspace-switching-over
 import { AuthProvider } from "@/providers/auth-provider";
 import { QueryProvider } from "@/providers/query-provider";
 
-export function AppProviders({
-  children,
-  withAuth = false,
-}: {
-  children: ReactNode;
-  withAuth?: boolean;
-}) {
+export function AppShellProviders({ children }: { children: ReactNode }) {
   return (
     <QueryProvider>
       <Suspense fallback={null}>
         <NavigationProgress />
       </Suspense>
       <WorkspaceSwitchingOverlay />
-      {withAuth ? <AuthProvider>{children}</AuthProvider> : children}
+      {children}
     </QueryProvider>
   );
+}
+
+export function PublicAppProviders({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return <>{children}</>;
+}
+
+export function AuthenticatedAppProviders({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return <AuthProvider>{children}</AuthProvider>;
 }

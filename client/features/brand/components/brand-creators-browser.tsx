@@ -12,11 +12,13 @@ import {
 const PAGE = 1;
 const LIMIT = 20;
 
+export type BrandCreatorsBrowserProps = {
+  initialData?: CreatorsListResult | null;
+};
+
 export function BrandCreatorsBrowser({
   initialData,
-}: {
-  initialData?: CreatorsListResult | null;
-}) {
+}: BrandCreatorsBrowserProps) {
   const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
     PAGE,
     LIMIT,

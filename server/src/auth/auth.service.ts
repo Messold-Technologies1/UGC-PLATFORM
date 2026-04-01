@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AuthProvider, RoleName } from '@prisma/client';
+import { AuthProvider, Prisma, RoleName } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -524,6 +524,7 @@ export class AuthService {
   async selectWorkspace(
     userId: string,
     role: 'CREATOR' | 'BRAND',
+    setPrimary: boolean,
     refreshToken: string | undefined,
   ): Promise<MeUser> {
     if (!refreshToken) {
@@ -540,15 +541,11 @@ export class AuthService {
     const hash = this.hashRefreshToken(refreshToken);
     const now = new Date();
 
-    const [, , sessionUpdate] = await this.prisma.$transaction([
+    const ops: Prisma.PrismaPromise<unknown>[] = [
       this.prisma.userRole.upsert({
         where: { userId_roleId: { userId, roleId: roleRow.id } },
         create: { userId, roleId: roleRow.id },
         update: {},
-      }),
-      this.prisma.user.update({
-        where: { id: userId },
-        data: { primaryRoleId: roleRow.id },
       }),
       this.prisma.session.updateMany({
         where: {
@@ -558,7 +555,21 @@ export class AuthService {
         },
         data: { activeRoleId: roleRow.id },
       }),
-    ]);
+    ];
+
+    if (setPrimary) {
+      ops.splice(
+        1,
+        0,
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { primaryRoleId: roleRow.id },
+        }),
+      );
+    }
+
+    const results = await this.prisma.$transaction(ops);
+    const sessionUpdate = results[results.length - 1] as { count: number };
 
     if (sessionUpdate.count === 0) {
       throw new UnauthorizedException('Session not found or expired');

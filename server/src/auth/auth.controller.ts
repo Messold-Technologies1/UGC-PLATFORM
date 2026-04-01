@@ -263,6 +263,7 @@ export class AuthController {
     const user = await this.authService.selectWorkspace(
       req.user.id,
       dto.role,
+      dto.setPrimary ?? false,
       refreshToken,
     );
     return { user };

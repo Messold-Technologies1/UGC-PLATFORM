@@ -5,7 +5,9 @@ import type { BrandProfileItemApi } from "./types";
 export const brandProfileMeQueryKey = ["brand-profile", "me"] as const;
 
 export async function fetchBrandProfileMe(): Promise<BrandProfileItemApi> {
-  const { data } = await api.get<BrandProfileItemApi>(ENDPOINTS.BRANDS.PROFILE);
+  const { data } = await api.get<BrandProfileItemApi>(
+    ENDPOINTS.BRANDS.PROFILE_ME,
+  );
   return data;
 }
 

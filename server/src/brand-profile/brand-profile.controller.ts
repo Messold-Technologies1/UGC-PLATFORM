@@ -1,8 +1,9 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOperation,
+  ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -48,6 +49,18 @@ export class BrandProfileController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<BrandProfileResponseDto> {
     return this.brandProfileService.createBrandProfile(req.user.id, dto);
+  }
+
+  @Get('profile/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get brand profile for the authenticated user',
+  })
+  @ApiOkResponse({ type: BrandProfileResponseDto })
+  async getMyBrandProfile(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BrandProfileResponseDto> {
+    return this.brandProfileService.getBrandProfileForCurrentUser(req.user.id);
   }
 }
 

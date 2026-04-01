@@ -13,6 +13,7 @@ import {
 } from './dto/presign-brand-logo-upload.dto';
 import { BrandProfileResponseDto } from './dto/brand-profile-response.dto';
 
+
 @Injectable()
 export class BrandProfileService {
   constructor(
@@ -124,6 +125,20 @@ export class BrandProfileService {
         updatedAt: true,
         user: { select: { email: true } },
       } as any,
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Brand profile not found');
+    }
+
+    return this.mapBrandProfile(profile);
+  }
+
+  async getBrandProfileForCurrentUser(
+    userId: string,
+  ): Promise<BrandProfileResponseDto> {
+    const profile = await this.prisma.brandProfile.findUnique({
+      where: { userId }
     });
 
     if (!profile) {

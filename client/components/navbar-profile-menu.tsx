@@ -1,6 +1,7 @@
 "use client";
 
 import { Building2, Loader2, LogOut, UserRound, Video } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import {
@@ -8,7 +9,6 @@ import {
   accountMenuItemClass,
   accountMenuItemLogoutClass,
 } from "@/components/account-menu-styles";
-import { Button } from "@/components/ui/button";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import { useAuth } from "@/providers/auth-provider";
@@ -30,15 +30,19 @@ export function NavbarProfileMenu({
 }) {
   const { user, logout, isLoggingOut } = useAuth();
   const { goWorkspace } = useWorkspaceNavigation();
+  const pathname = usePathname();
 
   if (!user) return null;
 
   const display = user.name?.trim() || user.email;
   const activeWorkspace: WorkspaceRole | null =
     user.activeRole ?? user.primaryRole ?? null;
-  const hasBrand = user.roles.includes("BRAND");
-  const hasCreator = user.roles.includes("CREATOR");
-  const showWorkspace = hasBrand || hasCreator;
+  const showProfiles = true;
+  const brandProfileHref = "/brand/account";
+  const creatorProfileHref = "/creator/account";
+  const isBrandPath = pathname === brandProfileHref || pathname.startsWith("/brand/");
+  const isCreatorPath =
+    pathname === creatorProfileHref || pathname.startsWith("/creator/");
 
   const wrapNavigate = (fn?: () => void) => () => {
     onNavigate?.();
@@ -71,58 +75,61 @@ export function NavbarProfileMenu({
             <p className="sr-only">{display}</p>
           </div>
         </div>
-        {showWorkspace ? (
+        {showProfiles ? (
           <div
             className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
           >
             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Workspace
+              Continue As
             </p>
-            {hasBrand ? (
-              <button
-                type="button"
-                className={cn(
-                  workspaceItemClass(activeWorkspace === "BRAND"),
-                  "w-full",
-                )}
-                onClick={wrapNavigate(
-                  () => void goWorkspace("BRAND", { redirectIfCurrent: true }),
-                )}
-              >
-                <Building2 className="size-4" />
-                <span className="flex flex-1 items-center justify-between gap-2">
-                  As Brand
-                  {activeWorkspace === "BRAND" ? (
-                    <span className="text-[10px] font-medium text-primary">
-                      Current
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            ) : null}
-            {hasCreator ? (
-              <button
-                type="button"
-                className={cn(
-                  workspaceItemClass(activeWorkspace === "CREATOR"),
-                  "w-full",
-                )}
-                onClick={wrapNavigate(
-                  () =>
-                    void goWorkspace("CREATOR", { redirectIfCurrent: true }),
-                )}
-              >
-                <Video className="size-4" />
-                <span className="flex flex-1 items-center justify-between gap-2">
-                  As Creator
-                  {activeWorkspace === "CREATOR" ? (
-                    <span className="text-[10px] font-medium text-primary">
-                      Current
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className={cn(
+                workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
+                "w-full",
+              )}
+              onClick={wrapNavigate(
+                () =>
+                  void goWorkspace("BRAND", {
+                    redirectIfCurrent: true,
+                    targetHref: brandProfileHref,
+                  }),
+              )}
+            >
+              <Building2 className="size-4" />
+              <span className="flex flex-1 items-center justify-between gap-2">
+                As Brand
+                {isBrandPath ? (
+                  <span className="text-[10px] font-medium text-primary">
+                    Open
+                  </span>
+                ) : null}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={cn(
+                workspaceItemClass(isCreatorPath || activeWorkspace === "CREATOR"),
+                "w-full",
+              )}
+              onClick={wrapNavigate(
+                () =>
+                  void goWorkspace("CREATOR", {
+                    redirectIfCurrent: true,
+                    targetHref: creatorProfileHref,
+                  }),
+              )}
+            >
+              <Video className="size-4" />
+              <span className="flex flex-1 items-center justify-between gap-2">
+                As Creator
+                {isCreatorPath ? (
+                  <span className="text-[10px] font-medium text-primary">
+                    Open
+                  </span>
+                ) : null}
+              </span>
+            </button>
           </div>
         ) : null}
         <div
@@ -153,16 +160,15 @@ export function NavbarProfileMenu({
   return (
     <div className={cn("relative", className)}>
       <div className="group relative">
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="icon-sm"
           className={cn(
-            "size-9 shrink-0 rounded-full",
+            "flex size-9 shrink-0 items-center justify-center rounded-full",
             "border border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125",
             "text-muted-foreground transition-colors",
             "hover:bg-background/70 dark:hover:bg-background/40",
             "group-hover:text-primary",
+            "outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
           )}
           aria-haspopup="menu"
           aria-label={`Account menu (${display})`}
@@ -171,7 +177,7 @@ export function NavbarProfileMenu({
             className="size-4.5 transition-colors duration-200"
             strokeWidth={1.75}
           />
-        </Button>
+        </button>
 
         <div
           className={cn(
@@ -184,57 +190,61 @@ export function NavbarProfileMenu({
           aria-label="Account actions"
         >
           <div className={cn("min-w-52 rounded-xl p-1", accountMenuGlassPanel)}>
-            {showWorkspace ? (
+            {showProfiles ? (
               <>
                 <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Workspace
+                  Continue As
                 </p>
-                {hasBrand ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={cn(
-                      workspaceItemClass(activeWorkspace === "BRAND"),
-                      "w-full",
-                    )}
-                    onClick={() =>
-                      void goWorkspace("BRAND", { redirectIfCurrent: true })
-                    }
-                  >
-                    <Building2 className="size-4" />
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      As Brand
-                      {activeWorkspace === "BRAND" ? (
-                        <span className="text-[10px] font-medium text-primary">
-                          Current
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                ) : null}
-                {hasCreator ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={cn(
-                      workspaceItemClass(activeWorkspace === "CREATOR"),
-                      "w-full",
-                    )}
-                    onClick={() =>
-                      void goWorkspace("CREATOR", { redirectIfCurrent: true })
-                    }
-                  >
-                    <Video className="size-4" />
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      As Creator
-                      {activeWorkspace === "CREATOR" ? (
-                        <span className="text-[10px] font-medium text-primary">
-                          Current
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
+                    "w-full",
+                  )}
+                  onClick={() =>
+                    void goWorkspace("BRAND", {
+                      redirectIfCurrent: true,
+                      targetHref: brandProfileHref,
+                    })
+                  }
+                >
+                  <Building2 className="size-4" />
+                  <span className="flex flex-1 items-center justify-between gap-2">
+                    As Brand
+                    {isBrandPath ? (
+                      <span className="text-[10px] font-medium text-primary">
+                        Open
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    workspaceItemClass(
+                      isCreatorPath || activeWorkspace === "CREATOR",
+                    ),
+                    "w-full",
+                  )}
+                  onClick={() =>
+                    void goWorkspace("CREATOR", {
+                      redirectIfCurrent: true,
+                      targetHref: creatorProfileHref,
+                    })
+                  }
+                >
+                  <Video className="size-4" />
+                  <span className="flex flex-1 items-center justify-between gap-2">
+                    As Creator
+                    {isCreatorPath ? (
+                      <span className="text-[10px] font-medium text-primary">
+                        Open
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
                 <div
                   className="my-1 h-px bg-border/60"
                   role="separator"

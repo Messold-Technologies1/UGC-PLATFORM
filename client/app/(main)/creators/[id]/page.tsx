@@ -8,6 +8,7 @@ import {
 } from "@/features/creators/api/fetch-creator-profile";
 import { mapProfileItemToCreatorProfile } from "@/features/creators/api/map-profile-to-creator";
 import { Button } from "@/components/ui/button";
+import { fetchPublicPortfolioVideosByCreatorIdServer } from "@/features/creator-portfolio/api/fetch-public-portfolio-videos.server";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,15 @@ export default async function CreatorProfilePage({ params }: PageProps) {
 
   if (result.ok) {
     const creator = mapProfileItemToCreatorProfile(result.profile);
-    return <CreatorProfile key={id} creator={creator} />;
+    const initialPortfolioVideos =
+      await fetchPublicPortfolioVideosByCreatorIdServer(id);
+    return (
+      <CreatorProfile
+        key={id}
+        creator={creator}
+        initialPortfolioVideos={initialPortfolioVideos}
+      />
+    );
   }
 
   if (result.status === 401) {

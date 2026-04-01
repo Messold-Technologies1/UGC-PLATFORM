@@ -10,10 +10,8 @@ import {
   fetchAuthMe,
   type AuthUser,
 } from "@/features/auth/hooks/use-me-query";
-import {
-  postAuthContinuePath,
-  resolvePostAuthRedirectPath,
-} from "@/features/auth/lib/post-auth-destination";
+import { postAuthContinuePath } from "@/features/auth/lib/post-auth-destination";
+import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 
 function AuthCallbackInner() {
   const router = useRouter();
@@ -41,11 +39,11 @@ function AuthCallbackInner() {
         queryFn: fetchAuthMe,
       });
       const user = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
-      router.replace(
-        user
-          ? resolvePostAuthRedirectPath(user, callbackUrl)
-          : postAuthContinuePath(callbackUrl),
-      );
+      const target = user
+        ? await resolveImmediatePostAuthPath(queryClient, user, callbackUrl)
+        : postAuthContinuePath(callbackUrl);
+      router.prefetch(target);
+      router.replace(target);
     })();
   }, [queryClient, router, searchParams]);
 

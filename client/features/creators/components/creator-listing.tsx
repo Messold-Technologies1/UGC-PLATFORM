@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, Search, Users } from "lucide-react";
+import { VirtuosoGrid } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreatorCard } from "./creator-card";
@@ -337,23 +338,24 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {results.length > 0 ? (
-            <div
-              className={cn(
+            <VirtuosoGrid
+              useWindowScroll
+              data={results}
+              listClassName={cn(
                 "grid w-full gap-x-6 gap-y-8",
                 showFilters
                   ? "sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                   : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
               )}
-            >
-              {results.map((creator) => (
+              itemClassName="min-w-0"
+              itemContent={(_index, creator) => (
                 <CreatorCard
-                  key={creator.id}
                   creator={creator}
                   variant="listing"
                   appearance="browse"
                 />
-              ))}
-            </div>
+              )}
+            />
           ) : (
             <EmptyBrowseState
               filters={filters}

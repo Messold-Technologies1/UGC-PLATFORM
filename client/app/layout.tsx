@@ -3,8 +3,6 @@ import { Geist } from "next/font/google";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ThemeProvider } from "@/providers/theme-provider";
-import { AuthProvider } from "@/providers/auth-provider";
-import { QueryProvider } from "@/providers/query-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,12 +50,8 @@ export default function RootLayout({
           Skip to main content
         </a>
         <ThemeProvider>
-          <QueryProvider>
-            <AuthProvider>
-              <ErrorBoundary>{children}</ErrorBoundary>
-              <Toaster richColors position="top-right" />
-            </AuthProvider>
-          </QueryProvider>
+          <ErrorBoundary>{children}</ErrorBoundary>
+          <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
     </html>

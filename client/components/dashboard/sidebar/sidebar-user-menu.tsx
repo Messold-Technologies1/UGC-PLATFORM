@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -57,6 +57,7 @@ export function SidebarUserMenu({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const themeMounted = useThemeMounted();
@@ -101,6 +102,11 @@ export function SidebarUserMenu({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [mobileOpen]);
+
+  useEffect(() => {
+    router.prefetch(settingsHref);
+    router.prefetch(accountHref);
+  }, [accountHref, router, settingsHref]);
 
   const themeToggle = () => setTheme(isDark ? "light" : "dark");
 

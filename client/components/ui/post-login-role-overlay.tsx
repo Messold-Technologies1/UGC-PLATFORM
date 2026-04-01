@@ -1,11 +1,12 @@
 "use client";
 
-import { Building2, Clapperboard } from "lucide-react";
+import { Building2, Clapperboard, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
+import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 
 const MARKETING_POINTS = [
   "Connect with brands or creators in one place",
@@ -39,6 +40,8 @@ export function PostLoginRoleOverlay({
   onContinueAsBrand,
   className,
 }: PostLoginRoleOverlayProps) {
+  const { isSwitching, targetRole } = useWorkspaceSwitchState();
+
   return (
     <OnboardingOverlayShell
       open={open}
@@ -73,6 +76,7 @@ export function PostLoginRoleOverlay({
               variant="outline"
               size="lg"
               className="h-auto w-full justify-start gap-4 rounded-xl border-border px-5 py-4 text-left font-medium shadow-none hover:bg-muted/60"
+              disabled={isSwitching}
               onClick={async () => {
                 try {
                   await onContinueAsCreator?.();
@@ -83,7 +87,11 @@ export function PostLoginRoleOverlay({
               }}
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <Clapperboard className="size-5 text-foreground" />
+                {isSwitching && targetRole === "CREATOR" ? (
+                  <Loader2 className="size-5 animate-spin text-foreground" />
+                ) : (
+                  <Clapperboard className="size-5 text-foreground" />
+                )}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 text-left">
                 <span className="text-base">Continue as Creator</span>
@@ -98,6 +106,7 @@ export function PostLoginRoleOverlay({
               variant="outline"
               size="lg"
               className="h-auto w-full justify-start gap-4 rounded-xl border-border px-5 py-4 text-left font-medium shadow-none hover:bg-muted/60"
+              disabled={isSwitching}
               onClick={async () => {
                 try {
                   await onContinueAsBrand?.();
@@ -108,7 +117,11 @@ export function PostLoginRoleOverlay({
               }}
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <Building2 className="size-5 text-foreground" />
+                {isSwitching && targetRole === "BRAND" ? (
+                  <Loader2 className="size-5 animate-spin text-foreground" />
+                ) : (
+                  <Building2 className="size-5 text-foreground" />
+                )}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 text-left">
                 <span className="text-base">Continue as Brand</span>

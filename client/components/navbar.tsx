@@ -83,14 +83,18 @@ export function Navbar() {
           ) : (
             <>
               <Button asChild variant="outline" size="sm">
-                <Link href="/login">Log in</Link>
+                <Link href="/login" prefetch>
+                  Log in
+                </Link>
               </Button>
               <Button
                 asChild
                 size="sm"
                 className="bg-foreground border-0 text-background hover:opacity-90"
               >
-                <Link href="/signup">Get Started</Link>
+                <Link href="/signup" prefetch>
+                  Get Started
+                </Link>
               </Button>
             </>
           )}
@@ -133,6 +137,7 @@ export function Navbar() {
             <>
               <Link
                 href="/login"
+                prefetch
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
               >
@@ -140,6 +145,7 @@ export function Navbar() {
               </Link>
               <Link
                 href="/signup"
+                prefetch
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
               >

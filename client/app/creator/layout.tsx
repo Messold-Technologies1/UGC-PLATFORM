@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
 import { requireAuthenticatedUser } from "@/lib/server-auth-guard";
+import { AppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
   title: {
@@ -19,14 +20,16 @@ export default async function CreatorLayout({
   await requireAuthenticatedUser("/creator/dashboard");
 
   return (
-    <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-background">
-      <DashboardSidebarBoundary />
-      <main
-        id="main-content"
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
-      >
-        <PostLoginSetupShell role="creator">{children}</PostLoginSetupShell>
-      </main>
-    </div>
+    <AppProviders withAuth>
+      <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-background">
+        <DashboardSidebarBoundary />
+        <main
+          id="main-content"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
+        >
+          <PostLoginSetupShell role="creator">{children}</PostLoginSetupShell>
+        </main>
+      </div>
+    </AppProviders>
   );
 }

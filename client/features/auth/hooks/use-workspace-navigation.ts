@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
 import { pathAfterWorkspaceSelection } from "@/features/auth/lib/post-auth-destination";
 import {
+  clearWorkspaceSwitchState,
+  setWorkspaceSwitchState,
+  useWorkspaceSwitchState,
+} from "@/features/auth/lib/workspace-switch-state";
+import {
   authMeQueryKey,
   type AuthUser,
   type WorkspaceRole,
@@ -14,6 +19,7 @@ import {
 
 export type GoWorkspaceOptions = {
   redirectIfCurrent?: boolean;
+  targetHref?: string | null;
 };
 
 const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
@@ -32,7 +38,7 @@ function saveLastPathForWorkspaceRole(role: WorkspaceRole, href: string): void {
   } catch {}
 }
 
-function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
+export function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
   try {
     const raw = sessionStorage.getItem(lastPathStorageKey(role));
     if (!raw?.trim() || !raw.startsWith("/") || raw.startsWith("//")) {
@@ -83,6 +89,7 @@ export function useWorkspaceNavigation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const switchState = useWorkspaceSwitchState();
 
   const goWorkspace = async (
     role: WorkspaceRole,
@@ -103,36 +110,41 @@ export function useWorkspaceNavigation() {
     }
 
     const remembered = readLastPathForWorkspaceRole(role);
-    const callbackUrl =
-      options?.redirectIfCurrent && sameWorkspace ? null : remembered;
-
-    if (current) {
-      const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
-        promptIncompleteProfileOnboarding: false,
-      });
-      if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-        startTransition(() => {
-          router.push(dest);
-        });
-      }
-    }
+    const preferredTarget = options?.targetHref?.trim() || null;
+    const callbackUrl = preferredTarget
+      ? preferredTarget
+      : options?.redirectIfCurrent && sameWorkspace
+        ? null
+        : remembered;
 
     if (sameWorkspace) {
-      return;
-    }
-
-    try {
-      const next = await selectWorkspaceApi(role);
-      queryClient.setQueryData(authMeQueryKey, next);
-      if (!current) {
-        const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
+      if (current) {
+        const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
           promptIncompleteProfileOnboarding: false,
         });
+        router.prefetch(dest);
         if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
           startTransition(() => {
             router.push(dest);
           });
         }
+      }
+      return;
+    }
+
+    setWorkspaceSwitchState({ isSwitching: true, targetRole: role });
+
+    try {
+      const next = await selectWorkspaceApi(role);
+      queryClient.setQueryData(authMeQueryKey, next);
+      const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
+        promptIncompleteProfileOnboarding: false,
+      });
+      router.prefetch(dest);
+      if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
+        startTransition(() => {
+          router.push(dest);
+        });
       }
     } catch {
       toast.error("Could not switch workspace. Try again.");
@@ -141,8 +153,12 @@ export function useWorkspaceNavigation() {
           router.replace(fullCurrent);
         });
       }
+    } finally {
+      window.setTimeout(() => {
+        clearWorkspaceSwitchState();
+      }, 250);
     }
   };
 
-  return { goWorkspace };
+  return { goWorkspace, isSwitchingWorkspace: switchState.isSwitching };
 }

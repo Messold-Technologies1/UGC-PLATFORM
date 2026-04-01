@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { NavbarFallback } from "@/components/navbar-fallback";
 import { Footer } from "@/components/footer";
+import { AppProviders } from "@/providers/app-providers";
 
 export default function MainLayout({
   children,
@@ -9,7 +10,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
+    <AppProviders withAuth>
       <Suspense fallback={<NavbarFallback />}>
         <Navbar />
       </Suspense>
@@ -17,6 +18,6 @@ export default function MainLayout({
         {children}
       </main>
       <Footer />
-    </>
+    </AppProviders>
   );
 }

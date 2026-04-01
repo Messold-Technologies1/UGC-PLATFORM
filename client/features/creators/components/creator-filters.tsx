@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -48,9 +48,63 @@ export const CreatorFilters = memo(function CreatorFilters({
   categoryOptions,
   cityOptions,
 }: CreatorFiltersProps) {
-  function set<K extends keyof Filters>(key: K, value: Filters[K]) {
-    onChange({ ...filters, [key]: value });
-  }
+  const filtersRef = useRef(filters);
+  useLayoutEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const handleChange = useCallback(
+    <K extends keyof Filters>(key: K, value: Filters[K]) => {
+      onChange({ ...filtersRef.current, [key]: value });
+    },
+    [onChange],
+  );
+
+  const handleCategoryChange = useCallback(
+    (cat: string, checked: boolean) =>
+      handleChange("category", checked ? cat : "All"),
+    [handleChange],
+  );
+
+  const handleCityChange = useCallback(
+    (city: string, checked: boolean) =>
+      handleChange("city", checked ? city : "All Cities"),
+    [handleChange],
+  );
+
+  const handleGenderChange = useCallback(
+    (gender: string, checked: boolean) =>
+      handleChange("gender", checked ? gender : "all"),
+    [handleChange],
+  );
+
+  const handleTravelChange = useCallback(
+    (_id: string, checked: boolean) => handleChange("travelAvailable", checked),
+    [handleChange],
+  );
+
+  const handleStoreVisitChange = useCallback(
+    (checked: boolean) => handleChange("storeVisit", checked),
+    [handleChange],
+  );
+
+  const handleRatingChange = useCallback(
+    (value: string) => {
+      handleChange(
+        "minRating",
+        filtersRef.current.minRating === value ? "" : value,
+      );
+    },
+    [handleChange],
+  );
+
+  const handlePriceChange = useCallback(
+    ([min, max]: number[]) => {
+      handleChange("minPrice", min <= CREATOR_PRICE_MIN ? "" : String(min));
+      handleChange("maxPrice", max >= CREATOR_PRICE_MAX ? "" : String(max));
+    },
+    [handleChange],
+  );
 
   const sliderMin = filters.minPrice
     ? Number(filters.minPrice)
@@ -71,6 +125,20 @@ export const CreatorFilters = memo(function CreatorFilters({
 
   const priceFilterActive =
     filters.minPrice !== "" || filters.maxPrice !== "";
+
+  const priceAction = useMemo(
+    () => (
+      <span
+        className={cn(
+          "text-xs font-semibold tabular-nums",
+          priceFilterActive ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {priceSummary}
+      </span>
+    ),
+    [priceSummary, priceFilterActive],
+  );
 
   return (
     <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:min-h-80 lg:max-h-[calc(100svh-9.5rem)]">
@@ -100,9 +168,10 @@ export const CreatorFilters = memo(function CreatorFilters({
               categoryOptions.map((cat) => (
                 <CheckboxItem
                   key={cat}
+                  id={cat}
                   label={cat}
                   checked={filters.category === cat}
-                  onChange={(checked) => set("category", checked ? cat : "All")}
+                  onChange={handleCategoryChange}
                 />
               ))
             )}
@@ -119,11 +188,10 @@ export const CreatorFilters = memo(function CreatorFilters({
               cityOptions.map((city) => (
                 <CheckboxItem
                   key={city}
+                  id={city}
                   label={city}
                   checked={filters.city === city}
-                  onChange={(checked) =>
-                    set("city", checked ? city : "All Cities")
-                  }
+                  onChange={handleCityChange}
                 />
               ))
             )}
@@ -135,40 +203,23 @@ export const CreatorFilters = memo(function CreatorFilters({
             {(["male", "female", "other"] as const).map((g) => (
               <CheckboxItem
                 key={g}
+                id={g}
                 label={g.charAt(0).toUpperCase() + g.slice(1)}
                 checked={filters.gender === g}
-                onChange={(checked) => set("gender", checked ? g : "all")}
+                onChange={handleGenderChange}
               />
             ))}
           </div>
         </FilterSection>
 
-        <FilterSection
-          label="Price range"
-          action={
-            <span
-              className={cn(
-                "text-xs font-semibold tabular-nums",
-                priceFilterActive ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
-              {priceSummary}
-            </span>
-          }
-        >
+        <FilterSection label="Price range" action={priceAction}>
           <div className="space-y-4 pt-1">
             <Slider
               min={CREATOR_PRICE_MIN}
               max={CREATOR_PRICE_MAX}
               step={PRICE_STEP}
               value={[sliderMin, sliderMax]}
-              onValueChange={([min, max]) => {
-                onChange({
-                  ...filters,
-                  minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
-                  maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
-                });
-              }}
+              onValueChange={handlePriceChange}
               trackClassName="h-2"
               rangeClassName="bg-primary"
               thumbClassName="size-4 border-primary bg-background"
@@ -187,36 +238,26 @@ export const CreatorFilters = memo(function CreatorFilters({
               { value: "4.5", label: "4.5 & above", stars: 4.5 },
               { value: "4", label: "4.0 & above", stars: 4 },
               { value: "3", label: "3.0 & above", stars: 3 },
-            ].map((r) => {
-              const isActive = filters.minRating === r.value;
-              return (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => set("minRating", isActive ? "" : r.value)}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
-                      : "hover:bg-muted",
-                  )}
-                >
-                  <StarRating count={r.stars} />
-                  <span className={isActive ? "font-medium" : ""}>
-                    {r.label}
-                  </span>
-                </button>
-              );
-            })}
+            ].map((r) => (
+              <RatingButton
+                key={r.value}
+                value={r.value}
+                label={r.label}
+                stars={r.stars}
+                isActive={filters.minRating === r.value}
+                onClick={handleRatingChange}
+              />
+            ))}
           </div>
         </FilterSection>
 
         <FilterSection label="Travel availability">
           <div className="space-y-2">
             <CheckboxItem
+              id="travelCheck"
               label="Can travel to shoot"
               checked={filters.travelAvailable}
-              onChange={(checked) => set("travelAvailable", checked)}
+              onChange={handleTravelChange}
             />
           </div>
         </FilterSection>
@@ -233,7 +274,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
             <Switch
               checked={filters.storeVisit}
-              onCheckedChange={(checked) => set("storeVisit", checked)}
+              onCheckedChange={handleStoreVisitChange}
             />
           </div>
         </FilterSection>
@@ -295,23 +336,55 @@ const FilterSection = memo(function FilterSection({
   );
 });
 
+const RatingButton = memo(function RatingButton({
+  value,
+  label,
+  stars,
+  isActive,
+  onClick,
+}: {
+  value: string;
+  label: string;
+  stars: number;
+  isActive: boolean;
+  onClick: (value: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(value)}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
+        isActive
+          ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
+          : "hover:bg-muted",
+      )}
+    >
+      <StarRating count={stars} />
+      <span className={isActive ? "font-medium" : ""}>{label}</span>
+    </button>
+  );
+});
+
 const CheckboxItem = memo(function CheckboxItem({
+  id,
   label,
   checked,
   onChange,
 }: {
+  id: string;
   label: string;
   checked: boolean;
-  onChange: (checked: boolean) => void;
+  onChange: (id: string, checked: boolean) => void;
 }) {
   return (
     <label className="group flex cursor-pointer items-center gap-3">
       <div
         role="checkbox"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
+        onClick={() => onChange(id, !checked)}
         onKeyDown={(e) => {
-          if (e.key === " " || e.key === "Enter") onChange(!checked);
+          if (e.key === " " || e.key === "Enter") onChange(id, !checked);
         }}
         tabIndex={0}
         className={cn(

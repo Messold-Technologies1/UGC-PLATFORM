@@ -23,6 +23,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { SidebarUserMenu } from "./sidebar-user-menu";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useAuth } from "@/providers/auth-provider";
@@ -100,26 +105,31 @@ export function DashboardSidebar() {
         aria-hidden={!mobileOpen}
       />
 
-      <Button
-        variant="outline"
-        size="icon-sm"
-        className={cn(
-          "fixed left-3 top-3.5 z-50 shadow-sm lg:hidden",
-          mobileOpen && "hidden",
-        )}
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open sidebar"
-      >
-        <ChevronRight className="size-4" aria-hidden />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className={cn(
+              "fixed left-3 top-3.5 z-50 shadow-sm lg:hidden",
+              mobileOpen && "hidden",
+            )}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open sidebar"
+          >
+            <ChevronRight className="size-4" aria-hidden />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Open sidebar</TooltipContent>
+      </Tooltip>
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex min-h-0 w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[transform,width] duration-300 ease-out",
+          "fixed inset-y-0 left-0 z-50 flex min-h-0 w-65 shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[transform,width] duration-300 ease-out",
           !mobileOpen && "max-lg:-translate-x-full",
           mobileOpen && "max-lg:translate-x-0",
           "lg:static lg:z-20 lg:h-full lg:translate-x-0",
-          desktopCollapsed ? "lg:w-[72px]" : "lg:w-[260px]",
+          desktopCollapsed ? "lg:w-18" : "lg:w-65",
         )}
       >
         <div
@@ -142,30 +152,42 @@ export function DashboardSidebar() {
               Manage everything
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="ml-auto shrink-0 lg:hidden"
-            onClick={closeMobile}
-            aria-label="Close sidebar"
-          >
-            <ChevronLeft className="size-4" aria-hidden />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="hidden shrink-0 lg:flex"
-            onClick={() => setDesktopCollapsed((v) => !v)}
-            aria-label={
-              desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"
-            }
-          >
-            {desktopCollapsed ? (
-              <ChevronRight className="size-4" aria-hidden />
-            ) : (
-              <ChevronLeft className="size-4" aria-hidden />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="ml-auto shrink-0 lg:hidden"
+                onClick={closeMobile}
+                aria-label="Close sidebar"
+              >
+                <ChevronLeft className="size-4" aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Close sidebar</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="hidden shrink-0 lg:flex"
+                onClick={() => setDesktopCollapsed((v) => !v)}
+                aria-label={
+                  desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                }
+              >
+                {desktopCollapsed ? (
+                  <ChevronRight className="size-4" aria-hidden />
+                ) : (
+                  <ChevronLeft className="size-4" aria-hidden />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -179,13 +201,12 @@ export function DashboardSidebar() {
           </p>
           {navItems.map(({ href, label, icon: Icon }) => {
             const isActive = isNavItemActive(pathname, href);
-            return (
+            const navLink = (
               <Link
                 key={href}
                 href={href}
                 prefetch
                 onClick={closeMobile}
-                title={label}
                 className={cn(
                   "group flex items-center rounded-xl py-2.5 text-sm font-medium transition-all duration-150",
                   desktopCollapsed
@@ -202,6 +223,17 @@ export function DashboardSidebar() {
                 </span>
               </Link>
             );
+
+            if (desktopCollapsed) {
+              return (
+                <Tooltip key={href}>
+                  <TooltipTrigger asChild>{navLink}</TooltipTrigger>
+                  <TooltipContent side="right">{label}</TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return navLink;
           })}
         </nav>
 
@@ -242,10 +274,33 @@ export function DashboardSidebar() {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-1">
-                    <button
+                    {desktopCollapsed ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => void goWorkspace("BRAND")}
+                            className={cn(
+                              "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                              desktopCollapsed
+                                ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
+                                : "gap-3 px-3",
+                            )}
+                          >
+                            <Building2 className="size-4 shrink-0" />
+                            <span
+                              className={cn(desktopCollapsed && "lg:sr-only")}
+                            >
+                              Brand hub
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">Brand hub</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <button
                       type="button"
                       onClick={() => void goWorkspace("BRAND")}
-                      title="Brand hub"
                       className={cn(
                         "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                         desktopCollapsed
@@ -257,11 +312,35 @@ export function DashboardSidebar() {
                       <span className={cn(desktopCollapsed && "lg:sr-only")}>
                         Brand hub
                       </span>
-                    </button>
-                    <button
+                      </button>
+                    )}
+                    {desktopCollapsed ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => void goWorkspace("CREATOR")}
+                            className={cn(
+                              "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                              desktopCollapsed
+                                ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
+                                : "gap-3 px-3",
+                            )}
+                          >
+                            <Video className="size-4 shrink-0" />
+                            <span
+                              className={cn(desktopCollapsed && "lg:sr-only")}
+                            >
+                              Creator hub
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">Creator hub</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <button
                       type="button"
                       onClick={() => void goWorkspace("CREATOR")}
-                      title="Creator hub"
                       className={cn(
                         "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                         desktopCollapsed
@@ -273,7 +352,8 @@ export function DashboardSidebar() {
                       <span className={cn(desktopCollapsed && "lg:sr-only")}>
                         Creator hub
                       </span>
-                    </button>
+                      </button>
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>

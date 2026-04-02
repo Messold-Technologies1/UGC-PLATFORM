@@ -1,9 +1,10 @@
 "use client";
 
-import { Building2, Clapperboard, Loader2 } from "lucide-react";
+import { Building2, Clapperboard } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
 import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
@@ -88,7 +89,7 @@ export function PostLoginRoleOverlay({
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
                 {isSwitching && targetRole === "CREATOR" ? (
-                  <Loader2 className="size-5 animate-spin text-foreground" />
+                  <Spinner className="size-5 text-foreground" aria-hidden />
                 ) : (
                   <Clapperboard className="size-5 text-foreground" />
                 )}
@@ -118,7 +119,7 @@ export function PostLoginRoleOverlay({
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
                 {isSwitching && targetRole === "BRAND" ? (
-                  <Loader2 className="size-5 animate-spin text-foreground" />
+                  <Spinner className="size-5 text-foreground" aria-hidden />
                 ) : (
                   <Building2 className="size-5 text-foreground" />
                 )}

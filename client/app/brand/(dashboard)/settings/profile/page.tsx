@@ -1,9 +1,9 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/dashboard/page-header";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
 import {
   brandProfileMeQueryKey,
@@ -29,7 +29,7 @@ export default function BrandSettingsProfilePage() {
   if (authLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <Spinner className="size-8 text-muted-foreground" />
       </div>
     );
   }
@@ -39,7 +39,7 @@ export default function BrandSettingsProfilePage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <Spinner className="size-8 text-muted-foreground" />
       </div>
     );
   }

@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import type { RefObject } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 
 export function CreatorProfileImageField({
   imagePreviewUrl,
@@ -71,7 +72,7 @@ export function CreatorProfileImageField({
             onClick={() => fileInputRef.current?.click()}
           >
             {uploading ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <Spinner className="size-4" aria-hidden />
             ) : (
               <Upload className="size-4" aria-hidden />
             )}

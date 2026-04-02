@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import {
   creatorsListQueryKey,
   fetchCreatorsList,
@@ -77,7 +78,7 @@ export function FeaturedCreators({
           variant="dashed"
           className="mt-10 flex min-h-70 flex-col items-center justify-center gap-3 text-muted-foreground"
         >
-          <Loader2 className="size-8 animate-spin" aria-hidden />
+          <Spinner className="size-8" aria-hidden />
           <p className="text-sm">Loading creators…</p>
         </Card>
       ) : isError ? (

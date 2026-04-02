@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
+import { Spinner } from "@/components/ui/spinner";
 
 function labelForRole(role: "CREATOR" | "BRAND" | null) {
   if (role === "CREATOR") return "creator";
@@ -21,7 +21,7 @@ export function WorkspaceSwitchingOverlay() {
       aria-live="polite"
       aria-busy="true"
     >
-      <Loader2 className="size-9 animate-spin text-primary" aria-hidden />
+      <Spinner className="size-9 text-primary" aria-hidden />
       <p className="text-sm font-medium text-foreground">
         Switching to {labelForRole(targetRole)} workspace...
       </p>

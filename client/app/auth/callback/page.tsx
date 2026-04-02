@@ -3,8 +3,8 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   authMeQueryKey,
@@ -51,7 +51,7 @@ function AuthCallbackInner() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center">
-      <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <Spinner className="size-8 text-muted-foreground" />
     </div>
   );
 }
@@ -61,7 +61,7 @@ export default function AuthCallbackPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen w-full items-center justify-center">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <Spinner className="size-8 text-muted-foreground" />
         </div>
       }
     >

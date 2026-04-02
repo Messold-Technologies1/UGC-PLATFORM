@@ -3,8 +3,9 @@
 import { memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Loader2, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   fetchPublicPortfolioVideosByCreatorId,
   publicPortfolioVideosByCreatorQueryKey,
@@ -44,10 +45,7 @@ export const PortfolioTab = memo(function PortfolioTab({
   if (query.isPending) {
     return (
       <div className="flex min-h-50 items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
-        <Loader2
-          className="size-8 animate-spin text-muted-foreground"
-          aria-hidden
-        />
+        <Spinner className="size-8 text-muted-foreground" aria-hidden />
       </div>
     );
   }

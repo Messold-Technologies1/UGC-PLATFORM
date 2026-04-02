@@ -11,7 +11,6 @@ import {
   Video,
   LayoutDashboard,
   Layers,
-  Megaphone,
   Users,
   Briefcase,
   type LucideIcon,
@@ -46,7 +45,7 @@ const roleConfigs: Record<string, RoleConfig> = {
     label: "Brand Hub",
     navItems: [
       { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
+      // { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/brand/creators", label: "Browse Creators", icon: Users },
     ],
   },
@@ -55,7 +54,7 @@ const roleConfigs: Record<string, RoleConfig> = {
     label: "Creator Hub",
     navItems: [
       { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
+      // { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
     ],
   },
@@ -76,7 +75,7 @@ function isNavItemActive(pathname: string, href: string): boolean {
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(true);
   const { goWorkspace } = useWorkspaceNavigation();
   const { user } = useAuth();
   

@@ -1,5 +1,6 @@
 {
-  "files.associations": {
-    "**/server/dist/**/*.js": "plaintext"
+  "css.lint.unknownAtRules": "ignore",
+  "tailwindcss.includeLanguages": {
+    "css": "css"
   }
 }

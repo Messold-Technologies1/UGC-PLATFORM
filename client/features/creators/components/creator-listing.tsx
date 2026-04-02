@@ -3,7 +3,6 @@
 import {
   type CSSProperties,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -41,7 +40,9 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.maxPrice === b.maxPrice &&
     a.minRating === b.minRating &&
     a.travelAvailable === b.travelAvailable &&
-    a.storeVisit === b.storeVisit
+    a.storeVisit === b.storeVisit &&
+    a.industryLabel === b.industryLabel &&
+    a.tags === b.tags
   );
 }
 
@@ -70,6 +71,28 @@ function applyFilters(
     if (minR != null && c.rating < minR) return false;
     if (filters.travelAvailable && !c.travelAvailable) return false;
     if (filters.storeVisit && !c.storeVisit) return false;
+    if (
+      filters.industryLabel &&
+      c.industryLabel &&
+      !c.industryLabel
+        .toLowerCase()
+        .includes(filters.industryLabel.toLowerCase())
+    )
+      return false;
+    if (filters.tags) {
+      const searchTags = filters.tags
+        .toLowerCase()
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (searchTags.length > 0) {
+        const cTags = (c.tags || []).map((t) => t.toLowerCase());
+        const hasMatch = searchTags.some((st) =>
+          cTags.some((ct) => ct.includes(st)),
+        );
+        if (!hasMatch) return false;
+      }
+    }
     return true;
   });
 }
@@ -140,6 +163,9 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
 
+  const [localSearch, setLocalSearch] = useState(
+    () => parseBrowseListingParams(searchParams).search,
+  );
   const [search, setSearch] = useState(
     () => parseBrowseListingParams(searchParams).search,
   );
@@ -154,8 +180,6 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
     listingRef.current = { filters, search };
   }, [filters, search]);
 
-  const deferredSearch = useDeferredValue(search);
-
   const syncUrlImmediate = useCallback(
     (nextFilters: Filters, nextSearch: string) => {
       const qs = serializeBrowseListingParams(nextFilters, nextSearch);
@@ -168,7 +192,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   const debouncedPushUrl = useDebouncedCallback(() => {
     const { filters: f, search: s } = listingRef.current;
     syncUrlImmediate(f, s);
-  }, 300);
+  }, 800);
 
   useEffect(() => {
     const parsed = parseBrowseListingParams(
@@ -178,7 +202,13 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
       setFilters((prev) =>
         filtersEqual(prev, parsed.filters) ? prev : parsed.filters,
       );
-      setSearch((prev) => (prev === parsed.search ? prev : parsed.search));
+      setSearch((prev) => {
+        if (prev !== parsed.search) {
+          setLocalSearch(parsed.search);
+          return parsed.search;
+        }
+        return prev;
+      });
     });
   }, [searchParamsKey]);
 
@@ -190,17 +220,23 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
     [debouncedPushUrl],
   );
 
+  const debouncedSetSearch = useDebouncedCallback((value: string) => {
+    setSearch(value);
+    listingRef.current.search = value;
+    debouncedPushUrl();
+  }, 800);
+
   const handleSearchChange = useCallback(
     (value: string) => {
-      setSearch(value);
-      debouncedPushUrl();
+      setLocalSearch(value);
+      debouncedSetSearch(value);
     },
-    [debouncedPushUrl],
+    [debouncedSetSearch],
   );
 
   const results = useMemo(
-    () => applyFilters(creators, filters, deferredSearch),
-    [creators, filters, deferredSearch],
+    () => applyFilters(creators, filters, search),
+    [creators, filters, search],
   );
 
   const { categoryOptions, cityOptions } = useMemo(
@@ -224,6 +260,8 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
         filters.minRating !== DEFAULT_FILTERS.minRating,
         filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable,
         filters.storeVisit !== DEFAULT_FILTERS.storeVisit,
+        filters.industryLabel !== DEFAULT_FILTERS.industryLabel,
+        filters.tags !== DEFAULT_FILTERS.tags,
       ].filter(Boolean).length,
     [filters],
   );
@@ -306,7 +344,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
             <Input
               placeholder="Search creators, niches, or locations…"
-              value={search}
+              value={localSearch}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="h-10 rounded-full py-2.5 pl-11 pr-4 text-sm"
             />
@@ -364,7 +402,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
           ) : (
             <EmptyBrowseState
               filters={filters}
-              searchQuery={deferredSearch}
+              searchQuery={search}
             />
           )}
         </div>

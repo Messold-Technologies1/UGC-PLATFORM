@@ -1,11 +1,13 @@
 "use client";
 
-import { memo, useMemo, useRef, useEffect, useCallback } from "react";
+import { memo, useMemo, useRef, useEffect, useCallback, useState } from "react";
 import { Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useDebouncedCallback } from "@/hooks/use-debounce";
 
 export const CREATOR_PRICE_MIN = 0;
 export const CREATOR_PRICE_MAX = 10_000;
@@ -20,6 +22,8 @@ export interface Filters {
   minRating: string;
   travelAvailable: boolean;
   storeVisit: boolean;
+  industryLabel: string;
+  tags: string;
 }
 
 export const DEFAULT_FILTERS: Filters = {
@@ -31,6 +35,8 @@ export const DEFAULT_FILTERS: Filters = {
   minRating: "",
   travelAvailable: false,
   storeVisit: false,
+  industryLabel: "",
+  tags: "",
 };
 
 interface CreatorFiltersProps {
@@ -53,12 +59,35 @@ export const CreatorFilters = memo(function CreatorFilters({
     filtersRef.current = filters;
   }, [filters]);
 
+  const [localIndustry, setLocalIndustry] = useState(filters.industryLabel ?? "");
+  const [localTags, setLocalTags] = useState(filters.tags ?? "");
+
+  const [prevIndustry, setPrevIndustry] = useState(filters.industryLabel ?? "");
+  if (filters.industryLabel !== prevIndustry) {
+    setPrevIndustry(filters.industryLabel ?? "");
+    setLocalIndustry(filters.industryLabel ?? "");
+  }
+
+  const [prevTags, setPrevTags] = useState(filters.tags ?? "");
+  if (filters.tags !== prevTags) {
+    setPrevTags(filters.tags ?? "");
+    setLocalTags(filters.tags ?? "");
+  }
+
   const handleChange = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
       onChange({ ...filtersRef.current, [key]: value });
     },
     [onChange],
   );
+
+  const debouncedIndustry = useDebouncedCallback((val: string) => {
+    handleChange("industryLabel", val);
+  }, 800);
+
+  const debouncedTags = useDebouncedCallback((val: string) => {
+    handleChange("tags", val);
+  }, 800);
 
   const handleCategoryChange = useCallback(
     (cat: string, checked: boolean) =>
@@ -176,6 +205,30 @@ export const CreatorFilters = memo(function CreatorFilters({
               ))
             )}
           </div>
+        </FilterSection>
+
+        <FilterSection label="Industry">
+          <Input
+            placeholder="e.g. Technology, Fashion..."
+            value={localIndustry}
+            onChange={(e) => {
+              setLocalIndustry(e.target.value);
+              debouncedIndustry(e.target.value);
+            }}
+            className="h-8 text-xs"
+          />
+        </FilterSection>
+
+        <FilterSection label="Tags">
+          <Input
+            placeholder="e.g. UGC, Review, Unboxing..."
+            value={localTags}
+            onChange={(e) => {
+              setLocalTags(e.target.value);
+              debouncedTags(e.target.value);
+            }}
+            className="h-8 text-xs"
+          />
         </FilterSection>
 
         <FilterSection label="Location">

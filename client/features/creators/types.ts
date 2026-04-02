@@ -18,6 +18,7 @@ export interface Creator {
   category: string;
 
   categories: string[];
+  industryLabel?: string;
 }
 
 export interface CreatorProfile extends Creator {

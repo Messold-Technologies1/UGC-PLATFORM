@@ -16,6 +16,8 @@ export function parseBrowseListingParams(
       minRating: sp.get("minRating") ?? DEFAULT_FILTERS.minRating,
       travelAvailable: sp.get("travel") === "true",
       storeVisit: sp.get("storeVisit") === "true",
+      industryLabel: sp.get("industry") ?? DEFAULT_FILTERS.industryLabel,
+      tags: sp.get("tags") ?? DEFAULT_FILTERS.tags,
     },
   };
 }
@@ -37,5 +39,8 @@ export function serializeBrowseListingParams(
   if (filters.minRating) params.set("minRating", filters.minRating);
   if (filters.travelAvailable) params.set("travel", "true");
   if (filters.storeVisit) params.set("storeVisit", "true");
+  if (filters.industryLabel !== DEFAULT_FILTERS.industryLabel)
+    params.set("industry", filters.industryLabel);
+  if (filters.tags !== DEFAULT_FILTERS.tags) params.set("tags", filters.tags);
   return params.toString();
 }

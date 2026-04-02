@@ -13,6 +13,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
@@ -395,27 +400,32 @@ function PasswordField({
           aria-describedby={describedBy}
           {...registration}
         />
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onToggleShow}
-          className={cn(
-            "absolute top-1/2 right-1.5 flex size-8 -translate-y-1/2 items-center justify-center rounded-md",
-            "text-muted-foreground outline-none transition-colors",
-            "hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            "disabled:pointer-events-none disabled:opacity-50",
-          )}
-          aria-label={show ? "Hide password" : "Show password"}
-          aria-controls={id}
-          aria-pressed={show}
-        >
-          {show ? (
-            <EyeOff className="size-4 shrink-0" aria-hidden />
-          ) : (
-            <Eye className="size-4 shrink-0" aria-hidden />
-          )}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onToggleShow}
+              className={cn(
+                "absolute top-1/2 right-1.5 flex size-8 -translate-y-1/2 items-center justify-center rounded-md",
+                "text-muted-foreground outline-none transition-colors",
+                "hover:text-foreground",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "disabled:pointer-events-none disabled:opacity-50",
+              )}
+              aria-label={show ? "Hide password" : "Show password"}
+              aria-controls={id}
+              aria-pressed={show}
+            >
+              {show ? (
+                <EyeOff className="size-4 shrink-0" aria-hidden />
+              ) : (
+                <Eye className="size-4 shrink-0" aria-hidden />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{show ? "Hide password" : "Show password"}</TooltipContent>
+        </Tooltip>
       </div>
       {hint ? <div id={`${id}-hint`}>{hint}</div> : null}
       {errorMessage ? (

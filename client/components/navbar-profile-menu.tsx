@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Loader2, LogOut, Video } from "lucide-react";
+import { Building2, LogOut, Video } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ import {
   getDisplayNameFromUser,
   getInitialsFromUser,
 } from "@/lib/account-user";
+import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
+import { Spinner } from "@/components/ui/spinner";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
@@ -72,6 +74,7 @@ export function NavbarProfileMenu({
   if (onNavigate) {
     return (
       <div className={cn("space-y-1", className)}>
+        <ThemeAppearancePanel className="mb-2" />
         <div
           className={cn(
             "mb-2 flex items-center gap-3 rounded-xl px-3 py-2.5",
@@ -119,7 +122,7 @@ export function NavbarProfileMenu({
               )}
             >
               {brandPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
+                <Spinner className="size-4" aria-hidden />
               ) : (
                 <Building2 className="size-4" />
               )}
@@ -149,7 +152,7 @@ export function NavbarProfileMenu({
               )}
             >
               {creatorPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
+                <Spinner className="size-4" aria-hidden />
               ) : (
                 <Video className="size-4" />
               )}
@@ -182,7 +185,7 @@ export function NavbarProfileMenu({
             )}
           >
             {isLoggingOut ? (
-              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              <Spinner className="size-4 shrink-0" aria-hidden />
             ) : (
               <LogOut className="size-4 shrink-0" />
             )}
@@ -222,7 +225,9 @@ export function NavbarProfileMenu({
           role="menu"
           aria-label="Account actions"
         >
-          <div className={cn("min-w-52 rounded-xl p-1", accountMenuGlassPanel)}>
+          <div className="min-w-60 space-y-2">
+            <ThemeAppearancePanel />
+            <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
             {showProfiles ? (
               <>
                 <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -245,7 +250,7 @@ export function NavbarProfileMenu({
                   }
                 >
                   {brandPending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <Spinner className="size-4" aria-hidden />
                   ) : (
                     <Building2 className="size-4" />
                   )}
@@ -277,7 +282,7 @@ export function NavbarProfileMenu({
                   }
                 >
                   {creatorPending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <Spinner className="size-4" aria-hidden />
                   ) : (
                     <Video className="size-4" />
                   )}
@@ -313,12 +318,13 @@ export function NavbarProfileMenu({
               )}
             >
               {isLoggingOut ? (
-                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                <Spinner className="size-4 shrink-0" aria-hidden />
               ) : (
                 <LogOut className="size-4 shrink-0" />
               )}
               {isLoggingOut ? "Logging out…" : "Log out"}
             </button>
+            </div>
           </div>
         </div>
       </div>

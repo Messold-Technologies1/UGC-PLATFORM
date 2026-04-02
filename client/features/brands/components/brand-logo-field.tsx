@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import type { RefObject } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 export function BrandLogoField({
   previewUrl,
@@ -48,7 +49,7 @@ export function BrandLogoField({
             className="gap-2"
           >
             {uploading ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <Spinner className="size-4" aria-hidden />
             ) : (
               <Upload className="size-4" aria-hidden />
             )}

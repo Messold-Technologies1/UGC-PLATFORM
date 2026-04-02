@@ -2,21 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import { useTheme } from "next-themes";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
-  Loader2,
   LogOut,
-  Moon,
   Shield,
-  Sun,
   UserRound,
   Building2,
   Video,
@@ -30,18 +20,12 @@ import {
   getDisplayNameFromUser,
   getInitialsFromUser,
 } from "@/lib/account-user";
+import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
+import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
-
-function useThemeMounted() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-}
 
 export function SidebarUserMenu({
   desktopCollapsed,
@@ -53,9 +37,6 @@ export function SidebarUserMenu({
   const pathname = usePathname();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
   const { goWorkspace } = useWorkspaceNavigation();
-  const { resolvedTheme, setTheme } = useTheme();
-  const themeMounted = useThemeMounted();
-  const isDark = themeMounted && resolvedTheme === "dark";
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -95,8 +76,6 @@ export function SidebarUserMenu({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [mobileOpen]);
-
-  const themeToggle = () => setTheme(isDark ? "light" : "dark");
 
   const triggerClick = () => {
     if (typeof window !== "undefined" && window.innerWidth >= 1024) return;
@@ -174,39 +153,9 @@ export function SidebarUserMenu({
         role="menu"
         aria-label="Account actions"
       >
-        <div className={cn("min-w-52 rounded-xl p-1", accountMenuGlassPanel)}>
-          <button
-            type="button"
-            role="menuitem"
-            className={cn(accountMenuItemClass, "w-full text-left")}
-            onClick={() => themeToggle()}
-          >
-            {!themeMounted ? (
-              <Sun className="size-4 opacity-60" aria-hidden />
-            ) : (
-              <span className="relative inline-flex size-4 items-center justify-center">
-                <Sun
-                  className={cn(
-                    "size-4 transition-all duration-200",
-                    isDark
-                      ? "absolute scale-0 rotate-90 opacity-0"
-                      : "scale-100 rotate-0 opacity-100",
-                  )}
-                  aria-hidden
-                />
-                <Moon
-                  className={cn(
-                    "size-4 transition-all duration-200",
-                    isDark
-                      ? "scale-100 rotate-0 opacity-100"
-                      : "absolute scale-0 -rotate-90 opacity-0",
-                  )}
-                  aria-hidden
-                />
-              </span>
-            )}
-            {!themeMounted ? "Theme" : isDark ? "Light mode" : "Dark mode"}
-          </button>
+        <div className="min-w-60 space-y-2">
+          <ThemeAppearancePanel />
+          <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
           {!hasMultipleRoles && user?.roles?.includes("CREATOR") && (
             <button
               type="button"
@@ -294,12 +243,13 @@ export function SidebarUserMenu({
             )}
           >
             {isLoggingOut ? (
-              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              <Spinner className="size-4 shrink-0" aria-hidden />
             ) : (
               <LogOut className="size-4 shrink-0" />
             )}
             {isLoggingOut ? "Logging out…" : "Log out"}
           </button>
+          </div>
         </div>
       </div>
     </div>

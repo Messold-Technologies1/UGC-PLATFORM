@@ -3,11 +3,17 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Image as ImageIcon, Loader2, Play, Plus, Trash2 } from "lucide-react";
+import { Image as ImageIcon, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { PortfolioVideoApi } from "../api/types";
 import { deletePortfolioVideo } from "../api/delete-portfolio-video";
 import {
@@ -121,7 +127,7 @@ export function CreatorPortfolioManager() {
 
       {loading ? (
         <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <Spinner className="size-8 text-muted-foreground" />
         </div>
       ) : videos.length === 0 ? (
         <div className="flex min-h-100 flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
@@ -191,24 +197,26 @@ export function CreatorPortfolioManager() {
                   </span>
 
                   <div className="absolute right-2.5 top-2.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      className="h-8 w-8 rounded-full bg-background/75 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-background hover:text-destructive group-hover:opacity-100"
-                      disabled={deletingId !== null}
-                      aria-label={`Delete ${cardTitle}`}
-                      onClick={() => void handleDelete(v)}
-                    >
-                      {deletingId === v.id ? (
-                        <Loader2
-                          className="size-3.5 animate-spin"
-                          aria-hidden
-                        />
-                      ) : (
-                        <Trash2 className="size-3.5" aria-hidden />
-                      )}
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="h-8 w-8 rounded-full bg-background/75 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-background hover:text-destructive group-hover:opacity-100"
+                          disabled={deletingId !== null}
+                          aria-label={`Delete ${cardTitle}`}
+                          onClick={() => void handleDelete(v)}
+                        >
+                          {deletingId === v.id ? (
+                            <Spinner className="size-3.5" aria-hidden />
+                          ) : (
+                            <Trash2 className="size-3.5" aria-hidden />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete video</TooltipContent>
+                    </Tooltip>
                   </div>
 
                   <div className="absolute inset-x-0 bottom-0 p-3">

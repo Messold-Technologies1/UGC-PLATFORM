@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -69,6 +70,13 @@ function createPackageDraft(
     deliveryDays: overrides?.deliveryDays ?? "",
     deliverables: overrides?.deliverables ?? "",
   };
+}
+
+function isCompletedPackageDraft(row: PackageDraft): boolean {
+  const name = row.name.trim();
+  const price = row.priceAmount.trim();
+  const days = Number.parseInt(row.deliveryDays, 10);
+  return !!name && !!price && !Number.isNaN(days) && days >= 0;
 }
 
 export type CreatorProfileSetupFormProps = {
@@ -475,6 +483,31 @@ export function CreatorProfileSetupForm({
       ? "Changes apply to how brands see you in search and on your public profile."
       : "Brands see this in search. You can edit everything later in settings.";
 
+  const completionSummary = useMemo(() => {
+    const checkpoints = [
+      Boolean(imagePreviewUrl || pendingProfileImageKey),
+      Boolean(displayName.trim()),
+      Boolean(city.trim()),
+      Boolean(bio.trim()),
+      splitCommaSeparatedList(languages).length > 0,
+      splitCommaSeparatedList(categoriesInput).length > 0,
+      packageDrafts.some(isCompletedPackageDraft),
+    ];
+    const completed = checkpoints.filter(Boolean).length;
+    const total = checkpoints.length;
+    const percent = Math.round((completed / total) * 100);
+    return { completed, total, percent };
+  }, [
+    imagePreviewUrl,
+    pendingProfileImageKey,
+    displayName,
+    city,
+    bio,
+    languages,
+    categoriesInput,
+    packageDrafts,
+  ]);
+
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className={shellClass}>
       <div className="mb-6 space-y-2">
@@ -482,6 +515,27 @@ export function CreatorProfileSetupForm({
           {heading}
         </h2>
         <p className="text-sm text-muted-foreground">{subheading}</p>
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Profile completion
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {completionSummary.completed} of {completionSummary.total} core
+                sections added
+              </p>
+            </div>
+            <p className="text-sm font-semibold tabular-nums text-foreground">
+              {completionSummary.percent}%
+            </p>
+          </div>
+          <Progress
+            value={completionSummary.percent}
+            aria-label="Creator profile completion"
+            className="mt-3 h-2"
+          />
+        </div>
       </div>
 
       <CreatorProfileImageField

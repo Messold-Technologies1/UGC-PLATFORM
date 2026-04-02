@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 
@@ -129,10 +134,13 @@ export const CreatorFilters = memo(function CreatorFilters({
 
   const handlePriceChange = useCallback(
     ([min, max]: number[]) => {
-      handleChange("minPrice", min <= CREATOR_PRICE_MIN ? "" : String(min));
-      handleChange("maxPrice", max >= CREATOR_PRICE_MAX ? "" : String(max));
+      onChange({
+        ...filtersRef.current,
+        minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
+        maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
+      });
     },
-    [handleChange],
+    [onChange],
   );
 
   const sliderMin = filters.minPrice
@@ -175,15 +183,20 @@ export const CreatorFilters = memo(function CreatorFilters({
         <h3 className="text-base font-semibold tracking-tight text-foreground">
           Filters
         </h3>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClose}
-          aria-label="Close filters"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <X className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label="Close filters"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Close filters</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-2">
@@ -267,16 +280,18 @@ export const CreatorFilters = memo(function CreatorFilters({
 
         <FilterSection label="Price range" action={priceAction}>
           <div className="space-y-4 pt-1">
-            <Slider
-              min={CREATOR_PRICE_MIN}
-              max={CREATOR_PRICE_MAX}
-              step={PRICE_STEP}
-              value={[sliderMin, sliderMax]}
-              onValueChange={handlePriceChange}
-              trackClassName="h-2"
-              rangeClassName="bg-primary"
-              thumbClassName="size-4 border-primary bg-background"
-            />
+            <div className="mx-auto w-full max-w-xs">
+              <Slider
+                min={CREATOR_PRICE_MIN}
+                max={CREATOR_PRICE_MAX}
+                step={PRICE_STEP}
+                value={[sliderMin, sliderMax]}
+                onValueChange={handlePriceChange}
+                trackClassName="h-1"
+                rangeClassName="bg-primary"
+                thumbClassName="size-3 border-primary/90 bg-background shadow-sm"
+              />
+            </div>
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               <span>₹{CREATOR_PRICE_MIN.toLocaleString("en-IN")}</span>
               <span>₹10,000+</span>

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { Spinner } from "@/components/ui/spinner";
 import {
   creatorProfileMeQueryKey,
   fetchCreatorProfileMe,
@@ -54,10 +55,7 @@ export function DashboardAccountProfile({
   if (profileQuery.isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2
-          className="size-8 animate-spin text-muted-foreground"
-          aria-hidden
-        />
+        <Spinner className="size-8 text-muted-foreground" aria-hidden />
       </div>
     );
   }

@@ -8,12 +8,12 @@ import {
   BriefcaseBusiness,
   Globe,
   KeyRound,
-  Loader2,
   UserRound,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
 import {
   brandProfileMeQueryKey,
@@ -62,7 +62,7 @@ export function DashboardBrandAccountProfile() {
   if (authLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <Spinner className="size-8 text-muted-foreground" />
       </div>
     );
   }
@@ -72,7 +72,7 @@ export function DashboardBrandAccountProfile() {
   if (user.hasBrandProfile && profileQuery.isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <Spinner className="size-8 text-muted-foreground" />
       </div>
     );
   }

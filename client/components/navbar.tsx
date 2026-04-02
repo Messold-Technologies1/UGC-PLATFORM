@@ -6,6 +6,11 @@ import { useTheme } from "next-themes";
 import { Menu, X, User, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { NavbarProfileMenu } from "@/components/navbar-profile-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
@@ -33,32 +38,38 @@ function ThemeToggle() {
   }
 
   const isDark = resolvedTheme === "dark";
+  const tooltipLabel = isDark ? "Switch to light mode" : "Switch to dark mode";
 
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label="Toggle theme"
-      className="relative overflow-hidden"
-    >
-      <Sun
-        className={cn(
-          "absolute size-4 transition-all duration-300",
-          isDark
-            ? "rotate-90 scale-0 opacity-0"
-            : "rotate-0 scale-100 opacity-100",
-        )}
-      />
-      <Moon
-        className={cn(
-          "absolute size-4 transition-all duration-300",
-          isDark
-            ? "rotate-0 scale-100 opacity-100"
-            : "-rotate-90 scale-0 opacity-0",
-        )}
-      />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          aria-label="Toggle theme"
+          className="relative overflow-hidden"
+        >
+          <Sun
+            className={cn(
+              "absolute size-4 transition-all duration-300",
+              isDark
+                ? "rotate-90 scale-0 opacity-0"
+                : "rotate-0 scale-100 opacity-100",
+            )}
+          />
+          <Moon
+            className={cn(
+              "absolute size-4 transition-all duration-300",
+              isDark
+                ? "rotate-0 scale-100 opacity-100"
+                : "-rotate-90 scale-0 opacity-0",
+            )}
+          />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltipLabel}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -102,20 +113,25 @@ export function Navbar() {
 
         <div className="flex items-center gap-1 md:hidden">
           <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Toggle menu"
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-          >
-            {mobileOpen ? (
-              <X className="size-5" />
-            ) : (
-              <Menu className="size-5" />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setMobileOpen((v) => !v)}
+                aria-label="Toggle menu"
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-nav"
+              >
+                {mobileOpen ? (
+                  <X className="size-5" />
+                ) : (
+                  <Menu className="size-5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{mobileOpen ? "Close menu" : "Open menu"}</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

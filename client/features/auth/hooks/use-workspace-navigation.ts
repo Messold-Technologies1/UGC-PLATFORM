@@ -4,10 +4,6 @@ import { startTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  beginClientNavigation,
-  completeClientNavigation,
-} from "@/lib/client-navigation-state";
 import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
 import { pathAfterWorkspaceSelection } from "@/features/auth/lib/post-auth-destination";
 import {
@@ -126,12 +122,6 @@ export function useWorkspaceNavigation() {
       setWorkspaceSwitchState({ isSwitching: true, targetRole: role });
     };
 
-    const clearSwitchingStateSoon = () => {
-      window.setTimeout(() => {
-        clearWorkspaceSwitchState();
-      }, 250);
-    };
-
     if (sameWorkspace) {
       if (current) {
         const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
@@ -139,11 +129,9 @@ export function useWorkspaceNavigation() {
         });
         if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
           showSwitchingState();
-          beginClientNavigation();
           startTransition(() => {
             router.push(dest);
           });
-          clearSwitchingStateSoon();
         }
       }
       return;
@@ -158,23 +146,20 @@ export function useWorkspaceNavigation() {
         promptIncompleteProfileOnboarding: false,
       });
       if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-        beginClientNavigation();
         startTransition(() => {
           router.push(dest);
         });
       } else {
-        completeClientNavigation();
+        clearWorkspaceSwitchState();
       }
     } catch {
       toast.error("Could not switch workspace. Try again.");
-      completeClientNavigation();
+      clearWorkspaceSwitchState();
       if (current) {
         startTransition(() => {
           router.replace(fullCurrent);
         });
       }
-    } finally {
-      clearSwitchingStateSoon();
     }
   };
 

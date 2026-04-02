@@ -71,14 +71,13 @@ function applyFilters(
     if (minR != null && c.rating < minR) return false;
     if (filters.travelAvailable && !c.travelAvailable) return false;
     if (filters.storeVisit && !c.storeVisit) return false;
-    if (
-      filters.industryLabel &&
-      c.industryLabel &&
-      !c.industryLabel
-        .toLowerCase()
-        .includes(filters.industryLabel.toLowerCase())
-    )
-      return false;
+    if (filters.industryLabel) {
+      const creatorIndustry = c.industryLabel?.trim().toLowerCase() ?? "";
+      const filterIndustry = filters.industryLabel.trim().toLowerCase();
+      if (!creatorIndustry || !creatorIndustry.includes(filterIndustry)) {
+        return false;
+      }
+    }
     if (filters.tags) {
       const searchTags = filters.tags
         .toLowerCase()

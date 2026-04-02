@@ -45,11 +45,11 @@ export function CreatorProfilePackageFields({
         </Button>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-3">
         {rows.map((row, index) => (
           <div
             key={row.id}
-            className="space-y-3 rounded-lg border border-border/80 bg-background/60 p-3"
+            className="flex flex-col gap-3 rounded-lg border border-border/80 bg-background/60 p-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

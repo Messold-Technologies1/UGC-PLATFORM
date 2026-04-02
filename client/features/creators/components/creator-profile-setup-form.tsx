@@ -28,9 +28,9 @@ import {
 } from "@/features/creators/components/creator-profile-package-fields";
 import { getInitials } from "@/lib/account-user";
 import {
-  appendUniqueCommaSeparatedItem,
   splitCommaSeparatedList,
   splitMultilineList,
+  toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -123,6 +123,14 @@ export function CreatorProfileSetupForm({
   const [categoriesInput, setCategoriesInput] = useState("");
   const [personaTagsInput, setPersonaTagsInput] = useState("");
   const [restrictionsInput, setRestrictionsInput] = useState("");
+  const selectedPersonaTags = useMemo(
+    () => splitCommaSeparatedList(personaTagsInput),
+    [personaTagsInput],
+  );
+  const selectedRestrictions = useMemo(
+    () => splitCommaSeparatedList(restrictionsInput),
+    [restrictionsInput],
+  );
   const [onLocationAvailable, setOnLocationAvailable] = useState(false);
   const [onLocationFee, setOnLocationFee] = useState("");
 
@@ -533,7 +541,7 @@ export function CreatorProfileSetupForm({
           <Progress
             value={completionSummary.percent}
             aria-label="Creator profile completion"
-            className="mt-3 h-2"
+            className="mt-3 h-1"
           />
         </div>
       </div>
@@ -610,28 +618,30 @@ export function CreatorProfileSetupForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="travelRadius">Travel radius (km)</Label>
-          <Input
-            id="travelRadius"
-            type="number"
-            min={0}
-            className={inputClass}
-            value={travelRadius}
-            onChange={(e) => setTravelRadius(e.target.value)}
-            placeholder="0 if none"
-          />
-        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="travelRadius">Travel radius (km)</Label>
+            <Input
+              id="travelRadius"
+              type="number"
+              min={0}
+              className={inputClass}
+              value={travelRadius}
+              onChange={(e) => setTravelRadius(e.target.value)}
+              placeholder="0 if none"
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="languages">Languages</Label>
-          <Input
-            id="languages"
-            className={inputClass}
-            value={languages}
-            onChange={(e) => setLanguages(e.target.value)}
-            placeholder="Comma-separated, e.g. English, Hindi"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="languages">Languages</Label>
+            <Input
+              id="languages"
+              className={inputClass}
+              value={languages}
+              onChange={(e) => setLanguages(e.target.value)}
+              placeholder="Comma-separated, e.g. English, Hindi"
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -662,9 +672,10 @@ export function CreatorProfileSetupForm({
                 label: suggestion.name,
                 ariaLabel: `Add ${suggestion.name} to persona tags`,
               }))}
+              selectedLabels={selectedPersonaTags}
               onSelect={(name) =>
                 setPersonaTagsInput((prev) =>
-                  appendUniqueCommaSeparatedItem(prev, name),
+                  toggleCommaSeparatedItem(prev, name),
                 )
               }
             />
@@ -688,45 +699,47 @@ export function CreatorProfileSetupForm({
                 label: suggestion.name,
                 ariaLabel: `Add ${suggestion.name} to content restrictions`,
               }))}
+              selectedLabels={selectedRestrictions}
               onSelect={(name) =>
                 setRestrictionsInput((prev) =>
-                  appendUniqueCommaSeparatedItem(prev, name),
+                  toggleCommaSeparatedItem(prev, name),
                 )
               }
             />
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <Label htmlFor="onLocation" className="text-sm font-medium">
-              On-location / store shoots
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Enable if you offer on-location or in-store shoots. Optional fee
-              below.
-            </p>
-          </div>
-          <Switch
-            id="onLocation"
-            checked={onLocationAvailable}
-            onCheckedChange={setOnLocationAvailable}
-          />
-        </div>
-
-        {onLocationAvailable ? (
-          <div className="space-y-2">
-            <Label htmlFor="onLocationFee">On-location fee</Label>
-            <Input
-              id="onLocationFee"
-              className={inputClass}
-              value={onLocationFee}
-              onChange={(e) => setOnLocationFee(e.target.value)}
-              placeholder="499.00"
-              inputMode="decimal"
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="onLocation" className="text-sm font-medium">
+                On-location / store shoots
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable if you offer on-location or in-store shoots.
+              </p>
+            </div>
+            <Switch
+              id="onLocation"
+              checked={onLocationAvailable}
+              onCheckedChange={setOnLocationAvailable}
             />
           </div>
-        ) : null}
+
+          {onLocationAvailable ? (
+            <div className="space-y-2">
+              <Label htmlFor="onLocationFee">On-location fee</Label>
+              <Input
+                id="onLocationFee"
+                className={inputClass}
+                value={onLocationFee}
+                onChange={(e) => setOnLocationFee(e.target.value)}
+                placeholder="499.00"
+                inputMode="decimal"
+              />
+            </div>
+          ) : null}
+        </div>
 
         <CreatorProfilePackageFields
           rows={packageDrafts}

@@ -42,6 +42,8 @@ export function PostLoginRoleOverlay({
   className,
 }: PostLoginRoleOverlayProps) {
   const { isSwitching, targetRole } = useWorkspaceSwitchState();
+  const creatorSelected = isSwitching && targetRole === "CREATOR";
+  const brandSelected = isSwitching && targetRole === "BRAND";
 
   return (
     <OnboardingOverlayShell
@@ -76,7 +78,12 @@ export function PostLoginRoleOverlay({
               type="button"
               variant="outline"
               size="lg"
-              className="h-auto w-full justify-start gap-4 rounded-xl border-border px-5 py-4 text-left font-medium shadow-none hover:bg-muted/60"
+              className={cn(
+                "h-auto w-full justify-start gap-4 rounded-xl px-5 py-4 text-left font-medium shadow-none transition-colors",
+                creatorSelected
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
+                  : "border-border hover:bg-muted/60",
+              )}
               disabled={isSwitching}
               onClick={async () => {
                 try {
@@ -87,16 +94,28 @@ export function PostLoginRoleOverlay({
                 }
               }}
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {isSwitching && targetRole === "CREATOR" ? (
-                  <Spinner className="size-5 text-foreground" aria-hidden />
+              <span
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  creatorSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground",
+                )}
+              >
+                {creatorSelected ? (
+                  <Spinner className="size-5 text-current" aria-hidden />
                 ) : (
-                  <Clapperboard className="size-5 text-foreground" />
+                  <Clapperboard className="size-5 text-current" />
                 )}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                <span className="text-base">Continue as Creator</span>
-                <span className="text-xs font-normal text-muted-foreground">
+                <span className="text-base text-foreground">Continue as Creator</span>
+                <span
+                  className={cn(
+                    "text-xs font-normal",
+                    creatorSelected ? "text-primary/80" : "text-muted-foreground",
+                  )}
+                >
                   Find brand work, submit content, get paid
                 </span>
               </span>
@@ -106,7 +125,12 @@ export function PostLoginRoleOverlay({
               type="button"
               variant="outline"
               size="lg"
-              className="h-auto w-full justify-start gap-4 rounded-xl border-border px-5 py-4 text-left font-medium shadow-none hover:bg-muted/60"
+              className={cn(
+                "h-auto w-full justify-start gap-4 rounded-xl px-5 py-4 text-left font-medium shadow-none transition-colors",
+                brandSelected
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
+                  : "border-border hover:bg-muted/60",
+              )}
               disabled={isSwitching}
               onClick={async () => {
                 try {
@@ -117,16 +141,28 @@ export function PostLoginRoleOverlay({
                 }
               }}
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {isSwitching && targetRole === "BRAND" ? (
-                  <Spinner className="size-5 text-foreground" aria-hidden />
+              <span
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  brandSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground",
+                )}
+              >
+                {brandSelected ? (
+                  <Spinner className="size-5 text-current" aria-hidden />
                 ) : (
-                  <Building2 className="size-5 text-foreground" />
+                  <Building2 className="size-5 text-current" />
                 )}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                <span className="text-base">Continue as Brand</span>
-                <span className="text-xs font-normal text-muted-foreground">
+                <span className="text-base text-foreground">Continue as Brand</span>
+                <span
+                  className={cn(
+                    "text-xs font-normal",
+                    brandSelected ? "text-primary/80" : "text-muted-foreground",
+                  )}
+                >
                   Post briefs, review creators, run campaigns
                 </span>
               </span>

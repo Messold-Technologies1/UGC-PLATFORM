@@ -28,8 +28,8 @@ import {
 } from "@/components/ui/select";
 import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import {
-  appendUniqueCommaSeparatedItem,
   splitCommaSeparatedList,
+  toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
 import { cn } from "@/lib/utils";
 import { createPortfolioVideo } from "../api/create-portfolio-video";
@@ -255,7 +255,7 @@ export function CreatorPortfolioUploadForm() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Short description for brands"
                 className={cn(
-                  "border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-[80px] w-full rounded-lg border bg-transparent px-2.5 py-2 text-sm shadow-none outline-none transition-colors",
+                  "border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-20 w-full rounded-lg border bg-transparent px-2.5 py-2 text-sm shadow-none outline-none transition-colors",
                   "focus-visible:ring-3 md:text-sm",
                   "dark:bg-input/30 placeholder:text-muted-foreground disabled:opacity-50",
                 )}
@@ -290,7 +290,10 @@ export function CreatorPortfolioUploadForm() {
                       ariaLabel: `Use ${name} as industry`,
                     }))}
                     disabled={submitting}
-                    onSelect={setIndustryLabel}
+                    selectedLabels={industryLabel ? [industryLabel] : []}
+                    onSelect={(name, nextSelected) =>
+                      setIndustryLabel(nextSelected ? name : "")
+                    }
                   />
                 ) : null}
               </div>
@@ -321,7 +324,10 @@ export function CreatorPortfolioUploadForm() {
                       ariaLabel: `Use ${name} as language`,
                     }))}
                     disabled={submitting}
-                    onSelect={setLanguage}
+                    selectedLabels={language ? [language] : []}
+                    onSelect={(name, nextSelected) =>
+                      setLanguage(nextSelected ? name : "")
+                    }
                   />
                 ) : null}
               </div>
@@ -345,9 +351,10 @@ export function CreatorPortfolioUploadForm() {
                     ariaLabel: `Add ${name} to tags`,
                   }))}
                   disabled={submitting}
+                  selectedLabels={parseTags(tagsRaw)}
                   onSelect={(name) =>
                     setTagsRaw((prev) =>
-                      appendUniqueCommaSeparatedItem(prev, name),
+                      toggleCommaSeparatedItem(prev, name),
                     )
                   }
                 />

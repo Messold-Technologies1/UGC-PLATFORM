@@ -127,8 +127,8 @@ export function DashboardBrandAccountProfile() {
                   <Link href="/brand/settings/profile">Edit</Link>
                 </Button>
               </div>
-              <dl className="mt-5 grid gap-5 sm:grid-cols-2">
-                <div>
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">
                     Company name
                   </dt>
@@ -137,7 +137,7 @@ export function DashboardBrandAccountProfile() {
                   </dd>
                 </div>
 
-                <div>
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">
                     Logo key
                   </dt>
@@ -149,7 +149,7 @@ export function DashboardBrandAccountProfile() {
                   </dd>
                 </div>
 
-                <div>
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">
                     Website
                   </dt>
@@ -161,7 +161,7 @@ export function DashboardBrandAccountProfile() {
                   </dd>
                 </div>
 
-                <div>
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-3">
                   <dt className="text-xs font-medium text-muted-foreground">
                     Industry
                   </dt>
@@ -173,7 +173,7 @@ export function DashboardBrandAccountProfile() {
                   </dd>
                 </div>
 
-                <div className="sm:col-span-2">
+                <div className="rounded-xl border border-border/70 bg-card p-4 sm:col-span-2 xl:col-span-3">
                   <dt className="text-xs font-medium text-muted-foreground">
                     Contact person
                   </dt>

@@ -278,9 +278,7 @@ export function BrandProfileSetupForm({
             onSuccess();
             router.replace("/brand/account");
             return;
-          } catch {
-            // If the profile still doesn't exist, fall through to the generic error.
-          }
+          } catch {}
         }
 
         toast.error(
@@ -334,7 +332,7 @@ export function BrandProfileSetupForm({
           <Progress
             value={completionSummary.percent}
             aria-label="Brand profile completion"
-            className="mt-3 h-2"
+            className="mt-3 h-1"
           />
         </div>
       </header>

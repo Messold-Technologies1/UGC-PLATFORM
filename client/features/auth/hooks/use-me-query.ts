@@ -38,7 +38,9 @@ export function useMeQuery() {
   return useQuery({
     queryKey: authMeQueryKey,
     queryFn: fetchAuthMe,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: false,
   });
 }

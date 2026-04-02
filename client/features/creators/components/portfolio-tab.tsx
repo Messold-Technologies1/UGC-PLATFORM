@@ -9,6 +9,7 @@ import {
   fetchPublicPortfolioVideosByCreatorId,
   publicPortfolioVideosByCreatorQueryKey,
 } from "@/features/creator-portfolio/api/list-public-portfolio-videos";
+import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 
 function errorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -26,20 +27,23 @@ function errorMessage(err: unknown): string {
 
 interface PortfolioTabProps {
   creatorId: string;
+  initialVideos?: PortfolioVideoApi[];
 }
 
 export const PortfolioTab = memo(function PortfolioTab({
   creatorId,
+  initialVideos,
 }: PortfolioTabProps) {
   const query = useQuery({
     queryKey: publicPortfolioVideosByCreatorQueryKey(creatorId),
     queryFn: () => fetchPublicPortfolioVideosByCreatorId(creatorId),
+    initialData: initialVideos,
     staleTime: 5 * 60_000,
   });
 
   if (query.isPending) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
+      <div className="flex min-h-50 items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
         <Loader2
           className="size-8 animate-spin text-muted-foreground"
           aria-hidden
@@ -74,7 +78,7 @@ export const PortfolioTab = memo(function PortfolioTab({
 
   if (videos.length === 0) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
+      <div className="flex min-h-50 items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
         <p className="text-sm text-muted-foreground">No portfolio items yet</p>
       </div>
     );
@@ -98,9 +102,9 @@ export const PortfolioTab = memo(function PortfolioTab({
             href={v.videoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative block w-full max-w-[300px] overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+            className="group relative block w-full max-w-75 overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
           >
-            <div className="relative h-[420px] overflow-hidden bg-muted sm:h-[460px]">
+            <div className="relative h-105 overflow-hidden bg-muted sm:h-115">
               <video
                 className="absolute inset-0 h-full w-full object-cover"
                 src={v.videoUrl}

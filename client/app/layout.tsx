@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { AppShellProviders } from "@/providers/app-providers";
 import { ThemeProvider } from "@/providers/theme-provider";
-import { AuthProvider } from "@/providers/auth-provider";
-import { QueryProvider } from "@/providers/query-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-heading",
+  subsets: ["latin"],
+});
+
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -43,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} antialiased flex min-h-svh flex-col`}
+        className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased flex min-h-svh flex-col`}
       >
         <a
           href="#main-content"
@@ -52,12 +56,10 @@ export default function RootLayout({
           Skip to main content
         </a>
         <ThemeProvider>
-          <QueryProvider>
-            <AuthProvider>
-              <ErrorBoundary>{children}</ErrorBoundary>
-              <Toaster richColors position="top-right" />
-            </AuthProvider>
-          </QueryProvider>
+          <AppShellProviders>
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </AppShellProviders>
+          <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
     </html>

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ProfileHeader } from "./profile-header";
 import type { CreatorProfile as CreatorProfileType } from "../types";
+import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 
 function TabSkeleton() {
   return (
@@ -49,12 +50,16 @@ const OrderSummary = dynamic(
 
 interface CreatorProfileProps {
   creator: CreatorProfileType;
+  initialPortfolioVideos?: PortfolioVideoApi[];
 }
 
 const TABS = ["Portfolio", "Packages", "Reviews"] as const;
 type Tab = (typeof TABS)[number];
 
-export function CreatorProfile({ creator }: CreatorProfileProps) {
+export function CreatorProfile({
+  creator,
+  initialPortfolioVideos,
+}: CreatorProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Portfolio");
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
@@ -111,7 +116,10 @@ export function CreatorProfile({ creator }: CreatorProfileProps) {
             aria-labelledby={`tab-${activeTab.toLowerCase()}`}
           >
             {activeTab === "Portfolio" && (
-              <PortfolioTab creatorId={creator.id} />
+              <PortfolioTab
+                creatorId={creator.id}
+                initialVideos={initialPortfolioVideos}
+              />
             )}
 
             {activeTab === "Packages" && (

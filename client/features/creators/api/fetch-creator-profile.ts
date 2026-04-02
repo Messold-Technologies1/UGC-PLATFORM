@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { env } from "@/lib/env";
 import { creatorsByIdPath } from "@/lib/endpoints";
@@ -14,7 +15,7 @@ export type FetchCreatorProfileResult =
   | { ok: true; profile: CreatorProfileItemApi }
   | { ok: false; status: number };
 
-export async function fetchCreatorProfileById(
+export const fetchCreatorProfileById = cache(async function fetchCreatorProfileById(
   id: string,
 ): Promise<FetchCreatorProfileResult> {
   const cookieStore = await cookies();
@@ -40,4 +41,4 @@ export async function fetchCreatorProfileById(
 
   const profile = (await res.json()) as CreatorProfileItemApi;
   return { ok: true, profile };
-}
+});

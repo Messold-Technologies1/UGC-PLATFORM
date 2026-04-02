@@ -42,6 +42,8 @@ export type GlobalOnboardingPageProps = {
   onClose: () => void;
 
   onBrandDismiss?: () => void;
+  onCreatorBack?: () => void | Promise<void>;
+  creatorBackLabel?: string;
   className?: string;
 };
 
@@ -49,6 +51,8 @@ export function GlobalOnboardingPage({
   role,
   onClose,
   onBrandDismiss,
+  onCreatorBack,
+  creatorBackLabel,
   className,
 }: GlobalOnboardingPageProps) {
   const queryClient = useQueryClient();
@@ -107,6 +111,13 @@ export function GlobalOnboardingPage({
               mode="create"
               onSuccess={onClose}
             />
+            {onCreatorBack ? (
+              <div className="mt-6 flex items-center justify-end">
+                <Button type="button" variant="ghost" onClick={() => void onCreatorBack()}>
+                  {creatorBackLabel ?? "Go back"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className={rightColumnClass}>

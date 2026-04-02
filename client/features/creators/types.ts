@@ -7,6 +7,8 @@ export interface Creator {
   startingPrice: number;
   ordersCompleted: number;
   thumbnail: string;
+  previewVideoUrl?: string | null;
+  previewVideoThumbnail?: string | null;
   tags: string[];
   available: boolean;
   storeVisit: boolean;
@@ -16,6 +18,7 @@ export interface Creator {
   category: string;
 
   categories: string[];
+  industryLabel?: string;
 }
 
 export interface CreatorProfile extends Creator {

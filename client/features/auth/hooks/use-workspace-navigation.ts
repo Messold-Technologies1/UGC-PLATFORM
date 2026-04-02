@@ -4,8 +4,17 @@ import { startTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  beginClientNavigation,
+  completeClientNavigation,
+} from "@/lib/client-navigation-state";
 import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
 import { pathAfterWorkspaceSelection } from "@/features/auth/lib/post-auth-destination";
+import {
+  clearWorkspaceSwitchState,
+  setWorkspaceSwitchState,
+  useWorkspaceSwitchState,
+} from "@/features/auth/lib/workspace-switch-state";
 import {
   authMeQueryKey,
   type AuthUser,
@@ -14,6 +23,8 @@ import {
 
 export type GoWorkspaceOptions = {
   redirectIfCurrent?: boolean;
+  targetHref?: string | null;
+  setPrimary?: boolean;
 };
 
 const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
@@ -32,7 +43,7 @@ function saveLastPathForWorkspaceRole(role: WorkspaceRole, href: string): void {
   } catch {}
 }
 
-function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
+export function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
   try {
     const raw = sessionStorage.getItem(lastPathStorageKey(role));
     if (!raw?.trim() || !raw.startsWith("/") || raw.startsWith("//")) {
@@ -83,6 +94,7 @@ export function useWorkspaceNavigation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const switchState = useWorkspaceSwitchState();
 
   const goWorkspace = async (
     role: WorkspaceRole,
@@ -103,46 +115,68 @@ export function useWorkspaceNavigation() {
     }
 
     const remembered = readLastPathForWorkspaceRole(role);
-    const callbackUrl =
-      options?.redirectIfCurrent && sameWorkspace ? null : remembered;
+    const preferredTarget = options?.targetHref?.trim() || null;
+    const callbackUrl = preferredTarget
+      ? preferredTarget
+      : options?.redirectIfCurrent && sameWorkspace
+        ? null
+        : remembered;
 
-    if (current) {
-      const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
-        promptIncompleteProfileOnboarding: false,
-      });
-      if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-        startTransition(() => {
-          router.push(dest);
-        });
-      }
-    }
+    const showSwitchingState = () => {
+      setWorkspaceSwitchState({ isSwitching: true, targetRole: role });
+    };
+
+    const clearSwitchingStateSoon = () => {
+      window.setTimeout(() => {
+        clearWorkspaceSwitchState();
+      }, 250);
+    };
 
     if (sameWorkspace) {
-      return;
-    }
-
-    try {
-      const next = await selectWorkspaceApi(role);
-      queryClient.setQueryData(authMeQueryKey, next);
-      if (!current) {
-        const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
+      if (current) {
+        const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
           promptIncompleteProfileOnboarding: false,
         });
         if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
+          showSwitchingState();
+          beginClientNavigation();
           startTransition(() => {
             router.push(dest);
           });
+          clearSwitchingStateSoon();
         }
+      }
+      return;
+    }
+
+    showSwitchingState();
+
+    try {
+      const next = await selectWorkspaceApi(role, options?.setPrimary);
+      queryClient.setQueryData(authMeQueryKey, next);
+      const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
+        promptIncompleteProfileOnboarding: false,
+      });
+      if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
+        beginClientNavigation();
+        startTransition(() => {
+          router.push(dest);
+        });
+      } else {
+        completeClientNavigation();
       }
     } catch {
       toast.error("Could not switch workspace. Try again.");
+      completeClientNavigation();
       if (current) {
         startTransition(() => {
           router.replace(fullCurrent);
         });
       }
+    } finally {
+      clearSwitchingStateSoon();
     }
   };
 
-  return { goWorkspace };
+  return { goWorkspace, isSwitchingWorkspace: switchState.isSwitching };
 }

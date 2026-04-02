@@ -55,6 +55,8 @@
 
 
 @theme inline {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
   --container-site: 1440px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -174,10 +176,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground text-sm font-normal;
+    @apply bg-background text-foreground text-sm font-normal font-sans;
   }
-  h1, h2, h3 {
-    @apply font-bold;
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold tracking-tight;
   }
 }
 

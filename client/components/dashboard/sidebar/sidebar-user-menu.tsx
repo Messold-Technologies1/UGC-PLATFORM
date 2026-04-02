@@ -18,15 +18,22 @@ import {
   Shield,
   Sun,
   UserRound,
+  Building2,
+  Video,
 } from "lucide-react";
 import {
   accountMenuGlassPanel,
   accountMenuItemClass,
   accountMenuItemLogoutClass,
 } from "@/components/account-menu-styles";
+import {
+  getDisplayNameFromUser,
+  getInitialsFromUser,
+} from "@/lib/account-user";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
+import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 
 function useThemeMounted() {
   return useSyncExternalStore(
@@ -34,19 +41,6 @@ function useThemeMounted() {
     () => true,
     () => false,
   );
-}
-
-function displayName(user: { name: string | null; email: string }) {
-  return user.name?.trim() || user.email.split("@")[0] || "Account";
-}
-
-function initials(user: { name: string | null; email: string }) {
-  const base = user.name?.trim() || user.email.split("@")[0] || "?";
-  const parts = base.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase().slice(0, 2);
-  }
-  return base.slice(0, 2).toUpperCase();
 }
 
 export function SidebarUserMenu({
@@ -58,23 +52,23 @@ export function SidebarUserMenu({
 }) {
   const pathname = usePathname();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
+  const { goWorkspace } = useWorkspaceNavigation();
   const { resolvedTheme, setTheme } = useTheme();
   const themeMounted = useThemeMounted();
   const isDark = themeMounted && resolvedTheme === "dark";
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const hasMultipleRoles = user?.roles && user.roles.length > 1;
   const activeWorkspace = user?.activeRole ?? user?.primaryRole ?? null;
-  const hub =
-    pathname.startsWith("/brand")
-      ? "brand"
-      : pathname.startsWith("/creator")
-        ? "creator"
-        : activeWorkspace === "BRAND"
-          ? "brand"
-          : "creator";
-  const settingsHref =
-    hub === "brand" ? "/brand/account" : "/creator/settings";
+  const hub = pathname.startsWith("/brand")
+    ? "brand"
+    : pathname.startsWith("/creator")
+      ? "creator"
+      : activeWorkspace === "BRAND"
+        ? "brand"
+        : "creator";
+  const settingsHref = hub === "brand" ? "/brand/account" : "/creator/settings";
   const accountHref = `/${hub}/account`;
 
   const isAccountSectionActive =
@@ -129,7 +123,7 @@ export function SidebarUserMenu({
 
   if (!user) return null;
 
-  const name = displayName(user);
+  const name = getDisplayNameFromUser(user);
   const label = `Account menu (${name})`;
 
   const panelVisibleMobile = mobileOpen;
@@ -158,7 +152,7 @@ export function SidebarUserMenu({
           )}
           aria-hidden
         >
-          {initials(user)}
+          {getInitialsFromUser(user)}
         </span>
         <div className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}>
           <p className="truncate text-sm font-medium text-sidebar-foreground">
@@ -213,6 +207,34 @@ export function SidebarUserMenu({
             )}
             {!themeMounted ? "Theme" : isDark ? "Light mode" : "Dark mode"}
           </button>
+          {!hasMultipleRoles && user?.roles?.includes("CREATOR") && (
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(accountMenuItemClass, "w-full text-left")}
+              onClick={() => {
+                closeMobile();
+                void goWorkspace("BRAND");
+              }}
+            >
+              <Building2 className="size-4 opacity-60" aria-hidden />
+              Try As Brand
+            </button>
+          )}
+          {!hasMultipleRoles && user?.roles?.includes("BRAND") && (
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(accountMenuItemClass, "w-full text-left")}
+              onClick={() => {
+                closeMobile();
+                void goWorkspace("CREATOR");
+              }}
+            >
+              <Video className="size-4 opacity-60" aria-hidden />
+              Try As Creator
+            </button>
+          )}
           <Link
             href={settingsHref}
             role="menuitem"

@@ -11,7 +11,6 @@ import {
   Video,
   LayoutDashboard,
   Layers,
-  Megaphone,
   Users,
   Briefcase,
   type LucideIcon,
@@ -26,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SidebarUserMenu } from "./sidebar-user-menu";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
+import { useAuth } from "@/providers/auth-provider";
 
 export interface NavItem {
   href: string;
@@ -45,7 +45,7 @@ const roleConfigs: Record<string, RoleConfig> = {
     label: "Brand Hub",
     navItems: [
       { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
+      // { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/brand/creators", label: "Browse Creators", icon: Users },
     ],
   },
@@ -54,7 +54,7 @@ const roleConfigs: Record<string, RoleConfig> = {
     label: "Creator Hub",
     navItems: [
       { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
+      // { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
     ],
   },
@@ -75,8 +75,12 @@ function isNavItemActive(pathname: string, href: string): boolean {
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(true);
   const { goWorkspace } = useWorkspaceNavigation();
+  const { user } = useAuth();
+  
+  const hasMultipleRoles = user?.roles && user.roles.length > 1;
+
   const {
     navItems,
     icon: RoleIcon,
@@ -202,77 +206,79 @@ export function DashboardSidebar() {
         </nav>
 
         <div className="shrink-0 space-y-1 border-t border-sidebar-border p-3">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="workspace" className="border-0">
-              <AccordionTrigger
-                className={cn(
-                  "rounded-xl py-2.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-sidebar-ring focus-visible:ring-offset-sidebar",
-                  desktopCollapsed
-                    ? "gap-0 px-2 max-lg:gap-2 max-lg:px-3 lg:justify-center"
-                    : "gap-3 px-3",
-                )}
-              >
-                <Layers
+          {hasMultipleRoles ? (
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="workspace" className="border-0">
+                <AccordionTrigger
                   className={cn(
-                    "size-4 shrink-0",
-                    desktopCollapsed ? "hidden lg:inline" : "hidden",
-                  )}
-                  aria-hidden
-                />
-                <span
-                  className={cn(
-                    "flex-1 text-left text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground",
-                    desktopCollapsed && "lg:sr-only",
+                    "rounded-xl py-2.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-sidebar-ring focus-visible:ring-offset-sidebar",
+                    desktopCollapsed
+                      ? "gap-0 px-2 max-lg:gap-2 max-lg:px-3 lg:justify-center"
+                      : "gap-3 px-3",
                   )}
                 >
-                  Workspace
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "chevron size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                    desktopCollapsed && "max-lg:inline lg:hidden",
-                  )}
-                  aria-hidden
-                />
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => void goWorkspace("BRAND")}
-                    title="Brand hub"
+                  <Layers
                     className={cn(
-                      "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                      desktopCollapsed
-                        ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
-                        : "gap-3 px-3",
+                      "size-4 shrink-0",
+                      desktopCollapsed ? "hidden lg:inline" : "hidden",
+                    )}
+                    aria-hidden
+                  />
+                  <span
+                    className={cn(
+                      "flex-1 text-left text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground",
+                      desktopCollapsed && "lg:sr-only",
                     )}
                   >
-                    <Building2 className="size-4 shrink-0" />
-                    <span className={cn(desktopCollapsed && "lg:sr-only")}>
-                      Brand hub
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void goWorkspace("CREATOR")}
-                    title="Creator hub"
+                    Workspace
+                  </span>
+                  <ChevronDown
                     className={cn(
-                      "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                      desktopCollapsed
-                        ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
-                        : "gap-3 px-3",
+                      "chevron size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                      desktopCollapsed && "max-lg:inline lg:hidden",
                     )}
-                  >
-                    <Video className="size-4 shrink-0" />
-                    <span className={cn(desktopCollapsed && "lg:sr-only")}>
-                      Creator hub
-                    </span>
-                  </button>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                    aria-hidden
+                  />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => void goWorkspace("BRAND")}
+                      title="Brand hub"
+                      className={cn(
+                        "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                        desktopCollapsed
+                          ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
+                          : "gap-3 px-3",
+                      )}
+                    >
+                      <Building2 className="size-4 shrink-0" />
+                      <span className={cn(desktopCollapsed && "lg:sr-only")}>
+                        Brand hub
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void goWorkspace("CREATOR")}
+                      title="Creator hub"
+                      className={cn(
+                        "flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                        desktopCollapsed
+                          ? "gap-0 px-2 max-lg:gap-3 max-lg:px-3 lg:justify-center"
+                          : "gap-3 px-3",
+                      )}
+                    >
+                      <Video className="size-4 shrink-0" />
+                      <span className={cn(desktopCollapsed && "lg:sr-only")}>
+                        Creator hub
+                      </span>
+                    </button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          ) : null}
 
           <div
             className="mx-3 my-2 h-px shrink-0 bg-sidebar-border"

@@ -19,11 +19,16 @@ const LIMIT = 4;
 const BROWSE_PAGE = 1;
 const BROWSE_LIMIT = 20;
 
-export function FeaturedCreators() {
+export function FeaturedCreators({
+  initialData,
+}: {
+  initialData?: Awaited<ReturnType<typeof fetchCreatorsList>> | null;
+}) {
   const queryClient = useQueryClient();
   const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
     PAGE,
     LIMIT,
+    initialData ?? undefined,
   );
 
   const prefetchBrandCreatorsPage = useCallback(() => {
@@ -70,7 +75,7 @@ export function FeaturedCreators() {
       {isPending ? (
         <Card
           variant="dashed"
-          className="mt-10 flex min-h-[280px] flex-col items-center justify-center gap-3 text-muted-foreground"
+          className="mt-10 flex min-h-70 flex-col items-center justify-center gap-3 text-muted-foreground"
         >
           <Loader2 className="size-8 animate-spin" aria-hidden />
           <p className="text-sm">Loading creators…</p>
@@ -78,7 +83,7 @@ export function FeaturedCreators() {
       ) : isError ? (
         <Card
           variant="dashedDestructive"
-          className="mt-10 flex min-h-[280px] flex-col items-center justify-center gap-3 px-4 text-center"
+          className="mt-10 flex min-h-70 flex-col items-center justify-center gap-3 px-4 text-center"
         >
           <p className="text-sm font-medium text-foreground">
             Could not load creators
@@ -97,7 +102,7 @@ export function FeaturedCreators() {
       ) : data.creators.length === 0 ? (
         <Card
           variant="dashed"
-          className="mt-10 flex min-h-[200px] flex-col items-center justify-center px-4 text-center"
+          className="mt-10 flex min-h-50 flex-col items-center justify-center px-4 text-center"
         >
           <p className="text-sm text-muted-foreground">
             No creators to show yet. Check back soon.

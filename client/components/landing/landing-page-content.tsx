@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeaturedCreatorsLoading } from "@/components/landing/featured-creators-loading";
+import { fetchCreatorsListServer } from "@/features/creators/api/fetch-creators-list.server";
 
 const FeaturedCreators = dynamic(
   () =>
@@ -75,7 +76,13 @@ const brandBenefits = [
   "Scale your content production effortlessly",
 ];
 
-export function LandingPageContent() {
+export async function LandingPageContent() {
+  const featuredCreators = await fetchCreatorsListServer({
+    page: 1,
+    limit: 4,
+    revalidate: 300,
+  });
+
   return (
     <div className="flex flex-col">
       <section className="relative overflow-hidden">
@@ -178,7 +185,7 @@ export function LandingPageContent() {
         </div>
       </section>
 
-      <FeaturedCreators />
+      <FeaturedCreators initialData={featuredCreators} />
 
       <section className="mx-auto max-w-site px-4 pb-24 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-2">

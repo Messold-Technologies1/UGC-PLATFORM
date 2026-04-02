@@ -5,15 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   authMeQueryKey,
   fetchAuthMe,
   type AuthUser,
 } from "@/features/auth/hooks/use-me-query";
-import {
-  postAuthContinuePath,
-  resolvePostAuthRedirectPath,
-} from "@/features/auth/lib/post-auth-destination";
+import { postAuthContinuePath } from "@/features/auth/lib/post-auth-destination";
+import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 
 function AuthCallbackInner() {
   const router = useRouter();
@@ -31,6 +30,7 @@ function AuthCallbackInner() {
             ? "Sign-in was incomplete. Try again."
             : "Google sign-in failed. Try again.";
         toast.error(message);
+        beginClientNavigation();
         router.replace("/login");
         return;
       }
@@ -41,11 +41,11 @@ function AuthCallbackInner() {
         queryFn: fetchAuthMe,
       });
       const user = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
-      router.replace(
-        user
-          ? resolvePostAuthRedirectPath(user, callbackUrl)
-          : postAuthContinuePath(callbackUrl),
-      );
+      const target = user
+        ? await resolveImmediatePostAuthPath(queryClient, user, callbackUrl)
+        : postAuthContinuePath(callbackUrl);
+      beginClientNavigation();
+      router.replace(target);
     })();
   }, [queryClient, router, searchParams]);
 

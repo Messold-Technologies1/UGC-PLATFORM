@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { PostLoginRoleOverlay } from "@/components/ui/post-login-role-overlay";
-import { type WorkspaceRole } from "@/features/auth/hooks/use-me-query";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
+import {
+  authMeQueryKey,
+  type AuthUser,
+  type WorkspaceRole,
+} from "@/features/auth/hooks/use-me-query";
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
@@ -25,6 +30,7 @@ export function AuthContinueOverlay() {
     if (isLoading) return;
     if (!user) {
       autoRedirectRef.current = false;
+      beginClientNavigation();
       router.replace("/login");
       return;
     }
@@ -39,6 +45,7 @@ export function AuthContinueOverlay() {
       autoRedirectRef.current = true;
       const path = resolvePostAuthRedirectPath(user, callbackUrl);
       if (path !== postAuthContinuePath(callbackUrl)) {
+        beginClientNavigation();
         router.replace(path);
       } else {
         autoRedirectRef.current = false;
@@ -54,7 +61,14 @@ export function AuthContinueOverlay() {
           autoRedirectRef.current = false;
           return;
         }
-        const target = pathAfterWorkspaceSelection(user, user.roles[0], callbackUrl);
+        const nextUser =
+          queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
+        const target = pathAfterWorkspaceSelection(
+          nextUser,
+          user.roles[0],
+          callbackUrl,
+        );
+        beginClientNavigation();
         router.replace(target);
       })();
       return;
@@ -73,7 +87,14 @@ export function AuthContinueOverlay() {
       if (!user) return;
       const ok = await ensureWorkspaceSelection(queryClient, user, workspaceRole);
       if (!ok) return;
-      const target = pathAfterWorkspaceSelection(user, workspaceRole, callbackUrl);
+      const nextUser =
+        queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
+      const target = pathAfterWorkspaceSelection(
+        nextUser,
+        workspaceRole,
+        callbackUrl,
+      );
+      beginClientNavigation();
       router.replace(target);
     },
     [user, callbackUrl, queryClient, router],

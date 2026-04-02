@@ -13,14 +13,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { useLoginMutation } from "@/features/auth/hooks/use-login-mutation";
 import { useRegisterMutation } from "@/features/auth/hooks/use-register-mutation";
-import { resolvePostAuthRedirectPath } from "@/features/auth/lib/post-auth-destination";
 import { ENDPOINTS } from "@/lib/endpoints";
+import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 
 const loginSchema = z.object({
   email: z
@@ -77,7 +78,13 @@ export function AuthForm({ mode }: AuthFormProps) {
           });
           queryClient.setQueryData(authMeQueryKey, result.user);
           const callback = searchParams.get("callbackUrl");
-          router.replace(resolvePostAuthRedirectPath(result.user, callback));
+          const target = await resolveImmediatePostAuthPath(
+            queryClient,
+            result.user,
+            callback,
+          );
+          beginClientNavigation();
+          router.replace(target);
         },
         onError: (error) => {
           if (isAxiosError(error) && error.response) {
@@ -106,7 +113,13 @@ export function AuthForm({ mode }: AuthFormProps) {
             });
             queryClient.setQueryData(authMeQueryKey, result.user);
             const callback = searchParams.get("callbackUrl");
-            router.replace(resolvePostAuthRedirectPath(result.user, callback));
+            const target = await resolveImmediatePostAuthPath(
+              queryClient,
+              result.user,
+              callback,
+            );
+            beginClientNavigation();
+            router.replace(target);
           },
           onError: (error) => {
             if (isAxiosError(error) && error.response) {

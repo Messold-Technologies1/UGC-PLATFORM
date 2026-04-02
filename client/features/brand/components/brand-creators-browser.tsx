@@ -4,15 +4,25 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
 import { CreatorListing } from "@/features/creators/components/creator-listing";
-import { useCreatorsListQuery } from "@/features/creators/hooks/use-creators-list-query";
+import {
+  useCreatorsListQuery,
+  type CreatorsListResult,
+} from "@/features/creators/hooks/use-creators-list-query";
 
 const PAGE = 1;
 const LIMIT = 20;
 
-export function BrandCreatorsBrowser() {
+export type BrandCreatorsBrowserProps = {
+  initialData?: CreatorsListResult | null;
+};
+
+export function BrandCreatorsBrowser({
+  initialData,
+}: BrandCreatorsBrowserProps) {
   const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
     PAGE,
     LIMIT,
+    initialData ?? undefined,
   );
 
   if (isPending) {

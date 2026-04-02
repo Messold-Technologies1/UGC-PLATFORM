@@ -1,10 +1,9 @@
 "use client";
 
 import {
+  type CSSProperties,
   useCallback,
-  useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +11,7 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, Search, Users } from "lucide-react";
+import { VirtuosoGrid } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreatorCard } from "./creator-card";
@@ -40,7 +40,9 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.maxPrice === b.maxPrice &&
     a.minRating === b.minRating &&
     a.travelAvailable === b.travelAvailable &&
-    a.storeVisit === b.storeVisit
+    a.storeVisit === b.storeVisit &&
+    a.industryLabel === b.industryLabel &&
+    a.tags === b.tags
   );
 }
 
@@ -69,6 +71,28 @@ function applyFilters(
     if (minR != null && c.rating < minR) return false;
     if (filters.travelAvailable && !c.travelAvailable) return false;
     if (filters.storeVisit && !c.storeVisit) return false;
+    if (
+      filters.industryLabel &&
+      c.industryLabel &&
+      !c.industryLabel
+        .toLowerCase()
+        .includes(filters.industryLabel.toLowerCase())
+    )
+      return false;
+    if (filters.tags) {
+      const searchTags = filters.tags
+        .toLowerCase()
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (searchTags.length > 0) {
+        const cTags = (c.tags || []).map((t) => t.toLowerCase());
+        const hasMatch = searchTags.some((st) =>
+          cTags.some((ct) => ct.includes(st)),
+        );
+        if (!hasMatch) return false;
+      }
+    }
     return true;
   });
 }
@@ -139,6 +163,9 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
 
+  const [localSearch, setLocalSearch] = useState(
+    () => parseBrowseListingParams(searchParams).search,
+  );
   const [search, setSearch] = useState(
     () => parseBrowseListingParams(searchParams).search,
   );
@@ -149,11 +176,9 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
   const listingRef = useRef({ filters, search });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     listingRef.current = { filters, search };
   }, [filters, search]);
-
-  const deferredSearch = useDeferredValue(search);
 
   const syncUrlImmediate = useCallback(
     (nextFilters: Filters, nextSearch: string) => {
@@ -167,7 +192,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   const debouncedPushUrl = useDebouncedCallback(() => {
     const { filters: f, search: s } = listingRef.current;
     syncUrlImmediate(f, s);
-  }, 300);
+  }, 800);
 
   useEffect(() => {
     const parsed = parseBrowseListingParams(
@@ -177,7 +202,13 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
       setFilters((prev) =>
         filtersEqual(prev, parsed.filters) ? prev : parsed.filters,
       );
-      setSearch((prev) => (prev === parsed.search ? prev : parsed.search));
+      setSearch((prev) => {
+        if (prev !== parsed.search) {
+          setLocalSearch(parsed.search);
+          return parsed.search;
+        }
+        return prev;
+      });
     });
   }, [searchParamsKey]);
 
@@ -189,17 +220,23 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
     [debouncedPushUrl],
   );
 
+  const debouncedSetSearch = useDebouncedCallback((value: string) => {
+    setSearch(value);
+    listingRef.current.search = value;
+    debouncedPushUrl();
+  }, 800);
+
   const handleSearchChange = useCallback(
     (value: string) => {
-      setSearch(value);
-      debouncedPushUrl();
+      setLocalSearch(value);
+      debouncedSetSearch(value);
     },
-    [debouncedPushUrl],
+    [debouncedSetSearch],
   );
 
   const results = useMemo(
-    () => applyFilters(creators, filters, deferredSearch),
-    [creators, filters, deferredSearch],
+    () => applyFilters(creators, filters, search),
+    [creators, filters, search],
   );
 
   const { categoryOptions, cityOptions } = useMemo(
@@ -223,6 +260,8 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
         filters.minRating !== DEFAULT_FILTERS.minRating,
         filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable,
         filters.storeVisit !== DEFAULT_FILTERS.storeVisit,
+        filters.industryLabel !== DEFAULT_FILTERS.industryLabel,
+        filters.tags !== DEFAULT_FILTERS.tags,
       ].filter(Boolean).length,
     [filters],
   );
@@ -238,6 +277,10 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
     listMeta && listMeta.limit > 0
       ? Math.max(1, Math.ceil(listMeta.total / listMeta.limit))
       : null;
+  const desktopFilterRailStyle = {
+    "--creators-filter-top": "6.5rem",
+    "--creators-filter-gap": "1.5rem",
+  } as CSSProperties;
 
   return (
     <div className="w-full min-w-0">
@@ -301,7 +344,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
             <Input
               placeholder="Search creators, niches, or locations…"
-              value={search}
+              value={localSearch}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="h-10 rounded-full py-2.5 pl-11 pr-4 text-sm"
             />
@@ -312,19 +355,20 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
       <div
         className={cn(
           "mt-6 flex min-h-[min(22rem,50vh)] flex-col lg:min-h-112",
-          showFilters ? "gap-8 lg:flex-row lg:items-stretch" : "lg:flex-row",
+          showFilters ? "gap-8 lg:flex-row lg:items-start" : "lg:flex-row lg:items-start",
         )}
       >
         <div
           className={cn(
-            "shrink-0 overflow-hidden transition-[width,max-height,opacity] duration-300 ease-out",
+            "shrink-0 overflow-hidden transition-[width,max-height,opacity] duration-300 ease-out lg:overflow-visible",
             showFilters
-              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80"
+              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:h-fit lg:sticky lg:top-(--creators-filter-top) lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80 lg:self-start"
               : "pointer-events-none max-h-0 w-full opacity-0 lg:max-h-none lg:w-0 lg:min-w-0",
           )}
           aria-hidden={!showFilters}
+          style={desktopFilterRailStyle}
         >
-          <div className="h-full lg:sticky lg:top-36 lg:self-start">
+          <div className="h-auto">
             <CreatorFilters
               filters={filters}
               onChange={handleFiltersChange}
@@ -337,27 +381,28 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {results.length > 0 ? (
-            <div
-              className={cn(
+            <VirtuosoGrid
+              useWindowScroll
+              data={results}
+              listClassName={cn(
                 "grid w-full gap-x-6 gap-y-8",
                 showFilters
                   ? "sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                   : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
               )}
-            >
-              {results.map((creator) => (
+              itemClassName="min-w-0 h-full"
+              itemContent={(_index, creator) => (
                 <CreatorCard
-                  key={creator.id}
                   creator={creator}
                   variant="listing"
                   appearance="browse"
                 />
-              ))}
-            </div>
+              )}
+            />
           ) : (
             <EmptyBrowseState
               filters={filters}
-              searchQuery={deferredSearch}
+              searchQuery={search}
             />
           )}
         </div>

@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
+import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -348,71 +347,15 @@ export function BrandProfileSetupForm({
           </div>
         </div>
 
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Logo</p>
-              <p className="text-xs text-muted-foreground">
-                Upload a square image for best results.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={LOGO_ACCEPT}
-                className="hidden"
-                onChange={(e) =>
-                  void handleLogoSelected(e.target.files?.[0] ?? null)
-                }
-                disabled={pending || uploadingLogo}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pending || uploadingLogo}
-                onClick={() => fileInputRef.current?.click()}
-                className="gap-2"
-              >
-                {uploadingLogo ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                ) : (
-                  <Upload className="size-4" aria-hidden />
-                )}
-                {uploadingLogo ? "Uploading…" : "Upload"}
-              </Button>
-              {(pendingLogoKey || logoPreviewUrl) && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={pending || uploadingLogo}
-                  onClick={clearLogo}
-                >
-                  Remove
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="relative size-16 overflow-hidden rounded-xl border border-border bg-muted">
-              {logoPreviewUrl ? (
-                <Image
-                  src={logoPreviewUrl}
-                  alt="Brand logo preview"
-                  fill
-                  className="object-cover"
-                  sizes="64px"
-                />
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {logoPreviewUrl
-                ? "Preview will be applied on create."
-                : "No logo uploaded yet."}
-            </p>
-          </div>
-        </section>
+        <BrandLogoField
+          previewUrl={logoPreviewUrl}
+          accept={LOGO_ACCEPT}
+          disabled={pending || uploadingLogo}
+          uploading={uploadingLogo}
+          fileInputRef={fileInputRef}
+          onSelectFile={(file) => void handleLogoSelected(file)}
+          onRemove={clearLogo}
+        />
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <Button type="submit" disabled={pending || uploadingLogo}>

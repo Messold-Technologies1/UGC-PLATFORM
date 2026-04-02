@@ -13,8 +13,13 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
-import { type AuthUser, useMeQuery } from "@/features/auth/hooks/use-me-query";
+import {
+  authMeQueryKey,
+  type AuthUser,
+  useMeQuery,
+} from "@/features/auth/hooks/use-me-query";
 
 export type { AuthUser };
 
@@ -52,9 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       
     } finally {
+      queryClient.setQueryData(authMeQueryKey, null);
       queryClient.clear();
+      beginClientNavigation();
       router.replace("/");
-      router.refresh();
       logoutStartedRef.current = false;
       setIsLoggingOut(false);
     }

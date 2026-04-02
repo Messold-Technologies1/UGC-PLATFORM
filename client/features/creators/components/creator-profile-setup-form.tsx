@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,9 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
+import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-image-field";
+import {
+  CreatorProfilePackageFields,
+  type PackageDraft,
+} from "@/features/creators/components/creator-profile-package-fields";
+import { getInitials } from "@/lib/account-user";
+import {
+  appendUniqueCommaSeparatedItem,
+  splitCommaSeparatedList,
+  splitMultilineList,
+} from "@/lib/string-lists";
 import { useAuth } from "@/providers/auth-provider";
 import {
   createCreatorProfile,
@@ -48,14 +58,6 @@ const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
 const GENDER_VALUE_UNSPECIFIED = "__unspecified__";
 
-type PackageDraft = {
-  id: string;
-  name: string;
-  priceAmount: string;
-  deliveryDays: string;
-  deliverables: string;
-};
-
 function createPackageDraft(
   id: string,
   overrides?: Partial<Omit<PackageDraft, "id">>,
@@ -67,28 +69,6 @@ function createPackageDraft(
     deliveryDays: overrides?.deliveryDays ?? "",
     deliverables: overrides?.deliverables ?? "",
   };
-}
-
-function splitCommaList(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function appendCommaListItem(current: string, item: string): string {
-  const t = item.trim();
-  if (!t) return current;
-  const parts = splitCommaList(current);
-  if (parts.some((p) => p.toLowerCase() === t.toLowerCase())) return current;
-  return parts.length ? `${parts.join(", ")}, ${t}` : t;
-}
-
-function splitLines(raw: string): string[] {
-  return raw
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 export type CreatorProfileSetupFormProps = {
@@ -249,11 +229,7 @@ export function CreatorProfileSetupForm({
       user?.name?.trim() ||
       user?.email?.split("@")[0] ||
       "?";
-    const parts = base.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase().slice(0, 2);
-    }
-    return base.slice(0, 2).toUpperCase();
+    return getInitials(base);
   }, [displayName, user]);
 
   const ensureCreatorWorkspace = useCallback(
@@ -323,10 +299,10 @@ export function CreatorProfileSetupForm({
       const radius =
         radiusRaw === "" ? undefined : Number.parseInt(radiusRaw, 10);
 
-      const langs = splitCommaList(languages);
-      const cats = splitCommaList(categoriesInput);
-      const personas = splitCommaList(personaTagsInput);
-      const rests = splitCommaList(restrictionsInput);
+      const langs = splitCommaSeparatedList(languages);
+      const cats = splitCommaSeparatedList(categoriesInput);
+      const personas = splitCommaSeparatedList(personaTagsInput);
+      const rests = splitCommaSeparatedList(restrictionsInput);
 
       const builtPackages: NonNullable<
         CreateCreatorProfilePayload["packages"]
@@ -335,7 +311,7 @@ export function CreatorProfileSetupForm({
       for (const row of packageDrafts) {
         const pkgName = row.name.trim();
         const price = row.priceAmount.trim();
-        const dels = splitLines(row.deliverables);
+        const dels = splitMultilineList(row.deliverables);
         const rowDays = Number.parseInt(row.deliveryDays, 10);
         const hasDeliveryInput = row.deliveryDays.trim() !== "";
         const touched =
@@ -508,72 +484,17 @@ export function CreatorProfileSetupForm({
         <p className="text-sm text-muted-foreground">{subheading}</p>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-start">
-        <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-          {imagePreviewUrl ? (
-            <Image
-              src={imagePreviewUrl}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="96px"
-              unoptimized
-            />
-          ) : (
-            <div
-              className="flex size-full items-center justify-center bg-primary/15 text-lg font-semibold text-primary"
-              aria-hidden
-            >
-              {displayInitials()}
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1 space-y-2">
-          <Label className="text-base">Profile photo</Label>
-          <p className="text-xs text-muted-foreground">
-            Upload a square image. Shown in search and on your public profile.
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={PROFILE_IMAGE_ACCEPT}
-            className="sr-only"
-            aria-label="Upload profile photo"
-            onChange={(e) =>
-              void handleProfileImageSelected(e.target.files?.[0] ?? null)
-            }
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={uploadingImage || pending}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {uploadingImage ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <Upload className="size-4" aria-hidden />
-              )}
-              {uploadingImage ? "Uploading…" : "Upload photo"}
-            </Button>
-            {pendingProfileImageKey ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                disabled={uploadingImage || pending}
-                onClick={clearProfileImage}
-              >
-                Discard new photo
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <CreatorProfileImageField
+        imagePreviewUrl={imagePreviewUrl}
+        initials={displayInitials()}
+        accept={PROFILE_IMAGE_ACCEPT}
+        disabled={uploadingImage || pending}
+        uploading={uploadingImage}
+        hasPendingImage={Boolean(pendingProfileImageKey)}
+        fileInputRef={fileInputRef}
+        onSelectFile={(file) => void handleProfileImageSelected(file)}
+        onDiscard={clearProfileImage}
+      />
 
       <div className="flex flex-col gap-4">
         <div className="space-y-2">
@@ -681,25 +602,18 @@ export function CreatorProfileSetupForm({
           />
           {personaTagSuggestionsQuery.isSuccess &&
           personaTagSuggestionsQuery.data.length > 0 ? (
-            <div className="space-y-1.5 pt-0.5">
-              <div className="flex flex-wrap gap-1.5">
-                {personaTagSuggestionsQuery.data.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
-                    onClick={() =>
-                      setPersonaTagsInput((prev) =>
-                        appendCommaListItem(prev, s.name),
-                      )
-                    }
-                    aria-label={`Add ${s.name} to persona tags`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SuggestionChips
+              items={personaTagSuggestionsQuery.data.map((suggestion) => ({
+                key: suggestion.id,
+                label: suggestion.name,
+                ariaLabel: `Add ${suggestion.name} to persona tags`,
+              }))}
+              onSelect={(name) =>
+                setPersonaTagsInput((prev) =>
+                  appendUniqueCommaSeparatedItem(prev, name),
+                )
+              }
+            />
           ) : null}
         </div>
 
@@ -714,25 +628,18 @@ export function CreatorProfileSetupForm({
           />
           {restrictionSuggestionsQuery.isSuccess &&
           restrictionSuggestionsQuery.data.length > 0 ? (
-            <div className="space-y-1.5 pt-0.5">
-              <div className="flex flex-wrap gap-1.5">
-                {restrictionSuggestionsQuery.data.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="inline-flex max-w-full items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
-                    onClick={() =>
-                      setRestrictionsInput((prev) =>
-                        appendCommaListItem(prev, s.name),
-                      )
-                    }
-                    aria-label={`Add ${s.name} to content restrictions`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SuggestionChips
+              items={restrictionSuggestionsQuery.data.map((suggestion) => ({
+                key: suggestion.id,
+                label: suggestion.name,
+                ariaLabel: `Add ${suggestion.name} to content restrictions`,
+              }))}
+              onSelect={(name) =>
+                setRestrictionsInput((prev) =>
+                  appendUniqueCommaSeparatedItem(prev, name),
+                )
+              }
+            />
           ) : null}
         </div>
 
@@ -767,111 +674,14 @@ export function CreatorProfileSetupForm({
           </div>
         ) : null}
 
-        <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <p className="text-sm font-medium text-foreground">Packages</p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              disabled={
-                packageDrafts.length >= MAX_PACKAGES_IN_CREATOR_SETUP_FORM
-              }
-              onClick={addPackageDraft}
-            >
-              Add package
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {packageDrafts.map((row, index) => (
-              <div
-                key={row.id}
-                className="space-y-3 rounded-lg border border-border/80 bg-background/60 p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Package {index + 1}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => removePackageDraft(row.id)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="space-y-2 sm:col-span-1">
-                    <Label htmlFor={`pkg-name-${row.id}`}>Name</Label>
-                    <Input
-                      id={`pkg-name-${row.id}`}
-                      className={inputClass}
-                      value={row.name}
-                      onChange={(e) =>
-                        updatePackageDraft(row.id, { name: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`pkg-price-${row.id}`}>Price</Label>
-                    <Input
-                      id={`pkg-price-${row.id}`}
-                      className={inputClass}
-                      value={row.priceAmount}
-                      onChange={(e) =>
-                        updatePackageDraft(row.id, {
-                          priceAmount: e.target.value,
-                        })
-                      }
-                      placeholder="199.99"
-                      inputMode="decimal"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`pkg-days-${row.id}`}>
-                      Delivery (days)
-                    </Label>
-                    <Input
-                      id={`pkg-days-${row.id}`}
-                      type="number"
-                      min={0}
-                      className={inputClass}
-                      value={row.deliveryDays}
-                      onChange={(e) =>
-                        updatePackageDraft(row.id, {
-                          deliveryDays: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`pkg-deliverables-${row.id}`}>
-                    Deliverables (one per line)
-                  </Label>
-                  <textarea
-                    id={`pkg-deliverables-${row.id}`}
-                    value={row.deliverables}
-                    onChange={(e) =>
-                      updatePackageDraft(row.id, {
-                        deliverables: e.target.value,
-                      })
-                    }
-                    rows={3}
-                    placeholder={"1 UGC video (30–60s)\nBasic editing"}
-                    className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CreatorProfilePackageFields
+          rows={packageDrafts}
+          inputClassName={inputClass}
+          maxPackages={MAX_PACKAGES_IN_CREATOR_SETUP_FORM}
+          onAdd={addPackageDraft}
+          onRemove={removePackageDraft}
+          onChange={updatePackageDraft}
+        />
       </div>
 
       <Button

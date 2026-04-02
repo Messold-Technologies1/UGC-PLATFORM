@@ -37,10 +37,22 @@ export async function fetchCreatorsList(params: {
   };
 }
 
-export function useCreatorsListQuery(page = 1, limit = 20) {
+export function useCreatorsListQuery(
+  page = 1,
+  limit = 20,
+  initialData?: CreatorsListResult,
+) {
   return useQuery({
     queryKey: creatorsListQueryKey(page, limit),
     queryFn: () => fetchCreatorsList({ page, limit }),
-    staleTime: 30_000,
+    ...(initialData
+      ? {
+          initialData,
+          refetchOnMount: false,
+        }
+      : {}),
+    staleTime: initialData ? 5 * 60_000 : 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }

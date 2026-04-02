@@ -6,6 +6,15 @@ import { AppShellProviders } from "@/providers/app-providers";
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
 
+const themeColorScript = `
+try {
+  const themeColor = window.localStorage.getItem("ugc-theme-color");
+  if (themeColor) {
+    document.documentElement.dataset.themeColor = themeColor;
+  }
+} catch {}
+`;
+
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-heading",
   subsets: ["latin"],
@@ -46,6 +55,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeColorScript }} />
+      </head>
       <body
         className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased flex min-h-svh flex-col`}
       >

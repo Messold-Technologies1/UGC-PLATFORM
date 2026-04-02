@@ -134,10 +134,13 @@ export const CreatorFilters = memo(function CreatorFilters({
 
   const handlePriceChange = useCallback(
     ([min, max]: number[]) => {
-      handleChange("minPrice", min <= CREATOR_PRICE_MIN ? "" : String(min));
-      handleChange("maxPrice", max >= CREATOR_PRICE_MAX ? "" : String(max));
+      onChange({
+        ...filtersRef.current,
+        minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
+        maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
+      });
     },
-    [handleChange],
+    [onChange],
   );
 
   const sliderMin = filters.minPrice
@@ -277,16 +280,18 @@ export const CreatorFilters = memo(function CreatorFilters({
 
         <FilterSection label="Price range" action={priceAction}>
           <div className="space-y-4 pt-1">
-            <Slider
-              min={CREATOR_PRICE_MIN}
-              max={CREATOR_PRICE_MAX}
-              step={PRICE_STEP}
-              value={[sliderMin, sliderMax]}
-              onValueChange={handlePriceChange}
-              trackClassName="h-2"
-              rangeClassName="bg-primary"
-              thumbClassName="size-4 border-primary bg-background"
-            />
+            <div className="mx-auto w-full max-w-xs">
+              <Slider
+                min={CREATOR_PRICE_MIN}
+                max={CREATOR_PRICE_MAX}
+                step={PRICE_STEP}
+                value={[sliderMin, sliderMax]}
+                onValueChange={handlePriceChange}
+                trackClassName="h-1"
+                rangeClassName="bg-primary"
+                thumbClassName="size-3 border-primary/90 bg-background shadow-sm"
+              />
+            </div>
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               <span>₹{CREATOR_PRICE_MIN.toLocaleString("en-IN")}</span>
               <span>₹10,000+</span>

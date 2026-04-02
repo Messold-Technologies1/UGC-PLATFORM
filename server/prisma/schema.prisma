@@ -30,6 +30,11 @@ enum RoleName {
   BRAND
 }
 
+enum PortfolioVisibilityStatus {
+  PUBLIC
+  PRIVATE
+}
+
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique
@@ -78,6 +83,7 @@ model Session {
   id               String   @id @default(uuid()) @db.Uuid
   userId           String   @db.Uuid
   refreshTokenHash String   @unique
+  activeRoleId     String?  @db.Uuid
   expiresAt        DateTime
   ipAddress        String?
   userAgent        String?
@@ -85,8 +91,10 @@ model Session {
   updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeRole Role? @relation("ActiveSessionRole", fields: [activeRoleId], references: [id], onDelete: SetNull)
 
   @@index([userId, expiresAt])
+  @@index([userId, activeRoleId])
 }
 
 model Role {
@@ -98,6 +106,7 @@ model Role {
   userRoles       UserRole[]
   rolePermissions RolePermission[]
   primaryUsers    User[]           @relation("PrimaryUserRole")
+  activeSessions  Session[]        @relation("ActiveSessionRole")
 }
 
 model Permission {
@@ -139,25 +148,85 @@ model CreatorProfile {
   id           String   @id @default(uuid()) @db.Uuid
   userId       String   @unique @db.Uuid
   displayName  String
+  profileImageKey String?
+  profileImageUrl String?
   city         String?
   bio          String?
   gender       String?
-  ageRange     String?
   travelRadius Int?
+  onLocationAvailable Boolean @default(false)
+  onLocationFee       Decimal? @db.Decimal(12, 2)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   creatorApproval CreatorApproval?
   languages       CreatorLanguage[]
-  services        CreatorService[]
+  categories      CreatorCategory[]
+  personaTags     CreatorPersonaTag[]
+  restrictions    CreatorRestriction[]
   stats           CreatorStats?
   features        CreatorFeature[]
   packages        CreatorPackage[]
   addOns          CreatorAddOn[]
+  portfolioVideos CreatorPortfolioVideo[]
 
 
   @@index([city])
+}
+
+model CreatorPortfolioVideo {
+  id               String                   @id @default(uuid()) @db.Uuid
+  creatorId        String                   @db.Uuid
+  videoKey         String
+  videoUrl         String
+  thumbnailKey     String?
+  thumbnailUrl     String?
+  industryLabel    String?
+  language         String?
+  description      String?
+  visibilityStatus PortfolioVisibilityStatus @default(PUBLIC)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  creator CreatorProfile            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  tags    CreatorPortfolioVideoTag[]
+
+  @@index([creatorId, visibilityStatus, createdAt])
+  @@index([creatorId, createdAt])
+}
+
+model CreatorPortfolioVideoTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  videoId   String   @db.Uuid
+  tag       String
+  createdAt DateTime @default(now())
+
+  video CreatorPortfolioVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, tag])
+  @@index([tag])
+}
+
+model PortfolioIndustrySuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
+}
+
+model PortfolioTagSuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
+}
+
+model PortfolioLanguageSuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
 }
 
 model CreatorApproval {
@@ -189,32 +258,69 @@ model CreatorLanguage {
   @@index([language])
 }
 
-model ServiceType {
+model CreatorCategory {
   id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique
+  creatorId String   @db.Uuid
+  category  String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  creatorServices CreatorService[]
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, category])
+  @@index([category])
 }
 
-model CreatorService {
-  id            String   @id @default(uuid()) @db.Uuid
-  creatorId     String   @db.Uuid
-  serviceTypeId String   @db.Uuid
-  createdAt     DateTime @default(now())
+model CreatorPersonaTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  creatorId String   @db.Uuid
+  tag       String
+  createdAt DateTime @default(now())
 
-  creator     CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  serviceType ServiceType    @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
-  @@unique([creatorId, serviceTypeId])
-  @@index([serviceTypeId])
+  @@unique([creatorId, tag])
+  @@index([tag])
+}
+
+model CreatorRestriction {
+  id          String   @id @default(uuid()) @db.Uuid
+  creatorId   String   @db.Uuid
+  restriction String
+  createdAt   DateTime @default(now())
+
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, restriction])
+  @@index([restriction])
+}
+
+model CreatorCategorySuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
+}
+
+model CreatorPersonaTagSuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
+}
+
+model CreatorRestrictionSuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
 }
 
 model BrandProfile {
   id            String   @id @default(uuid()) @db.Uuid
   userId        String   @unique @db.Uuid
   companyName   String
+  logoKey       String?
+  logoUrl       String?
   website       String?
   industry      String?
   contactPerson String?

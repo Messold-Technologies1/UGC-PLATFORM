@@ -1,0 +1,124 @@
+import { DEFAULT_CREATOR_ADD_ONS } from "../constants/default-add-ons";
+import type { Creator, CreatorProfile, Package } from "../types";
+import type { CreatorProfileItemApi } from "./types";
+
+function normalizeGender(
+  raw: string | null | undefined,
+): "male" | "female" | "other" {
+  const g = (raw ?? "").toLowerCase();
+  if (g === "male" || g === "female") return g;
+  return "other";
+}
+
+function minPackagePrice(
+  packages: CreatorProfileItemApi["packages"] | undefined,
+): number {
+  if (!packages?.length) return 0;
+  let min: number | null = null;
+  for (const p of packages) {
+    const n = Number.parseFloat(p.priceAmount);
+    if (Number.isNaN(n)) continue;
+    min = min === null || n < min ? n : min;
+  }
+  return min ?? 0;
+}
+
+function buildTags(profile: CreatorProfileItemApi): string[] {
+  const fromLang = (profile.languages ?? []).map((l) => l.language);
+  const fromCategories = (profile.categories ?? []).map((c) => c.category);
+  const fromPersona = (profile.personaTags ?? []).map((t) => t.tag);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of [...fromLang, ...fromCategories, ...fromPersona]) {
+    const key = t.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+export function mapProfileToListingCreator(
+  profile: CreatorProfileItemApi,
+): Creator {
+  const categoryNames = (profile.categories ?? [])
+    .map((c) => c.category.trim())
+    .filter(Boolean);
+  const category = categoryNames[0] ?? "General";
+  const categories = categoryNames.length > 0 ? categoryNames : [category];
+
+  const thumb = profile.profileImageUrl?.trim();
+  const thumbnail =
+    thumb && (thumb.startsWith("http://") || thumb.startsWith("https://"))
+      ? thumb
+      : "/globe.svg";
+  const previewVideoUrl = profile.firstPortfolioVideo?.videoUrl?.trim() ?? null;
+  const previewVideoThumbnail =
+    profile.firstPortfolioVideo?.thumbnailUrl?.trim() || thumbnail;
+
+  return {
+    id: profile.id,
+    name: profile.displayName,
+    location: profile.city?.trim() || "Location not set",
+    rating: 0,
+    reviewCount: 0,
+    startingPrice: Math.round(minPackagePrice(profile.packages)),
+    ordersCompleted: 0,
+    thumbnail,
+    previewVideoUrl,
+    previewVideoThumbnail,
+    tags: buildTags(profile),
+    available: true,
+    storeVisit: profile.onLocationAvailable ?? false,
+    travelAvailable:
+      (profile.travelRadius != null && profile.travelRadius > 0) ||
+      (profile.onLocationAvailable ?? false),
+    gender: normalizeGender(profile.gender),
+    category,
+    categories,
+  };
+}
+
+const PACKAGE_TIERS: Package["tier"][] = ["basic", "standard", "premium"];
+
+function mapApiPackages(
+  packages: CreatorProfileItemApi["packages"] | undefined,
+): Package[] {
+  if (!packages?.length) return [];
+  const sorted = [...packages].sort(
+    (a, b) =>
+      Number.parseFloat(a.priceAmount) - Number.parseFloat(b.priceAmount),
+  );
+  return sorted.map((p, index) => ({
+    id: p.id,
+    tier: PACKAGE_TIERS[Math.min(index, PACKAGE_TIERS.length - 1)]!,
+    label: p.name,
+    price: Math.round(Number.parseFloat(p.priceAmount)) || 0,
+    deliveryDays: p.deliveryDays,
+    revisions: 0,
+    features:
+      p.deliverables.length > 0 ? p.deliverables : ["See package details"],
+  }));
+}
+
+export function mapProfileItemToCreatorProfile(
+  profile: CreatorProfileItemApi,
+): CreatorProfile {
+  const base = mapProfileToListingCreator(profile);
+  return {
+    ...base,
+    bio: profile.bio?.trim() || "No bio yet.",
+    languages: (profile.languages ?? []).map((l) => l.language),
+    personaTags: (profile.personaTags ?? []).map((t) => t.tag),
+    restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
+    travelRadiusKm:
+      profile.travelRadius != null && !Number.isNaN(profile.travelRadius)
+        ? profile.travelRadius
+        : null,
+    onLocationFee: profile.onLocationFee?.trim() ?? null,
+    packages: mapApiPackages(profile.packages),
+    addOns: DEFAULT_CREATOR_ADD_ONS,
+    reviews: [],
+  };
+}

@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsInt,
+  IsNumberString,
   IsOptional,
   IsString,
   Min,
@@ -16,6 +18,15 @@ export class UpdateCreatorProfileDto {
   @IsOptional()
   @IsString()
   displayName?: string;
+
+  @ApiPropertyOptional({
+    example: 'creator-profile/<userId>/<uuid>.jpg',
+    description:
+      'S3 object key after uploading via presigned URL (optional).',
+  })
+  @IsOptional()
+  @IsString()
+  profileImageKey?: string;
 
   @ApiPropertyOptional({ example: 'Bengaluru' })
   @IsOptional()
@@ -32,16 +43,21 @@ export class UpdateCreatorProfileDto {
   @IsString()
   gender?: string;
 
-  @ApiPropertyOptional({ example: '18-24' })
-  @IsOptional()
-  @IsString()
-  ageRange?: string;
-
   @ApiPropertyOptional({ example: 15 })
   @IsOptional()
   @IsInt()
   @Min(0)
   travelRadius?: number;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  onLocationAvailable?: boolean;
+
+  @ApiPropertyOptional({ example: '499.00' })
+  @IsOptional()
+  @IsNumberString()
+  onLocationFee?: string;
 
   @ApiPropertyOptional({ type: [String], example: ['English', 'Hindi'] })
   @IsOptional()
@@ -52,13 +68,33 @@ export class UpdateCreatorProfileDto {
 
   @ApiPropertyOptional({
     type: [String],
-    example: ['Video Editing', 'Photo Shoot'],
+    example: ['UGC Video', 'Voice Over'],
   })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })
-  serviceTypeNames?: string[];
+  categories?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['Clean aesthetic', 'Friendly'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  personaTags?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['does not accept alcohol', 'does not accept gambling'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  restrictions?: string[];
 
   @ApiPropertyOptional({ type: [CreatorPackageCreateDto] })
   @IsOptional()

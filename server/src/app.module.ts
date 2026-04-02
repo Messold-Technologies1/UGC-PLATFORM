@@ -9,6 +9,9 @@ import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { CreatorProfileModule } from './creator-profile/creator-profile.module';
+import { StorageModule } from './storage/storage.module';
+import { CreatorPortfolioModule } from './creator-portfolio/creator-portfolio.module';
+import { BrandProfileModule } from './brand-profile/brand-profile.module';
 
 @Module({
   imports: [
@@ -24,9 +27,12 @@ import { CreatorProfileModule } from './creator-profile/creator-profile.module';
       },
     ]),
     PrismaModule,
+    StorageModule,
     HealthModule,
     AuthModule,
     CreatorProfileModule,
+    CreatorPortfolioModule,
+    BrandProfileModule,
   ],
   controllers: [AppController],
   providers: [

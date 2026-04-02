@@ -8,25 +8,28 @@ export class CreatorLanguageResponseDto {
   language!: string;
 }
 
-export class CreatorServiceTypeResponseDto {
+export class CreatorCategoryResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Video Editing' })
-  name!: string;
+  @ApiProperty({ example: 'UGC Video' })
+  category!: string;
 }
 
-export class CreatorServiceResponseDto {
+export class CreatorPersonaTagResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'uuid' })
-  serviceTypeId!: string;
+  @ApiProperty({ example: 'Clean aesthetic' })
+  tag!: string;
+}
 
-  @ApiProperty({
-    type: () => CreatorServiceTypeResponseDto,
-  })
-  serviceType!: CreatorServiceTypeResponseDto;
+export class CreatorRestrictionResponseDto {
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'does not accept alcohol' })
+  restriction!: string;
 }
 
 export class CreatorPackageResponseDto {
@@ -49,6 +52,31 @@ export class CreatorPackageResponseDto {
   deliveryDays!: number;
 }
 
+export class CreatorPortfolioVideoPreviewResponseDto {
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'uuid' })
+  creatorId!: string;
+
+  @ApiProperty({ example: 'https://cdn.example.com/creator-portfolio/...mp4' })
+  videoUrl!: string;
+
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/creator-portfolio/...jpg',
+  })
+  thumbnailUrl?: string | null;
+
+  @ApiPropertyOptional({ example: 'fitness' })
+  industryLabel?: string | null;
+
+  @ApiProperty({ type: [String], example: ['testimonial', 'skincare'] })
+  tags!: string[];
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class CreatorProfileResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -59,6 +87,11 @@ export class CreatorProfileResponseDto {
   @ApiProperty({ example: 'Jane Doe' })
   displayName!: string;
 
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/creator-profile/<userId>/<uuid>.jpg',
+  })
+  profileImageUrl?: string | null;
+
   @ApiPropertyOptional({ example: 'Bengaluru' })
   city?: string | null;
 
@@ -68,18 +101,30 @@ export class CreatorProfileResponseDto {
   @ApiPropertyOptional({ example: 'Female' })
   gender?: string | null;
 
-  @ApiPropertyOptional({ example: '18-24' })
-  ageRange?: string | null;
-
   @ApiPropertyOptional({ example: 15 })
   travelRadius?: number | null;
+
+  @ApiProperty({ example: true })
+  onLocationAvailable!: boolean;
+
+  @ApiPropertyOptional({ example: '499.00' })
+  onLocationFee?: string | null;
 
   @ApiProperty({ type: () => [CreatorLanguageResponseDto] })
   languages!: CreatorLanguageResponseDto[];
 
-  @ApiProperty({ type: () => [CreatorServiceResponseDto] })
-  services!: CreatorServiceResponseDto[];
+  @ApiProperty({ type: () => [CreatorCategoryResponseDto] })
+  categories!: CreatorCategoryResponseDto[];
+
+  @ApiProperty({ type: () => [CreatorPersonaTagResponseDto] })
+  personaTags!: CreatorPersonaTagResponseDto[];
+
+  @ApiProperty({ type: () => [CreatorRestrictionResponseDto] })
+  restrictions!: CreatorRestrictionResponseDto[];
 
   @ApiProperty({ type: () => [CreatorPackageResponseDto] })
   packages!: CreatorPackageResponseDto[];
+
+  @ApiPropertyOptional({ type: () => CreatorPortfolioVideoPreviewResponseDto })
+  firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
 }

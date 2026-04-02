@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AuthProvider } from '@prisma/client';
+import { AuthProvider, Prisma, RoleName } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,8 +23,21 @@ export interface AuthTokens {
   expiresIn: string;
 }
 
+export type MeUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  roles: ('CREATOR' | 'BRAND' | 'ADMIN')[];
+  /** Session-scoped role the user is currently acting as. */
+  activeRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
+  /** Cross-session default; used as a fallback when no active role is set. */
+  primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
+  hasCreatorProfile: boolean;
+  hasBrandProfile: boolean;
+};
+
 export interface AuthResult {
-  user: { id: string; email: string; name: string | null };
+  user: MeUser;
   accessToken: string;
   refreshToken: string;
   expiresIn: string;
@@ -47,6 +61,14 @@ export class AuthService {
 
   private hashRefreshToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private asWorkspaceRole(
+    name: string | null | undefined,
+  ): 'CREATOR' | 'BRAND' | 'ADMIN' | null {
+    return name === 'CREATOR' || name === 'BRAND' || name === 'ADMIN'
+      ? name
+      : null;
   }
 
   private getAccessExpiry(): string {
@@ -77,29 +99,68 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const defaultRole = await this.prisma.role.findUnique({
-      where: { name: 'BRAND' },
-    });
 
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         name: dto.name ?? null,
         passwordHash,
-        primaryRoleId: defaultRole?.id ?? undefined,
+        // New users may start without any workspace role selected.
+        // They must call `POST /auth/workspace` to pick CREATOR or BRAND.
+        primaryRoleId: null,
       },
     });
 
-    if (defaultRole) {
-      await this.prisma.userRole.create({
-        data: { userId: user.id, roleId: defaultRole.id },
-      });
+    const { accessToken, refreshToken, expiresIn } =
+      await this.createSessionAndTokens(user.id, meta);
+    const me = await this.getMeForClient(user.id, refreshToken);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
     }
+    return { user: me, accessToken, refreshToken, expiresIn };
+  }
+
+  async registerAdmin(
+    dto: RegisterDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<AuthResult> {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+    if (existing) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+
+    const adminRole = await this.prisma.role.findUnique({
+      where: { name: RoleName.ADMIN },
+      select: { id: true },
+    });
+    if (!adminRole) {
+      throw new BadRequestException('Workspace role is not configured');
+    }
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email.toLowerCase(),
+        name: dto.name ?? null,
+        passwordHash,
+        primaryRoleId: adminRole.id,
+        userRoles: {
+          create: { roleId: adminRole.id },
+        },
+        emailVerified: true,
+      },
+    });
 
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const safeUser = { id: user.id, email: user.email, name: user.name };
-    return { user: safeUser, accessToken, refreshToken, expiresIn };
+    const me = await this.getMeForClient(user.id, refreshToken);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
   }
 
   async login(
@@ -124,8 +185,11 @@ export class AuthService {
 
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const safeUser = { id: user.id, email: user.email, name: user.name };
-    return { user: safeUser, accessToken, refreshToken, expiresIn };
+    const me = await this.getMeForClient(user.id, refreshToken);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
@@ -224,14 +288,17 @@ export class AuthService {
     );
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const safeUser = { id: user.id, email: user.email, name: user.name };
-    return { user: safeUser, accessToken, refreshToken, expiresIn };
+    const me = await this.getMeForClient(user.id, refreshToken);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
   }
 
   private async findOrCreateGoogleUser(
     profile: GoogleUserInfo,
     googleRefreshToken?: string,
-  ) {
+  ): Promise<{ id: string; primaryRoleId: string | null }> {
     const providerUserId = profile.id;
     const email = profile.email?.toLowerCase();
     if (!email) {
@@ -255,7 +322,10 @@ export class AuthService {
           data: { refreshToken: googleRefreshToken },
         });
       }
-      return authAccount.user;
+      return {
+        id: authAccount.user.id,
+        primaryRoleId: authAccount.user.primaryRoleId,
+      };
     }
 
     let user = await this.prisma.user.findUnique({
@@ -263,6 +333,9 @@ export class AuthService {
     });
 
     if (user) {
+      if (!user) {
+        throw new UnauthorizedException('Account could not be loaded');
+      }
       await this.prisma.authAccount.create({
         data: {
           userId: user.id,
@@ -271,26 +344,18 @@ export class AuthService {
           refreshToken: googleRefreshToken ?? null,
         },
       });
-      return user;
+      return { id: user.id, primaryRoleId: user.primaryRoleId };
     }
 
-    const defaultRole = await this.prisma.role.findUnique({
-      where: { name: 'BRAND' },
-    });
     user = await this.prisma.user.create({
       data: {
         email,
         name: profile.name ?? null,
         passwordHash: null,
         emailVerified: true,
-        primaryRoleId: defaultRole?.id ?? undefined,
+        primaryRoleId: null,
       },
     });
-    if (defaultRole) {
-      await this.prisma.userRole.create({
-        data: { userId: user.id, roleId: defaultRole.id },
-      });
-    }
     await this.prisma.authAccount.create({
       data: {
         userId: user.id,
@@ -299,7 +364,7 @@ export class AuthService {
         refreshToken: googleRefreshToken ?? null,
       },
     });
-    return user;
+    return { id: user.id, primaryRoleId: user.primaryRoleId };
   }
 
   private async createSessionAndTokens(
@@ -317,10 +382,16 @@ export class AuthService {
     const hash = this.hashRefreshToken(refreshToken);
     const expiresAt = this.expiryToDate(refreshExpiry);
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { primaryRoleId: true },
+    });
+
     await this.prisma.session.create({
       data: {
         userId,
         refreshTokenHash: hash,
+        activeRoleId: user?.primaryRoleId ?? null,
         expiresAt,
         ipAddress: meta?.ipAddress ?? null,
         userAgent: meta?.userAgent ?? null,
@@ -383,6 +454,132 @@ export class AuthService {
     });
     if (!user || user.status !== 'ACTIVE') return null;
     return { id: user.id, email: user.email, name: user.name };
+  }
+
+  async getMeForClient(
+    userId: string,
+    refreshToken?: string,
+  ): Promise<MeUser | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        primaryRole: { select: { name: true } },
+        userRoles: { select: { role: { select: { name: true } } } },
+        creatorProfile: { select: { id: true } },
+        brandProfile: { select: { id: true } },
+      },
+    });
+    if (!user || user.status !== 'ACTIVE') return null;
+
+    const roleSet = new Set<'CREATOR' | 'BRAND' | 'ADMIN'>();
+    for (const ur of user.userRoles) {
+      const n = ur.role.name;
+      if (n === 'CREATOR' || n === 'BRAND' || n === 'ADMIN') {
+        roleSet.add(n);
+      }
+    }
+    const pr = user.primaryRole?.name;
+    if (pr === 'CREATOR' || pr === 'BRAND' || pr === 'ADMIN') {
+      roleSet.add(pr);
+    }
+    const roles = Array.from(roleSet);
+
+    let primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null =
+      pr === 'CREATOR' || pr === 'BRAND' || pr === 'ADMIN' ? pr : null;
+    if (primaryRole === null && roles.length > 0) {
+      primaryRole = roles[0];
+    }
+
+    // Session-scoped active role.
+    let activeRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null = null;
+    if (refreshToken) {
+      const hash = this.hashRefreshToken(refreshToken);
+      const session = await this.prisma.session.findFirst({
+        where: {
+          userId,
+          refreshTokenHash: hash,
+          expiresAt: { gt: new Date() },
+        },
+        select: { activeRole: { select: { name: true } } },
+      });
+      activeRole = this.asWorkspaceRole(session?.activeRole?.name);
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles,
+      activeRole,
+      primaryRole,
+      hasCreatorProfile: !!user.creatorProfile,
+      hasBrandProfile: !!user.brandProfile,
+    };
+  }
+
+  async selectWorkspace(
+    userId: string,
+    role: 'CREATOR' | 'BRAND',
+    setPrimary: boolean,
+    refreshToken: string | undefined,
+  ): Promise<MeUser> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token required');
+    }
+    const roleRow = await this.prisma.role.findUnique({
+      where: { name: role },
+      select: { id: true },
+    });
+    if (!roleRow) {
+      throw new BadRequestException('Workspace role is not configured');
+    }
+
+    const hash = this.hashRefreshToken(refreshToken);
+    const now = new Date();
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [
+      this.prisma.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: roleRow.id } },
+        create: { userId, roleId: roleRow.id },
+        update: {},
+      }),
+      this.prisma.session.updateMany({
+        where: {
+          userId,
+          refreshTokenHash: hash,
+          expiresAt: { gt: now },
+        },
+        data: { activeRoleId: roleRow.id },
+      }),
+    ];
+
+    if (setPrimary) {
+      ops.splice(
+        1,
+        0,
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { primaryRoleId: roleRow.id },
+        }),
+      );
+    }
+
+    const results = await this.prisma.$transaction(ops);
+    const sessionUpdate = results[results.length - 1] as { count: number };
+
+    if (sessionUpdate.count === 0) {
+      throw new UnauthorizedException('Session not found or expired');
+    }
+
+    const me = await this.getMeForClient(userId, refreshToken);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return me;
   }
 }
 

@@ -9,9 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { Spinner } from "@/components/ui/spinner";
 import api from "@/lib/api";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
@@ -88,10 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           aria-live="polite"
           aria-busy="true"
         >
-          <Loader2
-            className="size-10 animate-spin text-primary"
-            aria-hidden
-          />
+          <Spinner className="size-10 text-primary" aria-hidden />
           <p className="text-sm font-medium text-foreground">Logging out…</p>
         </div>
       ) : null}

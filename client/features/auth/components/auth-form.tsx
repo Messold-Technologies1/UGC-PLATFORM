@@ -8,11 +8,12 @@ import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
   TooltipContent,
@@ -213,7 +214,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               >
                 {loginMutation.isPending ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" />
+                    <Spinner className="size-4" aria-hidden />
                     Logging in…
                   </>
                 ) : (
@@ -233,7 +234,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 onClick={handleGoogleLogin}
               >
                 {googleLoading ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Spinner className="size-4" aria-hidden />
                 ) : (
                   <GoogleIcon />
                 )}
@@ -308,7 +309,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               >
                 {registerMutation.isPending ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" />
+                    <Spinner className="size-4" aria-hidden />
                     Creating account…
                   </>
                 ) : (
@@ -328,7 +329,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 onClick={handleGoogleLogin}
               >
                 {googleLoading ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Spinner className="size-4" aria-hidden />
                 ) : (
                   <GoogleIcon />
                 )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Loader2, LogOut, Video } from "lucide-react";
+import { Building2, LogOut, Video } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import {
   getDisplayNameFromUser,
   getInitialsFromUser,
 } from "@/lib/account-user";
+import { Spinner } from "@/components/ui/spinner";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
@@ -119,7 +120,7 @@ export function NavbarProfileMenu({
               )}
             >
               {brandPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
+                <Spinner className="size-4" aria-hidden />
               ) : (
                 <Building2 className="size-4" />
               )}
@@ -149,7 +150,7 @@ export function NavbarProfileMenu({
               )}
             >
               {creatorPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
+                <Spinner className="size-4" aria-hidden />
               ) : (
                 <Video className="size-4" />
               )}
@@ -182,7 +183,7 @@ export function NavbarProfileMenu({
             )}
           >
             {isLoggingOut ? (
-              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              <Spinner className="size-4 shrink-0" aria-hidden />
             ) : (
               <LogOut className="size-4 shrink-0" />
             )}
@@ -245,7 +246,7 @@ export function NavbarProfileMenu({
                   }
                 >
                   {brandPending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <Spinner className="size-4" aria-hidden />
                   ) : (
                     <Building2 className="size-4" />
                   )}
@@ -277,7 +278,7 @@ export function NavbarProfileMenu({
                   }
                 >
                   {creatorPending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <Spinner className="size-4" aria-hidden />
                   ) : (
                     <Video className="size-4" />
                   )}
@@ -313,7 +314,7 @@ export function NavbarProfileMenu({
               )}
             >
               {isLoggingOut ? (
-                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                <Spinner className="size-4 shrink-0" aria-hidden />
               ) : (
                 <LogOut className="size-4 shrink-0" />
               )}

@@ -12,7 +12,6 @@ import {
 import { useTheme } from "next-themes";
 import {
   Bell,
-  Loader2,
   LogOut,
   Moon,
   Shield,
@@ -30,6 +29,7 @@ import {
   getDisplayNameFromUser,
   getInitialsFromUser,
 } from "@/lib/account-user";
+import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
@@ -294,7 +294,7 @@ export function SidebarUserMenu({
             )}
           >
             {isLoggingOut ? (
-              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              <Spinner className="size-4 shrink-0" aria-hidden />
             ) : (
               <LogOut className="size-4 shrink-0" />
             )}

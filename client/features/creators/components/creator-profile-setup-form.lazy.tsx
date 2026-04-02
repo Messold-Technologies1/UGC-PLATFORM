@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 export type { CreatorProfileSetupFormProps } from "./creator-profile-setup-form";
 
@@ -18,10 +18,7 @@ export const CreatorProfileSetupForm = dynamic(
         aria-live="polite"
         aria-busy="true"
       >
-        <Loader2
-          className="size-8 animate-spin text-muted-foreground"
-          aria-hidden
-        />
+        <Spinner className="size-8 text-muted-foreground" aria-hidden />
         <span className="sr-only">Loading profile form…</span>
       </div>
     ),

@@ -14,7 +14,9 @@ export function AppShellProviders({ children }: { children: ReactNode }) {
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>
-        <WorkspaceSwitchingOverlay />
+        <Suspense fallback={null}>
+          <WorkspaceSwitchingOverlay />
+        </Suspense>
         {children}
       </TooltipProvider>
     </QueryProvider>

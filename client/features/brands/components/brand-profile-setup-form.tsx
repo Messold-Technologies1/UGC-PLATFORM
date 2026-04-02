@@ -10,6 +10,7 @@ import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { useAuth } from "@/providers/auth-provider";
@@ -117,6 +118,30 @@ export function BrandProfileSetupForm({
     }
     return "Add your company details so creators know who they’re working with.";
   }, [variant]);
+
+  const completionSummary = useMemo(() => {
+    const checkpoints = [
+      Boolean(companyName.trim()),
+      Boolean(website.trim()),
+      Boolean(industry.trim()),
+      Boolean(contactPerson.trim()),
+      Boolean(logoPreviewUrl || pendingLogoKey),
+    ];
+    const completed = checkpoints.filter(Boolean).length;
+    const total = checkpoints.length;
+    return {
+      completed,
+      total,
+      percent: Math.round((completed / total) * 100),
+    };
+  }, [
+    companyName,
+    website,
+    industry,
+    contactPerson,
+    logoPreviewUrl,
+    pendingLogoKey,
+  ]);
 
   const handleLogoSelected = useCallback(
     async (file: File | null) => {
@@ -291,6 +316,27 @@ export function BrandProfileSetupForm({
           {title}
         </h1>
         <p className="text-sm text-muted-foreground">{description}</p>
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Profile completion
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {completionSummary.completed} of {completionSummary.total} brand
+                details added
+              </p>
+            </div>
+            <p className="text-sm font-semibold tabular-nums text-foreground">
+              {completionSummary.percent}%
+            </p>
+          </div>
+          <Progress
+            value={completionSummary.percent}
+            aria-label="Brand profile completion"
+            className="mt-3 h-2"
+          />
+        </div>
       </header>
 
       <form

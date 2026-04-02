@@ -38,7 +38,16 @@ function isThemeColor(value: string): value is ThemeColor {
 }
 
 function ThemeColorProvider({ children }: { children: ReactNode }) {
-  const [themeColor, setThemeColor] = useState<ThemeColor>("rose");
+  const [themeColor, setThemeColor] = useState<ThemeColor>(() => {
+    if (typeof document !== "undefined") {
+      const activeThemeColor = document.documentElement.dataset.themeColor;
+      if (activeThemeColor && isThemeColor(activeThemeColor)) {
+        return activeThemeColor;
+      }
+    }
+
+    return "rose";
+  });
 
   useEffect(() => {
     try {

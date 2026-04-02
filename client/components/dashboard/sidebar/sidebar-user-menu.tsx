@@ -18,6 +18,8 @@ import {
   Shield,
   Sun,
   UserRound,
+  Building2,
+  Video,
 } from "lucide-react";
 import {
   accountMenuGlassPanel,
@@ -31,6 +33,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
+import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 
 function useThemeMounted() {
   return useSyncExternalStore(
@@ -49,12 +52,14 @@ export function SidebarUserMenu({
 }) {
   const pathname = usePathname();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
+  const { goWorkspace } = useWorkspaceNavigation();
   const { resolvedTheme, setTheme } = useTheme();
   const themeMounted = useThemeMounted();
   const isDark = themeMounted && resolvedTheme === "dark";
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const hasMultipleRoles = user?.roles && user.roles.length > 1;
   const activeWorkspace = user?.activeRole ?? user?.primaryRole ?? null;
   const hub = pathname.startsWith("/brand")
     ? "brand"
@@ -202,6 +207,34 @@ export function SidebarUserMenu({
             )}
             {!themeMounted ? "Theme" : isDark ? "Light mode" : "Dark mode"}
           </button>
+          {!hasMultipleRoles && user?.roles?.includes("CREATOR") && (
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(accountMenuItemClass, "w-full text-left")}
+              onClick={() => {
+                closeMobile();
+                void goWorkspace("BRAND");
+              }}
+            >
+              <Building2 className="size-4 opacity-60" aria-hidden />
+              Try As Brand
+            </button>
+          )}
+          {!hasMultipleRoles && user?.roles?.includes("BRAND") && (
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(accountMenuItemClass, "w-full text-left")}
+              onClick={() => {
+                closeMobile();
+                void goWorkspace("CREATOR");
+              }}
+            >
+              <Video className="size-4 opacity-60" aria-hidden />
+              Try As Creator
+            </button>
+          )}
           <Link
             href={settingsHref}
             role="menuitem"

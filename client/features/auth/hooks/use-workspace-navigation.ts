@@ -24,6 +24,7 @@ import {
 export type GoWorkspaceOptions = {
   redirectIfCurrent?: boolean;
   targetHref?: string | null;
+  setPrimary?: boolean;
 };
 
 const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
@@ -151,7 +152,7 @@ export function useWorkspaceNavigation() {
     showSwitchingState();
 
     try {
-      const next = await selectWorkspaceApi(role);
+      const next = await selectWorkspaceApi(role, options?.setPrimary);
       queryClient.setQueryData(authMeQueryKey, next);
       const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
         promptIncompleteProfileOnboarding: false,

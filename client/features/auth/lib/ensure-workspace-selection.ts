@@ -12,23 +12,16 @@ const WORKSPACE_ERROR: Record<WorkspaceRole, string> = {
   BRAND: "Could not continue as brand. Try again.",
 };
 
-/**
- * Ensures the session active workspace matches `role` (e.g. after onboarding gate
- * when the user opened the other hub). Skips the request only when `activeRole`
- * already matches.
- *
- * Returns `true` on skip, on success, or when `user` is missing. Returns `false`
- * on API failure (toast shown).
- */
 export async function ensureWorkspaceSelection(
   queryClient: QueryClient,
   user: AuthUser | null | undefined,
   role: WorkspaceRole,
+  setPrimary?: boolean,
 ): Promise<boolean> {
   if (!user) return true;
   if (user.activeRole === role) return true;
   try {
-    const next = await selectWorkspaceApi(role);
+    const next = await selectWorkspaceApi(role, setPrimary);
     queryClient.setQueryData(authMeQueryKey, next);
     return true;
   } catch {

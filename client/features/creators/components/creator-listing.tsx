@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -238,6 +239,10 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
     listMeta && listMeta.limit > 0
       ? Math.max(1, Math.ceil(listMeta.total / listMeta.limit))
       : null;
+  const desktopFilterRailStyle = {
+    "--creators-filter-top": "6.5rem",
+    "--creators-filter-gap": "1.5rem",
+  } as CSSProperties;
 
   return (
     <div className="w-full min-w-0">
@@ -319,10 +324,11 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
           className={cn(
             "shrink-0 overflow-hidden transition-[width,max-height,opacity] duration-300 ease-out lg:overflow-visible",
             showFilters
-              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:h-fit lg:sticky lg:top-24 lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80 lg:self-start"
+              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:h-fit lg:sticky lg:top-(--creators-filter-top) lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80 lg:self-start"
               : "pointer-events-none max-h-0 w-full opacity-0 lg:max-h-none lg:w-0 lg:min-w-0",
           )}
           aria-hidden={!showFilters}
+          style={desktopFilterRailStyle}
         >
           <div className="h-auto">
             <CreatorFilters

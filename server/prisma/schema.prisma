@@ -173,6 +173,9 @@ model CreatorProfile {
 
 
   @@index([city])
+  @@index([gender])
+  @@index([onLocationAvailable])
+  @@index([createdAt])
 }
 
 model CreatorPortfolioVideo {
@@ -194,6 +197,7 @@ model CreatorPortfolioVideo {
 
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
+  @@index([visibilityStatus, industryLabel])
 }
 
 model CreatorPortfolioVideoTag {

@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PortfolioVisibilityStatus, Prisma, PrismaClient, RoleName } from '@prisma/client';
@@ -15,6 +16,10 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
+import {
+  buildCreatorListRelationsInclude,
+  buildListCreatorsWhere,
+} from './creator-list-filters.util';
 
 const creatorProfileWithRelationsInclude = {
   languages: true,
@@ -60,6 +65,8 @@ type PrismaTransactionClient = Omit<
 
 @Injectable()
 export class CreatorProfileService {
+  private readonly logger = new Logger(CreatorProfileService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly creatorPackageService: CreatorPackageService,
@@ -348,13 +355,23 @@ export class CreatorProfileService {
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
 
+    const where = buildListCreatorsWhere(query);
+    const include = buildCreatorListRelationsInclude(query);
+
+    if (process.env.DEBUG_CREATORS_LIST === '1') {
+      this.logger.debug(
+        `listCreators query=${JSON.stringify(query)} where=${JSON.stringify(where)}`,
+      );
+    }
+
     const [total, items] = await this.prisma.$transaction([
-      this.prisma.creatorProfile.count(),
+      this.prisma.creatorProfile.count({ where }),
       this.prisma.creatorProfile.findMany({
+        where,
         take: limit,
         skip,
         orderBy: { createdAt: 'desc' },
-        include: creatorProfileWithRelationsInclude as any,
+        include: include as any,
       }),
     ]);
 

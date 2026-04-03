@@ -13,6 +13,7 @@ const _client = require("@prisma/client");
 const _prismaservice = require("../prisma/prisma.service");
 const _creatorpackageservice = require("../creator-package/creator-package.service");
 const _storageservice = require("../storage/storage.service");
+const _creatorlistfiltersutil = require("./creator-list-filters.util");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -286,15 +287,23 @@ let CreatorProfileService = class CreatorProfileService {
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
         const skip = (page - 1) * limit;
+        const where = (0, _creatorlistfiltersutil.buildListCreatorsWhere)(query);
+        const include = (0, _creatorlistfiltersutil.buildCreatorListRelationsInclude)(query);
+        if (process.env.DEBUG_CREATORS_LIST === '1') {
+            this.logger.debug(`listCreators query=${JSON.stringify(query)} where=${JSON.stringify(where)}`);
+        }
         const [total, items] = await this.prisma.$transaction([
-            this.prisma.creatorProfile.count(),
+            this.prisma.creatorProfile.count({
+                where
+            }),
             this.prisma.creatorProfile.findMany({
+                where,
                 take: limit,
                 skip,
                 orderBy: {
                     createdAt: 'desc'
                 },
-                include: creatorProfileWithRelationsInclude
+                include: include
             })
         ]);
         return {
@@ -526,6 +535,7 @@ let CreatorProfileService = class CreatorProfileService {
         this.prisma = prisma;
         this.creatorPackageService = creatorPackageService;
         this.storage = storage;
+        this.logger = new _common.Logger(CreatorProfileService.name);
     }
 };
 CreatorProfileService = _ts_decorate([

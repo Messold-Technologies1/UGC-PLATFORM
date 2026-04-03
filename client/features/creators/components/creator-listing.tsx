@@ -31,10 +31,14 @@ import {
 import { deriveCreatorFilterOptions } from "../lib/derive-filter-options";
 import type { Creator } from "../types";
 
+function stringArraysEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
 function filtersEqual(a: Filters, b: Filters): boolean {
   return (
-    a.city === b.city &&
-    a.category === b.category &&
+    stringArraysEqual(a.city, b.city) &&
+    stringArraysEqual(a.category, b.category) &&
     a.gender === b.gender &&
     a.minPrice === b.minPrice &&
     a.maxPrice === b.maxPrice &&
@@ -59,11 +63,13 @@ function applyFilters(
 
   return creators.filter((c) => {
     if (q && !c.name.toLowerCase().includes(q)) return false;
-    if (filters.city !== "All Cities" && c.location !== filters.city)
+    if (filters.city.length > 0 && !filters.city.includes(c.location))
       return false;
-    if (filters.category !== "All") {
+    if (filters.category.length > 0) {
       const cats = c.categories?.length ? c.categories : [c.category];
-      if (!cats.includes(filters.category)) return false;
+      if (!filters.category.some((category) => cats.includes(category))) {
+        return false;
+      }
     }
     if (filters.gender !== "all" && c.gender !== filters.gender) return false;
     if (minP != null && c.startingPrice < minP) return false;
@@ -112,7 +118,12 @@ function EmptyBrowseState({
   filters: Filters;
   searchQuery: string;
 }) {
-  const loc = filters.city !== "All Cities" ? filters.city : "";
+  const loc =
+    filters.city.length > 0
+      ? filters.city.length === 1
+        ? filters.city[0]
+        : `${filters.city[0]} +${filters.city.length - 1}`
+      : "";
   const priceLabel = formatPriceRangeForCopy(filters);
   const q = searchQuery.trim();
   const accent = "font-medium text-foreground";
@@ -213,6 +224,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
   const handleFiltersChange = useCallback(
     (next: Filters) => {
+      listingRef.current.filters = next;
       setFilters(next);
       debouncedPushUrl();
     },
@@ -251,8 +263,8 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   const activeFilterCount = useMemo(
     () =>
       [
-        filters.city !== DEFAULT_FILTERS.city,
-        filters.category !== DEFAULT_FILTERS.category,
+        filters.city.length > 0,
+        filters.category.length > 0,
         filters.gender !== DEFAULT_FILTERS.gender,
         filters.minPrice !== DEFAULT_FILTERS.minPrice ||
           filters.maxPrice !== DEFAULT_FILTERS.maxPrice,
@@ -266,6 +278,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   );
 
   const handleResetFilters = useCallback(() => {
+    listingRef.current.filters = DEFAULT_FILTERS;
     setFilters(DEFAULT_FILTERS);
     syncUrlImmediate(DEFAULT_FILTERS, search);
   }, [search, syncUrlImmediate]);

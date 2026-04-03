@@ -1,15 +1,38 @@
 import type { Filters } from "../components/creator-filters";
 import { DEFAULT_FILTERS } from "../components/creator-filters";
 
+function normalizeMultiValue(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
+  );
+}
+
+function parseMultiValue(
+  sp: Pick<URLSearchParams, "get" | "getAll">,
+  key: string,
+): string[] {
+  const fromAll = normalizeMultiValue(sp.getAll(key));
+  if (fromAll.length > 0) {
+    return fromAll.filter(
+      (value) => value !== "All" && value !== "All Cities",
+    );
+  }
+
+  const singleValue = sp.get(key)?.trim();
+  if (!singleValue) return [];
+  if (singleValue === "All" || singleValue === "All Cities") return [];
+
+  return normalizeMultiValue(singleValue.split(","));
+}
 
 export function parseBrowseListingParams(
-  sp: Pick<URLSearchParams, "get">,
+  sp: Pick<URLSearchParams, "get" | "getAll">,
 ): { filters: Filters; search: string } {
   return {
     search: sp.get("q") ?? "",
     filters: {
-      city: sp.get("city") ?? DEFAULT_FILTERS.city,
-      category: sp.get("category") ?? DEFAULT_FILTERS.category,
+      city: parseMultiValue(sp, "city"),
+      category: parseMultiValue(sp, "category"),
       gender: sp.get("gender") ?? DEFAULT_FILTERS.gender,
       minPrice: sp.get("minPrice") ?? DEFAULT_FILTERS.minPrice,
       maxPrice: sp.get("maxPrice") ?? DEFAULT_FILTERS.maxPrice,
@@ -29,9 +52,12 @@ export function serializeBrowseListingParams(
 ): string {
   const params = new URLSearchParams();
   if (search) params.set("q", search);
-  if (filters.city !== DEFAULT_FILTERS.city) params.set("city", filters.city);
-  if (filters.category !== DEFAULT_FILTERS.category)
-    params.set("category", filters.category);
+  for (const city of normalizeMultiValue(filters.city)) {
+    params.append("city", city);
+  }
+  for (const category of normalizeMultiValue(filters.category)) {
+    params.append("category", category);
+  }
   if (filters.gender !== DEFAULT_FILTERS.gender)
     params.set("gender", filters.gender);
   if (filters.minPrice) params.set("minPrice", filters.minPrice);

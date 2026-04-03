@@ -35,6 +35,23 @@ export class CreatorPackageCreateDto {
   deliveryDays!: number;
 }
 
+export class CreatorAddOnCreateDto {
+  @ApiProperty({ example: 'On-location shoot fee' })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ example: '499.00' })
+  @IsNumberString()
+  priceAmount!: string;
+
+  @ApiPropertyOptional({
+    example: 'Travel and setup for in-store shoots',
+  })
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 export class CreateCreatorProfileDto {
   @ApiProperty({ example: 'Jane Doe' })
   @IsString()
@@ -74,15 +91,6 @@ export class CreateCreatorProfileDto {
   @IsOptional()
   @IsBoolean()
   onLocationAvailable?: boolean;
-
-  @ApiPropertyOptional({
-    example: '499.00',
-    description:
-      'Optional on-location fee. Required only when onLocationAvailable is true (validation handled in service if needed).',
-  })
-  @IsOptional()
-  @IsNumberString()
-  onLocationFee?: string;
 
   @ApiPropertyOptional({ type: [String], example: ['English', 'Hindi'] })
   @IsOptional()
@@ -137,4 +145,20 @@ export class CreateCreatorProfileDto {
   @ValidateNested({ each: true })
   @Type(() => CreatorPackageCreateDto)
   packages?: CreatorPackageCreateDto[];
+
+  @ApiPropertyOptional({
+    type: [CreatorAddOnCreateDto],
+    example: [
+      {
+        name: 'On-location shoot fee',
+        priceAmount: '499.00',
+        description: 'Travel and setup for in-store shoots',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatorAddOnCreateDto)
+  addOns?: CreatorAddOnCreateDto[];
 }

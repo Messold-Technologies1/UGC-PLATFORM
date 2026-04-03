@@ -16,6 +16,7 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
+import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
@@ -27,6 +28,7 @@ const creatorProfileWithRelationsInclude = {
   personaTags: true,
   restrictions: true,
   packages: true,
+  addOns: true,
   portfolioVideos: {
     where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
     orderBy: { createdAt: 'desc' },
@@ -155,12 +157,6 @@ export class CreatorProfileService {
       gender: mapped.gender ?? null,
       travelRadius: mapped.travelRadius ?? null,
       onLocationAvailable: mapped.onLocationAvailable,
-      onLocationFee:
-        mapped.onLocationFee && typeof (mapped.onLocationFee as any)?.toString === 'function'
-          ? (mapped.onLocationFee as any).toString()
-          : mapped.onLocationFee
-            ? String(mapped.onLocationFee)
-            : null,
       languages: (mapped.languages ?? []).map((l) => ({
         id: l.id,
         language: l.language,
@@ -183,6 +179,17 @@ export class CreatorProfileService {
         deliverables: p.deliverables,
         priceAmount: p.priceAmount,
         deliveryDays: p.deliveryDays,
+      })),
+      addOns: (mapped.addOns ?? []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        priceAmount:
+          a.priceAmount && typeof a.priceAmount.toString === 'function'
+            ? a.priceAmount.toString()
+            : a.priceAmount
+              ? String(a.priceAmount)
+              : '0',
+        description: a.description ?? null,
       })),
       firstPortfolioVideo,
     };
@@ -227,11 +234,6 @@ export class CreatorProfileService {
       this.assertTempProfileImageKeyOwner(userId, profileImageKey);
     }
 
-    const onLocationFee =
-      dto.onLocationFee !== undefined && dto.onLocationFee !== null
-        ? new Prisma.Decimal(dto.onLocationFee)
-        : null;
-
     const creatorProfileId = await this.prisma.$transaction(
       async (tx) => {
         const existing = await tx.creatorProfile.findUnique({
@@ -249,7 +251,6 @@ export class CreatorProfileService {
           gender: dto.gender ?? null,
           travelRadius: dto.travelRadius ?? null,
           onLocationAvailable: dto.onLocationAvailable ?? false,
-          onLocationFee,
         } as any;
 
         const creatorProfile = await tx.creatorProfile.create({ data: createData });
@@ -312,6 +313,19 @@ export class CreatorProfileService {
               creatorProfile.id,
               dto.packages,
             ),
+          );
+        }
+
+        if (dto.addOns?.length) {
+          ops.push(
+            (tx as any).creatorAddOn.createMany({
+              data: dto.addOns.map((addOn) => ({
+                creatorId: creatorProfile.id,
+                name: addOn.name,
+                priceAmount: new Prisma.Decimal(addOn.priceAmount),
+                description: addOn.description ?? null,
+              })),
+            }),
           );
         }
 
@@ -461,12 +475,6 @@ export class CreatorProfileService {
             gender: dto.gender ?? undefined,
             travelRadius: dto.travelRadius ?? undefined,
             onLocationAvailable: dto.onLocationAvailable ?? undefined,
-            onLocationFee:
-              dto.onLocationFee !== undefined
-                ? dto.onLocationFee
-                  ? new Prisma.Decimal(dto.onLocationFee)
-                  : null
-                : undefined,
           } as any,
         });
 
@@ -543,6 +551,74 @@ export class CreatorProfileService {
             creatorProfileId,
             dto.packages,
           );
+        }
+
+        const updated = await tx.creatorProfile.findUnique({
+          where: { id: creatorProfileId },
+          include: creatorProfileWithRelationsInclude as any,
+        });
+
+        if (!updated) {
+          throw new Error('Creator profile update failed');
+        }
+
+        return this.mapCreatorProfileResponseDto(updated);
+      },
+      { timeout: 30_000, maxWait: 10_000 },
+    );
+  }
+
+  async addOrUpdateAddOns(
+    actingUserId: string,
+    creatorProfileId: string,
+    dto: AddCreatorAddOnsDto,
+  ): Promise<CreatorProfileResponseDto> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const profile = await tx.creatorProfile.findUnique({
+          where: { id: creatorProfileId },
+        });
+
+        if (!profile) {
+          throw new NotFoundException('Creator not found');
+        }
+
+        const allowed =
+          profile.userId === actingUserId ||
+          (await this.isAdmin(actingUserId, tx));
+        if (!allowed) {
+          throw new ForbiddenException(
+            'Not allowed to update this creator profile',
+          );
+        }
+
+        const payload = dto.addOns ?? [];
+        if (payload.length > 0) {
+          const names = Array.from(
+            new Set(
+              payload
+                .map((a) => a.name.trim())
+                .filter((name) => name.length > 0),
+            ),
+          );
+
+          if (names.length > 0) {
+            await (tx as any).creatorAddOn.deleteMany({
+              where: {
+                creatorId: creatorProfileId,
+                name: { in: names },
+              },
+            });
+
+            await (tx as any).creatorAddOn.createMany({
+              data: payload.map((addOn) => ({
+                creatorId: creatorProfileId,
+                name: addOn.name.trim(),
+                priceAmount: new Prisma.Decimal(addOn.priceAmount),
+                description: addOn.description ?? null,
+              })),
+            });
+          }
         }
 
         const updated = await tx.creatorProfile.findUnique({

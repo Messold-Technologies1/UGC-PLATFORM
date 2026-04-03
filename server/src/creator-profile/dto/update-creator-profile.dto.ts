@@ -5,13 +5,15 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
-  IsNumberString,
   IsOptional,
   IsString,
   Min,
   ValidateNested,
 } from 'class-validator';
-import { CreatorPackageCreateDto } from './create-creator-profile.dto';
+import {
+  CreatorAddOnCreateDto,
+  CreatorPackageCreateDto,
+} from './create-creator-profile.dto';
 
 export class UpdateCreatorProfileDto {
   @ApiPropertyOptional({ example: 'Jane Doe' })
@@ -53,11 +55,6 @@ export class UpdateCreatorProfileDto {
   @IsOptional()
   @IsBoolean()
   onLocationAvailable?: boolean;
-
-  @ApiPropertyOptional({ example: '499.00' })
-  @IsOptional()
-  @IsNumberString()
-  onLocationFee?: string;
 
   @ApiPropertyOptional({ type: [String], example: ['English', 'Hindi'] })
   @IsOptional()
@@ -102,4 +99,11 @@ export class UpdateCreatorProfileDto {
   @ValidateNested({ each: true })
   @Type(() => CreatorPackageCreateDto)
   packages?: CreatorPackageCreateDto[];
+
+  @ApiPropertyOptional({ type: [CreatorAddOnCreateDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatorAddOnCreateDto)
+  addOns?: CreatorAddOnCreateDto[];
 }

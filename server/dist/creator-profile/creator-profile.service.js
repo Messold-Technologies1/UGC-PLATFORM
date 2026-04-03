@@ -30,6 +30,7 @@ const creatorProfileWithRelationsInclude = {
     restrictions: true,
     packages: true,
     addOns: true,
+    creatorApproval: true,
     portfolioVideos: {
         where: {
             visibilityStatus: _client.PortfolioVisibilityStatus.PUBLIC
@@ -118,6 +119,8 @@ let CreatorProfileService = class CreatorProfileService {
             gender: mapped.gender ?? null,
             travelRadius: mapped.travelRadius ?? null,
             onLocationAvailable: mapped.onLocationAvailable,
+            approvalStatus: mapped.creatorApproval?.status,
+            rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
             languages: (mapped.languages ?? []).map((l)=>({
                     id: l.id,
                     language: l.language
@@ -149,6 +152,9 @@ let CreatorProfileService = class CreatorProfileService {
                 })),
             firstPortfolioVideo
         };
+    }
+    async isAdminUser(userId) {
+        return this.isAdmin(userId, this.prisma);
     }
     async isAdmin(userId, tx) {
         const user = await tx.user.findUnique({
@@ -200,17 +206,19 @@ let CreatorProfileService = class CreatorProfileService {
             if (existing) {
                 throw new _common.ConflictException('Creator profile already exists');
             }
-            const createData = {
-                userId,
-                displayName: dto.displayName,
-                city: dto.city ?? null,
-                bio: dto.bio ?? null,
-                gender: dto.gender ?? null,
-                travelRadius: dto.travelRadius ?? null,
-                onLocationAvailable: dto.onLocationAvailable ?? false
-            };
             const creatorProfile = await tx.creatorProfile.create({
-                data: createData
+                data: {
+                    userId,
+                    displayName: dto.displayName,
+                    city: dto.city ?? null,
+                    bio: dto.bio ?? null,
+                    gender: dto.gender ?? null,
+                    travelRadius: dto.travelRadius ?? null,
+                    onLocationAvailable: dto.onLocationAvailable ?? false,
+                    creatorApproval: {
+                        create: {}
+                    }
+                }
             });
             // Independent writes: can be done in parallel once we have creatorProfile.id.
             const ops = [];
@@ -301,7 +309,9 @@ let CreatorProfileService = class CreatorProfileService {
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
         const skip = (page - 1) * limit;
-        const where = (0, _creatorlistfiltersutil.buildListCreatorsWhere)(query);
+        const where = (0, _creatorlistfiltersutil.buildListCreatorsWhere)(query, {
+            requireApproved: true
+        });
         const include = (0, _creatorlistfiltersutil.buildCreatorListRelationsInclude)(query);
         if (process.env.DEBUG_CREATORS_LIST === '1') {
             this.logger.debug(`listCreators query=${JSON.stringify(query)} where=${JSON.stringify(where)}`);
@@ -327,7 +337,7 @@ let CreatorProfileService = class CreatorProfileService {
             limit
         };
     }
-    async getCreatorById(id) {
+    async getCreatorById(viewerUserId, id) {
         const profile = await this.prisma.creatorProfile.findUnique({
             where: {
                 id
@@ -337,7 +347,126 @@ let CreatorProfileService = class CreatorProfileService {
         if (!profile) {
             throw new _common.NotFoundException('Creator not found');
         }
+        const approval = profile.creatorApproval;
+        const status = approval?.status;
+        const isApproved = status === _client.ApprovalStatus.APPROVED;
+        const isOwner = profile.userId === viewerUserId;
+        const admin = await this.isAdminUser(viewerUserId);
+        if (!isApproved && !isOwner && !admin) {
+            throw new _common.NotFoundException('Creator not found');
+        }
         return this.mapCreatorProfileResponseDto(profile);
+    }
+    async listPendingCreatorApprovals(query) {
+        const page = query.page ?? 1;
+        const limit = Math.min(query.limit ?? 20, 50);
+        const skip = (page - 1) * limit;
+        const where = {
+            creatorApproval: {
+                status: _client.ApprovalStatus.PENDING
+            }
+        };
+        const [total, items] = await this.prisma.$transaction([
+            this.prisma.creatorProfile.count({
+                where
+            }),
+            this.prisma.creatorProfile.findMany({
+                where,
+                take: limit,
+                skip,
+                orderBy: {
+                    createdAt: 'asc'
+                },
+                include: creatorProfileWithRelationsInclude
+            })
+        ]);
+        return {
+            items: items.map((p)=>this.mapCreatorProfileResponseDto(p)),
+            total,
+            page,
+            limit
+        };
+    }
+    async approveCreatorProfile(adminUserId, creatorProfileId) {
+        const profile = await this.prisma.creatorProfile.findUnique({
+            where: {
+                id: creatorProfileId
+            },
+            select: {
+                id: true
+            }
+        });
+        if (!profile) {
+            throw new _common.NotFoundException('Creator not found');
+        }
+        await this.prisma.creatorApproval.upsert({
+            where: {
+                creatorId: creatorProfileId
+            },
+            create: {
+                creatorId: creatorProfileId,
+                status: _client.ApprovalStatus.APPROVED,
+                approvedById: adminUserId,
+                approvedAt: new Date()
+            },
+            update: {
+                status: _client.ApprovalStatus.APPROVED,
+                approvedById: adminUserId,
+                approvedAt: new Date(),
+                rejectionReason: null
+            }
+        });
+        const updated = await this.prisma.creatorProfile.findUnique({
+            where: {
+                id: creatorProfileId
+            },
+            include: creatorProfileWithRelationsInclude
+        });
+        if (!updated) {
+            throw new Error('Creator profile load failed');
+        }
+        return this.mapCreatorProfileResponseDto(updated);
+    }
+    async rejectCreatorProfile(adminUserId, creatorProfileId, rejectionReason) {
+        const profile = await this.prisma.creatorProfile.findUnique({
+            where: {
+                id: creatorProfileId
+            },
+            select: {
+                id: true
+            }
+        });
+        if (!profile) {
+            throw new _common.NotFoundException('Creator not found');
+        }
+        await this.prisma.creatorApproval.upsert({
+            where: {
+                creatorId: creatorProfileId
+            },
+            create: {
+                creatorId: creatorProfileId,
+                status: _client.ApprovalStatus.REJECTED,
+                approvedById: adminUserId,
+                approvedAt: new Date(),
+                rejectionReason: rejectionReason?.trim() || null
+            },
+            update: {
+                status: _client.ApprovalStatus.REJECTED,
+                approvedById: adminUserId,
+                approvedAt: new Date(),
+                rejectionReason: rejectionReason?.trim() || null
+            }
+        });
+        const updated = await this.prisma.creatorProfile.findUnique({
+            where: {
+                id: creatorProfileId
+            },
+            include: creatorProfileWithRelationsInclude
+        });
+        if (!updated) {
+            throw new Error('Creator profile load failed');
+        }
+        return this.mapCreatorProfileResponseDto(updated);
     }
     async getCreatorProfileForCurrentUser(userId) {
         const profile = await this.prisma.creatorProfile.findUnique({
@@ -468,6 +597,23 @@ let CreatorProfileService = class CreatorProfileService {
                     }
                 });
                 await this.creatorPackageService.createPackages(tx, creatorProfileId, dto.packages);
+            }
+            if (dto.addOns !== undefined) {
+                await tx.creatorAddOn.deleteMany({
+                    where: {
+                        creatorId: creatorProfileId
+                    }
+                });
+                if (dto.addOns.length > 0) {
+                    await tx.creatorAddOn.createMany({
+                        data: dto.addOns.map((addOn)=>({
+                                creatorId: creatorProfileId,
+                                name: addOn.name,
+                                priceAmount: new _client.Prisma.Decimal(addOn.priceAmount),
+                                description: addOn.description ?? null
+                            }))
+                    });
+                }
             }
             const updated = await tx.creatorProfile.findUnique({
                 where: {

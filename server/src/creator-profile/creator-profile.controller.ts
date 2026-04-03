@@ -128,15 +128,17 @@ export class CreatorProfileController {
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async getCreator(
     @Param('id', ParseUUIDPipe) id: string,
+    @Req()
+    req: Request & { user: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.getCreatorById(id);
+    return this.creatorProfileService.getCreatorById(req.user.id, id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary:
-      'Update creator profile (replace languages/categories/persona/restrictions/packages if provided)',
+      'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)',
   })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async updateCreator(

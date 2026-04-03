@@ -1,4 +1,8 @@
-import { PortfolioVisibilityStatus, Prisma } from '@prisma/client';
+import {
+  ApprovalStatus,
+  PortfolioVisibilityStatus,
+  Prisma,
+} from '@prisma/client';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 
 const PUBLIC = PortfolioVisibilityStatus.PUBLIC;
@@ -101,13 +105,26 @@ export function buildPortfolioVideoMatchWhere(
   return { AND: parts };
 }
 
+export type BuildListCreatorsWhereOptions = {
+  /** When true (default), only creators with APPROVED approval appear in discovery lists. */
+  requireApproved?: boolean;
+};
+
 /**
  * `where` for listing creators: AND of optional profile + portfolio predicates.
  */
 export function buildListCreatorsWhere(
   query: ListCreatorsQueryDto,
+  options?: BuildListCreatorsWhereOptions,
 ): Prisma.CreatorProfileWhereInput {
+  const requireApproved = options?.requireApproved ?? true;
   const clauses: Prisma.CreatorProfileWhereInput[] = [];
+
+  if (requireApproved) {
+    clauses.push({
+      creatorApproval: { status: ApprovalStatus.APPROVED },
+    });
+  }
 
   const city = query.city?.trim();
   if (city) {
@@ -232,6 +249,7 @@ export function buildCreatorListRelationsInclude(
     personaTags: true,
     restrictions: true,
     packages: true,
+    creatorApproval: true,
     portfolioVideos: {
       where: baseWhere,
       orderBy: { createdAt: 'desc' },

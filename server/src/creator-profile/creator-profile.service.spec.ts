@@ -1,5 +1,5 @@
-import { ConflictException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -42,6 +42,7 @@ interface TxMock {
   };
   user: {
     update: TxAsyncMock;
+    findUnique: TxAsyncMock;
   };
   userRole: {
     upsert: TxAsyncMock;
@@ -81,6 +82,7 @@ describe('CreatorProfileService', () => {
     },
     user: {
       update: createTxAsyncMock(),
+      findUnique: createTxAsyncMock(),
     },
     userRole: {
       upsert: createTxAsyncMock(),
@@ -102,7 +104,10 @@ describe('CreatorProfileService', () => {
     creatorRestriction: txMock.creatorRestriction,
     creatorAddOn: txMock.creatorAddOn,
     role: txMock.role,
-    user: txMock.user,
+    user: {
+      update: txMock.user.update,
+      findUnique: txMock.user.findUnique,
+    },
     userRole: txMock.userRole,
     creatorPackage: txMock.creatorPackage,
   };
@@ -142,6 +147,11 @@ describe('CreatorProfileService', () => {
     txMock.creatorAddOn.deleteMany.mockReset();
     txMock.role.findUnique.mockReset();
     txMock.user.update.mockReset();
+    txMock.user.findUnique.mockReset();
+    txMock.user.findUnique.mockResolvedValue({
+      primaryRole: null,
+      userRoles: [],
+    });
     txMock.userRole.upsert.mockReset();
     txMock.creatorPackage.createMany.mockReset();
     creatorPackageService.createPackages.mockReset();
@@ -283,5 +293,71 @@ describe('CreatorProfileService', () => {
     });
     expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
     expect(result.id).toBe(profileId);
+  });
+
+  describe('getCreatorById', () => {
+    const minimalProfile = (overrides: Record<string, unknown> = {}) => ({
+      id: 'profile-1',
+      userId: 'owner-user',
+      displayName: 'Jane',
+      profileImageUrl: null,
+      city: null,
+      bio: null,
+      gender: null,
+      travelRadius: null,
+      onLocationAvailable: false,
+      languages: [],
+      categories: [],
+      personaTags: [],
+      restrictions: [],
+      packages: [],
+      addOns: [],
+      portfolioVideos: [],
+      ...overrides,
+    });
+
+    it('throws NotFound when pending and viewer is not owner or admin', async () => {
+      (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce(
+        minimalProfile({
+          creatorApproval: {
+            status: ApprovalStatus.PENDING,
+            rejectionReason: null,
+          },
+        }),
+      );
+
+      await expect(
+        service.getCreatorById('stranger-user', 'profile-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns profile when pending but viewer is owner', async () => {
+      (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce(
+        minimalProfile({
+          userId: creatorId,
+          creatorApproval: {
+            status: ApprovalStatus.PENDING,
+            rejectionReason: null,
+          },
+        }),
+      );
+
+      const result = await service.getCreatorById(creatorId, 'profile-1');
+      expect(result.id).toBe('profile-1');
+    });
+
+    it('returns profile when APPROVED for any viewer', async () => {
+      (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce(
+        minimalProfile({
+          creatorApproval: {
+            status: ApprovalStatus.APPROVED,
+            rejectionReason: null,
+          },
+        }),
+      );
+
+      const result = await service.getCreatorById('stranger-user', 'profile-1');
+      expect(result.id).toBe('profile-1');
+    });
   });
 });

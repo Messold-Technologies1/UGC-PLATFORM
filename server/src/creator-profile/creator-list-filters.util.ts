@@ -178,6 +178,25 @@ export function buildListCreatorsWhere(
     });
   }
 
+  const minPrice = query.minPrice;
+  const maxPrice = query.maxPrice;
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const priceAmount: Prisma.DecimalFilter = {};
+    if (minPrice !== undefined) {
+      priceAmount.gte = minPrice;
+    }
+    if (maxPrice !== undefined) {
+      priceAmount.lte = maxPrice;
+    }
+    clauses.push({
+      packages: {
+        some: {
+          priceAmount,
+        },
+      },
+    });
+  }
+
   if (clauses.length === 0) return {};
   if (clauses.length === 1) {
     const only = clauses[0];

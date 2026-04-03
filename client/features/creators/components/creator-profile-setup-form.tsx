@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
@@ -28,9 +27,9 @@ import {
 } from "@/features/creators/components/creator-profile-package-fields";
 import { getInitials } from "@/lib/account-user";
 import {
+  appendUniqueCommaSeparatedItem,
   splitCommaSeparatedList,
   splitMultilineList,
-  toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -79,6 +78,27 @@ function isCompletedPackageDraft(row: PackageDraft): boolean {
   return !!name && !!price && !Number.isNaN(days) && days >= 0;
 }
 
+function removeCommaSeparatedItem(current: string, item: string): string {
+  const target = item.trim().toLowerCase();
+  if (!target) return current;
+
+  return splitCommaSeparatedList(current)
+    .filter((value) => value.toLowerCase() !== target)
+    .join(", ");
+}
+
+function buildUniqueOptionList(
+  suggestions: { name: string }[] | undefined,
+  selected: string[],
+): string[] {
+  return [
+    ...new Set([...(suggestions ?? []).map((item) => item.name), ...selected]),
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
 export type CreatorProfileSetupFormProps = {
   variant: "onboarding" | "settings";
   mode: "create" | "update";
@@ -123,6 +143,8 @@ export function CreatorProfileSetupForm({
   const [categoriesInput, setCategoriesInput] = useState("");
   const [personaTagsInput, setPersonaTagsInput] = useState("");
   const [restrictionsInput, setRestrictionsInput] = useState("");
+  const [personaTagDraft, setPersonaTagDraft] = useState("");
+  const [restrictionDraft, setRestrictionDraft] = useState("");
   const selectedPersonaTags = useMemo(
     () => splitCommaSeparatedList(personaTagsInput),
     [personaTagsInput],
@@ -145,6 +167,23 @@ export function CreatorProfileSetupForm({
     string | null
   >(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const personaTagOptions = useMemo(
+    () =>
+      buildUniqueOptionList(
+        personaTagSuggestionsQuery.data,
+        selectedPersonaTags,
+      ),
+    [personaTagSuggestionsQuery.data, selectedPersonaTags],
+  );
+  const restrictionOptions = useMemo(
+    () =>
+      buildUniqueOptionList(
+        restrictionSuggestionsQuery.data,
+        selectedRestrictions,
+      ),
+    [restrictionSuggestionsQuery.data, selectedRestrictions],
+  );
 
   const updatePackageDraft = useCallback(
     (id: string, patch: Partial<Omit<PackageDraft, "id">>) => {
@@ -201,6 +240,8 @@ export function CreatorProfileSetupForm({
           .map((r) => r.restriction)
           .join(", "),
       );
+      setPersonaTagDraft("");
+      setRestrictionDraft("");
       setOnLocationAvailable(initialProfile.onLocationAvailable ?? false);
       setOnLocationFee(
         initialProfile.onLocationFee != null &&
@@ -233,6 +274,8 @@ export function CreatorProfileSetupForm({
     setCategoriesInput("");
     setPersonaTagsInput("");
     setRestrictionsInput("");
+    setPersonaTagDraft("");
+    setRestrictionDraft("");
     setOnLocationAvailable(false);
     setOnLocationFee("");
     const name = user.name?.trim() || user.email.split("@")[0] || "";
@@ -297,6 +340,30 @@ export function CreatorProfileSetupForm({
       setImagePreviewUrl(null);
     }
   }, [mode, initialProfile]);
+
+  const addPersonaTag = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setPersonaTagsInput((prev) =>
+      appendUniqueCommaSeparatedItem(prev, trimmed),
+    );
+  }, []);
+
+  const removePersonaTag = useCallback((value: string) => {
+    setPersonaTagsInput((prev) => removeCommaSeparatedItem(prev, value));
+  }, []);
+
+  const addRestriction = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setRestrictionsInput((prev) =>
+      appendUniqueCommaSeparatedItem(prev, trimmed),
+    );
+  }, []);
+
+  const removeRestriction = useCallback((value: string) => {
+    setRestrictionsInput((prev) => removeCommaSeparatedItem(prev, value));
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -620,19 +687,6 @@ export function CreatorProfileSetupForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="travelRadius">Travel radius (km)</Label>
-            <Input
-              id="travelRadius"
-              type="number"
-              min={0}
-              className={inputClass}
-              value={travelRadius}
-              onChange={(e) => setTravelRadius(e.target.value)}
-              placeholder="0 if none"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="languages">Languages</Label>
             <Input
               id="languages"
@@ -657,56 +711,40 @@ export function CreatorProfileSetupForm({
 
         <div className="space-y-2">
           <Label htmlFor="personaTags">Persona tags</Label>
-          <Input
-            id="personaTags"
-            className={inputClass}
-            value={personaTagsInput}
-            onChange={(e) => setPersonaTagsInput(e.target.value)}
-            placeholder="Comma-separated, e.g. Friendly, Clean aesthetic"
+          <MultiValueAddField
+            selectId="personaTags"
+            inputPlaceholder="Type to search or add a persona tag"
+            selectValue={personaTagDraft}
+            options={personaTagOptions}
+            helperText="Pick from suggestions or add a custom persona tag."
+            emptyState="No persona tags added yet."
+            selectedValues={selectedPersonaTags}
+            onSelectValueChange={setPersonaTagDraft}
+            onSelectOption={(value) => {
+              addPersonaTag(value);
+              setPersonaTagDraft("");
+            }}
+            onRemoveValue={removePersonaTag}
           />
-          {personaTagSuggestionsQuery.isSuccess &&
-          personaTagSuggestionsQuery.data.length > 0 ? (
-            <SuggestionChips
-              items={personaTagSuggestionsQuery.data.map((suggestion) => ({
-                key: suggestion.id,
-                label: suggestion.name,
-                ariaLabel: `Add ${suggestion.name} to persona tags`,
-              }))}
-              selectedLabels={selectedPersonaTags}
-              onSelect={(name) =>
-                setPersonaTagsInput((prev) =>
-                  toggleCommaSeparatedItem(prev, name),
-                )
-              }
-            />
-          ) : null}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="restrictions">Content restrictions</Label>
-          <Input
-            id="restrictions"
-            className={inputClass}
-            value={restrictionsInput}
-            onChange={(e) => setRestrictionsInput(e.target.value)}
-            placeholder="Comma-separated, e.g. does not accept alcohol"
+          <MultiValueAddField
+            selectId="restrictions"
+            inputPlaceholder="Type to search or add a restriction"
+            selectValue={restrictionDraft}
+            options={restrictionOptions}
+            helperText="Pick from suggestions or add a custom content restriction."
+            emptyState="No content restrictions added yet."
+            selectedValues={selectedRestrictions}
+            onSelectValueChange={setRestrictionDraft}
+            onSelectOption={(value) => {
+              addRestriction(value);
+              setRestrictionDraft("");
+            }}
+            onRemoveValue={removeRestriction}
           />
-          {restrictionSuggestionsQuery.isSuccess &&
-          restrictionSuggestionsQuery.data.length > 0 ? (
-            <SuggestionChips
-              items={restrictionSuggestionsQuery.data.map((suggestion) => ({
-                key: suggestion.id,
-                label: suggestion.name,
-                ariaLabel: `Add ${suggestion.name} to content restrictions`,
-              }))}
-              selectedLabels={selectedRestrictions}
-              onSelect={(name) =>
-                setRestrictionsInput((prev) =>
-                  toggleCommaSeparatedItem(prev, name),
-                )
-              }
-            />
-          ) : null}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -727,16 +765,30 @@ export function CreatorProfileSetupForm({
           </div>
 
           {onLocationAvailable ? (
-            <div className="space-y-2">
-              <Label htmlFor="onLocationFee">On-location fee</Label>
-              <Input
-                id="onLocationFee"
-                className={inputClass}
-                value={onLocationFee}
-                onChange={(e) => setOnLocationFee(e.target.value)}
-                placeholder="499.00"
-                inputMode="decimal"
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="onLocationFee">On-location fee</Label>
+                <Input
+                  id="onLocationFee"
+                  className={inputClass}
+                  value={onLocationFee}
+                  onChange={(e) => setOnLocationFee(e.target.value)}
+                  placeholder="499.00"
+                  inputMode="decimal"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="travelRadius">Travel radius (km)</Label>
+                <Input
+                  id="travelRadius"
+                  type="number"
+                  min={0}
+                  className={inputClass}
+                  value={travelRadius}
+                  onChange={(e) => setTravelRadius(e.target.value)}
+                  placeholder="0 if none"
+                />
+              </div>
             </div>
           ) : null}
         </div>
@@ -765,5 +817,197 @@ export function CreatorProfileSetupForm({
             : "Create profile"}
       </Button>
     </form>
+  );
+}
+
+function MultiValueAddField({
+  selectId,
+  inputPlaceholder,
+  selectValue,
+  options,
+  helperText,
+  emptyState,
+  selectedValues,
+  onSelectValueChange,
+  onSelectOption,
+  onRemoveValue,
+}: {
+  selectId: string;
+  inputPlaceholder: string;
+  selectValue: string;
+  options: string[];
+  helperText: string;
+  emptyState: string;
+  selectedValues: string[];
+  onSelectValueChange: (value: string) => void;
+  onSelectOption: (value: string) => void;
+  onRemoveValue: (value: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocusedWithin, setIsFocusedWithin] = useState(false);
+  const normalizedDraft = selectValue.trim();
+  const filteredOptions = useMemo(() => {
+    const query = normalizedDraft.toLowerCase();
+    if (!query) return options;
+    return options.filter((option) => option.toLowerCase().includes(query));
+  }, [normalizedDraft, options]);
+  const normalizedSelectedValues = useMemo(
+    () => new Set(selectedValues.map((value) => value.trim().toLowerCase())),
+    [selectedValues],
+  );
+
+  const showAddOption =
+    normalizedDraft.length > 0 &&
+    !options.some(
+      (option) => option.toLowerCase() === normalizedDraft.toLowerCase(),
+    );
+  const open = isHovered || isFocusedWithin;
+
+  const clearCloseTimeout = useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleHoverClose = useCallback(() => {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+      closeTimeoutRef.current = null;
+    }, 140);
+  }, [clearCloseTimeout]);
+
+  useEffect(() => {
+    return () => clearCloseTimeout();
+  }, [clearCloseTimeout]);
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border/70 bg-muted/15 p-3">
+      <p className="text-xs text-muted-foreground">{helperText}</p>
+
+      <div
+        ref={containerRef}
+        className="relative"
+        onMouseEnter={() => {
+          clearCloseTimeout();
+          setIsHovered(true);
+        }}
+        onMouseLeave={scheduleHoverClose}
+        onFocusCapture={() => setIsFocusedWithin(true)}
+        onBlurCapture={(e) => {
+          const nextFocused = e.relatedTarget;
+          if (
+            nextFocused instanceof Node &&
+            containerRef.current?.contains(nextFocused)
+          ) {
+            return;
+          }
+          setIsFocusedWithin(false);
+        }}
+      >
+        <Input
+          id={selectId}
+          value={selectValue}
+          onChange={(e) => {
+            onSelectValueChange(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && showAddOption) {
+              e.preventDefault();
+              onSelectOption(normalizedDraft);
+              return;
+            }
+            if (e.key === "Escape") {
+              setIsFocusedWithin(false);
+              setIsHovered(false);
+              (
+                e.currentTarget as HTMLInputElement | HTMLTextAreaElement
+              ).blur();
+            }
+          }}
+          placeholder={inputPlaceholder}
+          className="h-9 text-sm"
+        />
+        {open ? (
+          <div
+            className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-xl border border-border bg-popover p-3 shadow-lg"
+            onMouseEnter={() => {
+              clearCloseTimeout();
+              setIsHovered(true);
+            }}
+            onMouseLeave={scheduleHoverClose}
+          >
+            <div className="flex flex-wrap gap-2">
+              {showAddOption ? (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onSelectOption(normalizedDraft);
+                  }}
+                  className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
+                >
+                  Add "{normalizedDraft}"
+                </button>
+              ) : null}
+              {filteredOptions.map((option) => {
+                const isSelected = normalizedSelectedValues.has(
+                  option.trim().toLowerCase(),
+                );
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      if (isSelected) {
+                        onRemoveValue(option);
+                        return;
+                      }
+                      onSelectOption(option);
+                    }}
+                    aria-pressed={isSelected}
+                    className={
+                      isSelected
+                        ? "inline-flex items-center rounded-full border border-primary/35 bg-primary/12 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
+                        : "inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/25 hover:bg-accent/70"
+                    }
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+            {!showAddOption && filteredOptions.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                No matching options.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {selectedValues.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {selectedValues.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onRemoveValue(value)}
+              aria-label={`Remove ${value}`}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/12"
+            >
+              <span>{value}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">{emptyState}</p>
+      )}
+    </div>
   );
 }

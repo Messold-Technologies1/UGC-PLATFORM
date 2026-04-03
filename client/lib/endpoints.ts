@@ -14,6 +14,7 @@ export const ENDPOINTS = {
     PROFILE: "/api/creators/profile",
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
+    SUGGESTIONS_CATEGORIES: "/api/creators/suggestions/categories",
     SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
     SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
   },
@@ -36,7 +37,6 @@ export function creatorPortfolioVideoPath(id: string): string {
   return `/api/creator-portfolio/videos/${encodeURIComponent(id)}`;
 }
 
-/** GET public portfolio videos for a creator (brand / profile view). */
 export function creatorPortfolioPublicVideosPath(creatorId: string): string {
   return `/api/creator-portfolio/creators/${encodeURIComponent(creatorId)}/videos`;
 }

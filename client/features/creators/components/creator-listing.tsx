@@ -2,19 +2,23 @@
 
 import {
   type CSSProperties,
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  startTransition,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SlidersHorizontal, Search, Users } from "lucide-react";
+import { Search, SlidersHorizontal, Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreatorCard } from "./creator-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDebouncedCallback } from "@/hooks/use-debounce";
+import { cn } from "@/lib/utils";
+import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import {
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
@@ -22,14 +26,17 @@ import {
   DEFAULT_FILTERS,
   type Filters,
 } from "./creator-filters";
-import { useDebouncedCallback } from "@/hooks/use-debounce";
-import { cn } from "@/lib/utils";
 import {
   parseBrowseListingParams,
   serializeBrowseListingParams,
 } from "../lib/browse-listing-url";
 import { deriveCreatorFilterOptions } from "../lib/derive-filter-options";
-import type { Creator } from "../types";
+import {
+  useCreatorsListQuery,
+  type CreatorsListResult,
+} from "../hooks/use-creators-list-query";
+
+const BROWSE_LIST_LIMIT = 50;
 
 function stringArraysEqual(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
@@ -37,78 +44,43 @@ function stringArraysEqual(a: string[], b: string[]): boolean {
 
 function filtersEqual(a: Filters, b: Filters): boolean {
   return (
-    stringArraysEqual(a.city, b.city) &&
-    stringArraysEqual(a.category, b.category) &&
+    a.city === b.city &&
+    stringArraysEqual(a.categories, b.categories) &&
     a.gender === b.gender &&
     a.minPrice === b.minPrice &&
     a.maxPrice === b.maxPrice &&
-    a.minRating === b.minRating &&
-    a.travelAvailable === b.travelAvailable &&
-    a.storeVisit === b.storeVisit &&
-    a.industryLabel === b.industryLabel &&
-    a.tags === b.tags
+    a.onLocationAvailable === b.onLocationAvailable &&
+    a.industry === b.industry &&
+    a.portfolioTag === b.portfolioTag &&
+    stringArraysEqual(a.personaTags, b.personaTags) &&
+    stringArraysEqual(a.restrictions, b.restrictions)
   );
 }
 
-function applyFilters(
-  creators: Creator[],
-  filters: Filters,
-  search: string,
-): Creator[] {
-  if (creators.length === 0) return creators;
-  const q = search.trim().toLowerCase();
-  const minP = filters.minPrice ? Number(filters.minPrice) : null;
-  const maxP = filters.maxPrice ? Number(filters.maxPrice) : null;
-  const minR = filters.minRating ? Number(filters.minRating) : null;
+function applySearch(creators: CreatorsListResult["creators"], search: string) {
+  const query = search.trim().toLowerCase();
+  if (!query) return creators;
 
-  return creators.filter((c) => {
-    if (q && !c.name.toLowerCase().includes(q)) return false;
-    if (filters.city.length > 0 && !filters.city.includes(c.location))
-      return false;
-    if (filters.category.length > 0) {
-      const cats = c.categories?.length ? c.categories : [c.category];
-      if (!filters.category.some((category) => cats.includes(category))) {
-        return false;
-      }
-    }
-    if (filters.gender !== "all" && c.gender !== filters.gender) return false;
-    if (minP != null && c.startingPrice < minP) return false;
-    if (maxP != null && c.startingPrice > maxP) return false;
-    if (minR != null && c.rating < minR) return false;
-    if (filters.travelAvailable && !c.travelAvailable) return false;
-    if (filters.storeVisit && !c.storeVisit) return false;
-    if (filters.industryLabel) {
-      const creatorIndustry = c.industryLabel?.trim().toLowerCase() ?? "";
-      const filterIndustry = filters.industryLabel.trim().toLowerCase();
-      if (!creatorIndustry || !creatorIndustry.includes(filterIndustry)) {
-        return false;
-      }
-    }
-    if (filters.tags) {
-      const searchTags = filters.tags
-        .toLowerCase()
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-      if (searchTags.length > 0) {
-        const cTags = (c.tags || []).map((t) => t.toLowerCase());
-        const hasMatch = searchTags.some((st) =>
-          cTags.some((ct) => ct.includes(st)),
-        );
-        if (!hasMatch) return false;
-      }
-    }
-    return true;
+  return creators.filter((creator) => {
+    const haystacks = [
+      creator.name,
+      creator.location,
+      creator.industryLabel ?? "",
+      ...(creator.categories ?? []),
+      ...(creator.tags ?? []),
+    ];
+
+    return haystacks.some((value) => value.toLowerCase().includes(query));
   });
 }
 
-function formatPriceRangeForCopy(f: Filters): string | null {
-  if (!f.minPrice && !f.maxPrice) return null;
-  const min = f.minPrice ? Number(f.minPrice) : CREATOR_PRICE_MIN;
-  const max = f.maxPrice ? Number(f.maxPrice) : CREATOR_PRICE_MAX;
+function formatPriceRangeForCopy(filters: Filters): string | null {
+  if (!filters.minPrice && !filters.maxPrice) return null;
+  const min = filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN;
+  const max = filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX;
   const maxLabel =
     max >= CREATOR_PRICE_MAX ? "₹10,000+" : `₹${max.toLocaleString("en-IN")}`;
-  return `₹${min.toLocaleString("en-IN")} – ${maxLabel}`;
+  return `₹${min.toLocaleString("en-IN")} - ${maxLabel}`;
 }
 
 function EmptyBrowseState({
@@ -118,14 +90,9 @@ function EmptyBrowseState({
   filters: Filters;
   searchQuery: string;
 }) {
-  const loc =
-    filters.city.length > 0
-      ? filters.city.length === 1
-        ? filters.city[0]
-        : `${filters.city[0]} +${filters.city.length - 1}`
-      : "";
+  const location = filters.city.trim();
   const priceLabel = formatPriceRangeForCopy(filters);
-  const q = searchQuery.trim();
+  const query = searchQuery.trim();
   const accent = "font-medium text-foreground";
 
   return (
@@ -138,16 +105,16 @@ function EmptyBrowseState({
       </p>
       <p className="mt-2 max-w-md text-center text-sm leading-relaxed text-muted-foreground">
         We couldn&apos;t find creators matching your filters
-        {q ? (
+        {query ? (
           <>
             {" "}
-            for <span className={accent}>&quot;{q}&quot;</span>
+            for <span className={accent}>&quot;{query}&quot;</span>
           </>
         ) : null}
-        {loc ? (
+        {location ? (
           <>
             {" "}
-            in <span className={accent}>{loc}</span>
+            in <span className={accent}>{location}</span>
           </>
         ) : null}
         {priceLabel ? (
@@ -162,26 +129,49 @@ function EmptyBrowseState({
   );
 }
 
-interface CreatorListingProps {
-  creators: Creator[];
-  
-  listMeta?: { page: number; limit: number; total: number };
+function BrowseListingLoadingState() {
+  return (
+    <div className="space-y-10" aria-busy="true" aria-label="Loading creators">
+      <header className="space-y-3">
+        <Skeleton className="h-12 w-full max-w-md md:h-14" />
+        <Skeleton className="h-5 w-full max-w-2xl md:h-6" />
+      </header>
+      <div className="rounded-2xl border border-border bg-muted/40 p-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <Skeleton className="h-10 w-36 rounded-full" />
+            <Skeleton className="hidden h-8 w-px md:block" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+          <Skeleton className="h-10 w-full flex-1 rounded-full md:min-w-0" />
+        </div>
+      </div>
+      <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 8 }, (_, index) => (
+          <CreatorCardSkeleton key={index} appearance="browse" />
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
+export function CreatorListing({
+  initialData,
+}: {
+  initialData?: CreatorsListResult;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
 
-  const [localSearch, setLocalSearch] = useState(
-    () => parseBrowseListingParams(searchParams).search,
+  const parsedInitial = useMemo(
+    () => parseBrowseListingParams(searchParams),
+    [searchParams],
   );
-  const [search, setSearch] = useState(
-    () => parseBrowseListingParams(searchParams).search,
-  );
-  const [filters, setFilters] = useState<Filters>(() =>
-    parseBrowseListingParams(searchParams).filters,
-  );
+
+  const [localSearch, setLocalSearch] = useState(() => parsedInitial.search);
+  const [search, setSearch] = useState(() => parsedInitial.search);
+  const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
   const [showFilters, setShowFilters] = useState(false);
 
   const listingRef = useRef({ filters, search });
@@ -200,27 +190,85 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: f, search: s } = listingRef.current;
-    syncUrlImmediate(f, s);
-  }, 800);
+    const { filters: currentFilters, search: currentSearch } = listingRef.current;
+    syncUrlImmediate(currentFilters, currentSearch);
+  }, 500);
 
   useEffect(() => {
-    const parsed = parseBrowseListingParams(
-      new URLSearchParams(searchParamsKey),
-    );
+    const parsed = parseBrowseListingParams(new URLSearchParams(searchParamsKey));
     startTransition(() => {
-      setFilters((prev) =>
-        filtersEqual(prev, parsed.filters) ? prev : parsed.filters,
+      setFilters((previous) =>
+        filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
       );
-      setSearch((prev) => {
-        if (prev !== parsed.search) {
+      setSearch((previous) => {
+        if (previous !== parsed.search) {
           setLocalSearch(parsed.search);
           return parsed.search;
         }
-        return prev;
+        return previous;
       });
     });
   }, [searchParamsKey]);
+
+  const apiFilters = useMemo(
+    () => ({
+      limit: BROWSE_LIST_LIMIT,
+      city: filters.city || undefined,
+      categories: filters.categories,
+      gender: filters.gender || undefined,
+      industry: filters.industry || undefined,
+      portfolioTag: filters.portfolioTag || undefined,
+      onLocationAvailable: filters.onLocationAvailable || undefined,
+      minPrice: filters.minPrice || undefined,
+      maxPrice: filters.maxPrice || undefined,
+      personaTags: filters.personaTags,
+      restrictions: filters.restrictions,
+    }),
+    [filters],
+  );
+
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useCreatorsListQuery({
+    filters: apiFilters,
+    initialData:
+      initialData && filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+        ? initialData
+        : undefined,
+  });
+
+  const creators = data?.creators ?? [];
+  const results = useMemo(() => applySearch(creators, search), [creators, search]);
+  const { categoryOptions } = useMemo(
+    () => deriveCreatorFilterOptions(creators),
+    [creators],
+  );
+
+  const hasActiveFilters = useMemo(
+    () => !filtersEqual(filters, DEFAULT_FILTERS),
+    [filters],
+  );
+
+  const activeFilterCount = useMemo(
+    () =>
+      [
+        Boolean(filters.city),
+        filters.categories.length > 0,
+        Boolean(filters.gender),
+        Boolean(filters.minPrice || filters.maxPrice),
+        filters.onLocationAvailable,
+        Boolean(filters.industry),
+        Boolean(filters.portfolioTag),
+        filters.personaTags.length > 0,
+        filters.restrictions.length > 0,
+      ].filter(Boolean).length,
+    [filters],
+  );
 
   const handleFiltersChange = useCallback(
     (next: Filters) => {
@@ -235,7 +283,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
     setSearch(value);
     listingRef.current.search = value;
     debouncedPushUrl();
-  }, 800);
+  }, 400);
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -243,38 +291,6 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
       debouncedSetSearch(value);
     },
     [debouncedSetSearch],
-  );
-
-  const results = useMemo(
-    () => applyFilters(creators, filters, search),
-    [creators, filters, search],
-  );
-
-  const { categoryOptions, cityOptions } = useMemo(
-    () => deriveCreatorFilterOptions(creators),
-    [creators],
-  );
-
-  const hasActiveFilters = useMemo(
-    () => !filtersEqual(filters, DEFAULT_FILTERS),
-    [filters],
-  );
-
-  const activeFilterCount = useMemo(
-    () =>
-      [
-        filters.city.length > 0,
-        filters.category.length > 0,
-        filters.gender !== DEFAULT_FILTERS.gender,
-        filters.minPrice !== DEFAULT_FILTERS.minPrice ||
-          filters.maxPrice !== DEFAULT_FILTERS.maxPrice,
-        filters.minRating !== DEFAULT_FILTERS.minRating,
-        filters.travelAvailable !== DEFAULT_FILTERS.travelAvailable,
-        filters.storeVisit !== DEFAULT_FILTERS.storeVisit,
-        filters.industryLabel !== DEFAULT_FILTERS.industryLabel,
-        filters.tags !== DEFAULT_FILTERS.tags,
-      ].filter(Boolean).length,
-    [filters],
   );
 
   const handleResetFilters = useCallback(() => {
@@ -285,14 +301,38 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
   const handleCloseFilters = useCallback(() => setShowFilters(false), []);
 
-  const totalPages =
-    listMeta && listMeta.limit > 0
-      ? Math.max(1, Math.ceil(listMeta.total / listMeta.limit))
-      : null;
+  const displayedCount = search.trim() ? results.length : (data?.total ?? 0);
   const desktopFilterRailStyle = {
     "--creators-filter-top": "6.5rem",
     "--creators-filter-gap": "1.5rem",
   } as CSSProperties;
+
+  if (isPending && !data) {
+    return <BrowseListingLoadingState />;
+  }
+
+  if (isError && !data) {
+    return (
+      <Card
+        variant="dashedDestructive"
+        className="flex min-h-80 flex-col items-center justify-center gap-3 px-4 text-center"
+      >
+        <p className="text-sm font-medium text-foreground">
+          Could not load creators
+        </p>
+        <p className="max-w-md text-xs text-muted-foreground">
+          {error instanceof Error ? error.message : "Something went wrong."}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="text-xs font-medium text-primary underline underline-offset-2"
+        >
+          Try again
+        </button>
+      </Card>
+    );
+  }
 
   return (
     <div className="w-full min-w-0">
@@ -341,8 +381,11 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
 
             <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
               <p className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {results.length.toLocaleString()} creators found
+                {displayedCount.toLocaleString()} creators found
               </p>
+              {isFetching ? (
+                <p className="text-xs text-muted-foreground">Updating…</p>
+              ) : null}
             </div>
           </div>
 
@@ -351,7 +394,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
             <Input
               placeholder="Search creators, niches, or locations…"
               value={localSearch}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(event) => handleSearchChange(event.target.value)}
               className="h-10 rounded-full py-2.5 pl-11 pr-4 text-sm"
             />
           </div>
@@ -361,7 +404,9 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
       <div
         className={cn(
           "mt-6 flex min-h-[min(22rem,50vh)] flex-col lg:min-h-112",
-          showFilters ? "gap-8 lg:flex-row lg:items-start" : "lg:flex-row lg:items-start",
+          showFilters
+            ? "gap-8 lg:flex-row lg:items-start"
+            : "lg:flex-row lg:items-start",
         )}
       >
         <div
@@ -380,7 +425,6 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
               onChange={handleFiltersChange}
               onClose={handleCloseFilters}
               categoryOptions={categoryOptions}
-              cityOptions={cityOptions}
             />
           </div>
         </div>
@@ -406,10 +450,7 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
               )}
             />
           ) : (
-            <EmptyBrowseState
-              filters={filters}
-              searchQuery={search}
-            />
+            <EmptyBrowseState filters={filters} searchQuery={search} />
           )}
         </div>
       </div>

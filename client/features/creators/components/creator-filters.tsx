@@ -1,21 +1,39 @@
 "use client";
 
-import { memo, useMemo, useRef, useEffect, useCallback, useState } from "react";
-import { ChevronDown, Star, X } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, X } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
+import { cn } from "@/lib/utils";
+import {
+  creatorSuggestionListsQueryKeys,
+  fetchCreatorCategorySuggestions,
+  fetchCreatorPersonaTagSuggestions,
+  fetchCreatorRestrictionSuggestions,
+} from "../api/creator-suggestion-lists";
+import {
+  fetchPortfolioIndustrySuggestions,
+  fetchPortfolioTagSuggestions,
+  portfolioSuggestionListsQueryKeys,
+} from "@/features/creator-portfolio/api/portfolio-suggestion-lists";
 
 export const CREATOR_PRICE_MIN = 0;
 export const CREATOR_PRICE_MAX = 10_000;
@@ -24,46 +42,46 @@ const DEFAULT_OPEN_SECTIONS: string[] = [];
 
 const GENDER_OPTIONS = [
   {
-    value: "male",
+    value: "Male",
     label: "Male",
     description: "Show creators who identify as male.",
   },
   {
-    value: "female",
+    value: "Female",
     label: "Female",
     description: "Show creators who identify as female.",
   },
   {
-    value: "other",
+    value: "Other",
     label: "Other",
-    description: "Include creators outside the male and female labels.",
+    description: "Include creators using any other gender label.",
   },
 ] as const;
 
 export interface Filters {
-  city: string[];
-  category: string[];
+  city: string;
+  categories: string[];
   gender: string;
   minPrice: string;
   maxPrice: string;
-  minRating: string;
-  travelAvailable: boolean;
-  storeVisit: boolean;
-  industryLabel: string;
-  tags: string;
+  onLocationAvailable: boolean;
+  industry: string;
+  portfolioTag: string;
+  personaTags: string[];
+  restrictions: string[];
 }
 
 export const DEFAULT_FILTERS: Filters = {
-  city: [],
-  category: [],
-  gender: "all",
+  city: "",
+  categories: [],
+  gender: "",
   minPrice: "",
   maxPrice: "",
-  minRating: "",
-  travelAvailable: false,
-  storeVisit: false,
-  industryLabel: "",
-  tags: "",
+  onLocationAvailable: false,
+  industry: "",
+  portfolioTag: "",
+  personaTags: [],
+  restrictions: [],
 };
 
 interface CreatorFiltersProps {
@@ -71,7 +89,6 @@ interface CreatorFiltersProps {
   onChange: (filters: Filters) => void;
   onClose: () => void;
   categoryOptions: string[];
-  cityOptions: string[];
 }
 
 function normalizeSelectedValues(values: string[]) {
@@ -82,7 +99,7 @@ function normalizeSelectedValues(values: string[]) {
 
 function summarizeSelection(values: string[], emptyLabel: string) {
   if (values.length === 0) return emptyLabel;
-  if (values.length === 1) return values[0];
+  if (values.length === 1) return values[0]!;
   if (values.length === 2) return `${values[0]} and ${values[1]}`;
   return `${values[0]}, ${values[1]} +${values.length - 2}`;
 }
@@ -92,24 +109,68 @@ export const CreatorFilters = memo(function CreatorFilters({
   onChange,
   onClose,
   categoryOptions,
-  cityOptions,
 }: CreatorFiltersProps) {
   const filtersRef = useRef(filters);
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
 
-  const [localIndustry, setLocalIndustry] = useState(filters.industryLabel ?? "");
-  const [localTags, setLocalTags] = useState(filters.tags ?? "");
-  const [locationSearch, setLocationSearch] = useState("");
+  const [localCity, setLocalCity] = useState(filters.city);
+  const [localIndustry, setLocalIndustry] = useState(filters.industry);
+  const [localPortfolioTag, setLocalPortfolioTag] = useState(filters.portfolioTag);
+  const [priceDraft, setPriceDraft] = useState<[number, number]>([
+    filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN,
+    filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX,
+  ]);
 
   useEffect(() => {
-    setLocalIndustry(filters.industryLabel ?? "");
-  }, [filters.industryLabel]);
+    setLocalCity(filters.city);
+  }, [filters.city]);
 
   useEffect(() => {
-    setLocalTags(filters.tags ?? "");
-  }, [filters.tags]);
+    setLocalIndustry(filters.industry);
+  }, [filters.industry]);
+
+  useEffect(() => {
+    setLocalPortfolioTag(filters.portfolioTag);
+  }, [filters.portfolioTag]);
+
+  useEffect(() => {
+    setPriceDraft([
+      filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN,
+      filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX,
+    ]);
+  }, [filters.minPrice, filters.maxPrice]);
+
+  const categorySuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.categories,
+    queryFn: fetchCreatorCategorySuggestions,
+    staleTime: 5 * 60_000,
+  });
+
+  const personaSuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.personaTags,
+    queryFn: fetchCreatorPersonaTagSuggestions,
+    staleTime: 5 * 60_000,
+  });
+
+  const restrictionSuggestionsQuery = useQuery({
+    queryKey: creatorSuggestionListsQueryKeys.restrictions,
+    queryFn: fetchCreatorRestrictionSuggestions,
+    staleTime: 5 * 60_000,
+  });
+
+  const industrySuggestionsQuery = useQuery({
+    queryKey: portfolioSuggestionListsQueryKeys.industries,
+    queryFn: fetchPortfolioIndustrySuggestions,
+    staleTime: 5 * 60_000,
+  });
+
+  const portfolioTagSuggestionsQuery = useQuery({
+    queryKey: portfolioSuggestionListsQueryKeys.tags,
+    queryFn: fetchPortfolioTagSuggestions,
+    staleTime: 5 * 60_000,
+  });
 
   const handleChange = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
@@ -120,16 +181,20 @@ export const CreatorFilters = memo(function CreatorFilters({
     [onChange],
   );
 
-  const debouncedIndustry = useDebouncedCallback((val: string) => {
-    handleChange("industryLabel", val);
-  }, 800);
+  const debouncedCityChange = useDebouncedCallback((value: string) => {
+    handleChange("city", value.trim());
+  }, 400);
 
-  const debouncedTags = useDebouncedCallback((val: string) => {
-    handleChange("tags", val);
-  }, 800);
+  const debouncedIndustryChange = useDebouncedCallback((value: string) => {
+    handleChange("industry", value.trim());
+  }, 400);
+
+  const debouncedPortfolioTagChange = useDebouncedCallback((value: string) => {
+    handleChange("portfolioTag", value.trim());
+  }, 400);
 
   const toggleMultiSelect = useCallback(
-    (key: "category" | "city", value: string) => {
+    (key: "categories" | "personaTags" | "restrictions", value: string) => {
       const currentValues = filtersRef.current[key];
       const nextValues = currentValues.includes(value)
         ? currentValues.filter((item) => item !== value)
@@ -139,27 +204,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     [handleChange],
   );
 
-  const handleTravelChange = useCallback(
-    (_id: string, checked: boolean) => handleChange("travelAvailable", checked),
-    [handleChange],
-  );
-
-  const handleStoreVisitChange = useCallback(
-    (checked: boolean) => handleChange("storeVisit", checked),
-    [handleChange],
-  );
-
-  const handleRatingChange = useCallback(
-    (value: string) => {
-      handleChange(
-        "minRating",
-        filtersRef.current.minRating === value ? "" : value,
-      );
-    },
-    [handleChange],
-  );
-
-  const handlePriceChange = useCallback(
+  const handlePriceCommit = useCallback(
     ([min, max]: number[]) => {
       const nextFilters = {
         ...filtersRef.current,
@@ -172,57 +217,96 @@ export const CreatorFilters = memo(function CreatorFilters({
     [onChange],
   );
 
-  const sliderMin = filters.minPrice
-    ? Number(filters.minPrice)
-    : CREATOR_PRICE_MIN;
-  const sliderMax = filters.maxPrice
-    ? Number(filters.maxPrice)
-    : CREATOR_PRICE_MAX;
-
   const categorySummary = useMemo(
-    () => summarizeSelection(filters.category, "Any category"),
-    [filters.category],
+    () => summarizeSelection(filters.categories, "Any category"),
+    [filters.categories],
+  );
+  const personaSummary = useMemo(
+    () => summarizeSelection(filters.personaTags, "Any persona tag"),
+    [filters.personaTags],
+  );
+  const restrictionSummary = useMemo(
+    () => summarizeSelection(filters.restrictions, "Any restriction"),
+    [filters.restrictions],
   );
   const locationSummary = useMemo(
-    () => summarizeSelection(filters.city, "Any location"),
+    () => filters.city.trim() || "Any location",
     [filters.city],
   );
-  const filteredCityOptions = useMemo(() => {
-    const query = locationSearch.trim().toLowerCase();
-    if (!query) return cityOptions;
-    return cityOptions.filter((city) => city.toLowerCase().includes(query));
-  }, [cityOptions, locationSearch]);
   const genderSummary = useMemo(() => {
     return (
       GENDER_OPTIONS.find((option) => option.value === filters.gender)?.label ??
       "Any gender"
     );
   }, [filters.gender]);
+  const videoSummary = useMemo(() => {
+    const parts = [filters.industry.trim(), filters.portfolioTag.trim()].filter(
+      Boolean,
+    );
+    if (parts.length === 0) return "Industry and video tag";
+    return parts.join(" • ");
+  }, [filters.industry, filters.portfolioTag]);
 
   const priceSummary = useMemo(() => {
+    const [min, max] = priceDraft;
     const hiLabel =
-      sliderMax >= CREATOR_PRICE_MAX
-        ? "₹10,000+"
-        : `₹${sliderMax.toLocaleString("en-IN")}`;
-    const loLabel = `₹${sliderMin.toLocaleString("en-IN")}`;
-    return `${loLabel} - ${hiLabel}`;
-  }, [sliderMax, sliderMin]);
+      max >= CREATOR_PRICE_MAX ? "₹10,000+" : `₹${max.toLocaleString("en-IN")}`;
+    return `₹${min.toLocaleString("en-IN")} - ${hiLabel}`;
+  }, [priceDraft]);
 
-  const priceFilterActive =
-    filters.minPrice !== "" || filters.maxPrice !== "";
+  const priceAction = (
+    <span
+      className={cn(
+        "text-xs font-semibold tabular-nums",
+        filters.minPrice || filters.maxPrice
+          ? "text-foreground"
+          : "text-muted-foreground",
+      )}
+    >
+      {priceSummary}
+    </span>
+  );
 
-  const priceAction = useMemo(
-    () => (
-      <span
-        className={cn(
-          "text-xs font-semibold tabular-nums",
-          priceFilterActive ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {priceSummary}
-      </span>
-    ),
-    [priceFilterActive, priceSummary],
+  const categoryNames = useMemo(() => {
+    const fromQuery =
+      categorySuggestionsQuery.data?.map((item) => item.name.trim()).filter(Boolean) ??
+      [];
+    const fallback = categoryOptions.map((item) => item.trim()).filter(Boolean);
+    return normalizeSelectedValues([...fromQuery, ...fallback]);
+  }, [categoryOptions, categorySuggestionsQuery.data]);
+
+  const personaNames = useMemo(
+    () =>
+      normalizeSelectedValues(
+        (personaSuggestionsQuery.data ?? []).map((item) => item.name),
+      ),
+    [personaSuggestionsQuery.data],
+  );
+
+  const restrictionNames = useMemo(
+    () =>
+      normalizeSelectedValues(
+        (restrictionSuggestionsQuery.data ?? []).map((item) => item.name),
+      ),
+    [restrictionSuggestionsQuery.data],
+  );
+
+  const industryChipItems = useMemo(
+    () =>
+      (industrySuggestionsQuery.data ?? []).slice(0, 8).map((label) => ({
+        key: label,
+        label,
+      })),
+    [industrySuggestionsQuery.data],
+  );
+
+  const portfolioTagChipItems = useMemo(
+    () =>
+      (portfolioTagSuggestionsQuery.data ?? []).slice(0, 10).map((label) => ({
+        key: label,
+        label,
+      })),
+    [portfolioTagSuggestionsQuery.data],
   );
 
   return (
@@ -233,7 +317,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             Filters
           </h3>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Narrow results by audience fit, location, and creator profile.
+            Refine creators using the exact filters supported by the API.
           </p>
         </div>
         <Tooltip>
@@ -262,29 +346,32 @@ export const CreatorFilters = memo(function CreatorFilters({
             <DropdownFilterSection
               value="video-based"
               label="Video based"
-              summary={
-                filters.industryLabel || filters.tags
-                  ? [filters.industryLabel, filters.tags]
-                      .filter(Boolean)
-                      .join(" • ")
-                  : "Industry and tag based discovery"
-              }
+              summary={videoSummary}
               selectedCount={
-                Number(Boolean(filters.industryLabel)) +
-                Number(Boolean(filters.tags))
+                Number(Boolean(filters.industry)) +
+                Number(Boolean(filters.portfolioTag))
               }
             >
               <div className="space-y-4">
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-foreground">Industry</p>
                   <Input
-                    placeholder="e.g. Technology, Fashion..."
+                    placeholder="Search by portfolio industry"
                     value={localIndustry}
                     onChange={(event) => {
                       setLocalIndustry(event.target.value);
-                      debouncedIndustry(event.target.value);
+                      debouncedIndustryChange(event.target.value);
                     }}
                     className="h-9 rounded-xl border-border/70 bg-background text-sm"
+                  />
+                  <SuggestionChips
+                    items={industryChipItems}
+                    selectedLabels={filters.industry ? [filters.industry] : []}
+                    onSelect={(label, nextSelected) => {
+                      const nextValue = nextSelected ? label : "";
+                      setLocalIndustry(nextValue);
+                      handleChange("industry", nextValue);
+                    }}
                   />
                 </div>
 
@@ -293,46 +380,55 @@ export const CreatorFilters = memo(function CreatorFilters({
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-foreground">Tags</p>
                   <Input
-                    placeholder="e.g. UGC, Review, Unboxing..."
-                    value={localTags}
+                    placeholder="Search by portfolio tag"
+                    value={localPortfolioTag}
                     onChange={(event) => {
-                      setLocalTags(event.target.value);
-                      debouncedTags(event.target.value);
+                      setLocalPortfolioTag(event.target.value);
+                      debouncedPortfolioTagChange(event.target.value);
                     }}
                     className="h-9 rounded-xl border-border/70 bg-background text-sm"
+                  />
+                  <SuggestionChips
+                    items={portfolioTagChipItems}
+                    selectedLabels={
+                      filters.portfolioTag ? [filters.portfolioTag] : []
+                    }
+                    onSelect={(label, nextSelected) => {
+                      const nextValue = nextSelected ? label : "";
+                      setLocalPortfolioTag(nextValue);
+                      handleChange("portfolioTag", nextValue);
+                    }}
                   />
                 </div>
               </div>
             </DropdownFilterSection>
 
-            <Separator className="bg-border/70" />
-
             <DropdownFilterSection
               value="category"
               label="Category"
               summary={categorySummary}
-              selectedCount={filters.category.length}
+              selectedCount={filters.categories.length}
             >
               <SectionToolbar
-                helperText="Choose one or more creator specialties."
+                helperText="Categories use OR matching on the API."
                 onClear={
-                  filters.category.length > 0
-                    ? () => handleChange("category", [])
+                  filters.categories.length > 0
+                    ? () => handleChange("categories", [])
                     : undefined
                 }
               />
-              {categoryOptions.length === 0 ? (
+              {categoryNames.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No categories are available in the current results yet.
+                  No category suggestions are available right now.
                 </p>
               ) : (
-                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                  {categoryOptions.map((category) => (
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {categoryNames.map((category) => (
                     <CheckboxItem
                       key={category}
                       label={category}
-                      checked={filters.category.includes(category)}
-                      onChange={() => toggleMultiSelect("category", category)}
+                      checked={filters.categories.includes(category)}
+                      onChange={() => toggleMultiSelect("categories", category)}
                     />
                   ))}
                 </div>
@@ -343,51 +439,37 @@ export const CreatorFilters = memo(function CreatorFilters({
               value="location"
               label="Location"
               summary={locationSummary}
-              selectedCount={filters.city.length}
+              selectedCount={filters.city ? 1 : 0}
             >
               <SectionToolbar
-                helperText="Select multiple cities to widen the shortlist."
+                helperText="City uses case-insensitive substring matching."
                 onClear={
-                  filters.city.length > 0
-                    ? () => handleChange("city", [])
+                  filters.city
+                    ? () => {
+                        setLocalCity("");
+                        handleChange("city", "");
+                      }
                     : undefined
                 }
               />
               <Input
-                placeholder="Search location..."
-                value={locationSearch}
-                onChange={(event) => setLocationSearch(event.target.value)}
-                className="mb-3 h-8 rounded-xl border-border/70 bg-background text-xs"
+                placeholder="e.g. Mumbai, Bengaluru, Delhi"
+                value={localCity}
+                onChange={(event) => {
+                  setLocalCity(event.target.value);
+                  debouncedCityChange(event.target.value);
+                }}
+                className="h-9 rounded-xl border-border/70 bg-background text-sm"
               />
-              {cityOptions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No locations are available in the current results yet.
-                </p>
-              ) : filteredCityOptions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No locations match your search.
-                </p>
-              ) : (
-                <div className="max-h-56 space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {filteredCityOptions.map((city) => (
-                    <CheckboxItem
-                      key={city}
-                      label={city}
-                      checked={filters.city.includes(city)}
-                      onChange={() => toggleMultiSelect("city", city)}
-                    />
-                  ))}
-                </div>
-              )}
             </DropdownFilterSection>
 
             <DropdownFilterSection
               value="gender"
               label="Gender"
               summary={genderSummary}
-              selectedCount={filters.gender === "all" ? 0 : 1}
+              selectedCount={filters.gender ? 1 : 0}
             >
-              <SectionToolbar helperText="Keep it open or target a specific audience." />
+              <SectionToolbar helperText="Choose one gender filter or leave it unset." />
               <div className="space-y-2">
                 {GENDER_OPTIONS.map((option) => (
                   <ChoiceItem
@@ -398,12 +480,66 @@ export const CreatorFilters = memo(function CreatorFilters({
                     onClick={() =>
                       handleChange(
                         "gender",
-                        filters.gender === option.value ? "all" : option.value,
+                        filters.gender === option.value ? "" : option.value,
                       )
                     }
                   />
                 ))}
               </div>
+            </DropdownFilterSection>
+
+            <DropdownFilterSection
+              value="persona-tags"
+              label="Persona tags"
+              summary={personaSummary}
+              selectedCount={filters.personaTags.length}
+            >
+              <SectionToolbar
+                helperText="Matches creators with any selected persona tag."
+                onClear={
+                  filters.personaTags.length > 0
+                    ? () => handleChange("personaTags", [])
+                    : undefined
+                }
+              />
+              {personaNames.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No persona tag suggestions are available right now.
+                </p>
+              ) : (
+                <SuggestionChips
+                  items={personaNames.map((label) => ({ key: label, label }))}
+                  selectedLabels={filters.personaTags}
+                  onSelect={(label) => toggleMultiSelect("personaTags", label)}
+                />
+              )}
+            </DropdownFilterSection>
+
+            <DropdownFilterSection
+              value="restrictions"
+              label="Restrictions"
+              summary={restrictionSummary}
+              selectedCount={filters.restrictions.length}
+            >
+              <SectionToolbar
+                helperText="Matches creators with any selected restriction."
+                onClear={
+                  filters.restrictions.length > 0
+                    ? () => handleChange("restrictions", [])
+                    : undefined
+                }
+              />
+              {restrictionNames.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No restriction suggestions are available right now.
+                </p>
+              ) : (
+                <SuggestionChips
+                  items={restrictionNames.map((label) => ({ key: label, label }))}
+                  selectedLabels={filters.restrictions}
+                  onSelect={(label) => toggleMultiSelect("restrictions", label)}
+                />
+              )}
             </DropdownFilterSection>
           </Accordion>
 
@@ -416,8 +552,11 @@ export const CreatorFilters = memo(function CreatorFilters({
                   min={CREATOR_PRICE_MIN}
                   max={CREATOR_PRICE_MAX}
                   step={PRICE_STEP}
-                  value={[sliderMin, sliderMax]}
-                  onValueChange={handlePriceChange}
+                  value={priceDraft}
+                  onValueChange={(value) =>
+                    setPriceDraft([value[0] ?? CREATOR_PRICE_MIN, value[1] ?? CREATOR_PRICE_MAX])
+                  }
+                  onValueCommit={handlePriceCommit}
                   trackClassName="h-1"
                   rangeClassName="bg-primary"
                   thumbClassName="size-3 border-primary/90 bg-background shadow-sm"
@@ -430,88 +569,27 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </FilterSection>
 
-          <FilterSection label="Rating">
-            <div className="space-y-2">
-              {[
-                { value: "4.8", label: "4.8 & above", stars: 5 },
-                { value: "4.5", label: "4.5 & above", stars: 4.5 },
-                { value: "4", label: "4.0 & above", stars: 4 },
-                { value: "3", label: "3.0 & above", stars: 3 },
-              ].map((rating) => (
-                <RatingButton
-                  key={rating.value}
-                  value={rating.value}
-                  label={rating.label}
-                  stars={rating.stars}
-                  isActive={filters.minRating === rating.value}
-                  onClick={handleRatingChange}
-                />
-              ))}
-            </div>
-          </FilterSection>
-
-          <FilterSection label="Travel availability">
-            <div className="space-y-2">
-              <CheckboxItem
-                label="Can travel to shoot"
-                checked={filters.travelAvailable}
-                onChange={() =>
-                  handleTravelChange("travelAvailable", !filters.travelAvailable)
-                }
-              />
-            </div>
-          </FilterSection>
-
-          <FilterSection label="Store visit">
+          <FilterSection label="On-location availability">
             <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/35 px-3.5 py-3">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium leading-none text-foreground">
-                  {filters.storeVisit ? "Yes" : "No"}
+                  {filters.onLocationAvailable ? "Enabled" : "Disabled"}
                 </p>
                 <p className="text-[11px] leading-tight text-muted-foreground">
-                  Available for store visits
+                  Only creators marked available for on-location work
                 </p>
               </div>
               <Switch
-                checked={filters.storeVisit}
-                onCheckedChange={handleStoreVisitChange}
+                checked={filters.onLocationAvailable}
+                onCheckedChange={(checked) =>
+                  handleChange("onLocationAvailable", checked)
+                }
               />
             </div>
           </FilterSection>
         </div>
       </div>
     </aside>
-  );
-});
-
-const StarRating = memo(function StarRating({ count }: { count: number }) {
-  const full = Math.floor(count);
-  const hasHalf = count % 1 !== 0;
-  const empty = 5 - full - (hasHalf ? 1 : 0);
-
-  return (
-    <span className="inline-flex gap-0.5">
-      {Array.from({ length: full }, (_, index) => (
-        <Star
-          key={`full-${index}`}
-          className="size-3.5 fill-amber-400 text-amber-400"
-        />
-      ))}
-      {hasHalf && (
-        <span className="relative">
-          <Star className="size-3.5 text-amber-400/30" />
-          <span
-            className="absolute inset-0 overflow-hidden"
-            style={{ width: "50%" }}
-          >
-            <Star className="size-3.5 fill-amber-400 text-amber-400" />
-          </span>
-        </span>
-      )}
-      {Array.from({ length: empty }, (_, index) => (
-        <Star key={`empty-${index}`} className="size-3.5 text-amber-400/30" />
-      ))}
-    </span>
   );
 });
 
@@ -560,7 +638,10 @@ const DropdownFilterSection = memo(function DropdownFilterSection({
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground">{label}</p>
             {selectedCount > 0 ? (
-              <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">
+              <Badge
+                variant="secondary"
+                className="rounded-full px-2 py-0 text-[10px]"
+              >
                 {selectedCount}
               </Badge>
             ) : null}
@@ -598,36 +679,6 @@ const SectionToolbar = memo(function SectionToolbar({
         </button>
       ) : null}
     </div>
-  );
-});
-
-const RatingButton = memo(function RatingButton({
-  value,
-  label,
-  stars,
-  isActive,
-  onClick,
-}: {
-  value: string;
-  label: string;
-  stars: number;
-  isActive: boolean;
-  onClick: (value: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(value)}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm transition-colors",
-        isActive
-          ? "border-primary/40 bg-primary/10 text-foreground shadow-sm"
-          : "border-border/70 bg-background hover:bg-muted/50",
-      )}
-    >
-      <StarRating count={stars} />
-      <span className={isActive ? "font-medium" : "text-foreground"}>{label}</span>
-    </button>
   );
 });
 

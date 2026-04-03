@@ -23,14 +23,14 @@ export function FeaturedCreators({
   initialData?: Awaited<ReturnType<typeof fetchCreatorsList>> | null;
 }) {
   const queryClient = useQueryClient();
-  const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
-    initialData ?? undefined,
-  );
+  const { data, isPending, isError, error, refetch } = useCreatorsListQuery({
+    initialData: initialData ?? undefined,
+  });
 
   const prefetchBrandCreatorsPage = useCallback(() => {
     void queryClient.prefetchQuery({
       queryKey: creatorsListQueryKey(),
-      queryFn: fetchCreatorsList,
+      queryFn: () => fetchCreatorsList(),
       staleTime: 30_000,
     });
   }, [queryClient]);

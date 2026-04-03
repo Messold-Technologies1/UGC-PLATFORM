@@ -33,6 +33,10 @@ interface TxMock {
   creatorRestriction: {
     createMany: TxAsyncMock;
   };
+  creatorAddOn: {
+    createMany: TxAsyncMock;
+    deleteMany: TxAsyncMock;
+  };
   role: {
     findUnique: TxAsyncMock;
   };
@@ -68,6 +72,10 @@ describe('CreatorProfileService', () => {
     creatorRestriction: {
       createMany: createTxAsyncMock(),
     },
+    creatorAddOn: {
+      createMany: createTxAsyncMock(),
+      deleteMany: createTxAsyncMock(),
+    },
     role: {
       findUnique: createTxAsyncMock(),
     },
@@ -92,6 +100,7 @@ describe('CreatorProfileService', () => {
     creatorCategory: txMock.creatorCategory,
     creatorPersonaTag: txMock.creatorPersonaTag,
     creatorRestriction: txMock.creatorRestriction,
+    creatorAddOn: txMock.creatorAddOn,
     role: txMock.role,
     user: txMock.user,
     userRole: txMock.userRole,
@@ -129,6 +138,8 @@ describe('CreatorProfileService', () => {
     txMock.creatorCategory.createMany.mockReset();
     txMock.creatorPersonaTag.createMany.mockReset();
     txMock.creatorRestriction.createMany.mockReset();
+    txMock.creatorAddOn.createMany.mockReset();
+    txMock.creatorAddOn.deleteMany.mockReset();
     txMock.role.findUnique.mockReset();
     txMock.user.update.mockReset();
     txMock.userRole.upsert.mockReset();
@@ -175,7 +186,6 @@ describe('CreatorProfileService', () => {
         gender: null,
         travelRadius: null,
         onLocationAvailable: false,
-        onLocationFee: null,
         languages: [{ id: 'lang-1', language: 'English' }],
         categories: [{ id: 'cat-1', category: 'UGC Video' }],
         personaTags: [{ id: 'pt-1', tag: 'Friendly' }],
@@ -200,6 +210,13 @@ describe('CreatorProfileService', () => {
       categories: ['UGC Video'],
       personaTags: ['Friendly'],
       restrictions: ['does not accept alcohol'],
+        addOns: [
+          {
+            name: 'On-location shoot fee',
+            priceAmount: '499.00',
+            description: 'Travel and setup for in-store shoots',
+          },
+        ],
       packages: [
         {
           name: 'Basic',
@@ -218,5 +235,53 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorPersonaTag.createMany).toHaveBeenCalled();
     expect(txMock.creatorRestriction.createMany).toHaveBeenCalled();
     expect(creatorPackageService.createPackages).toHaveBeenCalled();
+    expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
+  });
+
+  it('addOrUpdateAddOns upserts add-ons by name without touching others', async () => {
+    const profileId = 'profile-1';
+    (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce({
+      id: profileId,
+      userId: creatorId,
+    });
+
+    (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce({
+      id: profileId,
+      userId: creatorId,
+      displayName: 'Jane',
+      city: null,
+      bio: null,
+      gender: null,
+      travelRadius: null,
+      onLocationAvailable: true,
+      languages: [],
+      categories: [],
+      personaTags: [],
+      restrictions: [],
+      packages: [],
+      addOns: [],
+      portfolioVideos: [],
+    });
+
+    const dto = {
+      addOns: [
+        {
+          name: 'On-location shoot fee',
+          priceAmount: '499.00',
+          description: 'Travel and setup for in-store shoots',
+        },
+      ],
+    };
+
+    const result = await service.addOrUpdateAddOns(creatorId, profileId, dto as any);
+
+    expect(txMock.creatorAddOn.deleteMany).toHaveBeenCalledWith({
+      where: {
+        creatorId: profileId,
+        name: { in: ['On-location shoot fee'] },
+      },
+    });
+    expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
+    expect(result.id).toBe(profileId);
   });
 });

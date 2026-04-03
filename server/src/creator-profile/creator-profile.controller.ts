@@ -35,6 +35,7 @@ import {
   PresignUploadResponseDto,
 } from './dto/presign-profile-image-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
+import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -145,6 +146,25 @@ export class CreatorProfileController {
     req: Request & { user: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
     return this.creatorProfileService.updateCreatorProfile(
+      req.user.id,
+      id,
+      dto,
+    );
+  }
+
+  @Patch(':id/add-ons')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Add or update add-ons for a creator profile (by name, append-only)',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async addOrUpdateAddOns(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddCreatorAddOnsDto,
+    @Req()
+    req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.addOrUpdateAddOns(
       req.user.id,
       id,
       dto,

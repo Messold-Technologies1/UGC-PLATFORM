@@ -20,6 +20,7 @@ const _creatorprofileresponsedto = require("./dto/creator-profile-response.dto")
 const _creatorprofileservice = require("./creator-profile.service");
 const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
 const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
+const _addcreatoraddonsdto = require("./dto/add-creator-addons.dto");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -61,6 +62,9 @@ let CreatorProfileController = class CreatorProfileController {
     }
     async updateCreator(id, dto, req) {
         return this.creatorProfileService.updateCreatorProfile(req.user.id, id, dto);
+    }
+    async addOrUpdateAddOns(id, dto, req) {
+        return this.creatorProfileService.addOrUpdateAddOns(req.user.id, id, dto);
     }
     async deleteCreator(id, req) {
         await this.creatorProfileService.deleteCreatorProfile(req.user.id, id);
@@ -220,6 +224,26 @@ _ts_decorate([
     ]),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "updateCreator", null);
+_ts_decorate([
+    (0, _common.Patch)(':id/add-ons'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _swagger.ApiOperation)({
+        summary: 'Add or update add-ons for a creator profile (by name, append-only)'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatorprofileresponsedto.CreatorProfileResponseDto
+    }),
+    _ts_param(0, (0, _common.Param)('id', _common.ParseUUIDPipe)),
+    _ts_param(1, (0, _common.Body)()),
+    _ts_param(2, (0, _common.Req)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        String,
+        typeof _addcreatoraddonsdto.AddCreatorAddOnsDto === "undefined" ? Object : _addcreatoraddonsdto.AddCreatorAddOnsDto,
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "addOrUpdateAddOns", null);
 _ts_decorate([
     (0, _common.Delete)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),

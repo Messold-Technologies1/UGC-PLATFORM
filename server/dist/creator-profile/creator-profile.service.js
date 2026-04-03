@@ -29,6 +29,7 @@ const creatorProfileWithRelationsInclude = {
     personaTags: true,
     restrictions: true,
     packages: true,
+    addOns: true,
     portfolioVideos: {
         where: {
             visibilityStatus: _client.PortfolioVisibilityStatus.PUBLIC
@@ -117,7 +118,6 @@ let CreatorProfileService = class CreatorProfileService {
             gender: mapped.gender ?? null,
             travelRadius: mapped.travelRadius ?? null,
             onLocationAvailable: mapped.onLocationAvailable,
-            onLocationFee: mapped.onLocationFee && typeof mapped.onLocationFee?.toString === 'function' ? mapped.onLocationFee.toString() : mapped.onLocationFee ? String(mapped.onLocationFee) : null,
             languages: (mapped.languages ?? []).map((l)=>({
                     id: l.id,
                     language: l.language
@@ -140,6 +140,12 @@ let CreatorProfileService = class CreatorProfileService {
                     deliverables: p.deliverables,
                     priceAmount: p.priceAmount,
                     deliveryDays: p.deliveryDays
+                })),
+            addOns: (mapped.addOns ?? []).map((a)=>({
+                    id: a.id,
+                    name: a.name,
+                    priceAmount: a.priceAmount && typeof a.priceAmount.toString === 'function' ? a.priceAmount.toString() : a.priceAmount ? String(a.priceAmount) : '0',
+                    description: a.description ?? null
                 })),
             firstPortfolioVideo
         };
@@ -185,7 +191,6 @@ let CreatorProfileService = class CreatorProfileService {
         if (profileImageKey) {
             this.assertTempProfileImageKeyOwner(userId, profileImageKey);
         }
-        const onLocationFee = dto.onLocationFee !== undefined && dto.onLocationFee !== null ? new _client.Prisma.Decimal(dto.onLocationFee) : null;
         const creatorProfileId = await this.prisma.$transaction(async (tx)=>{
             const existing = await tx.creatorProfile.findUnique({
                 where: {
@@ -202,8 +207,7 @@ let CreatorProfileService = class CreatorProfileService {
                 bio: dto.bio ?? null,
                 gender: dto.gender ?? null,
                 travelRadius: dto.travelRadius ?? null,
-                onLocationAvailable: dto.onLocationAvailable ?? false,
-                onLocationFee
+                onLocationAvailable: dto.onLocationAvailable ?? false
             };
             const creatorProfile = await tx.creatorProfile.create({
                 data: createData
@@ -248,6 +252,16 @@ let CreatorProfileService = class CreatorProfileService {
             }
             if (dto.packages?.length) {
                 ops.push(this.creatorPackageService.createPackages(tx, creatorProfile.id, dto.packages));
+            }
+            if (dto.addOns?.length) {
+                ops.push(tx.creatorAddOn.createMany({
+                    data: dto.addOns.map((addOn)=>({
+                            creatorId: creatorProfile.id,
+                            name: addOn.name,
+                            priceAmount: new _client.Prisma.Decimal(addOn.priceAmount),
+                            description: addOn.description ?? null
+                        }))
+                }));
             }
             await Promise.all(ops);
             return creatorProfile.id;
@@ -376,8 +390,7 @@ let CreatorProfileService = class CreatorProfileService {
                     bio: dto.bio ?? undefined,
                     gender: dto.gender ?? undefined,
                     travelRadius: dto.travelRadius ?? undefined,
-                    onLocationAvailable: dto.onLocationAvailable ?? undefined,
-                    onLocationFee: dto.onLocationFee !== undefined ? dto.onLocationFee ? new _client.Prisma.Decimal(dto.onLocationFee) : null : undefined
+                    onLocationAvailable: dto.onLocationAvailable ?? undefined
                 }
             });
             if (dto.languages) {
@@ -455,6 +468,57 @@ let CreatorProfileService = class CreatorProfileService {
                     }
                 });
                 await this.creatorPackageService.createPackages(tx, creatorProfileId, dto.packages);
+            }
+            const updated = await tx.creatorProfile.findUnique({
+                where: {
+                    id: creatorProfileId
+                },
+                include: creatorProfileWithRelationsInclude
+            });
+            if (!updated) {
+                throw new Error('Creator profile update failed');
+            }
+            return this.mapCreatorProfileResponseDto(updated);
+        }, {
+            timeout: 30_000,
+            maxWait: 10_000
+        });
+    }
+    async addOrUpdateAddOns(actingUserId, creatorProfileId, dto) {
+        return this.prisma.$transaction(async (tx)=>{
+            const profile = await tx.creatorProfile.findUnique({
+                where: {
+                    id: creatorProfileId
+                }
+            });
+            if (!profile) {
+                throw new _common.NotFoundException('Creator not found');
+            }
+            const allowed = profile.userId === actingUserId || await this.isAdmin(actingUserId, tx);
+            if (!allowed) {
+                throw new _common.ForbiddenException('Not allowed to update this creator profile');
+            }
+            const payload = dto.addOns ?? [];
+            if (payload.length > 0) {
+                const names = Array.from(new Set(payload.map((a)=>a.name.trim()).filter((name)=>name.length > 0)));
+                if (names.length > 0) {
+                    await tx.creatorAddOn.deleteMany({
+                        where: {
+                            creatorId: creatorProfileId,
+                            name: {
+                                in: names
+                            }
+                        }
+                    });
+                    await tx.creatorAddOn.createMany({
+                        data: payload.map((addOn)=>({
+                                creatorId: creatorProfileId,
+                                name: addOn.name.trim(),
+                                priceAmount: new _client.Prisma.Decimal(addOn.priceAmount),
+                                description: addOn.description ?? null
+                            }))
+                    });
+                }
             }
             const updated = await tx.creatorProfile.findUnique({
                 where: {

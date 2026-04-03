@@ -155,7 +155,6 @@ model CreatorProfile {
   gender       String?
   travelRadius Int?
   onLocationAvailable Boolean @default(false)
-  onLocationFee       Decimal? @db.Decimal(12, 2)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

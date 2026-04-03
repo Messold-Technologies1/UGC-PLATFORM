@@ -52,6 +52,22 @@ export class CreatorPackageResponseDto {
   deliveryDays!: number;
 }
 
+export class CreatorAddOnResponseDto {
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'On-location shoot fee' })
+  name!: string;
+
+  @ApiProperty({ example: '499.00' })
+  priceAmount!: string;
+
+  @ApiPropertyOptional({
+    example: 'Travel and setup for in-store shoots',
+  })
+  description?: string | null;
+}
+
 export class CreatorPortfolioVideoPreviewResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -107,9 +123,6 @@ export class CreatorProfileResponseDto {
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
 
-  @ApiPropertyOptional({ example: '499.00' })
-  onLocationFee?: string | null;
-
   @ApiProperty({ type: () => [CreatorLanguageResponseDto] })
   languages!: CreatorLanguageResponseDto[];
 
@@ -124,6 +137,9 @@ export class CreatorProfileResponseDto {
 
   @ApiProperty({ type: () => [CreatorPackageResponseDto] })
   packages!: CreatorPackageResponseDto[];
+
+  @ApiProperty({ type: () => [CreatorAddOnResponseDto] })
+  addOns!: CreatorAddOnResponseDto[];
 
   @ApiPropertyOptional({ type: () => CreatorPortfolioVideoPreviewResponseDto })
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;

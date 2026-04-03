@@ -12,24 +12,24 @@ describe('creator-list-filters.util', () => {
       expect(buildPortfolioVideoMatchWhere({})).toBeUndefined();
     });
 
-    it('builds industry-only match', () => {
+    it('builds industry-only match with contains', () => {
       const q: ListCreatorsQueryDto = { industry: 'Fashion' };
       expect(buildPortfolioVideoMatchWhere(q)).toEqual({
         AND: [
           { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-          { industryLabel: { equals: 'Fashion', mode: 'insensitive' } },
+          { industryLabel: { contains: 'Fashion', mode: 'insensitive' } },
         ],
       });
     });
 
-    it('builds tag-only match', () => {
+    it('builds tag-only match with contains', () => {
       const q: ListCreatorsQueryDto = { portfolioTag: 'skincare' };
       expect(buildPortfolioVideoMatchWhere(q)).toEqual({
         AND: [
           { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
           {
             tags: {
-              some: { tag: { equals: 'skincare', mode: 'insensitive' } },
+              some: { tag: { contains: 'skincare', mode: 'insensitive' } },
             },
           },
         ],
@@ -44,10 +44,10 @@ describe('creator-list-filters.util', () => {
       expect(buildPortfolioVideoMatchWhere(q)).toEqual({
         AND: [
           { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-          { industryLabel: { equals: 'fashion', mode: 'insensitive' } },
+          { industryLabel: { contains: 'fashion', mode: 'insensitive' } },
           {
             tags: {
-              some: { tag: { equals: 'summer', mode: 'insensitive' } },
+              some: { tag: { contains: 'summer', mode: 'insensitive' } },
             },
           },
         ],
@@ -75,7 +75,7 @@ describe('creator-list-filters.util', () => {
                   { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
                   {
                     industryLabel: {
-                      equals: 'fashion',
+                      contains: 'fashion',
                       mode: 'insensitive',
                     },
                   },
@@ -87,14 +87,50 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('uses OR within personaTags', () => {
+    it('uses OR within personaTags with flexible match', () => {
       const q: ListCreatorsQueryDto = {
         personaTags: ['a', 'b'],
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         personaTags: {
           some: {
-            tag: { in: ['a', 'b'], mode: 'insensitive' },
+            OR: [
+              { tag: { contains: 'a', mode: 'insensitive' } },
+              { tag: { contains: 'b', mode: 'insensitive' } },
+            ],
+          },
+        },
+      });
+    });
+
+    it('filters by package price range when min and max set', () => {
+      const q: ListCreatorsQueryDto = { minPrice: 100, maxPrice: 500 };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        packages: {
+          some: {
+            priceAmount: { gte: 100, lte: 500 },
+          },
+        },
+      });
+    });
+
+    it('filters by min price only', () => {
+      const q: ListCreatorsQueryDto = { minPrice: 50 };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        packages: {
+          some: {
+            priceAmount: { gte: 50 },
+          },
+        },
+      });
+    });
+
+    it('filters by max price only', () => {
+      const q: ListCreatorsQueryDto = { maxPrice: 1000 };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        packages: {
+          some: {
+            priceAmount: { lte: 1000 },
           },
         },
       });
@@ -118,7 +154,7 @@ describe('creator-list-filters.util', () => {
           AND: [
             { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
             {
-              industryLabel: { equals: 'beauty', mode: 'insensitive' },
+              industryLabel: { contains: 'beauty', mode: 'insensitive' },
             },
           ],
         },

@@ -380,6 +380,7 @@ model CreatorPackage {
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([creatorId])
+  @@index([priceAmount])
 }
 
 model CreatorAddOn {

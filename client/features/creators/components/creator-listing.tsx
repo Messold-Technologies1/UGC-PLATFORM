@@ -330,12 +330,6 @@ export function CreatorListing({ creators, listMeta }: CreatorListingProps) {
               <p className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {results.length.toLocaleString()} creators found
               </p>
-              {listMeta && totalPages != null && (
-                <p className="text-xs text-muted-foreground">
-                  Page {listMeta.page} of {totalPages} ·{" "}
-                  {listMeta.total.toLocaleString()} total
-                </p>
-              )}
             </div>
           </div>
 

@@ -61,6 +61,7 @@ export const CreatorCard = memo(function CreatorCard({
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, (max-width: 1536px) 25vw, 20vw"
+              priority={isFeatured}
             />
           )}
           <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10 transition-opacity duration-300 group-hover:opacity-90" />
@@ -172,6 +173,7 @@ export const CreatorCard = memo(function CreatorCard({
                 ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
             }
+            priority={isFeatured}
           />
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/20 to-black/5" />

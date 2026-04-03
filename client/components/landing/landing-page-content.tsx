@@ -78,8 +78,6 @@ const brandBenefits = [
 
 export async function LandingPageContent() {
   const featuredCreators = await fetchCreatorsListServer({
-    page: 1,
-    limit: 4,
     revalidate: 300,
   });
 

@@ -14,20 +14,11 @@ export type CreatorsListResult = {
   limit: number;
 };
 
-export const creatorsListQueryKey = (page: number, limit: number) =>
-  ["creators", "list", { page, limit }] as const;
+export const creatorsListQueryKey = () => ["creators", "list"] as const;
 
-export async function fetchCreatorsList(params: {
-  page?: number;
-  limit?: number;
-}): Promise<CreatorsListResult> {
-  const page = params.page ?? 1;
-  const limit = params.limit ?? 20;
+export async function fetchCreatorsList(): Promise<CreatorsListResult> {
   const { data } = await api.get<CreatorsListResponse>(
     ENDPOINTS.CREATORS.LIST,
-    {
-      params: { page, limit },
-    },
   );
   return {
     creators: data.items.map(mapProfileToListingCreator),
@@ -37,14 +28,10 @@ export async function fetchCreatorsList(params: {
   };
 }
 
-export function useCreatorsListQuery(
-  page = 1,
-  limit = 20,
-  initialData?: CreatorsListResult,
-) {
+export function useCreatorsListQuery(initialData?: CreatorsListResult) {
   return useQuery({
-    queryKey: creatorsListQueryKey(page, limit),
-    queryFn: () => fetchCreatorsList({ page, limit }),
+    queryKey: creatorsListQueryKey(),
+    queryFn: fetchCreatorsList,
     ...(initialData
       ? {
           initialData,

@@ -9,9 +9,6 @@ import {
   type CreatorsListResult,
 } from "@/features/creators/hooks/use-creators-list-query";
 
-const PAGE = 1;
-const LIMIT = 20;
-
 export type BrandCreatorsBrowserProps = {
   initialData?: CreatorsListResult | null;
 };
@@ -20,8 +17,6 @@ export function BrandCreatorsBrowser({
   initialData,
 }: BrandCreatorsBrowserProps) {
   const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
-    PAGE,
-    LIMIT,
     initialData ?? undefined,
   );
 

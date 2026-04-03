@@ -17,9 +17,6 @@ import { CreatorCard } from "./creator-card";
 const PAGE = 1;
 const LIMIT = 4;
 
-const BROWSE_PAGE = 1;
-const BROWSE_LIMIT = 20;
-
 export function FeaturedCreators({
   initialData,
 }: {
@@ -27,16 +24,13 @@ export function FeaturedCreators({
 }) {
   const queryClient = useQueryClient();
   const { data, isPending, isError, error, refetch } = useCreatorsListQuery(
-    PAGE,
-    LIMIT,
     initialData ?? undefined,
   );
 
   const prefetchBrandCreatorsPage = useCallback(() => {
     void queryClient.prefetchQuery({
-      queryKey: creatorsListQueryKey(BROWSE_PAGE, BROWSE_LIMIT),
-      queryFn: () =>
-        fetchCreatorsList({ page: BROWSE_PAGE, limit: BROWSE_LIMIT }),
+      queryKey: creatorsListQueryKey(),
+      queryFn: fetchCreatorsList,
       staleTime: 30_000,
     });
   }, [queryClient]);
@@ -122,7 +116,7 @@ export function FeaturedCreators({
         </Card>
       ) : (
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {data.creators.map((creator) => (
+          {data.creators.slice(0, LIMIT).map((creator) => (
             <CreatorCard
               key={creator.id}
               creator={creator}

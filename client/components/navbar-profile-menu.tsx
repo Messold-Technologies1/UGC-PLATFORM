@@ -226,8 +226,8 @@ export function NavbarProfileMenu({
           aria-label="Account actions"
         >
           <div className="min-w-60 space-y-2">
-            <ThemeAppearancePanel />
-            <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
+            <ThemeAppearancePanel className="bg-background/95 backdrop-blur-xl" />
+            <div className={cn("rounded-xl p-1", accountMenuGlassPanel, "bg-background/95 backdrop-blur-xl")}>
             {showProfiles ? (
               <>
                 <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

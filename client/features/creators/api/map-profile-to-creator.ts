@@ -29,7 +29,7 @@ function buildTags(profile: CreatorProfileItemApi): string[] {
   const fromPersona = (profile.personaTags ?? []).map((t) => t.tag);
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const t of [...fromLang, ...fromCategories, ...fromPersona]) {
+  for (const t of [...fromLang, ...fromCategories, ...fromPersona, ...(profile.firstPortfolioVideo?.tags ?? [])]) {
     const key = t.trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -56,6 +56,8 @@ export function mapProfileToListingCreator(
   const previewVideoUrl = profile.firstPortfolioVideo?.videoUrl?.trim() ?? null;
   const previewVideoThumbnail =
     profile.firstPortfolioVideo?.thumbnailUrl?.trim() || thumbnail;
+  const industryLabel =
+    profile.firstPortfolioVideo?.industryLabel?.trim() || undefined;
 
   return {
     id: profile.id,
@@ -77,6 +79,7 @@ export function mapProfileToListingCreator(
     gender: normalizeGender(profile.gender),
     category,
     categories,
+    industryLabel,
   };
 }
 

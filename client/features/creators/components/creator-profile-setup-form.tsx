@@ -554,41 +554,8 @@ export function CreatorProfileSetupForm({
             personaTags: personas,
             restrictions: rests,
             packages: builtPackages,
+            addOns: builtAddOns,
           };
-          const initialAddOnsNormalized = (initialProfile?.addOns ?? []).map(
-            (addOn) => ({
-              name: addOn.name.trim(),
-              priceAmount: addOn.priceAmount.trim(),
-              description: addOn.description?.trim() ?? "",
-            }),
-          );
-          const builtAddOnsNormalized = builtAddOns.map((addOn) => ({
-            name: addOn.name.trim(),
-            priceAmount: addOn.priceAmount.trim(),
-            description: addOn.description?.trim() ?? "",
-          }));
-          const addOnsChanged =
-            initialAddOnsNormalized.length !== builtAddOnsNormalized.length ||
-            initialAddOnsNormalized.some((addOn, index) => {
-              const next = builtAddOnsNormalized[index];
-              return (
-                !next ||
-                addOn.name !== next.name ||
-                addOn.priceAmount !== next.priceAmount ||
-                addOn.description !== next.description
-              );
-            });
-
-          if (addOnsChanged) {
-            toast.error(
-              "Add-ons update is not available in the client right now.",
-              {
-                description:
-                  "Your other profile changes can be saved after reverting add-on edits.",
-              },
-            );
-            return;
-          }
 
           await updateCreatorProfile(profileId, patchPayload);
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
@@ -650,7 +617,6 @@ export function CreatorProfileSetupForm({
       onLocationAvailable,
       packageDrafts,
       addOnDrafts,
-      initialProfile,
       onSuccess,
       queryClient,
       pendingProfileImageKey,
@@ -1065,7 +1031,7 @@ function MultiValueAddField({
                   }}
                   className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
                 >
-                  Add "{normalizedDraft}"
+                  Add &quot;{normalizedDraft}&quot;
                 </button>
               ) : null}
               {filteredOptions.map((option) => {

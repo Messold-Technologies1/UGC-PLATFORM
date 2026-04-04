@@ -1,4 +1,4 @@
-import { PortfolioVisibilityStatus } from '@prisma/client';
+import { ApprovalStatus, PortfolioVisibilityStatus } from '@prisma/client';
 import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
@@ -56,8 +56,16 @@ describe('creator-list-filters.util', () => {
   });
 
   describe('buildListCreatorsWhere', () => {
-    it('returns empty object with no filters', () => {
-      expect(buildListCreatorsWhere({})).toEqual({});
+    it('requires APPROVED approval when no other filters', () => {
+      expect(buildListCreatorsWhere({})).toEqual({
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      });
+    });
+
+    it('omits approval filter when requireApproved is false', () => {
+      expect(buildListCreatorsWhere({}, { requireApproved: false })).toEqual(
+        {},
+      );
     });
 
     it('ANDs city and industry', () => {
@@ -67,6 +75,7 @@ describe('creator-list-filters.util', () => {
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
           { city: { contains: 'Kolkata', mode: 'insensitive' } },
           {
             portfolioVideos: {
@@ -92,47 +101,67 @@ describe('creator-list-filters.util', () => {
         personaTags: ['a', 'b'],
       };
       expect(buildListCreatorsWhere(q)).toEqual({
-        personaTags: {
-          some: {
-            OR: [
-              { tag: { contains: 'a', mode: 'insensitive' } },
-              { tag: { contains: 'b', mode: 'insensitive' } },
-            ],
+        AND: [
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          {
+            personaTags: {
+              some: {
+                OR: [
+                  { tag: { contains: 'a', mode: 'insensitive' } },
+                  { tag: { contains: 'b', mode: 'insensitive' } },
+                ],
+              },
+            },
           },
-        },
+        ],
       });
     });
 
     it('filters by package price range when min and max set', () => {
       const q: ListCreatorsQueryDto = { minPrice: 100, maxPrice: 500 };
       expect(buildListCreatorsWhere(q)).toEqual({
-        packages: {
-          some: {
-            priceAmount: { gte: 100, lte: 500 },
+        AND: [
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          {
+            packages: {
+              some: {
+                priceAmount: { gte: 100, lte: 500 },
+              },
+            },
           },
-        },
+        ],
       });
     });
 
     it('filters by min price only', () => {
       const q: ListCreatorsQueryDto = { minPrice: 50 };
       expect(buildListCreatorsWhere(q)).toEqual({
-        packages: {
-          some: {
-            priceAmount: { gte: 50 },
+        AND: [
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          {
+            packages: {
+              some: {
+                priceAmount: { gte: 50 },
+              },
+            },
           },
-        },
+        ],
       });
     });
 
     it('filters by max price only', () => {
       const q: ListCreatorsQueryDto = { maxPrice: 1000 };
       expect(buildListCreatorsWhere(q)).toEqual({
-        packages: {
-          some: {
-            priceAmount: { lte: 1000 },
+        AND: [
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          {
+            packages: {
+              some: {
+                priceAmount: { lte: 1000 },
+              },
+            },
           },
-        },
+        ],
       });
     });
   });

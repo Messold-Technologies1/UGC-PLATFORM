@@ -57,8 +57,8 @@ let CreatorProfileController = class CreatorProfileController {
     async getMyCreatorProfile(req) {
         return this.creatorProfileService.getCreatorProfileForCurrentUser(req.user.id);
     }
-    async getCreator(id) {
-        return this.creatorProfileService.getCreatorById(id);
+    async getCreator(id, req) {
+        return this.creatorProfileService.getCreatorById(req.user.id, id);
     }
     async updateCreator(id, dto, req) {
         return this.creatorProfileService.updateCreatorProfile(req.user.id, id, dto);
@@ -198,9 +198,11 @@ _ts_decorate([
         type: _creatorprofileresponsedto.CreatorProfileResponseDto
     }),
     _ts_param(0, (0, _common.Param)('id', _common.ParseUUIDPipe)),
+    _ts_param(1, (0, _common.Req)()),
     _ts_metadata("design:type", Function),
     _ts_metadata("design:paramtypes", [
-        String
+        String,
+        Object
     ]),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "getCreator", null);
@@ -208,7 +210,7 @@ _ts_decorate([
     (0, _common.Patch)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
-        summary: 'Update creator profile (replace languages/categories/persona/restrictions/packages if provided)'
+        summary: 'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)'
     }),
     (0, _swagger.ApiOkResponse)({
         type: _creatorprofileresponsedto.CreatorProfileResponseDto

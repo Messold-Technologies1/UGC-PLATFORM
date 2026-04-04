@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApprovalStatus } from '@prisma/client';
 
 export class CreatorLanguageResponseDto {
   @ApiProperty({ example: 'uuid' })
@@ -122,6 +123,17 @@ export class CreatorProfileResponseDto {
 
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
+
+  @ApiPropertyOptional({
+    enum: ApprovalStatus,
+    example: ApprovalStatus.APPROVED,
+  })
+  approvalStatus?: ApprovalStatus;
+
+  @ApiPropertyOptional({
+    example: 'Does not meet guidelines.',
+  })
+  rejectionReason?: string | null;
 
   @ApiProperty({ type: () => [CreatorLanguageResponseDto] })
   languages!: CreatorLanguageResponseDto[];

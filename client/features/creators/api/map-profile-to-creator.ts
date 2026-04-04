@@ -1,4 +1,3 @@
-import { DEFAULT_CREATOR_ADD_ONS } from "../constants/default-add-ons";
 import type { Creator, CreatorProfile, Package } from "../types";
 import type { CreatorProfileItemApi } from "./types";
 
@@ -105,6 +104,17 @@ function mapApiPackages(
   }));
 }
 
+function mapApiAddOns(
+  addOns: CreatorProfileItemApi["addOns"] | undefined,
+): CreatorProfile["addOns"] {
+  if (!addOns?.length) return [];
+  return addOns.map((addOn) => ({
+    id: addOn.id,
+    label: addOn.name,
+    price: Math.round(Number.parseFloat(addOn.priceAmount)) || 0,
+  }));
+}
+
 export function mapProfileItemToCreatorProfile(
   profile: CreatorProfileItemApi,
 ): CreatorProfile {
@@ -121,7 +131,7 @@ export function mapProfileItemToCreatorProfile(
         : null,
     onLocationFee: profile.onLocationFee?.trim() ?? null,
     packages: mapApiPackages(profile.packages),
-    addOns: DEFAULT_CREATOR_ADD_ONS,
+    addOns: mapApiAddOns(profile.addOns),
     reviews: [],
   };
 }

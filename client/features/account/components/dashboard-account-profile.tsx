@@ -293,6 +293,36 @@ export function DashboardAccountProfile({
               </div>
             </div>
           ) : null}
+
+          {profile.addOns?.length ? (
+            <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-6">
+              <h4 className="text-xs font-medium text-muted-foreground">
+                Add-ons
+              </h4>
+              <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                {profile.addOns.map((addOn) => (
+                  <div
+                    key={addOn.id}
+                    className="rounded-xl border border-border bg-card p-4"
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {addOn.name}
+                      </p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        ₹{addOn.priceAmount}
+                      </p>
+                    </div>
+                    {addOn.description?.trim() ? (
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        {addOn.description.trim()}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

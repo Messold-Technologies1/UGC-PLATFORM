@@ -29,6 +29,13 @@ export type CreatorProfileRestrictionApi = {
   restriction: string;
 };
 
+export type CreatorProfileAddOnApi = {
+  id: string;
+  name: string;
+  priceAmount: string;
+  description?: string | null;
+};
+
 export type CreatorPortfolioVideoPreviewApi = {
   id: string;
   creatorId: string;
@@ -56,6 +63,7 @@ export type CreatorProfileItemApi = {
   personaTags?: CreatorProfilePersonaTagApi[];
   restrictions?: CreatorProfileRestrictionApi[];
   packages: CreatorProfilePackageApi[];
+  addOns?: CreatorProfileAddOnApi[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
 };
 

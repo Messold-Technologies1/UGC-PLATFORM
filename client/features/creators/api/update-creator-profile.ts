@@ -1,6 +1,9 @@
 import api from "@/lib/api";
 import { creatorsByIdPath } from "@/lib/endpoints";
-import type { CreatorPackageCreatePayload } from "./create-creator-profile";
+import type {
+  CreatorAddOnCreatePayload,
+  CreatorPackageCreatePayload,
+} from "./create-creator-profile";
 import type { CreatorProfileItemApi } from "./types";
 
 export type UpdateCreatorProfilePayload = {
@@ -11,12 +14,12 @@ export type UpdateCreatorProfilePayload = {
   gender?: string;
   travelRadius?: number;
   onLocationAvailable?: boolean;
-  onLocationFee?: string;
   languages?: string[];
   categories?: string[];
   personaTags?: string[];
   restrictions?: string[];
   packages?: CreatorPackageCreatePayload[];
+  addOns?: CreatorAddOnCreatePayload[];
 };
 
 export async function updateCreatorProfile(

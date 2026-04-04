@@ -22,6 +22,10 @@ import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-s
 import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
 import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-image-field";
 import {
+  CreatorProfileAddOnFields,
+  type AddOnDraft,
+} from "@/features/creators/components/creator-profile-add-on-fields";
+import {
   CreatorProfilePackageFields,
   type PackageDraft,
 } from "@/features/creators/components/creator-profile-package-fields";
@@ -52,6 +56,7 @@ import {
 } from "@/features/creators/api/presign-creator-profile-image";
 
 const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
+const MAX_ADD_ONS_IN_CREATOR_SETUP_FORM = 6;
 
 const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
 const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -76,6 +81,19 @@ function isCompletedPackageDraft(row: PackageDraft): boolean {
   const price = row.priceAmount.trim();
   const days = Number.parseInt(row.deliveryDays, 10);
   return !!name && !!price && !Number.isNaN(days) && days >= 0;
+}
+
+function createAddOnDraft(
+  id: string,
+  overrides?: Partial<Omit<AddOnDraft, "id">>,
+): AddOnDraft {
+  return {
+    id,
+    name: overrides?.name ?? "",
+    priceAmount: overrides?.priceAmount ?? "",
+    description: overrides?.description ?? "",
+    existingName: overrides?.existingName ?? null,
+  };
 }
 
 function removeCommaSeparatedItem(current: string, item: string): string {
@@ -154,12 +172,13 @@ export function CreatorProfileSetupForm({
     [restrictionsInput],
   );
   const [onLocationAvailable, setOnLocationAvailable] = useState(false);
-  const [onLocationFee, setOnLocationFee] = useState("");
 
   const nextPackageIdRef = useRef(1);
   const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
     createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
   ]);
+  const nextAddOnIdRef = useRef(1);
+  const [addOnDrafts, setAddOnDrafts] = useState<AddOnDraft[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
@@ -210,6 +229,27 @@ export function CreatorProfileSetupForm({
     setPackageDrafts((rows) => rows.filter((row) => row.id !== id));
   }, []);
 
+  const updateAddOnDraft = useCallback(
+    (id: string, patch: Partial<Omit<AddOnDraft, "id">>) => {
+      setAddOnDrafts((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+      );
+    },
+    [],
+  );
+
+  const addAddOnDraft = useCallback(() => {
+    setAddOnDrafts((rows) => {
+      if (rows.length >= MAX_ADD_ONS_IN_CREATOR_SETUP_FORM) return rows;
+      const id = `addon-${nextAddOnIdRef.current++}`;
+      return [...rows, createAddOnDraft(id)];
+    });
+  }, []);
+
+  const removeAddOnDraft = useCallback((id: string) => {
+    setAddOnDrafts((rows) => rows.filter((row) => row.id !== id));
+  }, []);
+
   useEffect(() => {
     if (mode === "update" && initialProfile) {
       const url = initialProfile.profileImageUrl?.trim();
@@ -240,15 +280,10 @@ export function CreatorProfileSetupForm({
           .map((r) => r.restriction)
           .join(", "),
       );
+      const initialAddOns = initialProfile.addOns ?? [];
       setPersonaTagDraft("");
       setRestrictionDraft("");
       setOnLocationAvailable(initialProfile.onLocationAvailable ?? false);
-      setOnLocationFee(
-        initialProfile.onLocationFee != null &&
-          String(initialProfile.onLocationFee).trim() !== ""
-          ? String(initialProfile.onLocationFee)
-          : "",
-      );
       if (initialProfile.packages.length > 0) {
         nextPackageIdRef.current = initialProfile.packages.length;
         setPackageDrafts(
@@ -266,6 +301,22 @@ export function CreatorProfileSetupForm({
         ]);
         nextPackageIdRef.current = 1;
       }
+      if (initialAddOns.length > 0) {
+        nextAddOnIdRef.current = initialAddOns.length;
+        setAddOnDrafts(
+          initialAddOns.map((addOn) =>
+            createAddOnDraft(addOn.id, {
+              name: addOn.name,
+              priceAmount: addOn.priceAmount,
+              description: addOn.description?.trim() ?? "",
+              existingName: addOn.name,
+            }),
+          ),
+        );
+      } else {
+        setAddOnDrafts([]);
+        nextAddOnIdRef.current = 1;
+      }
       return;
     }
     if (!user) return;
@@ -277,7 +328,8 @@ export function CreatorProfileSetupForm({
     setPersonaTagDraft("");
     setRestrictionDraft("");
     setOnLocationAvailable(false);
-    setOnLocationFee("");
+    setAddOnDrafts([]);
+    nextAddOnIdRef.current = 1;
     const name = user.name?.trim() || user.email.split("@")[0] || "";
     setDisplayName(name);
   }, [user, mode, initialProfile]);
@@ -421,6 +473,40 @@ export function CreatorProfileSetupForm({
 
       const packages: CreateCreatorProfilePayload["packages"] =
         builtPackages.length > 0 ? builtPackages : undefined;
+      const builtAddOns: NonNullable<CreateCreatorProfilePayload["addOns"]> = [];
+      const seenAddOnNames = new Set<string>();
+
+      for (const row of addOnDrafts) {
+        const addOnName = row.name.trim();
+        const price = row.priceAmount.trim();
+        const description = row.description.trim();
+        const touched = !!addOnName || !!price || !!description;
+
+        if (touched && (!addOnName || !price)) {
+          toast.error(
+            "Complete each add-on (name and price) or clear unused rows.",
+          );
+          return;
+        }
+
+        if (!touched) continue;
+
+        const normalizedName = addOnName.toLowerCase();
+        if (seenAddOnNames.has(normalizedName)) {
+          toast.error("Each add-on name must be unique.");
+          return;
+        }
+        seenAddOnNames.add(normalizedName);
+
+        builtAddOns.push({
+          name: addOnName,
+          priceAmount: price,
+          ...(description ? { description } : {}),
+        });
+      }
+
+      const addOns: CreateCreatorProfilePayload["addOns"] =
+        builtAddOns.length > 0 ? builtAddOns : undefined;
 
       const createPayload: CreateCreatorProfilePayload = {
         displayName: name,
@@ -439,10 +525,8 @@ export function CreatorProfileSetupForm({
         personaTags: personas.length ? personas : undefined,
         restrictions: rests.length ? rests : undefined,
         onLocationAvailable,
-        ...(onLocationAvailable && onLocationFee.trim()
-          ? { onLocationFee: onLocationFee.trim() }
-          : {}),
         packages,
+        addOns,
       };
 
       setPending(true);
@@ -465,15 +549,47 @@ export function CreatorProfileSetupForm({
                 ? radius
                 : undefined,
             onLocationAvailable,
-            ...(onLocationAvailable && onLocationFee.trim()
-              ? { onLocationFee: onLocationFee.trim() }
-              : {}),
             languages: langs,
             categories: cats,
             personaTags: personas,
             restrictions: rests,
             packages: builtPackages,
           };
+          const initialAddOnsNormalized = (initialProfile?.addOns ?? []).map(
+            (addOn) => ({
+              name: addOn.name.trim(),
+              priceAmount: addOn.priceAmount.trim(),
+              description: addOn.description?.trim() ?? "",
+            }),
+          );
+          const builtAddOnsNormalized = builtAddOns.map((addOn) => ({
+            name: addOn.name.trim(),
+            priceAmount: addOn.priceAmount.trim(),
+            description: addOn.description?.trim() ?? "",
+          }));
+          const addOnsChanged =
+            initialAddOnsNormalized.length !== builtAddOnsNormalized.length ||
+            initialAddOnsNormalized.some((addOn, index) => {
+              const next = builtAddOnsNormalized[index];
+              return (
+                !next ||
+                addOn.name !== next.name ||
+                addOn.priceAmount !== next.priceAmount ||
+                addOn.description !== next.description
+              );
+            });
+
+          if (addOnsChanged) {
+            toast.error(
+              "Add-ons update is not available in the client right now.",
+              {
+                description:
+                  "Your other profile changes can be saved after reverting add-on edits.",
+              },
+            );
+            return;
+          }
+
           await updateCreatorProfile(profileId, patchPayload);
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
           await queryClient.invalidateQueries({
@@ -532,8 +648,9 @@ export function CreatorProfileSetupForm({
       personaTagsInput,
       restrictionsInput,
       onLocationAvailable,
-      onLocationFee,
       packageDrafts,
+      addOnDrafts,
+      initialProfile,
       onSuccess,
       queryClient,
       pendingProfileImageKey,
@@ -685,17 +802,15 @@ export function CreatorProfileSetupForm({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="languages">Languages</Label>
-            <Input
-              id="languages"
-              className={inputClass}
-              value={languages}
-              onChange={(e) => setLanguages(e.target.value)}
-              placeholder="Comma-separated, e.g. English, Hindi"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="languages">Languages</Label>
+          <Input
+            id="languages"
+            className={inputClass}
+            value={languages}
+            onChange={(e) => setLanguages(e.target.value)}
+            placeholder="Comma-separated, e.g. English, Hindi"
+          />
         </div>
 
         <div className="space-y-2">
@@ -767,17 +882,6 @@ export function CreatorProfileSetupForm({
           {onLocationAvailable ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="onLocationFee">On-location fee</Label>
-                <Input
-                  id="onLocationFee"
-                  className={inputClass}
-                  value={onLocationFee}
-                  onChange={(e) => setOnLocationFee(e.target.value)}
-                  placeholder="499.00"
-                  inputMode="decimal"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="travelRadius">Travel radius (km)</Label>
                 <Input
                   id="travelRadius"
@@ -797,9 +901,20 @@ export function CreatorProfileSetupForm({
           rows={packageDrafts}
           inputClassName={inputClass}
           maxPackages={MAX_PACKAGES_IN_CREATOR_SETUP_FORM}
+          layout={mode === "update" ? "grid" : "stack"}
           onAdd={addPackageDraft}
           onRemove={removePackageDraft}
           onChange={updatePackageDraft}
+        />
+
+        <CreatorProfileAddOnFields
+          rows={addOnDrafts}
+          inputClassName={inputClass}
+          maxAddOns={MAX_ADD_ONS_IN_CREATOR_SETUP_FORM}
+          layout={mode === "update" ? "grid" : "stack"}
+          onAdd={addAddOnDraft}
+          onRemove={removeAddOnDraft}
+          onChange={updateAddOnDraft}
         />
       </div>
 

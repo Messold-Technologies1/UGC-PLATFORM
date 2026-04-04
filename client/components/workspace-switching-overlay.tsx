@@ -17,23 +17,32 @@ function labelForRole(role: "CREATOR" | "BRAND" | null) {
   return "workspace";
 }
 
-export function WorkspaceSwitchingOverlay() {
+export function WorkspaceSwitchingOverlayInner({
+  targetRole,
+}: {
+  targetRole: "CREATOR" | "BRAND" | null;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { isSwitching, targetRole } = useWorkspaceSwitchState();
   const [visible, setVisible] = useState(false);
   const showTimeoutRef = useRef<number | null>(null);
   const clearTimeoutRef = useRef<number | null>(null);
-  const routeAtSwitchStartRef = useRef<string | null>(null);
   const visibleSinceRef = useRef<number | null>(null);
-  const wasSwitchingRef = useRef(false);
 
   const routeKey = useMemo(
     () => `${pathname}?${searchParams.toString()}`,
     [pathname, searchParams],
   );
 
+  const [initialRouteKey] = useState(routeKey);
+
   useEffect(() => {
+    showTimeoutRef.current = window.setTimeout(() => {
+      visibleSinceRef.current = Date.now();
+      setVisible(true);
+      showTimeoutRef.current = null;
+    }, OVERLAY_SHOW_DELAY_MS);
+
     return () => {
       if (showTimeoutRef.current != null) {
         window.clearTimeout(showTimeoutRef.current);
@@ -45,43 +54,8 @@ export function WorkspaceSwitchingOverlay() {
   }, []);
 
   useEffect(() => {
-    if (!isSwitching) {
-      if (showTimeoutRef.current != null) {
-        window.clearTimeout(showTimeoutRef.current);
-        showTimeoutRef.current = null;
-      }
-      if (clearTimeoutRef.current != null) {
-        window.clearTimeout(clearTimeoutRef.current);
-        clearTimeoutRef.current = null;
-      }
-      routeAtSwitchStartRef.current = null;
-      visibleSinceRef.current = null;
-      wasSwitchingRef.current = false;
-      setVisible(false);
-      return;
-    }
-
-    if (wasSwitchingRef.current) return;
-    wasSwitchingRef.current = true;
-    routeAtSwitchStartRef.current = routeKey;
-    visibleSinceRef.current = null;
-    setVisible(false);
-
-    if (showTimeoutRef.current != null) {
-      window.clearTimeout(showTimeoutRef.current);
-    }
-
-    showTimeoutRef.current = window.setTimeout(() => {
-      visibleSinceRef.current = Date.now();
-      setVisible(true);
-      showTimeoutRef.current = null;
-    }, OVERLAY_SHOW_DELAY_MS);
-  }, [isSwitching, routeKey]);
-
-  useEffect(() => {
-    if (!isSwitching) return;
-    if (!routeAtSwitchStartRef.current) return;
-    if (routeKey === routeAtSwitchStartRef.current) return;
+    if (routeKey === initialRouteKey) return;
+    if (clearTimeoutRef.current != null) return;
 
     if (showTimeoutRef.current != null) {
       window.clearTimeout(showTimeoutRef.current);
@@ -89,13 +63,6 @@ export function WorkspaceSwitchingOverlay() {
     }
 
     const clearNow = () => {
-      if (clearTimeoutRef.current != null) {
-        window.clearTimeout(clearTimeoutRef.current);
-        clearTimeoutRef.current = null;
-      }
-      setVisible(false);
-      visibleSinceRef.current = null;
-      routeAtSwitchStartRef.current = null;
       clearWorkspaceSwitchState();
     };
 
@@ -106,13 +73,12 @@ export function WorkspaceSwitchingOverlay() {
 
     if (remaining === 0) {
       clearNow();
-      return;
+    } else {
+      clearTimeoutRef.current = window.setTimeout(clearNow, remaining);
     }
+  }, [routeKey, initialRouteKey]);
 
-    clearTimeoutRef.current = window.setTimeout(clearNow, remaining);
-  }, [isSwitching, routeKey]);
-
-  if (!isSwitching || !visible) return null;
+  if (!visible) return null;
 
   return (
     <div
@@ -127,4 +93,12 @@ export function WorkspaceSwitchingOverlay() {
       </p>
     </div>
   );
+}
+
+export function WorkspaceSwitchingOverlay() {
+  const { isSwitching, targetRole } = useWorkspaceSwitchState();
+
+  if (!isSwitching) return null;
+
+  return <WorkspaceSwitchingOverlayInner targetRole={targetRole} />;
 }

@@ -11,6 +11,7 @@ const dashboardMainColumnClass =
 const dashboardContentClass: Record<PostAuthRole, string> = {
   creator: dashboardMainColumnClass,
   brand: dashboardMainColumnClass,
+  admin: dashboardMainColumnClass,
 };
 
 export function PostLoginSetupShell({

@@ -6,10 +6,10 @@ import {
   type AuthUser,
   type WorkspaceRole,
 } from "@/features/auth/hooks/use-me-query";
-
 const WORKSPACE_ERROR: Record<WorkspaceRole, string> = {
   CREATOR: "Could not continue as creator. Try again.",
   BRAND: "Could not continue as brand. Try again.",
+  ADMIN: "Could not continue as admin. Try again.",
 };
 
 export async function ensureWorkspaceSelection(

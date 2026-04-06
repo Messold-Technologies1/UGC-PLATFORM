@@ -125,7 +125,7 @@ export function DashboardOnboardingGate({
   if (showBlockingOnboarding) {
     return (
       <GlobalOnboardingPage
-        role={role}
+        role={role as "creator" | "brand"}
         onClose={replaceUrlWithoutOnboardingParam}
         onBrandDismiss={handleBrandDismiss}
         onCreatorBack={creatorBackRole ? handleCreatorBack : undefined}

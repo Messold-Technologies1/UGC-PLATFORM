@@ -7,20 +7,22 @@ import {
   useWorkspaceSwitchState,
 } from "@/features/auth/lib/workspace-switch-state";
 import { Spinner } from "@/components/ui/spinner";
+import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 
 const OVERLAY_SHOW_DELAY_MS = 120;
 const OVERLAY_MIN_VISIBLE_MS = 240;
 
-function labelForRole(role: "CREATOR" | "BRAND" | null) {
+function labelForRole(role: WorkspaceRole | null) {
   if (role === "CREATOR") return "creator";
   if (role === "BRAND") return "brand";
+  if (role === "ADMIN") return "admin";
   return "workspace";
 }
 
 export function WorkspaceSwitchingOverlayInner({
   targetRole,
 }: {
-  targetRole: "CREATOR" | "BRAND" | null;
+  targetRole: WorkspaceRole | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();

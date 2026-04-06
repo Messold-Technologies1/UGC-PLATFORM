@@ -24,6 +24,10 @@ export async function resolveImmediatePostAuthPath(
     return postAuthContinuePath(callbackUrl);
   }
 
+  if (user.roles.includes("ADMIN")) {
+    return "/admin";
+  }
+
   if (user.activeRole ?? user.primaryRole) {
     return resolvePostAuthRedirectPath(user, callbackUrl);
   }

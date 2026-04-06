@@ -85,7 +85,7 @@ export default function ReviewDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-full md:w-[500px] lg:w-[600px] bg-background border-l border-border/30 z-60 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto flex flex-col"
+            className="fixed top-0 right-0 h-full w-full md:w-[500px] lg:w-[600px] bg-background border-l border-border/30 z-60 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
           >
             <div className="flex items-center justify-between px-8 py-6 border-b border-border/20 sticky top-0 bg-background z-10">
               <h2 className="text-xl font-headline font-bold">

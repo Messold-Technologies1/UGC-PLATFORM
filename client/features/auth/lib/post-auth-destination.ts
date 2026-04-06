@@ -1,11 +1,13 @@
 import type { AuthUser, WorkspaceRole } from "../hooks/use-me-query";
 
-export type PostAuthRole = "creator" | "brand";
+export type PostAuthRole = "creator" | "brand" | "admin";
 
 const CREATOR_FALLBACK = "/creator/dashboard";
 const BRAND_FALLBACK = "/brand/dashboard";
+const ADMIN_FALLBACK = "/admin";
 
 function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
+  if (r === "ADMIN") return "admin";
   return r === "CREATOR" ? "creator" : "brand";
 }
 
@@ -15,6 +17,9 @@ export function resolvePostAuthRedirectPath(
 ): string {
   if (user.roles.length === 0) {
     return postAuthContinuePath(callbackUrl);
+  }
+  if (user.roles.includes("ADMIN")) {
+    return "/admin";
   }
   const role = user.activeRole ?? user.primaryRole ?? user.roles[0];
   if (!role) {
@@ -58,14 +63,19 @@ export function postAuthDestinationForRole(
   callbackUrl: string | null,
 ): string {
   if (!callbackUrl?.trim()) {
+    if (role === "admin") return ADMIN_FALLBACK;
     return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
   }
   if (!callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
+    if (role === "admin") return ADMIN_FALLBACK;
     return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
   }
   const path = callbackUrl.split("?")[0] ?? callbackUrl;
+  if (role === "admin" && path.startsWith("/admin")) return callbackUrl;
   if (role === "brand" && path.startsWith("/brand")) return callbackUrl;
   if (role === "creator" && path.startsWith("/creator")) return callbackUrl;
+  
+  if (role === "admin") return ADMIN_FALLBACK;
   return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
 }
 

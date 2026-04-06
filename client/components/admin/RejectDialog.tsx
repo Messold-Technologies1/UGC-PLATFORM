@@ -26,7 +26,7 @@ export function RejectDialog({ isOpen, onClose, onConfirm, isWorking }: RejectDi
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent showCloseButton={false} className="z-100" overlayClassName="z-100">
         <DialogHeader>
           <DialogTitle>Reject Creator</DialogTitle>
         </DialogHeader>

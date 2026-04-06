@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -758,13 +759,13 @@ export function CreatorProfileSetupForm({
 
         <div className="space-y-2">
           <Label htmlFor="bio">Bio</Label>
-          <textarea
+          <Textarea
             id="bio"
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={3}
             placeholder="What do you create? Who do you love working with?"
-            className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
+            className="resize-y"
           />
         </div>
 

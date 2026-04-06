@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export type AddOnDraft = {
   id: string;
@@ -108,7 +109,7 @@ export function CreatorProfileAddOnFields({
                 <Label htmlFor={`addon-description-${row.id}`}>
                   Description
                 </Label>
-                <textarea
+                <Textarea
                   id={`addon-description-${row.id}`}
                   value={row.description}
                   onChange={(event) =>
@@ -118,7 +119,7 @@ export function CreatorProfileAddOnFields({
                   }
                   rows={3}
                   placeholder="Optional note about what this extra includes"
-                  className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
+                  className="resize-y"
                 />
               </div>
             </div>

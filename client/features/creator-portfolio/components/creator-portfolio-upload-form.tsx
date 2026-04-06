@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -31,7 +32,6 @@ import {
   splitCommaSeparatedList,
   toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
-import { cn } from "@/lib/utils";
 import { createPortfolioVideo } from "../api/create-portfolio-video";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
 import {
@@ -247,18 +247,14 @@ export function CreatorPortfolioUploadForm() {
 
             <div className="space-y-2">
               <Label htmlFor="portfolio-desc">Description</Label>
-              <textarea
+              <Textarea
                 id="portfolio-desc"
                 rows={3}
                 value={description}
                 disabled={submitting}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Short description for brands"
-                className={cn(
-                  "border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-20 w-full rounded-lg border bg-transparent px-2.5 py-2 text-sm shadow-none outline-none transition-colors",
-                  "focus-visible:ring-3 md:text-sm",
-                  "dark:bg-input/30 placeholder:text-muted-foreground disabled:opacity-50",
-                )}
+                className="min-h-20 max-h-40 resize-y"
               />
             </div>
 

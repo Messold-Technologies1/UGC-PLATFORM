@@ -14,13 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-
-const textareaClass = cn(
-  "border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-[100px] w-full rounded-lg border bg-transparent px-2.5 py-2 text-sm shadow-none outline-none transition-colors",
-  "focus-visible:ring-3 md:text-sm",
-  "dark:bg-input/30 placeholder:text-muted-foreground disabled:opacity-50",
-);
+import { Textarea } from "@/components/ui/textarea";
 
 export type BrandCampaignBriefDraft = {
   brandName: string;
@@ -116,12 +110,12 @@ export function BrandCampaignBriefForm() {
 
             <div className="space-y-2">
               <Label htmlFor="brief-script">Script / instructions</Label>
-              <textarea
+              <Textarea
                 id="brief-script"
                 value={scriptOrInstructions}
                 onChange={(e) => setScriptOrInstructions(e.target.value)}
                 placeholder="Tone, talking points, do’s and don’ts, CTA…"
-                className={textareaClass}
+                className="min-h-[100px]"
                 rows={5}
               />
             </div>
@@ -157,24 +151,24 @@ export function BrandCampaignBriefForm() {
 
             <div className="space-y-2">
               <Label htmlFor="brief-refs">Reference links</Label>
-              <textarea
+              <Textarea
                 id="brief-refs"
                 value={referenceLinks}
                 onChange={(e) => setReferenceLinks(e.target.value)}
                 placeholder="One URL per line — mood boards, past ads, product pages…"
-                className={textareaClass}
+                className="min-h-[100px]"
                 rows={4}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="brief-notes">Notes</Label>
-              <textarea
+              <Textarea
                 id="brief-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Anything else the creator should know"
-                className={textareaClass}
+                className="min-h-[100px]"
                 rows={3}
               />
             </div>

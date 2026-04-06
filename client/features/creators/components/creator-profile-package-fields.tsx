@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export type PackageDraft = {
   id: string;
@@ -136,7 +137,7 @@ export function CreatorProfilePackageFields({
                       One per line
                     </p>
                   </div>
-                  <textarea
+                  <Textarea
                     id={`pkg-deliverables-${row.id}`}
                     value={row.deliverables}
                     onChange={(event) =>
@@ -146,7 +147,7 @@ export function CreatorProfilePackageFields({
                     }
                     rows={3}
                     placeholder={"1 UGC video (30-60s)\nBasic editing"}
-                    className="border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-23 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
+                    className="min-h-[92px] resize-y"
                   />
                 </div>
               </div>

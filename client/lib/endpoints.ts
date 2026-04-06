@@ -31,6 +31,13 @@ export const ENDPOINTS = {
     SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
     SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
   },
+  ADMIN: {
+    CREATORS: {
+      PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
+      APPROVE: (id: string) => `/api/admin/creators/${encodeURIComponent(id)}/approve`,
+      REJECT: (id: string) => `/api/admin/creators/${encodeURIComponent(id)}/reject`,
+    }
+  }
 } as const;
 
 export function creatorPortfolioVideoPath(id: string): string {

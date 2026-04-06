@@ -100,6 +100,56 @@
   --animate-accordion-down: accordion-down 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   --animate-accordion-up: accordion-up 0.16s cubic-bezier(0.4, 0, 1, 1);
   --animate-select-content-in: select-content-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+
+  /* Radiant Nocturne Colors */
+  --color-outline: #75757a;
+  --color-error-dim: #d73357;
+  --color-on-tertiary-container: #4a2c00;
+  --color-on-surface: #faf8fe;
+  --color-on-primary: #3c0089;
+  --color-inverse-primary: #742fe5;
+  --color-primary-fixed: #b28cff;
+  --color-primary-container: #b28cff;
+  --color-on-tertiary: #573500;
+  --color-secondary-container: #006591;
+  --color-surface-container-lowest: #000000;
+  --color-on-background: #faf8fe;
+  --color-surface-dim: #0d0e12;
+  --color-primary-dim: #8a4cfc;
+  --color-inverse-surface: #faf8fe;
+  --color-on-primary-fixed-variant: #390083;
+  --color-surface-variant: #24252b;
+  --color-on-tertiary-fixed-variant: #563400;
+  --color-surface-container-low: #121318;
+  --color-tertiary-container: #f8a010;
+  --color-on-surface-variant: #abaab0;
+  --color-on-secondary-fixed-variant: #00567c;
+  --color-inverse-on-surface: #54555a;
+  --color-on-secondary-fixed: #003853;
+  --color-surface-container-highest: #24252b;
+  --color-secondary-fixed-dim: #81ccff;
+  --color-on-tertiary-fixed: #2a1700;
+  --color-error-container: #a70138;
+  --color-surface-bright: #2a2c32;
+  --color-surface-container-high: #1e1f25;
+  --color-on-secondary: #003047;
+  --color-secondary-fixed: #a4d8ff;
+  --color-surface: #0d0e12;
+  --color-secondary-dim: #17a8ec;
+  --color-on-primary-fixed: #000000;
+  --color-tertiary-fixed-dim: #e79400;
+  --color-on-secondary-container: #f3f8ff;
+  --color-surface-container: #18191e;
+  --color-surface-tint: #bd9dff;
+  --color-on-error: #490013;
+  --color-on-error-container: #ffb2b9;
+  --color-on-primary-container: #2e006c;
+  --color-primary-fixed-dim: #a67aff;
+  --color-outline-variant: #47484c;
+
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
 }
 
 @layer base {

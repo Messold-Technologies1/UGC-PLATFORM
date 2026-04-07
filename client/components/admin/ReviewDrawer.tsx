@@ -139,44 +139,66 @@ export default function ReviewDrawer({
                 <h3 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   Creator Details
                 </h3>
-                <div className="flex flex-wrap gap-2">
-                  {creator.categories?.map((c) => (
-                    <span
-                      key={c.id}
-                      className="text-[10px] font-bold px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-md uppercase tracking-wider"
-                    >
-                      {c.category}
-                    </span>
-                  ))}
-                  {creator.personaTags?.map((p) => (
-                    <span
-                      key={p.id}
-                      className="text-[10px] font-bold px-2 py-1 bg-secondary/10 border border-secondary/20 text-secondary rounded-md uppercase tracking-wider"
-                    >
-                      {p.tag}
-                    </span>
-                  ))}
-                  {creator.languages?.map((l) => (
-                    <span
-                      key={l.id}
-                      className="text-[10px] font-bold px-2 py-1 bg-card border border-border/40 text-muted-foreground rounded-md uppercase tracking-wider"
-                    >
-                      {l.language}
-                    </span>
-                  ))}
-                  {creator.onLocationAvailable && (
-                    <span className="text-[10px] font-bold px-2 py-1 bg-accent border border-border/50 text-foreground rounded-md uppercase tracking-wider">
-                      Travels up to {creator.travelRadius} miles
-                    </span>
+                <div className="space-y-3">
+                  {creator.categories && creator.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {creator.categories.map((c) => (
+                        <span
+                          key={c.id}
+                          className="text-[10px] font-bold px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-md uppercase tracking-wider"
+                        >
+                          {c.category}
+                        </span>
+                      ))}
+                    </div>
                   )}
-                  {creator.restrictions?.map((r) => (
-                    <span
-                      key={r.id}
-                      className="text-[10px] font-bold px-2 py-1 bg-error/10 border border-error/20 text-error rounded-md uppercase tracking-wider"
-                    >
-                      No {r.restriction}
-                    </span>
-                  ))}
+
+                  {creator.personaTags && creator.personaTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {creator.personaTags.map((p) => (
+                        <span
+                          key={p.id}
+                          className="text-[10px] font-bold px-2 py-1 bg-secondary/10 border border-secondary/20 text-secondary rounded-md uppercase tracking-wider"
+                        >
+                          {p.tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {creator.languages && creator.languages.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {creator.languages.map((l) => (
+                        <span
+                          key={l.id}
+                          className="text-[10px] font-bold px-2 py-1 bg-card border border-border/40 text-muted-foreground rounded-md uppercase tracking-wider"
+                        >
+                          {l.language}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {creator.onLocationAvailable && (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="text-[10px] font-bold px-2 py-1 bg-accent border border-border/50 text-foreground rounded-md uppercase tracking-wider">
+                        Travels up to {creator.travelRadius} miles
+                      </span>
+                    </div>
+                  )}
+
+                  {creator.restrictions && creator.restrictions.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {creator.restrictions.map((r) => (
+                        <span
+                          key={r.id}
+                          className="text-[10px] font-bold px-2 py-1 bg-error/10 border border-error/20 text-error rounded-md uppercase tracking-wider"
+                        >
+                          No {r.restriction}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -190,39 +212,48 @@ export default function ReviewDrawer({
                       <CarouselContent>
                         {creator.packages.map((p) => (
                           <CarouselItem key={p.id} className="md:basis-1/2">
-                            <div className="glass-panel p-4 rounded-xl border border-border/20 bg-card/20 flex flex-col space-y-3 h-full">
-                              <div className="flex justify-between items-start">
-                                <h4 className="font-bold text-sm text-foreground pr-2 leading-tight">
-                                  {p.name}
-                                </h4>
-                                <span className="font-bold text-sm text-primary whitespace-nowrap">
-                                  ${p.priceAmount}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                                <span className="material-symbols-outlined text-[14px]">
-                                  schedule
-                                </span>
-                                <span>{p.deliveryDays} Days Delivery</span>
-                              </div>
-                              {p.deliverables && p.deliverables.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 pt-1 mt-auto">
-                                  {p.deliverables.map((d, i) => (
-                                    <span
-                                      key={i}
-                                      className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-background/80 rounded-md border border-border/30 text-muted-foreground"
-                                    >
-                                      {d}
+                            <div className="relative group p-px rounded-2xl bg-border/40 hover:bg-linear-to-b hover:from-primary/50 hover:to-border/40 transition-all duration-300 h-full flex flex-col cursor-default">
+                              <div className="bg-background/90 backdrop-blur-md p-5 rounded-2xl flex flex-col h-full z-10 transition-colors group-hover:bg-background/95 shadow-sm">
+                                <div className="flex justify-between items-start mb-3">
+                                  <h4 className="font-headline font-extrabold text-base text-foreground pr-4 leading-tight group-hover:text-primary transition-colors">
+                                    {p.name}
+                                  </h4>
+                                  <div className="px-2.5 py-1 bg-primary/10 rounded-lg whitespace-nowrap">
+                                    <span className="font-black text-sm text-primary tracking-tight">
+                                      ${p.priceAmount}
                                     </span>
-                                  ))}
+                                  </div>
                                 </div>
-                              )}
+                                
+                                <div className="flex items-center space-x-2 text-xs font-semibold text-muted-foreground mb-4 bg-muted/50 w-fit px-2 py-1 rounded-md">
+                                  <span className="material-symbols-outlined text-[13px] text-primary/70">
+                                    schedule
+                                  </span>
+                                  <span>{p.deliveryDays} Days Delivery</span>
+                                </div>
+                                
+                                {p.deliverables && p.deliverables.length > 0 && (
+                                  <div className="mt-auto space-y-2 border-t border-border/50 pt-4">
+                                    <h5 className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/80 mb-2">Deliverables</h5>
+                                    <ul className="space-y-2">
+                                      {p.deliverables.map((d, i) => (
+                                        <li key={i} className="flex items-start space-x-2 text-xs text-foreground/80">
+                                          <span className="material-symbols-outlined text-[14px] text-green-500 shrink-0 mt-0.5">
+                                            check_circle
+                                          </span>
+                                          <span className="leading-snug">{d}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </CarouselItem>
                         ))}
                       </CarouselContent>
-                      <CarouselPrevious />
-                      <CarouselNext />
+                      <CarouselPrevious className="-left-6 md:-left-8 border-primary/20 hover:bg-primary hover:text-primary-foreground bg-background shadow-md transition-all" />
+                      <CarouselNext className="-right-6 md:-right-8 border-primary/20 hover:bg-primary hover:text-primary-foreground bg-background shadow-md transition-all" />
                     </Carousel>
                   </div>
                 </section>

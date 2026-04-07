@@ -87,21 +87,8 @@ export class AuthController {
   })
   async registerAdmin(
     @Body() dto: RegisterDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
   ) {
-    const meta = {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    };
-    const result = await this.authService.registerAdmin(dto, meta);
-    setAuthCookies(
-      res,
-      result.accessToken,
-      result.refreshToken,
-      result.expiresIn,
-      this.config.get<string>('JWT_REFRESH_EXPIRY', '7d'),
-    );
+    const result = await this.authService.registerAdmin(dto);
     return { user: result.user };
   }
 

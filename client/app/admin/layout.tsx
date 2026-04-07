@@ -118,6 +118,53 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               animation: reveal-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
               opacity: 0;
           }
+          .glass-input {
+              background: rgba(255, 255, 255, 0.7);
+              backdrop-filter: blur(8px);
+              border: 1px solid rgba(0, 0, 0, 0.1);
+              transition: all 0.3s ease;
+          }
+          .glass-input:focus {
+              background: rgba(255, 255, 255, 0.9);
+              border-color: rgba(99, 102, 241, 0.5);
+              box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+              outline: none;
+          }
+          .dark .glass-input {
+              background: rgba(255, 255, 255, 0.03);
+              border: 1px solid rgba(255, 255, 255, 0.08);
+          }
+          .dark .glass-input:focus {
+              background: rgba(255, 255, 255, 0.06);
+          }
+          .glass-card {
+              background: rgba(255, 255, 255, 0.7);
+              backdrop-filter: blur(20px);
+              border: 1px solid rgba(124, 58, 237, 0.1);
+          }
+          .dark .glass-card {
+              background: rgba(24, 25, 30, 0.6);
+              border: 1px solid rgba(255, 255, 255, 0.05);
+          }
+          .pulse-indicator {
+              position: relative;
+          }
+          .pulse-indicator::after {
+              content: '';
+              position: absolute;
+              width: 100%;
+              height: 100%;
+              border-radius: 50%;
+              background: currentColor;
+              opacity: 0.4;
+              animation: pulse 2s infinite;
+              left: 0;
+              top: 0;
+          }
+          @keyframes pulse {
+              0% { transform: scale(1); opacity: 0.4; }
+              100% { transform: scale(2.5); opacity: 0; }
+          }
         `}</style>
   
         <SideNavBar />

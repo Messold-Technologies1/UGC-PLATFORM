@@ -100,6 +100,7 @@ function Carousel({
 
     return () => {
       api?.off("select", onSelect);
+      api?.off("reInit", onSelect);
     };
   }, [api, onSelect]);
 
@@ -174,6 +175,8 @@ function CarouselPrevious({
   className,
   variant = "outline",
   size = "icon",
+  onClick,
+  onPointerDownCapture,
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { orientation, scrollPrev, canScrollPrev } = useCarousel();
@@ -192,9 +195,16 @@ function CarouselPrevious({
         className,
       )}
       disabled={!canScrollPrev}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      onPointerDownCapture={(event) => {
+        onPointerDownCapture?.(event);
+        if (!event.defaultPrevented) {
+          event.stopPropagation();
+        }
+      }}
+      onClick={(event) => {
+        onClick?.(event);
+        if (event.defaultPrevented) return;
+        event.stopPropagation();
         scrollPrev();
       }}
       {...props}
@@ -211,6 +221,8 @@ function CarouselNext({
   className,
   variant = "outline",
   size = "icon",
+  onClick,
+  onPointerDownCapture,
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { orientation, scrollNext, canScrollNext } = useCarousel();
@@ -229,9 +241,16 @@ function CarouselNext({
         className,
       )}
       disabled={!canScrollNext}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      onPointerDownCapture={(event) => {
+        onPointerDownCapture?.(event);
+        if (!event.defaultPrevented) {
+          event.stopPropagation();
+        }
+      }}
+      onClick={(event) => {
+        onClick?.(event);
+        if (event.defaultPrevented) return;
+        event.stopPropagation();
         scrollNext();
       }}
       {...props}

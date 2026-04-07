@@ -122,8 +122,7 @@ export class AuthService {
 
   async registerAdmin(
     dto: RegisterDto,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ): Promise<AuthResult> {
+  ): Promise<{ user: { id: string; email: string; name: string | null } }> {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -154,13 +153,13 @@ export class AuthService {
       },
     });
 
-    const { accessToken, refreshToken, expiresIn } =
-      await this.createSessionAndTokens(user.id, meta);
-    const me = await this.getMeForClient(user.id, refreshToken);
-    if (!me) {
-      throw new UnauthorizedException('Account could not be loaded');
-    }
-    return { user: me, accessToken, refreshToken, expiresIn };
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    };
   }
 
   async login(

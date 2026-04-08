@@ -83,8 +83,9 @@ export const PortfolioTab = memo(function PortfolioTab({
   }
 
   return (
-    <div className="grid justify-items-center gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {videos.map((v) => {
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {videos.map((v, index) => {
+        const isFirst = index === 0;
         const title = v.description?.trim() || "Portfolio video";
         const createdLabel = new Date(v.createdAt).toLocaleDateString(
           undefined,
@@ -93,60 +94,99 @@ export const PortfolioTab = memo(function PortfolioTab({
             month: "short",
           },
         );
-        const badge = v.industryLabel?.trim() || v.tags[0] || "Portfolio";
+        const badge = v.industryLabel?.trim() || v.tags?.[0] || "Portfolio";
+
+        const tags = [
+          ...(v.language?.trim() ? [v.language.trim()] : []),
+          ...(v.industryLabel?.trim() ? [v.industryLabel.trim()] : []),
+          ...(v.tags?.[0]?.trim() ? [v.tags[0].trim()] : []),
+          createdLabel,
+        ].slice(0, 4);
+
+        if (isFirst) {
+          return (
+            <a
+              key={v.id}
+              href={v.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="md:col-span-2 xl:col-span-2 group relative rounded-3xl overflow-hidden bg-muted h-[450px]"
+            >
+              <video
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70"
+                src={v.videoUrl}
+                poster={v.thumbnailUrl ?? undefined}
+                preload="metadata"
+                muted
+                playsInline
+                loop
+                onMouseOver={(e) =>
+                  (e.target as HTMLVideoElement).play().catch(() => {})
+                }
+                onMouseOut={(e) => (e.target as HTMLVideoElement).pause()}
+              />
+              <div className="absolute inset-0 bg-linear-to-t from-background/90 via-background/20 to-transparent pointer-events-none"></div>
+
+              <div className="absolute top-6 left-6 flex gap-2">
+                <span className="px-3 py-1 rounded-full bg-primary/20 text-primary-foreground text-[10px] font-black uppercase tracking-tighter backdrop-blur-md">
+                  {badge}
+                </span>
+              </div>
+
+              <div className="absolute bottom-8 left-8 space-y-4 pr-8">
+                <h3 className="text-3xl font-extrabold text-white tracking-tighter drop-shadow-md">
+                  {title}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="text-[10px] font-bold text-white/70 uppercase bg-white/10 backdrop-blur-sm px-2 py-1 rounded"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-20 h-20 bg-primary/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-primary/30">
+                  <Play className="size-8 text-white ml-1 fill-white" />
+                </div>
+              </div>
+            </a>
+          );
+        }
+
         return (
           <a
             key={v.id}
             href={v.videoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative block w-full max-w-75 overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+            className="group relative rounded-3xl overflow-hidden bg-muted aspect-3/4"
           >
-            <div className="relative h-105 overflow-hidden bg-muted sm:h-115">
-              <video
-                className="absolute inset-0 h-full w-full object-cover"
-                src={v.videoUrl}
-                poster={v.thumbnailUrl ?? undefined}
-                preload="metadata"
-                muted
-                playsInline
-              />
-
-              <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/10 via-black/0 to-black/55 opacity-90 transition-opacity group-hover:opacity-100" />
-
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/10">
-                <span className="flex size-12 items-center justify-center rounded-full bg-background/85 shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110">
-                  <Play className="ml-0.5 size-4 text-foreground" aria-hidden />
-                </span>
-              </span>
-              <span className="absolute left-2.5 top-2.5 rounded-full border border-border/70 bg-background/85 px-2.5 py-1 text-[11px] font-medium leading-none backdrop-blur-sm">
-                {badge}
-              </span>
-
-              <div className="absolute inset-x-0 bottom-0 p-3">
-                <p className="line-clamp-2 text-sm font-semibold text-white drop-shadow-sm">
-                  {title}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
-                  {v.language?.trim() ? (
-                    <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
-                      {v.language.trim()}
-                    </span>
-                  ) : null}
-                  {v.industryLabel?.trim() ? (
-                    <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
-                      {v.industryLabel.trim()}
-                    </span>
-                  ) : null}
-                  {v.tags?.[0]?.trim() ? (
-                    <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
-                      {v.tags[0].trim()}
-                    </span>
-                  ) : null}
-                  <span className="inline-flex items-center rounded-full border border-white/15 bg-black/20 px-2 py-0.5 backdrop-blur-sm">
-                    {createdLabel}
-                  </span>
-                </div>
+            <video
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
+              src={v.videoUrl}
+              poster={v.thumbnailUrl ?? undefined}
+              preload="metadata"
+              muted
+              playsInline
+              loop
+              onMouseOver={(e) =>
+                (e.target as HTMLVideoElement).play().catch(() => {})
+              }
+              onMouseOut={(e) => (e.target as HTMLVideoElement).pause()}
+            />
+            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent flex items-end p-6 pointer-events-none">
+              <p className="font-bold text-white drop-shadow-md line-clamp-2">
+                {title}
+              </p>
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30">
+                <Play className="size-6 text-white ml-1 fill-white" />
               </div>
             </div>
           </a>

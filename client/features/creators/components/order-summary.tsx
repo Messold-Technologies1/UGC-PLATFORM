@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Package, AddOn } from "../types";
 
@@ -9,7 +9,11 @@ interface OrderSummaryProps {
   selectedAddOnIds: string[];
 }
 
-export const OrderSummary = memo(function OrderSummary({ selectedPackage, addOns, selectedAddOnIds }: OrderSummaryProps) {
+export const OrderSummary = memo(function OrderSummary({
+  selectedPackage,
+  addOns,
+  selectedAddOnIds,
+}: OrderSummaryProps) {
   const selectedAddOns = addOns.filter((a) => selectedAddOnIds.includes(a.id));
   const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
   const packagePrice = selectedPackage?.price ?? 0;
@@ -17,46 +21,62 @@ export const OrderSummary = memo(function OrderSummary({ selectedPackage, addOns
 
   if (!selectedPackage) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-muted">
-            <ShoppingCart className="size-5 text-muted-foreground" />
-          </div>
-          <p className="mt-3 text-sm font-medium">No package selected</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Select a package to see your order summary
-          </p>
+      <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm flex flex-col items-center text-center">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-muted/50 mb-6">
+          <ShoppingBag className="size-6 text-muted-foreground" />
         </div>
+        <h3 className="text-xl font-bold tracking-tight">
+          No package selected
+        </h3>
+        <p className="mt-3 text-sm text-muted-foreground max-w-[200px] leading-relaxed">
+          Choose a package from the left to start collaborating with the
+          creator.
+        </p>
+
+        <Button
+          className="mt-8 w-full font-semibold pointer-events-none opacity-50 bg-muted text-muted-foreground hover:bg-muted"
+          size="lg"
+          aria-label="Proceed to checkout disabled"
+        >
+          Proceed to Checkout
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6">
-      <h3 className="text-sm font-medium">Order Summary</h3>
+    <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm">
+      <h3 className="text-lg font-bold tracking-tight">Order Summary</h3>
 
-      <div className="mt-4 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="mt-6 space-y-4">
+        <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium">{selectedPackage.label} Package</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-base font-semibold">
+              {selectedPackage.label} Package
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {selectedPackage.deliveryDays}-day delivery
             </p>
           </div>
-          <span className="text-sm font-medium">
+          <span className="text-base font-bold">
             ₹{selectedPackage.price.toLocaleString("en-IN")}
           </span>
         </div>
 
         {selectedAddOns.length > 0 && (
           <>
-            <div className="border-t border-border/60" />
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Add-ons</p>
+            <div className="border-t border-border/50 pt-4" />
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Add-ons
+              </p>
               {selectedAddOns.map((addon) => (
-                <div key={addon.id} className="flex items-center justify-between text-sm">
-                  <span>{addon.label}</span>
-                  <span className="text-muted-foreground">
+                <div
+                  key={addon.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="font-medium">{addon.label}</span>
+                  <span className="font-semibold text-muted-foreground">
                     +₹{addon.price.toLocaleString("en-IN")}
                   </span>
                 </div>
@@ -65,10 +85,10 @@ export const OrderSummary = memo(function OrderSummary({ selectedPackage, addOns
           </>
         )}
 
-        <div className="border-t border-border pt-3">
+        <div className="border-t border-border/50 pt-5 mt-2">
           <div className="flex items-center justify-between">
-            <span className="text-base font-bold">Total</span>
-            <span className="text-xl font-bold">
+            <span className="text-lg font-bold">Total</span>
+            <span className="text-2xl font-bold text-primary">
               ₹{total.toLocaleString("en-IN")}
             </span>
           </div>
@@ -76,14 +96,14 @@ export const OrderSummary = memo(function OrderSummary({ selectedPackage, addOns
       </div>
 
       <Button
-        className="mt-5 w-full gap-1.5 bg-foreground border-0 text-background hover:opacity-90"
+        className="mt-8 w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         size="lg"
-        aria-label="Continue to checkout"
+        aria-label="Proceed to checkout"
       >
-        Continue
+        Proceed to Checkout
       </Button>
 
-      <p className="mt-3 text-center text-xs text-muted-foreground">
+      <p className="mt-4 text-center text-xs font-medium text-muted-foreground">
         You won&apos;t be charged yet
       </p>
     </div>

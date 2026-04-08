@@ -61,7 +61,9 @@ export function CreatorProfile({
   initialPortfolioVideos,
 }: CreatorProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Portfolio");
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
+    null,
+  );
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
 
   const selectedPackage = useMemo(
@@ -76,80 +78,140 @@ export function CreatorProfile({
   }, []);
 
   return (
-    <div className="mx-auto max-w-site px-4 py-8 sm:px-6 lg:px-8">
-      <ProfileHeader creator={creator} />
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+      <div className="flex flex-col gap-8 lg:flex-row">
+        <div className="min-w-0 flex-1 space-y-8">
+          <ProfileHeader creator={creator} />
 
-      <div className="mt-8 flex flex-col gap-8 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          <div className="flex border-b border-border" role="tablist" aria-label="Creator profile sections">
-            {TABS.map((tab) => (
-              <button
-                key={tab}
-                role="tab"
-                aria-selected={activeTab === tab}
-                aria-controls={`tabpanel-${tab.toLowerCase()}`}
-                id={`tab-${tab.toLowerCase()}`}
-                onClick={() => setActiveTab(tab)}
-                className={`relative px-5 py-3 text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab}
-                {tab === "Reviews" && (
-                  <span className="ml-1.5 text-xs text-muted-foreground">
-                    ({creator.reviews.length})
-                  </span>
-                )}
-                {activeTab === tab && (
-                  <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full" />
-                )}
-              </button>
-            ))}
-          </div>
+          <div>
+            <div
+              className="flex border-b border-border"
+              role="tablist"
+              aria-label="Creator profile sections"
+            >
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  aria-controls={`tabpanel-${tab.toLowerCase()}`}
+                  id={`tab-${tab.toLowerCase()}`}
+                  onClick={() => setActiveTab(tab)}
+                  className={`relative px-5 py-3 text-sm font-medium transition-colors ${
+                    activeTab === tab
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab}
+                  {tab === "Reviews" && (
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      ({creator.reviews.length})
+                    </span>
+                  )}
+                  {activeTab === tab && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
 
-          <div
-            className="mt-6"
-            role="tabpanel"
-            id={`tabpanel-${activeTab.toLowerCase()}`}
-            aria-labelledby={`tab-${activeTab.toLowerCase()}`}
-          >
-            {activeTab === "Portfolio" && (
-              <PortfolioTab
-                creatorId={creator.id}
-                initialVideos={initialPortfolioVideos}
-              />
-            )}
+            <div
+              className="mt-6"
+              role="tabpanel"
+              id={`tabpanel-${activeTab.toLowerCase()}`}
+              aria-labelledby={`tab-${activeTab.toLowerCase()}`}
+            >
+              {activeTab === "Portfolio" && (
+                <PortfolioTab
+                  creatorId={creator.id}
+                  initialVideos={initialPortfolioVideos}
+                />
+              )}
 
-            {activeTab === "Packages" && (
-              <PackagesTab
-                packages={creator.packages}
-                addOns={creator.addOns}
-                selectedPackageId={selectedPackageId}
-                selectedAddOnIds={selectedAddOnIds}
-                onSelectPackage={setSelectedPackageId}
-                onToggleAddOn={handleToggleAddOn}
-              />
-            )}
+              {activeTab === "Packages" && (
+                <PackagesTab
+                  packages={creator.packages}
+                  addOns={creator.addOns}
+                  selectedPackageId={selectedPackageId}
+                  selectedAddOnIds={selectedAddOnIds}
+                  onSelectPackage={setSelectedPackageId}
+                  onToggleAddOn={handleToggleAddOn}
+                />
+              )}
 
-            {activeTab === "Reviews" && (
-              <ReviewsTab
-                reviews={creator.reviews}
-                overallRating={creator.rating}
-                totalReviews={creator.reviewCount}
-              />
-            )}
+              {activeTab === "Reviews" && (
+                <ReviewsTab
+                  reviews={creator.reviews}
+                  overallRating={creator.rating}
+                  totalReviews={creator.reviewCount}
+                />
+              )}
+            </div>
           </div>
         </div>
 
         <div className="w-full shrink-0 lg:w-80">
-          <div className="sticky top-24">
+          <div className="sticky top-24 space-y-6">
             <OrderSummary
               selectedPackage={selectedPackage}
               addOns={creator.addOns}
               selectedAddOnIds={selectedAddOnIds}
             />
+
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Why Book {creator.name.split(" ")[0]}?
+              </h3>
+              <div className="mt-4 space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <svg
+                      className="size-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Fast Delivery</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Typical turnaround within 72 hours
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <svg
+                      className="size-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">4K Quality</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Shot on professional cinema gear
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

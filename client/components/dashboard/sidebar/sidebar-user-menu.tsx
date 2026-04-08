@@ -113,8 +113,8 @@ export function SidebarUserMenu({
         type="button"
         className={cn(
           "flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left outline-none transition-colors",
-          "hover:bg-sidebar-accent/80",
-          "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+          "hover:bg-linear-to-r hover:from-primary/10 hover:to-transparent",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           desktopCollapsed && "lg:justify-center lg:px-1",
         )}
         aria-label={label}
@@ -134,7 +134,7 @@ export function SidebarUserMenu({
           {getInitialsFromUser(user)}
         </span>
         <div className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}>
-          <p className="truncate text-sm font-medium text-sidebar-foreground">
+          <p className="truncate text-sm font-medium text-foreground">
             {name}
           </p>
         </div>

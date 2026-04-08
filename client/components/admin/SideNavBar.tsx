@@ -26,7 +26,7 @@ export default function SideNavBar() {
         {navItems.map((item) => {
           const isActive = item.match(pathname || "");
           const baseClasses = "flex items-center px-6 py-3 space-x-3 transition-all duration-300 group border-l-[3px]";
-          const activeClasses = "text-primary border-primary bg-linear-to-r from-primary/10 to-transparent font-bold scale-[0.98] active:scale-95";
+          const activeClasses = "origin-left text-primary border-primary bg-linear-to-r from-primary/10 to-transparent font-bold scale-[0.98] active:scale-95";
           const inactiveClasses = "text-muted-foreground border-transparent hover:bg-linear-to-r hover:from-primary/10 hover:to-transparent hover:text-foreground";
           
           return (

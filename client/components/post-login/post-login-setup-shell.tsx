@@ -22,7 +22,7 @@ export function PostLoginSetupShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col">
+    <div className="flex min-h-0 w-full flex-1 flex-col bg-[#f9fafb] dark:bg-background">
       <Suspense fallback={null}>
         <DashboardOnboardingGate role={role}>
           <div className={dashboardContentClass[role]}>{children}</div>

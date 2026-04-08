@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
@@ -77,18 +77,24 @@ function destinationPathAndQuery(destHref: string): {
 
 function isAlreadyAtDestination(
   pathname: string,
-  searchParams: URLSearchParams,
+  search: string,
   destHref: string,
 ): boolean {
   const { path, query: destQuery } = destinationPathAndQuery(destHref);
-  const currentQuery = normalizeQueryString(searchParams.toString());
+  const currentQuery = normalizeQueryString(search);
   return pathname === path && currentQuery === destQuery;
+}
+
+function readCurrentSearchString(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.search.startsWith("?")
+    ? window.location.search.slice(1)
+    : window.location.search;
 }
 
 export function useWorkspaceNavigation() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const switchState = useWorkspaceSwitchState();
 
@@ -100,8 +106,9 @@ export function useWorkspaceNavigation() {
     const currentRole = current?.activeRole ?? current?.primaryRole ?? null;
     
     const sameWorkspace = currentRole === role;
+    const currentSearch = readCurrentSearchString();
 
-    const fullCurrent = `${pathname}${searchParams.toString() ? `?${searchParams}` : ""}`;
+    const fullCurrent = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
 
     if (currentRole && !sameWorkspace) {
       const prefix = pathPrefixForWorkspaceRole(currentRole);
@@ -127,7 +134,7 @@ export function useWorkspaceNavigation() {
         const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
           promptIncompleteProfileOnboarding: false,
         });
-        if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
+        if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
           showSwitchingState();
           startTransition(() => {
             router.push(dest);
@@ -145,7 +152,7 @@ export function useWorkspaceNavigation() {
       const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
         promptIncompleteProfileOnboarding: false,
       });
-      if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
+      if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
         startTransition(() => {
           router.push(dest);
         });

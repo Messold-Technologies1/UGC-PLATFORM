@@ -110,7 +110,7 @@ export const PortfolioTab = memo(function PortfolioTab({
               href={v.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="md:col-span-2 xl:col-span-2 group relative rounded-3xl overflow-hidden bg-muted h-[450px]"
+              className="md:col-span-2 xl:col-span-2 group relative rounded-3xl overflow-hidden bg-muted h-[320px] sm:h-[360px] md:h-[380px]"
             >
               <video
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70"
@@ -125,8 +125,8 @@ export const PortfolioTab = memo(function PortfolioTab({
                 }
                 onMouseOut={(e) => (e.target as HTMLVideoElement).pause()}
               />
-              <div className="absolute inset-0 bg-linear-to-t from-background/90 via-background/20 to-transparent pointer-events-none"></div>
-
+              <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
+              
               <div className="absolute top-6 left-6 flex gap-2">
                 <span className="px-3 py-1 rounded-full bg-primary/20 text-primary-foreground text-[10px] font-black uppercase tracking-tighter backdrop-blur-md">
                   {badge}
@@ -158,13 +158,15 @@ export const PortfolioTab = memo(function PortfolioTab({
           );
         }
 
+        const isSecond = index === 1;
+
         return (
           <a
             key={v.id}
             href={v.videoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative rounded-3xl overflow-hidden bg-muted aspect-3/4"
+            className={`group relative rounded-3xl overflow-hidden bg-muted ${isSecond ? "h-[320px] sm:h-[360px] md:h-[380px]" : "aspect-3/4"}`}
           >
             <video
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"

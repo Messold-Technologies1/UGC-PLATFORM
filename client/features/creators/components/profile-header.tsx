@@ -31,11 +31,11 @@ export const ProfileHeader = memo(function ProfileHeader({
   );
 
   return (
-    <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm">
-      <div className="flex flex-col gap-8 sm:flex-row sm:items-stretch">
+    <div className="rounded-3xl border-0 bg-card p-5 sm:p-6 lg:p-7 shadow-sm">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch lg:gap-8">
         <div className="relative shrink-0 flex flex-col w-full sm:w-56 lg:w-64 items-center">
           <div
-            className="relative flex flex-1 min-h-[280px] lg:min-h-[320px] w-full overflow-hidden rounded-2xl bg-muted"
+            className="relative flex flex-1 min-h-[240px] lg:min-h-[260px] w-full overflow-hidden rounded-2xl bg-muted"
             role="img"
             aria-label={creator.name}
           >

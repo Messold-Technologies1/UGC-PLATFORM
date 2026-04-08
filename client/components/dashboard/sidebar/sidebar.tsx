@@ -15,6 +15,7 @@ import {
   Briefcase,
   type LucideIcon,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Accordion,
@@ -96,13 +97,13 @@ export function DashboardSidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group flex items-center border-l-[3px] py-3 text-sm transition-all duration-300",
+      "relative group flex items-center border-l-[3px] border-transparent py-3 text-sm transition-colors duration-300",
       desktopCollapsed
         ? "px-2 lg:justify-center max-lg:gap-3 max-lg:px-6"
         : "gap-3 px-6",
       isActive
-        ? "origin-left border-primary bg-linear-to-r from-primary/10 to-transparent font-semibold text-primary scale-[0.98]"
-        : "border-transparent text-muted-foreground hover:bg-linear-to-r hover:from-primary/10 hover:to-transparent hover:text-foreground",
+        ? "font-semibold text-primary"
+        : "text-muted-foreground hover:bg-linear-to-r hover:from-primary/10 hover:to-transparent hover:text-foreground",
     );
 
   const utilityItemClass = cn(
@@ -227,8 +228,16 @@ export function DashboardSidebar() {
                 onClick={closeMobile}
                 className={navItemClass(isActive)}
               >
-                <Icon className="size-4 shrink-0" />
-                <span className={cn(desktopCollapsed && "lg:sr-only")}>
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebarActiveIndicator"
+                    className="absolute inset-y-0 -left-[3px] right-0 border-l-[3px] border-primary bg-linear-to-r from-primary/10 to-transparent pointer-events-none"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  />
+                )}
+                <Icon className="relative z-10 size-4 shrink-0" />
+                <span className={cn("relative z-10", desktopCollapsed && "lg:sr-only")}>
                   {label}
                 </span>
               </Link>

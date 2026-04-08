@@ -240,11 +240,11 @@ export default function AdminDashboardPage() {
         <section className="mt-12">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="glass-panel p-8 rounded-3xl space-y-6 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8">
+              {/* <div className="absolute top-0 right-0 p-8">
                 <span className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-secondary">
                   Draft Selection
                 </span>
-              </div>
+              </div> */}
               <h2 className="font-headline font-extrabold text-2xl tracking-tight">
                 Active Review Panel
               </h2>
@@ -253,7 +253,7 @@ export default function AdminDashboardPage() {
                 content engagement graphs, and audience sentiment analysis
                 before final approval.
               </p>
-              <div className="flex flex-wrap gap-2">
+              {/* <div className="flex flex-wrap gap-2">
                 <span className="px-4 py-1.5 bg-card/60 rounded-full text-[10px] font-bold text-muted-foreground uppercase">
                   AI Sentiment Score
                 </span>
@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
                 <span className="px-4 py-1.5 bg-card/60 rounded-full text-[10px] font-bold text-muted-foreground uppercase">
                   Copyright Check
                 </span>
-              </div>
+              </div> */}
             </div>
             <div className="bg-linear-to-br from-primary/10 to-secondary/10 border border-primary/20 p-8 rounded-3xl flex flex-col justify-between">
               <div>

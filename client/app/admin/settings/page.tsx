@@ -50,9 +50,8 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="p-8 md:p-12">
-      <div className="max-w-6xl mx-auto space-y-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="p-8 space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <section className="lg:col-span-7 glass-card rounded-xl p-10 relative overflow-hidden">
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full"></div>
             <div className="relative z-10">
@@ -433,8 +432,7 @@ export default function AdminSettings() {
               </button>
             </div>
           </div>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

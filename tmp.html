@@ -1,0 +1,441 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Etheric Prism | Brand Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-surface": "#faf8fe",
+                "inverse-on-surface": "#54555a",
+                "inverse-surface": "#faf8fe",
+                "secondary-fixed-dim": "#81ccff",
+                "on-primary-container": "#2e006c",
+                "tertiary": "#ffb148",
+                "surface-container": "#18191e",
+                "primary-container": "#b28cff",
+                "tertiary-fixed-dim": "#e79400",
+                "on-primary-fixed-variant": "#390083",
+                "error": "#ff6e84",
+                "error-container": "#a70138",
+                "on-error": "#490013",
+                "error-dim": "#d73357",
+                "surface-container-lowest": "#000000",
+                "surface-container-low": "#121318",
+                "tertiary-fixed": "#f8a010",
+                "outline-variant": "#47484c",
+                "surface-tint": "#bd9dff",
+                "on-secondary-container": "#f3f8ff",
+                "surface-container-highest": "#24252b",
+                "on-surface-variant": "#abaab0",
+                "secondary-container": "#006591",
+                "surface-dim": "#0d0e12",
+                "on-tertiary-fixed-variant": "#563400",
+                "tertiary-container": "#f8a010",
+                "surface-bright": "#2a2c32",
+                "on-error-container": "#ffb2b9",
+                "secondary-dim": "#17a8ec",
+                "on-secondary-fixed-variant": "#00567c",
+                "primary": "#bd9dff",
+                "on-primary": "#3c0089",
+                "secondary-fixed": "#a4d8ff",
+                "on-primary-fixed": "#000000",
+                "primary-fixed": "#b28cff",
+                "on-secondary-fixed": "#003853",
+                "outline": "#75757a",
+                "primary-fixed-dim": "#a67aff",
+                "on-tertiary-container": "#4a2c00",
+                "on-background": "#faf8fe",
+                "on-tertiary": "#573500",
+                "surface-container-high": "#1e1f25",
+                "secondary": "#34b5fa",
+                "primary-dim": "#8a4cfc",
+                "surface-variant": "#24252b",
+                "on-secondary": "#003047",
+                "tertiary-dim": "#e79400",
+                "inverse-primary": "#742fe5",
+                "background": "#0d0e12",
+                "surface": "#0d0e12",
+                "on-tertiary-fixed": "#2a1700"
+            },
+            "fontFamily": {
+                "headline": ["Manrope"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(36, 37, 43, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(189, 157, 255, 0.1);
+        }
+        .brand-gradient-text {
+            background: linear-gradient(to right, #bd9dff, #34b5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased" data-mode="connect">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-screen w-64 z-[60] bg-[#0d0e12] flex flex-col border-r border-[#ffffff]/10 font-inter text-sm font-medium">
+<div class="p-8">
+<h1 class="font-manrope font-black text-[#bd9dff] text-2xl tracking-tight" style="">Etheric Admin</h1>
+<p class="text-on-surface-variant text-[10px] uppercase tracking-[0.2em] mt-1" style="">Enterprise Suite</p>
+</div>
+<nav class="flex-1 px-0 mt-4">
+<!-- Dashboard -->
+<div class="text-gray-500 py-3 px-6 flex items-center gap-4 hover:bg-[#18191e] hover:text-[#34b5fa] transition-all duration-200 cursor-pointer group">
+<span class="material-symbols-outlined" data-icon="dashboard" style="">dashboard</span>
+<span class="" style="">Dashboard</span>
+</div>
+<!-- Analytics -->
+<div class="text-gray-500 py-3 px-6 flex items-center gap-4 hover:bg-[#18191e] hover:text-[#34b5fa] transition-all duration-200 cursor-pointer group">
+<span class="material-symbols-outlined" data-icon="insights" style="">insights</span>
+<span class="" style="">Analytics</span>
+</div>
+<!-- Brand Assets -->
+<div class="text-gray-500 py-3 px-6 flex items-center gap-4 hover:bg-[#18191e] hover:text-[#34b5fa] transition-all duration-200 cursor-pointer group">
+<span class="material-symbols-outlined" data-icon="category" style="">category</span>
+<span class="" style="">Brand Assets</span>
+</div>
+<!-- Campaigns -->
+<div class="text-gray-500 py-3 px-6 flex items-center gap-4 hover:bg-[#18191e] hover:text-[#34b5fa] transition-all duration-200 cursor-pointer group">
+<span class="material-symbols-outlined" data-icon="campaign" style="">campaign</span>
+<span class="" style="">Campaigns</span>
+</div>
+<!-- Creators / User Management (ACTIVE) -->
+<div class="text-white bg-gradient-to-r from-[#bd9dff]/20 to-transparent border-l-4 border-[#bd9dff] py-3 px-6 flex items-center gap-4 cursor-pointer">
+<span class="material-symbols-outlined text-[#bd9dff]" data-icon="groups" style="">groups</span>
+<span class="" style="">Brands</span>
+</div>
+<!-- Settings -->
+<div class="text-gray-500 py-3 px-6 flex items-center gap-4 hover:bg-[#18191e] hover:text-[#34b5fa] transition-all duration-200 cursor-pointer group">
+<span class="material-symbols-outlined" data-icon="tune" style="">tune</span>
+<span class="" style="">Settings</span>
+</div>
+</nav>
+<div class="p-6 mt-auto">
+<button class="w-full bg-gradient-to-r from-primary to-secondary text-on-primary-fixed font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform" style="">
+<span class="material-symbols-outlined" data-icon="add" style="">add</span>
+                Create New Brand
+            </button>
+</div>
+<div class="border-t border-outline-variant/20 p-4 space-y-1">
+<div class="text-gray-500 py-2 px-4 flex items-center gap-4 hover:text-white transition-colors cursor-pointer">
+<span class="material-symbols-outlined" data-icon="help_outline" style="">help_outline</span>
+<span class="" style="">Support</span>
+</div>
+<div class="text-gray-500 py-2 px-4 flex items-center gap-4 hover:text-error transition-colors cursor-pointer">
+<span class="material-symbols-outlined" data-icon="logout" style="">logout</span>
+<span class="" style="">Sign Out</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen bg-surface-dim">
+<!-- TopNavBar Shell -->
+<header class="fixed top-0 right-0 left-64 h-16 bg-[#121318]/80 backdrop-blur-xl z-50 flex items-center justify-between px-8 shadow-[0_20px_50px_rgba(189,157,255,0.04)]">
+<div class="flex items-center flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm" style="">search</span>
+<input class="bg-surface-container-lowest border-none text-sm rounded-full py-2 pl-10 pr-4 w-full focus:ring-1 focus:ring-primary/30 text-on-surface" placeholder="Search brands, niches, or status..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<button class="text-gray-400 hover:text-white transition-colors relative" style="">
+<span class="material-symbols-outlined" data-icon="notifications" style="">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full border-2 border-[#121318]"></span>
+</button>
+<button class="text-gray-400 hover:text-white transition-colors" style="">
+<span class="material-symbols-outlined" data-icon="settings" style="">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant/30"></div>
+<div class="flex items-center gap-3">
+<div class="text-right">
+<p class="text-xs font-bold text-on-surface leading-none" style="">Alex Rivera</p>
+<p class="text-[10px] text-on-surface-variant" style="">Administrator</p>
+</div>
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full border border-primary/20 object-cover" data-alt="close-up portrait of a professional man in a dark studio setting with cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbr0d4pJP9K5K_1Fuxxbr7Cf26cqLT-g2Y_EwYkSpwLb5z0BXAWZoYAgnj6ucl3NeCuhIWjY3UZorEW0Jw4h96KEhB9IHf12gAKQTNN-z7jMmJhl9DaH4ByFj2CPSeXVEzHjV3CPWz2I2T3k1p6-5gk6SDIvWfipcPZidJIfHL3W5mdoSXv5FFY1CVMFNxtg6tfyWgQC7Gua3vVA2kOnDGgMUZV0Y6uxRxvE26LcjARivh-h7vQQsDWiOmTw_9EIcDlNEZtXlpJIc" style="">
+</div>
+</div>
+</header>
+<div class="pt-24 px-10 pb-12 space-y-12">
+<!-- Page Header -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-2">
+<h2 class="text-4xl font-headline font-extrabold tracking-tight brand-gradient-text" style="">Brand Management</h2>
+<p class="text-on-surface-variant max-w-lg font-body" style="">Manage enterprise brand assets, monitor campaign performance, and curate high-performing creator relationships.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-surface-bright/40 backdrop-blur-md border border-outline-variant/20 px-6 py-2.5 rounded-xl font-medium text-sm hover:bg-surface-bright/60 transition-all" style="">
+                        Export Report
+                    </button>
+<button class="bg-gradient-to-r from-primary to-secondary px-6 py-2.5 rounded-xl font-bold text-sm text-on-primary-fixed shadow-lg shadow-primary/10 active:scale-95 transition-transform" style="">
+                        Add New Entity
+                    </button>
+</div>
+</section>
+<!-- Platform Insights (Bento Style) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Total Brands -->
+<div class="glass-card p-6 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex items-center justify-between mb-4">
+<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="business" style="">business</span>
+</div>
+<span class="text-emerald-400 text-xs font-bold bg-emerald-400/10 px-2 py-1 rounded-full" style="">+12.4%</span>
+</div>
+<p class="text-on-surface-variant text-sm font-medium" style="">Total Brands</p>
+<h3 class="text-3xl font-headline font-black mt-1" style="">1,248</h3>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-8xl" data-icon="business_center" style="">business_center</span>
+</div>
+</div>
+<!-- Active Campaigns -->
+<div class="glass-card p-6 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex items-center justify-between mb-4">
+<div class="w-12 h-12 bg-secondary/10 rounded-2xl flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="rocket_launch" style="">rocket_launch</span>
+</div>
+<span class="text-emerald-400 text-xs font-bold bg-emerald-400/10 px-2 py-1 rounded-full" style="">+5.2%</span>
+</div>
+<p class="text-on-surface-variant text-sm font-medium" style="">Active Campaigns</p>
+<h3 class="text-3xl font-headline font-black mt-1" style="">452</h3>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-8xl" data-icon="ads_click" style="">ads_click</span>
+</div>
+</div>
+<!-- Avg. Spend -->
+<div class="glass-card p-6 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex items-center justify-between mb-4">
+<div class="w-12 h-12 bg-tertiary/10 rounded-2xl flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="payments" style="">payments</span>
+</div>
+<span class="text-error text-xs font-bold bg-error/10 px-2 py-1 rounded-full" style="">-2.1%</span>
+</div>
+<p class="text-on-surface-variant text-sm font-medium" style="">Avg. Monthly Spend</p>
+<h3 class="text-3xl font-headline font-black mt-1" style="">$14.2k</h3>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-8xl" data-icon="show_chart" style="">show_chart</span>
+</div>
+</div>
+</section>
+<!-- Brand Listing Table -->
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-headline font-bold" style="">Manage Brands</h3>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-bright rounded-lg text-on-surface-variant" style=""><span class="material-symbols-outlined" style="">filter_list</span></button>
+<button class="p-2 hover:bg-surface-bright rounded-lg text-on-surface-variant" style=""><span class="material-symbols-outlined" style="">sort</span></button>
+</div>
+</div>
+<div class="w-full overflow-x-auto rounded-3xl bg-surface-container-low border border-outline-variant/10">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/10">
+<th class="px-8 py-5 text-xs font-bold uppercase tracking-widest text-on-surface-variant" style="">Brand Entity</th>
+<th class="px-8 py-5 text-xs font-bold uppercase tracking-widest text-on-surface-variant" style="">Niche</th>
+<th class="px-8 py-5 text-xs font-bold uppercase tracking-widest text-on-surface-variant" style="">Campaigns</th>
+<th class="px-8 py-5 text-xs font-bold uppercase tracking-widest text-on-surface-variant" style="">Total Spend</th>
+<th class="px-8 py-5 text-xs font-bold uppercase tracking-widest text-on-surface-variant" style="">Status</th>
+<th class="px-8 py-5 text-xs font-bold uppercase tracking-widest text-on-surface-variant text-right" style="">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1 -->
+<tr class="group hover:bg-surface-container-high transition-colors">
+<td class="px-8 py-6" style="">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-white/5 p-1">
+<img alt="Brand Logo" class="w-full h-full object-contain" data-alt="minimalist modern vector logo of a futuristic technology company in electric blue" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCnrtFfvW6P1gn82UPYJxwNrfZ8qIFeDOz7Wg1Q6-OiPNgRy5pLGb-kTeGF1tcI5WYqfsvc_e9eF2frU3AGRIs5oJzuQ-2HXtdxprJsm-Zj6MNX-jiHNV0916J9NsediG96YFAe6QygIw7kQuzJGTr3diptaJ89i2jIl1-VJGZpYCpUnF7KqrAaNv4hjBtdkpiNoGqAT0OkVZd1XOIq5boYNd0kRYm4tlZsFy5B6INYqf4YUE-4EN50uJYROCvNTyxCDAa-BVnhV4" style="">
+</div>
+<div>
+<p class="font-bold text-on-surface" style="">NeoPulse Labs</p>
+<p class="text-xs text-on-surface-variant" style="">ID: ENT-8890</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20" style="">Consumer Tech</span>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex flex-col">
+<span class="font-bold" style="">42</span>
+<span class="text-[10px] text-emerald-400 flex items-center gap-1" style=""><span class="material-symbols-outlined text-[12px]" style="">trending_up</span> +8</span>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex flex-col">
+<span class="font-bold font-mono" style="">$184,200</span>
+<span class="text-[10px] text-emerald-400 flex items-center gap-1" style=""><span class="material-symbols-outlined text-[12px]" style="">trending_up</span> 14%</span>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+<span class="text-xs font-medium text-on-surface" style="">Active</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right" style="">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">visibility</span></button>
+<button class="p-2 hover:bg-secondary/10 rounded-lg text-secondary transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">edit</span></button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="group hover:bg-surface-container-high transition-colors">
+<td class="px-8 py-6" style="">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-white/5 p-1">
+<img alt="Brand Logo" class="w-full h-full object-contain" data-alt="geometric circular abstract logo symbol in soft gold and grey colors on dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBv2cHHScaQ66aR6X6lq0WHZpES1ShfK40CV8oQk6ANmqnD8r56XBxurD8AfozszlRjOjK2KK16cJ_2tkQywL9dhQ-FAsuSw1JJlTbL8Ahe_8fMfOTvEqR22OHmsvOVcQ1aXhoe7T2fphGi1TxYMckOdRRSXsSCxuqXt9aGGdux1yfVcNIAcTQM5Bk3WVzFGyfEDbC483Cojq7CvsDV27ewFYR3gEiKpipVFES6fhhwAS8omM1T637frZ-hCKhNJkzkcED1Pu_fjec" style="">
+</div>
+<div>
+<p class="font-bold text-on-surface" style="">Velas Skin</p>
+<p class="text-xs text-on-surface-variant" style="">ID: ENT-3321</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-tertiary/10 text-tertiary border border-tertiary/20" style="">Wellness</span>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex flex-col">
+<span class="font-bold" style="">18</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1" style=""><span class="material-symbols-outlined text-[12px]" style="">horizontal_rule</span> 0</span>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex flex-col">
+<span class="font-bold font-mono" style="">$56,000</span>
+<span class="text-[10px] text-error flex items-center gap-1" style=""><span class="material-symbols-outlined text-[12px]" style="">trending_down</span> 4%</span>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></span>
+<span class="text-xs font-medium text-on-surface" style="">Pending</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right" style="">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">visibility</span></button>
+<button class="p-2 hover:bg-secondary/10 rounded-lg text-secondary transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">edit</span></button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-surface-container-high transition-colors">
+<td class="px-8 py-6" style="">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-white/5 p-1">
+<img alt="Brand Logo" class="w-full h-full object-contain" data-alt="architectural line art logo representing a skyscraper in minimalist white against dark grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnL_IHdRuvDt9d5Scgr2AUOATYxeqWewuu3RHGVHWqhcO4GMxhzf7RvsP9JMHh1oWSxsCrmmAHZxfuSJekWX9PWqJAhdU-wSVC2p-QdP1WhAr7d5ziG4AjDwvUG5b5-qkq2vJ7RZsJjiPxKjkA9i-wUGgX8h-K4EVt-dmMYYSaHaQzHpTQMErjCIkVq5_IcRuDaPAPInqx8f7xY0XR-jVIUy8MD73okJNPorBp0f3GjABxmN3qKOHFOIOPNi7BAXahjaq8XnR1zyM" style="">
+</div>
+<div>
+<p class="font-bold text-on-surface" style="">Apex Realty</p>
+<p class="text-xs text-on-surface-variant" style="">ID: ENT-0045</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary/10 text-secondary border border-secondary/20" style="">Real Estate</span>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex flex-col">
+<span class="font-bold" style="">0</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1" style=""><span class="material-symbols-outlined text-[12px]" style="">block</span> n/a</span>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex flex-col">
+<span class="font-bold font-mono" style="">$0</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1" style=""><span class="material-symbols-outlined text-[12px]" style="">horizontal_rule</span> 0%</span>
+</div>
+</td>
+<td class="px-8 py-6" style="">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error-dim shadow-[0_0_8px_rgba(215,51,87,0.5)]"></span>
+<span class="text-xs font-medium text-on-surface" style="">Suspended</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right" style="">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">visibility</span></button>
+<button class="p-2 hover:bg-secondary/10 rounded-lg text-secondary transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">edit</span></button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors" style=""><span class="material-symbols-outlined text-sm" style="">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Bottom Content (Recent Activity & Featured UGC) -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<div class="glass-card p-8 rounded-[2.5rem] space-y-6">
+<h4 class="text-lg font-headline font-bold" style="">Recent System Activity</h4>
+<div class="space-y-4">
+<div class="flex gap-4 items-start">
+<div class="w-2 h-10 bg-primary/20 rounded-full flex-shrink-0"></div>
+<div>
+<p class="text-sm text-on-surface" style="">New Brand <span class="text-primary font-bold" style="">Aura Fitness</span> successfully verified.</p>
+<p class="text-[10px] text-on-surface-variant uppercase mt-1" style="">2 Minutes Ago</p>
+</div>
+</div>
+<div class="flex gap-4 items-start">
+<div class="w-2 h-10 bg-secondary/20 rounded-full flex-shrink-0"></div>
+<div>
+<p class="text-sm text-on-surface" style="">Creator payout of <span class="text-secondary font-bold" style="">$1,200</span> processed for Velas Skin.</p>
+<p class="text-[10px] text-on-surface-variant uppercase mt-1" style="">45 Minutes Ago</p>
+</div>
+</div>
+<div class="flex gap-4 items-start">
+<div class="w-2 h-10 bg-error/20 rounded-full flex-shrink-0"></div>
+<div>
+<p class="text-sm text-on-surface" style="">Campaign "Summer Glow" flagged for content violation.</p>
+<p class="text-[10px] text-on-surface-variant uppercase mt-1" style="">3 Hours Ago</p>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-card p-8 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-center min-h-[250px]">
+<div class="relative z-10 space-y-4">
+<span class="px-3 py-1 bg-tertiary/20 text-tertiary rounded-full text-[10px] font-black tracking-widest uppercase" style="">Elite Spotlight</span>
+<h4 class="text-3xl font-headline font-black leading-tight" style="">Empower Your<br>Curated Network</h4>
+<p class="text-sm text-on-surface-variant max-w-[280px]" style="">Automate your vetting process with our new AI-driven Creator Match engine.</p>
+<button class="mt-4 flex items-center gap-2 text-primary font-bold text-sm group" style="">
+                            Explore Insights <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" style="">arrow_forward</span>
+</button>
+</div>
+<div class="absolute right-0 bottom-0 top-0 w-1/2">
+<img alt="Abstract Background" class="w-full h-full object-cover opacity-40 mix-blend-lighten" data-alt="abstract flowing glass-like shapes in purple and blue gradients with soft light refraction" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDe9QVot8s_emlV5Gp_UitPXJRezxFRIxTGTYS1Bkk3_bvJLmApFEmVss09HQGueonDlUaBnqecL7CQprGv3xOhEBpjvq486-opWqoY28MIMYeGmlJRTFbpAkfyzrbN3tn7ggILlmgg90G7XwbnYsUyc9O418Vt_CjIJbPSMECOPNICF5ninWCyGXk3OPZSEm8KHAqZNlNKdWnys5BD0Y1c3-e-4pz6w-Esd4ZYDUr4X2gtQr9rVuS0q2l1G6qZjBCJonlz9wiCFg4" style="">
+</div>
+</div>
+</section>
+</div>
+</main>
+</body></html>

@@ -33,6 +33,15 @@ export class CreatorPackageCreateDto {
   @IsInt()
   @Min(0)
   deliveryDays!: number;
+
+  @ApiProperty({
+    example: 2,
+    description:
+      'Maximum number of revision cycles included in this package.',
+  })
+  @IsInt()
+  @Min(0)
+  maxRevisions!: number;
 }
 
 export class CreatorAddOnCreateDto {
@@ -137,6 +146,7 @@ export class CreateCreatorProfileDto {
         deliverables: ['1 Video', 'Basic editing'],
         priceAmount: '199.99',
         deliveryDays: 3,
+        maxRevisions: 2,
       },
     ],
   })

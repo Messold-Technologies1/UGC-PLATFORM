@@ -12,6 +12,9 @@ import { CreatorProfileModule } from './creator-profile/creator-profile.module';
 import { StorageModule } from './storage/storage.module';
 import { CreatorPortfolioModule } from './creator-portfolio/creator-portfolio.module';
 import { BrandProfileModule } from './brand-profile/brand-profile.module';
+import { OrdersModule } from './orders/orders.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { BrandProfileModule } from './brand-profile/brand-profile.module';
     CreatorProfileModule,
     CreatorPortfolioModule,
     BrandProfileModule,
+    OrdersModule,
+    WebhooksModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [

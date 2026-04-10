@@ -52,6 +52,53 @@ NestJS backend with Swagger, Prisma, and Neon PostgreSQL.
 - **Swagger docs**: `http://localhost:3000/docs` (disabled in production unless `SWAGGER_ENABLED=true`)
 - **Health check**: `GET /api/health`
 
+## Payments (Razorpay) - local testing (Test Mode)
+
+This project uses **server-created Razorpay Orders** and **webhooks** to mark payments as captured.
+
+### Configure env
+
+Add these to `.env` (use **test mode** keys from Razorpay dashboard):
+
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+
+### Create a checkout order
+
+- `POST /api/orders/checkout` (BRAND workspace)
+- Body: `{ "creatorId": "<uuid>", "packageId": "<uuid>" }`
+- Response includes: `razorpayOrderId`, `amountPaise`, `currency`, and `razorpayKeyId` for frontend checkout.
+
+### Webhook (required for marking paid)
+
+Expose your local server webhook endpoint using a tunnel (ngrok / cloudflared) and configure a Razorpay webhook:
+
+- URL: `POST /api/webhooks/razorpay`
+- Events: at minimum `payment.captured` and **`payment.failed`** (failed attempts keep the order **`PENDING_PAYMENT`** so the customer can pay again)
+
+The server verifies signature using `x-razorpay-signature` and `RAZORPAY_WEBHOOK_SECRET`.
+
+Subscribe also to **`refund.processed`** if you want webhook reconciliation after refunds (optional if you only rely on the refund API response). Optionally subscribe to **`refund.failed`**—the server logs it and does **not** change order status (order stays **`REJECTED`** so you can retry).
+
+### Admin: manual creator payout + refund (no RazorpayX)
+
+Funds settle from Razorpay to **your** bank account as per your Razorpay settlement settings. Creator payouts are **manual** (bank/UPI outside Razorpay).
+
+- `POST /api/admin/orders/:id/mark-creator-paid` — after you paid the creator manually; allowed from **`ACCEPTED`** → **`CREATOR_PAYMENT_DONE`** (sets `creatorPaidAt`).
+- `POST /api/admin/orders/:id/reject` — refund path; allowed from **`DISPUTED`** only → **`REJECTED`** (closes open disputes as `RESOLVED_REFUNDED`). Body (optional): `{ "resolutionNotes": "..." }`.
+- `POST /api/admin/orders/:id/refund` — calls Razorpay **refund** API; allowed from **`REJECTED`** → **`REFUNDED`** on success (stores `razorpayRefundId`, `refundedAt`). If Razorpay returns an error, the order stays **`REJECTED`** and nothing is updated—retry after fixing the issue (e.g. insufficient balance, window expired).
+
+All admin routes require a user with the **ADMIN** role (`JwtAuthGuard` + `AdminGuard`).
+
+### Creator payout details (manual bank / UPI)
+
+Creators save **full** account or UPI data for admin-only manual payouts. Brands never receive these fields from the API.
+
+- `PUT /api/creators/profile/me/payout-details` (CREATOR workspace) — body: optional `accountHolderName`, `accountNumber`, `ifsc` (all required together if using bank) and/or `upiId`.
+- `GET /api/creators/profile/me/payout-details` (CREATOR workspace) — **masked** summary (e.g. last 4 of account, masked UPI).
+- `GET /api/admin/creators/:creatorProfileId/payout-details` (admin) — **full** values for payment.
+
 ## Media uploads (S3 + CDN)
 
 Uploads use a **presigned URL** flow:

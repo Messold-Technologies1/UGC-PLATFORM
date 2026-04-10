@@ -126,6 +126,7 @@ describe('CreatorProfileService', () => {
             deliverables: pkg.deliverables,
             priceAmount: new Prisma.Decimal(pkg.priceAmount),
             deliveryDays: pkg.deliveryDays,
+            maxRevisions: pkg.maxRevisions,
           })),
         });
       },
@@ -207,6 +208,7 @@ describe('CreatorProfileService', () => {
             deliverables: ['1 Video'],
             priceAmount: new Prisma.Decimal('199.99'),
             deliveryDays: 3,
+            maxRevisions: 2,
           },
         ],
       }); // final fetch
@@ -233,6 +235,7 @@ describe('CreatorProfileService', () => {
           deliverables: ['1 Video'],
           priceAmount: '199.99',
           deliveryDays: 3,
+          maxRevisions: 2,
         },
       ],
     };

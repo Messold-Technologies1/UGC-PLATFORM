@@ -29,4 +29,9 @@ export const envValidationSchema = Joi.object({
   S3_BUCKET_NAME: Joi.string().min(1).required(),
   S3_UPLOAD_URL_TTL_SECONDS: Joi.number().integer().min(60).max(3600).default(900),
   CDN_BASE_URL: Joi.string().uri().required(),
+
+  // Razorpay Payments
+  RAZORPAY_KEY_ID: Joi.string().min(1).required(),
+  RAZORPAY_KEY_SECRET: Joi.string().min(1).required(),
+  RAZORPAY_WEBHOOK_SECRET: Joi.string().min(1).required(),
 });

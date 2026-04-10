@@ -28,6 +28,7 @@ export class CreatorPackageService {
         deliverables: pkg.deliverables,
         priceAmount: new Prisma.Decimal(pkg.priceAmount),
         deliveryDays: pkg.deliveryDays,
+        maxRevisions: pkg.maxRevisions,
       })),
     });
   }

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -36,12 +37,18 @@ import {
 } from './dto/presign-profile-image-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
+import { CreatorPayoutDetailsService } from './creator-payout-details.service';
+import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
+import { CreatorPayoutDetailsMaskedDto } from './dto/creator-payout-details-masked.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
 @Controller('creators')
 export class CreatorProfileController {
-  constructor(private readonly creatorProfileService: CreatorProfileService) {}
+  constructor(
+    private readonly creatorProfileService: CreatorProfileService,
+    private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
+  ) {}
 
   @Post('profile')
   @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
@@ -120,6 +127,31 @@ export class CreatorProfileController {
     return this.creatorProfileService.getCreatorProfileForCurrentUser(
       req.user.id,
     );
+  }
+
+  @Get('profile/me/payout-details')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @ApiOperation({
+    summary:
+      'Get payout details for manual transfers (masked; full account/UPI only visible to admins)',
+  })
+  @ApiOkResponse({ type: CreatorPayoutDetailsMaskedDto })
+  async getMyPayoutDetails(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorPayoutDetailsMaskedDto> {
+    return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(req.user.id);
+  }
+
+  @Put('profile/me/payout-details')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Save or update bank / UPI details for manual creator payouts' })
+  @ApiOkResponse({ type: CreatorPayoutDetailsMaskedDto })
+  async upsertMyPayoutDetails(
+    @Body() dto: UpsertCreatorPayoutDetailsDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorPayoutDetailsMaskedDto> {
+    return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
   }
 
   @Get(':id')

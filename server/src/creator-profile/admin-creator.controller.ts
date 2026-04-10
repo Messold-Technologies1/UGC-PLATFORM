@@ -27,13 +27,18 @@ import {
   RejectCreatorProfileDto,
 } from './dto/admin-creator-approval.dto';
 import { CreatorProfileService } from './creator-profile.service';
+import { CreatorPayoutDetailsService } from './creator-payout-details.service';
+import { AdminCreatorPayoutDetailsDto } from './dto/admin-creator-payout-details.dto';
 
 @ApiTags('Admin - Creators')
 @ApiBearerAuth()
 @Controller('admin/creators')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminCreatorController {
-  constructor(private readonly creatorProfileService: CreatorProfileService) {}
+  constructor(
+    private readonly creatorProfileService: CreatorProfileService,
+    private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
+  ) {}
 
   @Get('pending-approvals')
   @ApiOperation({
@@ -71,5 +76,17 @@ export class AdminCreatorController {
       id,
       dto.rejectionReason,
     );
+  }
+
+  @Get(':id/payout-details')
+  @ApiOperation({
+    summary:
+      'Full bank / UPI details for manual payouts (admin only; not exposed to brands or creators via this field)',
+  })
+  @ApiOkResponse({ type: AdminCreatorPayoutDetailsDto })
+  async getCreatorPayoutDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AdminCreatorPayoutDetailsDto> {
+    return this.creatorPayoutDetailsService.getFullForAdmin(id);
   }
 }

@@ -51,6 +51,13 @@ export class CreatorPackageResponseDto {
 
   @ApiProperty({ example: 3 })
   deliveryDays!: number;
+
+  @ApiProperty({
+    example: 2,
+    description:
+      'Maximum number of revision cycles included in this package.',
+  })
+  maxRevisions!: number;
 }
 
 export class CreatorAddOnResponseDto {

@@ -35,6 +35,32 @@ enum PortfolioVisibilityStatus {
   PRIVATE
 }
 
+enum OrderStatus {
+  PENDING_PAYMENT
+  BRIEF_SUBMISSION_PENDING
+  BRIEF_SUBMITTED
+  DELIVERED
+  REVISION_REQUESTED
+  REVISION_SUBMITTED
+  ACCEPTED
+  CREATOR_PAYMENT_DONE
+  DISPUTED
+  REJECTED
+  REFUNDED
+}
+
+enum OrderDisputeStatus {
+  OPEN
+  RESOLVED_CONTINUE
+  RESOLVED_REFUNDED
+  RESOLVED_CLOSED
+}
+
+enum OrderDisputeOpenedBy {
+  BRAND
+  CREATOR
+}
+
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique
@@ -61,6 +87,7 @@ model User {
   approvedCreatorRecords CreatorApproval[] @relation("CreatorApprovedBy")
   featuredCreatorRecords CreatorFeature[]  @relation("CreatorFeaturedBy")
   auditLogs              AuditLog[]        @relation("AuditLogActor")
+  resolvedDisputes       OrderDispute[]    @relation("OrderDisputeResolvedBy")
 
   @@index([status])
   @@index([deletedAt])
@@ -173,12 +200,92 @@ model CreatorProfile {
   packages        CreatorPackage[]
   addOns          CreatorAddOn[]
   portfolioVideos CreatorPortfolioVideo[]
-
+  receivedOrders  Order[] @relation("OrderCreator")
+  payoutDetails   CreatorPayoutDetails?
 
   @@index([city])
   @@index([gender])
   @@index([onLocationAvailable])
   @@index([createdAt])
+}
+
+/// Bank / UPI details for manual creator payouts. Full values are admin-only via API.
+model CreatorPayoutDetails {
+  id                String   @id @default(uuid()) @db.Uuid
+  creatorId         String   @unique @db.Uuid
+  accountHolderName String?
+  accountNumber     String?
+  ifsc              String?
+  upiId             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId])
+}
+
+model Order {
+  id                  String      @id @default(uuid()) @db.Uuid
+  brandId             String      @db.Uuid
+  creatorId           String      @db.Uuid
+  creatorPackageId    String      @db.Uuid
+  status              OrderStatus @default(PENDING_PAYMENT)
+
+  // Snapshots at purchase time
+  packageNameSnapshot String
+  deliverablesSnapshot Json
+  priceAmountSnapshot Decimal @db.Decimal(12, 2)
+  currency            String  @default("INR")
+  deliveryDaysSnapshot Int
+  maxRevisionsSnapshot Int @default(0)
+
+  // Timeline
+  paidAt              DateTime?
+  brief               Json?
+  briefSubmittedAt    DateTime?
+  deliveryDeadlineAt  DateTime?
+  deliveredAt         DateTime?
+  acceptedAt          DateTime?
+  creatorPaidAt       DateTime?
+  revisionCount       Int      @default(0)
+
+  // Razorpay Payments
+  razorpayOrderId     String?   @unique
+  razorpayPaymentId   String?
+  razorpayRefundId    String?
+  refundedAt          DateTime?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  brand   BrandProfile   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  creator CreatorProfile @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  package CreatorPackage @relation(fields: [creatorPackageId], references: [id], onDelete: Restrict)
+  disputes OrderDispute[]
+
+  @@index([brandId, createdAt])
+  @@index([creatorId, createdAt])
+  @@index([status, createdAt])
+  @@index([deliveryDeadlineAt])
+}
+
+model OrderDispute {
+  id          String              @id @default(uuid()) @db.Uuid
+  orderId     String              @db.Uuid
+  status      OrderDisputeStatus  @default(OPEN)
+  openedBy    OrderDisputeOpenedBy
+  reason      String
+  openedAt    DateTime            @default(now())
+  resolvedAt  DateTime?
+  resolvedByUserId String?        @db.Uuid
+  resolutionNotes String?
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("OrderDisputeResolvedBy", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, status])
+  @@index([status, openedAt])
 }
 
 model CreatorPortfolioVideo {
@@ -335,6 +442,7 @@ model BrandProfile {
   updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
 }
 
 model CreatorStats {
@@ -377,10 +485,12 @@ model CreatorPackage {
   deliverables Json     // array of strings e.g. ["1 Video", "Basic editing"]
   priceAmount  Decimal  @db.Decimal(12, 2)
   deliveryDays Int
+  maxRevisions Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  orders  Order[]
 
   @@index([creatorId])
   @@index([priceAmount])

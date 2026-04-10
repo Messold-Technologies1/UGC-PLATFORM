@@ -21,6 +21,9 @@ const _creatorprofileservice = require("./creator-profile.service");
 const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
 const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
 const _addcreatoraddonsdto = require("./dto/add-creator-addons.dto");
+const _creatorpayoutdetailsservice = require("./creator-payout-details.service");
+const _upsertcreatorpayoutdetailsdto = require("./dto/upsert-creator-payout-details.dto");
+const _creatorpayoutdetailsmaskeddto = require("./dto/creator-payout-details-masked.dto");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -57,6 +60,12 @@ let CreatorProfileController = class CreatorProfileController {
     async getMyCreatorProfile(req) {
         return this.creatorProfileService.getCreatorProfileForCurrentUser(req.user.id);
     }
+    async getMyPayoutDetails(req) {
+        return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(req.user.id);
+    }
+    async upsertMyPayoutDetails(dto, req) {
+        return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
+    }
     async getCreator(id, req) {
         return this.creatorProfileService.getCreatorById(req.user.id, id);
     }
@@ -69,8 +78,9 @@ let CreatorProfileController = class CreatorProfileController {
     async deleteCreator(id, req) {
         await this.creatorProfileService.deleteCreatorProfile(req.user.id, id);
     }
-    constructor(creatorProfileService){
+    constructor(creatorProfileService, creatorPayoutDetailsService){
         this.creatorProfileService = creatorProfileService;
+        this.creatorPayoutDetailsService = creatorPayoutDetailsService;
     }
 };
 _ts_decorate([
@@ -189,6 +199,41 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "getMyCreatorProfile", null);
 _ts_decorate([
+    (0, _common.Get)('profile/me/payout-details'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _swagger.ApiOperation)({
+        summary: 'Get payout details for manual transfers (masked; full account/UPI only visible to admins)'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatorpayoutdetailsmaskeddto.CreatorPayoutDetailsMaskedDto
+    }),
+    _ts_param(0, (0, _common.Req)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "getMyPayoutDetails", null);
+_ts_decorate([
+    (0, _common.Put)('profile/me/payout-details'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _common.HttpCode)(_common.HttpStatus.OK),
+    (0, _swagger.ApiOperation)({
+        summary: 'Save or update bank / UPI details for manual creator payouts'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatorpayoutdetailsmaskeddto.CreatorPayoutDetailsMaskedDto
+    }),
+    _ts_param(0, (0, _common.Body)()),
+    _ts_param(1, (0, _common.Req)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        typeof _upsertcreatorpayoutdetailsdto.UpsertCreatorPayoutDetailsDto === "undefined" ? Object : _upsertcreatorpayoutdetailsdto.UpsertCreatorPayoutDetailsDto,
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "upsertMyPayoutDetails", null);
+_ts_decorate([
     (0, _common.Get)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
@@ -271,7 +316,8 @@ CreatorProfileController = _ts_decorate([
     (0, _common.Controller)('creators'),
     _ts_metadata("design:type", Function),
     _ts_metadata("design:paramtypes", [
-        typeof _creatorprofileservice.CreatorProfileService === "undefined" ? Object : _creatorprofileservice.CreatorProfileService
+        typeof _creatorprofileservice.CreatorProfileService === "undefined" ? Object : _creatorprofileservice.CreatorProfileService,
+        typeof _creatorpayoutdetailsservice.CreatorPayoutDetailsService === "undefined" ? Object : _creatorpayoutdetailsservice.CreatorPayoutDetailsService
     ])
 ], CreatorProfileController);
 

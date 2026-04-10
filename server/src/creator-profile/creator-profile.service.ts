@@ -188,6 +188,7 @@ export class CreatorProfileService {
         deliverables: p.deliverables,
         priceAmount: p.priceAmount,
         deliveryDays: p.deliveryDays,
+        maxRevisions: p.maxRevisions ?? 0,
       })),
       addOns: (mapped.addOns ?? []).map((a: any) => ({
         id: a.id,

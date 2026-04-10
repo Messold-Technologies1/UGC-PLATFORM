@@ -48,6 +48,9 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   primaryRoleId String?    @db.Uuid
+  brandAccessRevokedAt        DateTime?
+  brandAccessRevokedById      String?    @db.Uuid
+  brandAccessRevocationReason String?
 
   primaryRole            Role?             @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
   authAccounts           AuthAccount[]
@@ -62,6 +65,7 @@ model User {
   @@index([status])
   @@index([deletedAt])
   @@index([primaryRoleId])
+  @@index([brandAccessRevokedAt])
 }
 
 model AuthAccount {

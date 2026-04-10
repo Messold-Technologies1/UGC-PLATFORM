@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { PostLoginRoleOverlay } from "@/components/ui/post-login-role-overlay";
@@ -25,6 +25,7 @@ export function AuthContinueOverlay() {
   const { user, isLoading } = useAuth();
   const callbackUrl = searchParams.get("callbackUrl");
   const autoRedirectRef = useRef(false);
+  const [pendingRole, setPendingRole] = useState<WorkspaceRole | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -85,8 +86,12 @@ export function AuthContinueOverlay() {
   const runSelect = useCallback(
     async (workspaceRole: WorkspaceRole) => {
       if (!user) return;
+      setPendingRole(workspaceRole);
       const ok = await ensureWorkspaceSelection(queryClient, user, workspaceRole);
-      if (!ok) return;
+      if (!ok) {
+        setPendingRole(null);
+        return;
+      }
       const nextUser =
         queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
       const target = pathAfterWorkspaceSelection(
@@ -114,6 +119,7 @@ export function AuthContinueOverlay() {
       dismissible={false}
       onContinueAsCreator={onContinueAsCreator}
       onContinueAsBrand={onContinueAsBrand}
+      pendingRole={pendingRole}
     />
   );
 }

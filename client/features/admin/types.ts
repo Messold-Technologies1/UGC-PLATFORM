@@ -78,3 +78,29 @@ export interface PendingApprovalsQueryDto {
   page?: number;
   limit?: number;
 }
+
+export interface AdminBrandsQueryDto {
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminBrandListItemDto {
+  userId: string;
+  brandProfileId: string | null;
+  email: string;
+  name: string | null;
+  companyName: string | null;
+  industry: string | null;
+  contactPerson: string | null;
+  logoUrl: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminBrandsListResponseDto {
+  items: AdminBrandListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}

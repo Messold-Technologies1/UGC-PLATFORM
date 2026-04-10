@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -34,6 +35,7 @@ export type MeUser = {
   primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
+  brandAccessRevoked: boolean;
 };
 
 export interface AuthResult {
@@ -459,13 +461,14 @@ export class AuthService {
     userId: string,
     refreshToken?: string,
   ): Promise<MeUser | null> {
-    const user = await this.prisma.user.findUnique({
+    const user: any = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         email: true,
         name: true,
         status: true,
+        brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         creatorProfile: { select: { id: true } },
@@ -517,6 +520,7 @@ export class AuthService {
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,
+      brandAccessRevoked: !!user.brandAccessRevokedAt,
     };
   }
 
@@ -535,6 +539,23 @@ export class AuthService {
     });
     if (!roleRow) {
       throw new BadRequestException('Workspace role is not configured');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        brandAccessRevokedAt: true,
+      } as any,
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+
+    if (role === 'BRAND' && (user as any).brandAccessRevokedAt) {
+      throw new ForbiddenException(
+        'Brand workspace access has been removed by an admin',
+      );
     }
 
     const hash = this.hashRefreshToken(refreshToken);

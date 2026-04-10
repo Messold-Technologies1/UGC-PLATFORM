@@ -11,28 +11,33 @@ export class MeUserDto {
   @ApiPropertyOptional({ nullable: true })
   name!: string | null;
 
-  @ApiProperty({ enum: ['CREATOR', 'BRAND'], isArray: true })
-  roles!: ('CREATOR' | 'BRAND')[];
+  @ApiProperty({ enum: ['CREATOR', 'BRAND', 'ADMIN'], isArray: true })
+  roles!: ('CREATOR' | 'BRAND' | 'ADMIN')[];
 
   @ApiPropertyOptional({
-    enum: ['CREATOR', 'BRAND'],
+    enum: ['CREATOR', 'BRAND', 'ADMIN'],
     nullable: true,
     description:
       'Session-scoped active workspace (what the user is currently acting as)',
   })
-  activeRole!: 'CREATOR' | 'BRAND' | null;
+  activeRole!: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
 
   @ApiPropertyOptional({
-    enum: ['CREATOR', 'BRAND'],
+    enum: ['CREATOR', 'BRAND', 'ADMIN'],
     nullable: true,
     description:
       'Default workspace role preference (cross-session fallback when activeRole is null)',
   })
-  primaryRole!: 'CREATOR' | 'BRAND' | null;
+  primaryRole!: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
 
   @ApiProperty()
   hasCreatorProfile!: boolean;
 
   @ApiProperty()
   hasBrandProfile!: boolean;
+
+  @ApiProperty({
+    description: 'Whether admin has permanently removed this user’s brand access',
+  })
+  brandAccessRevoked!: boolean;
 }

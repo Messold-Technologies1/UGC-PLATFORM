@@ -37,7 +37,12 @@ export const ENDPOINTS = {
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
       APPROVE: (id: string) => `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) => `/api/admin/creators/${encodeURIComponent(id)}/reject`,
-    }
+    },
+    BRANDS: {
+      LIST: "/api/admin/brands",
+      REMOVE: (userId: string) =>
+        `/api/admin/brands/user/${encodeURIComponent(userId)}/role`,
+    },
   }
 } as const;
 

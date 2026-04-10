@@ -11,6 +11,23 @@ function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
   return r === "CREATOR" ? "creator" : "brand";
 }
 
+function canUseWorkspaceRole(user: AuthUser, role: WorkspaceRole | null): boolean {
+  if (!role) return false;
+  return role !== "BRAND" || !user.brandAccessRevoked;
+}
+
+function firstAllowedWorkspaceRole(
+  user: AuthUser,
+  roles: Array<WorkspaceRole | null | undefined>,
+): WorkspaceRole | null {
+  for (const role of roles) {
+    if (canUseWorkspaceRole(user, role ?? null)) {
+      return role ?? null;
+    }
+  }
+  return null;
+}
+
 export function resolvePostAuthRedirectPath(
   user: AuthUser,
   callbackUrl: string | null,
@@ -21,7 +38,11 @@ export function resolvePostAuthRedirectPath(
   if (user.roles.includes("ADMIN")) {
     return "/admin";
   }
-  const role = user.activeRole ?? user.primaryRole ?? user.roles[0];
+  const role = firstAllowedWorkspaceRole(user, [
+    user.activeRole,
+    user.primaryRole,
+    ...user.roles,
+  ]);
   if (!role) {
     return postAuthContinuePath(callbackUrl);
   }
@@ -48,6 +69,9 @@ export function pathAfterWorkspaceSelection(
   callbackUrl: string | null,
   options?: PathAfterWorkspaceSelectionOptions,
 ): string {
+  if (!canUseWorkspaceRole(user, role)) {
+    return resolvePostAuthRedirectPath(user, callbackUrl);
+  }
   const dest = postAuthDestinationForRole(toPostAuthRole(role), callbackUrl);
   const promptOnboarding = options?.promptIncompleteProfileOnboarding !== false;
 

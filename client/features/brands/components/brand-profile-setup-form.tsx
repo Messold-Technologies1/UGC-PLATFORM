@@ -28,6 +28,7 @@ import {
   brandProfileMeQueryKey,
   fetchBrandProfileMe,
 } from "@/features/brands/api/fetch-brand-profile-me";
+import { brandProfileStateQueryKey } from "@/features/brands/api/fetch-brand-profile-state";
 import {
   presignBrandLogoUpload,
   putFileToPresignedUrl,
@@ -103,21 +104,31 @@ export function BrandProfileSetupForm({
   }, [initialProfile]);
 
   const ensureBrandWorkspace = useCallback(
-    () => ensureWorkspaceSelection(queryClient, user, "BRAND"),
+    async () => {
+      if (user?.brandAccessRevoked) {
+        toast.error("Your brand access has been removed by admin.");
+        return false;
+      }
+      return ensureWorkspaceSelection(queryClient, user, "BRAND");
+    },
     [queryClient, user],
   );
 
   const title = useMemo(() => {
-    if (variant === "settings") return "Edit your brand profile";
+    if (mode === "update") return "Edit your brand profile";
+    if (variant === "settings") return "Add your brand profile";
     return "Set up your brand profile";
-  }, [variant]);
+  }, [mode, variant]);
 
   const description = useMemo(() => {
-    if (variant === "settings") {
+    if (mode === "update") {
       return "Update your company details and logo.";
     }
+    if (variant === "settings") {
+      return "Add your company details and logo.";
+    }
     return "Add your company details so creators know who they’re working with.";
-  }, [variant]);
+  }, [mode, variant]);
 
   const completionSummary = useMemo(() => {
     const checkpoints = [
@@ -170,8 +181,12 @@ export function BrandProfileSetupForm({
             ? "Logo uploaded — update your profile to apply."
             : "Logo uploaded — create your profile to apply.",
         );
-      } catch {
-        toast.error("Could not upload logo. Try again.");
+      } catch (err) {
+        if (isAxiosError(err) && err.response?.status === 403) {
+          toast.error("Your brand access has been removed by admin.");
+        } else {
+          toast.error("Could not upload logo. Try again.");
+        }
       } finally {
         setUploadingLogo(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -237,11 +252,19 @@ export function BrandProfileSetupForm({
         await queryClient.invalidateQueries({
           queryKey: brandProfileMeQueryKey,
         });
+        await queryClient.invalidateQueries({
+          queryKey: brandProfileStateQueryKey,
+        });
         onSuccess();
         if (mode === "create") {
           router.replace("/brand/account");
         }
       } catch (err) {
+        if (isAxiosError(err) && err.response?.status === 403) {
+          toast.error("Your brand access has been removed by admin.");
+          return;
+        }
+
         if (
           mode === "create" &&
           isAxiosError(err) &&
@@ -266,6 +289,9 @@ export function BrandProfileSetupForm({
           await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
           await queryClient.invalidateQueries({
             queryKey: brandProfileMeQueryKey,
+          });
+          await queryClient.invalidateQueries({
+            queryKey: brandProfileStateQueryKey,
           });
           try {
             await queryClient.fetchQuery({
@@ -295,6 +321,7 @@ export function BrandProfileSetupForm({
     },
     [
       mode,
+      variant,
       companyName,
       pendingLogoKey,
       website,

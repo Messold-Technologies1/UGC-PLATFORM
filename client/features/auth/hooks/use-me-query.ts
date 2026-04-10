@@ -16,6 +16,7 @@ export type AuthUser = {
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
+  brandAccessRevoked: boolean;
 };
 
 export type MeResponse = {

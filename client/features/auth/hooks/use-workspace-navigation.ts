@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition } from "react";
+import { isAxiosError } from "axios";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -159,8 +160,12 @@ export function useWorkspaceNavigation() {
       } else {
         clearWorkspaceSwitchState();
       }
-    } catch {
-      toast.error("Could not switch workspace. Try again.");
+    } catch (err) {
+      if (role === "BRAND" && isAxiosError(err) && err.response?.status === 403) {
+        toast.error("Your brand access has been removed by admin.");
+      } else {
+        toast.error("Could not switch workspace. Try again.");
+      }
       clearWorkspaceSwitchState();
       if (current) {
         startTransition(() => {

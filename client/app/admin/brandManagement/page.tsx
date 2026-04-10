@@ -1,151 +1,449 @@
-import React from "react";
-import { 
-  Building2, 
-  Rocket, 
-  CircleDollarSign,
-  MoreHorizontal,
-  Filter,
-  ArrowUpDown,
-  Store,
-  Eye,
-  Trash2,
-  ArrowRight,
-  Shapes 
-} from "lucide-react";
+"use client";
+
+import Image from "next/image";
+import { useMemo, useState, type MouseEvent } from "react";
+import { Building2, Mail, Store, Trash2, UserRound } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useBrandsQuery } from "@/features/admin/hooks/use-brands-query";
+import { useRemoveBrandAccessMutation } from "@/features/admin/hooks/use-remove-brand-access-mutation";
+import type { AdminBrandListItemDto } from "@/features/admin/types";
+
+function StatsCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+}) {
+  return (
+    <div className="glass-card rounded-2xl p-6 text-card-foreground">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-3 text-3xl font-headline font-bold text-foreground">
+        {value}
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">{helper}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "ACTIVE") {
+    return <Badge variant="default">Active</Badge>;
+  }
+  return <Badge variant="outline">{status}</Badge>;
+}
 
 export default function BrandManagementPage() {
-  return (
-    <div className="p-8 space-y-8">
-      <section className="space-y-4">
-        <h1 className="text-4xl font-headline font-bold">Brand Management</h1>
-        <p className="text-muted-foreground max-w-2xl font-body">Manage enterprise brand assets, monitor campaign performance, and curate high-performing creator relationships.</p>
-      </section>
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [selectedBrand, setSelectedBrand] = useState<AdminBrandListItemDto | null>(
+    null,
+  );
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { title: "Total Brands", Icon: Building2 },
-          { title: "Active Campaigns", Icon: Rocket },
-          { title: "Avg. Monthly Spend", Icon: CircleDollarSign }
-        ].map((kpi, index) => (
-          <div key={index} className="glass-card p-6 rounded-2xl flex flex-col justify-between relative overflow-hidden group text-card-foreground">
-            <div className="relative z-10">
-              <div className="flex flex-row items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <kpi.Icon className="w-6 h-6 text-primary" />
-                </div>
-                <span className="text-muted-foreground/30 text-xs font-bold bg-muted/20 px-2.5 py-1 rounded-full flex items-center">
-                  <MoreHorizontal className="w-4 h-4" />
-                </span>
-              </div>
-              <p className="text-muted-foreground text-sm font-medium">{kpi.title}</p>
-              <h3 className="text-3xl font-headline font-bold mt-1 text-muted-foreground/30">
-                <MoreHorizontal className="w-8 h-8" />
-              </h3>
+  const { data, isLoading, isError } = useBrandsQuery({ page, limit });
+  const removeBrandAccess = useRemoveBrandAccessMutation();
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const stats = useMemo(() => {
+    const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
+    const coveredIndustries = new Set(
+      items.map((item) => item.industry?.trim()).filter(Boolean),
+    ).size;
+    return {
+      totalBrands: total,
+      logosUploaded: withLogo,
+      coveredIndustries,
+    };
+  }, [items, total]);
+
+  const closeDialog = () => {
+    if (removeBrandAccess.isPending) return;
+    setSelectedBrand(null);
+  };
+
+  const confirmRemoval = async () => {
+    if (!selectedBrand) return;
+    await removeBrandAccess.mutateAsync(selectedBrand.userId);
+    if (items.length === 1 && page > 1) {
+      setPage((current) => Math.max(1, current - 1));
+    }
+    setSelectedBrand(null);
+  };
+
+  return (
+    <>
+      <div className="p-8 space-y-8">
+        <section className="space-y-4">
+          <h1 className="text-4xl font-headline font-bold">Brand Management</h1>
+          <p className="max-w-3xl text-muted-foreground font-body">
+            Review brands that currently have an active profile and remove brand
+            access without deleting the underlying user account.
+          </p>
+        </section>
+
+        <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <StatsCard
+            label="Total Brands"
+            value={isLoading ? "..." : stats.totalBrands}
+            helper="All active brands currently returned by the admin API."
+          />
+          <StatsCard
+            label="Logos Uploaded"
+            value={isLoading ? "..." : stats.logosUploaded}
+            helper="Brands on this page that have a logo configured."
+          />
+          <StatsCard
+            label="Industries"
+            value={isLoading ? "..." : stats.coveredIndustries}
+            helper="Distinct industries represented on the current page."
+          />
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-headline font-semibold">Active Brands</h2>
+              <p className="text-sm text-muted-foreground">
+                Only brands with an active profile are listed here.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Rows:
+              </span>
+              <Select
+                value={limit.toString()}
+                onValueChange={(value) => {
+                  setLimit(Number(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[88px]">
+                  <SelectValue placeholder={limit.toString()} />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="30">30</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        ))}
-      </section>
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-headline font-semibold">Manage Brands</h3>
-          <div className="flex gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg text-muted-foreground transition-colors">
-              <Filter className="w-5 h-5" />
-            </button>
-            <button className="p-2 hover:bg-muted rounded-lg text-muted-foreground transition-colors">
-              <ArrowUpDown className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        
-        <div className="w-full overflow-x-auto rounded-2xl glass-card text-card-foreground">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Brand Entity</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Niche</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campaigns</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Spend</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {[1, 2, 3].map((row) => (
-                <tr key={row} className="group hover:bg-muted/50 transition-colors">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <Store className="w-5 h-5 text-muted-foreground/50" />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <MoreHorizontal className="w-5 h-5 text-muted-foreground/30" />
-                        <MoreHorizontal className="w-4 h-4 text-muted-foreground/20" />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <MoreHorizontal className="w-5 h-5 text-muted-foreground/30" />
-                  </td>
-                  <td className="px-6 py-5">
-                    <MoreHorizontal className="w-5 h-5 text-muted-foreground/30" />
-                  </td>
-                  <td className="px-6 py-5">
-                    <MoreHorizontal className="w-5 h-5 text-muted-foreground/30" />
-                  </td>
-                  <td className="px-6 py-5">
-                    <MoreHorizontal className="w-5 h-5 text-muted-foreground/30" />
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-muted rounded-md text-foreground transition-colors">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 hover:bg-destructive/10 rounded-md text-destructive transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
+            <table className="w-full min-w-[860px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Brand
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Email
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Industry
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Contact Person
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 rounded-2xl space-y-6 text-card-foreground">
-          <h4 className="text-lg font-semibold">Recent System Activity</h4>
-          <div className="space-y-4">
-            {[1, 2, 3].map((act) => (
-              <div key={act} className="flex flex-row gap-4 items-start">
-                <div className="w-1.5 h-10 bg-muted rounded-full shrink-0"></div>
-                <div className="flex flex-col gap-1.5 pt-1">
-                  <MoreHorizontal className="w-5 h-5 text-muted-foreground/30" />
-                  <MoreHorizontal className="w-4 h-4 text-muted-foreground/20" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              <tbody className="divide-y divide-border">
+                {isLoading &&
+                  Array.from({ length: limit }).map((_, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          <Skeleton className="size-11 rounded-xl" />
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-36" />
+                            <Skeleton className="h-3 w-24" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <Skeleton className="h-4 w-44" />
+                      </td>
+                      <td className="px-6 py-5">
+                        <Skeleton className="h-4 w-24" />
+                      </td>
+                      <td className="px-6 py-5">
+                        <Skeleton className="h-4 w-28" />
+                      </td>
+                      <td className="px-6 py-5">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <Skeleton className="ml-auto h-9 w-24 rounded-md" />
+                      </td>
+                    </tr>
+                  ))}
 
-        <div className="glass-card p-8 rounded-2xl relative overflow-hidden flex flex-col justify-center min-h-[220px]">
-          <div className="relative z-10 space-y-3">
-            <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-md text-[11px] font-semibold uppercase inline-flex items-center gap-1">
-               System Feature
-            </span>
-            <h4 className="text-2xl font-headline font-bold leading-tight">Empower Your Network</h4>
-            <p className="text-sm text-muted-foreground max-w-[280px]">Automate your vetting process with our new AI-driven Creator Match engine.</p>
-            <button className="mt-2 flex items-center gap-1.5 text-primary outline-none font-medium text-sm group hover:underline underline-offset-4">
-              Explore Insights <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+                {!isLoading && isError && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-16 text-center text-sm text-muted-foreground"
+                    >
+                      We could not load the brand list right now. Try again shortly.
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading && !isError && items.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-16 text-center text-sm text-muted-foreground"
+                    >
+                      No active brands are available right now.
+                    </td>
+                  </tr>
+                )}
+
+                {items.map((brand) => {
+                  const displayName =
+                    brand.companyName ?? brand.name ?? "Unnamed Brand";
+
+                  return (
+                    <tr
+                      key={brand.userId}
+                      className="transition-colors hover:bg-muted/30"
+                    >
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          {brand.logoUrl ? (
+                            <div className="relative size-11 overflow-hidden rounded-xl border border-border bg-muted">
+                              <Image
+                                src={brand.logoUrl}
+                                alt={`${displayName} logo`}
+                                fill
+                                className="object-cover"
+                                sizes="44px"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                              <Store className="size-5" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {displayName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              Added {new Date(brand.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2 text-sm text-foreground">
+                          <Mail className="size-4 text-muted-foreground" />
+                          <span className="truncate">{brand.email}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-5 text-sm text-foreground">
+                        {brand.industry ?? "—"}
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2 text-sm text-foreground">
+                          <UserRound className="size-4 text-muted-foreground" />
+                          <span>{brand.contactPerson ?? "—"}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <StatusBadge status={brand.status} />
+                      </td>
+
+                      <td className="px-6 py-5 text-right">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setSelectedBrand(brand)}
+                          disabled={removeBrandAccess.isPending}
+                        >
+                          <Trash2 className="mr-2 size-4" />
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div className="absolute right-0 bottom-0 top-0 w-1/3 flex items-center justify-center opacity-5 pointer-events-none">
-            <Shapes className="w-48 h-48 -rotate-12" />
+
+          <div className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing {items.length === 0 ? 0 : (page - 1) * limit + 1}-
+              {Math.min(page * limit, total)} of {total} brands
+            </div>
+
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={(event: MouseEvent) => {
+                      event.preventDefault();
+                      setPage((current) => Math.max(1, current - 1));
+                    }}
+                    disabled={page <= 1}
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: totalPages }).map((_, index) => {
+                  const pageNumber = index + 1;
+
+                  if (
+                    pageNumber === 1 ||
+                    pageNumber === totalPages ||
+                    (pageNumber >= page - 1 && pageNumber <= page + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          href="#"
+                          isActive={page === pageNumber}
+                          onClick={(event: MouseEvent) => {
+                            event.preventDefault();
+                            setPage(pageNumber);
+                          }}
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+
+                  if (pageNumber === page - 2 || pageNumber === page + 2) {
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+
+                  return null;
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={(event: MouseEvent) => {
+                      event.preventDefault();
+                      setPage((current) => Math.min(totalPages, current + 1));
+                    }}
+                    disabled={page >= totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Building2 className="size-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">
+                Permanent Brand Removal
+              </h3>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Removing a brand here deletes the brand profile and permanently
+                revokes brand access for that user. The user account itself stays
+                in the system.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <Dialog open={!!selectedBrand} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Remove Brand Access</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>
+              This will permanently remove brand access for{" "}
+              <span className="font-semibold text-foreground">
+                {selectedBrand?.companyName ?? selectedBrand?.name ?? selectedBrand?.email}
+              </span>
+              .
+            </p>
+            <p>
+              Their user account will remain, but the brand profile and brand
+              workspace access will be removed.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={closeDialog}
+              disabled={removeBrandAccess.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmRemoval()}
+              disabled={removeBrandAccess.isPending}
+            >
+              {removeBrandAccess.isPending ? "Removing..." : "Remove Brand Access"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

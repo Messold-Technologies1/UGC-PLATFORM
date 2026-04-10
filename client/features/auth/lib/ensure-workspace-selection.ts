@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
 import {
@@ -24,7 +25,11 @@ export async function ensureWorkspaceSelection(
     const next = await selectWorkspaceApi(role, setPrimary);
     queryClient.setQueryData(authMeQueryKey, next);
     return true;
-  } catch {
+  } catch (err) {
+    if (role === "BRAND" && isAxiosError(err) && err.response?.status === 403) {
+      toast.error("Your brand access has been removed by admin.");
+      return false;
+    }
     toast.error(WORKSPACE_ERROR[role]);
     return false;
   }

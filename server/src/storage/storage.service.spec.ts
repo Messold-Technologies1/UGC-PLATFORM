@@ -74,6 +74,13 @@ describe('StorageService', () => {
     expect(sendMock).toHaveBeenCalledTimes(2);
   });
 
+  it('deletes an object when a key is provided', async () => {
+    sendMock.mockClear();
+    const storage = new StorageService(config as any);
+    await storage.deleteObjectIfExists('brand-logo/b1/a.jpg');
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
   it('creates a presigned PUT upload result', async () => {
     const storage = new StorageService(config as any);
     const res = await storage.createPresignedPutUpload({
@@ -86,4 +93,3 @@ describe('StorageService', () => {
     expect(res.cdnUrl).toBe('https://cdn.example.com/creator-profile/c1/a.jpg');
   });
 });
-

@@ -37,6 +37,10 @@ export async function resolveImmediatePostAuthPath(
     return postAuthContinuePath(callbackUrl);
   }
 
+  if (role === "BRAND" && user.brandAccessRevoked) {
+    return postAuthContinuePath(callbackUrl);
+  }
+
   const ok = await ensureWorkspaceSelection(queryClient, user, role);
   if (!ok) {
     return postAuthContinuePath(callbackUrl);

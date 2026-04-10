@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
-import { requireAuthenticatedUser } from "@/lib/server-auth-guard";
+import { requireBrandWorkspace } from "@/lib/server-auth-guard";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default async function BrandLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAuthenticatedUser("/brand/dashboard");
+  await requireBrandWorkspace("/brand/dashboard");
 
   return (
     <AuthenticatedAppProviders>

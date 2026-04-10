@@ -7,7 +7,6 @@ import { useMemo } from "react";
 import {
   BriefcaseBusiness,
   Globe,
-  KeyRound,
   UserRound,
 } from "lucide-react";
 
@@ -16,46 +15,46 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
 import {
-  brandProfileMeQueryKey,
-  fetchBrandProfileMe,
-} from "@/features/brands/api/fetch-brand-profile-me";
+  brandProfileStateQueryKey,
+  fetchBrandProfileState,
+} from "@/features/brands/api/fetch-brand-profile-state";
 
 export function DashboardBrandAccountProfile() {
   const { user, isLoading: authLoading } = useAuth();
 
   const profileQuery = useQuery({
-    queryKey: brandProfileMeQueryKey,
-    queryFn: fetchBrandProfileMe,
-    enabled: Boolean(user?.id && user.hasBrandProfile),
+    queryKey: brandProfileStateQueryKey,
+    queryFn: fetchBrandProfileState,
+    enabled: Boolean(user?.id && user.hasBrandProfile && !user.brandAccessRevoked),
     staleTime: 2 * 60_000,
     retry: false,
   });
 
-  const staticProfile = {
-    companyName: "Acme Inc.",
-    logoKey: "brand-logo-",
-    website: "https://acme.com",
-    industry: "Skincare",
-    contactPerson: "Jane (Marketing Lead)",
-    logoUrl: null as string | null,
-  };
-
-  const profile = profileQuery.data ?? null;
-  const displayProfile = profile ?? staticProfile;
-  const hasLoadedProfile = true;
+  const profileState = profileQuery.data;
+  const profile = profileState?.kind === "ready" ? profileState.profile : null;
 
   const headerDescription = useMemo(() => {
+    if (user?.brandAccessRevoked) {
+      return "Your brand access has been removed by admin.";
+    }
     if (!user?.hasBrandProfile) {
       return "Your brand profile is not set up yet.";
     }
-    if (profileQuery.isError || (!profileQuery.isPending && !profile)) {
+    if (profileQuery.isError) {
       return "We could not load your brand profile. Try again shortly.";
+    }
+    if (profileState?.kind === "missing") {
+      return "Your brand profile is not set up yet.";
+    }
+    if (profileState?.kind === "revoked") {
+      return "Your brand access has been removed by admin.";
     }
     return "Your brand profile details.";
   }, [
+    profileState,
     profile,
     profileQuery.isError,
-    profileQuery.isPending,
+    user?.brandAccessRevoked,
     user?.hasBrandProfile,
   ]);
 
@@ -68,6 +67,16 @@ export function DashboardBrandAccountProfile() {
   }
 
   if (!user) return null;
+
+  if (user.brandAccessRevoked || profileState?.kind === "revoked") {
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <PageHeader title="Profile" description={headerDescription} />
+        </div>
+      </div>
+    );
+  }
 
   if (user.hasBrandProfile && profileQuery.isPending) {
     return (
@@ -84,15 +93,15 @@ export function DashboardBrandAccountProfile() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-        {hasLoadedProfile ? (
+        {profile ? (
           <div className="space-y-8">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 flex-1 gap-4 sm:gap-6">
-                {displayProfile.logoUrl ? (
+                {profile.logoUrl ? (
                   <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:size-24">
                     <Image
-                      src={displayProfile.logoUrl}
-                      alt={`${displayProfile.companyName} logo`}
+                      src={profile.logoUrl}
+                      alt={`${profile.companyName} logo`}
                       fill
                       className="object-cover"
                       sizes="96px"
@@ -109,7 +118,7 @@ export function DashboardBrandAccountProfile() {
 
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                    {displayProfile.companyName}
+                    {profile.companyName}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Manage the details creators see for your brand.
@@ -133,19 +142,7 @@ export function DashboardBrandAccountProfile() {
                     Company name
                   </dt>
                   <dd className="mt-1 text-sm font-medium text-foreground">
-                    {displayProfile.companyName}
-                  </dd>
-                </div>
-
-                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
-                  <dt className="text-xs font-medium text-muted-foreground">
-                    Logo key
-                  </dt>
-                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    <KeyRound className="size-4 opacity-70" aria-hidden />
-                    <span className="break-all">
-                      {displayProfile.logoKey ?? "—"}
-                    </span>
+                    {profile.companyName}
                   </dd>
                 </div>
 
@@ -156,7 +153,7 @@ export function DashboardBrandAccountProfile() {
                   <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
                     <Globe className="size-4 opacity-70" aria-hidden />
                     <span className="break-all">
-                      {displayProfile.website ?? "—"}
+                      {profile.website ?? "—"}
                     </span>
                   </dd>
                 </div>
@@ -168,7 +165,7 @@ export function DashboardBrandAccountProfile() {
                   <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
                     <BriefcaseBusiness className="size-4 opacity-70" aria-hidden />
                     <span className="wrap-break-word">
-                      {displayProfile.industry ?? "—"}
+                      {profile.industry ?? "—"}
                     </span>
                   </dd>
                 </div>
@@ -180,7 +177,7 @@ export function DashboardBrandAccountProfile() {
                   <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
                     <UserRound className="size-4 opacity-70" aria-hidden />
                     <span className="wrap-break-word">
-                      {displayProfile.contactPerson ?? "—"}
+                      {profile.contactPerson ?? "—"}
                     </span>
                   </dd>
                 </div>
@@ -191,7 +188,7 @@ export function DashboardBrandAccountProfile() {
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Brand profile</p>
             <p className="text-sm text-muted-foreground">
-              {user.hasBrandProfile
+              {profileQuery.isError
                 ? "Profile data is unavailable right now."
                 : "No profile data yet."}
             </p>

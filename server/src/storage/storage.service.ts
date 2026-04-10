@@ -211,6 +211,17 @@ export class StorageService {
     return finalKey;
   }
 
+  async deleteObjectIfExists(key: string | null | undefined): Promise<void> {
+    if (!key) return;
+
+    await this.s3.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+    );
+  }
+
   async createPresignedPutUpload(input: {
     key: string;
     contentType: string;

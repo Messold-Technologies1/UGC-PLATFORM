@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
 import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
+import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 
 const MARKETING_POINTS = [
   "Connect with brands or creators in one place",
@@ -21,6 +22,7 @@ export type PostLoginRoleOverlayProps = {
   dismissible?: boolean;
   onContinueAsCreator?: () => void | Promise<void>;
   onContinueAsBrand?: () => void | Promise<void>;
+  pendingRole?: WorkspaceRole | null;
   className?: string;
 };
 
@@ -39,11 +41,15 @@ export function PostLoginRoleOverlay({
   dismissible = false,
   onContinueAsCreator,
   onContinueAsBrand,
+  pendingRole,
   className,
 }: PostLoginRoleOverlayProps) {
   const { isSwitching, targetRole } = useWorkspaceSwitchState();
-  const creatorSelected = isSwitching && targetRole === "CREATOR";
-  const brandSelected = isSwitching && targetRole === "BRAND";
+  const effectiveTargetRole = pendingRole ?? targetRole;
+  const effectiveSwitching = pendingRole ? true : isSwitching;
+  const creatorSelected =
+    effectiveSwitching && effectiveTargetRole === "CREATOR";
+  const brandSelected = effectiveSwitching && effectiveTargetRole === "BRAND";
 
   return (
     <OnboardingOverlayShell
@@ -84,7 +90,7 @@ export function PostLoginRoleOverlay({
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
                   : "border-border hover:bg-muted/60",
               )}
-              disabled={isSwitching}
+              disabled={effectiveSwitching}
               onClick={async () => {
                 try {
                   await onContinueAsCreator?.();
@@ -131,7 +137,7 @@ export function PostLoginRoleOverlay({
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
                   : "border-border hover:bg-muted/60",
               )}
-              disabled={isSwitching}
+              disabled={effectiveSwitching}
               onClick={async () => {
                 try {
                   await onContinueAsBrand?.();

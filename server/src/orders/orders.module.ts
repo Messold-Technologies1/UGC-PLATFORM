@@ -9,6 +9,6 @@ import { OrdersService } from './orders.service';
   imports: [AuthModule, RazorpayModule],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],
+  exports: [OrdersService],
 })
 export class OrdersModule {}
-

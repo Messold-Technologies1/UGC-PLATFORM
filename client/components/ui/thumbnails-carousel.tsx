@@ -1,0 +1,104 @@
+"use client";
+
+import { Carousel } from "@ark-ui/react/carousel";
+import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+
+const ASSETS = [
+  {
+    type: "video",
+    full: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=1200&auto=format&fit=crop",
+    thumb: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=300&auto=format&fit=crop",
+    duration: "00:45",
+  },
+  {
+    type: "image",
+    full: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1200&auto=format&fit=crop",
+    thumb: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=300&auto=format&fit=crop",
+  },
+  {
+    type: "video",
+    full: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?q=80&w=1200&auto=format&fit=crop",
+    thumb: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?q=80&w=300&auto=format&fit=crop",
+    duration: "01:20",
+  },
+  {
+    type: "image",
+    full: "https://images.unsplash.com/photo-1540553016722-983e48a2cd10?q=80&w=1200&auto=format&fit=crop",
+    thumb: "https://images.unsplash.com/photo-1540553016722-983e48a2cd10?q=80&w=300&auto=format&fit=crop",
+  },
+  {
+    type: "video",
+    full: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200&auto=format&fit=crop",
+    thumb: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=300&auto=format&fit=crop",
+    duration: "00:15",
+  }
+];
+
+export function ThumbnailsCarousel({ className }: { className?: string }) {
+  return (
+    <Carousel.Root
+      defaultPage={0}
+      slideCount={ASSETS.length}
+      className={cn("w-full transition-opacity duration-300", className)}
+    >
+      <Carousel.ItemGroup className="relative aspect-video rounded-2xl overflow-hidden bg-black group border shadow-sm mb-4">
+        {ASSETS.map((asset, index) => (
+          <Carousel.Item key={index} index={index} className="w-full h-full relative">
+            <Image
+              src={asset.full}
+              alt={`Slide ${index + 1}`}
+              fill
+              className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+            />
+            {asset.type === "video" && (
+              <>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <button className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center hover:bg-primary transition-colors border border-white/20 group/play">
+                    <Play className="w-8 h-8 text-white ml-1 group-hover/play:scale-110 transition-transform" />
+                  </button>
+                </div>
+                <div className="absolute bottom-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg text-xs font-mono text-white/90">
+                  {asset.duration}
+                </div>
+              </>
+            )}
+          </Carousel.Item>
+        ))}
+      </Carousel.ItemGroup>
+
+      <div className="flex items-center gap-3">
+        <Carousel.PrevTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">
+          <ChevronLeft className="w-5 h-5" />
+        </Carousel.PrevTrigger>
+
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
+          {ASSETS.map((asset, index) => (
+            <Carousel.Indicator
+              key={index}
+              index={index}
+              className="relative shrink-0 w-24 aspect-video border-2 border-transparent data-current:border-primary rounded-lg overflow-hidden cursor-pointer transition-all hover:border-primary/50 group/thumb bg-black"
+            >
+              <Image
+                src={asset.thumb}
+                alt={`Thumbnail ${index + 1}`}
+                fill
+                className="object-cover opacity-60 data-current:opacity-100 transition-opacity"
+              />
+              {asset.type === "video" && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />
+                </div>
+              )}
+            </Carousel.Indicator>
+          ))}
+        </div>
+
+        <Carousel.NextTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">
+          <ChevronRight className="w-5 h-5" />
+        </Carousel.NextTrigger>
+      </div>
+    </Carousel.Root>
+  );
+}

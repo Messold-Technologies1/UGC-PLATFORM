@@ -78,7 +78,7 @@ export function CreatorProfile({
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+    <div className="w-full min-w-0">
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-8">
           <ProfileHeader creator={creator} />

@@ -24,6 +24,8 @@ export const CreatorCard = memo(function CreatorCard({
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
 
+  const profileUrl = `/brand/creators/${creator.id}`;
+
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -179,7 +181,7 @@ export const CreatorCard = memo(function CreatorCard({
               </span>
             </div>
             <Button asChild size="sm" variant="outline" className="text-xs">
-              <Link href={`/creators/${creator.id}`}>View Profile</Link>
+              <Link href={profileUrl}>View Profile</Link>
             </Button>
           </div>
         </div>
@@ -312,7 +314,7 @@ export const CreatorCard = memo(function CreatorCard({
             </p>
           </div>
           <Button asChild size="sm" variant="outline" className="text-xs">
-            <Link href={`/creators/${creator.id}`}>View Profile</Link>
+            <Link href={profileUrl}>View Profile</Link>
           </Button>
         </div>
       </CardContent>

@@ -74,6 +74,7 @@ function createPackageDraft(
     priceAmount: overrides?.priceAmount ?? "",
     deliveryDays: overrides?.deliveryDays ?? "",
     deliverables: overrides?.deliverables ?? "",
+    maxRevisions: overrides?.maxRevisions ?? "2",
   };
 }
 
@@ -81,7 +82,8 @@ function isCompletedPackageDraft(row: PackageDraft): boolean {
   const name = row.name.trim();
   const price = row.priceAmount.trim();
   const days = Number.parseInt(row.deliveryDays, 10);
-  return !!name && !!price && !Number.isNaN(days) && days >= 0;
+  const revisions = Number.parseInt(row.maxRevisions, 10);
+  return !!name && !!price && !Number.isNaN(days) && days >= 0 && !Number.isNaN(revisions) && revisions >= 0;
 }
 
 function createAddOnDraft(
@@ -294,6 +296,7 @@ export function CreatorProfileSetupForm({
             priceAmount: p.priceAmount,
             deliveryDays: String(p.deliveryDays),
             deliverables: p.deliverables.join("\n"),
+            maxRevisions: String(p.maxRevisions ?? 2),
           })),
         );
       } else {
@@ -449,15 +452,18 @@ export function CreatorProfileSetupForm({
         const price = row.priceAmount.trim();
         const dels = splitMultilineList(row.deliverables);
         const rowDays = Number.parseInt(row.deliveryDays, 10);
+        const rowRevisions = Number.parseInt(row.maxRevisions, 10);
         const hasDeliveryInput = row.deliveryDays.trim() !== "";
+        const hasRevisionsInput = row.maxRevisions.trim() !== "";
         const touched =
-          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput;
+          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput || hasRevisionsInput;
         const daysOk = !Number.isNaN(rowDays) && rowDays >= 0;
-        const isComplete = !!pkgName && !!price && daysOk;
+        const revisionsOk = !Number.isNaN(rowRevisions) && rowRevisions >= 0;
+        const isComplete = !!pkgName && !!price && daysOk && revisionsOk;
 
         if (touched && !isComplete) {
           toast.error(
-            "Complete each package (name, price, delivery days) or clear unused rows.",
+            "Complete each package (name, price, delivery days, revisions) or clear unused rows.",
           );
           return;
         }
@@ -468,6 +474,7 @@ export function CreatorProfileSetupForm({
             deliverables: dels.length ? dels : ["Deliverables to be confirmed"],
             priceAmount: price,
             deliveryDays: rowDays,
+            maxRevisions: rowRevisions,
           });
         }
       }

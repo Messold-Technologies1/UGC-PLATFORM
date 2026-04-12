@@ -13,6 +13,7 @@ import {
   Layers,
   Users,
   Briefcase,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -53,6 +54,7 @@ const roleConfigs: Record<string, RoleConfig> = {
       { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
       // { href: "/brand/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/brand/creators", label: "Browse Creators", icon: Users },
+      { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
     ],
   },
   creator: {
@@ -71,7 +73,6 @@ function getRoleFromPath(pathname: string): RoleConfig {
   return roleConfigs[segment] ?? roleConfigs.brand;
 }
 
-
 function isNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href.length > 1 && pathname.startsWith(`${href}/`)) return true;
@@ -84,7 +85,7 @@ export function DashboardSidebar() {
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const { goWorkspace } = useWorkspaceNavigation();
   const { user } = useAuth();
-  
+
   const hasMultipleRoles = user?.roles && user.roles.length > 1;
 
   const {
@@ -97,7 +98,7 @@ export function DashboardSidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "relative group flex items-center border-l-[3px] border-transparent py-3 text-sm transition-colors duration-300",
+      "relative group flex items-center border-l-[3px] border-transparent py-3 text-sm font-heading transition-colors duration-300",
       desktopCollapsed
         ? "px-2 lg:justify-center max-lg:gap-3 max-lg:px-6"
         : "gap-3 px-6",
@@ -107,7 +108,7 @@ export function DashboardSidebar() {
     );
 
   const utilityItemClass = cn(
-    "flex items-center border-l-[3px] py-3 text-sm transition-all duration-300",
+    "flex items-center border-l-[3px] py-3 text-sm font-heading transition-all duration-300",
     desktopCollapsed
       ? "px-2 lg:justify-center max-lg:gap-3 max-lg:px-6"
       : "gap-3 px-6",
@@ -237,7 +238,12 @@ export function DashboardSidebar() {
                   />
                 )}
                 <Icon className="relative z-10 size-4 shrink-0" />
-                <span className={cn("relative z-10", desktopCollapsed && "lg:sr-only")}>
+                <span
+                  className={cn(
+                    "relative z-10",
+                    desktopCollapsed && "lg:sr-only",
+                  )}
+                >
                   {label}
                 </span>
               </Link>
@@ -313,14 +319,14 @@ export function DashboardSidebar() {
                       </Tooltip>
                     ) : (
                       <button
-                      type="button"
-                      onClick={() => void goWorkspace("BRAND")}
-                      className={cn(utilityItemClass, "w-full")}
-                    >
-                      <Building2 className="size-4 shrink-0" />
-                      <span className={cn(desktopCollapsed && "lg:sr-only")}>
-                        Brand hub
-                      </span>
+                        type="button"
+                        onClick={() => void goWorkspace("BRAND")}
+                        className={cn(utilityItemClass, "w-full")}
+                      >
+                        <Building2 className="size-4 shrink-0" />
+                        <span className={cn(desktopCollapsed && "lg:sr-only")}>
+                          Brand hub
+                        </span>
                       </button>
                     )}
                     {desktopCollapsed ? (
@@ -339,18 +345,20 @@ export function DashboardSidebar() {
                             </span>
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent side="right">Creator hub</TooltipContent>
+                        <TooltipContent side="right">
+                          Creator hub
+                        </TooltipContent>
                       </Tooltip>
                     ) : (
                       <button
-                      type="button"
-                      onClick={() => void goWorkspace("CREATOR")}
-                      className={cn(utilityItemClass, "w-full")}
-                    >
-                      <Video className="size-4 shrink-0" />
-                      <span className={cn(desktopCollapsed && "lg:sr-only")}>
-                        Creator hub
-                      </span>
+                        type="button"
+                        onClick={() => void goWorkspace("CREATOR")}
+                        className={cn(utilityItemClass, "w-full")}
+                      >
+                        <Video className="size-4 shrink-0" />
+                        <span className={cn(desktopCollapsed && "lg:sr-only")}>
+                          Creator hub
+                        </span>
                       </button>
                     )}
                   </div>

@@ -11,6 +11,7 @@ export type PackageDraft = {
   priceAmount: string;
   deliveryDays: string;
   deliverables: string;
+  maxRevisions: string;
 };
 
 export function CreatorProfilePackageFields({
@@ -80,7 +81,7 @@ export function CreatorProfilePackageFields({
               </div>
 
               <div className="mt-4 space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
                   <div className="grid gap-2">
                     <Label htmlFor={`pkg-name-${row.id}`}>Name</Label>
                     <Input
@@ -124,6 +125,23 @@ export function CreatorProfilePackageFields({
                         })
                       }
                       placeholder="3"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor={`pkg-revisions-${row.id}`}>Revisions</Label>
+                    <Input
+                      id={`pkg-revisions-${row.id}`}
+                      type="number"
+                      min={0}
+                      className={inputClassName}
+                      value={row.maxRevisions}
+                      onChange={(event) =>
+                        onChange(row.id, {
+                          maxRevisions: event.target.value,
+                        })
+                      }
+                      placeholder="2"
                     />
                   </div>
                 </div>

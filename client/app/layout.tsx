@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Inter } from "next/font/google";
+import { DM_Sans, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppShellProviders } from "@/providers/app-providers";
@@ -15,7 +15,7 @@ try {
 } catch {}
 `;
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const dmSans = DM_Sans({
   variable: "--font-heading",
   subsets: ["latin"],
 });
@@ -32,7 +32,9 @@ export const metadata: Metadata = {
   },
   description:
     "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://collabry.com"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://collabry.com",
+  ),
   openGraph: {
     type: "website",
     siteName: "Collabry",
@@ -59,7 +61,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeColorScript }} />
       </head>
       <body
-        className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased flex min-h-svh flex-col`}
+        className={`${inter.variable} ${dmSans.variable} font-sans antialiased flex min-h-svh flex-col`}
       >
         <a
           href="#main-content"

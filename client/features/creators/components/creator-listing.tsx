@@ -242,7 +242,7 @@ export function CreatorListing({
         : undefined,
   });
 
-  const creators = data?.creators ?? [];
+  const creators = useMemo(() => data?.creators ?? [], [data?.creators]);
   const results = useMemo(() => applySearch(creators, search), [creators, search]);
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),

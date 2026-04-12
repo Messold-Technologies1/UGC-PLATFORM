@@ -48,7 +48,7 @@ export default async function CreatorProfilePage({ params }: PageProps) {
   }
 
   if (result.status === 401) {
-    const callbackUrl = `/creators/${id}`;
+    const callbackUrl = `/brand/creators/${id}`;
     return (
       <div className="mx-auto max-w-site px-4 py-20 text-center sm:px-6 lg:px-8">
         <h1 className="text-xl font-semibold tracking-tight">

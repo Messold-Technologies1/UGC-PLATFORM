@@ -17,6 +17,7 @@ export type CreatorProfilePackageApi = {
   deliverables: string[];
   priceAmount: string;
   deliveryDays: number;
+  maxRevisions: number;
 };
 
 export type CreatorProfilePersonaTagApi = {

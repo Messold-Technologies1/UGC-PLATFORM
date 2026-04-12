@@ -1,9 +1,6 @@
 import { memo, useMemo } from "react";
 import Image from "next/image";
-import {
-  MapPin,
-  CheckCircle2,
-} from "lucide-react";
+import { MapPin, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { CreatorProfile } from "../types";
 
@@ -78,37 +75,57 @@ export const ProfileHeader = memo(function ProfileHeader({
 
             <div className="mt-6 flex flex-wrap items-center gap-6 sm:gap-10">
               <div className="flex flex-col gap-1">
-                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Gender</span>
-                 <span className="text-lg font-bold capitalize">{creator.gender}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                  Gender
+                </span>
+                <span className="text-lg font-bold capitalize">
+                  {creator.gender}
+                </span>
               </div>
               <div className="flex flex-col gap-1">
-                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Travel</span>
-                 <span className="text-[15px] font-bold">
-                   {creator.travelRadiusKm && creator.travelRadiusKm > 0 
-                     ? `Up to ${creator.travelRadiusKm} km` 
-                     : "Not available"}
-                 </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                  Travel
+                </span>
+                <span className="text-[15px] font-bold">
+                  {creator.travelRadiusKm && creator.travelRadiusKm > 0
+                    ? `Up to ${creator.travelRadiusKm} km`
+                    : "Not available"}
+                </span>
               </div>
               <div className="flex flex-col gap-1">
-                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">On-Location</span>
-                 <div className="flex items-center gap-1.5 h-[28px]">
-                   {creator.storeVisit ? (
-                     <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Yes</Badge>
-                   ) : (
-                     <span className="text-lg font-bold">No</span>
-                   )}
-                 </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                  On-Location
+                </span>
+                <div className="flex items-center gap-1.5 h-[28px]">
+                  {creator.storeVisit ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                    >
+                      Yes
+                    </Badge>
+                  ) : (
+                    <span className="text-lg font-bold">No</span>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col gap-1">
-                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Starting From</span>
-                 <span className="text-xl font-bold text-primary">₹{creator.startingPrice.toLocaleString("en-IN")}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                  Starting From
+                </span>
+                <span className="text-xl font-bold text-primary">
+                  ₹{creator.startingPrice.toLocaleString("en-IN")}
+                </span>
               </div>
             </div>
 
             <div className="mt-6">
               <div className="flex flex-wrap gap-2">
                 {[...creator.languages, ...creator.categories].map((tag) => (
-                  <Badge key={tag} className="bg-primary/10 text-primary hover:bg-primary/20 border-0 rounded-full px-4 py-0.5 text-xs">
+                  <Badge
+                    key={tag}
+                    className="bg-primary/10 text-primary hover:bg-primary/20 border-0 rounded-full px-4 py-0.5 text-xs"
+                  >
                     {tag}
                   </Badge>
                 ))}
@@ -117,25 +134,35 @@ export const ProfileHeader = memo(function ProfileHeader({
           </div>
 
           <div className="hidden lg:flex w-72 shrink-0 flex-col justify-center gap-5 border-l border-border/50 pl-8 xl:w-80 overflow-hidden">
-             {creator.bio ? (
-               <div>
-                 <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1.5">About</h3>
-                 <p className="text-[13px] text-foreground/80 leading-relaxed line-clamp-3">{creator.bio}</p>
-               </div>
-             ) : null}
-             
-             {creator.personaTags && creator.personaTags.length > 0 ? (
-               <div>
-                  <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">Vibe & Persona</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {creator.personaTags.slice(0, 5).map((tag) => (
-                      <Badge key={tag} variant="outline" className="border-border/80 px-2 py-0.5 text-[10px] text-muted-foreground font-medium bg-muted/20">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-               </div>
-             ) : null}
+            {creator.bio ? (
+              <div>
+                <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1.5">
+                  About
+                </h3>
+                <p className="text-[13px] text-foreground/80 leading-relaxed line-clamp-3">
+                  {creator.bio}
+                </p>
+              </div>
+            ) : null}
+
+            {creator.personaTags && creator.personaTags.length > 0 ? (
+              <div>
+                <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                  Vibe & Persona
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {creator.personaTags.slice(0, 5).map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="border-border/80 px-2 py-0.5 text-[10px] text-muted-foreground font-medium bg-muted/20"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

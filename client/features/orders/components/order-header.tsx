@@ -1,5 +1,9 @@
-import { memo, useState } from "react";
-import { ShoppingBag } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Download } from "lucide-react";//ChevronRight
+import Image from "next/image";
+// import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,121 +18,78 @@ import {
   DrawerFooter,
   DrawerClose,
 } from "@/components/ui/drawer";
-import type { Package, AddOn } from "../types";
 
-interface OrderSummaryProps {
-  selectedPackage: Package | null;
-  addOns: AddOn[];
-  selectedAddOnIds: string[];
+interface OrderHeaderProps {
+  orderId: string;
 }
 
-export const OrderSummary = memo(function OrderSummary({
-  selectedPackage,
-  addOns,
-  selectedAddOnIds,
-}: OrderSummaryProps) {
+export function OrderHeader({ orderId }: OrderHeaderProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const selectedAddOns = addOns.filter((a) => selectedAddOnIds.includes(a.id));
-  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
-  const packagePrice = selectedPackage?.price ?? 0;
-  const total = packagePrice + addOnsTotal;
-
-  if (!selectedPackage) {
-    return (
-      <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm flex flex-col items-center text-center">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-muted/50 mb-6">
-          <ShoppingBag className="size-6 text-muted-foreground" />
-        </div>
-        <h3 className="text-xl font-bold tracking-tight">
-          No package selected
-        </h3>
-        <p className="mt-3 text-sm text-muted-foreground max-w-[200px] leading-relaxed">
-          Choose a package from the left to start collaborating with the
-          creator.
-        </p>
-
-        <Button
-          className="mt-8 w-full font-semibold pointer-events-none opacity-50 bg-muted text-muted-foreground hover:bg-muted"
-          size="lg"
-          aria-label="Proceed to checkout disabled"
-        >
-          Proceed to Checkout
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm">
-      <h3 className="text-lg font-bold tracking-tight">Order Summary</h3>
-
-      <div className="mt-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-base font-semibold">
-              {selectedPackage.label} Package
-            </p>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {selectedPackage.deliveryDays}-day delivery
-            </p>
-          </div>
-          <span className="text-base font-bold">
-            ₹{selectedPackage.price.toLocaleString("en-IN")}
-          </span>
-        </div>
-
-        {selectedAddOns.length > 0 && (
-          <>
-            <div className="border-t border-border/50 pt-4" />
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Add-ons
-              </p>
-              {selectedAddOns.map((addon) => (
-                <div
-                  key={addon.id}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="font-medium">{addon.label}</span>
-                  <span className="font-semibold text-muted-foreground">
-                    +₹{addon.price.toLocaleString("en-IN")}
-                  </span>
+    <>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          {/* <nav className="flex items-center gap-2 text-muted-foreground mb-4 text-sm font-medium">
+            <Link href="/brand/orders" className="hover:text-foreground transition-colors">
+              Orders
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-foreground">{orderId}</span>
+          </nav> */}
+          <h1 className="text-3xl md:text-4xl font-heading font-extrabold tracking-tight mb-3">
+            Summer Essentials UGC
+          </h1>
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Creator:</span>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full overflow-hidden border border-primary/20 relative">
+                  <Image
+                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop"
+                    alt="Creator"
+                    fill
+                    className="object-cover"
+                  />
                 </div>
-              ))}
+                <span className="font-semibold text-foreground">Riya Sharma</span>
+              </div>
             </div>
-          </>
-        )}
-
-        <div className="border-t border-border/50 pt-5 mt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-bold">Total</span>
-            <span className="text-2xl font-bold text-primary">
-              ₹{total.toLocaleString("en-IN")}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Deadline:</span>
+              <span className="font-medium text-foreground">--/--</span>
+            </div>
+            {/* <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-widest">
+                Accepted
+              </span>
+            </div> */}
           </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" className="rounded-xl flex items-center gap-2 shadow-sm font-semibold">
+            <Download className="w-4 h-4" />
+            Invoice
+          </Button>
+          <Button
+            onClick={() => setIsDrawerOpen(true)}
+            className="rounded-xl bg-linear-to-r from-primary to-secondary text-primary-foreground font-bold hover:opacity-90 shadow-lg shadow-primary/20 transition-all"
+          >
+            View Brief
+          </Button>
         </div>
       </div>
-
-      <Button
-        className="mt-8 w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        size="lg"
-        aria-label="Proceed to checkout"
-        onClick={() => setIsDrawerOpen(true)}
-      >
-        Proceed to Checkout
-      </Button>
-
-      <p className="mt-4 text-center text-xs font-medium text-muted-foreground">
-        You won&apos;t be charged yet
-      </p>
 
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} direction="right">
         <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[450px] data-[vaul-drawer-direction=right]:rounded-none h-full border-l border-border/30 bg-background shadow-2xl flex flex-col p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           <DrawerHeader className="px-8 py-6 border-b border-border/20 sticky top-0 bg-background/95 backdrop-blur-sm z-10 text-left">
             <DrawerTitle className="text-xl font-headline font-extrabold tracking-tight">Project Brief</DrawerTitle>
             <DrawerDescription className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-              Tell the creator a bit about your project and goals before checking out.
+              Order {orderId} - Brief details and requirements.
             </DrawerDescription>
           </DrawerHeader>
           
@@ -188,29 +149,11 @@ export const OrderSummary = memo(function OrderSummary({
                 />
               </div>
             </form>
-
-            <div className="mt-8 rounded-2xl bg-card border border-border/60 p-5 shadow-xs">
-               <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3 font-headline">Order Summary</h4>
-               <div className="flex justify-between items-center text-sm font-medium mb-1.5">
-                 <span className="text-muted-foreground truncate mr-2">{selectedPackage.label} Package</span>
-                 <span className="text-foreground whitespace-nowrap">₹{selectedPackage.price.toLocaleString("en-IN")}</span>
-               </div>
-               {selectedAddOns.length > 0 && selectedAddOns.map(a => (
-                 <div key={a.id} className="flex justify-between items-center text-sm font-medium mb-1.5">
-                   <span className="text-muted-foreground truncate mr-2">+ {a.label}</span>
-                   <span className="text-foreground whitespace-nowrap">₹{a.price.toLocaleString("en-IN")}</span>
-                 </div>
-               ))}
-               <div className="border-t border-border/50 mt-3 pt-3 flex justify-between items-center">
-                 <span className="font-bold text-base text-foreground">Total</span>
-                 <span className="font-extrabold text-lg text-primary tracking-tight">₹{total.toLocaleString("en-IN")}</span>
-               </div>
-            </div>
           </div>
 
           <DrawerFooter className="px-8 py-6 border-t border-border/20 sticky bottom-0 bg-background/95 backdrop-blur-sm flex flex-col gap-3">
-            <Button size="lg" className="w-full h-14 font-semibold text-base rounded-xl shadow-[0_4px_14px_0_rgba(var(--primary),0.39)] hover:shadow-[0_6px_20px_rgba(var(--primary),0.23)] hover:brightness-110 transition-all">
-              Continue to Checkout
+            <Button size="lg" className="w-full h-14 font-semibold text-base rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+              Send Details
             </Button>
             <DrawerClose asChild>
               <Button variant="ghost" className="w-full h-12 font-semibold text-muted-foreground hover:text-foreground">
@@ -220,6 +163,6 @@ export const OrderSummary = memo(function OrderSummary({
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
-    </div>
+    </>
   );
-});
+}

@@ -72,7 +72,7 @@ export default function BrandManagementPage() {
   const { data, isLoading, isError } = useBrandsQuery({ page, limit });
   const removeBrandAccess = useRemoveBrandAccessMutation();
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -131,18 +131,221 @@ export default function BrandManagementPage() {
           />
         </section>
 
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
             <div>
               <h2 className="text-xl font-headline font-semibold">Active Brands</h2>
               <p className="text-sm text-muted-foreground">
                 Only brands with an active profile are listed here.
               </p>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Rows:
+          <div className="grid grid-cols-1 gap-4">
+            {isLoading &&
+              Array.from({ length: limit }).map((_, index) => (
+                <div
+                  key={index}
+                  className="glass-panel p-5 rounded-2xl border border-border/10 bg-card/10 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
+                    <div className="flex items-center gap-4 min-w-[250px]">
+                      <Skeleton className="size-11 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-36" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Skeleton className="h-4 w-44" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                    <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-[200px]">
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                      <Skeleton className="h-9 w-24 rounded-md" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {!isLoading && isError && (
+              <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
+                We could not load the brand list right now. Try again shortly.
+              </div>
+            )}
+
+            {!isLoading && !isError && items.length === 0 && (
+              <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
+                No active brands are available right now.
+              </div>
+            )}
+
+            {items.map((brand) => {
+              const displayName =
+                brand.companyName ?? brand.name ?? "Unnamed Brand";
+
+              return (
+                <div
+                  key={brand.userId}
+                  className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full transition-all duration-300 hover:bg-accent/60 border-l-4 border-l-transparent hover:border-l-primary hover:shadow-lg hover:shadow-primary/5"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
+                    <div className="flex items-center gap-6 min-w-[280px]">
+                      <div className="relative">
+                        <div className="absolute -inset-1 bg-linear-to-tr from-primary to-secondary rounded-full opacity-0 group-hover/item:opacity-100 blur transition-opacity duration-500"></div>
+                        {brand.logoUrl ? (
+                          <div className="relative w-14 h-14 overflow-hidden rounded-full border-2 border-border bg-muted z-10 shrink-0">
+                            <Image
+                              src={brand.logoUrl}
+                              alt={`${displayName} logo`}
+                              fill
+                              className="object-cover"
+                              sizes="56px"
+                            />
+                          </div>
+                        ) : (
+                          <div className="relative w-14 h-14 flex items-center justify-center rounded-full border-2 border-border bg-card text-primary z-10 shrink-0">
+                            <Store className="size-6" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="truncate font-headline font-bold text-lg mb-0.5">
+                          {displayName}
+                        </h3>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider">
+                            Brand
+                          </span>
+                          <span className="text-muted-foreground text-xs">•</span>
+                          <p className="truncate text-xs text-muted-foreground">
+                            Added {new Date(brand.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 w-full">
+                      <div className="flex flex-col">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">Email</p>
+                        <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                          <Mail className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
+                          <span className="truncate">{brand.email}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">Industry</p>
+                        <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                          <span className="truncate">{brand.industry ?? "—"}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">Contact</p>
+                        <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                          <UserRound className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
+                          <span className="truncate">{brand.contactPerson ?? "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-[180px] w-full md:w-auto mt-2 md:mt-0">
+                      <StatusBadge status={brand.status} />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setSelectedBrand(brand)}
+                        disabled={removeBrandAccess.isPending}
+                        className="opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="mr-2 size-4" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-between border-t border-border/50 pt-8 mt-12 pb-20 gap-6">
+            <div className="flex items-center justify-center md:justify-start space-x-4 min-w-[150px] w-full md:w-auto">
+              <div className="flex items-center space-x-1">
+                <span className="text-sm text-muted-foreground">Page</span>
+                <span className="text-sm font-bold text-foreground">{page}</span>
+                <span className="text-sm text-muted-foreground">
+                  of {totalPages}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-4 hidden md:inline-block">
+                Showing {items.length === 0 ? 0 : (page - 1) * limit + 1}-{Math.min(page * limit, total)} of {total} results
+              </span>
+            </div>
+
+            <div className="flex-1 flex justify-center w-full">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={(event: MouseEvent) => {
+                        event.preventDefault();
+                        setPage((current) => Math.max(1, current - 1));
+                      }}
+                      disabled={page <= 1}
+                    />
+                  </PaginationItem>
+
+                  {Array.from({ length: totalPages }).map((_, index) => {
+                    const pageNumber = index + 1;
+
+                    if (
+                      pageNumber === 1 ||
+                      pageNumber === totalPages ||
+                      (pageNumber >= page - 1 && pageNumber <= page + 1)
+                    ) {
+                      return (
+                        <PaginationItem key={pageNumber}>
+                          <PaginationLink
+                            href="#"
+                            isActive={page === pageNumber}
+                            onClick={(event: MouseEvent) => {
+                              event.preventDefault();
+                              setPage(pageNumber);
+                            }}
+                          >
+                            {pageNumber}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+
+                    if (pageNumber === page - 2 || pageNumber === page + 2) {
+                      return (
+                        <PaginationItem key={pageNumber}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+
+                    return null;
+                  })}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={(event: MouseEvent) => {
+                        event.preventDefault();
+                        setPage((current) => Math.min(totalPages, current + 1));
+                      }}
+                      disabled={page >= totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+
+            <div className="flex items-center space-x-2 min-w-[150px] justify-center md:justify-end w-full md:w-auto">
+              <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest whitespace-nowrap">
+                Rows per page:
               </span>
               <Select
                 value={limit.toString()}
@@ -151,239 +354,17 @@ export default function BrandManagementPage() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="w-[88px]">
+                <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
                   <SelectValue placeholder={limit.toString()} />
                 </SelectTrigger>
-                <SelectContent align="end">
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="30">30</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
+                <SelectContent align="end" className="min-w-[75px]">
+                  <SelectItem value="10" className="text-xs font-bold cursor-pointer">10</SelectItem>
+                  <SelectItem value="20" className="text-xs font-bold cursor-pointer">20</SelectItem>
+                  <SelectItem value="30" className="text-xs font-bold cursor-pointer">30</SelectItem>
+                  <SelectItem value="50" className="text-xs font-bold cursor-pointer">50</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
-            <table className="w-full min-w-[860px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Brand
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Email
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Industry
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Contact Person
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-border">
-                {isLoading &&
-                  Array.from({ length: limit }).map((_, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-4">
-                          <Skeleton className="size-11 rounded-xl" />
-                          <div className="space-y-2">
-                            <Skeleton className="h-4 w-36" />
-                            <Skeleton className="h-3 w-24" />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <Skeleton className="h-4 w-44" />
-                      </td>
-                      <td className="px-6 py-5">
-                        <Skeleton className="h-4 w-24" />
-                      </td>
-                      <td className="px-6 py-5">
-                        <Skeleton className="h-4 w-28" />
-                      </td>
-                      <td className="px-6 py-5">
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <Skeleton className="ml-auto h-9 w-24 rounded-md" />
-                      </td>
-                    </tr>
-                  ))}
-
-                {!isLoading && isError && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-16 text-center text-sm text-muted-foreground"
-                    >
-                      We could not load the brand list right now. Try again shortly.
-                    </td>
-                  </tr>
-                )}
-
-                {!isLoading && !isError && items.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-16 text-center text-sm text-muted-foreground"
-                    >
-                      No active brands are available right now.
-                    </td>
-                  </tr>
-                )}
-
-                {items.map((brand) => {
-                  const displayName =
-                    brand.companyName ?? brand.name ?? "Unnamed Brand";
-
-                  return (
-                    <tr
-                      key={brand.userId}
-                      className="transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-4">
-                          {brand.logoUrl ? (
-                            <div className="relative size-11 overflow-hidden rounded-xl border border-border bg-muted">
-                              <Image
-                                src={brand.logoUrl}
-                                alt={`${displayName} logo`}
-                                fill
-                                className="object-cover"
-                                sizes="44px"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                              <Store className="size-5" />
-                            </div>
-                          )}
-
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                              {displayName}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              Added {new Date(brand.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2 text-sm text-foreground">
-                          <Mail className="size-4 text-muted-foreground" />
-                          <span className="truncate">{brand.email}</span>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-5 text-sm text-foreground">
-                        {brand.industry ?? "—"}
-                      </td>
-
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2 text-sm text-foreground">
-                          <UserRound className="size-4 text-muted-foreground" />
-                          <span>{brand.contactPerson ?? "—"}</span>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-5">
-                        <StatusBadge status={brand.status} />
-                      </td>
-
-                      <td className="px-6 py-5 text-right">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setSelectedBrand(brand)}
-                          disabled={removeBrandAccess.isPending}
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Remove
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing {items.length === 0 ? 0 : (page - 1) * limit + 1}-
-              {Math.min(page * limit, total)} of {total} brands
-            </div>
-
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={(event: MouseEvent) => {
-                      event.preventDefault();
-                      setPage((current) => Math.max(1, current - 1));
-                    }}
-                    disabled={page <= 1}
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: totalPages }).map((_, index) => {
-                  const pageNumber = index + 1;
-
-                  if (
-                    pageNumber === 1 ||
-                    pageNumber === totalPages ||
-                    (pageNumber >= page - 1 && pageNumber <= page + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={pageNumber}>
-                        <PaginationLink
-                          href="#"
-                          isActive={page === pageNumber}
-                          onClick={(event: MouseEvent) => {
-                            event.preventDefault();
-                            setPage(pageNumber);
-                          }}
-                        >
-                          {pageNumber}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  }
-
-                  if (pageNumber === page - 2 || pageNumber === page + 2) {
-                    return (
-                      <PaginationItem key={pageNumber}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-
-                  return null;
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={(event: MouseEvent) => {
-                      event.preventDefault();
-                      setPage((current) => Math.min(totalPages, current + 1));
-                    }}
-                    disabled={page >= totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
           </div>
         </section>
 

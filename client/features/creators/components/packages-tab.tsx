@@ -108,7 +108,7 @@ export const PackagesTab = memo(function PackagesTab({
             return (
               <li key={addon.id}>
                 <label
-                  className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-all ${
+                  className={`relative flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-all ${
                     isChecked
                       ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
                       : "border-border hover:border-foreground/20 shadow-sm"

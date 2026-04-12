@@ -8,6 +8,7 @@ export type CreatorPackageCreatePayload = {
   deliverables: string[];
   priceAmount: string;
   deliveryDays: number;
+  maxRevisions: number;
 };
 
 export type CreatorAddOnCreatePayload = {

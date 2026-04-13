@@ -15,10 +15,11 @@ import { VirtuosoGrid } from "react-virtuoso";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+// import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
-import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
+import { CreatorCard } from "./creator-card"; //, CreatorCardSkeleton
+import { CreatorsBrowserLoadingShell } from "@/components/dashboard/route-loading-shells";
 import {
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
@@ -129,31 +130,7 @@ function EmptyBrowseState({
   );
 }
 
-function BrowseListingLoadingState() {
-  return (
-    <div className="space-y-10" aria-busy="true" aria-label="Loading creators">
-      <header className="space-y-3">
-        <Skeleton className="h-12 w-full max-w-md md:h-14" />
-        <Skeleton className="h-5 w-full max-w-2xl md:h-6" />
-      </header>
-      <div className="rounded-2xl border border-border bg-muted/40 p-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <Skeleton className="h-10 w-36 rounded-full" />
-            <Skeleton className="hidden h-8 w-px md:block" />
-            <Skeleton className="h-4 w-28" />
-          </div>
-          <Skeleton className="h-10 w-full flex-1 rounded-full md:min-w-0" />
-        </div>
-      </div>
-      <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 8 }, (_, index) => (
-          <CreatorCardSkeleton key={index} appearance="browse" />
-        ))}
-      </div>
-    </div>
-  );
-}
+
 
 export function CreatorListing({
   initialData,
@@ -308,7 +285,7 @@ export function CreatorListing({
   } as CSSProperties;
 
   if (isPending && !data) {
-    return <BrowseListingLoadingState />;
+    return <CreatorsBrowserLoadingShell />;
   }
 
   if (isError && !data) {

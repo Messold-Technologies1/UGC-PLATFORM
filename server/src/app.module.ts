@@ -15,6 +15,7 @@ import { BrandProfileModule } from './brand-profile/brand-profile.module';
 import { OrdersModule } from './orders/orders.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { JobsModule } from './jobs/jobs.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { JobsModule } from './jobs/jobs.module';
     OrdersModule,
     WebhooksModule,
     JobsModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [

@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrdersService } from '../orders/orders.service';
+import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
 type RazorpayWebhookBody = {
   event: string;
@@ -18,6 +19,7 @@ type RazorpayWebhookBody = {
         status: string;
         captured: boolean;
         created_at: number; // seconds
+        amount?: number | string;
         error_code?: string;
         error_description?: string;
         error_source?: string;
@@ -34,6 +36,16 @@ type RazorpayWebhookBody = {
   };
 };
 
+function paymentAmountPaise(entity: {
+  amount?: number | string | null;
+}): number | undefined {
+  const a = entity.amount;
+  if (a == null) return undefined;
+  if (typeof a === 'number' && Number.isFinite(a)) return Math.round(a);
+  const n = Number.parseInt(String(a), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 @Injectable()
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
@@ -42,6 +54,7 @@ export class WebhooksService {
     private readonly config: ConfigService,
     private readonly razorpay: RazorpayService,
     private readonly orders: OrdersService,
+    private readonly orderRealtime: OrderRealtimeNotifier,
   ) {}
 
   async handleRazorpayWebhook(params: {
@@ -66,11 +79,20 @@ export class WebhooksService {
       if (!entity?.id || !entity.order_id) {
         throw new BadRequestException('Missing payment entity');
       }
-      await this.orders.markPaidFromWebhook({
+      const orderId = await this.orders.markPaidFromWebhook({
         razorpayOrderId: entity.order_id,
         razorpayPaymentId: entity.id,
         paidAt: new Date(entity.created_at * 1000),
+        amountPaise: paymentAmountPaise(entity),
       });
+      if (orderId) {
+        await this.orderRealtime.emitOrderPayment({
+          orderId,
+          kind: 'captured',
+          audience: 'brand_and_creator',
+          meta: { razorpayPaymentId: entity.id },
+        });
+      }
     } else if (body.event === 'payment.failed') {
       const entity = body.payload?.payment?.entity;
       if (!entity?.id || !entity.order_id) {
@@ -86,7 +108,7 @@ export class WebhooksService {
         return;
       }
 
-      await this.orders.onPaymentFailedFromWebhook({
+      const orderId = await this.orders.onPaymentFailedFromWebhook({
         razorpayOrderId: entity.order_id,
         razorpayPaymentId: entity.id,
         errorCode: entity.error_code,
@@ -94,23 +116,61 @@ export class WebhooksService {
         errorSource: entity.error_source,
         errorStep: entity.error_step,
       });
+      if (orderId) {
+        await this.orderRealtime.emitOrderPayment({
+          orderId,
+          kind: 'failed',
+          audience: 'brand_only',
+          meta: {
+            razorpayPaymentId: entity.id,
+            errorCode: entity.error_code,
+            errorDescription: entity.error_description,
+          },
+        });
+      }
     } else if (body.event === 'refund.processed') {
       const entity = body.payload?.refund?.entity;
       if (!entity?.id || !entity.payment_id) {
         throw new BadRequestException('Missing refund entity');
       }
-      await this.orders.markRefundCompletedFromWebhook({
+      const orderId = await this.orders.markRefundCompletedFromWebhook({
         razorpayRefundId: entity.id,
         razorpayPaymentId: entity.payment_id,
       });
+      if (orderId) {
+        await this.orderRealtime.emitOrderPayment({
+          orderId,
+          kind: 'refund_processed',
+          audience: 'brand_and_creator',
+          meta: {
+            razorpayRefundId: entity.id,
+            razorpayPaymentId: entity.payment_id,
+          },
+        });
+      }
     } else if (body.event === 'refund.failed') {
-      // Order stays REJECTED (or unchanged); admin must fix and retry refund from dashboard/API.
       const entity = body.payload?.refund?.entity;
       this.logger.warn(
         `refund.failed payment_id=${entity?.payment_id ?? '?'} refund_id=${entity?.id ?? '?'}`,
       );
+      if (entity?.payment_id) {
+        const orderId = await this.orders.findOrderIdByRazorpayPaymentId(
+          entity.payment_id,
+        );
+        if (orderId) {
+          await this.orderRealtime.emitOrderPayment({
+            orderId,
+            kind: 'refund_failed',
+            audience: 'brand_only',
+            meta: {
+              razorpayRefundId: entity.id,
+              razorpayPaymentId: entity.payment_id,
+              refundStatus: entity.status,
+            },
+          });
+        }
+      }
     }
     // else: ignore unhandled events (signature already verified)
   }
 }
-

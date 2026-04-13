@@ -250,6 +250,25 @@ export class CreatorProfileService {
 
     const creatorProfileId = await this.prisma.$transaction(
       async (tx) => {
+        const creatorRole = await tx.role.findUnique({
+          where: { name: RoleName.CREATOR },
+          select: { id: true },
+        });
+        if (!creatorRole) {
+          throw new NotFoundException('CREATOR role not configured');
+        }
+
+        const currentUser: any = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            primaryRoleId: true,
+            brandProfile: { select: { id: true } },
+          } as any,
+        });
+        if (!currentUser) {
+          throw new NotFoundException('User not found');
+        }
+
         const existing = await tx.creatorProfile.findUnique({
           where: { userId },
         });
@@ -274,6 +293,23 @@ export class CreatorProfileService {
 
         // Independent writes: can be done in parallel once we have creatorProfile.id.
         const ops: Array<Promise<unknown>> = [];
+
+        ops.push(
+          tx.userRole.upsert({
+            where: { userId_roleId: { userId, roleId: creatorRole.id } },
+            create: { userId, roleId: creatorRole.id },
+            update: {},
+          }),
+        );
+
+        if (!currentUser.primaryRoleId && !currentUser.brandProfile) {
+          ops.push(
+            tx.user.update({
+              where: { id: userId },
+              data: { primaryRoleId: creatorRole.id } as any,
+            }),
+          );
+        }
 
         if (normalizedLanguages.length > 0) {
           ops.push(

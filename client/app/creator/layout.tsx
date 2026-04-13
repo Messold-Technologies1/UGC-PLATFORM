@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
-import { requireAuthenticatedUser } from "@/lib/server-auth-guard";
+import { WorkspaceRouteSync } from "@/components/post-login/workspace-route-sync";
+import { requireCreatorWorkspace } from "@/lib/server-auth-guard";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
@@ -17,10 +18,11 @@ export default async function CreatorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAuthenticatedUser("/creator/dashboard");
+  await requireCreatorWorkspace("/creator/dashboard");
 
   return (
     <AuthenticatedAppProviders>
+      <WorkspaceRouteSync role="CREATOR" />
       <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-[#f9fafb] text-foreground dark:bg-background">
         <DashboardSidebarBoundary />
         <main

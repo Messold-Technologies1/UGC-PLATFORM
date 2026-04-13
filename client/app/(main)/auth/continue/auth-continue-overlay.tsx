@@ -13,9 +13,10 @@ import {
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
-  resolvePostAuthRedirectPath,
 } from "@/features/auth/lib/post-auth-destination";
 import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
+import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import { shouldPersistPrimaryOnWorkspaceChoice } from "@/features/auth/lib/workspace-defaulting";
 import { useAuth } from "@/providers/auth-provider";
 
 export function AuthContinueOverlay() {
@@ -41,41 +42,20 @@ export function AuthContinueOverlay() {
       return;
     }
 
-    const activeRole = user.activeRole;
-    if (activeRole) {
-      autoRedirectRef.current = true;
-      const path = resolvePostAuthRedirectPath(user, callbackUrl);
-      if (path !== postAuthContinuePath(callbackUrl)) {
-        beginClientNavigation();
-        router.replace(path);
-      } else {
-        autoRedirectRef.current = false;
-      }
-      return;
-    }
-
-    if (user.roles.length === 1) {
-      autoRedirectRef.current = true;
-      void (async () => {
-        const ok = await ensureWorkspaceSelection(queryClient, user, user.roles[0]);
-        if (!ok) {
-          autoRedirectRef.current = false;
-          return;
-        }
-        const nextUser =
-          queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
-        const target = pathAfterWorkspaceSelection(
-          nextUser,
-          user.roles[0],
-          callbackUrl,
-        );
+    autoRedirectRef.current = true;
+    void (async () => {
+      const target = await resolveImmediatePostAuthPath(
+        queryClient,
+        user,
+        callbackUrl,
+      );
+      if (target !== postAuthContinuePath(callbackUrl)) {
         beginClientNavigation();
         router.replace(target);
-      })();
-      return;
-    }
-
-    autoRedirectRef.current = false;
+        return;
+      }
+      autoRedirectRef.current = false;
+    })();
   }, [callbackUrl, isLoading, queryClient, router, user]);
 
   const showPicker =
@@ -87,7 +67,12 @@ export function AuthContinueOverlay() {
     async (workspaceRole: WorkspaceRole) => {
       if (!user) return;
       setPendingRole(workspaceRole);
-      const ok = await ensureWorkspaceSelection(queryClient, user, workspaceRole);
+      const ok = await ensureWorkspaceSelection(
+        queryClient,
+        user,
+        workspaceRole,
+        shouldPersistPrimaryOnWorkspaceChoice(user),
+      );
       if (!ok) {
         setPendingRole(null);
         return;

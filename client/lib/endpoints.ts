@@ -24,6 +24,9 @@ export const ENDPOINTS = {
     PROFILE_ME: "/api/brands/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/brands/profile/uploads/presign",
   },
+  ORDERS: {
+    CHECKOUT: "/api/orders/checkout",
+  },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
     VIDEOS: "/api/creator-portfolio/videos",

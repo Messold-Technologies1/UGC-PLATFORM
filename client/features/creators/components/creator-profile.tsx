@@ -154,6 +154,7 @@ export function CreatorProfile({
         <div className="w-full shrink-0 lg:w-80">
           <div className="sticky top-24 space-y-6">
             <OrderSummary
+              creatorId={creator.id}
               selectedPackage={selectedPackage}
               addOns={creator.addOns}
               selectedAddOnIds={selectedAddOnIds}

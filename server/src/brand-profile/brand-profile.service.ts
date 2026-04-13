@@ -94,6 +94,25 @@ export class BrandProfileService {
     }
 
     const brandProfileId = await this.prisma.$transaction(async (tx) => {
+      const brandRole = await tx.role.findUnique({
+        where: { name: RoleName.BRAND },
+        select: { id: true },
+      });
+      if (!brandRole) {
+        throw new NotFoundException('BRAND role not configured');
+      }
+
+      const currentUser: any = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          primaryRoleId: true,
+          creatorProfile: { select: { id: true } },
+        } as any,
+      });
+      if (!currentUser) {
+        throw new NotFoundException('User not found');
+      }
+
       const existing = await tx.brandProfile.findUnique({
         where: { userId },
         select: { id: true },
@@ -112,6 +131,19 @@ export class BrandProfileService {
         },
         select: { id: true },
       });
+
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: brandRole.id } },
+        create: { userId, roleId: brandRole.id },
+        update: {},
+      });
+
+      if (!currentUser.primaryRoleId && !currentUser.creatorProfile) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { primaryRoleId: brandRole.id } as any,
+        });
+      }
 
       return created.id;
     });

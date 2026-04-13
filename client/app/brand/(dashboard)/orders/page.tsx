@@ -14,7 +14,7 @@ export default function OrdersPage() {
         </p>
       </div>
       <div className="flex flex-col gap-4">
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col items-center justify-center min-h-[400px]">
+        <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col items-center justify-center min-h-100">
           <p className="text-muted-foreground">No orders yet.</p>
         </div>
       </div>

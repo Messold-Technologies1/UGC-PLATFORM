@@ -10,9 +10,14 @@ import {
   postAuthContinuePath,
   resolvePostAuthRedirectPath,
 } from "./post-auth-destination";
+import {
+  canUseWorkspaceRole,
+  getRecoverableProfileRole,
+} from "./workspace-defaulting";
 
 function singleWorkspaceRole(user: AuthUser): WorkspaceRole | null {
-  return user.roles.length === 1 ? user.roles[0] ?? null : null;
+  const roles = user.roles.filter((role) => role !== "ADMIN");
+  return roles.length === 1 ? roles[0] ?? null : null;
 }
 
 export async function resolveImmediatePostAuthPath(
@@ -28,8 +33,44 @@ export async function resolveImmediatePostAuthPath(
     return "/admin";
   }
 
-  if (user.activeRole ?? user.primaryRole) {
+  if (canUseWorkspaceRole(user, user.primaryRole)) {
+    const ok = await ensureWorkspaceSelection(
+      queryClient,
+      user,
+      user.primaryRole,
+    );
+    if (!ok) {
+      return postAuthContinuePath(callbackUrl);
+    }
+
+    const nextUser =
+      queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
+    return pathAfterWorkspaceSelection(nextUser, user.primaryRole, callbackUrl);
+  }
+
+  if (canUseWorkspaceRole(user, user.activeRole)) {
     return resolvePostAuthRedirectPath(user, callbackUrl);
+  }
+
+  const recoverableProfileRole = getRecoverableProfileRole(user);
+  if (recoverableProfileRole) {
+    const ok = await ensureWorkspaceSelection(
+      queryClient,
+      user,
+      recoverableProfileRole,
+      true,
+    );
+    if (!ok) {
+      return postAuthContinuePath(callbackUrl);
+    }
+
+    const nextUser =
+      queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
+    return pathAfterWorkspaceSelection(
+      nextUser,
+      recoverableProfileRole,
+      callbackUrl,
+    );
   }
 
   const role = singleWorkspaceRole(user);
@@ -37,7 +78,7 @@ export async function resolveImmediatePostAuthPath(
     return postAuthContinuePath(callbackUrl);
   }
 
-  if (role === "BRAND" && user.brandAccessRevoked) {
+  if (!canUseWorkspaceRole(user, role)) {
     return postAuthContinuePath(callbackUrl);
   }
 

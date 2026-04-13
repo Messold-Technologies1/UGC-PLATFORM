@@ -70,3 +70,17 @@ export async function requireBrandWorkspace(callbackPath: string) {
 
   return user;
 }
+
+export async function requireCreatorWorkspace(callbackPath: string) {
+  const user = await fetchServerAuthUser();
+  if (!user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+  }
+
+  const hasCreatorRole = user.roles?.includes("CREATOR") ?? false;
+  if (!hasCreatorRole) {
+    redirect(fallbackWorkspacePath(user));
+  }
+
+  return user;
+}

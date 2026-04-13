@@ -20,7 +20,9 @@ export async function ensureWorkspaceSelection(
   setPrimary?: boolean,
 ): Promise<boolean> {
   if (!user) return true;
-  if (user.activeRole === role) return true;
+  if (user.activeRole === role && (!setPrimary || user.primaryRole === role)) {
+    return true;
+  }
   try {
     const next = await selectWorkspaceApi(role, setPrimary);
     queryClient.setQueryData(authMeQueryKey, next);

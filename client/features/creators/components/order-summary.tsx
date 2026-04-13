@@ -1,38 +1,25 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerClose,
-} from "@/components/ui/drawer";
+import Link from "next/link";
 import type { Package, AddOn } from "../types";
 
 interface OrderSummaryProps {
+  creatorId: string;
   selectedPackage: Package | null;
   addOns: AddOn[];
   selectedAddOnIds: string[];
 }
 
 export const OrderSummary = memo(function OrderSummary({
+  creatorId,
   selectedPackage,
   addOns,
   selectedAddOnIds,
 }: OrderSummaryProps) {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
   const selectedAddOns = addOns.filter((a) => selectedAddOnIds.includes(a.id));
-  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
   const packagePrice = selectedPackage?.price ?? 0;
-  const total = packagePrice + addOnsTotal;
+  const total = packagePrice;
 
   if (!selectedPackage) {
     return (
@@ -43,7 +30,7 @@ export const OrderSummary = memo(function OrderSummary({
         <h3 className="text-xl font-bold tracking-tight">
           No package selected
         </h3>
-        <p className="mt-3 text-sm text-muted-foreground max-w-[200px] leading-relaxed">
+        <p className="mt-3 text-sm text-muted-foreground max-w-50 leading-relaxed">
           Choose a package from the left to start collaborating with the
           creator.
         </p>
@@ -58,6 +45,8 @@ export const OrderSummary = memo(function OrderSummary({
       </div>
     );
   }
+
+  const checkoutUrl = `/brand/checkout/${creatorId}?package=${selectedPackage.id}`;
 
   return (
     <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm">
@@ -96,6 +85,9 @@ export const OrderSummary = memo(function OrderSummary({
                   </span>
                 </div>
               ))}
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Add-ons aren&apos;t included in checkout yet.
+              </p>
             </div>
           </>
         )}
@@ -114,112 +106,14 @@ export const OrderSummary = memo(function OrderSummary({
         className="mt-8 w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         size="lg"
         aria-label="Proceed to checkout"
-        onClick={() => setIsDrawerOpen(true)}
+        asChild
       >
-        Proceed to Checkout
+        <Link href={checkoutUrl}>Proceed to Checkout</Link>
       </Button>
 
       <p className="mt-4 text-center text-xs font-medium text-muted-foreground">
-        You won&apos;t be charged yet
+        Package checkout is live. Add-ons will be supported separately.
       </p>
-
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} direction="right">
-        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[450px] data-[vaul-drawer-direction=right]:rounded-none h-full border-l border-border/30 bg-background shadow-2xl flex flex-col p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-          <DrawerHeader className="px-8 py-6 border-b border-border/20 sticky top-0 bg-background/95 backdrop-blur-sm z-10 text-left">
-            <DrawerTitle className="text-xl font-headline font-extrabold tracking-tight">Project Brief</DrawerTitle>
-            <DrawerDescription className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-              Tell the creator a bit about your project and goals before checking out.
-            </DrawerDescription>
-          </DrawerHeader>
-          
-          <div className="flex-1 overflow-y-auto px-8 py-6 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            <form className="space-y-6 bg-card border border-border/40 p-6 rounded-2xl shadow-sm">
-              <h3 className="text-sm font-bold tracking-tight text-foreground -mt-1">Brief details</h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="brandName" className="text-[11px] font-bold text-foreground tracking-wide">Brand name</Label>
-                <Input id="brandName" placeholder="e.g. Acme Co." className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="productService" className="text-[11px] font-bold text-foreground tracking-wide">Product / service</Label>
-                <Input id="productService" placeholder="What should the content feature?" className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="industry" className="text-[11px] font-bold text-foreground tracking-wide">Industry</Label>
-                <Input id="industry" placeholder="e.g. beauty, SaaS, fitness" className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="instructions" className="text-[11px] font-bold text-foreground tracking-wide">Script / instructions</Label>
-                <Textarea 
-                  id="instructions" 
-                  placeholder="Tone, talking points, do's and don'ts, CTA..." 
-                  className="min-h-[100px] resize-none bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none" 
-                />
-              </div>
-
-              <div className="flex flex-row items-center justify-between rounded-lg border border-border/40 bg-background/50 p-4 shadow-none">
-                <div className="space-y-0.5">
-                  <Label className="text-[11px] font-bold text-foreground tracking-wide">On-location filming</Label>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    Enable if creators must shoot at a specific place.
-                  </p>
-                </div>
-                <Switch />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="links" className="text-[11px] font-bold text-foreground tracking-wide">Reference links</Label>
-                <Textarea 
-                  id="links" 
-                  placeholder="One URL per line — mood boards, past ads, product pages..." 
-                  className="min-h-[80px] resize-none bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none" 
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="text-[11px] font-bold text-foreground tracking-wide">Notes</Label>
-                <Textarea 
-                  id="notes" 
-                  placeholder="Anything else the creator should know" 
-                  className="min-h-[80px] resize-none bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none" 
-                />
-              </div>
-            </form>
-
-            <div className="mt-8 rounded-2xl bg-card border border-border/60 p-5 shadow-xs">
-               <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3 font-headline">Order Summary</h4>
-               <div className="flex justify-between items-center text-sm font-medium mb-1.5">
-                 <span className="text-muted-foreground truncate mr-2">{selectedPackage.label} Package</span>
-                 <span className="text-foreground whitespace-nowrap">₹{selectedPackage.price.toLocaleString("en-IN")}</span>
-               </div>
-               {selectedAddOns.length > 0 && selectedAddOns.map(a => (
-                 <div key={a.id} className="flex justify-between items-center text-sm font-medium mb-1.5">
-                   <span className="text-muted-foreground truncate mr-2">+ {a.label}</span>
-                   <span className="text-foreground whitespace-nowrap">₹{a.price.toLocaleString("en-IN")}</span>
-                 </div>
-               ))}
-               <div className="border-t border-border/50 mt-3 pt-3 flex justify-between items-center">
-                 <span className="font-bold text-base text-foreground">Total</span>
-                 <span className="font-extrabold text-lg text-primary tracking-tight">₹{total.toLocaleString("en-IN")}</span>
-               </div>
-            </div>
-          </div>
-
-          <DrawerFooter className="px-8 py-6 border-t border-border/20 sticky bottom-0 bg-background/95 backdrop-blur-sm flex flex-col gap-3">
-            <Button size="lg" className="w-full h-14 font-semibold text-base rounded-xl shadow-[0_4px_14px_0_rgba(var(--primary),0.39)] hover:shadow-[0_6px_20px_rgba(var(--primary),0.23)] hover:brightness-110 transition-all">
-              Continue to Checkout
-            </Button>
-            <DrawerClose asChild>
-              <Button variant="ghost" className="w-full h-12 font-semibold text-muted-foreground hover:text-foreground">
-                Cancel
-              </Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
     </div>
   );
 });

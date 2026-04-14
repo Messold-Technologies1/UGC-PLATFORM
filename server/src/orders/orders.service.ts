@@ -7,8 +7,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { CreatorAddOn } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
+import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
 function toPaise(amount: Prisma.Decimal): number {
   // priceAmount has 2 decimals; paise = * 100
@@ -39,18 +41,23 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly razorpay: RazorpayService,
+    private readonly orderRealtime: OrderRealtimeNotifier,
   ) {}
 
   async createCheckout(params: {
     brandUserId: string;
     creatorId: string;
     packageId: string;
+    addOnIds?: string[];
   }): Promise<{
     orderId: string;
     razorpayOrderId: string;
     amountPaise: number;
     currency: string;
     razorpayKeyId: string;
+    packageAmountPaise: number;
+    addOnsAmountPaise: number;
+    addOnsCount: number;
   }> {
     const brand = await this.prisma.brandProfile.findUnique({
       where: { userId: params.brandUserId },
@@ -67,10 +74,46 @@ export class OrdersService {
       throw new NotFoundException('Creator package not found');
     }
 
-    const amountPaise = toPaise(pkg.priceAmount);
-    if (amountPaise <= 0) {
+    const addOnIdList = [...new Set((params.addOnIds ?? []).filter(Boolean))];
+    let addOnRows: CreatorAddOn[] = [];
+    if (addOnIdList.length > 0) {
+      addOnRows = await this.prisma.creatorAddOn.findMany({
+        where: {
+          id: { in: addOnIdList },
+          creatorId: pkg.creatorId,
+        },
+      });
+      if (addOnRows.length !== addOnIdList.length) {
+        throw new BadRequestException(
+          'One or more add-ons are invalid or do not belong to this creator',
+        );
+      }
+    }
+
+    const packageAmountPaise = toPaise(pkg.priceAmount);
+    const addOnsTotalDecimal =
+      addOnRows.length > 0
+        ? addOnRows.reduce(
+            (sum, a) => sum.add(a.priceAmount),
+            new Prisma.Decimal(0),
+          )
+        : null;
+    const addOnsAmountPaise =
+      addOnsTotalDecimal === null ? 0 : toPaise(addOnsTotalDecimal);
+    const amountPaise = packageAmountPaise + addOnsAmountPaise;
+    if (packageAmountPaise <= 0) {
       throw new BadRequestException('Invalid package amount');
     }
+    if (amountPaise <= 0) {
+      throw new BadRequestException('Invalid checkout amount');
+    }
+
+    const addOnsSnapshot = addOnRows.map((a) => ({
+      id: a.id,
+      name: a.name,
+      priceAmount: a.priceAmount.toString(),
+      description: a.description ?? null,
+    }));
 
     const created = await this.prisma.order.create({
       data: {
@@ -86,6 +129,10 @@ export class OrdersService {
         currency: 'INR',
         deliveryDaysSnapshot: pkg.deliveryDays,
         maxRevisionsSnapshot: pkg.maxRevisions,
+        addOnsSnapshot:
+          addOnsSnapshot as unknown as Prisma.InputJsonValue,
+        addOnsTotalSnapshot: addOnsTotalDecimal,
+        expectedAmountPaise: amountPaise,
       },
       select: { id: true, currency: true },
     });
@@ -113,6 +160,9 @@ export class OrdersService {
       amountPaise,
       currency: created.currency,
       razorpayKeyId: this.razorpay.getPublicKeyId(),
+      packageAmountPaise,
+      addOnsAmountPaise,
+      addOnsCount: addOnRows.length,
     };
   }
 
@@ -120,15 +170,28 @@ export class OrdersService {
     razorpayOrderId: string;
     razorpayPaymentId: string;
     paidAt: Date;
-  }): Promise<void> {
+    /** Payment amount in paise from Razorpay (optional but recommended) */
+    amountPaise?: number;
+  }): Promise<string | null> {
     const order = await this.prisma.order.findUnique({
       where: { razorpayOrderId: params.razorpayOrderId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, expectedAmountPaise: true },
     });
-    if (!order) return;
+    if (!order) return null;
 
     // idempotent: if already paid, do nothing
-    if (order.status !== 'PENDING_PAYMENT') return;
+    if (order.status !== 'PENDING_PAYMENT') return null;
+
+    if (
+      order.expectedAmountPaise > 0 &&
+      params.amountPaise != null &&
+      order.expectedAmountPaise !== params.amountPaise
+    ) {
+      this.logger.warn(
+        `payment.captured amount mismatch order=${order.id} expectedPaise=${order.expectedAmountPaise} gotPaise=${params.amountPaise} — not marking paid`,
+      );
+      return null;
+    }
 
     await this.prisma.order.update({
       where: { id: order.id },
@@ -138,6 +201,7 @@ export class OrdersService {
         razorpayPaymentId: params.razorpayPaymentId,
       },
     });
+    return order.id;
   }
 
   /**
@@ -151,23 +215,24 @@ export class OrdersService {
     errorCode?: string;
     errorSource?: string;
     errorStep?: string;
-  }): Promise<void> {
+  }): Promise<string | null> {
     const order = await this.prisma.order.findUnique({
       where: { razorpayOrderId: params.razorpayOrderId },
       select: { id: true, status: true },
     });
-    if (!order) return;
+    if (!order) return null;
 
     if (String(order.status) !== 'PENDING_PAYMENT') {
       this.logger.debug(
         `payment.failed ignored for order ${order.id} status=${String(order.status)}`,
       );
-      return;
+      return null;
     }
 
     this.logger.log(
       `payment.failed order=${order.id} payment=${params.razorpayPaymentId ?? '?'} code=${params.errorCode ?? '?'} source=${params.errorSource ?? '?'} step=${params.errorStep ?? '?'} ${params.errorDescription ?? ''} — status remains PENDING_PAYMENT`,
     );
+    return order.id;
   }
 
   async submitBrief(params: {
@@ -435,7 +500,24 @@ export class OrdersService {
       },
     });
 
+    await this.orderRealtime.emitOrderPayment({
+      orderId: order.id,
+      kind: 'refund_processed',
+      audience: 'brand_and_creator',
+      meta: { razorpayRefundId: refund.id, refundStatus: refund.status },
+    });
+
     return { refundId: refund.id, refundStatus: refund.status };
+  }
+
+  async findOrderIdByRazorpayPaymentId(
+    razorpayPaymentId: string,
+  ): Promise<string | null> {
+    const row = await this.prisma.order.findFirst({
+      where: { razorpayPaymentId },
+      select: { id: true },
+    });
+    return row?.id ?? null;
   }
 
   /**
@@ -444,17 +526,17 @@ export class OrdersService {
   async markRefundCompletedFromWebhook(params: {
     razorpayPaymentId: string;
     razorpayRefundId: string;
-  }): Promise<void> {
+  }): Promise<string | null> {
     const order = await this.prisma.order.findFirst({
       where: { razorpayPaymentId: params.razorpayPaymentId },
       select: { id: true, status: true, razorpayRefundId: true },
     });
-    if (!order) return;
+    if (!order) return null;
 
     // Some TS servers can lag behind prisma client generation; compare via string
     // to avoid enum type narrowing issues in editor diagnostics.
-    if (String(order.status) === 'REFUNDED') return;
-    if (String(order.status) !== 'REJECTED') return;
+    if (String(order.status) === 'REFUNDED') return null;
+    if (String(order.status) !== 'REJECTED') return null;
 
     await this.prisma.order.update({
       where: { id: order.id },
@@ -464,6 +546,7 @@ export class OrdersService {
         refundedAt: new Date(),
       },
     });
+    return order.id;
   }
 }
 

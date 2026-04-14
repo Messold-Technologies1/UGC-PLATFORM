@@ -240,6 +240,11 @@ model Order {
   deliveryDaysSnapshot Int
   maxRevisionsSnapshot Int @default(0)
 
+  // Add-ons at purchase (catalog may change later)
+  addOnsSnapshot       Json @default("[]")
+  addOnsTotalSnapshot  Decimal? @db.Decimal(12, 2)
+  expectedAmountPaise  Int      @default(0)
+
   // Timeline
   paidAt              DateTime?
   brief               Json?

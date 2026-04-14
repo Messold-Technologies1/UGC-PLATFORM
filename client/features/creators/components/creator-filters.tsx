@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, X } from "lucide-react";
 import {
   Accordion,
@@ -24,16 +23,14 @@ import {
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import {
-  creatorSuggestionListsQueryKeys,
-  fetchCreatorCategorySuggestions,
-  fetchCreatorPersonaTagSuggestions,
-  fetchCreatorRestrictionSuggestions,
-} from "../api/creator-suggestion-lists";
+  usePortfolioIndustrySuggestionsQuery,
+  usePortfolioTagSuggestionsQuery,
+} from "@/features/creator-portfolio/hooks/use-portfolio-suggestion-queries";
 import {
-  fetchPortfolioIndustrySuggestions,
-  fetchPortfolioTagSuggestions,
-  portfolioSuggestionListsQueryKeys,
-} from "@/features/creator-portfolio/api/portfolio-suggestion-lists";
+  useCreatorCategorySuggestionsQuery,
+  useCreatorPersonaTagSuggestionsQuery,
+  useCreatorRestrictionSuggestionsQuery,
+} from "../hooks/use-creator-suggestion-queries";
 
 export const CREATOR_PRICE_MIN = 0;
 export const CREATOR_PRICE_MAX = 10_000;
@@ -142,33 +139,23 @@ export const CreatorFilters = memo(function CreatorFilters({
     ]);
   }, [filters.minPrice, filters.maxPrice]);
 
-  const categorySuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.categories,
-    queryFn: fetchCreatorCategorySuggestions,
+  const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const personaSuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.personaTags,
-    queryFn: fetchCreatorPersonaTagSuggestions,
+  const personaSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const restrictionSuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.restrictions,
-    queryFn: fetchCreatorRestrictionSuggestions,
+  const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const industrySuggestionsQuery = useQuery({
-    queryKey: portfolioSuggestionListsQueryKeys.industries,
-    queryFn: fetchPortfolioIndustrySuggestions,
+  const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const portfolioTagSuggestionsQuery = useQuery({
-    queryKey: portfolioSuggestionListsQueryKeys.tags,
-    queryFn: fetchPortfolioTagSuggestions,
+  const portfolioTagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 

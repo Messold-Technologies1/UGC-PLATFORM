@@ -1,9 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,9 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
-import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
 import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-image-field";
 import {
   CreatorProfileAddOnFields,
@@ -36,25 +30,18 @@ import {
   splitCommaSeparatedList,
   splitMultilineList,
 } from "@/lib/string-lists";
-import { useAuth } from "@/providers/auth-provider";
+import { useAuth, type AuthUser } from "@/providers/auth-provider";
+import type { CreateCreatorProfilePayload } from "@/features/creators/api/create-creator-profile";
 import {
-  createCreatorProfile,
-  type CreateCreatorProfilePayload,
-} from "@/features/creators/api/create-creator-profile";
+  useSubmitCreatorProfileMutation,
+  useUploadCreatorProfileImageMutation,
+} from "@/features/creators/hooks/use-creator-profile-form-mutation";
+import {
+  useCreatorPersonaTagSuggestionsQuery,
+  useCreatorRestrictionSuggestionsQuery,
+} from "@/features/creators/hooks/use-creator-suggestion-queries";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
-import {
-  updateCreatorProfile,
-  type UpdateCreatorProfilePayload,
-} from "@/features/creators/api/update-creator-profile";
-import {
-  creatorSuggestionListsQueryKeys,
-  fetchCreatorPersonaTagSuggestions,
-  fetchCreatorRestrictionSuggestions,
-} from "@/features/creators/api/creator-suggestion-lists";
-import {
-  presignCreatorProfileImageUpload,
-  putFileToPresignedUrl,
-} from "@/features/creators/api/presign-creator-profile-image";
+import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update-creator-profile";
 
 const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
 const MAX_ADD_ONS_IN_CREATOR_SETUP_FORM = 6;
@@ -120,6 +107,58 @@ function buildUniqueOptionList(
     .sort((a, b) => a.localeCompare(b));
 }
 
+function getInitialCreatorName(user: AuthUser | null): string {
+  return user?.name?.trim() || user?.email?.split("@")[0] || "";
+}
+
+function getInitialCreatorImagePreviewUrl(
+  mode: "create" | "update",
+  initialProfile?: CreatorProfileItemApi | null,
+): string | null {
+  if (mode !== "update") return null;
+
+  const url = initialProfile?.profileImageUrl?.trim();
+  if (!url) return null;
+
+  return url.startsWith("http://") || url.startsWith("https://") ? url : null;
+}
+
+function createInitialPackageDrafts(
+  mode: "create" | "update",
+  initialProfile?: CreatorProfileItemApi | null,
+): PackageDraft[] {
+  if (mode !== "update" || !initialProfile || initialProfile.packages.length === 0) {
+    return [createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" })];
+  }
+
+  return initialProfile.packages.map((p) => ({
+    id: p.id,
+    name: p.name,
+    priceAmount: p.priceAmount,
+    deliveryDays: String(p.deliveryDays),
+    deliverables: p.deliverables.join("\n"),
+    maxRevisions: String(p.maxRevisions ?? 2),
+  }));
+}
+
+function createInitialAddOnDrafts(
+  mode: "create" | "update",
+  initialProfile?: CreatorProfileItemApi | null,
+): AddOnDraft[] {
+  if (mode !== "update" || !initialProfile || (initialProfile.addOns ?? []).length === 0) {
+    return [];
+  }
+
+  return (initialProfile.addOns ?? []).map((addOn) =>
+    createAddOnDraft(addOn.id, {
+      name: addOn.name,
+      priceAmount: addOn.priceAmount,
+      description: addOn.description?.trim() ?? "",
+      existingName: addOn.name,
+    }),
+  );
+}
+
 export type CreatorProfileSetupFormProps = {
   variant: "onboarding" | "settings";
   mode: "create" | "update";
@@ -136,34 +175,76 @@ export function CreatorProfileSetupForm({
   initialProfile,
   onSuccess,
 }: CreatorProfileSetupFormProps) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const formKey =
+    mode === "update"
+      ? `update:${initialProfile?.id ?? profileId ?? "profile"}`
+      : `create:${user?.id ?? "anonymous"}`;
 
-  const personaTagSuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.personaTags,
-    queryFn: fetchCreatorPersonaTagSuggestions,
+  return (
+    <CreatorProfileSetupFormContent
+      key={formKey}
+      variant={variant}
+      mode={mode}
+      profileId={profileId}
+      initialProfile={initialProfile}
+      onSuccess={onSuccess}
+      user={user}
+    />
+  );
+}
+
+type CreatorProfileSetupFormContentProps = CreatorProfileSetupFormProps & {
+  user: AuthUser | null;
+};
+
+function CreatorProfileSetupFormContent({
+  variant,
+  mode,
+  profileId,
+  initialProfile,
+  onSuccess,
+  user,
+}: CreatorProfileSetupFormContentProps) {
+  const uploadCreatorProfileImageMutation = useUploadCreatorProfileImageMutation();
+  const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
+    mode,
+    profileId,
+    onSuccess,
+  });
+
+  const personaTagSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   });
 
-  const restrictionSuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.restrictions,
-    queryFn: fetchCreatorRestrictionSuggestions,
+  const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   });
-  const [pending, setPending] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [city, setCity] = useState("");
-  const [bio, setBio] = useState("");
-  const [gender, setGender] = useState("");
-  const [travelRadius, setTravelRadius] = useState("");
-  const [languages, setLanguages] = useState("");
+  const pending = submitCreatorProfileMutation.isPending;
+  const [displayName, setDisplayName] = useState(() =>
+    mode === "update" ? initialProfile?.displayName ?? "" : getInitialCreatorName(user),
+  );
+  const [city, setCity] = useState(() => initialProfile?.city?.trim() ?? "");
+  const [bio, setBio] = useState(() => initialProfile?.bio?.trim() ?? "");
+  const [gender, setGender] = useState(() => initialProfile?.gender?.trim() ?? "");
+  const [travelRadius, setTravelRadius] = useState(() =>
+    initialProfile?.travelRadius != null ? String(initialProfile.travelRadius) : "",
+  );
+  const [languages, setLanguages] = useState(() =>
+    initialProfile?.languages.map((l) => l.language).join(", ") ?? "",
+  );
 
-  const [categoriesInput, setCategoriesInput] = useState("");
-  const [personaTagsInput, setPersonaTagsInput] = useState("");
-  const [restrictionsInput, setRestrictionsInput] = useState("");
+  const [categoriesInput, setCategoriesInput] = useState(() =>
+    initialProfile?.categories.map((c) => c.category).join(", ") ?? "",
+  );
+  const [personaTagsInput, setPersonaTagsInput] = useState(() =>
+    (initialProfile?.personaTags ?? []).map((t) => t.tag).join(", "),
+  );
+  const [restrictionsInput, setRestrictionsInput] = useState(() =>
+    (initialProfile?.restrictions ?? []).map((r) => r.restriction).join(", "),
+  );
   const [personaTagDraft, setPersonaTagDraft] = useState("");
   const [restrictionDraft, setRestrictionDraft] = useState("");
   const selectedPersonaTags = useMemo(
@@ -174,21 +255,35 @@ export function CreatorProfileSetupForm({
     () => splitCommaSeparatedList(restrictionsInput),
     [restrictionsInput],
   );
-  const [onLocationAvailable, setOnLocationAvailable] = useState(false);
+  const [onLocationAvailable, setOnLocationAvailable] = useState(
+    () => initialProfile?.onLocationAvailable ?? false,
+  );
 
-  const nextPackageIdRef = useRef(1);
-  const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
-    createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
-  ]);
-  const nextAddOnIdRef = useRef(1);
-  const [addOnDrafts, setAddOnDrafts] = useState<AddOnDraft[]>([]);
+  const nextPackageIdRef = useRef(
+    mode === "update" && initialProfile && initialProfile.packages.length > 0
+      ? initialProfile.packages.length
+      : 1,
+  );
+  const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() =>
+    createInitialPackageDrafts(mode, initialProfile),
+  );
+  const nextAddOnIdRef = useRef(
+    mode === "update" && initialProfile && (initialProfile.addOns ?? []).length > 0
+      ? (initialProfile.addOns ?? []).length
+      : 1,
+  );
+  const [addOnDrafts, setAddOnDrafts] = useState<AddOnDraft[]>(() =>
+    createInitialAddOnDrafts(mode, initialProfile),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(() =>
+    getInitialCreatorImagePreviewUrl(mode, initialProfile),
+  );
 
   const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
     string | null
   >(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const uploadingImage = uploadCreatorProfileImageMutation.isPending;
 
   const personaTagOptions = useMemo(
     () =>
@@ -253,91 +348,6 @@ export function CreatorProfileSetupForm({
     setAddOnDrafts((rows) => rows.filter((row) => row.id !== id));
   }, []);
 
-  useEffect(() => {
-    if (mode === "update" && initialProfile) {
-      const url = initialProfile.profileImageUrl?.trim();
-      setImagePreviewUrl(
-        url && (url.startsWith("http://") || url.startsWith("https://"))
-          ? url
-          : null,
-      );
-      setPendingProfileImageKey(null);
-      setDisplayName(initialProfile.displayName);
-      setCity(initialProfile.city?.trim() ?? "");
-      setBio(initialProfile.bio?.trim() ?? "");
-      setGender(initialProfile.gender?.trim() ?? "");
-      setTravelRadius(
-        initialProfile.travelRadius != null
-          ? String(initialProfile.travelRadius)
-          : "",
-      );
-      setLanguages(initialProfile.languages.map((l) => l.language).join(", "));
-      setCategoriesInput(
-        initialProfile.categories.map((c) => c.category).join(", "),
-      );
-      setPersonaTagsInput(
-        (initialProfile.personaTags ?? []).map((t) => t.tag).join(", "),
-      );
-      setRestrictionsInput(
-        (initialProfile.restrictions ?? [])
-          .map((r) => r.restriction)
-          .join(", "),
-      );
-      const initialAddOns = initialProfile.addOns ?? [];
-      setPersonaTagDraft("");
-      setRestrictionDraft("");
-      setOnLocationAvailable(initialProfile.onLocationAvailable ?? false);
-      if (initialProfile.packages.length > 0) {
-        nextPackageIdRef.current = initialProfile.packages.length;
-        setPackageDrafts(
-          initialProfile.packages.map((p) => ({
-            id: p.id,
-            name: p.name,
-            priceAmount: p.priceAmount,
-            deliveryDays: String(p.deliveryDays),
-            deliverables: p.deliverables.join("\n"),
-            maxRevisions: String(p.maxRevisions ?? 2),
-          })),
-        );
-      } else {
-        setPackageDrafts([
-          createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
-        ]);
-        nextPackageIdRef.current = 1;
-      }
-      if (initialAddOns.length > 0) {
-        nextAddOnIdRef.current = initialAddOns.length;
-        setAddOnDrafts(
-          initialAddOns.map((addOn) =>
-            createAddOnDraft(addOn.id, {
-              name: addOn.name,
-              priceAmount: addOn.priceAmount,
-              description: addOn.description?.trim() ?? "",
-              existingName: addOn.name,
-            }),
-          ),
-        );
-      } else {
-        setAddOnDrafts([]);
-        nextAddOnIdRef.current = 1;
-      }
-      return;
-    }
-    if (!user) return;
-    setImagePreviewUrl(null);
-    setPendingProfileImageKey(null);
-    setCategoriesInput("");
-    setPersonaTagsInput("");
-    setRestrictionsInput("");
-    setPersonaTagDraft("");
-    setRestrictionDraft("");
-    setOnLocationAvailable(false);
-    setAddOnDrafts([]);
-    nextAddOnIdRef.current = 1;
-    const name = user.name?.trim() || user.email.split("@")[0] || "";
-    setDisplayName(name);
-  }, [user, mode, initialProfile]);
-
   const displayInitials = useCallback(() => {
     const base =
       displayName.trim() ||
@@ -347,16 +357,10 @@ export function CreatorProfileSetupForm({
     return getInitials(base);
   }, [displayName, user]);
 
-  const ensureCreatorWorkspace = useCallback(
-    () => ensureWorkspaceSelection(queryClient, user, "CREATOR"),
-    [queryClient, user],
-  );
-
   const handleProfileImageSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
-      const ok = await ensureCreatorWorkspace();
-      if (!ok) return;
+
       if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
         toast.error("Use JPEG, PNG, WebP, or GIF.");
         return;
@@ -365,24 +369,22 @@ export function CreatorProfileSetupForm({
         toast.error("Image must be 8 MB or smaller.");
         return;
       }
-      setUploadingImage(true);
-      try {
-        const presign = await presignCreatorProfileImageUpload({
-          contentType: file.type,
-          contentLength: file.size,
-        });
-        await putFileToPresignedUrl(file, presign);
-        setPendingProfileImageKey(presign.key);
-        setImagePreviewUrl(presign.cdnUrl);
-        toast.success("Photo uploaded — save your profile to apply.");
-      } catch {
-        toast.error("Could not upload image. Try again.");
-      } finally {
-        setUploadingImage(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
+
+      uploadCreatorProfileImageMutation.mutate(file, {
+        onSuccess: (result) => {
+          if (!result) {
+            return;
+          }
+
+          setPendingProfileImageKey(result.key);
+          setImagePreviewUrl(result.cdnUrl);
+        },
+        onSettled: () => {
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        },
+      });
     },
-    [ensureCreatorWorkspace],
+    [uploadCreatorProfileImageMutation],
   );
 
   const clearProfileImage = useCallback(() => {
@@ -537,78 +539,33 @@ export function CreatorProfileSetupForm({
         addOns,
       };
 
-      setPending(true);
-      try {
-        if (mode === "update") {
-          if (!profileId) {
-            toast.error("Missing profile id");
-            return;
-          }
-          const patchPayload: UpdateCreatorProfilePayload = {
-            displayName: name,
-            ...(pendingProfileImageKey
-              ? { profileImageKey: pendingProfileImageKey }
-              : {}),
-            city: city.trim() || undefined,
-            bio: bio.trim() || undefined,
-            gender: gender.trim() || undefined,
-            travelRadius:
-              radius !== undefined && !Number.isNaN(radius) && radius >= 0
-                ? radius
-                : undefined,
-            onLocationAvailable,
-            languages: langs,
-            categories: cats,
-            personaTags: personas,
-            restrictions: rests,
-            packages: builtPackages,
-            addOns: builtAddOns,
-          };
+      if (mode === "update") {
+        const patchPayload: UpdateCreatorProfilePayload = {
+          displayName: name,
+          ...(pendingProfileImageKey
+            ? { profileImageKey: pendingProfileImageKey }
+            : {}),
+          city: city.trim() || undefined,
+          bio: bio.trim() || undefined,
+          gender: gender.trim() || undefined,
+          travelRadius:
+            radius !== undefined && !Number.isNaN(radius) && radius >= 0
+              ? radius
+              : undefined,
+          onLocationAvailable,
+          languages: langs,
+          categories: cats,
+          personaTags: personas,
+          restrictions: rests,
+          packages: builtPackages,
+          addOns: builtAddOns,
+        };
 
-          await updateCreatorProfile(profileId, patchPayload);
-          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-          await queryClient.invalidateQueries({
-            queryKey: creatorProfileMeQueryKey,
-          });
-          toast.success("Profile updated");
-          onSuccess();
-          return;
-        }
-
-        const ok = await ensureCreatorWorkspace();
-        if (!ok) return;
-        await createCreatorProfile(createPayload);
-        await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-        toast.success("Creator profile created");
-        onSuccess();
-        router.replace("/creator/account");
-      } catch (err) {
-        if (
-          mode === "create" &&
-          isAxiosError(err) &&
-          err.response?.status === 409
-        ) {
-          toast.message("Profile already exists", {
-            description: "Continuing to your dashboard.",
-          });
-          const ok = await ensureCreatorWorkspace();
-          if (!ok) return;
-          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-          onSuccess();
-          router.replace("/creator/account");
-          return;
-        }
-        toast.error(
-          mode === "update"
-            ? "Could not update profile"
-            : "Could not create profile",
-          {
-            description: "Check your connection and try again.",
-          },
-        );
-      } finally {
-        setPending(false);
+        submitCreatorProfileMutation.mutate({ payload: patchPayload });
+        return;
       }
+
+      submitCreatorProfileMutation.mutate({ payload: createPayload });
     },
     [
       mode,
@@ -625,11 +582,8 @@ export function CreatorProfileSetupForm({
       onLocationAvailable,
       packageDrafts,
       addOnDrafts,
-      onSuccess,
-      queryClient,
       pendingProfileImageKey,
-      ensureCreatorWorkspace,
-      router,
+      submitCreatorProfileMutation,
     ],
   );
 

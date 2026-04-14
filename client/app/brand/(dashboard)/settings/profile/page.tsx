@@ -1,15 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
-import {
-  brandProfileStateQueryKey,
-  fetchBrandProfileState,
-} from "@/features/brands/api/fetch-brand-profile-state";
 import { BrandProfileSetupForm } from "@/features/brands/components/brand-profile-setup-form.lazy";
+import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 
 export default function BrandSettingsProfilePage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -18,9 +13,7 @@ export default function BrandSettingsProfilePage() {
     data: profileState,
     isLoading,
     isError,
-  } = useQuery({
-    queryKey: brandProfileStateQueryKey,
-    queryFn: fetchBrandProfileState,
+  } = useBrandProfileStateQuery({
     enabled: Boolean(user?.id && user.hasBrandProfile && !user.brandAccessRevoked),
     staleTime: 2 * 60_000,
     retry: false,

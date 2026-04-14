@@ -2,14 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useQuery } from "@tanstack/react-query";
 import { MapPin } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  creatorProfileMeQueryKey,
-  fetchCreatorProfileMe,
-} from "@/features/creators/api/fetch-creator-profile-me";
+import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import { getInitials } from "@/lib/account-user";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -21,9 +17,7 @@ export function DashboardAccountProfile({
   profileEditHref,
 }: DashboardAccountProfileProps) {
   const { user } = useAuth();
-  const profileQuery = useQuery({
-    queryKey: creatorProfileMeQueryKey,
-    queryFn: fetchCreatorProfileMe,
+  const profileQuery = useCreatorProfileMeQuery({
     enabled: Boolean(user?.hasCreatorProfile),
     staleTime: 2 * 60_000,
   });

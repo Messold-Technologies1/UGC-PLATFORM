@@ -5,7 +5,7 @@ import { isAxiosError } from "axios";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
+import { useSelectWorkspaceMutation } from "@/features/auth/hooks/use-select-workspace-mutation";
 import { pathAfterWorkspaceSelection } from "@/features/auth/lib/post-auth-destination";
 import {
   clearWorkspaceSwitchState,
@@ -98,6 +98,7 @@ export function useWorkspaceNavigation() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const switchState = useWorkspaceSwitchState();
+  const selectWorkspaceMutation = useSelectWorkspaceMutation();
 
   const goWorkspace = async (
     role: WorkspaceRole,
@@ -148,8 +149,10 @@ export function useWorkspaceNavigation() {
     showSwitchingState();
 
     try {
-      const next = await selectWorkspaceApi(role, options?.setPrimary);
-      queryClient.setQueryData(authMeQueryKey, next);
+      const next = await selectWorkspaceMutation.mutateAsync({
+        role,
+        setPrimary: options?.setPrimary,
+      });
       const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
         promptIncompleteProfileOnboarding: false,
       });

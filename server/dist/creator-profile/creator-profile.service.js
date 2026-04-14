@@ -199,6 +199,33 @@ let CreatorProfileService = class CreatorProfileService {
             this.assertTempProfileImageKeyOwner(userId, profileImageKey);
         }
         const creatorProfileId = await this.prisma.$transaction(async (tx)=>{
+            const creatorRole = await tx.role.findUnique({
+                where: {
+                    name: _client.RoleName.CREATOR
+                },
+                select: {
+                    id: true
+                }
+            });
+            if (!creatorRole) {
+                throw new _common.NotFoundException('CREATOR role not configured');
+            }
+            const currentUser = await tx.user.findUnique({
+                where: {
+                    id: userId
+                },
+                select: {
+                    primaryRoleId: true,
+                    brandProfile: {
+                        select: {
+                            id: true
+                        }
+                    }
+                }
+            });
+            if (!currentUser) {
+                throw new _common.NotFoundException('User not found');
+            }
             const existing = await tx.creatorProfile.findUnique({
                 where: {
                     userId
@@ -223,6 +250,29 @@ let CreatorProfileService = class CreatorProfileService {
             });
             // Independent writes: can be done in parallel once we have creatorProfile.id.
             const ops = [];
+            ops.push(tx.userRole.upsert({
+                where: {
+                    userId_roleId: {
+                        userId,
+                        roleId: creatorRole.id
+                    }
+                },
+                create: {
+                    userId,
+                    roleId: creatorRole.id
+                },
+                update: {}
+            }));
+            if (!currentUser.primaryRoleId && !currentUser.brandProfile) {
+                ops.push(tx.user.update({
+                    where: {
+                        id: userId
+                    },
+                    data: {
+                        primaryRoleId: creatorRole.id
+                    }
+                }));
+            }
             if (normalizedLanguages.length > 0) {
                 ops.push(tx.creatorLanguage.createMany({
                     data: normalizedLanguages.map((language)=>({

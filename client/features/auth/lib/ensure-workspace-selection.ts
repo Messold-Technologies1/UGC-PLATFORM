@@ -1,12 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
-import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
 import {
-  authMeQueryKey,
   type AuthUser,
   type WorkspaceRole,
 } from "@/features/auth/hooks/use-me-query";
+import { selectWorkspaceWithCache } from "@/features/auth/lib/select-workspace-with-cache";
 const WORKSPACE_ERROR: Record<WorkspaceRole, string> = {
   CREATOR: "Could not continue as creator. Try again.",
   BRAND: "Could not continue as brand. Try again.",
@@ -24,8 +23,7 @@ export async function ensureWorkspaceSelection(
     return true;
   }
   try {
-    const next = await selectWorkspaceApi(role, setPrimary);
-    queryClient.setQueryData(authMeQueryKey, next);
+    await selectWorkspaceWithCache(queryClient, role, setPrimary);
     return true;
   } catch (err) {
     if (role === "BRAND" && isAxiosError(err) && err.response?.status === 403) {

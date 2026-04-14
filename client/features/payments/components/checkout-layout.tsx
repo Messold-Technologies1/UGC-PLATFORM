@@ -1,14 +1,13 @@
 "use client";
 
 import { isAxiosError } from "axios";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircle2, CreditCard, Lock, ShoppingBag } from "lucide-react";
+import { CreditCard, Lock, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { CheckoutSession } from "@/features/payments/api/create-checkout";
-import { createCheckout } from "@/features/payments/api/create-checkout";
+import { useCreateCheckoutMutation } from "@/features/payments/hooks/use-create-checkout-mutation";
 import { useAuth } from "@/providers/auth-provider";
 import type { CreatorProfile, Package } from "@/features/creators/types";
 
@@ -98,8 +97,8 @@ export function CheckoutLayout({
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutSession, setCheckoutSession] = useState<CheckoutSession | null>(null);
-  const [paidOrderId, setPaidOrderId] = useState<string | null>(null);
   const [isGatewayReady, setIsGatewayReady] = useState(false);
+  const createCheckoutMutation = useCreateCheckoutMutation();
 
   const packagePrice = selectedPackage?.price ?? 0;
   const total = packagePrice;
@@ -160,10 +159,10 @@ export function CheckoutLayout({
       handler: () => {
         didCompletePayment = true;
         setIsProcessing(false);
-        setPaidOrderId(session.orderId);
         toast.success("Payment successful", {
-          description: "Choose what you want to do next with this order.",
+          description: "Redirecting to your order...",
         });
+        router.push(`/brand/orders/${session.orderId}`);
       },
       modal: {
         ondismiss: () => {
@@ -200,7 +199,7 @@ export function CheckoutLayout({
     try {
       const session =
         checkoutSession ??
-        (await createCheckout({
+        (await createCheckoutMutation.mutateAsync({
           creatorId: creator.id,
           packageId: selectedPackage.id,
         }));
@@ -234,84 +233,7 @@ export function CheckoutLayout({
     );
   }
 
-  if (paidOrderId) {
-    return (
-      <div className="grid gap-8 lg:grid-cols-12">
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
-          <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
-              <CheckCircle2 className="size-7" />
-            </div>
 
-            <h2 className="mt-6 text-2xl font-bold tracking-tight">
-              Payment received
-            </h2>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Your checkout has been submitted successfully. You can add your
-              project brief now or head to the orders dashboard.
-            </p>
-
-            <div className="mt-5 rounded-2xl border border-border/60 bg-muted/30 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Order ID
-              </p>
-              <p className="mt-2 font-mono text-sm text-foreground">
-                {paidOrderId}
-              </p>
-            </div>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button asChild className="h-11 px-5 font-semibold">
-                <Link href={`/brand/orders/${paidOrderId}/brief`}>
-                  Provide Brief
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="h-11 px-5 font-semibold">
-                <Link href="/brand/orders">Go to Orders</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 xl:col-span-4">
-          <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm sticky top-24">
-            <h3 className="text-lg font-bold tracking-tight flex items-center gap-2">
-              <ShoppingBag className="size-5" />
-              Purchase Summary
-            </h3>
-
-            <div className="mt-6 space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-base font-semibold line-clamp-1">
-                    {creator.name}
-                  </p>
-                  <p className="text-sm font-medium mt-1">
-                    {selectedPackage.label} Package
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {selectedPackage.deliveryDays}-day delivery
-                  </p>
-                </div>
-                <span className="text-base font-bold whitespace-nowrap ml-4">
-                  ₹{selectedPackage.price.toLocaleString("en-IN")}
-                </span>
-              </div>
-
-              <div className="border-t border-border/50 pt-5 mt-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold">Paid</span>
-                  <span className="text-2xl font-bold text-primary">
-                    ₹{total.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-12">

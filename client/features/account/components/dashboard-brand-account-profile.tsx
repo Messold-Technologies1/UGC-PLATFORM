@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import {
   BriefcaseBusiness,
@@ -14,17 +13,12 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
-import {
-  brandProfileStateQueryKey,
-  fetchBrandProfileState,
-} from "@/features/brands/api/fetch-brand-profile-state";
+import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 
 export function DashboardBrandAccountProfile() {
   const { user, isLoading: authLoading } = useAuth();
 
-  const profileQuery = useQuery({
-    queryKey: brandProfileStateQueryKey,
-    queryFn: fetchBrandProfileState,
+  const profileQuery = useBrandProfileStateQuery({
     enabled: Boolean(user?.id && user.hasBrandProfile && !user.brandAccessRevoked),
     staleTime: 2 * 60_000,
     retry: false,
@@ -52,7 +46,6 @@ export function DashboardBrandAccountProfile() {
     return "Your brand profile details.";
   }, [
     profileState,
-    profile,
     profileQuery.isError,
     user?.brandAccessRevoked,
     user?.hasBrandProfile,

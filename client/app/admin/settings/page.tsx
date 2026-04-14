@@ -2,16 +2,20 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { registerAdmin } from "@/features/admin/api/register-admin";
-import { isAxiosError } from "axios";
-import { toast } from "sonner";
+import { useRegisterAdminMutation } from "@/features/admin/hooks/use-register-admin-mutation";
 
 export default function AdminSettings() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const registerAdminMutation = useRegisterAdminMutation({
+    onSuccess: () => {
+      setName("");
+      setEmail("");
+      setPassword("");
+    },
+  });
 
   const generatePassword = () => {
     const chars =
@@ -26,27 +30,7 @@ export default function AdminSettings() {
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      await registerAdmin({ name, email, password });
-      toast.success("Admin successfully created!");
-      setName("");
-      setEmail("");
-      setPassword("");
-    } catch (err: unknown) {
-      if (isAxiosError(err)) {
-        toast.error(
-          err.response?.data?.message ||
-            err.message ||
-            "Failed to register admin",
-        );
-      } else {
-        toast.error((err as Error).message || "An unexpected error occurred");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    registerAdminMutation.mutate({ name, email, password });
   };
 
   return (
@@ -142,11 +126,11 @@ export default function AdminSettings() {
                 <div className="pt-4">
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={registerAdminMutation.isPending}
                     className="w-full bg-primary py-2 px-4 rounded-xl font-headline text-primary-foreground font-semibold text-sm tracking-normal shadow-sm hover:scale-[1.01] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-1.5 cursor-pointer"
                   >
-                    {isLoading ? "Creating..." : "Create Admin Account"}
-                    {!isLoading && (
+                    {registerAdminMutation.isPending ? "Creating..." : "Create Admin Account"}
+                    {!registerAdminMutation.isPending && (
                       <span className="material-symbols-outlined text-base">
                         person_add
                       </span>

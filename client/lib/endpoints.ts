@@ -26,6 +26,8 @@ export const ENDPOINTS = {
   },
   ORDERS: {
     CHECKOUT: "/api/orders/checkout",
+    BRAND_DISPUTE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/disputes/brand`,
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",

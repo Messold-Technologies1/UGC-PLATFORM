@@ -1,16 +1,12 @@
 "use client";
 
 import { memo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  fetchPublicPortfolioVideosByCreatorId,
-  publicPortfolioVideosByCreatorQueryKey,
-} from "@/features/creator-portfolio/api/list-public-portfolio-videos";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 
 function errorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -35,9 +31,7 @@ export const PortfolioTab = memo(function PortfolioTab({
   creatorId,
   initialVideos,
 }: PortfolioTabProps) {
-  const query = useQuery({
-    queryKey: publicPortfolioVideosByCreatorQueryKey(creatorId),
-    queryFn: () => fetchPublicPortfolioVideosByCreatorId(creatorId),
+  const query = usePublicPortfolioVideosQuery(creatorId, {
     initialData: initialVideos,
     staleTime: 5 * 60_000,
   });

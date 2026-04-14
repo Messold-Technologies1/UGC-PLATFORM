@@ -85,6 +85,7 @@ export function AuthContinueOverlay() {
         callbackUrl,
       );
       beginClientNavigation();
+      router.refresh();
       router.replace(target);
     },
     [user, callbackUrl, queryClient, router],

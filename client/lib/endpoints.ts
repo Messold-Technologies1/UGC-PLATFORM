@@ -26,6 +26,7 @@ export const ENDPOINTS = {
   },
   ORDERS: {
     CHECKOUT: "/api/orders/checkout",
+    SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     BRAND_DISPUTE: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/disputes/brand`,
   },
@@ -40,15 +41,17 @@ export const ENDPOINTS = {
   ADMIN: {
     CREATORS: {
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
-      APPROVE: (id: string) => `/api/admin/creators/${encodeURIComponent(id)}/approve`,
-      REJECT: (id: string) => `/api/admin/creators/${encodeURIComponent(id)}/reject`,
+      APPROVE: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/approve`,
+      REJECT: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/reject`,
     },
     BRANDS: {
       LIST: "/api/admin/brands",
       REMOVE: (userId: string) =>
         `/api/admin/brands/user/${encodeURIComponent(userId)}/role`,
     },
-  }
+  },
 } as const;
 
 export function creatorPortfolioVideoPath(id: string): string {

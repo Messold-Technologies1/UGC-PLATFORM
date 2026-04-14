@@ -156,6 +156,9 @@ export function useWorkspaceNavigation() {
       const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
         promptIncompleteProfileOnboarding: false,
       });
+
+      router.refresh();
+
       if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
         startTransition(() => {
           router.push(dest);

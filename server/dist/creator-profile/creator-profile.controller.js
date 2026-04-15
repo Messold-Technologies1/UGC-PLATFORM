@@ -253,7 +253,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "getCreator", null);
 _ts_decorate([
     (0, _common.Patch)(':id'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _swagger.ApiOperation)({
         summary: 'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)'
     }),
@@ -273,7 +273,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "updateCreator", null);
 _ts_decorate([
     (0, _common.Patch)(':id/add-ons'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _swagger.ApiOperation)({
         summary: 'Add or update add-ons for a creator profile (by name, append-only)'
     }),
@@ -293,7 +293,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "addOrUpdateAddOns", null);
 _ts_decorate([
     (0, _common.Delete)(':id'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.NO_CONTENT),
     (0, _swagger.ApiNoContentResponse)({
         description: 'Deleted'

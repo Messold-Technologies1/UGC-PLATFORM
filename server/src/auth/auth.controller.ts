@@ -30,7 +30,6 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { MeUserDto } from './dto/me-user.dto';
 import { RegisterDto } from './dto/register.dto';
-import { SelectWorkspaceDto } from './dto/select-workspace.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { AdminGuard } from './guards/admin.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -243,29 +242,6 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException();
     }
-    return { user };
-  }
-
-  @Post('workspace')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Select or switch workspace (creator/brand); adds role if missing',
-  })
-  @ApiResponse({ status: 200, description: 'Updated user' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async selectWorkspace(
-    @Req() req: Request & { user: { id: string } },
-    @Body() dto: SelectWorkspaceDto,
-  ) {
-    const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
-    const user = await this.authService.selectWorkspace(
-      req.user.id,
-      dto.role,
-      dto.setPrimary ?? false,
-      refreshToken,
-    );
     return { user };
   }
 }

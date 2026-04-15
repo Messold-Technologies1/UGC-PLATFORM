@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AuthProvider, Prisma, RoleName } from '@prisma/client';
+import { AuthProvider, RoleName } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,9 +28,6 @@ export type MeUser = {
   email: string;
   name: string | null;
   roles: ('CREATOR' | 'BRAND' | 'ADMIN')[];
-  /** Session-scoped role the user is currently acting as. */
-  activeRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
-  /** Cross-session default; used as a fallback when no active role is set. */
   primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
@@ -105,8 +102,7 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         name: dto.name ?? null,
         passwordHash,
-        // New users may start without any workspace role selected.
-        // They must call `POST /auth/workspace` to pick CREATOR or BRAND.
+        // New users may start without any role selected.
         primaryRoleId: null,
       },
     });
@@ -382,16 +378,10 @@ export class AuthService {
     const hash = this.hashRefreshToken(refreshToken);
     const expiresAt = this.expiryToDate(refreshExpiry);
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { primaryRoleId: true },
-    });
-
     await this.prisma.session.create({
       data: {
         userId,
         refreshTokenHash: hash,
-        activeRoleId: user?.primaryRoleId ?? null,
         expiresAt,
         ipAddress: meta?.ipAddress ?? null,
         userAgent: meta?.userAgent ?? null,
@@ -494,92 +484,15 @@ export class AuthService {
       primaryRole = roles[0];
     }
 
-    // Session-scoped active role.
-    let activeRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null = null;
-    if (refreshToken) {
-      const hash = this.hashRefreshToken(refreshToken);
-      const session = await this.prisma.session.findFirst({
-        where: {
-          userId,
-          refreshTokenHash: hash,
-          expiresAt: { gt: new Date() },
-        },
-        select: { activeRole: { select: { name: true } } },
-      });
-      activeRole = this.asWorkspaceRole(session?.activeRole?.name);
-    }
-
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       roles,
-      activeRole,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,
     };
-  }
-
-  async selectWorkspace(
-    userId: string,
-    role: 'CREATOR' | 'BRAND',
-    setPrimary: boolean,
-    refreshToken: string | undefined,
-  ): Promise<MeUser> {
-    if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token required');
-    }
-    const roleRow = await this.prisma.role.findUnique({
-      where: { name: role },
-      select: { id: true },
-    });
-    if (!roleRow) {
-      throw new BadRequestException('Workspace role is not configured');
-    }
-
-    const hash = this.hashRefreshToken(refreshToken);
-    const now = new Date();
-
-    const ops: Prisma.PrismaPromise<unknown>[] = [
-      this.prisma.userRole.upsert({
-        where: { userId_roleId: { userId, roleId: roleRow.id } },
-        create: { userId, roleId: roleRow.id },
-        update: {},
-      }),
-      this.prisma.session.updateMany({
-        where: {
-          userId,
-          refreshTokenHash: hash,
-          expiresAt: { gt: now },
-        },
-        data: { activeRoleId: roleRow.id },
-      }),
-    ];
-
-    if (setPrimary) {
-      ops.splice(
-        1,
-        0,
-        this.prisma.user.update({
-          where: { id: userId },
-          data: { primaryRoleId: roleRow.id },
-        }),
-      );
-    }
-
-    const results = await this.prisma.$transaction(ops);
-    const sessionUpdate = results[results.length - 1] as { count: number };
-
-    if (sessionUpdate.count === 0) {
-      throw new UnauthorizedException('Session not found or expired');
-    }
-
-    const me = await this.getMeForClient(userId, refreshToken);
-    if (!me) {
-      throw new UnauthorizedException('Account could not be loaded');
-    }
-    return me;
   }
 }
 

@@ -39,6 +39,7 @@ interface BriefFormProps {
   showCancelButton?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
+  readOnly?: boolean;
 }
 
 function toBriefPayload(values: BriefFormValues): Record<string, unknown> {
@@ -66,6 +67,7 @@ export function BriefForm({
   showCancelButton = false,
   onSuccess,
   onCancel,
+  readOnly = false,
 }: BriefFormProps) {
   const router = useRouter();
   const form = useForm<BriefFormValues>({
@@ -121,7 +123,7 @@ export function BriefForm({
         <Input
           id="brandName"
           placeholder="e.g. Acme Co."
-          disabled={submitBriefMutation.isPending}
+          disabled={readOnly || submitBriefMutation.isPending}
           aria-invalid={form.formState.errors.brandName ? true : undefined}
           className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("brandName")}
@@ -140,7 +142,7 @@ export function BriefForm({
         <Input
           id="productService"
           placeholder="What should the content feature?"
-          disabled={submitBriefMutation.isPending}
+          disabled={readOnly || submitBriefMutation.isPending}
           aria-invalid={form.formState.errors.productService ? true : undefined}
           className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("productService")}
@@ -159,7 +161,7 @@ export function BriefForm({
         <Input
           id="industry"
           placeholder="e.g. beauty, SaaS, fitness"
-          disabled={submitBriefMutation.isPending}
+          disabled={readOnly || submitBriefMutation.isPending}
           className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("industry")}
         />
@@ -172,9 +174,9 @@ export function BriefForm({
         <Textarea
           id="instructions"
           placeholder="Tone, talking points, do's and don'ts, CTA..."
-          disabled={submitBriefMutation.isPending}
+          disabled={readOnly || submitBriefMutation.isPending}
           aria-invalid={form.formState.errors.instructions ? true : undefined}
-          className="min-h-25 resize-none bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
+          className="min-h-25 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("instructions")}
         />
         {form.formState.errors.instructions ? (
@@ -200,7 +202,7 @@ export function BriefForm({
               shouldDirty: true,
             })
           }
-          disabled={submitBriefMutation.isPending}
+          disabled={readOnly || submitBriefMutation.isPending}
         />
       </div>
 
@@ -211,8 +213,8 @@ export function BriefForm({
         <Textarea
           id="links"
           placeholder="One URL per line — mood boards, past ads, product pages..."
-          disabled={submitBriefMutation.isPending}
-          className="min-h-20 resize-none bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
+          disabled={readOnly || submitBriefMutation.isPending}
+          className="min-h-20 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("links")}
         />
       </div>
@@ -224,39 +226,41 @@ export function BriefForm({
         <Textarea
           id="notes"
           placeholder="Anything else the creator should know"
-          disabled={submitBriefMutation.isPending}
-          className="min-h-20 resize-none bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
+          disabled={readOnly || submitBriefMutation.isPending}
+          className="min-h-20 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("notes")}
         />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button
-          type="submit"
-          className="w-full sm:flex-1"
-          disabled={submitBriefMutation.isPending}
-        >
-          {submitBriefMutation.isPending ? (
-            <>
-              <Spinner className="size-4" aria-hidden />
-              Submitting...
-            </>
-          ) : (
-            submitLabel
-          )}
-        </Button>
-        {showCancelButton ? (
+      {!readOnly && (
+        <div className="flex flex-col gap-3 sm:flex-row">
           <Button
-            type="button"
-            variant="ghost"
-            className="w-full sm:w-auto"
-            onClick={onCancel}
+            type="submit"
+            className="w-full sm:flex-1"
             disabled={submitBriefMutation.isPending}
           >
-            Cancel
+            {submitBriefMutation.isPending ? (
+              <>
+                <Spinner className="size-4" aria-hidden />
+                Submitting...
+              </>
+            ) : (
+              submitLabel
+            )}
           </Button>
-        ) : null}
-      </div>
+          {showCancelButton ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full sm:w-auto"
+              onClick={onCancel}
+              disabled={submitBriefMutation.isPending}
+            >
+              Cancel
+            </Button>
+          ) : null}
+        </div>
+      )}
     </form>
   );
 }

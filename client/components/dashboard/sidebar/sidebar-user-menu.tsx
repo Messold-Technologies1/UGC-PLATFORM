@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
@@ -23,9 +23,14 @@ import {
 import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
+import {
+  canSetUpWorkspace,
+  workspaceAccountHref,
+  workspaceSetupHref,
+} from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
-import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 
 export function SidebarUserMenu({
   desktopCollapsed,
@@ -35,8 +40,8 @@ export function SidebarUserMenu({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
-  const { goWorkspace, switchingWorkspaceRole } = useWorkspaceNavigation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -54,7 +59,9 @@ export function SidebarUserMenu({
         ? "brand"
         : "creator";
   const settingsHref = hub === "brand" ? "/brand/account" : "/creator/settings";
-  const accountHref = `/${hub}/account`;
+  const accountHref = workspaceAccountHref(
+    hub === "brand" ? "BRAND" : "CREATOR",
+  );
 
   const isAccountSectionActive =
     pathname === accountHref || pathname.startsWith(`${accountHref}/`);
@@ -66,13 +73,20 @@ export function SidebarUserMenu({
     pathname.startsWith(`${notificationsHref}/`);
   const isSecurityActive =
     pathname === securityHref || pathname.startsWith(`${securityHref}/`);
-  const switchingToBrand = switchingWorkspaceRole === "BRAND";
-  const switchingToCreator = switchingWorkspaceRole === "CREATOR";
 
   const closeMobile = useCallback(() => {
     setMobileOpen(false);
     onNavigate?.();
   }, [onNavigate]);
+
+  const navigateToSetup = useCallback(
+    (href: string) => {
+      closeMobile();
+      beginClientNavigation();
+      router.push(href);
+    },
+    [closeMobile, router],
+  );
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -110,6 +124,8 @@ export function SidebarUserMenu({
 
   const name = getDisplayNameFromUser(user);
   const label = `Account menu (${name})`;
+  const canTryAsBrand = canSetUpWorkspace(user, "BRAND");
+  const canTryAsCreator = canSetUpWorkspace(user, "CREATOR");
 
   const panelVisibleMobile = mobileOpen;
 
@@ -162,50 +178,47 @@ export function SidebarUserMenu({
         <div className="min-w-60 space-y-2">
           <ThemeAppearancePanel />
           <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
-          {!hasMultipleRoles && user?.roles?.includes("CREATOR") && (
+          {!hasMultipleRoles && canTryAsBrand && (
             <button
               type="button"
               role="menuitem"
-              disabled={switchingToBrand}
+              disabled={isLoggingOut}
               className={cn(
                 accountMenuItemClass,
                 "w-full text-left",
-                switchingToBrand && "pointer-events-none opacity-70",
+                isLoggingOut && "pointer-events-none opacity-70",
               )}
               onClick={() => {
-                closeMobile();
-                void goWorkspace("BRAND");
+                navigateToSetup(
+                  workspaceSetupHref("BRAND", workspaceAccountHref("BRAND")),
+                );
               }}
             >
-              {switchingToBrand ? (
-                <Spinner className="size-4" aria-hidden />
-              ) : (
-                <Building2 className="size-4 opacity-60" aria-hidden />
-              )}
-              {switchingToBrand ? "Switching to Brand…" : "Try As Brand"}
+              <Building2 className="size-4 opacity-60" aria-hidden />
+              Try As Brand
             </button>
           )}
-          {!hasMultipleRoles && user?.roles?.includes("BRAND") && (
+          {!hasMultipleRoles && canTryAsCreator && (
             <button
               type="button"
               role="menuitem"
-              disabled={switchingToCreator}
+              disabled={isLoggingOut}
               className={cn(
                 accountMenuItemClass,
                 "w-full text-left",
-                switchingToCreator && "pointer-events-none opacity-70",
+                isLoggingOut && "pointer-events-none opacity-70",
               )}
               onClick={() => {
-                closeMobile();
-                void goWorkspace("CREATOR");
+                navigateToSetup(
+                  workspaceSetupHref(
+                    "CREATOR",
+                    workspaceAccountHref("CREATOR"),
+                  ),
+                );
               }}
             >
-              {switchingToCreator ? (
-                <Spinner className="size-4" aria-hidden />
-              ) : (
-                <Video className="size-4 opacity-60" aria-hidden />
-              )}
-              {switchingToCreator ? "Switching to Creator…" : "Try As Creator"}
+              <Video className="size-4 opacity-60" aria-hidden />
+              Try As Creator
             </button>
           )}
           <Link

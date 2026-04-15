@@ -64,6 +64,7 @@ const roleConfigs: Record<string, RoleConfig> = {
     navItems: [
       { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
       // { href: "/creator/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
       { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
     ],
   },

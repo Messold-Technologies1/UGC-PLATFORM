@@ -18,6 +18,7 @@ export function CreatorProfilePackageFields({
   rows,
   inputClassName,
   maxPackages,
+  disabled = false,
   layout = "stack",
   onAdd,
   onRemove,
@@ -26,6 +27,7 @@ export function CreatorProfilePackageFields({
   rows: PackageDraft[];
   inputClassName: string;
   maxPackages: number;
+  disabled?: boolean;
   layout?: "stack" | "grid";
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -42,7 +44,7 @@ export function CreatorProfilePackageFields({
           variant="outline"
           size="sm"
           className="shrink-0"
-          disabled={rows.length >= maxPackages}
+          disabled={disabled || rows.length >= maxPackages}
           onClick={onAdd}
         >
           Add package
@@ -74,6 +76,7 @@ export function CreatorProfilePackageFields({
                   variant="ghost"
                   size="sm"
                   className="h-8 rounded-full px-3 text-muted-foreground hover:text-destructive"
+                  disabled={disabled}
                   onClick={() => onRemove(row.id)}
                 >
                   Remove
@@ -87,6 +90,7 @@ export function CreatorProfilePackageFields({
                     <Input
                       id={`pkg-name-${row.id}`}
                       className={inputClassName}
+                      disabled={disabled}
                       value={row.name}
                       onChange={(event) =>
                         onChange(row.id, { name: event.target.value })
@@ -100,6 +104,7 @@ export function CreatorProfilePackageFields({
                     <Input
                       id={`pkg-price-${row.id}`}
                       className={inputClassName}
+                      disabled={disabled}
                       value={row.priceAmount}
                       onChange={(event) =>
                         onChange(row.id, {
@@ -118,6 +123,7 @@ export function CreatorProfilePackageFields({
                       type="number"
                       min={0}
                       className={inputClassName}
+                      disabled={disabled}
                       value={row.deliveryDays}
                       onChange={(event) =>
                         onChange(row.id, {
@@ -135,6 +141,7 @@ export function CreatorProfilePackageFields({
                       type="number"
                       min={0}
                       className={inputClassName}
+                      disabled={disabled}
                       value={row.maxRevisions}
                       onChange={(event) =>
                         onChange(row.id, {
@@ -157,6 +164,7 @@ export function CreatorProfilePackageFields({
                   </div>
                   <Textarea
                     id={`pkg-deliverables-${row.id}`}
+                    disabled={disabled}
                     value={row.deliverables}
                     onChange={(event) =>
                       onChange(row.id, {

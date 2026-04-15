@@ -683,6 +683,7 @@ function CreatorProfileSetupFormContent({
           <Input
             id="displayName"
             className={inputClass}
+            disabled={pending}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
@@ -693,17 +694,19 @@ function CreatorProfileSetupFormContent({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              className={inputClass}
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Bengaluru"
+          <Input
+            id="city"
+            className={inputClass}
+            disabled={pending}
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="e.g. Bengaluru"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
             <Select
+              disabled={pending}
               value={gender === "" ? GENDER_VALUE_UNSPECIFIED : gender}
               onValueChange={(v) =>
                 setGender(v === GENDER_VALUE_UNSPECIFIED ? "" : v)
@@ -729,6 +732,7 @@ function CreatorProfileSetupFormContent({
           <Label htmlFor="bio">Bio</Label>
           <Textarea
             id="bio"
+            disabled={pending}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={3}
@@ -742,6 +746,7 @@ function CreatorProfileSetupFormContent({
           <Input
             id="languages"
             className={inputClass}
+            disabled={pending}
             value={languages}
             onChange={(e) => setLanguages(e.target.value)}
             placeholder="Comma-separated, e.g. English, Hindi"
@@ -753,6 +758,7 @@ function CreatorProfileSetupFormContent({
           <Input
             id="categories"
             className={inputClass}
+            disabled={pending}
             value={categoriesInput}
             onChange={(e) => setCategoriesInput(e.target.value)}
             placeholder="Comma-separated, e.g. UGC Video, Voice Over"
@@ -763,6 +769,7 @@ function CreatorProfileSetupFormContent({
           <Label htmlFor="personaTags">Persona tags</Label>
           <MultiValueAddField
             selectId="personaTags"
+            disabled={pending}
             inputPlaceholder="Type to search or add a persona tag"
             selectValue={personaTagDraft}
             options={personaTagOptions}
@@ -782,6 +789,7 @@ function CreatorProfileSetupFormContent({
           <Label htmlFor="restrictions">Content restrictions</Label>
           <MultiValueAddField
             selectId="restrictions"
+            disabled={pending}
             inputPlaceholder="Type to search or add a restriction"
             selectValue={restrictionDraft}
             options={restrictionOptions}
@@ -809,6 +817,7 @@ function CreatorProfileSetupFormContent({
             </div>
             <Switch
               id="onLocation"
+              disabled={pending}
               checked={onLocationAvailable}
               onCheckedChange={setOnLocationAvailable}
             />
@@ -823,6 +832,7 @@ function CreatorProfileSetupFormContent({
                   type="number"
                   min={0}
                   className={inputClass}
+                  disabled={pending}
                   value={travelRadius}
                   onChange={(e) => setTravelRadius(e.target.value)}
                   placeholder="0 if none"
@@ -836,6 +846,7 @@ function CreatorProfileSetupFormContent({
           rows={packageDrafts}
           inputClassName={inputClass}
           maxPackages={MAX_PACKAGES_IN_CREATOR_SETUP_FORM}
+          disabled={pending}
           layout={mode === "update" ? "grid" : "stack"}
           onAdd={addPackageDraft}
           onRemove={removePackageDraft}
@@ -846,6 +857,7 @@ function CreatorProfileSetupFormContent({
           rows={addOnDrafts}
           inputClassName={inputClass}
           maxAddOns={MAX_ADD_ONS_IN_CREATOR_SETUP_FORM}
+          disabled={pending}
           layout={mode === "update" ? "grid" : "stack"}
           onAdd={addAddOnDraft}
           onRemove={removeAddOnDraft}
@@ -872,6 +884,7 @@ function CreatorProfileSetupFormContent({
 
 function MultiValueAddField({
   selectId,
+  disabled = false,
   inputPlaceholder,
   selectValue,
   options,
@@ -883,6 +896,7 @@ function MultiValueAddField({
   onRemoveValue,
 }: {
   selectId: string;
+  disabled?: boolean;
   inputPlaceholder: string;
   selectValue: string;
   options: string[];
@@ -909,11 +923,12 @@ function MultiValueAddField({
   );
 
   const showAddOption =
+    !disabled &&
     normalizedDraft.length > 0 &&
     !options.some(
       (option) => option.toLowerCase() === normalizedDraft.toLowerCase(),
     );
-  const open = isHovered || isFocusedWithin;
+  const open = !disabled && (isHovered || isFocusedWithin);
 
   const clearCloseTimeout = useCallback(() => {
     if (closeTimeoutRef.current) {
@@ -942,12 +957,20 @@ function MultiValueAddField({
         ref={containerRef}
         className="relative"
         onMouseEnter={() => {
+          if (disabled) return;
           clearCloseTimeout();
           setIsHovered(true);
         }}
-        onMouseLeave={scheduleHoverClose}
-        onFocusCapture={() => setIsFocusedWithin(true)}
+        onMouseLeave={() => {
+          if (disabled) return;
+          scheduleHoverClose();
+        }}
+        onFocusCapture={() => {
+          if (disabled) return;
+          setIsFocusedWithin(true);
+        }}
         onBlurCapture={(e) => {
+          if (disabled) return;
           const nextFocused = e.relatedTarget;
           if (
             nextFocused instanceof Node &&
@@ -960,6 +983,7 @@ function MultiValueAddField({
       >
         <Input
           id={selectId}
+          disabled={disabled}
           value={selectValue}
           onChange={(e) => {
             onSelectValueChange(e.target.value);

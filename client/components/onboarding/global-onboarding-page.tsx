@@ -117,7 +117,7 @@ export function GlobalOnboardingPage({
             <CreatorProfileSetupForm
               variant="onboarding"
               mode="create"
-              onSuccess={onClose}
+              onSuccess={() => {}}
               onPendingChange={setCreationPending}
             />
             {onCreatorBack ? (
@@ -151,10 +151,7 @@ export function GlobalOnboardingPage({
             <BrandProfileSetupForm
               variant="onboarding"
               mode="create"
-              onSuccess={async () => {
-                onBrandDismiss?.();
-                onClose();
-              }}
+              onSuccess={async () => {}}
               onPendingChange={setCreationPending}
             />
             <div className="mt-6 flex items-center justify-end">

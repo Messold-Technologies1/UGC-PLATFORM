@@ -39,17 +39,49 @@ function replaceAuthContinueSearchParam(
 }
 
 export function AuthContinueOverlay() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const callbackUrl = searchParams.get("callbackUrl");
   const setupRole = parseAuthContinueSetupRole(
     searchParams.get(AUTH_CONTINUE_SETUP_ROLE_PARAM),
   );
+  const resetKey = [
+    callbackUrl ?? "",
+    user?.id ?? "",
+    user?.primaryRole ?? "",
+    user?.brandAccessRevoked ? "revoked" : "active",
+    user?.roles.join("|") ?? "",
+  ].join("::");
+
+  return (
+    <AuthContinueOverlayContent
+      key={resetKey}
+      callbackUrl={callbackUrl}
+      isLoading={isLoading}
+      searchParams={searchParams}
+      setupRole={setupRole}
+      user={user}
+    />
+  );
+}
+
+function AuthContinueOverlayContent({
+  callbackUrl,
+  isLoading,
+  searchParams,
+  setupRole,
+  user,
+}: {
+  callbackUrl: string | null;
+  isLoading: boolean;
+  searchParams: ReadonlyURLSearchParams;
+  setupRole: "brand" | "creator" | null;
+  user: ReturnType<typeof useAuth>["user"];
+}) {
+  const router = useRouter();
   const autoRedirectRef = useRef(false);
   const [pendingRole, setPendingRole] = useState<WorkspaceRole | null>(null);
   const [pickerDismissed, setPickerDismissed] = useState(false);
-  const rolesKey = user?.roles.join("|") ?? "";
 
   useEffect(() => {
     if (isLoading) return;
@@ -57,6 +89,10 @@ export function AuthContinueOverlay() {
       autoRedirectRef.current = false;
       beginClientNavigation();
       router.replace("/login");
+      return;
+    }
+    if (setupRole) {
+      autoRedirectRef.current = false;
       return;
     }
     if (autoRedirectRef.current) return;
@@ -73,12 +109,7 @@ export function AuthContinueOverlay() {
       return;
     }
     autoRedirectRef.current = false;
-  }, [callbackUrl, isLoading, router, user]);
-
-  useEffect(() => {
-    setPickerDismissed(false);
-    setPendingRole(null);
-  }, [callbackUrl, rolesKey, user?.brandAccessRevoked, user?.id, user?.primaryRole]);
+  }, [callbackUrl, isLoading, router, setupRole, user]);
 
   const showPicker =
     Boolean(user) &&

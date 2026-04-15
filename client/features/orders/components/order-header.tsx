@@ -19,12 +19,14 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { BriefForm } from "@/features/orders/components/brief-form";
 import { useOpenBrandDisputeMutation } from "@/features/orders/hooks/use-open-brand-dispute-mutation";
+import { useOpenCreatorDisputeMutation } from "@/features/orders/hooks/use-open-creator-dispute-mutation";
 
 interface OrderHeaderProps {
   orderId: string;
+  role?: "brand" | "creator";
 }
 
-export function OrderHeader({ orderId }: OrderHeaderProps) {
+export function OrderHeader({ orderId, role = "brand" }: OrderHeaderProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDisputeDrawerOpen, setIsDisputeDrawerOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
@@ -34,6 +36,15 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
       setIsDisputeDrawerOpen(false);
     },
   });
+  const openCreatorDisputeMutation = useOpenCreatorDisputeMutation({
+    onSuccess: () => {
+      setDisputeReason("");
+      setIsDisputeDrawerOpen(false);
+    },
+  });
+
+  const isDisputePending =
+    openBrandDisputeMutation.isPending || openCreatorDisputeMutation.isPending;
 
   const trimmedDisputeReason = disputeReason.trim();
 
@@ -42,10 +53,17 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
       return;
     }
 
-    openBrandDisputeMutation.mutate({
-      orderId,
-      reason: trimmedDisputeReason,
-    });
+    if (role === "brand") {
+      openBrandDisputeMutation.mutate({
+        orderId,
+        reason: trimmedDisputeReason,
+      });
+    } else {
+      openCreatorDisputeMutation.mutate({
+        orderId,
+        reason: trimmedDisputeReason,
+      });
+    }
   }
 
   return (
@@ -114,7 +132,7 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
             onClick={() => setIsDrawerOpen(true)}
             className="rounded-xl bg-linear-to-r from-primary to-secondary text-primary-foreground font-bold hover:opacity-90 shadow-lg shadow-primary/20 transition-all"
           >
-            Submit Brief
+            {role === "brand" ? "Submit Brief" : "View Brief"}
           </Button>
         </div>
       </div>
@@ -139,10 +157,11 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
               orderId={orderId}
               showHeading={false}
               submitLabel="Send Details"
-              showCancelButton
+              showCancelButton={role === "brand"}
               onSuccess={() => setIsDrawerOpen(false)}
               onCancel={() => setIsDrawerOpen(false)}
               className="border-0 bg-transparent p-0 shadow-none"
+              readOnly={role === "creator"}
             />
           </div>
         </DrawerContent>
@@ -151,7 +170,7 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
       <Drawer
         open={isDisputeDrawerOpen}
         onOpenChange={(open) => {
-          if (!open && openBrandDisputeMutation.isPending) {
+          if (!open && isDisputePending) {
             return;
           }
 
@@ -188,7 +207,7 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
                   className="min-h-37.5 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-destructive/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
                   value={disputeReason}
                   onChange={(event) => setDisputeReason(event.target.value)}
-                  disabled={openBrandDisputeMutation.isPending}
+                  disabled={isDisputePending}
                 />
                 <p className="text-[11px] text-muted-foreground">
                   Enter at least 3 characters to submit the dispute.
@@ -204,11 +223,11 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
               className="w-full h-14 font-semibold text-base rounded-xl shadow-lg shadow-destructive/20"
               onClick={handleDisputeSubmit}
               disabled={
-                openBrandDisputeMutation.isPending ||
+                isDisputePending ||
                 trimmedDisputeReason.length < 3
               }
             >
-              {openBrandDisputeMutation.isPending ? (
+              {isDisputePending ? (
                 <>
                   <Spinner className="size-4" aria-hidden />
                   Submitting...
@@ -221,7 +240,7 @@ export function OrderHeader({ orderId }: OrderHeaderProps) {
               <Button
                 variant="ghost"
                 className="w-full h-12 font-semibold text-muted-foreground hover:text-foreground"
-                disabled={openBrandDisputeMutation.isPending}
+                disabled={isDisputePending}
               >
                 Cancel
               </Button>

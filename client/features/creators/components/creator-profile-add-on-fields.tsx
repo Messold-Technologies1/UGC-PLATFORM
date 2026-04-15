@@ -17,6 +17,7 @@ export function CreatorProfileAddOnFields({
   rows,
   inputClassName,
   maxAddOns,
+  disabled = false,
   layout = "stack",
   onAdd,
   onRemove,
@@ -25,6 +26,7 @@ export function CreatorProfileAddOnFields({
   rows: AddOnDraft[];
   inputClassName: string;
   maxAddOns: number;
+  disabled?: boolean;
   layout?: "stack" | "grid";
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -44,7 +46,7 @@ export function CreatorProfileAddOnFields({
           variant="outline"
           size="sm"
           className="shrink-0"
-          disabled={rows.length >= maxAddOns}
+          disabled={disabled || rows.length >= maxAddOns}
           onClick={onAdd}
         >
           Add add-on
@@ -71,6 +73,7 @@ export function CreatorProfileAddOnFields({
                   variant="ghost"
                   size="sm"
                   className="h-8 text-muted-foreground hover:text-destructive"
+                  disabled={disabled}
                   onClick={() => onRemove(row.id)}
                 >
                   Remove
@@ -83,6 +86,7 @@ export function CreatorProfileAddOnFields({
                   <Input
                     id={`addon-name-${row.id}`}
                     className={inputClassName}
+                    disabled={disabled}
                     value={row.name}
                     onChange={(event) =>
                       onChange(row.id, { name: event.target.value })
@@ -95,6 +99,7 @@ export function CreatorProfileAddOnFields({
                   <Input
                     id={`addon-price-${row.id}`}
                     className={inputClassName}
+                    disabled={disabled}
                     value={row.priceAmount}
                     onChange={(event) =>
                       onChange(row.id, { priceAmount: event.target.value })
@@ -111,6 +116,7 @@ export function CreatorProfileAddOnFields({
                 </Label>
                 <Textarea
                   id={`addon-description-${row.id}`}
+                  disabled={disabled}
                   value={row.description}
                   onChange={(event) =>
                     onChange(row.id, {

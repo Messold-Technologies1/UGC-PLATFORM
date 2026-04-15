@@ -28,6 +28,8 @@ export const ENDPOINTS = {
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     BRAND_DISPUTE: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/disputes/brand`,
+    CREATOR_DISPUTE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/disputes/creator`,
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",

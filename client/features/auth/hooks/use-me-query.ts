@@ -10,9 +10,6 @@ export type AuthUser = {
   email: string;
   name: string | null;
   roles: WorkspaceRole[];
-  
-  activeRole: WorkspaceRole | null;
-  
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;

@@ -1,17 +1,12 @@
 "use client";
 
-import { startTransition } from "react";
-import { isAxiosError } from "axios";
+import { startTransition, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useSelectWorkspaceMutation } from "@/features/auth/hooks/use-select-workspace-mutation";
+import { canUseWorkspaceRole } from "@/features/auth/lib/workspace-defaulting";
 import { pathAfterWorkspaceSelection } from "@/features/auth/lib/post-auth-destination";
-import {
-  clearWorkspaceSwitchState,
-  setWorkspaceSwitchState,
-  useWorkspaceSwitchState,
-} from "@/features/auth/lib/workspace-switch-state";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   authMeQueryKey,
   type AuthUser,
@@ -21,13 +16,22 @@ import {
 export type GoWorkspaceOptions = {
   redirectIfCurrent?: boolean;
   targetHref?: string | null;
-  setPrimary?: boolean;
 };
 
 const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
 
 function pathPrefixForWorkspaceRole(role: WorkspaceRole): string {
   return role === "CREATOR" ? "/creator" : "/brand";
+}
+
+function workspaceRoleFromPath(
+  pathname: string,
+): Extract<WorkspaceRole, "CREATOR" | "BRAND"> | null {
+  if (pathname === "/brand" || pathname.startsWith("/brand/")) return "BRAND";
+  if (pathname === "/creator" || pathname.startsWith("/creator/")) {
+    return "CREATOR";
+  }
+  return null;
 }
 
 function lastPathStorageKey(role: WorkspaceRole): string {
@@ -93,23 +97,29 @@ function readCurrentSearchString(): string {
     : window.location.search;
 }
 
+function fallbackPathForWorkspaceRole(role: WorkspaceRole): string {
+  return role === "BRAND" ? "/brand/dashboard" : "/creator/dashboard";
+}
+
 export function useWorkspaceNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const switchState = useWorkspaceSwitchState();
-  const selectWorkspaceMutation = useSelectWorkspaceMutation();
+  const [switchingWorkspaceRole, setSwitchingWorkspaceRole] =
+    useState<WorkspaceRole | null>(null);
+
+  useEffect(() => {
+    setSwitchingWorkspaceRole(null);
+  }, [pathname]);
 
   const goWorkspace = async (
     role: WorkspaceRole,
     options?: GoWorkspaceOptions,
   ) => {
     const current = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
-    const currentRole = current?.activeRole ?? current?.primaryRole ?? null;
-    
+    const currentRole = workspaceRoleFromPath(pathname);
     const sameWorkspace = currentRole === role;
     const currentSearch = readCurrentSearchString();
-
     const fullCurrent = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
 
     if (currentRole && !sameWorkspace) {
@@ -127,59 +137,34 @@ export function useWorkspaceNavigation() {
         ? null
         : remembered;
 
-    const showSwitchingState = () => {
-      setWorkspaceSwitchState({ isSwitching: true, targetRole: role });
-    };
-
-    if (sameWorkspace) {
-      if (current) {
-        const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
-          promptIncompleteProfileOnboarding: false,
-        });
-        if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
-          showSwitchingState();
-          startTransition(() => {
-            router.push(dest);
-          });
-        }
-      }
+    if (role === "BRAND" && current?.brandAccessRevoked) {
+      toast.error("Your brand access has been removed by admin.");
       return;
     }
 
-    showSwitchingState();
+    if (current && (!current.roles.includes(role) || !canUseWorkspaceRole(current, role))) {
+      toast.error(`Could not continue as ${role.toLowerCase()}.`);
+      return;
+    }
 
-    try {
-      const next = await selectWorkspaceMutation.mutateAsync({
-        role,
-        setPrimary: options?.setPrimary,
+    const dest = current
+      ? pathAfterWorkspaceSelection(current, role, callbackUrl, {
+          promptIncompleteProfileOnboarding: false,
+        })
+      : callbackUrl ?? fallbackPathForWorkspaceRole(role);
+
+    if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
+      setSwitchingWorkspaceRole(role);
+      beginClientNavigation();
+      startTransition(() => {
+        router.push(dest);
       });
-      const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
-        promptIncompleteProfileOnboarding: false,
-      });
-
-      router.refresh();
-
-      if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
-        startTransition(() => {
-          router.push(dest);
-        });
-      } else {
-        clearWorkspaceSwitchState();
-      }
-    } catch (err) {
-      if (role === "BRAND" && isAxiosError(err) && err.response?.status === 403) {
-        toast.error("Your brand access has been removed by admin.");
-      } else {
-        toast.error("Could not switch workspace. Try again.");
-      }
-      clearWorkspaceSwitchState();
-      if (current) {
-        startTransition(() => {
-          router.replace(fullCurrent);
-        });
-      }
     }
   };
 
-  return { goWorkspace, isSwitchingWorkspace: switchState.isSwitching };
+  return {
+    goWorkspace,
+    isSwitchingWorkspace: switchingWorkspaceRole !== null,
+    switchingWorkspaceRole,
+  };
 }

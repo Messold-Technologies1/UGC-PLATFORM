@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type OnboardingOverlayShellProps = {
@@ -69,6 +70,19 @@ export function OnboardingOverlayShell({
           <DialogPrimitive.Description className="sr-only">
             {srDescription}
           </DialogPrimitive.Description>
+
+          {dismissible ? (
+            <DialogPrimitive.Close
+              className={cn(
+                "absolute top-4 right-4 z-10 inline-flex size-9 items-center justify-center rounded-full",
+                "border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors",
+                "hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              )}
+              aria-label="Close"
+            >
+              <X className="size-4" aria-hidden />
+            </DialogPrimitive.Close>
+          ) : null}
 
           <div
             className={cn(

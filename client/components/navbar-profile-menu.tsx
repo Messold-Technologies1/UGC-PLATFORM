@@ -16,7 +16,6 @@ import {
 import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
-import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -36,8 +35,7 @@ export function NavbarProfileMenu({
   className?: string;
 }) {
   const { user, logout, isLoggingOut } = useAuth();
-  const { goWorkspace } = useWorkspaceNavigation();
-  const { isSwitching, targetRole } = useWorkspaceSwitchState();
+  const { goWorkspace, switchingWorkspaceRole } = useWorkspaceNavigation();
   const pathname = usePathname();
 
   if (!user) return null;
@@ -45,31 +43,24 @@ export function NavbarProfileMenu({
   const display = getDisplayNameFromUser(user);
   const initials = getInitialsFromUser(user);
   const activeWorkspace: WorkspaceRole | null =
-    user.activeRole ?? user.primaryRole ?? null;
+    pathname === "/brand" || pathname.startsWith("/brand/")
+      ? "BRAND"
+      : pathname === "/creator" || pathname.startsWith("/creator/")
+        ? "CREATOR"
+        : user.primaryRole ?? null;
   const showProfiles = true;
   const brandProfileHref = "/brand/account";
   const creatorProfileHref = "/creator/account";
   const isBrandPath = pathname === brandProfileHref || pathname.startsWith("/brand/");
   const isCreatorPath =
     pathname === creatorProfileHref || pathname.startsWith("/creator/");
+  const switchingToBrand = switchingWorkspaceRole === "BRAND";
+  const switchingToCreator = switchingWorkspaceRole === "CREATOR";
 
   const wrapNavigate = (fn?: () => void) => () => {
     onNavigate?.();
     fn?.();
   };
-
-  const brandPending = isSwitching && targetRole === "BRAND";
-  const creatorPending = isSwitching && targetRole === "CREATOR";
-
-  function workspaceActionLabel(
-    baseLabel: string,
-    isCurrentPath: boolean,
-    isPending: boolean,
-  ) {
-    if (isPending) return "Opening...";
-    if (isCurrentPath) return "Open";
-    return baseLabel;
-  }
 
   if (onNavigate) {
     return (
@@ -110,9 +101,8 @@ export function NavbarProfileMenu({
               className={cn(
                 workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
                 "w-full",
-                brandPending && "pointer-events-none opacity-70",
               )}
-              disabled={isSwitching}
+              disabled={isLoggingOut || switchingToBrand}
               onClick={wrapNavigate(
                 () =>
                   void goWorkspace("BRAND", {
@@ -121,16 +111,16 @@ export function NavbarProfileMenu({
                   }),
               )}
             >
-              {brandPending ? (
-                <Spinner className="size-4" aria-hidden />
+              {switchingToBrand ? (
+                <Spinner className="size-4 shrink-0" aria-hidden />
               ) : (
                 <Building2 className="size-4" />
               )}
               <span className="flex flex-1 items-center justify-between gap-2">
-                As Brand
-                {isBrandPath || brandPending ? (
+                {switchingToBrand ? "Switching to Brand…" : "As Brand"}
+                {switchingToBrand ? null : isBrandPath ? (
                   <span className="text-[10px] font-medium text-primary">
-                    {workspaceActionLabel("Open", isBrandPath, brandPending)}
+                    Open
                   </span>
                 ) : null}
               </span>
@@ -140,9 +130,8 @@ export function NavbarProfileMenu({
               className={cn(
                 workspaceItemClass(isCreatorPath || activeWorkspace === "CREATOR"),
                 "w-full",
-                creatorPending && "pointer-events-none opacity-70",
               )}
-              disabled={isSwitching}
+              disabled={isLoggingOut || switchingToCreator}
               onClick={wrapNavigate(
                 () =>
                   void goWorkspace("CREATOR", {
@@ -151,20 +140,16 @@ export function NavbarProfileMenu({
                   }),
               )}
             >
-              {creatorPending ? (
-                <Spinner className="size-4" aria-hidden />
+              {switchingToCreator ? (
+                <Spinner className="size-4 shrink-0" aria-hidden />
               ) : (
                 <Video className="size-4" />
               )}
               <span className="flex flex-1 items-center justify-between gap-2">
-                As Creator
-                {isCreatorPath || creatorPending ? (
+                {switchingToCreator ? "Switching to Creator…" : "As Creator"}
+                {switchingToCreator ? null : isCreatorPath ? (
                   <span className="text-[10px] font-medium text-primary">
-                    {workspaceActionLabel(
-                      "Open",
-                      isCreatorPath,
-                      creatorPending,
-                    )}
+                    Open
                   </span>
                 ) : null}
               </span>
@@ -239,9 +224,8 @@ export function NavbarProfileMenu({
                   className={cn(
                     workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
                     "w-full",
-                    brandPending && "pointer-events-none opacity-70",
                   )}
-                  disabled={isSwitching}
+                  disabled={isLoggingOut || switchingToBrand}
                   onClick={() =>
                     void goWorkspace("BRAND", {
                       redirectIfCurrent: true,
@@ -249,16 +233,16 @@ export function NavbarProfileMenu({
                     })
                   }
                 >
-                  {brandPending ? (
-                    <Spinner className="size-4" aria-hidden />
+                  {switchingToBrand ? (
+                    <Spinner className="size-4 shrink-0" aria-hidden />
                   ) : (
                     <Building2 className="size-4" />
                   )}
                   <span className="flex flex-1 items-center justify-between gap-2">
-                    As Brand
-                    {isBrandPath || brandPending ? (
+                    {switchingToBrand ? "Switching to Brand…" : "As Brand"}
+                    {switchingToBrand ? null : isBrandPath ? (
                       <span className="text-[10px] font-medium text-primary">
-                        {workspaceActionLabel("Open", isBrandPath, brandPending)}
+                        Open
                       </span>
                     ) : null}
                   </span>
@@ -271,9 +255,8 @@ export function NavbarProfileMenu({
                       isCreatorPath || activeWorkspace === "CREATOR",
                     ),
                     "w-full",
-                    creatorPending && "pointer-events-none opacity-70",
                   )}
-                  disabled={isSwitching}
+                  disabled={isLoggingOut || switchingToCreator}
                   onClick={() =>
                     void goWorkspace("CREATOR", {
                       redirectIfCurrent: true,
@@ -281,20 +264,16 @@ export function NavbarProfileMenu({
                     })
                   }
                 >
-                  {creatorPending ? (
-                    <Spinner className="size-4" aria-hidden />
+                  {switchingToCreator ? (
+                    <Spinner className="size-4 shrink-0" aria-hidden />
                   ) : (
                     <Video className="size-4" />
                   )}
                   <span className="flex flex-1 items-center justify-between gap-2">
-                    As Creator
-                    {isCreatorPath || creatorPending ? (
+                    {switchingToCreator ? "Switching to Creator…" : "As Creator"}
+                    {switchingToCreator ? null : isCreatorPath ? (
                       <span className="text-[10px] font-medium text-primary">
-                        {workspaceActionLabel(
-                          "Open",
-                          isCreatorPath,
-                          creatorPending,
-                        )}
+                        Open
                       </span>
                     ) : null}
                   </span>

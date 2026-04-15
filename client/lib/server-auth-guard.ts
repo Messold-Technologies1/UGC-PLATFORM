@@ -9,7 +9,6 @@ type ServerAuthUser = {
   id: string;
   email: string;
   roles?: Array<"CREATOR" | "BRAND" | "ADMIN">;
-  activeRole?: "CREATOR" | "BRAND" | "ADMIN" | null;
   primaryRole?: "CREATOR" | "BRAND" | "ADMIN" | null;
   brandAccessRevoked?: boolean;
 };

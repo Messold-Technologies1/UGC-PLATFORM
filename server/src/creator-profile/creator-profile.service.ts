@@ -22,6 +22,7 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
+import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
   buildCreatorListRelationsInclude,
@@ -82,12 +83,10 @@ export class CreatorProfileService {
     private readonly storage: StorageService,
   ) {}
 
-
   async presignProfileImageUpload(
     userId: string,
     dto: PresignProfileImageUploadDto,
   ) {
-
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { userId },
       select: { id: true },
@@ -107,7 +106,10 @@ export class CreatorProfileService {
     });
   }
 
-  private assertProfileImageKeyOwner(creatorProfileId: string, key: string): void {
+  private assertProfileImageKeyOwner(
+    creatorProfileId: string,
+    key: string,
+  ): void {
     const prefix = `creator-profile/${creatorProfileId}/`;
     if (!key.startsWith(prefix)) {
       throw new BadRequestException('Invalid profileImageKey');
@@ -206,7 +208,10 @@ export class CreatorProfileService {
   }
 
   private async isAdminUser(userId: string): Promise<boolean> {
-    return this.isAdmin(userId, this.prisma as unknown as PrismaTransactionClient);
+    return this.isAdmin(
+      userId,
+      this.prisma as unknown as PrismaTransactionClient,
+    );
   }
 
   private async isAdmin(
@@ -237,11 +242,12 @@ export class CreatorProfileService {
     userId: string,
     dto: CreateCreatorProfileDto,
   ): Promise<CreatorProfileResponseDto> {
-
     const normalizedLanguages = this.normalizeUniqueStrings(dto.languages);
     const normalizedCategories = this.normalizeUniqueStrings(dto.categories);
     const normalizedPersonaTags = this.normalizeUniqueStrings(dto.personaTags);
-    const normalizedRestrictions = this.normalizeUniqueStrings(dto.restrictions);
+    const normalizedRestrictions = this.normalizeUniqueStrings(
+      dto.restrictions,
+    );
 
     const profileImageKey = dto.profileImageKey?.trim();
     if (profileImageKey) {
@@ -390,11 +396,12 @@ export class CreatorProfileService {
     );
 
     if (profileImageKey) {
-      const finalProfileImageKey = await this.storage.finalizeCreatorProfileImageKey({
-        tempKey: profileImageKey,
-        creatorProfileId,
-        deleteTemp: true,
-      });
+      const finalProfileImageKey =
+        await this.storage.finalizeCreatorProfileImageKey({
+          tempKey: profileImageKey,
+          creatorProfileId,
+          deleteTemp: true,
+        });
       await this.prisma.creatorProfile.update({
         where: { id: creatorProfileId },
         data: {
@@ -417,7 +424,9 @@ export class CreatorProfileService {
     return this.mapCreatorProfileResponseDto(profile);
   }
 
-  async listCreators(query: ListCreatorsQueryDto): Promise<CreatorsListResponseDto> {
+  async listCreators(
+    query: ListCreatorsQueryDto,
+  ): Promise<CreatorsListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -589,7 +598,6 @@ export class CreatorProfileService {
     return this.mapCreatorProfileResponseDto(updated);
   }
 
- 
   async getCreatorProfileForCurrentUser(
     userId: string,
   ): Promise<CreatorProfileResponseDto> {
@@ -856,27 +864,39 @@ export class CreatorProfileService {
     );
   }
 
-  async listCategorySuggestions() {
-    return (this.prisma as any).creatorCategorySuggestion.findMany({
+  async listCategorySuggestions(): Promise<CreatorSuggestionItemDto[]> {
+    const suggestions = (await (
+      this.prisma as any
+    ).creatorCategorySuggestion.findMany({
       take: 100,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
-    });
+    })) as CreatorSuggestionItemDto[];
+
+    return suggestions;
   }
 
-  async listPersonaTagSuggestions() {
-    return (this.prisma as any).creatorPersonaTagSuggestion.findMany({
+  async listPersonaTagSuggestions(): Promise<CreatorSuggestionItemDto[]> {
+    const suggestions = (await (
+      this.prisma as any
+    ).creatorPersonaTagSuggestion.findMany({
       take: 100,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
-    });
+    })) as CreatorSuggestionItemDto[];
+
+    return suggestions;
   }
 
-  async listRestrictionSuggestions() {
-    return (this.prisma as any).creatorRestrictionSuggestion.findMany({
+  async listRestrictionSuggestions(): Promise<CreatorSuggestionItemDto[]> {
+    const suggestions = (await (
+      this.prisma as any
+    ).creatorRestrictionSuggestion.findMany({
       take: 100,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
-    });
+    })) as CreatorSuggestionItemDto[];
+
+    return suggestions;
   }
 }

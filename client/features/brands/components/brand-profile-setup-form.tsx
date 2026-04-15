@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
@@ -46,6 +46,7 @@ export type BrandProfileSetupFormProps = {
   mode: "create" | "update";
   initialProfile?: BrandProfileItemApi | null;
   onSuccess: () => void;
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export function BrandProfileSetupForm({
@@ -53,6 +54,7 @@ export function BrandProfileSetupForm({
   mode,
   initialProfile = null,
   onSuccess,
+  onPendingChange,
 }: BrandProfileSetupFormProps) {
   const formKey = `${mode}:${initialProfile?.id ?? "new"}`;
 
@@ -63,6 +65,7 @@ export function BrandProfileSetupForm({
       mode={mode}
       initialProfile={initialProfile}
       onSuccess={onSuccess}
+      onPendingChange={onPendingChange}
     />
   );
 }
@@ -72,6 +75,7 @@ function BrandProfileSetupFormContent({
   mode,
   initialProfile = null,
   onSuccess,
+  onPendingChange,
 }: BrandProfileSetupFormProps) {
   const [companyName, setCompanyName] = useState(
     initialProfile?.companyName ?? "",
@@ -95,6 +99,9 @@ function BrandProfileSetupFormContent({
     onSuccess,
   });
   const pending = submitBrandProfileMutation.isPending;
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [onPendingChange, pending]);
   const uploadingLogo = uploadBrandLogoMutation.isPending;
 
   const title = useMemo(() => {

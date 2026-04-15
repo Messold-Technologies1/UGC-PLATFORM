@@ -307,16 +307,6 @@ export class BrandProfileService {
           });
         }
 
-        await tx.session.updateMany({
-          where: {
-            userId,
-            activeRoleId: brandRole.id,
-          },
-          data: {
-            activeRoleId: fallbackRoleId,
-          },
-        });
-
         if (user.brandProfile) {
           logoKeyToDelete = user.brandProfile.logoKey ?? null;
 

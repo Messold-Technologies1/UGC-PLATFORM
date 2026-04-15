@@ -21,7 +21,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
 import {
   PresignPortfolioUploadDto,
@@ -37,10 +39,13 @@ export class CreatorPortfolioController {
   constructor(private readonly service: CreatorPortfolioService) {}
 
   @Post('uploads/presign')
-  @UseGuards(JwtAuthGuard)
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create presigned S3 upload URL for portfolio media' })
+  @ApiOperation({
+    summary: 'Create presigned S3 upload URL for portfolio media',
+  })
   @ApiCreatedResponse({ type: PresignPortfolioUploadResponseDto })
   async presign(
     @Body() dto: PresignPortfolioUploadDto,
@@ -50,7 +55,8 @@ export class CreatorPortfolioController {
   }
 
   @Post('videos')
-  @UseGuards(JwtAuthGuard)
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({ type: PortfolioVideoResponseDto })
@@ -63,7 +69,8 @@ export class CreatorPortfolioController {
   }
 
   @Get('videos/me')
-  @UseGuards(JwtAuthGuard)
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: [PortfolioVideoResponseDto] })
   @ApiOperation({ summary: 'List the authenticated creator portfolio videos' })
@@ -106,7 +113,8 @@ export class CreatorPortfolioController {
   }
 
   @Patch('videos/:id')
-  @UseGuards(JwtAuthGuard)
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: PortfolioVideoResponseDto })
   @ApiOperation({ summary: 'Update portfolio video metadata/visibility' })
@@ -119,7 +127,8 @@ export class CreatorPortfolioController {
   }
 
   @Delete('videos/:id')
-  @UseGuards(JwtAuthGuard)
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({ description: 'Deleted' })
@@ -131,4 +140,3 @@ export class CreatorPortfolioController {
     await this.service.deleteVideo(req.user.id, id);
   }
 }
-

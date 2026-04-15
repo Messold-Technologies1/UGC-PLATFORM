@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
-import { WorkspaceRouteSync } from "@/components/post-login/workspace-route-sync";
 import { requireBrandWorkspace } from "@/lib/server-auth-guard";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
@@ -22,7 +21,6 @@ export default async function BrandLayout({
 
   return (
     <AuthenticatedAppProviders>
-      <WorkspaceRouteSync role="BRAND" />
       <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-[#f9fafb] text-foreground dark:bg-background">
         <DashboardSidebarBoundary />
         <main

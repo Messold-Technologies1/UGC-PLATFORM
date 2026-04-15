@@ -1,32 +1,55 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import {
+  useRouter,
+  useSearchParams,
+  type ReadonlyURLSearchParams,
+} from "next/navigation";
+import { toast } from "sonner";
+import { GlobalOnboardingPage } from "@/components/onboarding/global-onboarding-page";
 import { PostLoginRoleOverlay } from "@/components/ui/post-login-role-overlay";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
-import {
-  authMeQueryKey,
-  type AuthUser,
-  type WorkspaceRole,
-} from "@/features/auth/hooks/use-me-query";
+import { type WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
 } from "@/features/auth/lib/post-auth-destination";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
-import { shouldPersistPrimaryOnWorkspaceChoice } from "@/features/auth/lib/workspace-defaulting";
+import { canUseWorkspaceRole } from "@/features/auth/lib/workspace-defaulting";
 import { useAuth } from "@/providers/auth-provider";
+import {
+  AUTH_CONTINUE_SETUP_ROLE_PARAM,
+  parseAuthContinueSetupRole,
+} from "./setup-role";
+
+function replaceAuthContinueSearchParam(
+  searchParams: ReadonlyURLSearchParams,
+  key: string,
+  value: string | null,
+): string {
+  const next = new URLSearchParams(searchParams.toString());
+  if (value) {
+    next.set(key, value);
+  } else {
+    next.delete(key);
+  }
+  const query = next.toString();
+  return query ? `/auth/continue?${query}` : "/auth/continue";
+}
 
 export function AuthContinueOverlay() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const callbackUrl = searchParams.get("callbackUrl");
+  const setupRole = parseAuthContinueSetupRole(
+    searchParams.get(AUTH_CONTINUE_SETUP_ROLE_PARAM),
+  );
   const autoRedirectRef = useRef(false);
   const [pendingRole, setPendingRole] = useState<WorkspaceRole | null>(null);
+  const [pickerDismissed, setPickerDismissed] = useState(false);
+  const rolesKey = user?.roles.join("|") ?? "";
 
   useEffect(() => {
     if (isLoading) return;
@@ -43,52 +66,67 @@ export function AuthContinueOverlay() {
     }
 
     autoRedirectRef.current = true;
-    void (async () => {
-      const target = await resolveImmediatePostAuthPath(
-        queryClient,
-        user,
-        callbackUrl,
-      );
-      if (target !== postAuthContinuePath(callbackUrl)) {
-        beginClientNavigation();
-        router.replace(target);
-        return;
-      }
-      autoRedirectRef.current = false;
-    })();
-  }, [callbackUrl, isLoading, queryClient, router, user]);
+    const target = resolveImmediatePostAuthPath(user, callbackUrl);
+    if (target !== postAuthContinuePath(callbackUrl)) {
+      beginClientNavigation();
+      router.replace(target);
+      return;
+    }
+    autoRedirectRef.current = false;
+  }, [callbackUrl, isLoading, router, user]);
+
+  useEffect(() => {
+    setPickerDismissed(false);
+    setPendingRole(null);
+  }, [callbackUrl, rolesKey, user?.brandAccessRevoked, user?.id, user?.primaryRole]);
 
   const showPicker =
     Boolean(user) &&
     !isLoading &&
-    (user!.roles.length === 0 || (user!.roles.length > 1 && !user!.activeRole));
+    !pickerDismissed &&
+    setupRole === null &&
+    (user!.roles.length === 0 ||
+      (user!.roles.filter((role) => role !== "ADMIN").length > 1 &&
+        !canUseWorkspaceRole(user!, user!.primaryRole)));
+
+  const clearSetupRole = useCallback(() => {
+    setPendingRole(null);
+    router.replace(
+      replaceAuthContinueSearchParam(
+        searchParams,
+        AUTH_CONTINUE_SETUP_ROLE_PARAM,
+        null,
+      ),
+    );
+  }, [router, searchParams]);
 
   const runSelect = useCallback(
     async (workspaceRole: WorkspaceRole) => {
       if (!user) return;
-      setPendingRole(workspaceRole);
-      const ok = await ensureWorkspaceSelection(
-        queryClient,
-        user,
-        workspaceRole,
-        shouldPersistPrimaryOnWorkspaceChoice(user),
-      );
-      if (!ok) {
-        setPendingRole(null);
+      if (user.roles.length === 0) {
+        setPendingRole(workspaceRole);
+        beginClientNavigation();
+        router.replace(
+          replaceAuthContinueSearchParam(
+            searchParams,
+            AUTH_CONTINUE_SETUP_ROLE_PARAM,
+            workspaceRole === "BRAND" ? "brand" : "creator",
+          ),
+        );
         return;
       }
-      const nextUser =
-        queryClient.getQueryData<AuthUser | null>(authMeQueryKey) ?? user;
-      const target = pathAfterWorkspaceSelection(
-        nextUser,
-        workspaceRole,
-        callbackUrl,
-      );
+
+      if (!user.roles.includes(workspaceRole) || !canUseWorkspaceRole(user, workspaceRole)) {
+        toast.error(`Could not continue as ${workspaceRole.toLowerCase()}.`);
+        return;
+      }
+
+      setPendingRole(workspaceRole);
+      const target = pathAfterWorkspaceSelection(user, workspaceRole, callbackUrl);
       beginClientNavigation();
-      router.refresh();
       router.replace(target);
     },
-    [user, callbackUrl, queryClient, router],
+    [user, callbackUrl, router, searchParams],
   );
 
   const onContinueAsCreator = useCallback(() => {
@@ -99,10 +137,31 @@ export function AuthContinueOverlay() {
     void runSelect("BRAND");
   }, [runSelect]);
 
+  if (setupRole) {
+    return (
+      <GlobalOnboardingPage
+        role={setupRole}
+        onClose={clearSetupRole}
+        onCreatorBack={
+          setupRole === "creator" ? clearSetupRole : undefined
+        }
+        creatorBackLabel="Choose another path"
+      />
+    );
+  }
+
   return (
     <PostLoginRoleOverlay
       open={showPicker}
-      dismissible={false}
+      onOpenChange={(open) => {
+        if (open) {
+          setPickerDismissed(false);
+          return;
+        }
+        setPendingRole(null);
+        setPickerDismissed(true);
+      }}
+      dismissible
       onContinueAsCreator={onContinueAsCreator}
       onContinueAsBrand={onContinueAsBrand}
       pendingRole={pendingRole}

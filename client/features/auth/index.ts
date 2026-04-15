@@ -7,4 +7,3 @@ export {
   type MeResponse,
   type WorkspaceRole,
 } from "./hooks/use-me-query";
-export { ensureWorkspaceSelection } from "./lib/ensure-workspace-selection";

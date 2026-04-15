@@ -757,7 +757,7 @@ let CreatorProfileService = class CreatorProfileService {
         });
     }
     async listCategorySuggestions() {
-        return this.prisma.creatorCategorySuggestion.findMany({
+        const suggestions = await this.prisma.creatorCategorySuggestion.findMany({
             take: 100,
             orderBy: {
                 name: 'asc'
@@ -767,9 +767,10 @@ let CreatorProfileService = class CreatorProfileService {
                 name: true
             }
         });
+        return suggestions;
     }
     async listPersonaTagSuggestions() {
-        return this.prisma.creatorPersonaTagSuggestion.findMany({
+        const suggestions = await this.prisma.creatorPersonaTagSuggestion.findMany({
             take: 100,
             orderBy: {
                 name: 'asc'
@@ -779,9 +780,10 @@ let CreatorProfileService = class CreatorProfileService {
                 name: true
             }
         });
+        return suggestions;
     }
     async listRestrictionSuggestions() {
-        return this.prisma.creatorRestrictionSuggestion.findMany({
+        const suggestions = await this.prisma.creatorRestrictionSuggestion.findMany({
             take: 100,
             orderBy: {
                 name: 'asc'
@@ -791,6 +793,7 @@ let CreatorProfileService = class CreatorProfileService {
                 name: true
             }
         });
+        return suggestions;
     }
     constructor(prisma, creatorPackageService, storage){
         this.prisma = prisma;

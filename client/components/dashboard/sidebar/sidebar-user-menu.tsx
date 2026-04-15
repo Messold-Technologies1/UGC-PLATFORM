@@ -36,12 +36,16 @@ export function SidebarUserMenu({
 }) {
   const pathname = usePathname();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
-  const { goWorkspace } = useWorkspaceNavigation();
+  const { goWorkspace, switchingWorkspaceRole } = useWorkspaceNavigation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const hasMultipleRoles = user?.roles && user.roles.length > 1;
-  const activeWorkspace = user?.activeRole ?? user?.primaryRole ?? null;
+  const activeWorkspace = pathname.startsWith("/brand")
+    ? "BRAND"
+    : pathname.startsWith("/creator")
+      ? "CREATOR"
+      : user?.primaryRole ?? null;
   const hub = pathname.startsWith("/brand")
     ? "brand"
     : pathname.startsWith("/creator")
@@ -62,6 +66,8 @@ export function SidebarUserMenu({
     pathname.startsWith(`${notificationsHref}/`);
   const isSecurityActive =
     pathname === securityHref || pathname.startsWith(`${securityHref}/`);
+  const switchingToBrand = switchingWorkspaceRole === "BRAND";
+  const switchingToCreator = switchingWorkspaceRole === "CREATOR";
 
   const closeMobile = useCallback(() => {
     setMobileOpen(false);
@@ -160,28 +166,46 @@ export function SidebarUserMenu({
             <button
               type="button"
               role="menuitem"
-              className={cn(accountMenuItemClass, "w-full text-left")}
+              disabled={switchingToBrand}
+              className={cn(
+                accountMenuItemClass,
+                "w-full text-left",
+                switchingToBrand && "pointer-events-none opacity-70",
+              )}
               onClick={() => {
                 closeMobile();
                 void goWorkspace("BRAND");
               }}
             >
-              <Building2 className="size-4 opacity-60" aria-hidden />
-              Try As Brand
+              {switchingToBrand ? (
+                <Spinner className="size-4" aria-hidden />
+              ) : (
+                <Building2 className="size-4 opacity-60" aria-hidden />
+              )}
+              {switchingToBrand ? "Switching to Brand…" : "Try As Brand"}
             </button>
           )}
           {!hasMultipleRoles && user?.roles?.includes("BRAND") && (
             <button
               type="button"
               role="menuitem"
-              className={cn(accountMenuItemClass, "w-full text-left")}
+              disabled={switchingToCreator}
+              className={cn(
+                accountMenuItemClass,
+                "w-full text-left",
+                switchingToCreator && "pointer-events-none opacity-70",
+              )}
               onClick={() => {
                 closeMobile();
                 void goWorkspace("CREATOR");
               }}
             >
-              <Video className="size-4 opacity-60" aria-hidden />
-              Try As Creator
+              {switchingToCreator ? (
+                <Spinner className="size-4" aria-hidden />
+              ) : (
+                <Video className="size-4 opacity-60" aria-hidden />
+              )}
+              {switchingToCreator ? "Switching to Creator…" : "Try As Creator"}
             </button>
           )}
           <Link

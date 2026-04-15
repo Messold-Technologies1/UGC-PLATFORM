@@ -166,6 +166,7 @@ export type CreatorProfileSetupFormProps = {
   profileId?: string;
   initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void;
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export function CreatorProfileSetupForm({
@@ -174,6 +175,7 @@ export function CreatorProfileSetupForm({
   profileId,
   initialProfile,
   onSuccess,
+  onPendingChange,
 }: CreatorProfileSetupFormProps) {
   const { user } = useAuth();
   const formKey =
@@ -189,6 +191,7 @@ export function CreatorProfileSetupForm({
       profileId={profileId}
       initialProfile={initialProfile}
       onSuccess={onSuccess}
+      onPendingChange={onPendingChange}
       user={user}
     />
   );
@@ -204,6 +207,7 @@ function CreatorProfileSetupFormContent({
   profileId,
   initialProfile,
   onSuccess,
+  onPendingChange,
   user,
 }: CreatorProfileSetupFormContentProps) {
   const uploadCreatorProfileImageMutation = useUploadCreatorProfileImageMutation();
@@ -223,6 +227,9 @@ function CreatorProfileSetupFormContent({
     staleTime: 5 * 60_000,
   });
   const pending = submitCreatorProfileMutation.isPending;
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [onPendingChange, pending]);
   const [displayName, setDisplayName] = useState(() =>
     mode === "update" ? initialProfile?.displayName ?? "" : getInitialCreatorName(user),
   );

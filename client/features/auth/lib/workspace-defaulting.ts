@@ -23,7 +23,3 @@ export function getRecoverableProfileRole(user: AuthUser): WorkspaceRole | null 
 
   return profileRoles.length === 1 ? profileRoles[0] : null;
 }
-
-export function shouldPersistPrimaryOnWorkspaceChoice(user: AuthUser): boolean {
-  return !user.primaryRole && (user.hasCreatorProfile || user.hasBrandProfile);
-}

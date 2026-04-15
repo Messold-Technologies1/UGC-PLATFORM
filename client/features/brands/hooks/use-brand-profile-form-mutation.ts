@@ -7,8 +7,6 @@ import {
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
-import { useAuth } from "@/providers/auth-provider";
 import {
   brandProfileMeQueryKey,
   fetchBrandProfileMe,
@@ -40,33 +38,12 @@ type SubmitBrandProfileResult =
   | { status: "updated" }
   | { status: "already-exists" };
 
-function useEnsureBrandWorkspace() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  return useCallback(async () => {
-    if (user?.brandAccessRevoked) {
-      toast.error("Your brand access has been removed by admin.");
-      return false;
-    }
-
-    return ensureWorkspaceSelection(queryClient, user, "BRAND");
-  }, [queryClient, user]);
-}
-
 export function useUploadBrandLogoMutation(mode: BrandProfileMode) {
-  const ensureBrandWorkspace = useEnsureBrandWorkspace();
-
   return useMutation({
     mutationKey: ["brands", "profile", "logo-upload", mode],
     mutationFn: async (
       file: File,
     ): Promise<PresignBrandLogoUploadResponse | null> => {
-      const ok = await ensureBrandWorkspace();
-      if (!ok) {
-        return null;
-      }
-
       const presign = await presignBrandLogoUpload({
         contentType: file.type,
         contentLength: file.size,
@@ -105,7 +82,6 @@ export function useSubmitBrandProfileMutation({
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const ensureBrandWorkspace = useEnsureBrandWorkspace();
 
   const invalidateBrandProfileQueries = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
@@ -118,11 +94,6 @@ export function useSubmitBrandProfileMutation({
     mutationFn: async ({
       payload,
     }: SubmitBrandProfileVariables): Promise<SubmitBrandProfileResult> => {
-      const ok = await ensureBrandWorkspace();
-      if (!ok) {
-        return { status: "skipped" };
-      }
-
       if (mode === "update") {
         await updateBrandProfile(payload as UpdateBrandProfilePayload);
         return { status: "updated" };
@@ -133,11 +104,6 @@ export function useSubmitBrandProfileMutation({
         return { status: "created" };
       } catch (error) {
         if (isAxiosError(error) && error.response?.status === 409) {
-          const workspaceOk = await ensureBrandWorkspace();
-          if (!workspaceOk) {
-            return { status: "skipped" };
-          }
-
           return { status: "already-exists" };
         }
 

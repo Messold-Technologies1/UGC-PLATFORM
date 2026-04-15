@@ -84,11 +84,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           });
           queryClient.setQueryData(authMeQueryKey, result.user);
           const callback = searchParams.get("callbackUrl");
-          const target = await resolveImmediatePostAuthPath(
-            queryClient,
-            result.user,
-            callback,
-          );
+          const target = resolveImmediatePostAuthPath(result.user, callback);
           beginClientNavigation();
           router.replace(target);
         },
@@ -119,11 +115,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             });
             queryClient.setQueryData(authMeQueryKey, result.user);
             const callback = searchParams.get("callbackUrl");
-            const target = await resolveImmediatePostAuthPath(
-              queryClient,
-              result.user,
-              callback,
-            );
+            const target = resolveImmediatePostAuthPath(result.user, callback);
             beginClientNavigation();
             router.replace(target);
           },

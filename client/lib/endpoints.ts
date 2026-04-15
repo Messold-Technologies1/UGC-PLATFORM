@@ -7,7 +7,6 @@ export const ENDPOINTS = {
     GOOGLE_CALLBACK: "/api/auth/google/callback",
     REFRESH: "/api/auth/refresh",
     ME: "/api/auth/me",
-    WORKSPACE: "/api/auth/workspace",
     LOGOUT: "/api/auth/logout",
   },
   CREATORS: {

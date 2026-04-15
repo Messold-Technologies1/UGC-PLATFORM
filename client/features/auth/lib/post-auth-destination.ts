@@ -39,7 +39,6 @@ export function resolvePostAuthRedirectPath(
     return "/admin";
   }
   const role = firstAllowedWorkspaceRole(user, [
-    user.activeRole,
     user.primaryRole,
     ...user.roles,
   ]);

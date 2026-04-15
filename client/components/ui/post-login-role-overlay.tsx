@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
-import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 
 const MARKETING_POINTS = [
@@ -44,12 +43,9 @@ export function PostLoginRoleOverlay({
   pendingRole,
   className,
 }: PostLoginRoleOverlayProps) {
-  const { isSwitching, targetRole } = useWorkspaceSwitchState();
-  const effectiveTargetRole = pendingRole ?? targetRole;
-  const effectiveSwitching = pendingRole ? true : isSwitching;
-  const creatorSelected =
-    effectiveSwitching && effectiveTargetRole === "CREATOR";
-  const brandSelected = effectiveSwitching && effectiveTargetRole === "BRAND";
+  const creatorSelected = pendingRole === "CREATOR";
+  const brandSelected = pendingRole === "BRAND";
+  const isPending = pendingRole !== null;
 
   return (
     <OnboardingOverlayShell
@@ -90,7 +86,7 @@ export function PostLoginRoleOverlay({
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
                   : "border-border hover:bg-muted/60",
               )}
-              disabled={effectiveSwitching}
+              disabled={isPending}
               onClick={async () => {
                 try {
                   await onContinueAsCreator?.();
@@ -137,7 +133,7 @@ export function PostLoginRoleOverlay({
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
                   : "border-border hover:bg-muted/60",
               )}
-              disabled={effectiveSwitching}
+              disabled={isPending}
               onClick={async () => {
                 try {
                   await onContinueAsBrand?.();

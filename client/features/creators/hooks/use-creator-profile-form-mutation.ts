@@ -7,8 +7,6 @@ import {
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
-import { useAuth } from "@/providers/auth-provider";
 import { creatorProfileMeQueryKey } from "../api/fetch-creator-profile-me";
 import {
   createCreatorProfile,
@@ -36,28 +34,12 @@ type SubmitCreatorProfileResult =
   | { status: "updated" }
   | { status: "already-exists" };
 
-function useEnsureCreatorWorkspace() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  return useCallback(() => {
-    return ensureWorkspaceSelection(queryClient, user, "CREATOR");
-  }, [queryClient, user]);
-}
-
 export function useUploadCreatorProfileImageMutation() {
-  const ensureCreatorWorkspace = useEnsureCreatorWorkspace();
-
   return useMutation({
     mutationKey: ["creators", "profile", "image-upload"],
     mutationFn: async (
       file: File,
     ): Promise<PresignProfileImageUploadResponse | null> => {
-      const ok = await ensureCreatorWorkspace();
-      if (!ok) {
-        return null;
-      }
-
       const presign = await presignCreatorProfileImageUpload({
         contentType: file.type,
         contentLength: file.size,
@@ -89,7 +71,6 @@ export function useSubmitCreatorProfileMutation({
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const ensureCreatorWorkspace = useEnsureCreatorWorkspace();
 
   const invalidateCreatorQueries = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
@@ -110,21 +91,11 @@ export function useSubmitCreatorProfileMutation({
         return { status: "updated" };
       }
 
-      const ok = await ensureCreatorWorkspace();
-      if (!ok) {
-        return { status: "skipped" };
-      }
-
       try {
         await createCreatorProfile(payload as CreateCreatorProfilePayload);
         return { status: "created" };
       } catch (error) {
         if (isAxiosError(error) && error.response?.status === 409) {
-          const workspaceOk = await ensureCreatorWorkspace();
-          if (!workspaceOk) {
-            return { status: "skipped" };
-          }
-
           return { status: "already-exists" };
         }
 

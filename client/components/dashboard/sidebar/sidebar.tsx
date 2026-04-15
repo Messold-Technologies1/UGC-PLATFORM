@@ -14,6 +14,7 @@ import {
   Users,
   Briefcase,
   ShoppingCart,
+  LoaderCircle,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -83,8 +84,10 @@ export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const { goWorkspace } = useWorkspaceNavigation();
+  const { goWorkspace, switchingWorkspaceRole } = useWorkspaceNavigation();
   const { user } = useAuth();
+  const switchingToBrand = switchingWorkspaceRole === "BRAND";
+  const switchingToCreator = switchingWorkspaceRole === "CREATOR";
 
   const hasMultipleRoles = user?.roles && user.roles.length > 1;
 
@@ -304,14 +307,19 @@ export function DashboardSidebar() {
                         <TooltipTrigger asChild>
                           <button
                             type="button"
+                            disabled={switchingToBrand}
                             onClick={() => void goWorkspace("BRAND")}
                             className={cn(utilityItemClass, "w-full")}
                           >
-                            <Building2 className="size-4 shrink-0" />
+                            {switchingToBrand ? (
+                              <LoaderCircle className="size-4 shrink-0 animate-spin" />
+                            ) : (
+                              <Building2 className="size-4 shrink-0" />
+                            )}
                             <span
                               className={cn(desktopCollapsed && "lg:sr-only")}
                             >
-                              Brand hub
+                              {switchingToBrand ? "Switching to Brand…" : "Brand hub"}
                             </span>
                           </button>
                         </TooltipTrigger>
@@ -320,12 +328,17 @@ export function DashboardSidebar() {
                     ) : (
                       <button
                         type="button"
+                        disabled={switchingToBrand}
                         onClick={() => void goWorkspace("BRAND")}
                         className={cn(utilityItemClass, "w-full")}
                       >
-                        <Building2 className="size-4 shrink-0" />
+                        {switchingToBrand ? (
+                          <LoaderCircle className="size-4 shrink-0 animate-spin" />
+                        ) : (
+                          <Building2 className="size-4 shrink-0" />
+                        )}
                         <span className={cn(desktopCollapsed && "lg:sr-only")}>
-                          Brand hub
+                          {switchingToBrand ? "Switching to Brand…" : "Brand hub"}
                         </span>
                       </button>
                     )}
@@ -334,14 +347,19 @@ export function DashboardSidebar() {
                         <TooltipTrigger asChild>
                           <button
                             type="button"
+                            disabled={switchingToCreator}
                             onClick={() => void goWorkspace("CREATOR")}
                             className={cn(utilityItemClass, "w-full")}
                           >
-                            <Video className="size-4 shrink-0" />
+                            {switchingToCreator ? (
+                              <LoaderCircle className="size-4 shrink-0 animate-spin" />
+                            ) : (
+                              <Video className="size-4 shrink-0" />
+                            )}
                             <span
                               className={cn(desktopCollapsed && "lg:sr-only")}
                             >
-                              Creator hub
+                              {switchingToCreator ? "Switching to Creator…" : "Creator hub"}
                             </span>
                           </button>
                         </TooltipTrigger>
@@ -352,12 +370,17 @@ export function DashboardSidebar() {
                     ) : (
                       <button
                         type="button"
+                        disabled={switchingToCreator}
                         onClick={() => void goWorkspace("CREATOR")}
                         className={cn(utilityItemClass, "w-full")}
                       >
-                        <Video className="size-4 shrink-0" />
+                        {switchingToCreator ? (
+                          <LoaderCircle className="size-4 shrink-0 animate-spin" />
+                        ) : (
+                          <Video className="size-4 shrink-0" />
+                        )}
                         <span className={cn(desktopCollapsed && "lg:sr-only")}>
-                          Creator hub
+                          {switchingToCreator ? "Switching to Creator…" : "Creator hub"}
                         </span>
                       </button>
                     )}

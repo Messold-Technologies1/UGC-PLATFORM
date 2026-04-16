@@ -28,7 +28,6 @@ export type MeUser = {
   email: string;
   name: string | null;
   roles: ('CREATOR' | 'BRAND' | 'ADMIN')[];
-  /** Cross-session default; used as a fallback when no active role is set. */
   primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
@@ -108,7 +107,7 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         name: dto.name ?? null,
         passwordHash,
-        // New users may start without any workspace role selected.
+        // New users may start without any role selected.
         primaryRoleId: null,
       },
     });
@@ -495,7 +494,6 @@ export class AuthService {
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,
-      brandAccessRevoked: !!user.brandAccessRevokedAt,
     };
   }
 }

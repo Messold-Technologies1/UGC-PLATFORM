@@ -182,7 +182,7 @@ export class CreatorProfileController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @ApiOperation({
     summary:
       'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)',
@@ -202,7 +202,7 @@ export class CreatorProfileController {
   }
 
   @Patch(':id/add-ons')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @ApiOperation({
     summary:
       'Add or update add-ons for a creator profile (by name, append-only)',
@@ -218,7 +218,7 @@ export class CreatorProfileController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({ description: 'Deleted' })
   @ApiOperation({ summary: 'Delete creator profile' })

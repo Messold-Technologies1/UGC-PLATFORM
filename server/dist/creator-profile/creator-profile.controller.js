@@ -10,9 +10,8 @@ Object.defineProperty(exports, "CreatorProfileController", {
 });
 const _common = require("@nestjs/common");
 const _swagger = require("@nestjs/swagger");
-const _requiredworkspacedecorator = require("../auth/decorators/required-workspace.decorator");
 const _jwtauthguard = require("../auth/guards/jwt-auth.guard");
-const _workspacepermissionguard = require("../auth/guards/workspace-permission.guard");
+const _activeworkspaceguard = require("../auth/guards/active-workspace.guard");
 const _createcreatorprofiledto = require("./dto/create-creator-profile.dto");
 const _listcreatorsquerydto = require("./dto/list-creators-query.dto");
 const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
@@ -86,7 +85,7 @@ let CreatorProfileController = class CreatorProfileController {
 };
 _ts_decorate([
     (0, _common.Post)('profile'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
         summary: 'Create creator profile for the authenticated user'
@@ -105,7 +104,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "createProfile", null);
 _ts_decorate([
     (0, _common.Post)('profile/uploads/presign'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
         summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image'
@@ -185,8 +184,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "listRestrictionSuggestions", null);
 _ts_decorate([
     (0, _common.Get)('profile/me'),
-    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
         summary: 'Get creator profile for the authenticated user'
     }),
@@ -202,8 +200,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "getMyCreatorProfile", null);
 _ts_decorate([
     (0, _common.Get)('profile/me/payout-details'),
-    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _swagger.ApiOperation)({
         summary: 'Get payout details for manual transfers (masked; full account/UPI only visible to admins)'
     }),
@@ -219,8 +216,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "getMyPayoutDetails", null);
 _ts_decorate([
     (0, _common.Put)('profile/me/payout-details'),
-    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.OK),
     (0, _swagger.ApiOperation)({
         summary: 'Save or update bank / UPI details for manual creator payouts'

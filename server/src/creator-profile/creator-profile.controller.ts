@@ -23,9 +23,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
+import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
 import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
@@ -52,7 +51,7 @@ export class CreatorProfileController {
   ) {}
 
   @Post('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create creator profile for the authenticated user',
@@ -67,11 +66,10 @@ export class CreatorProfileController {
   }
 
   @Post('profile/uploads/presign')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary:
-      'Create a presigned URL for uploading creator profile image. Creator uploading their own Image',
+    summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image',
   })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
   async presignProfileImageUpload(
@@ -79,10 +77,7 @@ export class CreatorProfileController {
     @Req()
     req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
-    return this.creatorProfileService.presignProfileImageUpload(
-      req.user.id,
-      dto,
-    );
+    return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
   }
 
   @Get()
@@ -120,8 +115,7 @@ export class CreatorProfileController {
   }
 
   @Get('profile/me')
-  @RequiredWorkspace('CREATOR')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'Get creator profile for the authenticated user',
   })
@@ -136,8 +130,7 @@ export class CreatorProfileController {
   }
 
   @Get('profile/me/payout-details')
-  @RequiredWorkspace('CREATOR')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @ApiOperation({
     summary:
       'Get payout details for manual transfers (masked; full account/UPI only visible to admins)',
@@ -146,27 +139,19 @@ export class CreatorProfileController {
   async getMyPayoutDetails(
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {
-    return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(
-      req.user.id,
-    );
+    return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(req.user.id);
   }
 
   @Put('profile/me/payout-details')
-  @RequiredWorkspace('CREATOR')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Save or update bank / UPI details for manual creator payouts',
-  })
+  @ApiOperation({ summary: 'Save or update bank / UPI details for manual creator payouts' })
   @ApiOkResponse({ type: CreatorPayoutDetailsMaskedDto })
   async upsertMyPayoutDetails(
     @Body() dto: UpsertCreatorPayoutDetailsDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {
-    return this.creatorPayoutDetailsService.upsertForCurrentCreator(
-      req.user.id,
-      dto,
-    );
+    return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
   }
 
   @Get(':id')
@@ -204,8 +189,7 @@ export class CreatorProfileController {
   @Patch(':id/add-ons')
   @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @ApiOperation({
-    summary:
-      'Add or update add-ons for a creator profile (by name, append-only)',
+    summary: 'Add or update add-ons for a creator profile (by name, append-only)',
   })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async addOrUpdateAddOns(
@@ -214,7 +198,11 @@ export class CreatorProfileController {
     @Req()
     req: Request & { user: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.addOrUpdateAddOns(req.user.id, id, dto);
+    return this.creatorProfileService.addOrUpdateAddOns(
+      req.user.id,
+      id,
+      dto,
+    );
   }
 
   @Delete(':id')

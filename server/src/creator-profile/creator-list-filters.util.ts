@@ -244,12 +244,11 @@ export function buildCreatorListRelationsInclude(
     portfolioMatch ?? { visibilityStatus: PUBLIC };
 
   return {
-    languages: true,
-    categories: true,
-    personaTags: true,
-    restrictions: true,
-    packages: true,
-    creatorApproval: true,
+    languages: { select: { language: true } },
+    categories: { select: { category: true } },
+    personaTags: { select: { tag: true } },
+    restrictions: { select: { restriction: true } },
+    packages: { select: { name: true, priceAmount: true } },
     portfolioVideos: {
       where: baseWhere,
       orderBy: { createdAt: 'desc' },

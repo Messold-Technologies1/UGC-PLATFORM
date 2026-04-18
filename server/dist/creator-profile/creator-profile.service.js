@@ -332,10 +332,40 @@ let CreatorProfileService = class CreatorProfileService {
             })
         ]);
         return {
-            items: items.map((p)=>this.mapCreatorProfileResponseDto(p)),
+            items: items.map((p)=>this.mapCreatorPublicListItemDto(p)),
             total,
             page,
             limit
+        };
+    }
+    mapCreatorPublicListItemDto(profile) {
+        const portfolioVideos = Array.isArray(profile.portfolioVideos) ? profile.portfolioVideos.map((v)=>({
+                id: v.id,
+                creatorId: v.creatorId,
+                videoUrl: v.videoUrl,
+                thumbnailUrl: v.thumbnailUrl ?? null,
+                industryLabel: v.industryLabel ?? null,
+                tags: Array.isArray(v.tags) ? v.tags.map((t)=>t?.tag).filter((x)=>typeof x === 'string') : [],
+                createdAt: v.createdAt
+            })) : [];
+        return {
+            id: profile.id,
+            userId: profile.userId,
+            name: profile.displayName,
+            profileImageUrl: profile.profileImageUrl ?? null,
+            city: profile.city ?? null,
+            bio: profile.bio ?? null,
+            gender: profile.gender ?? null,
+            onLocationAvailable: !!profile.onLocationAvailable,
+            languages: Array.isArray(profile.languages) ? profile.languages.map((l)=>l?.language).filter((v)=>typeof v === 'string') : [],
+            categories: Array.isArray(profile.categories) ? profile.categories.map((c)=>c?.category).filter((v)=>typeof v === 'string') : [],
+            personaTags: Array.isArray(profile.personaTags) ? profile.personaTags.map((t)=>t?.tag).filter((v)=>typeof v === 'string') : [],
+            restrictions: Array.isArray(profile.restrictions) ? profile.restrictions.map((r)=>r?.restriction).filter((v)=>typeof v === 'string') : [],
+            packages: Array.isArray(profile.packages) ? profile.packages.map((pkg)=>({
+                    name: String(pkg?.name ?? ''),
+                    priceAmount: pkg?.priceAmount?.toString?.() ?? (typeof pkg?.priceAmount === 'string' ? pkg.priceAmount : '')
+                })) : [],
+            portfolioVideos
         };
     }
     async getCreatorById(viewerUserId, id) {

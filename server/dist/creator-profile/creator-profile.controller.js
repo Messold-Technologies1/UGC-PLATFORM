@@ -15,7 +15,7 @@ const _activeworkspaceguard = require("../auth/guards/active-workspace.guard");
 const _createcreatorprofiledto = require("./dto/create-creator-profile.dto");
 const _listcreatorsquerydto = require("./dto/list-creators-query.dto");
 const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
-const _creatorslistresponsedto = require("./dto/creators-list-response.dto");
+const _creatorspubliclistresponsedto = require("./dto/creators-public-list-response.dto");
 const _creatorprofileresponsedto = require("./dto/creator-profile-response.dto");
 const _creatorprofileservice = require("./creator-profile.service");
 const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
@@ -123,12 +123,11 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "presignProfileImageUpload", null);
 _ts_decorate([
     (0, _common.Get)(),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
         summary: 'List creators (paginated)'
     }),
     (0, _swagger.ApiOkResponse)({
-        type: _creatorslistresponsedto.CreatorsListResponseDto
+        type: _creatorspubliclistresponsedto.CreatorsPublicListResponseDto
     }),
     _ts_param(0, (0, _common.Query)()),
     _ts_metadata("design:type", Function),

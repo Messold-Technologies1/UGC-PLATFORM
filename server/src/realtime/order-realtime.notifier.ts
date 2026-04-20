@@ -54,4 +54,26 @@ export class OrderRealtimeNotifier {
       }
     }
   }
+
+  /**
+   * Notify the assigned creator that the brand submitted a brief (no brief payload).
+   */
+  async emitOrderBriefSubmitted(params: {
+    orderId: string;
+    briefSubmittedAt: Date;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { creator: { select: { userId: true } } },
+    });
+    if (!order) {
+      this.logger.warn(`emitOrderBriefSubmitted: order not found ${params.orderId}`);
+      return;
+    }
+    const creatorUserId = order.creator.userId;
+    this.gateway.server.to(`user:${creatorUserId}`).emit('order.brief_submitted', {
+      orderId: params.orderId,
+      briefSubmittedAt: params.briefSubmittedAt.toISOString(),
+    });
+  }
 }

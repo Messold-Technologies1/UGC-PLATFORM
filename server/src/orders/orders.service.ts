@@ -6,8 +6,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import type { CreatorAddOn } from '@prisma/client';
+import { Prisma, RoleName } from '@prisma/client';
+import type { CreatorAddOn, OrderStatus } from '@prisma/client';
+import type { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
+import type { AdminOrderListItemDto } from './dto/admin-order-list-item.dto';
+import type { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
+import type { BrandOrderListItemDto } from './dto/brand-order-list-item.dto';
+import type { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
+import type { CreatorOrderListItemDto } from './dto/creator-order-list-item.dto';
+import type { OrderBriefResponseDto } from './dto/order-brief-response.dto';
+import type { OrderListSummaryDto } from './dto/order-list-summary.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
@@ -277,6 +285,282 @@ export class OrdersService {
         deliveryDeadlineAt: deadline,
       },
     });
+
+    await this.orderRealtime.emitOrderBriefSubmitted({
+      orderId: order.id,
+      briefSubmittedAt: now,
+    });
+  }
+
+  private async isAdminUser(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        primaryRole: { select: { name: true } },
+        userRoles: { select: { role: { select: { name: true } } } },
+      },
+    });
+    if (!user) return false;
+    if (user.primaryRole?.name === RoleName.ADMIN) return true;
+    return user.userRoles.some((ur) => ur.role.name === RoleName.ADMIN);
+  }
+
+  private mapOrderListSummary(order: {
+    id: string;
+    status: OrderStatus;
+    packageNameSnapshot: string;
+    priceAmountSnapshot: Prisma.Decimal;
+    currency: string;
+    deliveryDaysSnapshot: number;
+    paidAt: Date | null;
+    briefSubmittedAt: Date | null;
+    deliveryDeadlineAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): OrderListSummaryDto {
+    return {
+      id: order.id,
+      status: order.status,
+      packageNameSnapshot: order.packageNameSnapshot,
+      priceAmountSnapshot: order.priceAmountSnapshot.toString(),
+      currency: order.currency,
+      deliveryDaysSnapshot: order.deliveryDaysSnapshot,
+      paidAt: order.paidAt,
+      briefSubmittedAt: order.briefSubmittedAt,
+      hasBrief: order.briefSubmittedAt != null,
+      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    };
+  }
+
+  async listOrdersForBrand(params: {
+    brandUserId: string;
+    page?: number;
+    limit?: number;
+  }): Promise<BrandOrdersListResponseDto> {
+    const brand = await this.prisma.brandProfile.findUnique({
+      where: { userId: params.brandUserId },
+      select: { id: true },
+    });
+    if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const page = params.page ?? 1;
+    const limit = Math.min(params.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+    const where = { brandId: brand.id };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          packageNameSnapshot: true,
+          priceAmountSnapshot: true,
+          currency: true,
+          deliveryDaysSnapshot: true,
+          paidAt: true,
+          briefSubmittedAt: true,
+          deliveryDeadlineAt: true,
+          createdAt: true,
+          updatedAt: true,
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              profileImageUrl: true,
+              city: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: BrandOrderListItemDto[] = rows.map((r) => {
+      const { creator, ...orderFields } = r;
+      return {
+        order: this.mapOrderListSummary(orderFields),
+        creator: {
+          id: creator.id,
+          displayName: creator.displayName,
+          profileImageUrl: creator.profileImageUrl ?? null,
+          city: creator.city ?? null,
+        },
+      };
+    });
+
+    return { items, total, page, limit };
+  }
+
+  async listOrdersForCreator(params: {
+    creatorUserId: string;
+    page?: number;
+    limit?: number;
+  }): Promise<CreatorOrdersListResponseDto> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const page = params.page ?? 1;
+    const limit = Math.min(params.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+    const where = { creatorId: creator.id };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          packageNameSnapshot: true,
+          priceAmountSnapshot: true,
+          currency: true,
+          deliveryDaysSnapshot: true,
+          paidAt: true,
+          briefSubmittedAt: true,
+          deliveryDeadlineAt: true,
+          createdAt: true,
+          updatedAt: true,
+          brand: {
+            select: {
+              id: true,
+              companyName: true,
+              logoUrl: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: CreatorOrderListItemDto[] = rows.map((r) => {
+      const { brand, ...orderFields } = r;
+      return {
+        order: this.mapOrderListSummary(orderFields),
+        brand: {
+          id: brand.id,
+          companyName: brand.companyName,
+          logoUrl: brand.logoUrl ?? null,
+        },
+      };
+    });
+
+    return { items, total, page, limit };
+  }
+
+  async listOrdersForAdmin(params: {
+    page?: number;
+    limit?: number;
+  }): Promise<AdminOrdersListResponseDto> {
+    const page = params.page ?? 1;
+    const limit = Math.min(params.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.order.count(),
+      this.prisma.order.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          packageNameSnapshot: true,
+          priceAmountSnapshot: true,
+          currency: true,
+          deliveryDaysSnapshot: true,
+          paidAt: true,
+          briefSubmittedAt: true,
+          deliveryDeadlineAt: true,
+          createdAt: true,
+          updatedAt: true,
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              profileImageUrl: true,
+              city: true,
+            },
+          },
+          brand: {
+            select: {
+              id: true,
+              companyName: true,
+              logoUrl: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: AdminOrderListItemDto[] = rows.map((r) => {
+      const { creator, brand, ...orderFields } = r;
+      return {
+        order: this.mapOrderListSummary(orderFields),
+        creator: {
+          id: creator.id,
+          displayName: creator.displayName,
+          profileImageUrl: creator.profileImageUrl ?? null,
+          city: creator.city ?? null,
+        },
+        brand: {
+          id: brand.id,
+          companyName: brand.companyName,
+          logoUrl: brand.logoUrl ?? null,
+        },
+      };
+    });
+
+    return { items, total, page, limit };
+  }
+
+  async getOrderBrief(params: {
+    orderId: string;
+    viewerUserId: string;
+  }): Promise<OrderBriefResponseDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brief: true,
+        briefSubmittedAt: true,
+        brand: { select: { userId: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const isParticipant =
+      order.brand.userId === params.viewerUserId ||
+      order.creator.userId === params.viewerUserId;
+    const isAdmin = await this.isAdminUser(params.viewerUserId);
+    if (!isParticipant && !isAdmin) {
+      throw new ForbiddenException('Not allowed to view this brief');
+    }
+
+    const raw = order.brief;
+    let brief: Record<string, unknown> | null = null;
+    if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+      brief = raw as Record<string, unknown>;
+    } else if (raw != null) {
+      brief = { value: raw as unknown };
+    }
+
+    return {
+      orderId: order.id,
+      briefSubmittedAt: order.briefSubmittedAt,
+      brief,
+    };
   }
 
   async markDelivered(params: { creatorUserId: string; orderId: string }): Promise<void> {

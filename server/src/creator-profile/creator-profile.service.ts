@@ -22,7 +22,11 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
-import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
+import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
+import type {
+  CreatorPublicListItemDto,
+  CreatorPublicListPortfolioVideoDto,
+} from './dto/creator-public-list-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
   buildCreatorListRelationsInclude,
@@ -426,7 +430,7 @@ export class CreatorProfileService {
 
   async listCreators(
     query: ListCreatorsQueryDto,
-  ): Promise<CreatorsListResponseDto> {
+  ): Promise<CreatorsPublicListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -452,10 +456,72 @@ export class CreatorProfileService {
     ]);
 
     return {
-      items: items.map((p) => this.mapCreatorProfileResponseDto(p)),
+      items: items.map((p) => this.mapCreatorPublicListItemDto(p)),
       total,
       page,
       limit,
+    };
+  }
+
+  private mapCreatorPublicListItemDto(
+    profile: any,
+  ): CreatorPublicListItemDto {
+    const portfolioVideos: CreatorPublicListPortfolioVideoDto[] = Array.isArray(
+      profile.portfolioVideos,
+    )
+      ? profile.portfolioVideos.map((v: any) => ({
+          id: v.id,
+          creatorId: v.creatorId,
+          videoUrl: v.videoUrl,
+          thumbnailUrl: v.thumbnailUrl ?? null,
+          industryLabel: v.industryLabel ?? null,
+          tags: Array.isArray(v.tags)
+            ? v.tags
+                .map((t: any) => t?.tag)
+                .filter((x: unknown): x is string => typeof x === 'string')
+            : [],
+          createdAt: v.createdAt,
+        }))
+      : [];
+
+    return {
+      id: profile.id,
+      userId: profile.userId,
+      name: profile.displayName,
+      profileImageUrl: profile.profileImageUrl ?? null,
+      city: profile.city ?? null,
+      bio: profile.bio ?? null,
+      gender: profile.gender ?? null,
+      onLocationAvailable: !!profile.onLocationAvailable,
+      languages: Array.isArray(profile.languages)
+        ? profile.languages
+            .map((l: any) => l?.language)
+            .filter((v: unknown): v is string => typeof v === 'string')
+        : [],
+      categories: Array.isArray(profile.categories)
+        ? profile.categories
+            .map((c: any) => c?.category)
+            .filter((v: unknown): v is string => typeof v === 'string')
+        : [],
+      personaTags: Array.isArray(profile.personaTags)
+        ? profile.personaTags
+            .map((t: any) => t?.tag)
+            .filter((v: unknown): v is string => typeof v === 'string')
+        : [],
+      restrictions: Array.isArray(profile.restrictions)
+        ? profile.restrictions
+            .map((r: any) => r?.restriction)
+            .filter((v: unknown): v is string => typeof v === 'string')
+        : [],
+      packages: Array.isArray(profile.packages)
+        ? profile.packages.map((pkg: any) => ({
+            name: String(pkg?.name ?? ''),
+            priceAmount:
+              pkg?.priceAmount?.toString?.() ??
+              (typeof pkg?.priceAmount === 'string' ? pkg.priceAmount : ''),
+          }))
+        : [],
+      portfolioVideos,
     };
   }
 

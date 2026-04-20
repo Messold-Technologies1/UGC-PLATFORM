@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
   ParseUUIDPipe,
@@ -12,6 +14,7 @@ import {
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiNoContentResponse,
@@ -25,12 +28,67 @@ import { CheckoutResponseDto } from './dto/checkout-response.dto';
 import { OrdersService } from './orders.service';
 import { SubmitBriefDto } from './dto/submit-brief.dto';
 import { OpenDisputeDto } from './dto/open-dispute.dto';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
+import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
+import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
+import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @Get('brand')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @ApiOperation({
+    summary: 'List orders for the authenticated brand (creator snapshot per row)',
+  })
+  @ApiOkResponse({ type: BrandOrdersListResponseDto })
+  async listBrandOrders(
+    @Query() query: ListOrdersQueryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BrandOrdersListResponseDto> {
+    return this.ordersService.listOrdersForBrand({
+      brandUserId: req.user.id,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get('creator')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @ApiOperation({
+    summary: 'List orders for the authenticated creator (brand snapshot per row)',
+  })
+  @ApiOkResponse({ type: CreatorOrdersListResponseDto })
+  async listCreatorOrders(
+    @Query() query: ListOrdersQueryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorOrdersListResponseDto> {
+    return this.ordersService.listOrdersForCreator({
+      creatorUserId: req.user.id,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get(':id/brief')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary:
+      'Get campaign brief for an order (brand owner, creator owner, or admin)',
+  })
+  @ApiOkResponse({ type: OrderBriefResponseDto })
+  async getOrderBrief(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<OrderBriefResponseDto> {
+    return this.ordersService.getOrderBrief({
+      orderId: id,
+      viewerUserId: req.user.id,
+    });
+  }
 
   @Post('checkout')
   @RequiredWorkspace('BRAND')

@@ -28,7 +28,7 @@ import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
 import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
-import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
+import { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorProfileService } from './creator-profile.service';
 import {
@@ -81,12 +81,11 @@ export class CreatorProfileController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List creators (paginated)' })
-  @ApiOkResponse({ type: CreatorsListResponseDto })
+  @ApiOkResponse({ type: CreatorsPublicListResponseDto })
   async listCreators(
     @Query() query: ListCreatorsQueryDto,
-  ): Promise<CreatorsListResponseDto> {
+  ): Promise<CreatorsPublicListResponseDto> {
     return this.creatorProfileService.listCreators(query);
   }
 

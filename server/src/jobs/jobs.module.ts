@@ -7,4 +7,3 @@ import { JobsService } from './jobs.service';
   providers: [JobsService],
 })
 export class JobsModule {}
-

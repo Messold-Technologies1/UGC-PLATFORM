@@ -55,4 +55,3 @@ export function ActiveWorkspaceGuard(requiredRole: WorkspaceRole) {
 
   return mixin(ActiveWorkspaceGuardMixin);
 }
-

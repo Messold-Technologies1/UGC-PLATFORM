@@ -17,8 +17,7 @@ export class MeUserDto {
   @ApiPropertyOptional({
     enum: ['CREATOR', 'BRAND', 'ADMIN'],
     nullable: true,
-    description:
-      'Default workspace role preference (cross-session default)',
+    description: 'Default workspace role preference (cross-session default)',
   })
   primaryRole!: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
 

@@ -14,7 +14,9 @@ export class AdminGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request & { user?: { id: string } }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: { id: string } }>();
     const userId = request.user?.id;
     if (!userId) {
       throw new UnauthorizedException('Missing user');
@@ -34,9 +36,9 @@ export class AdminGuard implements CanActivate {
     }
 
     if (user.primaryRole?.name === RoleName.ADMIN) return true;
-    if (user.userRoles.some((ur) => ur.role.name === RoleName.ADMIN)) return true;
+    if (user.userRoles.some((ur) => ur.role.name === RoleName.ADMIN))
+      return true;
 
     throw new ForbiddenException('Admin access required');
   }
 }
-

@@ -491,6 +491,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       roles,
+      // brandAccessRevoked: !!user.brandAccessRevokedAt,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,

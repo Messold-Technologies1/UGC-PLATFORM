@@ -11,19 +11,15 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
+import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 
 const briefFormSchema = z.object({
   brandName: z.string().trim().min(1, "Brand name is required"),
-  productService: z
-    .string()
-    .trim()
-    .min(1, "Product or service is required"),
+  productService: z.string().trim().min(1, "Product or service is required"),
   industry: z.string().trim(),
-  instructions: z
-    .string()
-    .trim()
-    .min(1, "Script or instructions are required"),
+  instructions: z.string().trim().min(1, "Script or instructions are required"),
   onLocationFilming: z.boolean(),
   links: z.string(),
   notes: z.string(),
@@ -70,9 +66,34 @@ export function BriefForm({
   readOnly = false,
 }: BriefFormProps) {
   const router = useRouter();
-  const form = useForm<BriefFormValues>({
-    resolver: zodResolver(briefFormSchema),
-    defaultValues: {
+
+  const { data: briefData, isLoading: isBriefLoading } =
+    useGetOrderBriefQuery(orderId);
+
+  const defaultValues = useMemo(() => {
+    if (briefData?.brief) {
+      type BriefPayload = {
+        brandName?: string;
+        productService?: string;
+        industry?: string | null;
+        instructions?: string;
+        onLocationFilming?: boolean;
+        referenceLinks?: string[];
+        notes?: string | null;
+      };
+
+      const brf = briefData.brief as BriefPayload;
+      return {
+        brandName: brf.brandName || "",
+        productService: brf.productService || "",
+        industry: brf.industry || "",
+        instructions: brf.instructions || "",
+        onLocationFilming: !!brf.onLocationFilming,
+        links: brf.referenceLinks ? brf.referenceLinks.join("\n") : "",
+        notes: brf.notes || "",
+      };
+    }
+    return {
       brandName: "",
       productService: "",
       industry: "",
@@ -80,7 +101,12 @@ export function BriefForm({
       onLocationFilming: false,
       links: "",
       notes: "",
-    },
+    };
+  }, [briefData]);
+
+  const form = useForm<BriefFormValues>({
+    resolver: zodResolver(briefFormSchema),
+    values: defaultValues,
   });
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
@@ -102,6 +128,19 @@ export function BriefForm({
     });
   }
 
+  if (isBriefLoading) {
+    return (
+      <div
+        className={cn(
+          "flex min-h-[400px] items-center justify-center bg-card border border-border/40 p-6 rounded-2xl",
+          className,
+        )}
+      >
+        <Spinner className="size-8 text-primary" />
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={form.handleSubmit(handleSubmit)}
@@ -117,7 +156,10 @@ export function BriefForm({
       ) : null}
 
       <div className="space-y-2">
-        <Label htmlFor="brandName" className="text-[11px] font-bold text-foreground tracking-wide">
+        <Label
+          htmlFor="brandName"
+          className="text-[11px] font-bold text-foreground tracking-wide"
+        >
           Brand name
         </Label>
         <Input
@@ -136,7 +178,10 @@ export function BriefForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="productService" className="text-[11px] font-bold text-foreground tracking-wide">
+        <Label
+          htmlFor="productService"
+          className="text-[11px] font-bold text-foreground tracking-wide"
+        >
           Product / service
         </Label>
         <Input
@@ -155,7 +200,10 @@ export function BriefForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="industry" className="text-[11px] font-bold text-foreground tracking-wide">
+        <Label
+          htmlFor="industry"
+          className="text-[11px] font-bold text-foreground tracking-wide"
+        >
           Industry
         </Label>
         <Input
@@ -168,7 +216,10 @@ export function BriefForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="instructions" className="text-[11px] font-bold text-foreground tracking-wide">
+        <Label
+          htmlFor="instructions"
+          className="text-[11px] font-bold text-foreground tracking-wide"
+        >
           Script / instructions
         </Label>
         <Textarea
@@ -207,7 +258,10 @@ export function BriefForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="links" className="text-[11px] font-bold text-foreground tracking-wide">
+        <Label
+          htmlFor="links"
+          className="text-[11px] font-bold text-foreground tracking-wide"
+        >
           Reference links
         </Label>
         <Textarea
@@ -220,7 +274,10 @@ export function BriefForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="notes" className="text-[11px] font-bold text-foreground tracking-wide">
+        <Label
+          htmlFor="notes"
+          className="text-[11px] font-bold text-foreground tracking-wide"
+        >
           Notes
         </Label>
         <Textarea

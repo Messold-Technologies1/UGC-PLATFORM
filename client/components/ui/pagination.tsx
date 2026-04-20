@@ -1,4 +1,5 @@
 import * as React from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
@@ -69,7 +70,7 @@ function PaginationPrevious({
       )}
       {...props}
     >
-      <span className="material-symbols-outlined text-lg">chevron_left</span>
+      <ChevronLeft className="size-5" />
     </button>
   )
 }
@@ -87,7 +88,7 @@ function PaginationNext({
       )}
       {...props}
     >
-      <span className="material-symbols-outlined text-lg">chevron_right</span>
+      <ChevronRight className="size-5" />
     </button>
   )
 }

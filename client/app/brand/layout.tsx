@@ -21,11 +21,11 @@ export default async function BrandLayout({
 
   return (
     <AuthenticatedAppProviders>
-      <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-[#f9fafb] text-foreground dark:bg-background">
+      <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-background text-foreground">
         <DashboardSidebarBoundary />
         <main
           id="main-content"
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#f9fafb] dark:bg-background"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain bg-background"
         >
           <PostLoginSetupShell role="brand">{children}</PostLoginSetupShell>
         </main>

@@ -24,7 +24,10 @@ export const ENDPOINTS = {
     PROFILE_LOGO_PRESIGN: "/api/brands/profile/uploads/presign",
   },
   ORDERS: {
+    BRAND_LIST: "/api/orders/brand",
+    CREATOR_LIST: "/api/orders/creator",
     CHECKOUT: "/api/orders/checkout",
+    GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     BRAND_DISPUTE: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/disputes/brand`,

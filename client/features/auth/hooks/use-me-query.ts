@@ -3,20 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
-
-export type WorkspaceRole = "CREATOR" | "BRAND";
+export type WorkspaceRole = "CREATOR" | "BRAND" | "ADMIN";
 
 export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
   roles: WorkspaceRole[];
-  
-  activeRole: WorkspaceRole | null;
-  
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
+  brandAccessRevoked: boolean;
 };
 
 export type MeResponse = {

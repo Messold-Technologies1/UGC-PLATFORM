@@ -1,7 +1,7 @@
-import { memo } from "react";
+import React, { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Star, ShoppingBag } from "lucide-react";
+import { MapPin, Star, ShoppingBag, Play, Pause } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import type { Creator } from "../types";
 interface CreatorCardProps {
   creator: Creator;
   variant?: "featured" | "listing";
-  
+
   appearance?: "standard" | "browse";
 }
 
@@ -21,6 +21,23 @@ export const CreatorCard = memo(function CreatorCard({
   variant = "listing",
   appearance = "standard",
 }: CreatorCardProps) {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  const profileUrl = `/brand/creators/${creator.id}`;
+
+  const handleTogglePlay = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  };
+
   const isFeatured = variant === "featured";
   const isBrowse = appearance === "browse" && !isFeatured;
   const browseTags = creator.tags.slice(0, 3);
@@ -43,17 +60,40 @@ export const CreatorCard = memo(function CreatorCard({
       >
         <div className="relative aspect-4/5 overflow-hidden bg-muted">
           {hasPreviewVideo ? (
-            <video
-              key={creator.previewVideoUrl}
-              src={creator.previewVideoUrl ?? undefined}
-              poster={previewPoster}
-              className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-            />
+            <div
+              className="relative size-full cursor-pointer"
+              onClick={handleTogglePlay}
+            >
+              <video
+                ref={videoRef}
+                key={creator.previewVideoUrl}
+                src={creator.previewVideoUrl ?? undefined}
+                poster={previewPoster}
+                className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
+              <div
+                className={cn(
+                  "absolute inset-0 z-10 flex items-center justify-center bg-black/20 transition-opacity",
+                  isPlaying
+                    ? "opacity-0 group-hover:opacity-100"
+                    : "opacity-100",
+                )}
+              >
+                <div className="flex size-14 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/60">
+                  {isPlaying ? (
+                    <Pause className="size-6 fill-white" />
+                  ) : (
+                    <Play className="ml-1 size-6 fill-white" />
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
             <Image
               src={creator.thumbnail}
@@ -61,13 +101,16 @@ export const CreatorCard = memo(function CreatorCard({
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, (max-width: 1536px) 25vw, 20vw"
+              priority
             />
           )}
           <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10 transition-opacity duration-300 group-hover:opacity-90" />
           <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-white backdrop-blur-sm">
             <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
             <span className="text-xs font-semibold">{creator.rating}</span>
-            <span className="text-[10px] text-white/70">({creator.reviewCount})</span>
+            <span className="text-[10px] text-white/70">
+              ({creator.reviewCount})
+            </span>
           </div>
           <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
             <div className="min-w-0">
@@ -138,7 +181,7 @@ export const CreatorCard = memo(function CreatorCard({
               </span>
             </div>
             <Button asChild size="sm" variant="outline" className="text-xs">
-              <Link href={`/creators/${creator.id}`}>View Profile</Link>
+              <Link href={profileUrl}>View Profile</Link>
             </Button>
           </div>
         </div>
@@ -150,17 +193,38 @@ export const CreatorCard = memo(function CreatorCard({
     <Card interactive="emphasized">
       <div className="relative aspect-4/5 overflow-hidden bg-muted">
         {hasPreviewVideo ? (
-          <video
-            key={creator.previewVideoUrl}
-            src={creator.previewVideoUrl ?? undefined}
-            poster={previewPoster}
-            className="size-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-          />
+          <div
+            className="relative size-full cursor-pointer"
+            onClick={handleTogglePlay}
+          >
+            <video
+              ref={videoRef}
+              key={creator.previewVideoUrl}
+              src={creator.previewVideoUrl ?? undefined}
+              poster={previewPoster}
+              className="size-full object-cover"
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            />
+            <div
+              className={cn(
+                "absolute inset-0 z-10 flex items-center justify-center bg-black/20 transition-opacity",
+                isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100",
+              )}
+            >
+              <div className="flex size-14 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/60">
+                {isPlaying ? (
+                  <Pause className="size-6 fill-white" />
+                ) : (
+                  <Play className="ml-1 size-6 fill-white" />
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           <Image
             src={creator.thumbnail}
@@ -172,6 +236,7 @@ export const CreatorCard = memo(function CreatorCard({
                 ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
             }
+            priority
           />
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/20 to-black/5" />
@@ -179,7 +244,9 @@ export const CreatorCard = memo(function CreatorCard({
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-white backdrop-blur-sm">
             <Star className="size-3 fill-amber-400 text-amber-400" />
             <span className="text-xs font-medium">{creator.rating}</span>
-            <span className="text-[10px] text-white/70">({creator.reviewCount})</span>
+            <span className="text-[10px] text-white/70">
+              ({creator.reviewCount})
+            </span>
           </div>
         </div>
         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
@@ -247,7 +314,7 @@ export const CreatorCard = memo(function CreatorCard({
             </p>
           </div>
           <Button asChild size="sm" variant="outline" className="text-xs">
-            <Link href={`/creators/${creator.id}`}>View Profile</Link>
+            <Link href={profileUrl}>View Profile</Link>
           </Button>
         </div>
       </CardContent>

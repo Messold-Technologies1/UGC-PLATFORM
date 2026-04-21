@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CreatorIncompleteProfileBanner } from "@/components/dashboard/creator-incomplete-profile-banner";
+import { CreatorPayoutDetailsBanner } from "@/components/dashboard/creator-payout-details-banner";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export default function CreatorDashboardPage() {
       />
 
       <CreatorIncompleteProfileBanner />
+      <CreatorPayoutDetailsBanner />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (

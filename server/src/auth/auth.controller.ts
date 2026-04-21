@@ -35,6 +35,12 @@ import { AdminGuard } from './guards/admin.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AUTH_COOKIE_NAMES, AuthService } from './auth.service';
 
+function readCookie(req: Request, name: string): string | undefined {
+  const cookies = req.cookies as Record<string, unknown> | undefined;
+  const value = cookies?.[name];
+  return typeof value === 'string' ? value : undefined;
+}
+
 @ApiTags('auth')
 @ApiExtraModels(UserResponseDto, MeUserDto)
 @Controller('auth')
@@ -84,23 +90,8 @@ export class AuthController {
     description: 'Admin user created',
     type: UserResponseDto,
   })
-  async registerAdmin(
-    @Body() dto: RegisterDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const meta = {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    };
-    const result = await this.authService.registerAdmin(dto, meta);
-    setAuthCookies(
-      res,
-      result.accessToken,
-      result.refreshToken,
-      result.expiresIn,
-      this.config.get<string>('JWT_REFRESH_EXPIRY', '7d'),
-    );
+  async registerAdmin(@Body() dto: RegisterDto) {
+    const result = await this.authService.registerAdmin(dto);
     return { user: result.user };
   }
 
@@ -152,7 +143,7 @@ export class AuthController {
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const code = req.query.code as string | undefined;
     const state = req.query.state as string | undefined;
-    const storedState = req.cookies?.[OAUTH_STATE_COOKIE];
+    const storedState = readCookie(req, OAUTH_STATE_COOKIE);
 
     const frontendUrl = this.config.get<string>(
       'FRONTEND_URL',
@@ -200,7 +191,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
+    const refreshToken = readCookie(req, AUTH_COOKIE_NAMES.refreshToken);
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token required');
     }
@@ -221,7 +212,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 204, description: 'Logged out' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
+    const refreshToken = readCookie(req, AUTH_COOKIE_NAMES.refreshToken);
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
@@ -231,14 +222,14 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user and workspace state' })
+  @ApiOperation({ summary: 'Get current user' })
   @ApiResponse({ status: 200, description: 'Current user' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async me(
-    @Req() req: Request & { user: { id: string; email: string; name: string | null } },
+    @Req()
+    req: Request & { user: { id: string; email: string; name: string | null } },
   ) {
-    const refreshToken = req.cookies?.[AUTH_COOKIE_NAMES.refreshToken];
-    const user = await this.authService.getMeForClient(req.user.id, refreshToken);
+    const user = await this.authService.getMeForClient(req.user.id);
     if (!user) {
       throw new UnauthorizedException();
     }

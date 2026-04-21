@@ -82,7 +82,7 @@ export function Navbar() {
       <div className="mx-auto flex h-17 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" prefetch className="flex items-center gap-2">
           {}
-          <span className="text-lg font-bold tracking-tight">{SITE_NAME}</span>
+          <span className="text-lg font-bold font-heading tracking-tight">{SITE_NAME}</span>
         </Link>
 
         <div className="hidden items-center gap-2 md:flex">
@@ -93,7 +93,7 @@ export function Navbar() {
             <NavbarProfileMenu />
           ) : (
             <>
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="font-heading">
                 <Link href="/login" prefetch>
                   Log in
                 </Link>
@@ -101,7 +101,7 @@ export function Navbar() {
               <Button
                 asChild
                 size="sm"
-                className="bg-foreground border-0 text-background hover:opacity-90"
+                className="bg-foreground border-0 text-background hover:opacity-90 font-heading"
               >
                 <Link href="/signup" prefetch>
                   Get Started
@@ -155,7 +155,7 @@ export function Navbar() {
                 href="/login"
                 prefetch
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
               >
                 Log in
               </Link>
@@ -163,7 +163,7 @@ export function Navbar() {
                 href="/signup"
                 prefetch
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
               >
                 <User className="size-4" />
                 Get Started

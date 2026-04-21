@@ -18,6 +18,25 @@ export function appendUniqueCommaSeparatedItem(
   return parts.length ? `${parts.join(", ")}, ${trimmed}` : trimmed;
 }
 
+export function toggleCommaSeparatedItem(
+  current: string,
+  item: string,
+): string {
+  const trimmed = item.trim();
+  if (!trimmed) return current;
+
+  const parts = splitCommaSeparatedList(current);
+  const filtered = parts.filter(
+    (part) => part.toLowerCase() !== trimmed.toLowerCase(),
+  );
+
+  if (filtered.length !== parts.length) {
+    return filtered.join(", ");
+  }
+
+  return parts.length ? `${parts.join(", ")}, ${trimmed}` : trimmed;
+}
+
 export function splitMultilineList(raw: string): string[] {
   return raw
     .split(/\r?\n/)

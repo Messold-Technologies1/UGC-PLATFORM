@@ -8,6 +8,9 @@ import { ENDPOINTS } from "@/lib/endpoints";
 type ServerAuthUser = {
   id: string;
   email: string;
+  roles?: Array<"CREATOR" | "BRAND" | "ADMIN">;
+  primaryRole?: "CREATOR" | "BRAND" | "ADMIN" | null;
+  brandAccessRevoked?: boolean;
 };
 
 type MeResponse = {
@@ -45,4 +48,38 @@ export async function requireAuthenticatedUser(callbackPath: string) {
   if (!user) {
     redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
   }
+}
+
+function fallbackWorkspacePath(user: ServerAuthUser): string {
+  if (user.roles?.includes("ADMIN")) return "/admin";
+  if (user.roles?.includes("CREATOR")) return "/creator/dashboard";
+  return "/auth/continue";
+}
+
+export async function requireBrandWorkspace(callbackPath: string) {
+  const user = await fetchServerAuthUser();
+  if (!user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+  }
+
+  const hasBrandRole = user.roles?.includes("BRAND") ?? false;
+  if (!hasBrandRole || user.brandAccessRevoked) {
+    redirect(fallbackWorkspacePath(user));
+  }
+
+  return user;
+}
+
+export async function requireCreatorWorkspace(callbackPath: string) {
+  const user = await fetchServerAuthUser();
+  if (!user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+  }
+
+  const hasCreatorRole = user.roles?.includes("CREATOR") ?? false;
+  if (!hasCreatorRole) {
+    redirect(fallbackWorkspacePath(user));
+  }
+
+  return user;
 }

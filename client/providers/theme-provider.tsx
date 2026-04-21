@@ -53,6 +53,7 @@ function ThemeColorProvider({ children }: { children: ReactNode }) {
     try {
       const saved = window.localStorage.getItem(THEME_COLOR_STORAGE_KEY);
       if (saved && isThemeColor(saved)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setThemeColor(saved);
       }
     } catch {}

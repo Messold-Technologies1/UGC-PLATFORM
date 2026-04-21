@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowRight, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/auth-provider";
@@ -8,11 +9,13 @@ import { useAuth } from "@/providers/auth-provider";
 const PROFILE_SETUP_HREF = "/creator/dashboard";
 
 export function CreatorIncompleteProfileBanner() {
+  const pathname = usePathname();
   const { user, isLoading } = useAuth();
 
   if (isLoading || !user) return null;
-  const workspaceRole = user.activeRole ?? user.primaryRole;
-  if (workspaceRole !== "CREATOR") return null;
+  if (!(pathname === "/creator" || pathname.startsWith("/creator/"))) {
+    return null;
+  }
   if (user.hasCreatorProfile) return null;
 
   return (

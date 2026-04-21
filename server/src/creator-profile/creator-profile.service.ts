@@ -87,12 +87,10 @@ export class CreatorProfileService {
     private readonly storage: StorageService,
   ) {}
 
-
   async presignProfileImageUpload(
     userId: string,
     dto: PresignProfileImageUploadDto,
   ) {
-
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { userId },
       select: { id: true },
@@ -112,7 +110,10 @@ export class CreatorProfileService {
     });
   }
 
-  private assertProfileImageKeyOwner(creatorProfileId: string, key: string): void {
+  private assertProfileImageKeyOwner(
+    creatorProfileId: string,
+    key: string,
+  ): void {
     const prefix = `creator-profile/${creatorProfileId}/`;
     if (!key.startsWith(prefix)) {
       throw new BadRequestException('Invalid profileImageKey');
@@ -211,7 +212,10 @@ export class CreatorProfileService {
   }
 
   private async isAdminUser(userId: string): Promise<boolean> {
-    return this.isAdmin(userId, this.prisma as unknown as PrismaTransactionClient);
+    return this.isAdmin(
+      userId,
+      this.prisma as unknown as PrismaTransactionClient,
+    );
   }
 
   private async isAdmin(
@@ -242,11 +246,12 @@ export class CreatorProfileService {
     userId: string,
     dto: CreateCreatorProfileDto,
   ): Promise<CreatorProfileResponseDto> {
-
     const normalizedLanguages = this.normalizeUniqueStrings(dto.languages);
     const normalizedCategories = this.normalizeUniqueStrings(dto.categories);
     const normalizedPersonaTags = this.normalizeUniqueStrings(dto.personaTags);
-    const normalizedRestrictions = this.normalizeUniqueStrings(dto.restrictions);
+    const normalizedRestrictions = this.normalizeUniqueStrings(
+      dto.restrictions,
+    );
 
     const profileImageKey = dto.profileImageKey?.trim();
     if (profileImageKey) {
@@ -255,6 +260,25 @@ export class CreatorProfileService {
 
     const creatorProfileId = await this.prisma.$transaction(
       async (tx) => {
+        const creatorRole = await tx.role.findUnique({
+          where: { name: RoleName.CREATOR },
+          select: { id: true },
+        });
+        if (!creatorRole) {
+          throw new NotFoundException('CREATOR role not configured');
+        }
+
+        const currentUser: any = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            primaryRoleId: true,
+            brandProfile: { select: { id: true } },
+          } as any,
+        });
+        if (!currentUser) {
+          throw new NotFoundException('User not found');
+        }
+
         const existing = await tx.creatorProfile.findUnique({
           where: { userId },
         });
@@ -279,6 +303,23 @@ export class CreatorProfileService {
 
         // Independent writes: can be done in parallel once we have creatorProfile.id.
         const ops: Array<Promise<unknown>> = [];
+
+        ops.push(
+          tx.userRole.upsert({
+            where: { userId_roleId: { userId, roleId: creatorRole.id } },
+            create: { userId, roleId: creatorRole.id },
+            update: {},
+          }),
+        );
+
+        if (!currentUser.primaryRoleId && !currentUser.brandProfile) {
+          ops.push(
+            tx.user.update({
+              where: { id: userId },
+              data: { primaryRoleId: creatorRole.id } as any,
+            }),
+          );
+        }
 
         if (normalizedLanguages.length > 0) {
           ops.push(
@@ -359,11 +400,12 @@ export class CreatorProfileService {
     );
 
     if (profileImageKey) {
-      const finalProfileImageKey = await this.storage.finalizeCreatorProfileImageKey({
-        tempKey: profileImageKey,
-        creatorProfileId,
-        deleteTemp: true,
-      });
+      const finalProfileImageKey =
+        await this.storage.finalizeCreatorProfileImageKey({
+          tempKey: profileImageKey,
+          creatorProfileId,
+          deleteTemp: true,
+        });
       await this.prisma.creatorProfile.update({
         where: { id: creatorProfileId },
         data: {
@@ -622,7 +664,6 @@ export class CreatorProfileService {
     return this.mapCreatorProfileResponseDto(updated);
   }
 
- 
   async getCreatorProfileForCurrentUser(
     userId: string,
   ): Promise<CreatorProfileResponseDto> {
@@ -889,27 +930,39 @@ export class CreatorProfileService {
     );
   }
 
-  async listCategorySuggestions() {
-    return (this.prisma as any).creatorCategorySuggestion.findMany({
+  async listCategorySuggestions(): Promise<CreatorSuggestionItemDto[]> {
+    const suggestions = (await (
+      this.prisma as any
+    ).creatorCategorySuggestion.findMany({
       take: 100,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
-    });
+    })) as CreatorSuggestionItemDto[];
+
+    return suggestions;
   }
 
-  async listPersonaTagSuggestions() {
-    return (this.prisma as any).creatorPersonaTagSuggestion.findMany({
+  async listPersonaTagSuggestions(): Promise<CreatorSuggestionItemDto[]> {
+    const suggestions = (await (
+      this.prisma as any
+    ).creatorPersonaTagSuggestion.findMany({
       take: 100,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
-    });
+    })) as CreatorSuggestionItemDto[];
+
+    return suggestions;
   }
 
-  async listRestrictionSuggestions() {
-    return (this.prisma as any).creatorRestrictionSuggestion.findMany({
+  async listRestrictionSuggestions(): Promise<CreatorSuggestionItemDto[]> {
+    const suggestions = (await (
+      this.prisma as any
+    ).creatorRestrictionSuggestion.findMany({
       take: 100,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
-    });
+    })) as CreatorSuggestionItemDto[];
+
+    return suggestions;
   }
 }

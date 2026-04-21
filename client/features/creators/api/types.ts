@@ -17,6 +17,7 @@ export type CreatorProfilePackageApi = {
   deliverables: string[];
   priceAmount: string;
   deliveryDays: number;
+  maxRevisions: number;
 };
 
 export type CreatorProfilePersonaTagApi = {
@@ -27,6 +28,13 @@ export type CreatorProfilePersonaTagApi = {
 export type CreatorProfileRestrictionApi = {
   id: string;
   restriction: string;
+};
+
+export type CreatorProfileAddOnApi = {
+  id: string;
+  name: string;
+  priceAmount: string;
+  description?: string | null;
 };
 
 export type CreatorPortfolioVideoPreviewApi = {
@@ -56,6 +64,7 @@ export type CreatorProfileItemApi = {
   personaTags?: CreatorProfilePersonaTagApi[];
   restrictions?: CreatorProfileRestrictionApi[];
   packages: CreatorProfilePackageApi[];
+  addOns?: CreatorProfileAddOnApi[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
 };
 
@@ -64,4 +73,21 @@ export type CreatorsListResponse = {
   total: number;
   page: number;
   limit: number;
+};
+
+export type CreatorPayoutDetailsMaskedApi = {
+  configured: boolean;
+  hasBankDetails?: boolean;
+  accountNumberLast4?: string;
+  ifsc?: string;
+  accountHolderName?: string;
+  hasUpi?: boolean;
+  upiMasked?: string;
+};
+
+export type UpsertCreatorPayoutDetailsApi = {
+  accountHolderName?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  upiId?: string;
 };

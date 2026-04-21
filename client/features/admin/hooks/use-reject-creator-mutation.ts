@@ -1,0 +1,50 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { rejectCreator } from "../api/reject-creator";
+
+import { toast } from "sonner";
+import { isAxiosError } from "axios";
+
+export function useRejectCreatorMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: rejectCreator,
+    onMutate: async ({ id }) => {
+      toast.success("Creator rejected. They have been notified.");
+      await queryClient.cancelQueries({ queryKey: ["admin", "pending-approvals"] });
+      const previousQueries = queryClient.getQueriesData({ queryKey: ["admin", "pending-approvals"] });
+
+      queryClient.setQueriesData(
+        { queryKey: ["admin", "pending-approvals"] },
+        (oldData: { items: { id: string }[]; total: number } | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            items: oldData.items.filter((c) => c.id !== id),
+            total: Math.max(0, oldData.total - 1),
+          };
+        }
+      );
+
+      return { previousQueries };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([key, oldData]) => {
+          queryClient.setQueryData(key, oldData);
+        });
+      }
+
+      if (isAxiosError(err) && err.response?.data?.message) {
+        toast.error(`Rejection failed: ${err.response.data.message}`);
+      } else {
+        toast.error("An error occurred during rejection");
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "pending-approvals"],
+      });
+    },
+  });
+}

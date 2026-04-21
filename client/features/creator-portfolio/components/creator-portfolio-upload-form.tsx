@@ -1,10 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -19,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -28,24 +26,16 @@ import {
 } from "@/components/ui/select";
 import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import {
-  appendUniqueCommaSeparatedItem,
   splitCommaSeparatedList,
+  toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
-import { cn } from "@/lib/utils";
-import { createPortfolioVideo } from "../api/create-portfolio-video";
-import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
+import { useCreatePortfolioVideoFlowMutation } from "../hooks/use-create-portfolio-video-flow-mutation";
 import {
-  fetchPortfolioIndustrySuggestions,
-  fetchPortfolioLanguageSuggestions,
-  fetchPortfolioTagSuggestions,
-  portfolioSuggestionListsQueryKeys,
-} from "../api/portfolio-suggestion-lists";
+  usePortfolioIndustrySuggestionsQuery,
+  usePortfolioLanguageSuggestionsQuery,
+  usePortfolioTagSuggestionsQuery,
+} from "../hooks/use-portfolio-suggestion-queries";
 import {
-  presignPortfolioUpload,
-  putPortfolioFileToPresignedUrl,
-} from "../api/presign-portfolio-upload";
-import {
-  updatePortfolioVideo,
   type UpdatePortfolioVideoPayload,
 } from "../api/update-portfolio-video";
 
@@ -73,55 +63,17 @@ function buildMetadataPatch(input: {
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
-function resolveVideoContentType(file: File): string {
-  const ct = file.type?.trim();
-  if (ct) return ct;
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".mp4")) return "video/mp4";
-  if (name.endsWith(".mov")) return "video/quicktime";
-  if (name.endsWith(".webm")) return "video/webm";
-  return "video/mp4";
-}
-
-function resolveImageContentType(file: File): string {
-  const ct = file.type?.trim();
-  if (ct) return ct;
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".png")) return "image/png";
-  if (name.endsWith(".webp")) return "image/webp";
-  return "image/jpeg";
-}
-
-function errorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string | string[] } | undefined;
-    const m = data?.message;
-    if (Array.isArray(m)) return m.join(", ");
-    if (typeof m === "string") return m;
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Something went wrong";
-}
-
 export function CreatorPortfolioUploadForm() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [submitting, setSubmitting] = useState(false);
+  const createPortfolioVideoFlowMutation = useCreatePortfolioVideoFlowMutation();
+  const submitting = createPortfolioVideoFlowMutation.isPending;
 
-  const industrySuggestionsQuery = useQuery({
-    queryKey: portfolioSuggestionListsQueryKeys.industries,
-    queryFn: fetchPortfolioIndustrySuggestions,
+  const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({
     staleTime: 5 * 60_000,
   });
-  const tagSuggestionsQuery = useQuery({
-    queryKey: portfolioSuggestionListsQueryKeys.tags,
-    queryFn: fetchPortfolioTagSuggestions,
+  const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
-  const languageSuggestionsQuery = useQuery({
-    queryKey: portfolioSuggestionListsQueryKeys.languages,
-    queryFn: fetchPortfolioLanguageSuggestions,
+  const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
@@ -140,54 +92,17 @@ export function CreatorPortfolioUploadForm() {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const videoContentType = resolveVideoContentType(videoFile);
-      const videoPresign = await presignPortfolioUpload({
-        kind: "video",
-        contentType: videoContentType,
-        contentLength: videoFile.size,
-      });
-      await putPortfolioFileToPresignedUrl(videoFile, videoPresign);
-
-      let thumbnailKey: string | undefined;
-      if (thumbnailFile) {
-        const thumbContentType = resolveImageContentType(thumbnailFile);
-        const thumbPresign = await presignPortfolioUpload({
-          kind: "thumbnail",
-          contentType: thumbContentType,
-          contentLength: thumbnailFile.size,
-        });
-        await putPortfolioFileToPresignedUrl(thumbnailFile, thumbPresign);
-        thumbnailKey = thumbPresign.key;
-      }
-
-      const created = await createPortfolioVideo({
-        videoKey: videoPresign.key,
-        thumbnailKey,
-        visibilityStatus: visibility,
-      });
-
-      const metaPatch = buildMetadataPatch({
+    createPortfolioVideoFlowMutation.mutate({
+      videoFile,
+      thumbnailFile,
+      visibility,
+      metadataPatch: buildMetadataPatch({
         description,
         industryLabel,
         language,
         tagsRaw,
-      });
-      if (metaPatch) {
-        await updatePortfolioVideo(created.id, metaPatch);
-      }
-
-      toast.success("Portfolio video added");
-      await queryClient.invalidateQueries({
-        queryKey: portfolioMyVideosQueryKey,
-      });
-      router.push("/creator/portfolio");
-    } catch (err) {
-      toast.error("Upload failed", { description: errorMessage(err) });
-    } finally {
-      setSubmitting(false);
-    }
+      }),
+    });
   }
 
   return (
@@ -247,18 +162,14 @@ export function CreatorPortfolioUploadForm() {
 
             <div className="space-y-2">
               <Label htmlFor="portfolio-desc">Description</Label>
-              <textarea
+              <Textarea
                 id="portfolio-desc"
                 rows={3}
                 value={description}
                 disabled={submitting}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Short description for brands"
-                className={cn(
-                  "border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-[80px] w-full rounded-lg border bg-transparent px-2.5 py-2 text-sm shadow-none outline-none transition-colors",
-                  "focus-visible:ring-3 md:text-sm",
-                  "dark:bg-input/30 placeholder:text-muted-foreground disabled:opacity-50",
-                )}
+                className="min-h-20 max-h-40 resize-y"
               />
             </div>
 
@@ -290,7 +201,10 @@ export function CreatorPortfolioUploadForm() {
                       ariaLabel: `Use ${name} as industry`,
                     }))}
                     disabled={submitting}
-                    onSelect={setIndustryLabel}
+                    selectedLabels={industryLabel ? [industryLabel] : []}
+                    onSelect={(name, nextSelected) =>
+                      setIndustryLabel(nextSelected ? name : "")
+                    }
                   />
                 ) : null}
               </div>
@@ -321,7 +235,10 @@ export function CreatorPortfolioUploadForm() {
                       ariaLabel: `Use ${name} as language`,
                     }))}
                     disabled={submitting}
-                    onSelect={setLanguage}
+                    selectedLabels={language ? [language] : []}
+                    onSelect={(name, nextSelected) =>
+                      setLanguage(nextSelected ? name : "")
+                    }
                   />
                 ) : null}
               </div>
@@ -345,9 +262,10 @@ export function CreatorPortfolioUploadForm() {
                     ariaLabel: `Add ${name} to tags`,
                   }))}
                   disabled={submitting}
+                  selectedLabels={parseTags(tagsRaw)}
                   onSelect={(name) =>
                     setTagsRaw((prev) =>
-                      appendUniqueCommaSeparatedItem(prev, name),
+                      toggleCommaSeparatedItem(prev, name),
                     )
                   }
                 />

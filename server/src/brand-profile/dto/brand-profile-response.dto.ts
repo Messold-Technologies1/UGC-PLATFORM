@@ -34,4 +34,3 @@ export class BrandProfileResponseDto {
   @ApiProperty()
   updatedAt!: Date;
 }
-

@@ -1,46 +1,94 @@
 import type { Filters } from "../components/creator-filters";
 import { DEFAULT_FILTERS } from "../components/creator-filters";
 
+function normalizeMultiValue(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
+  );
+}
+
+function parseMultiValue(
+  sp: Pick<URLSearchParams, "get" | "getAll">,
+  key: string,
+): string[] {
+  const fromAll = normalizeMultiValue(sp.getAll(key));
+  if (fromAll.length > 0) return fromAll;
+
+  const singleValue = sp.get(key)?.trim();
+  if (!singleValue) return [];
+
+  return normalizeMultiValue(singleValue.split(","));
+}
+
+function parseBoolean(
+  sp: Pick<URLSearchParams, "get">,
+  key: string,
+  defaultValue = false,
+): boolean {
+  const value = sp.get(key)?.trim().toLowerCase();
+  if (!value) return defaultValue;
+  return value === "true" || value === "1" || value === "yes";
+}
 
 export function parseBrowseListingParams(
-  sp: Pick<URLSearchParams, "get">,
+  sp: Pick<URLSearchParams, "get" | "getAll">,
 ): { filters: Filters; search: string } {
   return {
     search: sp.get("q") ?? "",
     filters: {
-      city: sp.get("city") ?? DEFAULT_FILTERS.city,
-      category: sp.get("category") ?? DEFAULT_FILTERS.category,
-      gender: sp.get("gender") ?? DEFAULT_FILTERS.gender,
+      city: sp.get("city")?.trim() ?? DEFAULT_FILTERS.city,
+      categories: parseMultiValue(sp, "categories"),
+      gender: sp.get("gender")?.trim() ?? DEFAULT_FILTERS.gender,
       minPrice: sp.get("minPrice") ?? DEFAULT_FILTERS.minPrice,
       maxPrice: sp.get("maxPrice") ?? DEFAULT_FILTERS.maxPrice,
-      minRating: sp.get("minRating") ?? DEFAULT_FILTERS.minRating,
-      travelAvailable: sp.get("travel") === "true",
-      storeVisit: sp.get("storeVisit") === "true",
-      industryLabel: sp.get("industry") ?? DEFAULT_FILTERS.industryLabel,
-      tags: sp.get("tags") ?? DEFAULT_FILTERS.tags,
+      onLocationAvailable: parseBoolean(
+        sp,
+        "onLocationAvailable",
+        DEFAULT_FILTERS.onLocationAvailable,
+      ),
+      industry: sp.get("industry")?.trim() ?? DEFAULT_FILTERS.industry,
+      portfolioTag:
+        sp.get("portfolioTag")?.trim() ?? DEFAULT_FILTERS.portfolioTag,
+      personaTags: parseMultiValue(sp, "personaTags"),
+      restrictions: parseMultiValue(sp, "restrictions"),
     },
   };
 }
-
 
 export function serializeBrowseListingParams(
   filters: Filters,
   search: string,
 ): string {
   const params = new URLSearchParams();
-  if (search) params.set("q", search);
-  if (filters.city !== DEFAULT_FILTERS.city) params.set("city", filters.city);
-  if (filters.category !== DEFAULT_FILTERS.category)
-    params.set("category", filters.category);
-  if (filters.gender !== DEFAULT_FILTERS.gender)
-    params.set("gender", filters.gender);
+
+  const query = search.trim();
+  if (query) params.set("q", query);
+
+  const city = filters.city.trim();
+  if (city) params.set("city", city);
+
+  for (const category of normalizeMultiValue(filters.categories)) {
+    params.append("categories", category);
+  }
+  for (const personaTag of normalizeMultiValue(filters.personaTags)) {
+    params.append("personaTags", personaTag);
+  }
+  for (const restriction of normalizeMultiValue(filters.restrictions)) {
+    params.append("restrictions", restriction);
+  }
+
+  const gender = filters.gender.trim();
+  if (gender) params.set("gender", gender);
+
   if (filters.minPrice) params.set("minPrice", filters.minPrice);
   if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
-  if (filters.minRating) params.set("minRating", filters.minRating);
-  if (filters.travelAvailable) params.set("travel", "true");
-  if (filters.storeVisit) params.set("storeVisit", "true");
-  if (filters.industryLabel !== DEFAULT_FILTERS.industryLabel)
-    params.set("industry", filters.industryLabel);
-  if (filters.tags !== DEFAULT_FILTERS.tags) params.set("tags", filters.tags);
+  if (filters.onLocationAvailable) params.set("onLocationAvailable", "true");
+
+  const industry = filters.industry.trim();
+  if (industry) params.set("industry", industry);
+
+  const portfolioTag = filters.portfolioTag.trim();
+  if (portfolioTag) params.set("portfolioTag", portfolioTag);
+
   return params.toString();
 }

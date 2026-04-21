@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -17,11 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SuggestionChips } from "@/components/ui/suggestion-chips";
-import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
-import { creatorProfileMeQueryKey } from "@/features/creators/api/fetch-creator-profile-me";
 import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-image-field";
+import {
+  CreatorProfileAddOnFields,
+  type AddOnDraft,
+} from "@/features/creators/components/creator-profile-add-on-fields";
 import {
   CreatorProfilePackageFields,
   type PackageDraft,
@@ -32,27 +30,21 @@ import {
   splitCommaSeparatedList,
   splitMultilineList,
 } from "@/lib/string-lists";
-import { useAuth } from "@/providers/auth-provider";
+import { useAuth, type AuthUser } from "@/providers/auth-provider";
+import type { CreateCreatorProfilePayload } from "@/features/creators/api/create-creator-profile";
 import {
-  createCreatorProfile,
-  type CreateCreatorProfilePayload,
-} from "@/features/creators/api/create-creator-profile";
+  useSubmitCreatorProfileMutation,
+  useUploadCreatorProfileImageMutation,
+} from "@/features/creators/hooks/use-creator-profile-form-mutation";
+import {
+  useCreatorPersonaTagSuggestionsQuery,
+  useCreatorRestrictionSuggestionsQuery,
+} from "@/features/creators/hooks/use-creator-suggestion-queries";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
-import {
-  updateCreatorProfile,
-  type UpdateCreatorProfilePayload,
-} from "@/features/creators/api/update-creator-profile";
-import {
-  creatorSuggestionListsQueryKeys,
-  fetchCreatorPersonaTagSuggestions,
-  fetchCreatorRestrictionSuggestions,
-} from "@/features/creators/api/creator-suggestion-lists";
-import {
-  presignCreatorProfileImageUpload,
-  putFileToPresignedUrl,
-} from "@/features/creators/api/presign-creator-profile-image";
+import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update-creator-profile";
 
 const MAX_PACKAGES_IN_CREATOR_SETUP_FORM = 3;
+const MAX_ADD_ONS_IN_CREATOR_SETUP_FORM = 6;
 
 const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
 const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -69,6 +61,7 @@ function createPackageDraft(
     priceAmount: overrides?.priceAmount ?? "",
     deliveryDays: overrides?.deliveryDays ?? "",
     deliverables: overrides?.deliverables ?? "",
+    maxRevisions: overrides?.maxRevisions ?? "2",
   };
 }
 
@@ -76,7 +69,94 @@ function isCompletedPackageDraft(row: PackageDraft): boolean {
   const name = row.name.trim();
   const price = row.priceAmount.trim();
   const days = Number.parseInt(row.deliveryDays, 10);
-  return !!name && !!price && !Number.isNaN(days) && days >= 0;
+  const revisions = Number.parseInt(row.maxRevisions, 10);
+  return !!name && !!price && !Number.isNaN(days) && days >= 0 && !Number.isNaN(revisions) && revisions >= 0;
+}
+
+function createAddOnDraft(
+  id: string,
+  overrides?: Partial<Omit<AddOnDraft, "id">>,
+): AddOnDraft {
+  return {
+    id,
+    name: overrides?.name ?? "",
+    priceAmount: overrides?.priceAmount ?? "",
+    description: overrides?.description ?? "",
+    existingName: overrides?.existingName ?? null,
+  };
+}
+
+function removeCommaSeparatedItem(current: string, item: string): string {
+  const target = item.trim().toLowerCase();
+  if (!target) return current;
+
+  return splitCommaSeparatedList(current)
+    .filter((value) => value.toLowerCase() !== target)
+    .join(", ");
+}
+
+function buildUniqueOptionList(
+  suggestions: { name: string }[] | undefined,
+  selected: string[],
+): string[] {
+  return [
+    ...new Set([...(suggestions ?? []).map((item) => item.name), ...selected]),
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function getInitialCreatorName(user: AuthUser | null): string {
+  return user?.name?.trim() || user?.email?.split("@")[0] || "";
+}
+
+function getInitialCreatorImagePreviewUrl(
+  mode: "create" | "update",
+  initialProfile?: CreatorProfileItemApi | null,
+): string | null {
+  if (mode !== "update") return null;
+
+  const url = initialProfile?.profileImageUrl?.trim();
+  if (!url) return null;
+
+  return url.startsWith("http://") || url.startsWith("https://") ? url : null;
+}
+
+function createInitialPackageDrafts(
+  mode: "create" | "update",
+  initialProfile?: CreatorProfileItemApi | null,
+): PackageDraft[] {
+  if (mode !== "update" || !initialProfile || initialProfile.packages.length === 0) {
+    return [createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" })];
+  }
+
+  return initialProfile.packages.map((p) => ({
+    id: p.id,
+    name: p.name,
+    priceAmount: p.priceAmount,
+    deliveryDays: String(p.deliveryDays),
+    deliverables: p.deliverables.join("\n"),
+    maxRevisions: String(p.maxRevisions ?? 2),
+  }));
+}
+
+function createInitialAddOnDrafts(
+  mode: "create" | "update",
+  initialProfile?: CreatorProfileItemApi | null,
+): AddOnDraft[] {
+  if (mode !== "update" || !initialProfile || (initialProfile.addOns ?? []).length === 0) {
+    return [];
+  }
+
+  return (initialProfile.addOns ?? []).map((addOn) =>
+    createAddOnDraft(addOn.id, {
+      name: addOn.name,
+      priceAmount: addOn.priceAmount,
+      description: addOn.description?.trim() ?? "",
+      existingName: addOn.name,
+    }),
+  );
 }
 
 export type CreatorProfileSetupFormProps = {
@@ -86,6 +166,7 @@ export type CreatorProfileSetupFormProps = {
   profileId?: string;
   initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void;
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export function CreatorProfileSetupForm({
@@ -94,49 +175,139 @@ export function CreatorProfileSetupForm({
   profileId,
   initialProfile,
   onSuccess,
+  onPendingChange,
 }: CreatorProfileSetupFormProps) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const formKey =
+    mode === "update"
+      ? `update:${initialProfile?.id ?? profileId ?? "profile"}`
+      : `create:${user?.id ?? "anonymous"}`;
 
-  const personaTagSuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.personaTags,
-    queryFn: fetchCreatorPersonaTagSuggestions,
+  return (
+    <CreatorProfileSetupFormContent
+      key={formKey}
+      variant={variant}
+      mode={mode}
+      profileId={profileId}
+      initialProfile={initialProfile}
+      onSuccess={onSuccess}
+      onPendingChange={onPendingChange}
+      user={user}
+    />
+  );
+}
+
+type CreatorProfileSetupFormContentProps = CreatorProfileSetupFormProps & {
+  user: AuthUser | null;
+};
+
+function CreatorProfileSetupFormContent({
+  variant,
+  mode,
+  profileId,
+  initialProfile,
+  onSuccess,
+  onPendingChange,
+  user,
+}: CreatorProfileSetupFormContentProps) {
+  const uploadCreatorProfileImageMutation = useUploadCreatorProfileImageMutation();
+  const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
+    mode,
+    profileId,
+    onSuccess,
+  });
+
+  const personaTagSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   });
 
-  const restrictionSuggestionsQuery = useQuery({
-    queryKey: creatorSuggestionListsQueryKeys.restrictions,
-    queryFn: fetchCreatorRestrictionSuggestions,
+  const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   });
-  const [pending, setPending] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [city, setCity] = useState("");
-  const [bio, setBio] = useState("");
-  const [gender, setGender] = useState("");
-  const [travelRadius, setTravelRadius] = useState("");
-  const [languages, setLanguages] = useState("");
+  const pending = submitCreatorProfileMutation.isPending;
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [onPendingChange, pending]);
+  const [displayName, setDisplayName] = useState(() =>
+    mode === "update" ? initialProfile?.displayName ?? "" : getInitialCreatorName(user),
+  );
+  const [city, setCity] = useState(() => initialProfile?.city?.trim() ?? "");
+  const [bio, setBio] = useState(() => initialProfile?.bio?.trim() ?? "");
+  const [gender, setGender] = useState(() => initialProfile?.gender?.trim() ?? "");
+  const [travelRadius, setTravelRadius] = useState(() =>
+    initialProfile?.travelRadius != null ? String(initialProfile.travelRadius) : "",
+  );
+  const [languages, setLanguages] = useState(() =>
+    initialProfile?.languages.map((l) => l.language).join(", ") ?? "",
+  );
 
-  const [categoriesInput, setCategoriesInput] = useState("");
-  const [personaTagsInput, setPersonaTagsInput] = useState("");
-  const [restrictionsInput, setRestrictionsInput] = useState("");
-  const [onLocationAvailable, setOnLocationAvailable] = useState(false);
-  const [onLocationFee, setOnLocationFee] = useState("");
+  const [categoriesInput, setCategoriesInput] = useState(() =>
+    initialProfile?.categories.map((c) => c.category).join(", ") ?? "",
+  );
+  const [personaTagsInput, setPersonaTagsInput] = useState(() =>
+    (initialProfile?.personaTags ?? []).map((t) => t.tag).join(", "),
+  );
+  const [restrictionsInput, setRestrictionsInput] = useState(() =>
+    (initialProfile?.restrictions ?? []).map((r) => r.restriction).join(", "),
+  );
+  const [personaTagDraft, setPersonaTagDraft] = useState("");
+  const [restrictionDraft, setRestrictionDraft] = useState("");
+  const selectedPersonaTags = useMemo(
+    () => splitCommaSeparatedList(personaTagsInput),
+    [personaTagsInput],
+  );
+  const selectedRestrictions = useMemo(
+    () => splitCommaSeparatedList(restrictionsInput),
+    [restrictionsInput],
+  );
+  const [onLocationAvailable, setOnLocationAvailable] = useState(
+    () => initialProfile?.onLocationAvailable ?? false,
+  );
 
-  const nextPackageIdRef = useRef(1);
-  const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() => [
-    createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
-  ]);
+  const nextPackageIdRef = useRef(
+    mode === "update" && initialProfile && initialProfile.packages.length > 0
+      ? initialProfile.packages.length
+      : 1,
+  );
+  const [packageDrafts, setPackageDrafts] = useState<PackageDraft[]>(() =>
+    createInitialPackageDrafts(mode, initialProfile),
+  );
+  const nextAddOnIdRef = useRef(
+    mode === "update" && initialProfile && (initialProfile.addOns ?? []).length > 0
+      ? (initialProfile.addOns ?? []).length
+      : 1,
+  );
+  const [addOnDrafts, setAddOnDrafts] = useState<AddOnDraft[]>(() =>
+    createInitialAddOnDrafts(mode, initialProfile),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(() =>
+    getInitialCreatorImagePreviewUrl(mode, initialProfile),
+  );
 
   const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
     string | null
   >(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const uploadingImage = uploadCreatorProfileImageMutation.isPending;
+
+  const personaTagOptions = useMemo(
+    () =>
+      buildUniqueOptionList(
+        personaTagSuggestionsQuery.data,
+        selectedPersonaTags,
+      ),
+    [personaTagSuggestionsQuery.data, selectedPersonaTags],
+  );
+  const restrictionOptions = useMemo(
+    () =>
+      buildUniqueOptionList(
+        restrictionSuggestionsQuery.data,
+        selectedRestrictions,
+      ),
+    [restrictionSuggestionsQuery.data, selectedRestrictions],
+  );
 
   const updatePackageDraft = useCallback(
     (id: string, patch: Partial<Omit<PackageDraft, "id">>) => {
@@ -163,73 +334,26 @@ export function CreatorProfileSetupForm({
     setPackageDrafts((rows) => rows.filter((row) => row.id !== id));
   }, []);
 
-  useEffect(() => {
-    if (mode === "update" && initialProfile) {
-      const url = initialProfile.profileImageUrl?.trim();
-      setImagePreviewUrl(
-        url && (url.startsWith("http://") || url.startsWith("https://"))
-          ? url
-          : null,
+  const updateAddOnDraft = useCallback(
+    (id: string, patch: Partial<Omit<AddOnDraft, "id">>) => {
+      setAddOnDrafts((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
       );
-      setPendingProfileImageKey(null);
-      setDisplayName(initialProfile.displayName);
-      setCity(initialProfile.city?.trim() ?? "");
-      setBio(initialProfile.bio?.trim() ?? "");
-      setGender(initialProfile.gender?.trim() ?? "");
-      setTravelRadius(
-        initialProfile.travelRadius != null
-          ? String(initialProfile.travelRadius)
-          : "",
-      );
-      setLanguages(initialProfile.languages.map((l) => l.language).join(", "));
-      setCategoriesInput(
-        initialProfile.categories.map((c) => c.category).join(", "),
-      );
-      setPersonaTagsInput(
-        (initialProfile.personaTags ?? []).map((t) => t.tag).join(", "),
-      );
-      setRestrictionsInput(
-        (initialProfile.restrictions ?? [])
-          .map((r) => r.restriction)
-          .join(", "),
-      );
-      setOnLocationAvailable(initialProfile.onLocationAvailable ?? false);
-      setOnLocationFee(
-        initialProfile.onLocationFee != null &&
-          String(initialProfile.onLocationFee).trim() !== ""
-          ? String(initialProfile.onLocationFee)
-          : "",
-      );
-      if (initialProfile.packages.length > 0) {
-        nextPackageIdRef.current = initialProfile.packages.length;
-        setPackageDrafts(
-          initialProfile.packages.map((p) => ({
-            id: p.id,
-            name: p.name,
-            priceAmount: p.priceAmount,
-            deliveryDays: String(p.deliveryDays),
-            deliverables: p.deliverables.join("\n"),
-          })),
-        );
-      } else {
-        setPackageDrafts([
-          createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
-        ]);
-        nextPackageIdRef.current = 1;
-      }
-      return;
-    }
-    if (!user) return;
-    setImagePreviewUrl(null);
-    setPendingProfileImageKey(null);
-    setCategoriesInput("");
-    setPersonaTagsInput("");
-    setRestrictionsInput("");
-    setOnLocationAvailable(false);
-    setOnLocationFee("");
-    const name = user.name?.trim() || user.email.split("@")[0] || "";
-    setDisplayName(name);
-  }, [user, mode, initialProfile]);
+    },
+    [],
+  );
+
+  const addAddOnDraft = useCallback(() => {
+    setAddOnDrafts((rows) => {
+      if (rows.length >= MAX_ADD_ONS_IN_CREATOR_SETUP_FORM) return rows;
+      const id = `addon-${nextAddOnIdRef.current++}`;
+      return [...rows, createAddOnDraft(id)];
+    });
+  }, []);
+
+  const removeAddOnDraft = useCallback((id: string) => {
+    setAddOnDrafts((rows) => rows.filter((row) => row.id !== id));
+  }, []);
 
   const displayInitials = useCallback(() => {
     const base =
@@ -240,16 +364,10 @@ export function CreatorProfileSetupForm({
     return getInitials(base);
   }, [displayName, user]);
 
-  const ensureCreatorWorkspace = useCallback(
-    () => ensureWorkspaceSelection(queryClient, user, "CREATOR"),
-    [queryClient, user],
-  );
-
   const handleProfileImageSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
-      const ok = await ensureCreatorWorkspace();
-      if (!ok) return;
+
       if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
         toast.error("Use JPEG, PNG, WebP, or GIF.");
         return;
@@ -258,24 +376,22 @@ export function CreatorProfileSetupForm({
         toast.error("Image must be 8 MB or smaller.");
         return;
       }
-      setUploadingImage(true);
-      try {
-        const presign = await presignCreatorProfileImageUpload({
-          contentType: file.type,
-          contentLength: file.size,
-        });
-        await putFileToPresignedUrl(file, presign);
-        setPendingProfileImageKey(presign.key);
-        setImagePreviewUrl(presign.cdnUrl);
-        toast.success("Photo uploaded — save your profile to apply.");
-      } catch {
-        toast.error("Could not upload image. Try again.");
-      } finally {
-        setUploadingImage(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
+
+      uploadCreatorProfileImageMutation.mutate(file, {
+        onSuccess: (result) => {
+          if (!result) {
+            return;
+          }
+
+          setPendingProfileImageKey(result.key);
+          setImagePreviewUrl(result.cdnUrl);
+        },
+        onSettled: () => {
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        },
+      });
     },
-    [ensureCreatorWorkspace],
+    [uploadCreatorProfileImageMutation],
   );
 
   const clearProfileImage = useCallback(() => {
@@ -289,6 +405,30 @@ export function CreatorProfileSetupForm({
       setImagePreviewUrl(null);
     }
   }, [mode, initialProfile]);
+
+  const addPersonaTag = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setPersonaTagsInput((prev) =>
+      appendUniqueCommaSeparatedItem(prev, trimmed),
+    );
+  }, []);
+
+  const removePersonaTag = useCallback((value: string) => {
+    setPersonaTagsInput((prev) => removeCommaSeparatedItem(prev, value));
+  }, []);
+
+  const addRestriction = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setRestrictionsInput((prev) =>
+      appendUniqueCommaSeparatedItem(prev, trimmed),
+    );
+  }, []);
+
+  const removeRestriction = useCallback((value: string) => {
+    setRestrictionsInput((prev) => removeCommaSeparatedItem(prev, value));
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -321,15 +461,18 @@ export function CreatorProfileSetupForm({
         const price = row.priceAmount.trim();
         const dels = splitMultilineList(row.deliverables);
         const rowDays = Number.parseInt(row.deliveryDays, 10);
+        const rowRevisions = Number.parseInt(row.maxRevisions, 10);
         const hasDeliveryInput = row.deliveryDays.trim() !== "";
+        const hasRevisionsInput = row.maxRevisions.trim() !== "";
         const touched =
-          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput;
+          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput || hasRevisionsInput;
         const daysOk = !Number.isNaN(rowDays) && rowDays >= 0;
-        const isComplete = !!pkgName && !!price && daysOk;
+        const revisionsOk = !Number.isNaN(rowRevisions) && rowRevisions >= 0;
+        const isComplete = !!pkgName && !!price && daysOk && revisionsOk;
 
         if (touched && !isComplete) {
           toast.error(
-            "Complete each package (name, price, delivery days) or clear unused rows.",
+            "Complete each package (name, price, delivery days, revisions) or clear unused rows.",
           );
           return;
         }
@@ -340,12 +483,47 @@ export function CreatorProfileSetupForm({
             deliverables: dels.length ? dels : ["Deliverables to be confirmed"],
             priceAmount: price,
             deliveryDays: rowDays,
+            maxRevisions: rowRevisions,
           });
         }
       }
 
       const packages: CreateCreatorProfilePayload["packages"] =
         builtPackages.length > 0 ? builtPackages : undefined;
+      const builtAddOns: NonNullable<CreateCreatorProfilePayload["addOns"]> = [];
+      const seenAddOnNames = new Set<string>();
+
+      for (const row of addOnDrafts) {
+        const addOnName = row.name.trim();
+        const price = row.priceAmount.trim();
+        const description = row.description.trim();
+        const touched = !!addOnName || !!price || !!description;
+
+        if (touched && (!addOnName || !price)) {
+          toast.error(
+            "Complete each add-on (name and price) or clear unused rows.",
+          );
+          return;
+        }
+
+        if (!touched) continue;
+
+        const normalizedName = addOnName.toLowerCase();
+        if (seenAddOnNames.has(normalizedName)) {
+          toast.error("Each add-on name must be unique.");
+          return;
+        }
+        seenAddOnNames.add(normalizedName);
+
+        builtAddOns.push({
+          name: addOnName,
+          priceAmount: price,
+          ...(description ? { description } : {}),
+        });
+      }
+
+      const addOns: CreateCreatorProfilePayload["addOns"] =
+        builtAddOns.length > 0 ? builtAddOns : undefined;
 
       const createPayload: CreateCreatorProfilePayload = {
         displayName: name,
@@ -364,85 +542,37 @@ export function CreatorProfileSetupForm({
         personaTags: personas.length ? personas : undefined,
         restrictions: rests.length ? rests : undefined,
         onLocationAvailable,
-        ...(onLocationAvailable && onLocationFee.trim()
-          ? { onLocationFee: onLocationFee.trim() }
-          : {}),
         packages,
+        addOns,
       };
 
-      setPending(true);
-      try {
-        if (mode === "update") {
-          if (!profileId) {
-            toast.error("Missing profile id");
-            return;
-          }
-          const patchPayload: UpdateCreatorProfilePayload = {
-            displayName: name,
-            ...(pendingProfileImageKey
-              ? { profileImageKey: pendingProfileImageKey }
-              : {}),
-            city: city.trim() || undefined,
-            bio: bio.trim() || undefined,
-            gender: gender.trim() || undefined,
-            travelRadius:
-              radius !== undefined && !Number.isNaN(radius) && radius >= 0
-                ? radius
-                : undefined,
-            onLocationAvailable,
-            ...(onLocationAvailable && onLocationFee.trim()
-              ? { onLocationFee: onLocationFee.trim() }
-              : {}),
-            languages: langs,
-            categories: cats,
-            personaTags: personas,
-            restrictions: rests,
-            packages: builtPackages,
-          };
-          await updateCreatorProfile(profileId, patchPayload);
-          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-          await queryClient.invalidateQueries({
-            queryKey: creatorProfileMeQueryKey,
-          });
-          toast.success("Profile updated");
-          onSuccess();
-          return;
-        }
+      if (mode === "update") {
+        const patchPayload: UpdateCreatorProfilePayload = {
+          displayName: name,
+          ...(pendingProfileImageKey
+            ? { profileImageKey: pendingProfileImageKey }
+            : {}),
+          city: city.trim() || undefined,
+          bio: bio.trim() || undefined,
+          gender: gender.trim() || undefined,
+          travelRadius:
+            radius !== undefined && !Number.isNaN(radius) && radius >= 0
+              ? radius
+              : undefined,
+          onLocationAvailable,
+          languages: langs,
+          categories: cats,
+          personaTags: personas,
+          restrictions: rests,
+          packages: builtPackages,
+          addOns: builtAddOns,
+        };
 
-        const ok = await ensureCreatorWorkspace();
-        if (!ok) return;
-        await createCreatorProfile(createPayload);
-        await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-        toast.success("Creator profile created");
-        onSuccess();
-        router.replace("/creator/account");
-      } catch (err) {
-        if (
-          mode === "create" &&
-          isAxiosError(err) &&
-          err.response?.status === 409
-        ) {
-          toast.message("Profile already exists", {
-            description: "Continuing to your dashboard.",
-          });
-          const ok = await ensureCreatorWorkspace();
-          if (!ok) return;
-          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-          onSuccess();
-          router.replace("/creator/account");
-          return;
-        }
-        toast.error(
-          mode === "update"
-            ? "Could not update profile"
-            : "Could not create profile",
-          {
-            description: "Check your connection and try again.",
-          },
-        );
-      } finally {
-        setPending(false);
+        submitCreatorProfileMutation.mutate({ payload: patchPayload });
+        return;
       }
+
+      submitCreatorProfileMutation.mutate({ payload: createPayload });
     },
     [
       mode,
@@ -457,13 +587,10 @@ export function CreatorProfileSetupForm({
       personaTagsInput,
       restrictionsInput,
       onLocationAvailable,
-      onLocationFee,
       packageDrafts,
-      onSuccess,
-      queryClient,
+      addOnDrafts,
       pendingProfileImageKey,
-      ensureCreatorWorkspace,
-      router,
+      submitCreatorProfileMutation,
     ],
   );
 
@@ -533,7 +660,7 @@ export function CreatorProfileSetupForm({
           <Progress
             value={completionSummary.percent}
             aria-label="Creator profile completion"
-            className="mt-3 h-2"
+            className="mt-3 h-1"
           />
         </div>
       </div>
@@ -556,6 +683,7 @@ export function CreatorProfileSetupForm({
           <Input
             id="displayName"
             className={inputClass}
+            disabled={pending}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
@@ -566,17 +694,19 @@ export function CreatorProfileSetupForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              className={inputClass}
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Bengaluru"
+          <Input
+            id="city"
+            className={inputClass}
+            disabled={pending}
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="e.g. Bengaluru"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
             <Select
+              disabled={pending}
               value={gender === "" ? GENDER_VALUE_UNSPECIFIED : gender}
               onValueChange={(v) =>
                 setGender(v === GENDER_VALUE_UNSPECIFIED ? "" : v)
@@ -600,26 +730,14 @@ export function CreatorProfileSetupForm({
 
         <div className="space-y-2">
           <Label htmlFor="bio">Bio</Label>
-          <textarea
+          <Textarea
             id="bio"
+            disabled={pending}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={3}
             placeholder="What do you create? Who do you love working with?"
-            className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-3 dark:bg-input/30"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="travelRadius">Travel radius (km)</Label>
-          <Input
-            id="travelRadius"
-            type="number"
-            min={0}
-            className={inputClass}
-            value={travelRadius}
-            onChange={(e) => setTravelRadius(e.target.value)}
-            placeholder="0 if none"
+            className="resize-y"
           />
         </div>
 
@@ -628,6 +746,7 @@ export function CreatorProfileSetupForm({
           <Input
             id="languages"
             className={inputClass}
+            disabled={pending}
             value={languages}
             onChange={(e) => setLanguages(e.target.value)}
             placeholder="Comma-separated, e.g. English, Hindi"
@@ -639,6 +758,7 @@ export function CreatorProfileSetupForm({
           <Input
             id="categories"
             className={inputClass}
+            disabled={pending}
             value={categoriesInput}
             onChange={(e) => setCategoriesInput(e.target.value)}
             placeholder="Comma-separated, e.g. UGC Video, Voice Over"
@@ -647,94 +767,101 @@ export function CreatorProfileSetupForm({
 
         <div className="space-y-2">
           <Label htmlFor="personaTags">Persona tags</Label>
-          <Input
-            id="personaTags"
-            className={inputClass}
-            value={personaTagsInput}
-            onChange={(e) => setPersonaTagsInput(e.target.value)}
-            placeholder="Comma-separated, e.g. Friendly, Clean aesthetic"
+          <MultiValueAddField
+            selectId="personaTags"
+            disabled={pending}
+            inputPlaceholder="Type to search or add a persona tag"
+            selectValue={personaTagDraft}
+            options={personaTagOptions}
+            helperText="Pick from suggestions or add a custom persona tag."
+            emptyState="No persona tags added yet."
+            selectedValues={selectedPersonaTags}
+            onSelectValueChange={setPersonaTagDraft}
+            onSelectOption={(value) => {
+              addPersonaTag(value);
+              setPersonaTagDraft("");
+            }}
+            onRemoveValue={removePersonaTag}
           />
-          {personaTagSuggestionsQuery.isSuccess &&
-          personaTagSuggestionsQuery.data.length > 0 ? (
-            <SuggestionChips
-              items={personaTagSuggestionsQuery.data.map((suggestion) => ({
-                key: suggestion.id,
-                label: suggestion.name,
-                ariaLabel: `Add ${suggestion.name} to persona tags`,
-              }))}
-              onSelect={(name) =>
-                setPersonaTagsInput((prev) =>
-                  appendUniqueCommaSeparatedItem(prev, name),
-                )
-              }
-            />
-          ) : null}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="restrictions">Content restrictions</Label>
-          <Input
-            id="restrictions"
-            className={inputClass}
-            value={restrictionsInput}
-            onChange={(e) => setRestrictionsInput(e.target.value)}
-            placeholder="Comma-separated, e.g. does not accept alcohol"
+          <MultiValueAddField
+            selectId="restrictions"
+            disabled={pending}
+            inputPlaceholder="Type to search or add a restriction"
+            selectValue={restrictionDraft}
+            options={restrictionOptions}
+            helperText="Pick from suggestions or add a custom content restriction."
+            emptyState="No content restrictions added yet."
+            selectedValues={selectedRestrictions}
+            onSelectValueChange={setRestrictionDraft}
+            onSelectOption={(value) => {
+              addRestriction(value);
+              setRestrictionDraft("");
+            }}
+            onRemoveValue={removeRestriction}
           />
-          {restrictionSuggestionsQuery.isSuccess &&
-          restrictionSuggestionsQuery.data.length > 0 ? (
-            <SuggestionChips
-              items={restrictionSuggestionsQuery.data.map((suggestion) => ({
-                key: suggestion.id,
-                label: suggestion.name,
-                ariaLabel: `Add ${suggestion.name} to content restrictions`,
-              }))}
-              onSelect={(name) =>
-                setRestrictionsInput((prev) =>
-                  appendUniqueCommaSeparatedItem(prev, name),
-                )
-              }
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="onLocation" className="text-sm font-medium">
+                On-location / store shoots
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable if you offer on-location or in-store shoots.
+              </p>
+            </div>
+            <Switch
+              id="onLocation"
+              disabled={pending}
+              checked={onLocationAvailable}
+              onCheckedChange={setOnLocationAvailable}
             />
+          </div>
+
+          {onLocationAvailable ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="travelRadius">Travel radius (km)</Label>
+                <Input
+                  id="travelRadius"
+                  type="number"
+                  min={0}
+                  className={inputClass}
+                  disabled={pending}
+                  value={travelRadius}
+                  onChange={(e) => setTravelRadius(e.target.value)}
+                  placeholder="0 if none"
+                />
+              </div>
+            </div>
           ) : null}
         </div>
-
-        <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <Label htmlFor="onLocation" className="text-sm font-medium">
-              On-location / store shoots
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Enable if you offer on-location or in-store shoots. Optional fee
-              below.
-            </p>
-          </div>
-          <Switch
-            id="onLocation"
-            checked={onLocationAvailable}
-            onCheckedChange={setOnLocationAvailable}
-          />
-        </div>
-
-        {onLocationAvailable ? (
-          <div className="space-y-2">
-            <Label htmlFor="onLocationFee">On-location fee</Label>
-            <Input
-              id="onLocationFee"
-              className={inputClass}
-              value={onLocationFee}
-              onChange={(e) => setOnLocationFee(e.target.value)}
-              placeholder="499.00"
-              inputMode="decimal"
-            />
-          </div>
-        ) : null}
 
         <CreatorProfilePackageFields
           rows={packageDrafts}
           inputClassName={inputClass}
           maxPackages={MAX_PACKAGES_IN_CREATOR_SETUP_FORM}
+          disabled={pending}
+          layout={mode === "update" ? "grid" : "stack"}
           onAdd={addPackageDraft}
           onRemove={removePackageDraft}
           onChange={updatePackageDraft}
+        />
+
+        <CreatorProfileAddOnFields
+          rows={addOnDrafts}
+          inputClassName={inputClass}
+          maxAddOns={MAX_ADD_ONS_IN_CREATOR_SETUP_FORM}
+          disabled={pending}
+          layout={mode === "update" ? "grid" : "stack"}
+          onAdd={addAddOnDraft}
+          onRemove={removeAddOnDraft}
+          onChange={updateAddOnDraft}
         />
       </div>
 
@@ -752,5 +879,209 @@ export function CreatorProfileSetupForm({
             : "Create profile"}
       </Button>
     </form>
+  );
+}
+
+function MultiValueAddField({
+  selectId,
+  disabled = false,
+  inputPlaceholder,
+  selectValue,
+  options,
+  helperText,
+  emptyState,
+  selectedValues,
+  onSelectValueChange,
+  onSelectOption,
+  onRemoveValue,
+}: {
+  selectId: string;
+  disabled?: boolean;
+  inputPlaceholder: string;
+  selectValue: string;
+  options: string[];
+  helperText: string;
+  emptyState: string;
+  selectedValues: string[];
+  onSelectValueChange: (value: string) => void;
+  onSelectOption: (value: string) => void;
+  onRemoveValue: (value: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocusedWithin, setIsFocusedWithin] = useState(false);
+  const normalizedDraft = selectValue.trim();
+  const filteredOptions = useMemo(() => {
+    const query = normalizedDraft.toLowerCase();
+    if (!query) return options;
+    return options.filter((option) => option.toLowerCase().includes(query));
+  }, [normalizedDraft, options]);
+  const normalizedSelectedValues = useMemo(
+    () => new Set(selectedValues.map((value) => value.trim().toLowerCase())),
+    [selectedValues],
+  );
+
+  const showAddOption =
+    !disabled &&
+    normalizedDraft.length > 0 &&
+    !options.some(
+      (option) => option.toLowerCase() === normalizedDraft.toLowerCase(),
+    );
+  const open = !disabled && (isHovered || isFocusedWithin);
+
+  const clearCloseTimeout = useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleHoverClose = useCallback(() => {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+      closeTimeoutRef.current = null;
+    }, 140);
+  }, [clearCloseTimeout]);
+
+  useEffect(() => {
+    return () => clearCloseTimeout();
+  }, [clearCloseTimeout]);
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border/70 bg-muted/15 p-3">
+      <p className="text-xs text-muted-foreground">{helperText}</p>
+
+      <div
+        ref={containerRef}
+        className="relative"
+        onMouseEnter={() => {
+          if (disabled) return;
+          clearCloseTimeout();
+          setIsHovered(true);
+        }}
+        onMouseLeave={() => {
+          if (disabled) return;
+          scheduleHoverClose();
+        }}
+        onFocusCapture={() => {
+          if (disabled) return;
+          setIsFocusedWithin(true);
+        }}
+        onBlurCapture={(e) => {
+          if (disabled) return;
+          const nextFocused = e.relatedTarget;
+          if (
+            nextFocused instanceof Node &&
+            containerRef.current?.contains(nextFocused)
+          ) {
+            return;
+          }
+          setIsFocusedWithin(false);
+        }}
+      >
+        <Input
+          id={selectId}
+          disabled={disabled}
+          value={selectValue}
+          onChange={(e) => {
+            onSelectValueChange(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && showAddOption) {
+              e.preventDefault();
+              onSelectOption(normalizedDraft);
+              return;
+            }
+            if (e.key === "Escape") {
+              setIsFocusedWithin(false);
+              setIsHovered(false);
+              (
+                e.currentTarget as HTMLInputElement | HTMLTextAreaElement
+              ).blur();
+            }
+          }}
+          placeholder={inputPlaceholder}
+          className="h-9 text-sm"
+        />
+        {open ? (
+          <div
+            className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-xl border border-border bg-popover p-3 shadow-lg"
+            onMouseEnter={() => {
+              clearCloseTimeout();
+              setIsHovered(true);
+            }}
+            onMouseLeave={scheduleHoverClose}
+          >
+            <div className="flex flex-wrap gap-2">
+              {showAddOption ? (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onSelectOption(normalizedDraft);
+                  }}
+                  className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
+                >
+                  Add &quot;{normalizedDraft}&quot;
+                </button>
+              ) : null}
+              {filteredOptions.map((option) => {
+                const isSelected = normalizedSelectedValues.has(
+                  option.trim().toLowerCase(),
+                );
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      if (isSelected) {
+                        onRemoveValue(option);
+                        return;
+                      }
+                      onSelectOption(option);
+                    }}
+                    aria-pressed={isSelected}
+                    className={
+                      isSelected
+                        ? "inline-flex items-center rounded-full border border-primary/35 bg-primary/12 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
+                        : "inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/25 hover:bg-accent/70"
+                    }
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+            {!showAddOption && filteredOptions.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                No matching options.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {selectedValues.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {selectedValues.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onRemoveValue(value)}
+              aria-label={`Remove ${value}`}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/12"
+            >
+              <span>{value}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">{emptyState}</p>
+      )}
+    </div>
   );
 }

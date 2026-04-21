@@ -30,4 +30,3 @@ export class CreateBrandProfileDto {
   @IsString()
   contactPerson?: string;
 }
-

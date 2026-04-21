@@ -70,12 +70,17 @@ export function DashboardOnboardingGate({
         !isLoading &&
         !!user &&
         (!hasWorkspaceRole(user, "CREATOR") || !user.hasCreatorProfile);
+      const canUseBrandWorkspace =
+        !!user &&
+        hasWorkspaceRole(user, "BRAND") &&
+        !user.brandAccessRevoked;
       const brand =
         role === "brand" &&
         !isLoading &&
         !!user &&
-        (!hasWorkspaceRole(user, "BRAND") ||
-          (!user.hasBrandProfile && !brandOverlayDismissed));
+        canUseBrandWorkspace &&
+        !user.hasBrandProfile &&
+        !brandOverlayDismissed;
       return {
         showCreatorBlockingOnboarding: creator,
         showBrandBlockingOnboarding: brand,
@@ -125,7 +130,7 @@ export function DashboardOnboardingGate({
   if (showBlockingOnboarding) {
     return (
       <GlobalOnboardingPage
-        role={role}
+        role={role as "creator" | "brand"}
         onClose={replaceUrlWithoutOnboardingParam}
         onBrandDismiss={handleBrandDismiss}
         onCreatorBack={creatorBackRole ? handleCreatorBack : undefined}

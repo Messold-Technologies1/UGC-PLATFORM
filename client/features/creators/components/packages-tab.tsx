@@ -1,6 +1,5 @@
 import { memo } from "react";
-import { Check, Zap, Crown, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 import type { Package, AddOn } from "../types";
 
 interface PackagesTabProps {
@@ -12,24 +11,6 @@ interface PackagesTabProps {
   onToggleAddOn: (id: string) => void;
 }
 
-const TIER_CONFIG = {
-  basic: {
-    icon: Zap,
-    ring: "ring-foreground/10",
-    badge: "bg-foreground/10 text-foreground",
-  },
-  standard: {
-    icon: Star,
-    ring: "ring-foreground/15",
-    badge: "bg-foreground/10 text-foreground",
-  },
-  premium: {
-    icon: Crown,
-    ring: "ring-foreground/20",
-    badge: "bg-foreground text-background",
-  },
-} as const;
-
 export const PackagesTab = memo(function PackagesTab({
   packages,
   addOns,
@@ -40,10 +21,8 @@ export const PackagesTab = memo(function PackagesTab({
 }: PackagesTabProps) {
   return (
     <div className="space-y-8">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-3">
         {packages.map((pkg) => {
-          const config = TIER_CONFIG[pkg.tier];
-          const Icon = config.icon;
           const isSelected = selectedPackageId === pkg.id;
           const isPopular = pkg.tier === "standard";
 
@@ -53,59 +32,65 @@ export const PackagesTab = memo(function PackagesTab({
               role="button"
               tabIndex={0}
               aria-pressed={isSelected}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectPackage(pkg.id); } }}
-              className={`relative flex flex-col rounded-2xl border-2 bg-card p-5 transition-all cursor-pointer ${
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectPackage(pkg.id);
+                }
+              }}
+              className={`relative flex flex-col justify-between h-[480px] rounded-3xl bg-card p-8 transition-all duration-300 cursor-pointer ${
                 isSelected
-                  ? `border-foreground shadow-lg ${config.ring} ring-4`
-                  : "border-border hover:border-foreground/20 hover:shadow-md"
+                  ? "border-2 border-primary scale-105 z-10 shadow-xl shadow-primary/20"
+                  : "border border-border hover:border-primary/30 group"
               }`}
               onClick={() => onSelectPackage(pkg.id)}
             >
               {isPopular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3 py-0.5 text-xs font-semibold text-background">
-                  Most Popular
-                </span>
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-linear-to-r from-primary to-primary/80 px-4 py-1 rounded-full z-20">
+                  <span className="text-[10px] font-black text-primary-foreground uppercase tracking-[0.2em] whitespace-nowrap">
+                    Most Popular
+                  </span>
+                </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <div className={`flex size-8 items-center justify-center rounded-lg ${config.badge}`}>
-                  <Icon className="size-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wide">{pkg.label}</h3>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <span className="text-3xl font-bold">
+              <div className="space-y-4">
+                <h3 className="text-primary text-xs font-black uppercase tracking-[0.2em]">
+                  {pkg.label}
+                </h3>
+                <p className="text-4xl font-extrabold tracking-tighter">
                   ₹{pkg.price.toLocaleString("en-IN")}
-                </span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {pkg.deliveryDays}-day delivery · {pkg.revisions} revision
+                  {pkg.revisions > 1 ? "s" : ""}
+                </p>
               </div>
 
-              <p className="mt-1 text-xs text-muted-foreground">
-                {pkg.deliveryDays}-day delivery · {pkg.revisions} revision{pkg.revisions > 1 ? "s" : ""}
-              </p>
-
-              <ul className="mt-4 flex-1 space-y-2">
+              <ul className="mt-8 flex-1 space-y-4">
                 {pkg.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-xs">
-                    <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
-                    <span className="text-foreground">{feature}</span>
+                  <li
+                    key={feature}
+                    className="flex items-start gap-3 text-sm text-foreground/80"
+                  >
+                    <Check className="mt-0.5 size-5 shrink-0 text-primary" />
+                    <span>{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <Button
-                variant={isSelected ? "default" : "outline"}
-                className="mt-5 w-full"
-                size="sm"
+              <button
+                className={`w-full mt-10 py-3 rounded-xl font-bold transition-all ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                    : "border border-primary/40 text-primary hover:bg-primary/5 group-hover:border-primary/60"
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectPackage(pkg.id);
                 }}
               >
                 {isSelected ? "Selected" : "Select"}
-              </Button>
+              </button>
             </div>
           );
         })}
@@ -123,10 +108,10 @@ export const PackagesTab = memo(function PackagesTab({
             return (
               <li key={addon.id}>
                 <label
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all ${
+                  className={`relative flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-all ${
                     isChecked
-                      ? "border-foreground bg-foreground/5"
-                      : "border-border hover:border-foreground/20"
+                      ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                      : "border-border hover:border-foreground/20 shadow-sm"
                   }`}
                 >
                   <input
@@ -137,9 +122,9 @@ export const PackagesTab = memo(function PackagesTab({
                     aria-label={`${addon.label} (+₹${addon.price.toLocaleString("en-IN")})`}
                   />
                   <span
-                    className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                    className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
                       isChecked
-                        ? "border-foreground bg-foreground text-background"
+                        ? "border-primary bg-primary text-primary-foreground"
                         : "border-border"
                     }`}
                     aria-hidden

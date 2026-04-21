@@ -42,4 +42,3 @@ export class PresignUploadResponseDto {
   @ApiProperty({ example: 'https://cdn.example.com/brand-logo/...png' })
   cdnUrl!: string;
 }
-

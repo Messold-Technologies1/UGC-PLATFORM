@@ -8,24 +8,29 @@ export type CreatorPackageCreatePayload = {
   deliverables: string[];
   priceAmount: string;
   deliveryDays: number;
+  maxRevisions: number;
+};
+
+export type CreatorAddOnCreatePayload = {
+  name: string;
+  priceAmount: string;
+  description?: string;
 };
 
 export type CreateCreatorProfilePayload = {
   displayName: string;
-  
   profileImageKey?: string;
   city?: string;
   bio?: string;
   gender?: string;
   travelRadius?: number;
   onLocationAvailable?: boolean;
-  
-  onLocationFee?: string;
   languages?: string[];
   categories?: string[];
   personaTags?: string[];
   restrictions?: string[];
   packages?: CreatorPackageCreatePayload[];
+  addOns?: CreatorAddOnCreatePayload[];
 };
 
 export async function createCreatorProfile(

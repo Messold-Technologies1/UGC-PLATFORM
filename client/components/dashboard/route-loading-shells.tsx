@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
 
 export function DashboardPageHeaderSkeleton() {
   return (
@@ -11,8 +12,11 @@ export function DashboardPageHeaderSkeleton() {
 
 export function CreatorsBrowserLoadingShell() {
   return (
-    <div className="space-y-10 pb-10">
-      <DashboardPageHeaderSkeleton />
+    <div className="space-y-10 pb-10" aria-busy="true" aria-label="Loading creators">
+      <header className="space-y-3">
+        <Skeleton className="h-12 w-full max-w-md md:h-14" />
+        <Skeleton className="h-5 w-full max-w-2xl md:h-6" />
+      </header>
       <div className="rounded-2xl border border-border bg-muted/40 p-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-3">
@@ -20,39 +24,12 @@ export function CreatorsBrowserLoadingShell() {
             <Skeleton className="hidden h-8 w-px md:block" />
             <Skeleton className="h-4 w-28" />
           </div>
-          <Skeleton className="h-10 w-full rounded-full md:max-w-md" />
+          <Skeleton className="h-10 w-full flex-1 rounded-full md:min-w-0" />
         </div>
       </div>
       <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (
-          <div
-            key={i}
-            className="overflow-hidden rounded-3xl border border-border bg-card"
-          >
-            <Skeleton className="aspect-4/3 w-full rounded-none" />
-            <div className="space-y-3 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Skeleton className="h-5 w-2/3" />
-                  <Skeleton className="h-3.5 w-1/2" />
-                </div>
-                <Skeleton className="h-8 w-20 rounded-lg" />
-              </div>
-              <Skeleton className="h-3.5 w-32" />
-              <div className="flex flex-wrap gap-2">
-                <Skeleton className="h-6 w-14 rounded-full" />
-                <Skeleton className="h-6 w-18 rounded-full" />
-                <Skeleton className="h-6 w-12 rounded-full" />
-              </div>
-              <div className="flex items-center justify-between border-t border-border pt-4">
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-6 w-24" />
-                </div>
-                <Skeleton className="h-9 w-24 rounded-xl" />
-              </div>
-            </div>
-          </div>
+          <CreatorCardSkeleton key={i} appearance="browse" />
         ))}
       </div>
     </div>
@@ -255,6 +232,121 @@ export function PortfolioUploadLoadingShell() {
           <div className="flex justify-end gap-3">
             <Skeleton className="h-10 w-24 rounded-lg" />
             <Skeleton className="h-10 w-32 rounded-lg" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CreatorProfileLoadingShell() {
+  return (
+    <div className="w-full min-w-0" aria-busy="true" aria-label="Loading creator profile">
+      <div className="flex flex-col gap-8 lg:flex-row">
+        <div className="min-w-0 flex-1 space-y-8">
+          {/* Profile Header Skeleton */}
+          <div className="rounded-3xl border-0 bg-card p-5 shadow-sm sm:p-6 lg:p-7">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch lg:gap-8">
+              <div className="relative flex w-full shrink-0 flex-col items-center sm:w-56 lg:w-64">
+                <Skeleton className="min-h-[240px] w-full rounded-2xl lg:min-h-[260px]" />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-6 lg:flex-row lg:items-center lg:gap-10">
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-10 w-48" />
+                  <Skeleton className="mt-4 h-4 w-32" />
+                  <div className="mt-6 flex flex-wrap items-center gap-6 sm:gap-10">
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-6 w-16" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-6 w-20" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-6 w-8" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-6 w-24" />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <Skeleton className="h-6 w-14 rounded-full" />
+                  </div>
+                </div>
+                <div className="hidden shrink-0 flex-col justify-center gap-5 border-l border-border/50 pl-8 lg:flex w-72 xl:w-80">
+                  <div>
+                    <Skeleton className="mb-2 h-3 w-16" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-4/6" />
+                    </div>
+                  </div>
+                  <div>
+                    <Skeleton className="mb-2 h-3 w-24" />
+                    <div className="flex flex-wrap gap-1.5">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-12 rounded-full" />
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Editor/Tabs Skeleton */}
+          <div>
+            <div className="flex gap-6 border-b border-border pb-2">
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+            <div className="mt-6">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-48 rounded-xl" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Skeleton */}
+        <div className="w-full shrink-0 lg:w-80">
+          <div className="sticky top-24 space-y-6">
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <Skeleton className="mb-4 h-5 w-32" />
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="mt-4 h-10 w-full" />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <Skeleton className="mb-6 h-4 w-24" />
+              <div className="space-y-6">
+                <div className="flex gap-3">
+                  <Skeleton className="size-8 shrink-0 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Skeleton className="size-8 shrink-0 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

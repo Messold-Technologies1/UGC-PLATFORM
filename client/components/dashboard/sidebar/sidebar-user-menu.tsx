@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
@@ -23,9 +23,14 @@ import {
 import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
+import {
+  canSetUpWorkspace,
+  workspaceAccountHref,
+  workspaceSetupHref,
+} from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
-import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 
 export function SidebarUserMenu({
   desktopCollapsed,
@@ -35,13 +40,17 @@ export function SidebarUserMenu({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, isLoggingOut, isLoading } = useAuth();
-  const { goWorkspace } = useWorkspaceNavigation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const hasMultipleRoles = user?.roles && user.roles.length > 1;
-  const activeWorkspace = user?.activeRole ?? user?.primaryRole ?? null;
+  const activeWorkspace = pathname.startsWith("/brand")
+    ? "BRAND"
+    : pathname.startsWith("/creator")
+      ? "CREATOR"
+      : user?.primaryRole ?? null;
   const hub = pathname.startsWith("/brand")
     ? "brand"
     : pathname.startsWith("/creator")
@@ -50,7 +59,9 @@ export function SidebarUserMenu({
         ? "brand"
         : "creator";
   const settingsHref = hub === "brand" ? "/brand/account" : "/creator/settings";
-  const accountHref = `/${hub}/account`;
+  const accountHref = workspaceAccountHref(
+    hub === "brand" ? "BRAND" : "CREATOR",
+  );
 
   const isAccountSectionActive =
     pathname === accountHref || pathname.startsWith(`${accountHref}/`);
@@ -67,6 +78,15 @@ export function SidebarUserMenu({
     setMobileOpen(false);
     onNavigate?.();
   }, [onNavigate]);
+
+  const navigateToSetup = useCallback(
+    (href: string) => {
+      closeMobile();
+      beginClientNavigation();
+      router.push(href);
+    },
+    [closeMobile, router],
+  );
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -104,6 +124,8 @@ export function SidebarUserMenu({
 
   const name = getDisplayNameFromUser(user);
   const label = `Account menu (${name})`;
+  const canTryAsBrand = canSetUpWorkspace(user, "BRAND");
+  const canTryAsCreator = canSetUpWorkspace(user, "CREATOR");
 
   const panelVisibleMobile = mobileOpen;
 
@@ -113,8 +135,8 @@ export function SidebarUserMenu({
         type="button"
         className={cn(
           "flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left outline-none transition-colors",
-          "hover:bg-sidebar-accent/80",
-          "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+          "hover:bg-linear-to-r hover:from-primary/10 hover:to-transparent",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           desktopCollapsed && "lg:justify-center lg:px-1",
         )}
         aria-label={label}
@@ -134,7 +156,7 @@ export function SidebarUserMenu({
           {getInitialsFromUser(user)}
         </span>
         <div className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}>
-          <p className="truncate text-sm font-medium text-sidebar-foreground">
+          <p className="truncate text-sm font-medium text-foreground">
             {name}
           </p>
         </div>
@@ -156,28 +178,43 @@ export function SidebarUserMenu({
         <div className="min-w-60 space-y-2">
           <ThemeAppearancePanel />
           <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
-          {!hasMultipleRoles && user?.roles?.includes("CREATOR") && (
+          {!hasMultipleRoles && canTryAsBrand && (
             <button
               type="button"
               role="menuitem"
-              className={cn(accountMenuItemClass, "w-full text-left")}
+              disabled={isLoggingOut}
+              className={cn(
+                accountMenuItemClass,
+                "w-full text-left",
+                isLoggingOut && "pointer-events-none opacity-70",
+              )}
               onClick={() => {
-                closeMobile();
-                void goWorkspace("BRAND");
+                navigateToSetup(
+                  workspaceSetupHref("BRAND", workspaceAccountHref("BRAND")),
+                );
               }}
             >
               <Building2 className="size-4 opacity-60" aria-hidden />
               Try As Brand
             </button>
           )}
-          {!hasMultipleRoles && user?.roles?.includes("BRAND") && (
+          {!hasMultipleRoles && canTryAsCreator && (
             <button
               type="button"
               role="menuitem"
-              className={cn(accountMenuItemClass, "w-full text-left")}
+              disabled={isLoggingOut}
+              className={cn(
+                accountMenuItemClass,
+                "w-full text-left",
+                isLoggingOut && "pointer-events-none opacity-70",
+              )}
               onClick={() => {
-                closeMobile();
-                void goWorkspace("CREATOR");
+                navigateToSetup(
+                  workspaceSetupHref(
+                    "CREATOR",
+                    workspaceAccountHref("CREATOR"),
+                  ),
+                );
               }}
             >
               <Video className="size-4 opacity-60" aria-hidden />

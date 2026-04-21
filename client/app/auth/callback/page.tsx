@@ -42,7 +42,7 @@ function AuthCallbackInner() {
       });
       const user = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
       const target = user
-        ? await resolveImmediatePostAuthPath(queryClient, user, callbackUrl)
+        ? resolveImmediatePostAuthPath(user, callbackUrl)
         : postAuthContinuePath(callbackUrl);
       beginClientNavigation();
       router.replace(target);

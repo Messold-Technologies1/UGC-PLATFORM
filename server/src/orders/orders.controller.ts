@@ -20,8 +20,9 @@ import {
   ApiNoContentResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
+import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { CheckoutResponseDto } from './dto/checkout-response.dto';
 import { OrdersService } from './orders.service';
@@ -31,6 +32,7 @@ import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
+import { ActiveWorkspaceGuard } from 'src/auth/guards/active-workspace.guard';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -41,7 +43,8 @@ export class OrdersController {
   @Get('brand')
   @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
   @ApiOperation({
-    summary: 'List orders for the authenticated brand (creator snapshot per row)',
+    summary:
+      'List orders for the authenticated brand (creator snapshot per row)',
   })
   @ApiOkResponse({ type: BrandOrdersListResponseDto })
   async listBrandOrders(
@@ -58,7 +61,8 @@ export class OrdersController {
   @Get('creator')
   @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @ApiOperation({
-    summary: 'List orders for the authenticated creator (brand snapshot per row)',
+    summary:
+      'List orders for the authenticated creator (brand snapshot per row)',
   })
   @ApiOkResponse({ type: CreatorOrdersListResponseDto })
   async listCreatorOrders(
@@ -90,7 +94,8 @@ export class OrdersController {
   }
 
   @Post('checkout')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create platform order + Razorpay order for checkout',
@@ -109,7 +114,8 @@ export class OrdersController {
   }
 
   @Post(':id/brief')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Submit campaign brief (starts delivery timeline)' })
   @ApiNoContentResponse({ description: 'Brief submitted' })
@@ -126,7 +132,8 @@ export class OrdersController {
   }
 
   @Post(':id/deliver')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Creator marks order as delivered' })
   @ApiNoContentResponse({ description: 'Delivered' })
@@ -134,11 +141,15 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
-    await this.ordersService.markDelivered({ creatorUserId: req.user.id, orderId: id });
+    await this.ordersService.markDelivered({
+      creatorUserId: req.user.id,
+      orderId: id,
+    });
   }
 
   @Post(':id/accept')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Brand accepts delivery (order completed)' })
   @ApiNoContentResponse({ description: 'Accepted' })
@@ -146,11 +157,15 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
-    await this.ordersService.acceptDelivery({ brandUserId: req.user.id, orderId: id });
+    await this.ordersService.acceptDelivery({
+      brandUserId: req.user.id,
+      orderId: id,
+    });
   }
 
   @Post(':id/disputes/brand')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Brand opens dispute' })
   @ApiNoContentResponse({ description: 'Dispute opened' })
@@ -168,7 +183,8 @@ export class OrdersController {
   }
 
   @Post(':id/disputes/creator')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Creator opens dispute' })
   @ApiNoContentResponse({ description: 'Dispute opened' })
@@ -185,4 +201,3 @@ export class OrdersController {
     });
   }
 }
-

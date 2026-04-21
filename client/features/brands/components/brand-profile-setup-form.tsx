@@ -1,9 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { toast } from "sonner";
 
 import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
@@ -11,27 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
-import { useAuth } from "@/providers/auth-provider";
+import {
+  useSubmitBrandProfileMutation,
+  useUploadBrandLogoMutation,
+} from "@/features/brands/hooks/use-brand-profile-form-mutation";
 
 import type { BrandProfileItemApi } from "@/features/brands/api/types";
 import {
-  createBrandProfile,
   type CreateBrandProfilePayload,
 } from "@/features/brands/api/create-brand-profile";
 import {
-  updateBrandProfile,
   type UpdateBrandProfilePayload,
 } from "@/features/brands/api/update-brand-profile";
-import {
-  brandProfileMeQueryKey,
-  fetchBrandProfileMe,
-} from "@/features/brands/api/fetch-brand-profile-me";
-import {
-  presignBrandLogoUpload,
-  putFileToPresignedUrl,
-} from "@/features/brands/api/presign-brand-logo-upload";
 
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;
 const LOGO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -58,6 +46,7 @@ export type BrandProfileSetupFormProps = {
   mode: "create" | "update";
   initialProfile?: BrandProfileItemApi | null;
   onSuccess: () => void;
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export function BrandProfileSetupForm({
@@ -65,12 +54,29 @@ export function BrandProfileSetupForm({
   mode,
   initialProfile = null,
   onSuccess,
+  onPendingChange,
 }: BrandProfileSetupFormProps) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const formKey = `${mode}:${initialProfile?.id ?? "new"}`;
 
-  const [pending, setPending] = useState(false);
+  return (
+    <BrandProfileSetupFormContent
+      key={formKey}
+      variant={variant}
+      mode={mode}
+      initialProfile={initialProfile}
+      onSuccess={onSuccess}
+      onPendingChange={onPendingChange}
+    />
+  );
+}
+
+function BrandProfileSetupFormContent({
+  variant,
+  mode,
+  initialProfile = null,
+  onSuccess,
+  onPendingChange,
+}: BrandProfileSetupFormProps) {
   const [companyName, setCompanyName] = useState(
     initialProfile?.companyName ?? "",
   );
@@ -87,37 +93,32 @@ export function BrandProfileSetupForm({
   const [pendingLogoKey, setPendingLogoKey] = useState<string | null>(
     initialProfile?.logoKey ?? null,
   );
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-
-  const initializedRef = useRef(false);
+  const uploadBrandLogoMutation = useUploadBrandLogoMutation(mode);
+  const submitBrandProfileMutation = useSubmitBrandProfileMutation({
+    mode,
+    onSuccess,
+  });
+  const pending = submitBrandProfileMutation.isPending;
   useEffect(() => {
-    if (initializedRef.current) return;
-    if (!initialProfile) return;
-    setCompanyName(initialProfile.companyName ?? "");
-    setWebsite(initialProfile.website ?? "");
-    setIndustry(initialProfile.industry ?? "");
-    setContactPerson(initialProfile.contactPerson ?? "");
-    setLogoPreviewUrl(initialProfile.logoUrl ?? null);
-    setPendingLogoKey(initialProfile.logoKey ?? null);
-    initializedRef.current = true;
-  }, [initialProfile]);
-
-  const ensureBrandWorkspace = useCallback(
-    () => ensureWorkspaceSelection(queryClient, user, "BRAND"),
-    [queryClient, user],
-  );
+    onPendingChange?.(pending);
+  }, [onPendingChange, pending]);
+  const uploadingLogo = uploadBrandLogoMutation.isPending;
 
   const title = useMemo(() => {
-    if (variant === "settings") return "Edit your brand profile";
+    if (mode === "update") return "Edit your brand profile";
+    if (variant === "settings") return "Add your brand profile";
     return "Set up your brand profile";
-  }, [variant]);
+  }, [mode, variant]);
 
   const description = useMemo(() => {
-    if (variant === "settings") {
+    if (mode === "update") {
       return "Update your company details and logo.";
     }
+    if (variant === "settings") {
+      return "Add your company details and logo.";
+    }
     return "Add your company details so creators know who they’re working with.";
-  }, [variant]);
+  }, [mode, variant]);
 
   const completionSummary = useMemo(() => {
     const checkpoints = [
@@ -146,8 +147,7 @@ export function BrandProfileSetupForm({
   const handleLogoSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
-      const ok = await ensureBrandWorkspace();
-      if (!ok) return;
+
       if (!LOGO_ACCEPT.split(",").includes(file.type)) {
         toast.error("Use JPEG, PNG, WebP, or GIF.");
         return;
@@ -156,28 +156,22 @@ export function BrandProfileSetupForm({
         toast.error("Logo must be 8 MB or smaller.");
         return;
       }
-      setUploadingLogo(true);
-      try {
-        const presign = await presignBrandLogoUpload({
-          contentType: file.type,
-          contentLength: file.size,
-        });
-        await putFileToPresignedUrl(file, presign);
-        setPendingLogoKey(presign.key);
-        setLogoPreviewUrl(presign.cdnUrl);
-        toast.success(
-          mode === "update"
-            ? "Logo uploaded — update your profile to apply."
-            : "Logo uploaded — create your profile to apply.",
-        );
-      } catch {
-        toast.error("Could not upload logo. Try again.");
-      } finally {
-        setUploadingLogo(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
+
+      uploadBrandLogoMutation.mutate(file, {
+        onSuccess: (result) => {
+          if (!result) {
+            return;
+          }
+
+          setPendingLogoKey(result.key);
+          setLogoPreviewUrl(result.cdnUrl);
+        },
+        onSettled: () => {
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        },
+      });
     },
-    [ensureBrandWorkspace, mode],
+    [uploadBrandLogoMutation],
   );
 
   const clearLogo = useCallback(() => {
@@ -200,100 +194,34 @@ export function BrandProfileSetupForm({
         return;
       }
 
-      setPending(true);
-      try {
-        const ok = await ensureBrandWorkspace();
-        if (!ok) return;
+      if (mode === "create") {
+        const payload: CreateBrandProfilePayload = {
+          companyName: name,
+          ...(pendingLogoKey ? { logoKey: pendingLogoKey } : {}),
+          ...(normalizeOptionalUrl(website)
+            ? { website: normalizeOptionalUrl(website) }
+            : {}),
+          ...(normalizeOptionalString(industry)
+            ? { industry: normalizeOptionalString(industry) }
+            : {}),
+          ...(normalizeOptionalString(contactPerson)
+            ? { contactPerson: normalizeOptionalString(contactPerson) }
+            : {}),
+        };
 
-        if (mode === "create") {
-          const payload: CreateBrandProfilePayload = {
-            companyName: name,
-            ...(pendingLogoKey ? { logoKey: pendingLogoKey } : {}),
-            ...(normalizeOptionalUrl(website)
-              ? { website: normalizeOptionalUrl(website) }
-              : {}),
-            ...(normalizeOptionalString(industry)
-              ? { industry: normalizeOptionalString(industry) }
-              : {}),
-            ...(normalizeOptionalString(contactPerson)
-              ? { contactPerson: normalizeOptionalString(contactPerson) }
-              : {}),
-          };
-          await createBrandProfile(payload);
-          toast.success("Brand profile created");
-        } else {
-          const payload: UpdateBrandProfilePayload = {
-            companyName: name,
-            logoKey: pendingLogoKey,
-            website: normalizeOptionalUrl(website) ?? null,
-            industry: normalizeOptionalString(industry) ?? null,
-            contactPerson: normalizeOptionalString(contactPerson) ?? null,
-          };
-          await updateBrandProfile(payload);
-          toast.success("Brand profile updated");
-        }
-
-        await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-        await queryClient.invalidateQueries({
-          queryKey: brandProfileMeQueryKey,
-        });
-        onSuccess();
-        if (mode === "create") {
-          router.replace("/brand/account");
-        }
-      } catch (err) {
-        if (
-          mode === "create" &&
-          isAxiosError(err) &&
-          err.response?.status === 409
-        ) {
-          toast.message("Profile already exists", {
-            description: "Continuing to your dashboard.",
-          });
-          const ok = await ensureBrandWorkspace();
-          if (!ok) return;
-          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-          onSuccess();
-          router.replace("/brand/account");
-          return;
-        }
-
-        if (
-          mode === "create" &&
-          isAxiosError(err) &&
-          (err.response?.status ?? 0) >= 500
-        ) {
-          await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-          await queryClient.invalidateQueries({
-            queryKey: brandProfileMeQueryKey,
-          });
-          try {
-            await queryClient.fetchQuery({
-              queryKey: brandProfileMeQueryKey,
-              queryFn: fetchBrandProfileMe,
-            });
-            toast.message("Brand profile created", {
-              description: "Continuing to your dashboard.",
-            });
-            onSuccess();
-            router.replace("/brand/account");
-            return;
-          } catch {
-            // If the profile still doesn't exist, fall through to the generic error.
-          }
-        }
-
-        toast.error(
-          mode === "update"
-            ? "Could not update profile"
-            : "Could not create profile",
-          {
-            description: "Check your connection and try again.",
-          },
-        );
-      } finally {
-        setPending(false);
+        submitBrandProfileMutation.mutate({ payload });
+        return;
       }
+
+      const payload: UpdateBrandProfilePayload = {
+        companyName: name,
+        logoKey: pendingLogoKey,
+        website: normalizeOptionalUrl(website) ?? null,
+        industry: normalizeOptionalString(industry) ?? null,
+        contactPerson: normalizeOptionalString(contactPerson) ?? null,
+      };
+
+      submitBrandProfileMutation.mutate({ payload });
     },
     [
       mode,
@@ -302,10 +230,7 @@ export function BrandProfileSetupForm({
       website,
       industry,
       contactPerson,
-      ensureBrandWorkspace,
-      queryClient,
-      onSuccess,
-      router,
+      submitBrandProfileMutation,
     ],
   );
 
@@ -334,7 +259,7 @@ export function BrandProfileSetupForm({
           <Progress
             value={completionSummary.percent}
             aria-label="Brand profile completion"
-            className="mt-3 h-2"
+            className="mt-3 h-1"
           />
         </div>
       </header>

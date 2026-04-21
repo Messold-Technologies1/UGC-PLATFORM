@@ -1,27 +1,20 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
-import {
-  brandProfileMeQueryKey,
-  fetchBrandProfileMe,
-} from "@/features/brands/api/fetch-brand-profile-me";
 import { BrandProfileSetupForm } from "@/features/brands/components/brand-profile-setup-form.lazy";
+import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 
 export default function BrandSettingsProfilePage() {
   const { user, isLoading: authLoading } = useAuth();
 
   const {
-    data: profile,
+    data: profileState,
     isLoading,
     isError,
-  } = useQuery({
-    queryKey: brandProfileMeQueryKey,
-    queryFn: fetchBrandProfileMe,
-    enabled: Boolean(user?.id && user.hasBrandProfile),
+  } = useBrandProfileStateQuery({
+    enabled: Boolean(user?.id && user.hasBrandProfile && !user.brandAccessRevoked),
     staleTime: 2 * 60_000,
     retry: false,
   });
@@ -36,6 +29,17 @@ export default function BrandSettingsProfilePage() {
 
   if (!user) return null;
 
+  if (user.brandAccessRevoked || profileState?.kind === "revoked") {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Brand Access Removed"
+          description="Your brand access has been removed by admin."
+        />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -44,25 +48,26 @@ export default function BrandSettingsProfilePage() {
     );
   }
 
-  if (isError || profile == null) {
-    if (user.hasBrandProfile) {
-      return (
-        <div className="space-y-4">
-          <PageHeader
-            title="Profile"
-            description="We could not load your brand profile. Try again shortly."
-          />
-        </div>
-      );
-    }
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Profile"
+          description="We could not load your brand profile. Try again shortly."
+        />
+      </div>
+    );
   }
+
+  const hasExistingProfile = profileState?.kind === "ready";
+  const initialProfile = hasExistingProfile ? profileState.profile : null;
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Profile"
         description={
-          user.hasBrandProfile
+          hasExistingProfile
             ? "Update your company details and logo."
             : "Add your company details and logo."
         }
@@ -70,8 +75,8 @@ export default function BrandSettingsProfilePage() {
 
       <BrandProfileSetupForm
         variant="settings"
-        mode="update"
-        initialProfile={profile ?? null}
+        mode={hasExistingProfile ? "update" : "create"}
+        initialProfile={initialProfile}
         onSuccess={() => {}}
       />
     </div>

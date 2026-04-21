@@ -1,16 +1,12 @@
 "use client";
 
-import { startTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { startTransition, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { selectWorkspaceApi } from "@/features/auth/api/select-workspace";
+import { canUseWorkspaceRole } from "@/features/auth/lib/workspace-defaulting";
 import { pathAfterWorkspaceSelection } from "@/features/auth/lib/post-auth-destination";
-import {
-  clearWorkspaceSwitchState,
-  setWorkspaceSwitchState,
-  useWorkspaceSwitchState,
-} from "@/features/auth/lib/workspace-switch-state";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   authMeQueryKey,
   type AuthUser,
@@ -20,13 +16,22 @@ import {
 export type GoWorkspaceOptions = {
   redirectIfCurrent?: boolean;
   targetHref?: string | null;
-  setPrimary?: boolean;
 };
 
 const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
 
 function pathPrefixForWorkspaceRole(role: WorkspaceRole): string {
   return role === "CREATOR" ? "/creator" : "/brand";
+}
+
+function workspaceRoleFromPath(
+  pathname: string,
+): Extract<WorkspaceRole, "CREATOR" | "BRAND"> | null {
+  if (pathname === "/brand" || pathname.startsWith("/brand/")) return "BRAND";
+  if (pathname === "/creator" || pathname.startsWith("/creator/")) {
+    return "CREATOR";
+  }
+  return null;
 }
 
 function lastPathStorageKey(role: WorkspaceRole): string {
@@ -77,31 +82,47 @@ function destinationPathAndQuery(destHref: string): {
 
 function isAlreadyAtDestination(
   pathname: string,
-  searchParams: URLSearchParams,
+  search: string,
   destHref: string,
 ): boolean {
   const { path, query: destQuery } = destinationPathAndQuery(destHref);
-  const currentQuery = normalizeQueryString(searchParams.toString());
+  const currentQuery = normalizeQueryString(search);
   return pathname === path && currentQuery === destQuery;
+}
+
+function readCurrentSearchString(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.search.startsWith("?")
+    ? window.location.search.slice(1)
+    : window.location.search;
+}
+
+function fallbackPathForWorkspaceRole(role: WorkspaceRole): string {
+  return role === "BRAND" ? "/brand/dashboard" : "/creator/dashboard";
 }
 
 export function useWorkspaceNavigation() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const switchState = useWorkspaceSwitchState();
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  const [switchingWorkspaceRole, setSwitchingWorkspaceRole] =
+    useState<WorkspaceRole | null>(null);
+
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setSwitchingWorkspaceRole(null);
+  }
 
   const goWorkspace = async (
     role: WorkspaceRole,
     options?: GoWorkspaceOptions,
   ) => {
     const current = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
-    const currentRole = current?.activeRole ?? current?.primaryRole ?? null;
-    
+    const currentRole = workspaceRoleFromPath(pathname);
     const sameWorkspace = currentRole === role;
-
-    const fullCurrent = `${pathname}${searchParams.toString() ? `?${searchParams}` : ""}`;
+    const currentSearch = readCurrentSearchString();
+    const fullCurrent = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
 
     if (currentRole && !sameWorkspace) {
       const prefix = pathPrefixForWorkspaceRole(currentRole);
@@ -118,50 +139,34 @@ export function useWorkspaceNavigation() {
         ? null
         : remembered;
 
-    const showSwitchingState = () => {
-      setWorkspaceSwitchState({ isSwitching: true, targetRole: role });
-    };
-
-    if (sameWorkspace) {
-      if (current) {
-        const dest = pathAfterWorkspaceSelection(current, role, callbackUrl, {
-          promptIncompleteProfileOnboarding: false,
-        });
-        if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-          showSwitchingState();
-          startTransition(() => {
-            router.push(dest);
-          });
-        }
-      }
+    if (role === "BRAND" && current?.brandAccessRevoked) {
+      toast.error("Your brand access has been removed by admin.");
       return;
     }
 
-    showSwitchingState();
+    if (current && (!current.roles.includes(role) || !canUseWorkspaceRole(current, role))) {
+      toast.error(`Could not continue as ${role.toLowerCase()}.`);
+      return;
+    }
 
-    try {
-      const next = await selectWorkspaceApi(role, options?.setPrimary);
-      queryClient.setQueryData(authMeQueryKey, next);
-      const dest = pathAfterWorkspaceSelection(next, role, callbackUrl, {
-        promptIncompleteProfileOnboarding: false,
+    const dest = current
+      ? pathAfterWorkspaceSelection(current, role, callbackUrl, {
+          promptIncompleteProfileOnboarding: false,
+        })
+      : callbackUrl ?? fallbackPathForWorkspaceRole(role);
+
+    if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
+      setSwitchingWorkspaceRole(role);
+      beginClientNavigation();
+      startTransition(() => {
+        router.push(dest);
       });
-      if (!isAlreadyAtDestination(pathname, searchParams, dest)) {
-        startTransition(() => {
-          router.push(dest);
-        });
-      } else {
-        clearWorkspaceSwitchState();
-      }
-    } catch {
-      toast.error("Could not switch workspace. Try again.");
-      clearWorkspaceSwitchState();
-      if (current) {
-        startTransition(() => {
-          router.replace(fullCurrent);
-        });
-      }
     }
   };
 
-  return { goWorkspace, isSwitchingWorkspace: switchState.isSwitching };
+  return {
+    goWorkspace,
+    isSwitchingWorkspace: switchingWorkspaceRole !== null,
+    switchingWorkspaceRole,
+  };
 }

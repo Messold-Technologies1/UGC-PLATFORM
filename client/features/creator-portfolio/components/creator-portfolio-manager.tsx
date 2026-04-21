@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Image as ImageIcon, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -15,11 +13,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { PortfolioVideoApi } from "../api/types";
-import { deletePortfolioVideo } from "../api/delete-portfolio-video";
-import {
-  listMyPortfolioVideos,
-  portfolioMyVideosQueryKey,
-} from "../api/list-my-portfolio-videos";
+import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
+import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
 
 function errorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -36,12 +31,9 @@ function errorMessage(err: unknown): string {
 }
 
 export function CreatorPortfolioManager() {
-  const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const videosQuery = useQuery({
-    queryKey: portfolioMyVideosQueryKey,
-    queryFn: listMyPortfolioVideos,
+  const deletePortfolioVideoMutation = useDeletePortfolioVideoMutation();
+  const videosQuery = useMyPortfolioVideosQuery({
     staleTime: 5 * 60_000,
   });
 
@@ -58,21 +50,21 @@ export function CreatorPortfolioManager() {
       ) {
         return;
       }
+
       setDeletingId(video.id);
-      try {
-        await deletePortfolioVideo(video.id);
-        queryClient.setQueryData<PortfolioVideoApi[]>(
-          portfolioMyVideosQueryKey,
-          (prev) => (prev ?? []).filter((x) => x.id !== video.id),
-        );
-        toast.success("Video removed from portfolio");
-      } catch (e) {
-        toast.error("Could not delete video", { description: errorMessage(e) });
-      } finally {
-        setDeletingId(null);
-      }
+
+      deletePortfolioVideoMutation.mutate(
+        { videoId: video.id },
+        {
+          onSettled: () => {
+            setDeletingId((current) =>
+              current === video.id ? null : current,
+            );
+          },
+        },
+      );
     },
-    [queryClient],
+    [deletePortfolioVideoMutation],
   );
 
   if (videosQuery.isError) {

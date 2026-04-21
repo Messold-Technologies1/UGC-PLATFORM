@@ -2,16 +2,14 @@
 
 import { useCallback, useState } from "react";
 import { Building2, Clapperboard } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form.lazy";
 import { BrandProfileSetupForm } from "@/features/brands/components/brand-profile-setup-form.lazy";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
-import { ensureWorkspaceSelection } from "@/features/auth/lib/ensure-workspace-selection";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/providers/auth-provider";
 
 const ONBOARDING_MARKETING_POINTS = [
   "Connect with brands or creators in one place",
@@ -55,24 +53,21 @@ export function GlobalOnboardingPage({
   creatorBackLabel,
   className,
 }: GlobalOnboardingPageProps) {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [brandContinuePending, setBrandContinuePending] = useState(false);
+  const [creationPending, setCreationPending] = useState(false);
 
   const handleBrandContinue = useCallback(async () => {
     setBrandContinuePending(true);
     try {
-      const ok = await ensureWorkspaceSelection(queryClient, user, "BRAND");
-      if (!ok) return;
       onBrandDismiss?.();
       onClose();
     } finally {
       setBrandContinuePending(false);
     }
-  }, [queryClient, user, onBrandDismiss, onClose]);
+  }, [onBrandDismiss, onClose]);
 
   const rightColumnClass =
-    "flex max-h-[inherit] min-h-0 flex-col overflow-y-auto bg-background p-8 md:p-10";
+    "relative flex max-h-[inherit] min-h-0 flex-col overflow-y-auto bg-background p-8 md:p-10";
 
   const marketingAccentClass =
     role === "brand" ? "bg-emerald-800" : "bg-[#7a2a3a]";
@@ -106,14 +101,33 @@ export function GlobalOnboardingPage({
       right={
         role === "creator" ? (
           <div className={rightColumnClass}>
+            {creationPending ? (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/78 text-center backdrop-blur-sm">
+                <Spinner className="size-8 text-primary" aria-hidden />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    Creating creator profile…
+                  </p>
+                  <p className="max-w-xs text-xs text-muted-foreground">
+                    We&apos;re setting up your creator workspace and getting everything ready.
+                  </p>
+                </div>
+              </div>
+            ) : null}
             <CreatorProfileSetupForm
               variant="onboarding"
               mode="create"
-              onSuccess={onClose}
+              onSuccess={() => {}}
+              onPendingChange={setCreationPending}
             />
             {onCreatorBack ? (
               <div className="mt-6 flex items-center justify-end">
-                <Button type="button" variant="ghost" onClick={() => void onCreatorBack()}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={creationPending}
+                  onClick={() => void onCreatorBack()}
+                >
                   {creatorBackLabel ?? "Go back"}
                 </Button>
               </div>
@@ -121,19 +135,30 @@ export function GlobalOnboardingPage({
           </div>
         ) : (
           <div className={rightColumnClass}>
+            {creationPending ? (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/78 text-center backdrop-blur-sm">
+                <Spinner className="size-8 text-primary" aria-hidden />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    Creating brand profile…
+                  </p>
+                  <p className="max-w-xs text-xs text-muted-foreground">
+                    We&apos;re preparing your brand workspace and saving your company details.
+                  </p>
+                </div>
+              </div>
+            ) : null}
             <BrandProfileSetupForm
               variant="onboarding"
               mode="create"
-              onSuccess={async () => {
-                onBrandDismiss?.();
-                onClose();
-              }}
+              onSuccess={async () => {}}
+              onPendingChange={setCreationPending}
             />
             <div className="mt-6 flex items-center justify-end">
               <Button
                 type="button"
                 variant="ghost"
-                disabled={brandContinuePending}
+                disabled={brandContinuePending || creationPending}
                 onClick={() => void handleBrandContinue()}
               >
                 Skip for now

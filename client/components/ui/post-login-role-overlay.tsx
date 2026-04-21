@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
-import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
+import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 
 const MARKETING_POINTS = [
   "Connect with brands or creators in one place",
@@ -21,6 +21,7 @@ export type PostLoginRoleOverlayProps = {
   dismissible?: boolean;
   onContinueAsCreator?: () => void | Promise<void>;
   onContinueAsBrand?: () => void | Promise<void>;
+  pendingRole?: WorkspaceRole | null;
   className?: string;
 };
 
@@ -39,9 +40,12 @@ export function PostLoginRoleOverlay({
   dismissible = false,
   onContinueAsCreator,
   onContinueAsBrand,
+  pendingRole,
   className,
 }: PostLoginRoleOverlayProps) {
-  const { isSwitching, targetRole } = useWorkspaceSwitchState();
+  const creatorSelected = pendingRole === "CREATOR";
+  const brandSelected = pendingRole === "BRAND";
+  const isPending = pendingRole !== null;
 
   return (
     <OnboardingOverlayShell
@@ -76,8 +80,13 @@ export function PostLoginRoleOverlay({
               type="button"
               variant="outline"
               size="lg"
-              className="h-auto w-full justify-start gap-4 rounded-xl border-border px-5 py-4 text-left font-medium shadow-none hover:bg-muted/60"
-              disabled={isSwitching}
+              className={cn(
+                "h-auto w-full justify-start gap-4 rounded-xl px-5 py-4 text-left font-medium shadow-none transition-colors",
+                creatorSelected
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
+                  : "border-border hover:bg-muted/60",
+              )}
+              disabled={isPending}
               onClick={async () => {
                 try {
                   await onContinueAsCreator?.();
@@ -87,16 +96,28 @@ export function PostLoginRoleOverlay({
                 }
               }}
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {isSwitching && targetRole === "CREATOR" ? (
-                  <Spinner className="size-5 text-foreground" aria-hidden />
+              <span
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  creatorSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground",
+                )}
+              >
+                {creatorSelected ? (
+                  <Spinner className="size-5 text-current" aria-hidden />
                 ) : (
-                  <Clapperboard className="size-5 text-foreground" />
+                  <Clapperboard className="size-5 text-current" />
                 )}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                <span className="text-base">Continue as Creator</span>
-                <span className="text-xs font-normal text-muted-foreground">
+                <span className="text-base text-foreground">Continue as Creator</span>
+                <span
+                  className={cn(
+                    "text-xs font-normal",
+                    creatorSelected ? "text-primary/80" : "text-muted-foreground",
+                  )}
+                >
                   Find brand work, submit content, get paid
                 </span>
               </span>
@@ -106,8 +127,13 @@ export function PostLoginRoleOverlay({
               type="button"
               variant="outline"
               size="lg"
-              className="h-auto w-full justify-start gap-4 rounded-xl border-border px-5 py-4 text-left font-medium shadow-none hover:bg-muted/60"
-              disabled={isSwitching}
+              className={cn(
+                "h-auto w-full justify-start gap-4 rounded-xl px-5 py-4 text-left font-medium shadow-none transition-colors",
+                brandSelected
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/12"
+                  : "border-border hover:bg-muted/60",
+              )}
+              disabled={isPending}
               onClick={async () => {
                 try {
                   await onContinueAsBrand?.();
@@ -117,16 +143,28 @@ export function PostLoginRoleOverlay({
                 }
               }}
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {isSwitching && targetRole === "BRAND" ? (
-                  <Spinner className="size-5 text-foreground" aria-hidden />
+              <span
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  brandSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground",
+                )}
+              >
+                {brandSelected ? (
+                  <Spinner className="size-5 text-current" aria-hidden />
                 ) : (
-                  <Building2 className="size-5 text-foreground" />
+                  <Building2 className="size-5 text-current" />
                 )}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                <span className="text-base">Continue as Brand</span>
-                <span className="text-xs font-normal text-muted-foreground">
+                <span className="text-base text-foreground">Continue as Brand</span>
+                <span
+                  className={cn(
+                    "text-xs font-normal",
+                    brandSelected ? "text-primary/80" : "text-muted-foreground",
+                  )}
+                >
                   Post briefs, review creators, run campaigns
                 </span>
               </span>

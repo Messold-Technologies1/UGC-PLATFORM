@@ -1,7 +1,7 @@
 "use client";
 
 import { Building2, LogOut, Video } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import {
@@ -13,11 +13,17 @@ import {
   getDisplayNameFromUser,
   getInitialsFromUser,
 } from "@/lib/account-user";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
-import { useWorkspaceSwitchState } from "@/features/auth/lib/workspace-switch-state";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
+import {
+  canSetUpWorkspace,
+  canSwitchToWorkspace,
+  workspaceAccountHref,
+  workspaceSetupHref,
+} from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
 
 function workspaceItemClass(isActive: boolean) {
@@ -36,40 +42,48 @@ export function NavbarProfileMenu({
   className?: string;
 }) {
   const { user, logout, isLoggingOut } = useAuth();
-  const { goWorkspace } = useWorkspaceNavigation();
-  const { isSwitching, targetRole } = useWorkspaceSwitchState();
+  const { goWorkspace, switchingWorkspaceRole } = useWorkspaceNavigation();
   const pathname = usePathname();
+  const router = useRouter();
 
   if (!user) return null;
 
   const display = getDisplayNameFromUser(user);
   const initials = getInitialsFromUser(user);
   const activeWorkspace: WorkspaceRole | null =
-    user.activeRole ?? user.primaryRole ?? null;
-  const showProfiles = true;
-  const brandProfileHref = "/brand/account";
-  const creatorProfileHref = "/creator/account";
+    pathname === "/brand" || pathname.startsWith("/brand/")
+      ? "BRAND"
+      : pathname === "/creator" || pathname.startsWith("/creator/")
+        ? "CREATOR"
+        : user.primaryRole ?? null;
+  const brandProfileHref = workspaceAccountHref("BRAND");
+  const creatorProfileHref = workspaceAccountHref("CREATOR");
   const isBrandPath = pathname === brandProfileHref || pathname.startsWith("/brand/");
   const isCreatorPath =
     pathname === creatorProfileHref || pathname.startsWith("/creator/");
+  const canContinueAsBrand = canSwitchToWorkspace(user, "BRAND");
+  const canContinueAsCreator = canSwitchToWorkspace(user, "CREATOR");
+  const canTryAsBrand = canSetUpWorkspace(user, "BRAND");
+  const canTryAsCreator = canSetUpWorkspace(user, "CREATOR");
+  const showProfiles =
+    canContinueAsBrand ||
+    canContinueAsCreator ||
+    canTryAsBrand ||
+    canTryAsCreator;
+  const profileSectionLabel =
+    canContinueAsBrand || canContinueAsCreator ? "Continue As" : "Try As";
+  const switchingToBrand = switchingWorkspaceRole === "BRAND";
+  const switchingToCreator = switchingWorkspaceRole === "CREATOR";
 
   const wrapNavigate = (fn?: () => void) => () => {
     onNavigate?.();
     fn?.();
   };
 
-  const brandPending = isSwitching && targetRole === "BRAND";
-  const creatorPending = isSwitching && targetRole === "CREATOR";
-
-  function workspaceActionLabel(
-    baseLabel: string,
-    isCurrentPath: boolean,
-    isPending: boolean,
-  ) {
-    if (isPending) return "Opening...";
-    if (isCurrentPath) return "Open";
-    return baseLabel;
-  }
+  const navigateToSetup = (href: string) => {
+    beginClientNavigation();
+    router.push(href);
+  };
 
   if (onNavigate) {
     return (
@@ -88,87 +102,113 @@ export function NavbarProfileMenu({
             )}
             aria-hidden
           >
-              <span className="text-sm font-semibold text-muted-foreground">
-                {initials}
-              </span>
+            <span className="text-sm font-semibold text-muted-foreground">
+              {initials}
             </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">
-                {display}
-              </p>
-            </div>
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              {display}
+            </p>
           </div>
+        </div>
         {showProfiles ? (
           <div
             className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
           >
             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Continue As
+              {profileSectionLabel}
             </p>
-            <button
-              type="button"
-              className={cn(
-                workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
-                "w-full",
-                brandPending && "pointer-events-none opacity-70",
-              )}
-              disabled={isSwitching}
-              onClick={wrapNavigate(
-                () =>
-                  void goWorkspace("BRAND", {
-                    redirectIfCurrent: true,
-                    targetHref: brandProfileHref,
-                  }),
-              )}
-            >
-              {brandPending ? (
-                <Spinner className="size-4" aria-hidden />
-              ) : (
-                <Building2 className="size-4" />
-              )}
-              <span className="flex flex-1 items-center justify-between gap-2">
-                As Brand
-                {isBrandPath || brandPending ? (
-                  <span className="text-[10px] font-medium text-primary">
-                    {workspaceActionLabel("Open", isBrandPath, brandPending)}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-            <button
-              type="button"
-              className={cn(
-                workspaceItemClass(isCreatorPath || activeWorkspace === "CREATOR"),
-                "w-full",
-                creatorPending && "pointer-events-none opacity-70",
-              )}
-              disabled={isSwitching}
-              onClick={wrapNavigate(
-                () =>
-                  void goWorkspace("CREATOR", {
-                    redirectIfCurrent: true,
-                    targetHref: creatorProfileHref,
-                  }),
-              )}
-            >
-              {creatorPending ? (
-                <Spinner className="size-4" aria-hidden />
-              ) : (
-                <Video className="size-4" />
-              )}
-              <span className="flex flex-1 items-center justify-between gap-2">
-                As Creator
-                {isCreatorPath || creatorPending ? (
-                  <span className="text-[10px] font-medium text-primary">
-                    {workspaceActionLabel(
-                      "Open",
-                      isCreatorPath,
-                      creatorPending,
-                    )}
-                  </span>
-                ) : null}
-              </span>
-            </button>
+            {canContinueAsBrand || canTryAsBrand ? (
+              <button
+                type="button"
+                className={cn(
+                  workspaceItemClass(
+                    canContinueAsBrand &&
+                      (isBrandPath || activeWorkspace === "BRAND"),
+                  ),
+                  "w-full",
+                )}
+                disabled={isLoggingOut || (canContinueAsBrand && switchingToBrand)}
+                onClick={wrapNavigate(() => {
+                  if (canContinueAsBrand) {
+                    void goWorkspace("BRAND", {
+                      redirectIfCurrent: true,
+                      targetHref: brandProfileHref,
+                    });
+                    return;
+                  }
+
+                  navigateToSetup(
+                    workspaceSetupHref("BRAND", brandProfileHref),
+                  );
+                })}
+              >
+                {canContinueAsBrand && switchingToBrand ? (
+                  <Spinner className="size-4 shrink-0" aria-hidden />
+                ) : (
+                  <Building2 className="size-4" />
+                )}
+                <span className="flex flex-1 items-center justify-between gap-2">
+                  {canContinueAsBrand
+                    ? switchingToBrand
+                      ? "Switching to Brand…"
+                      : "As Brand"
+                    : "Try As Brand"}
+                  {canContinueAsBrand && !switchingToBrand && isBrandPath ? (
+                    <span className="text-[10px] font-medium text-primary">
+                      Open
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            ) : null}
+            {canContinueAsCreator || canTryAsCreator ? (
+              <button
+                type="button"
+                className={cn(
+                  workspaceItemClass(
+                    canContinueAsCreator &&
+                      (isCreatorPath || activeWorkspace === "CREATOR"),
+                  ),
+                  "w-full",
+                )}
+                disabled={
+                  isLoggingOut || (canContinueAsCreator && switchingToCreator)
+                }
+                onClick={wrapNavigate(() => {
+                  if (canContinueAsCreator) {
+                    void goWorkspace("CREATOR", {
+                      redirectIfCurrent: true,
+                      targetHref: creatorProfileHref,
+                    });
+                    return;
+                  }
+
+                  navigateToSetup(
+                    workspaceSetupHref("CREATOR", creatorProfileHref),
+                  );
+                })}
+              >
+                {canContinueAsCreator && switchingToCreator ? (
+                  <Spinner className="size-4 shrink-0" aria-hidden />
+                ) : (
+                  <Video className="size-4" />
+                )}
+                <span className="flex flex-1 items-center justify-between gap-2">
+                  {canContinueAsCreator
+                    ? switchingToCreator
+                      ? "Switching to Creator…"
+                      : "As Creator"
+                    : "Try As Creator"}
+                  {canContinueAsCreator && !switchingToCreator && isCreatorPath ? (
+                    <span className="text-[10px] font-medium text-primary">
+                      Open
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            ) : null}
           </div>
         ) : null}
         <div
@@ -226,84 +266,116 @@ export function NavbarProfileMenu({
           aria-label="Account actions"
         >
           <div className="min-w-60 space-y-2">
-            <ThemeAppearancePanel />
-            <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
+            <ThemeAppearancePanel className="bg-background/95 backdrop-blur-xl" />
+            <div className={cn("rounded-xl p-1", accountMenuGlassPanel, "bg-background/95 backdrop-blur-xl")}>
             {showProfiles ? (
               <>
                 <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Continue As
+                  {profileSectionLabel}
                 </p>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    workspaceItemClass(isBrandPath || activeWorkspace === "BRAND"),
-                    "w-full",
-                    brandPending && "pointer-events-none opacity-70",
-                  )}
-                  disabled={isSwitching}
-                  onClick={() =>
-                    void goWorkspace("BRAND", {
-                      redirectIfCurrent: true,
-                      targetHref: brandProfileHref,
-                    })
-                  }
-                >
-                  {brandPending ? (
-                    <Spinner className="size-4" aria-hidden />
-                  ) : (
-                    <Building2 className="size-4" />
-                  )}
-                  <span className="flex flex-1 items-center justify-between gap-2">
-                    As Brand
-                    {isBrandPath || brandPending ? (
-                      <span className="text-[10px] font-medium text-primary">
-                        {workspaceActionLabel("Open", isBrandPath, brandPending)}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    workspaceItemClass(
-                      isCreatorPath || activeWorkspace === "CREATOR",
-                    ),
-                    "w-full",
-                    creatorPending && "pointer-events-none opacity-70",
-                  )}
-                  disabled={isSwitching}
-                  onClick={() =>
-                    void goWorkspace("CREATOR", {
-                      redirectIfCurrent: true,
-                      targetHref: creatorProfileHref,
-                    })
-                  }
-                >
-                  {creatorPending ? (
-                    <Spinner className="size-4" aria-hidden />
-                  ) : (
-                    <Video className="size-4" />
-                  )}
-                  <span className="flex flex-1 items-center justify-between gap-2">
-                    As Creator
-                    {isCreatorPath || creatorPending ? (
-                      <span className="text-[10px] font-medium text-primary">
-                        {workspaceActionLabel(
-                          "Open",
-                          isCreatorPath,
-                          creatorPending,
-                        )}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-                <div
-                  className="my-1 h-px bg-border/60"
-                  role="separator"
-                  aria-hidden
-                />
+                {canContinueAsBrand || canTryAsBrand ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      workspaceItemClass(
+                        canContinueAsBrand &&
+                          (isBrandPath || activeWorkspace === "BRAND"),
+                      ),
+                      "w-full",
+                    )}
+                    disabled={
+                      isLoggingOut || (canContinueAsBrand && switchingToBrand)
+                    }
+                    onClick={() => {
+                      if (canContinueAsBrand) {
+                        void goWorkspace("BRAND", {
+                          redirectIfCurrent: true,
+                          targetHref: brandProfileHref,
+                        });
+                        return;
+                      }
+
+                      navigateToSetup(
+                        workspaceSetupHref("BRAND", brandProfileHref),
+                      );
+                    }}
+                  >
+                    {canContinueAsBrand && switchingToBrand ? (
+                      <Spinner className="size-4 shrink-0" aria-hidden />
+                    ) : (
+                      <Building2 className="size-4" />
+                    )}
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      {canContinueAsBrand
+                        ? switchingToBrand
+                          ? "Switching to Brand…"
+                          : "As Brand"
+                        : "Try As Brand"}
+                      {canContinueAsBrand && !switchingToBrand && isBrandPath ? (
+                        <span className="text-[10px] font-medium text-primary">
+                          Open
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                ) : null}
+                {canContinueAsCreator || canTryAsCreator ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      workspaceItemClass(
+                        canContinueAsCreator &&
+                          (isCreatorPath || activeWorkspace === "CREATOR"),
+                      ),
+                      "w-full",
+                    )}
+                    disabled={
+                      isLoggingOut || (canContinueAsCreator && switchingToCreator)
+                    }
+                    onClick={() => {
+                      if (canContinueAsCreator) {
+                        void goWorkspace("CREATOR", {
+                          redirectIfCurrent: true,
+                          targetHref: creatorProfileHref,
+                        });
+                        return;
+                      }
+
+                      navigateToSetup(
+                        workspaceSetupHref("CREATOR", creatorProfileHref),
+                      );
+                    }}
+                  >
+                    {canContinueAsCreator && switchingToCreator ? (
+                      <Spinner className="size-4 shrink-0" aria-hidden />
+                    ) : (
+                      <Video className="size-4" />
+                    )}
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      {canContinueAsCreator
+                        ? switchingToCreator
+                          ? "Switching to Creator…"
+                          : "As Creator"
+                        : "Try As Creator"}
+                      {canContinueAsCreator &&
+                      !switchingToCreator &&
+                      isCreatorPath ? (
+                        <span className="text-[10px] font-medium text-primary">
+                          Open
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                ) : null}
+                {showProfiles ? (
+                  <div
+                    className="my-1 h-px bg-border/60"
+                    role="separator"
+                    aria-hidden
+                  />
+                ) : null}
               </>
             ) : null}
             <button

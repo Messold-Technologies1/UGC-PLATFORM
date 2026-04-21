@@ -7,22 +7,13 @@ import type { CreatorsListResponse } from "./types";
 import type { CreatorsListResult } from "../hooks/use-creators-list-query";
 
 export async function fetchCreatorsListServer({
-  page = 1,
-  limit = 20,
   includeCookies = false,
   revalidate = 60,
 }: {
-  page?: number;
-  limit?: number;
   includeCookies?: boolean;
   revalidate?: number | false;
 } = {}): Promise<CreatorsListResult | null> {
   try {
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: String(limit),
-    });
-
     let cookieHeader = "";
     if (includeCookies) {
       const { cookies } = await import("next/headers");
@@ -32,7 +23,7 @@ export async function fetchCreatorsListServer({
         .join("; ");
     }
 
-    const res = await fetch(`${env.apiUrl}${ENDPOINTS.CREATORS.LIST}?${params}`, {
+    const res = await fetch(`${env.apiUrl}${ENDPOINTS.CREATORS.LIST}`, {
       headers: {
         Accept: "application/json",
         ...(cookieHeader ? { Cookie: cookieHeader } : {}),

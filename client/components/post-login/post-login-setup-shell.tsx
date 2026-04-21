@@ -11,6 +11,7 @@ const dashboardMainColumnClass =
 const dashboardContentClass: Record<PostAuthRole, string> = {
   creator: dashboardMainColumnClass,
   brand: dashboardMainColumnClass,
+  admin: dashboardMainColumnClass,
 };
 
 export function PostLoginSetupShell({
@@ -21,7 +22,7 @@ export function PostLoginSetupShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col">
+    <div className="flex min-h-0 w-full flex-1 flex-col bg-background text-foreground">
       <Suspense fallback={null}>
         <DashboardOnboardingGate role={role}>
           <div className={dashboardContentClass[role]}>{children}</div>

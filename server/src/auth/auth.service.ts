@@ -31,6 +31,7 @@ export type MeUser = {
   primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
+  brandAccessRevoked: boolean;
 };
 
 export interface AuthResult {
@@ -48,6 +49,18 @@ interface GoogleUserInfo {
   family_name?: string;
 }
 
+type MeLookupUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  status: string;
+  brandAccessRevokedAt: Date | null;
+  primaryRole: { name: RoleName | null } | null;
+  userRoles: Array<{ role: { name: RoleName | null } }>;
+  creatorProfile: { id: string } | null;
+  brandProfile: { id: string } | null;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -58,14 +71,6 @@ export class AuthService {
 
   private hashRefreshToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
-  }
-
-  private asWorkspaceRole(
-    name: string | null | undefined,
-  ): 'CREATOR' | 'BRAND' | 'ADMIN' | null {
-    return name === 'CREATOR' || name === 'BRAND' || name === 'ADMIN'
-      ? name
-      : null;
   }
 
   private getAccessExpiry(): string {
@@ -109,7 +114,7 @@ export class AuthService {
 
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const me = await this.getMeForClient(user.id, refreshToken);
+    const me = await this.getMeForClient(user.id);
     if (!me) {
       throw new UnauthorizedException('Account could not be loaded');
     }
@@ -118,8 +123,7 @@ export class AuthService {
 
   async registerAdmin(
     dto: RegisterDto,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ): Promise<AuthResult> {
+  ): Promise<{ user: { id: string; email: string; name: string | null } }> {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -150,13 +154,13 @@ export class AuthService {
       },
     });
 
-    const { accessToken, refreshToken, expiresIn } =
-      await this.createSessionAndTokens(user.id, meta);
-    const me = await this.getMeForClient(user.id, refreshToken);
-    if (!me) {
-      throw new UnauthorizedException('Account could not be loaded');
-    }
-    return { user: me, accessToken, refreshToken, expiresIn };
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    };
   }
 
   async login(
@@ -181,7 +185,7 @@ export class AuthService {
 
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const me = await this.getMeForClient(user.id, refreshToken);
+    const me = await this.getMeForClient(user.id);
     if (!me) {
       throw new UnauthorizedException('Account could not be loaded');
     }
@@ -284,7 +288,7 @@ export class AuthService {
     );
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
-    const me = await this.getMeForClient(user.id, refreshToken);
+    const me = await this.getMeForClient(user.id);
     if (!me) {
       throw new UnauthorizedException('Account could not be loaded');
     }
@@ -446,23 +450,21 @@ export class AuthService {
     return { id: user.id, email: user.email, name: user.name };
   }
 
-  async getMeForClient(
-    userId: string,
-    refreshToken?: string,
-  ): Promise<MeUser | null> {
-    const user = await this.prisma.user.findUnique({
+  async getMeForClient(userId: string): Promise<MeUser | null> {
+    const user = (await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         email: true,
         name: true,
         status: true,
+        brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         creatorProfile: { select: { id: true } },
         brandProfile: { select: { id: true } },
       },
-    });
+    })) as MeLookupUser | null;
     if (!user || user.status !== 'ACTIVE') return null;
 
     const roleSet = new Set<'CREATOR' | 'BRAND' | 'ADMIN'>();
@@ -489,6 +491,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       roles,
+      // brandAccessRevoked: !!user.brandAccessRevokedAt,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { MapPin } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import { getInitials } from "@/lib/account-user";
 import { useAuth } from "@/providers/auth-provider";
@@ -48,8 +48,34 @@ export function DashboardAccountProfile({
 
   if (profileQuery.isPending) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <Spinner className="size-8 text-muted-foreground" aria-hidden />
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div>
+          <Skeleton className="mb-2 h-8 w-1/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-1 gap-4 sm:gap-6">
+              <Skeleton className="size-20 shrink-0 rounded-full sm:size-24" />
+              <div className="flex-1 space-y-3 py-2 sm:py-3">
+                <Skeleton className="h-6 w-3/4 sm:w-1/3" />
+                <Skeleton className="h-4 w-1/2 sm:w-1/4" />
+                <Skeleton className="h-4 w-full sm:w-1/2" />
+              </div>
+            </div>
+            <Skeleton className="h-5 w-10 sm:pt-1" />
+          </div>
+        </div>
+        <div className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8">
+          <Skeleton className="h-4 w-20" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:col-span-6 xl:grid-cols-6">
+            <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+            <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+            <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+            <Skeleton className="h-24 rounded-xl xl:col-span-3" />
+            <Skeleton className="h-24 rounded-xl xl:col-span-3" />
+          </div>
+        </div>
       </div>
     );
   }

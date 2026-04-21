@@ -11,10 +11,11 @@ export function setAuthCookies(
   accessExpiry: string,
   refreshExpiry: string,
 ): void {
+  const sameSite = isProduction ? ('none' as const) : ('lax' as const);
   const baseOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax' as const,
+    sameSite,
     path: '/',
   };
 
@@ -29,10 +30,11 @@ export function setAuthCookies(
 }
 
 export function clearAuthCookies(res: Response): void {
+  const sameSite = isProduction ? ('none' as const) : ('lax' as const);
   const clearOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax' as const,
+    sameSite,
     path: '/',
     maxAge: 0,
   };
@@ -42,9 +44,9 @@ export function clearAuthCookies(res: Response): void {
 
 /** Parse expiry string like 15m, 7d into approximate seconds */
 export function expiryToSeconds(expiry: string): number {
-  const match = expiry.match(/^(\d+)(m|h|d|s)$/);
+  const match = /^(\d+)([mhds])$/.exec(expiry);
   if (!match) return 15 * 60; // default 15 min
-  const n = parseInt(match[1], 10);
+  const n = Number.parseInt(match[1], 10);
   const unit = match[2];
   switch (unit) {
     case 's':

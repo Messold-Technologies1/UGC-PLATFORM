@@ -14,7 +14,6 @@ import {
 } from "../hooks/use-creators-list-query";
 import { CreatorCard } from "./creator-card";
 
-const PAGE = 1;
 const LIMIT = 4;
 
 export function FeaturedCreators({

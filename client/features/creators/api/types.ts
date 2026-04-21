@@ -74,3 +74,20 @@ export type CreatorsListResponse = {
   page: number;
   limit: number;
 };
+
+export type CreatorPayoutDetailsMaskedApi = {
+  configured: boolean;
+  hasBankDetails?: boolean;
+  accountNumberLast4?: string;
+  ifsc?: string;
+  accountHolderName?: string;
+  hasUpi?: boolean;
+  upiMasked?: string;
+};
+
+export type UpsertCreatorPayoutDetailsApi = {
+  accountHolderName?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  upiId?: string;
+};

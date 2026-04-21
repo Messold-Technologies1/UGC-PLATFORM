@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -105,12 +105,14 @@ export function useWorkspaceNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const [prevPathname, setPrevPathname] = useState(pathname);
   const [switchingWorkspaceRole, setSwitchingWorkspaceRole] =
     useState<WorkspaceRole | null>(null);
 
-  useEffect(() => {
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setSwitchingWorkspaceRole(null);
-  }, [pathname]);
+  }
 
   const goWorkspace = async (
     role: WorkspaceRole,

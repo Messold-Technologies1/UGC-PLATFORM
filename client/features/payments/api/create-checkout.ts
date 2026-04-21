@@ -4,6 +4,7 @@ import { ENDPOINTS } from "@/lib/endpoints";
 export type CreateCheckoutPayload = {
   creatorId: string;
   packageId: string;
+  addOnIds?: string[];
 };
 
 export type CheckoutSession = {
@@ -12,6 +13,9 @@ export type CheckoutSession = {
   amountPaise: number;
   currency: string;
   razorpayKeyId: string;
+  packageAmountPaise?: number;
+  addOnsAmountPaise?: number;
+  addOnsCount?: number;
 };
 
 export async function createCheckout(

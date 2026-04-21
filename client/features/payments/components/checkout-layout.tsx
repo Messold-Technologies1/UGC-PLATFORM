@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import type { CheckoutSession } from "@/features/payments/api/create-checkout";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/use-create-checkout-mutation";
 import { useAuth } from "@/providers/auth-provider";
-import type { CreatorProfile, Package } from "@/features/creators/types";
+import type { AddOn, CreatorProfile, Package } from "@/features/creators/types";
 
 interface CheckoutLayoutProps {
   creator: CreatorProfile;
   selectedPackage: Package | null;
+  selectedAddOns?: AddOn[];
 }
 
 const RAZORPAY_CHECKOUT_URL = "https://checkout.razorpay.com/v1/checkout.js";
@@ -92,6 +93,7 @@ function getErrorMessage(error: unknown): string {
 export function CheckoutLayout({
   creator,
   selectedPackage,
+  selectedAddOns = [],
 }: CheckoutLayoutProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -101,7 +103,11 @@ export function CheckoutLayout({
   const createCheckoutMutation = useCreateCheckoutMutation();
 
   const packagePrice = selectedPackage?.price ?? 0;
-  const total = packagePrice;
+  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
+  const localTotal = packagePrice + addOnsTotal;
+  const total = checkoutSession
+    ? Math.round(checkoutSession.amountPaise / 100)
+    : localTotal;
 
   useEffect(() => {
     let isActive = true;
@@ -202,6 +208,9 @@ export function CheckoutLayout({
         (await createCheckoutMutation.mutateAsync({
           creatorId: creator.id,
           packageId: selectedPackage.id,
+          ...(selectedAddOns.length > 0
+            ? { addOnIds: selectedAddOns.map((a) => a.id) }
+            : {}),
         }));
 
       if (!checkoutSession) {
@@ -302,6 +311,25 @@ export function CheckoutLayout({
                 ₹{selectedPackage.price.toLocaleString("en-IN")}
               </span>
             </div>
+
+            {selectedAddOns.length > 0 && (
+              <div className="border-t border-border/50 pt-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Add-ons
+                </p>
+                {selectedAddOns.map((addOn) => (
+                  <div
+                    key={addOn.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="font-medium">{addOn.label}</span>
+                    <span className="font-semibold text-muted-foreground">
+                      +₹{addOn.price.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="border-t border-border/50 pt-5 mt-2">
               <div className="flex items-center justify-between">

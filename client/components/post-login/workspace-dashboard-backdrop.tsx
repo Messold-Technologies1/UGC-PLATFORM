@@ -158,7 +158,7 @@ export function WorkspaceDashboardBackdrop({
           </div>
 
           <div className="mt-6 grid min-h-0 flex-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]">
-            <CardSkeleton className="min-h-[22rem]" />
+            <CardSkeleton className="min-h-88" />
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-1">
               <CardSkeleton className="h-44" />
               <CardSkeleton className="h-44" />

@@ -12,10 +12,12 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(cookieParser());
-  app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN', '*'),
-    credentials: true,
-  });
+  const configuredOrigin = configService.get<string>('CORS_ORIGIN');
+  const origin =
+    !configuredOrigin || configuredOrigin.trim() === '*'
+      ? true
+      : configuredOrigin.split(',').map((s) => s.trim()).filter(Boolean);
+  app.enableCors({ origin, credentials: true });
 
   app.useGlobalPipes(
     new ValidationPipe({

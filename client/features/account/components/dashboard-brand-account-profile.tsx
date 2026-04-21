@@ -11,7 +11,7 @@ import {
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/providers/auth-provider";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 
@@ -53,8 +53,34 @@ export function DashboardBrandAccountProfile() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <Spinner className="size-8 text-muted-foreground" />
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div>
+          <Skeleton className="mb-2 h-8 w-1/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8 space-y-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-1 gap-4 sm:gap-6">
+              <Skeleton className="size-20 shrink-0 rounded-2xl sm:size-24" />
+              <div className="flex-1 space-y-3 py-2">
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/40 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+              <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+              <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+              <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+              <Skeleton className="h-20 rounded-xl sm:col-span-2 xl:col-span-3" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -73,8 +99,34 @@ export function DashboardBrandAccountProfile() {
 
   if (user.hasBrandProfile && profileQuery.isPending) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <Spinner className="size-8 text-muted-foreground" />
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div>
+          <Skeleton className="mb-2 h-8 w-1/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8 space-y-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-1 gap-4 sm:gap-6">
+              <Skeleton className="size-20 shrink-0 rounded-2xl sm:size-24" />
+              <div className="flex-1 space-y-3 py-2">
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/40 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+              <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+              <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+              <Skeleton className="h-20 rounded-xl xl:col-span-2" />
+              <Skeleton className="h-20 rounded-xl sm:col-span-2 xl:col-span-3" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

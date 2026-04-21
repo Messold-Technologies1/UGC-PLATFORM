@@ -5,6 +5,7 @@ import { NavigationProgress } from "@/components/navigation-progress";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/providers/auth-provider";
 import { QueryProvider } from "@/providers/query-provider";
+import { RealtimeProvider } from "@/providers/realtime-provider";
 
 export function AppShellProviders({ children }: { children: ReactNode }) {
   return (
@@ -32,5 +33,9 @@ export function AuthenticatedAppProviders({
 }: {
   children: ReactNode;
 }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <RealtimeProvider>{children}</RealtimeProvider>
+    </AuthProvider>
+  );
 }

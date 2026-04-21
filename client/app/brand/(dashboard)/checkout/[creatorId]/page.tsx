@@ -6,6 +6,7 @@ import {
 } from "@/features/creators/api/fetch-creator-profile";
 import { mapProfileItemToCreatorProfile } from "@/features/creators/api/map-profile-to-creator";
 import { CheckoutLayout } from "@/features/payments/components/checkout-layout";
+import type { AddOn } from "@/features/creators/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: "Checkout" };
 }
 
+function parseAddOnIds(raw: string | string[] | undefined): string[] {
+  if (!raw) return [];
+  const values = Array.isArray(raw) ? raw : [raw];
+  const ids = values
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim())
+    .filter(Boolean);
+  return Array.from(new Set(ids));
+}
+
 export default async function CheckoutPage({ params, searchParams }: PageProps) {
   const { creatorId } = await params;
-  const { package: packageId } = await searchParams;
+  const { package: packageId, addOns: addOnsParam } = await searchParams;
 
   if (!isCreatorProfileUuid(creatorId)) {
     notFound();
@@ -49,6 +60,11 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
       ? creator.packages.find((p) => p.id === packageId) ?? creator.packages[0] ?? null
       : creator.packages[0] ?? null;
 
+  const requestedAddOnIds = parseAddOnIds(addOnsParam);
+  const selectedAddOns: AddOn[] = creator.addOns.filter((a) =>
+    requestedAddOnIds.includes(a.id),
+  );
+
   return (
     <div className="mx-auto max-w-site px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
@@ -59,7 +75,11 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
         </p>
       </div>
 
-      <CheckoutLayout creator={creator} selectedPackage={selectedPackage} />
+      <CheckoutLayout
+        creator={creator}
+        selectedPackage={selectedPackage}
+        selectedAddOns={selectedAddOns}
+      />
     </div>
   );
 }

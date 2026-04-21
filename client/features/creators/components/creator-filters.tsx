@@ -112,32 +112,41 @@ export const CreatorFilters = memo(function CreatorFilters({
     filtersRef.current = filters;
   }, [filters]);
 
+  const [prevCity, setPrevCity] = useState(filters.city);
   const [localCity, setLocalCity] = useState(filters.city);
+  if (filters.city !== prevCity) {
+    setPrevCity(filters.city);
+    setLocalCity(filters.city);
+  }
+
+  const [prevIndustry, setPrevIndustry] = useState(filters.industry);
   const [localIndustry, setLocalIndustry] = useState(filters.industry);
+  if (filters.industry !== prevIndustry) {
+    setPrevIndustry(filters.industry);
+    setLocalIndustry(filters.industry);
+  }
+
+  const [prevPortfolioTag, setPrevPortfolioTag] = useState(filters.portfolioTag);
   const [localPortfolioTag, setLocalPortfolioTag] = useState(filters.portfolioTag);
+  if (filters.portfolioTag !== prevPortfolioTag) {
+    setPrevPortfolioTag(filters.portfolioTag);
+    setLocalPortfolioTag(filters.portfolioTag);
+  }
+
+  const [prevMinPrice, setPrevMinPrice] = useState(filters.minPrice);
+  const [prevMaxPrice, setPrevMaxPrice] = useState(filters.maxPrice);
   const [priceDraft, setPriceDraft] = useState<[number, number]>([
     filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN,
     filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX,
   ]);
-
-  useEffect(() => {
-    setLocalCity(filters.city);
-  }, [filters.city]);
-
-  useEffect(() => {
-    setLocalIndustry(filters.industry);
-  }, [filters.industry]);
-
-  useEffect(() => {
-    setLocalPortfolioTag(filters.portfolioTag);
-  }, [filters.portfolioTag]);
-
-  useEffect(() => {
+  if (filters.minPrice !== prevMinPrice || filters.maxPrice !== prevMaxPrice) {
+    setPrevMinPrice(filters.minPrice);
+    setPrevMaxPrice(filters.maxPrice);
     setPriceDraft([
       filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN,
       filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX,
     ]);
-  }, [filters.minPrice, filters.maxPrice]);
+  }
 
   const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
     staleTime: 5 * 60_000,
@@ -621,9 +630,9 @@ const DropdownFilterSection = memo(function DropdownFilterSection({
       className="overflow-hidden rounded-2xl border border-border/70 bg-background/90 shadow-sm"
     >
       <AccordionTrigger className="px-4 py-3.5 hover:no-underline">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-foreground">{label}</p>
+        <span className="min-w-0 flex-1 block text-left">
+          <span className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-foreground block">{label}</span>
             {selectedCount > 0 ? (
               <Badge
                 variant="secondary"
@@ -632,11 +641,11 @@ const DropdownFilterSection = memo(function DropdownFilterSection({
                 {selectedCount}
               </Badge>
             ) : null}
-          </div>
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+          </span>
+          <span className="mt-1 line-clamp-1 text-xs text-muted-foreground block text-left">
             {summary}
-          </p>
-        </div>
+          </span>
+        </span>
         <ChevronDown className="chevron size-4 text-muted-foreground transition-transform duration-200" />
       </AccordionTrigger>
       <AccordionContent className="border-t border-border/70 px-4 pb-4 pt-3">

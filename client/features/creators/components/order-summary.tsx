@@ -19,7 +19,8 @@ export const OrderSummary = memo(function OrderSummary({
 }: OrderSummaryProps) {
   const selectedAddOns = addOns.filter((a) => selectedAddOnIds.includes(a.id));
   const packagePrice = selectedPackage?.price ?? 0;
-  const total = packagePrice;
+  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price, 0);
+  const total = packagePrice + addOnsTotal;
 
   if (!selectedPackage) {
     return (
@@ -46,7 +47,11 @@ export const OrderSummary = memo(function OrderSummary({
     );
   }
 
-  const checkoutUrl = `/brand/checkout/${creatorId}?package=${selectedPackage.id}`;
+  const addOnsQuery =
+    selectedAddOns.length > 0
+      ? `&addOns=${selectedAddOns.map((a) => encodeURIComponent(a.id)).join(",")}`
+      : "";
+  const checkoutUrl = `/brand/checkout/${creatorId}?package=${selectedPackage.id}${addOnsQuery}`;
 
   return (
     <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm">
@@ -85,9 +90,6 @@ export const OrderSummary = memo(function OrderSummary({
                   </span>
                 </div>
               ))}
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Add-ons aren&apos;t included in checkout yet.
-              </p>
             </div>
           </>
         )}
@@ -112,7 +114,7 @@ export const OrderSummary = memo(function OrderSummary({
       </Button>
 
       <p className="mt-4 text-center text-xs font-medium text-muted-foreground">
-        Package checkout is live. Add-ons will be supported separately.
+        Secure checkout powered by Razorpay.
       </p>
     </div>
   );

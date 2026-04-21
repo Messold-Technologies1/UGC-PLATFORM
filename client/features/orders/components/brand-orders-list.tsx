@@ -26,7 +26,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGetBrandOrdersQuery } from "../hooks/use-get-brand-orders-query";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COLORS, STATUS_LABELS } from "../constants";
@@ -90,7 +90,7 @@ export function BrandOrdersList() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Orders"
+        title="Collaborations"
         description="Track your creator collaborations, delivery status, and payments."
       />
 
@@ -104,8 +104,40 @@ export function BrandOrdersList() {
         <h2 className="text-xl font-bold font-headline">Order activity</h2>
         <div className="w-full">
           {isLoading ? (
-            <div className="flex h-72 items-center justify-center">
-              <Spinner className="size-8 text-primary" />
+            <div className="flex flex-col space-y-4 w-full">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 w-full"
+                >
+                  <div className="flex items-center gap-6 min-w-[250px] w-full xl:w-auto">
+                    <Skeleton className="h-14 w-14 rounded-full" />
+                    <div className="min-w-0 space-y-2">
+                       <Skeleton className="h-5 w-32" />
+                       <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-6 w-full pl-0 xl:pl-8">
+                    <div className="flex flex-col space-y-2.5">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <div className="flex flex-col space-y-2.5">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-5 w-24 rounded-md" />
+                    </div>
+                    <div className="flex flex-col space-y-2.5">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-6 shrink-0 w-full xl:w-auto mt-4 xl:mt-0">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : !data || data.items.length === 0 ? (
             <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 p-10 w-full text-center">

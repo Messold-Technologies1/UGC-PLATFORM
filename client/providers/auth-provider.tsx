@@ -15,6 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 import api from "@/lib/api";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
+import { disconnectSocket } from "@/lib/socket";
 import {
   authMeQueryKey,
   type AuthUser,
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       
     } finally {
+      disconnectSocket();
       queryClient.setQueryData(authMeQueryKey, null);
       queryClient.clear();
       beginClientNavigation();

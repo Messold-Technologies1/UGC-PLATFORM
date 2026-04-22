@@ -107,7 +107,6 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         name: dto.name ?? null,
         passwordHash,
-        // New users may start without any role selected.
         primaryRoleId: null,
       },
     });
@@ -491,7 +490,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       roles,
-      // brandAccessRevoked: !!user.brandAccessRevokedAt,
+      brandAccessRevoked: !!user.brandAccessRevokedAt,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,

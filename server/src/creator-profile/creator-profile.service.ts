@@ -27,6 +27,7 @@ import type {
   CreatorPublicListItemDto,
   CreatorPublicListPortfolioVideoDto,
 } from './dto/creator-public-list-item.dto';
+import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
   buildCreatorListRelationsInclude,

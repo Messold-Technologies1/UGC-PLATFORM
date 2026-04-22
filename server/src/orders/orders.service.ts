@@ -137,8 +137,7 @@ export class OrdersService {
         currency: 'INR',
         deliveryDaysSnapshot: pkg.deliveryDays,
         maxRevisionsSnapshot: pkg.maxRevisions,
-        addOnsSnapshot:
-          addOnsSnapshot as unknown as Prisma.InputJsonValue,
+        addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
         addOnsTotalSnapshot: addOnsTotalDecimal,
         expectedAmountPaise: amountPaise,
       },
@@ -265,7 +264,8 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
     if (order.status !== 'BRIEF_SUBMISSION_PENDING') {
       throw new BadRequestException('Order is not awaiting brief submission');
     }
@@ -563,7 +563,10 @@ export class OrdersService {
     };
   }
 
-  async markDelivered(params: { creatorUserId: string; orderId: string }): Promise<void> {
+  async markDelivered(params: {
+    creatorUserId: string;
+    orderId: string;
+  }): Promise<void> {
     const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
@@ -575,11 +578,17 @@ export class OrdersService {
       select: { id: true, creatorId: true, status: true, deliveredAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
     if (order.deliveredAt) return;
 
-    if (order.status !== 'BRIEF_SUBMITTED' && order.status !== 'REVISION_REQUESTED') {
-      throw new BadRequestException('Order is not ready for delivery submission');
+    if (
+      order.status !== 'BRIEF_SUBMITTED' &&
+      order.status !== 'REVISION_REQUESTED'
+    ) {
+      throw new BadRequestException(
+        'Order is not ready for delivery submission',
+      );
     }
 
     await this.prisma.order.update({
@@ -588,7 +597,10 @@ export class OrdersService {
     });
   }
 
-  async acceptDelivery(params: { brandUserId: string; orderId: string }): Promise<void> {
+  async acceptDelivery(params: {
+    brandUserId: string;
+    orderId: string;
+  }): Promise<void> {
     const brand = await this.prisma.brandProfile.findUnique({
       where: { userId: params.brandUserId },
       select: { id: true },
@@ -600,7 +612,8 @@ export class OrdersService {
       select: { id: true, brandId: true, status: true, acceptedAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
     if (order.acceptedAt) return;
 
     if (order.status !== 'DELIVERED' && order.status !== 'REVISION_SUBMITTED') {
@@ -632,7 +645,9 @@ export class OrdersService {
       'REJECTED',
     ]);
     if (noDisputeStatuses.has(String(order.status))) {
-      throw new BadRequestException('Order cannot be disputed in its current state');
+      throw new BadRequestException(
+        'Order cannot be disputed in its current state',
+      );
     }
 
     if (params.openedBy === 'BRAND') {
@@ -641,14 +656,16 @@ export class OrdersService {
         select: { id: true },
       });
       if (!brand) throw new NotFoundException('Brand profile not found');
-      if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+      if (order.brandId !== brand.id)
+        throw new ForbiddenException('Not your order');
     } else {
       const creator = await this.prisma.creatorProfile.findUnique({
         where: { userId: params.openerUserId },
         select: { id: true },
       });
       if (!creator) throw new NotFoundException('Creator profile not found');
-      if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+      if (order.creatorId !== creator.id)
+        throw new ForbiddenException('Not your order');
     }
 
     // One open dispute at a time
@@ -687,7 +704,9 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('Order not found');
     if (String(order.status) !== 'ACCEPTED') {
-      throw new BadRequestException('Order must be ACCEPTED before marking creator paid');
+      throw new BadRequestException(
+        'Order must be ACCEPTED before marking creator paid',
+      );
     }
     if (order.creatorPaidAt) return;
 
@@ -833,4 +852,3 @@ export class OrdersService {
     return order.id;
   }
 }
-

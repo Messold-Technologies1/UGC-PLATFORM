@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { ProfileHeader } from "./profile-header";
 import type { CreatorProfile as CreatorProfileType } from "../types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
 
 function TabSkeleton() {
   return (
@@ -61,21 +62,40 @@ export function CreatorProfile({
   initialPortfolioVideos,
 }: CreatorProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Portfolio");
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
-    null,
-  );
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
 
   const selectedPackage = useMemo(
     () => creator.packages.find((p) => p.id === selectedPackageId) ?? null,
     [creator.packages, selectedPackageId],
   );
+  const selectedAddOns = useMemo(
+    () => creator.addOns.filter((addOn) => selectedAddOnIds.includes(addOn.id)),
+    [creator.addOns, selectedAddOnIds],
+  );
+  const { isProcessing, startCheckout } = useRazorpayCheckout({
+    creator,
+    selectedPackage,
+    selectedAddOns,
+  });
 
   const handleToggleAddOn = useCallback((id: string) => {
     setSelectedAddOnIds((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((addOnId) => addOnId !== id) : [...prev, id],
     );
   }, []);
+
+  const handleSelectPackage = useCallback((id: string) => {
+    setSelectedPackageId(id);
+  }, []);
+
+  const handleProceedToCheckout = useCallback(() => {
+    if (!selectedPackage) {
+      return;
+    }
+
+    void startCheckout();
+  }, [selectedPackage, startCheckout]);
 
   return (
     <div className="w-full min-w-0">
@@ -135,7 +155,7 @@ export function CreatorProfile({
                   addOns={creator.addOns}
                   selectedPackageId={selectedPackageId}
                   selectedAddOnIds={selectedAddOnIds}
-                  onSelectPackage={setSelectedPackageId}
+                  onSelectPackage={handleSelectPackage}
                   onToggleAddOn={handleToggleAddOn}
                 />
               )}
@@ -154,10 +174,11 @@ export function CreatorProfile({
         <div className="w-full shrink-0 lg:w-80">
           <div className="sticky top-24 space-y-6">
             <OrderSummary
-              creatorId={creator.id}
               selectedPackage={selectedPackage}
               addOns={creator.addOns}
               selectedAddOnIds={selectedAddOnIds}
+              isProcessing={isProcessing}
+              onProceedToCheckout={handleProceedToCheckout}
             />
 
             <div className="rounded-2xl border border-border bg-card p-6">

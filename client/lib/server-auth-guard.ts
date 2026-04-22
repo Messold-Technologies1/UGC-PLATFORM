@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
-type ServerAuthUser = {
+export type ServerAuthUser = {
   id: string;
   email: string;
   roles?: Array<"CREATOR" | "BRAND" | "ADMIN">;
@@ -17,7 +17,7 @@ type MeResponse = {
   user?: ServerAuthUser | null;
 };
 
-async function fetchServerAuthUser(): Promise<ServerAuthUser | null> {
+export async function fetchServerAuthUser(): Promise<ServerAuthUser | null> {
   try {
     const cookieStore = await cookies();
     const cookieHeader = cookieStore

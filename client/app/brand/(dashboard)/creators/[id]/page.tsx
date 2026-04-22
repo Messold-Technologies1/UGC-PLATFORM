@@ -33,7 +33,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: "Creator" };
 }
 
-export default async function CreatorProfilePage({ params }: PageProps) {
+export default async function CreatorProfilePage({
+  params,
+}: PageProps) {
   const { id } = await params;
 
   if (!isCreatorProfileUuid(id)) {

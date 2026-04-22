@@ -1,21 +1,22 @@
 import { memo } from "react";
 import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import type { Package, AddOn } from "../types";
 
 interface OrderSummaryProps {
-  creatorId: string;
   selectedPackage: Package | null;
   addOns: AddOn[];
   selectedAddOnIds: string[];
+  isProcessing?: boolean;
+  onProceedToCheckout?: () => void;
 }
 
 export const OrderSummary = memo(function OrderSummary({
-  creatorId,
   selectedPackage,
   addOns,
   selectedAddOnIds,
+  isProcessing = false,
+  onProceedToCheckout,
 }: OrderSummaryProps) {
   const selectedAddOns = addOns.filter((a) => selectedAddOnIds.includes(a.id));
   const packagePrice = selectedPackage?.price ?? 0;
@@ -46,12 +47,6 @@ export const OrderSummary = memo(function OrderSummary({
       </div>
     );
   }
-
-  const addOnsQuery =
-    selectedAddOns.length > 0
-      ? `&addOns=${selectedAddOns.map((a) => encodeURIComponent(a.id)).join(",")}`
-      : "";
-  const checkoutUrl = `/brand/checkout/${creatorId}?package=${selectedPackage.id}${addOnsQuery}`;
 
   return (
     <div className="rounded-3xl border-0 bg-card p-6 sm:p-8 shadow-sm">
@@ -108,9 +103,10 @@ export const OrderSummary = memo(function OrderSummary({
         className="mt-8 w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         size="lg"
         aria-label="Proceed to checkout"
-        asChild
+        disabled={isProcessing}
+        onClick={onProceedToCheckout}
       >
-        <Link href={checkoutUrl}>Proceed to Checkout</Link>
+        {isProcessing ? "Opening Razorpay..." : "Proceed to Checkout"}
       </Button>
 
       <p className="mt-4 text-center text-xs font-medium text-muted-foreground">

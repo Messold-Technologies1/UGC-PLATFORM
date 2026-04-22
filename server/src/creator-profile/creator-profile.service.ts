@@ -273,7 +273,6 @@ export class CreatorProfileService {
           where: { id: userId },
           select: {
             primaryRoleId: true,
-            brandProfile: { select: { id: true } },
           } as any,
         });
         if (!currentUser) {
@@ -313,7 +312,9 @@ export class CreatorProfileService {
           }),
         );
 
-        if (!currentUser.primaryRoleId && !currentUser.brandProfile) {
+        // With URL-based workspace selection, creator profile creation should
+        // make CREATOR the primary role if none is set yet.
+        if (!currentUser.primaryRoleId) {
           ops.push(
             tx.user.update({
               where: { id: userId },

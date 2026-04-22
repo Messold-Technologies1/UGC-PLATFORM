@@ -51,7 +51,7 @@ export class CreatorProfileController {
   ) {}
 
   @Post('profile')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create creator profile for the authenticated user',
@@ -66,7 +66,7 @@ export class CreatorProfileController {
   }
 
   @Post('profile/uploads/presign')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image',

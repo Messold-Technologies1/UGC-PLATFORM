@@ -1,12 +1,12 @@
 import { fetchCreatorsPage } from "./list-creators";
-import type { CreatorProfileItemApi } from "./types";
+import type { CreatorPublicListItemApi } from "./types";
 
 const PAGE_LIMIT = 50;
 
 
 export async function findCreatorProfileForUserId(
   userId: string,
-): Promise<CreatorProfileItemApi | null> {
+): Promise<CreatorPublicListItemApi | null> {
   let page = 1;
   for (;;) {
     const res = await fetchCreatorsPage(page, PAGE_LIMIT);

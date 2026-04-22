@@ -47,6 +47,28 @@ export type CreatorPortfolioVideoPreviewApi = {
   createdAt: string;
 };
 
+export type CreatorPublicListPackageApi = {
+  name: string;
+  priceAmount: string;
+};
+
+export type CreatorPublicListItemApi = {
+  id: string;
+  userId: string;
+  name: string;
+  profileImageUrl?: string | null;
+  city?: string | null;
+  bio?: string | null;
+  gender?: string | null;
+  onLocationAvailable: boolean;
+  languages: string[];
+  categories: string[];
+  personaTags: string[];
+  restrictions: string[];
+  packages: CreatorPublicListPackageApi[];
+  portfolioVideos: CreatorPortfolioVideoPreviewApi[];
+};
+
 export type CreatorProfileItemApi = {
   id: string;
   userId: string;
@@ -69,7 +91,7 @@ export type CreatorProfileItemApi = {
 };
 
 export type CreatorsListResponse = {
-  items: CreatorProfileItemApi[];
+  items: CreatorPublicListItemApi[];
   total: number;
   page: number;
   limit: number;

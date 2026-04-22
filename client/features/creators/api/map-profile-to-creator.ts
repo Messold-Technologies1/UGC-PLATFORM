@@ -1,5 +1,59 @@
 import type { Creator, CreatorProfile, Package } from "../types";
-import type { CreatorProfileItemApi } from "./types";
+import type { CreatorProfileItemApi, CreatorPublicListItemApi } from "./types";
+
+type ListingProfileApi = CreatorProfileItemApi | CreatorPublicListItemApi;
+
+function trimString(value: string | null | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function trimStringArray(
+  values: Array<string | null | undefined> | null | undefined,
+): string[] {
+  if (!values?.length) return [];
+  return values.map((value) => trimString(value)).filter(Boolean);
+}
+
+function isCreatorProfileItemApi(
+  profile: ListingProfileApi,
+): profile is CreatorProfileItemApi {
+  return "displayName" in profile;
+}
+
+function getProfileName(profile: ListingProfileApi): string {
+  return isCreatorProfileItemApi(profile) ? profile.displayName : profile.name;
+}
+
+function getProfileLanguages(profile: ListingProfileApi): string[] {
+  if (isCreatorProfileItemApi(profile)) {
+    return trimStringArray((profile.languages ?? []).map((item) => item?.language));
+  }
+  return trimStringArray(profile.languages);
+}
+
+function getProfileCategories(profile: ListingProfileApi): string[] {
+  if (isCreatorProfileItemApi(profile)) {
+    return trimStringArray((profile.categories ?? []).map((item) => item?.category));
+  }
+  return trimStringArray(profile.categories);
+}
+
+function getProfilePersonaTags(profile: ListingProfileApi): string[] {
+  if (isCreatorProfileItemApi(profile)) {
+    return trimStringArray((profile.personaTags ?? []).map((item) => item?.tag));
+  }
+  return trimStringArray(profile.personaTags);
+}
+
+function getFirstPortfolioVideo(profile: ListingProfileApi) {
+  return isCreatorProfileItemApi(profile)
+    ? (profile.firstPortfolioVideo ?? null)
+    : (profile.portfolioVideos?.[0] ?? null);
+}
+
+function getTravelRadius(profile: ListingProfileApi): number | null {
+  return isCreatorProfileItemApi(profile) ? (profile.travelRadius ?? null) : null;
+}
 
 function normalizeGender(
   raw: string | null | undefined,
@@ -10,7 +64,7 @@ function normalizeGender(
 }
 
 function minPackagePrice(
-  packages: CreatorProfileItemApi["packages"] | undefined,
+  packages: Array<{ priceAmount: string }> | undefined,
 ): number {
   if (!packages?.length) return 0;
   let min: number | null = null;
@@ -22,13 +76,19 @@ function minPackagePrice(
   return min ?? 0;
 }
 
-function buildTags(profile: CreatorProfileItemApi): string[] {
-  const fromLang = (profile.languages ?? []).map((l) => l.language);
-  const fromCategories = (profile.categories ?? []).map((c) => c.category);
-  const fromPersona = (profile.personaTags ?? []).map((t) => t.tag);
+function buildTags(profile: ListingProfileApi): string[] {
+  const fromLang = getProfileLanguages(profile);
+  const fromCategories = getProfileCategories(profile);
+  const fromPersona = getProfilePersonaTags(profile);
+  const firstPortfolioVideo = getFirstPortfolioVideo(profile);
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const t of [...fromLang, ...fromCategories, ...fromPersona, ...(profile.firstPortfolioVideo?.tags ?? [])]) {
+  for (const t of [
+    ...fromLang,
+    ...fromCategories,
+    ...fromPersona,
+    ...trimStringArray(firstPortfolioVideo?.tags),
+  ]) {
     const key = t.trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -39,29 +99,28 @@ function buildTags(profile: CreatorProfileItemApi): string[] {
 }
 
 export function mapProfileToListingCreator(
-  profile: CreatorProfileItemApi,
+  profile: ListingProfileApi,
 ): Creator {
-  const categoryNames = (profile.categories ?? [])
-    .map((c) => c.category.trim())
-    .filter(Boolean);
+  const categoryNames = getProfileCategories(profile);
   const category = categoryNames[0] ?? "General";
   const categories = categoryNames.length > 0 ? categoryNames : [category];
+  const travelRadius = getTravelRadius(profile);
 
-  const thumb = profile.profileImageUrl?.trim();
+  const thumb = trimString(profile.profileImageUrl);
   const thumbnail =
     thumb && (thumb.startsWith("http://") || thumb.startsWith("https://"))
       ? thumb
       : "/globe.svg";
-  const previewVideoUrl = profile.firstPortfolioVideo?.videoUrl?.trim() ?? null;
+  const firstPortfolioVideo = getFirstPortfolioVideo(profile);
+  const previewVideoUrl = trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
-    profile.firstPortfolioVideo?.thumbnailUrl?.trim() || thumbnail;
-  const industryLabel =
-    profile.firstPortfolioVideo?.industryLabel?.trim() || undefined;
+    trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
+  const industryLabel = trimString(firstPortfolioVideo?.industryLabel) || undefined;
 
   return {
     id: profile.id,
-    name: profile.displayName,
-    location: profile.city?.trim() || "Location not set",
+    name: getProfileName(profile),
+    location: trimString(profile.city) || "Location not set",
     rating: 0,
     reviewCount: 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
@@ -73,7 +132,7 @@ export function mapProfileToListingCreator(
     available: true,
     storeVisit: profile.onLocationAvailable ?? false,
     travelAvailable:
-      (profile.travelRadius != null && profile.travelRadius > 0) ||
+      (travelRadius != null && travelRadius > 0) ||
       (profile.onLocationAvailable ?? false),
     gender: normalizeGender(profile.gender),
     category,

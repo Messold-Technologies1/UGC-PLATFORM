@@ -32,7 +32,7 @@ import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
-import { ActiveWorkspaceGuard } from 'src/auth/guards/active-workspace.guard';
+import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
 
 @ApiTags('Orders')
 @ApiBearerAuth()

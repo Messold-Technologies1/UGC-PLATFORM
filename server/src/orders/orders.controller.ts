@@ -35,6 +35,12 @@ import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
 import { BrandOrderDetailsResponseDto } from './dto/brand-order-details-response.dto';
 import { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
+import { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
+import { PresignDeliveryUploadResponseDto } from './dto/presign-delivery-upload-response.dto';
+import {
+  SubmitDeliveryDto,
+  SubmitDeliveryResponseDto,
+} from './dto/submit-delivery.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -164,6 +170,63 @@ export class OrdersController {
       brandUserId: req.user.id,
       orderId: id,
       brief: dto.brief,
+    });
+  }
+
+  @Post(':id/deliveries/presign')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create presigned S3 URLs for delivery uploads' })
+  @ApiCreatedResponse({ type: PresignDeliveryUploadResponseDto })
+  async presignDeliveryUploads(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PresignDeliveryUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PresignDeliveryUploadResponseDto> {
+    return this.ordersService.presignDeliveryUploads({
+      orderId: id,
+      creatorUserId: req.user.id,
+      dto,
+    });
+  }
+
+  @Post(':id/deliveries')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Submit delivery assets and transition order status (excludes brief)',
+  })
+  @ApiCreatedResponse({ type: SubmitDeliveryResponseDto })
+  async submitDelivery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SubmitDeliveryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<SubmitDeliveryResponseDto> {
+    return this.ordersService.submitDelivery({
+      orderId: id,
+      creatorUserId: req.user.id,
+      dto,
+    });
+  }
+
+  @Post(':id/revisions/request')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Brand requests revision (enforces max revisions)',
+  })
+  @ApiNoContentResponse({ description: 'Revision requested' })
+  async requestRevision(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.requestRevision({
+      orderId: id,
+      brandUserId: req.user.id,
     });
   }
 

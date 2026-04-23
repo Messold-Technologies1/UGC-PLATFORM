@@ -45,6 +45,10 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
     if (!isVideo) throw new Error('Unsupported video content type');
     return;
   }
+  if (kind === 'order_delivery_asset') {
+    if (!isImage && !isVideo) throw new Error('Unsupported delivery content type');
+    return;
+  }
   throw new Error('Unsupported upload kind');
 }
 
@@ -85,6 +89,8 @@ export class StorageService {
     userId: string;
     creatorProfileId?: string;
     brandProfileId?: string;
+    orderId?: string;
+    revisionNumber?: number;
     contentType: string;
   }): string {
     validateContentType(input.kind, input.contentType);
@@ -108,6 +114,16 @@ export class StorageService {
         return `brand-logo/${brandId}/${id}.${ext}`;
       }
       return this.buildTempBrandLogoKey(input.userId, ext);
+    }
+
+    if (input.kind === 'order_delivery_asset') {
+      const orderId = input.orderId;
+      if (!orderId) throw new Error('orderId is required');
+      const rev =
+        typeof input.revisionNumber === 'number' && Number.isFinite(input.revisionNumber)
+          ? Math.max(0, Math.floor(input.revisionNumber))
+          : 0;
+      return `order-deliveries/${orderId}/r${rev}/${id}.${ext}`;
     }
 
     const creatorId = input.creatorProfileId;

@@ -2,7 +2,8 @@ export type StorageUploadKind =
   | 'creator_profile_image'
   | 'creator_portfolio_video'
   | 'creator_portfolio_thumbnail'
-  | 'brand_logo';
+  | 'brand_logo'
+  | 'order_delivery_asset';
 
 export interface PresignedUploadResult {
   key: string;

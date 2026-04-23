@@ -197,6 +197,7 @@ model CreatorProfile {
   addOns          CreatorAddOn[]
   portfolioVideos CreatorPortfolioVideo[]
   receivedOrders  Order[] @relation("OrderCreator")
+  orderDeliveries OrderDelivery[]
   payoutDetails   CreatorPayoutDetails?
 
   @@index([city])
@@ -264,11 +265,29 @@ model Order {
   creator CreatorProfile @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   package CreatorPackage @relation(fields: [creatorPackageId], references: [id], onDelete: Restrict)
   disputes OrderDispute[]
+  deliveries OrderDelivery[]
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
   @@index([status, createdAt])
   @@index([deliveryDeadlineAt])
+}
+
+model OrderDelivery {
+  id             String   @id @default(uuid()) @db.Uuid
+  orderId        String   @db.Uuid
+  creatorId      String   @db.Uuid
+  revisionNumber Int      @default(0)
+  assets         Json
+  note           String?
+  createdAt      DateTime @default(now())
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([creatorId, createdAt])
+  @@unique([orderId, revisionNumber])
 }
 
 model OrderDispute {

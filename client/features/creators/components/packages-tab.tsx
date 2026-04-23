@@ -1,5 +1,7 @@
 import { memo } from "react";
 import { Check } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import type { Package, AddOn } from "../types";
 
 interface PackagesTabProps {
@@ -27,7 +29,7 @@ export const PackagesTab = memo(function PackagesTab({
           const isPopular = pkg.tier === "standard";
 
           return (
-            <div
+            <Card
               key={pkg.id}
               role="button"
               tabIndex={0}
@@ -38,60 +40,61 @@ export const PackagesTab = memo(function PackagesTab({
                   onSelectPackage(pkg.id);
                 }
               }}
-              className={`relative flex flex-col justify-between h-[480px] rounded-3xl bg-card p-8 transition-all duration-300 cursor-pointer ${
+              onClick={() => onSelectPackage(pkg.id)}
+              className={`flex flex-col relative transition-all duration-300 cursor-pointer ${
                 isSelected
                   ? "border-2 border-primary scale-105 z-10 shadow-xl shadow-primary/20"
-                  : "border border-border hover:border-primary/30 group"
+                  : "hover:border-primary/30 group"
               }`}
-              onClick={() => onSelectPackage(pkg.id)}
             >
               {isPopular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-linear-to-r from-primary to-primary/80 px-4 py-1 rounded-full z-20">
-                  <span className="text-[10px] font-black text-primary-foreground uppercase tracking-[0.2em] whitespace-nowrap">
-                    Most Popular
-                  </span>
-                </div>
+                <span className="bg-linear-to-r absolute inset-x-0 -top-3 mx-auto flex h-6 w-fit items-center rounded-full from-purple-400 to-amber-300 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-950 ring-1 ring-inset ring-white/20 ring-offset-1 ring-offset-gray-950/5 z-20">
+                  Popular
+                </span>
               )}
 
-              <div className="space-y-4">
-                <h3 className="text-primary text-xs font-black uppercase tracking-[0.2em]">
+              <CardHeader>
+                <CardTitle className="font-medium text-primary text-xs uppercase tracking-[0.2em]">
                   {pkg.label}
-                </h3>
-                <p className="text-4xl font-extrabold tracking-tighter">
+                </CardTitle>
+                <span className="my-3 block text-4xl font-extrabold tracking-tighter">
                   ₹{pkg.price.toLocaleString("en-IN")}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
+                </span>
+                <CardDescription className="text-sm">
                   {pkg.deliveryDays}-day delivery · {pkg.revisions} revision
                   {pkg.revisions > 1 ? "s" : ""}
-                </p>
-              </div>
+                </CardDescription>
+              </CardHeader>
 
-              <ul className="mt-8 flex-1 space-y-4">
-                {pkg.features.map((feature) => (
-                  <li
-                    key={feature}
-                    className="flex items-start gap-3 text-sm text-foreground/80"
-                  >
-                    <Check className="mt-0.5 size-5 shrink-0 text-primary" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+              <CardContent className="space-y-4">
+                <hr className="border-dashed" />
 
-              <button
-                className={`w-full mt-10 py-3 rounded-xl font-bold transition-all ${
-                  isSelected
-                    ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
-                    : "border border-primary/40 text-primary hover:bg-primary/5 group-hover:border-primary/60"
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectPackage(pkg.id);
-                }}
-              >
-                {isSelected ? "Selected" : "Select"}
-              </button>
-            </div>
+                <ul className="list-outside space-y-3 text-sm">
+                  {pkg.features.map((feature, index) => (
+                    <li
+                      key={index}
+                      className="flex items-start gap-2 text-foreground/80"
+                    >
+                      <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+
+              <CardFooter className="mt-auto">
+                <Button
+                  variant={isSelected ? "default" : "outline"}
+                  className="w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectPackage(pkg.id);
+                  }}
+                >
+                  {isSelected ? "Selected" : "Get Started"}
+                </Button>
+              </CardFooter>
+            </Card>
           );
         })}
       </div>

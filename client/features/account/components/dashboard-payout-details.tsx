@@ -244,7 +244,12 @@ export function DashboardPayoutDetails() {
             </DialogHeader>
 
             <form
-              onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
+              onSubmit={form.handleSubmit((v) => {
+                const payload = Object.fromEntries(
+                  Object.entries(v).filter(([, val]) => val !== "")
+                ) as FormValues;
+                mutation.mutate(payload);
+              })}
               className="space-y-6 pt-2"
             >
               <Tabs

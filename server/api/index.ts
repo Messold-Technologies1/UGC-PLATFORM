@@ -14,7 +14,26 @@ async function getServer() {
   if (cachedServer) return cachedServer;
 
   const server = express();
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+  // Ensure webhooks can verify Razorpay signatures using the raw request body.
+  server.use(
+    express.json({
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+  server.use(
+    express.urlencoded({
+      extended: true,
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+    rawBody: true,
+  });
 
   const configService = app.get(ConfigService);
 

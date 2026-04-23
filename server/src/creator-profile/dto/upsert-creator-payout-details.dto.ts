@@ -27,7 +27,11 @@ export class UpsertCreatorPayoutDetailsDto {
   ifsc?: string;
 
   @ApiPropertyOptional({ example: 'name@okhdfcbank' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed === '' ? undefined : trimmed;
+  })
   @IsOptional()
   @IsString()
   @Matches(/^[^@\s]+@[^@\s]+$/)

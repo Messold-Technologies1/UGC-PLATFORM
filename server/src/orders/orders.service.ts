@@ -16,6 +16,11 @@ import type { CreatorOrdersListResponseDto } from './dto/creator-orders-list-res
 import type { CreatorOrderListItemDto } from './dto/creator-order-list-item.dto';
 import type { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import type { OrderListSummaryDto } from './dto/order-list-summary.dto';
+import type { AdminOrderDetailsResponseDto } from './dto/admin-order-details-response.dto';
+import type { BrandOrderDetailsResponseDto } from './dto/brand-order-details-response.dto';
+import type { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
+import type { OrderDetailsPublicDto } from './dto/order-details-public.dto';
+import type { OrderDetailsAdminDto } from './dto/order-details-admin.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
@@ -40,6 +45,11 @@ function razorpayRefundErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return 'Razorpay refund failed';
+}
+
+function mapDeliverablesSnapshot(value: Prisma.JsonValue): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
 }
 
 @Injectable()
@@ -331,6 +341,271 @@ export class OrdersService {
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+    };
+  }
+
+  private mapOrderDetails(order: {
+    id: string;
+    status: OrderStatus;
+    packageNameSnapshot: string;
+    deliverablesSnapshot: Prisma.JsonValue;
+    priceAmountSnapshot: Prisma.Decimal;
+    currency: string;
+    deliveryDaysSnapshot: number;
+    maxRevisionsSnapshot: number;
+    addOnsSnapshot: Prisma.JsonValue;
+    addOnsTotalSnapshot: Prisma.Decimal | null;
+    expectedAmountPaise: number;
+    paidAt: Date | null;
+    briefSubmittedAt: Date | null;
+    deliveryDeadlineAt: Date | null;
+    deliveredAt: Date | null;
+    acceptedAt: Date | null;
+    creatorPaidAt: Date | null;
+    revisionCount: number;
+    refundedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): OrderDetailsPublicDto {
+    const addOnsRaw = Array.isArray(order.addOnsSnapshot) ? order.addOnsSnapshot : [];
+    const addOnsSnapshot = addOnsRaw
+      .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+      .filter(Boolean)
+      .map((a: any) => ({
+        id: String(a.id ?? ''),
+        name: String(a.name ?? ''),
+        priceAmount: String(a.priceAmount ?? '0'),
+        description:
+          a.description == null
+            ? null
+            : typeof a.description === 'string'
+              ? a.description
+              : String(a.description),
+      }))
+      .filter((a) => a.id && a.name);
+
+    return {
+      id: order.id,
+      status: order.status,
+      packageNameSnapshot: order.packageNameSnapshot,
+      priceAmountSnapshot: order.priceAmountSnapshot.toString(),
+      currency: order.currency,
+      deliveryDaysSnapshot: order.deliveryDaysSnapshot,
+      paidAt: order.paidAt,
+      briefSubmittedAt: order.briefSubmittedAt,
+      hasBrief: order.briefSubmittedAt != null,
+      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      deliverablesSnapshot: mapDeliverablesSnapshot(order.deliverablesSnapshot),
+      maxRevisionsSnapshot: order.maxRevisionsSnapshot,
+      addOnsSnapshot,
+      addOnsTotalSnapshot: order.addOnsTotalSnapshot
+        ? order.addOnsTotalSnapshot.toString()
+        : null,
+      expectedAmountPaise: order.expectedAmountPaise,
+      deliveredAt: order.deliveredAt,
+      acceptedAt: order.acceptedAt,
+      creatorPaidAt: order.creatorPaidAt,
+      revisionCount: order.revisionCount,
+      refundedAt: order.refundedAt,
+    };
+  }
+
+  private mapOrderDetailsAdmin(order: {
+    razorpayOrderId: string | null;
+    razorpayPaymentId: string | null;
+    razorpayRefundId: string | null;
+  } & Parameters<OrdersService['mapOrderDetails']>[0]): OrderDetailsAdminDto {
+    return {
+      ...this.mapOrderDetails(order),
+      razorpayOrderId: order.razorpayOrderId,
+      razorpayPaymentId: order.razorpayPaymentId,
+      razorpayRefundId: order.razorpayRefundId,
+    };
+  }
+
+  async getOrderDetailsForBrand(params: {
+    orderId: string;
+    brandUserId: string;
+  }): Promise<BrandOrderDetailsResponseDto> {
+    const brand = await this.prisma.brandProfile.findUnique({
+      where: { userId: params.brandUserId },
+      select: { id: true },
+    });
+    if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        status: true,
+        packageNameSnapshot: true,
+        deliverablesSnapshot: true,
+        priceAmountSnapshot: true,
+        currency: true,
+        deliveryDaysSnapshot: true,
+        maxRevisionsSnapshot: true,
+        addOnsSnapshot: true,
+        addOnsTotalSnapshot: true,
+        expectedAmountPaise: true,
+        paidAt: true,
+        briefSubmittedAt: true,
+        deliveryDeadlineAt: true,
+        deliveredAt: true,
+        acceptedAt: true,
+        creatorPaidAt: true,
+        revisionCount: true,
+        refundedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            profileImageUrl: true,
+            city: true,
+          },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+
+    const { creator, brandId, ...orderFields } = order;
+    return {
+      order: this.mapOrderDetails(orderFields),
+      creator: {
+        id: creator.id,
+        displayName: creator.displayName,
+        profileImageUrl: creator.profileImageUrl ?? null,
+        city: creator.city ?? null,
+      },
+    };
+  }
+
+  async getOrderDetailsForCreator(params: {
+    orderId: string;
+    creatorUserId: string;
+  }): Promise<CreatorOrderDetailsResponseDto> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        creatorId: true,
+        status: true,
+        packageNameSnapshot: true,
+        deliverablesSnapshot: true,
+        priceAmountSnapshot: true,
+        currency: true,
+        deliveryDaysSnapshot: true,
+        maxRevisionsSnapshot: true,
+        addOnsSnapshot: true,
+        addOnsTotalSnapshot: true,
+        expectedAmountPaise: true,
+        paidAt: true,
+        briefSubmittedAt: true,
+        deliveryDeadlineAt: true,
+        deliveredAt: true,
+        acceptedAt: true,
+        creatorPaidAt: true,
+        revisionCount: true,
+        refundedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        brand: {
+          select: {
+            id: true,
+            companyName: true,
+            logoUrl: true,
+          },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+
+    const { brand, creatorId, ...orderFields } = order;
+    return {
+      order: this.mapOrderDetails(orderFields),
+      brand: {
+        id: brand.id,
+        companyName: brand.companyName,
+        logoUrl: brand.logoUrl ?? null,
+      },
+    };
+  }
+
+  async getOrderDetailsForAdmin(params: {
+    orderId: string;
+  }): Promise<AdminOrderDetailsResponseDto> {
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        status: true,
+        packageNameSnapshot: true,
+        deliverablesSnapshot: true,
+        priceAmountSnapshot: true,
+        currency: true,
+        deliveryDaysSnapshot: true,
+        maxRevisionsSnapshot: true,
+        addOnsSnapshot: true,
+        addOnsTotalSnapshot: true,
+        expectedAmountPaise: true,
+        paidAt: true,
+        briefSubmittedAt: true,
+        deliveryDeadlineAt: true,
+        deliveredAt: true,
+        acceptedAt: true,
+        creatorPaidAt: true,
+        revisionCount: true,
+        razorpayOrderId: true,
+        razorpayPaymentId: true,
+        razorpayRefundId: true,
+        refundedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            profileImageUrl: true,
+            city: true,
+          },
+        },
+        brand: {
+          select: {
+            id: true,
+            companyName: true,
+            logoUrl: true,
+          },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const { creator, brand, ...orderFields } = order;
+    return {
+      order: this.mapOrderDetailsAdmin(orderFields),
+      creator: {
+        id: creator.id,
+        displayName: creator.displayName,
+        profileImageUrl: creator.profileImageUrl ?? null,
+        city: creator.city ?? null,
+      },
+      brand: {
+        id: brand.id,
+        companyName: brand.companyName,
+        logoUrl: brand.logoUrl ?? null,
+      },
     };
   }
 

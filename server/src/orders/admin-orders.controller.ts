@@ -26,6 +26,7 @@ import { AdminRejectOrderDto } from './dto/admin-reject-order.dto';
 import { OrdersService } from './orders.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
+import { AdminOrderDetailsResponseDto } from './dto/admin-order-details-response.dto';
 
 @ApiTags('Admin Orders')
 @ApiBearerAuth()
@@ -46,6 +47,17 @@ export class AdminOrdersController {
       page: query.page,
       limit: query.limit,
     });
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get order details (admin; excludes brief payload)',
+  })
+  @ApiOkResponse({ type: AdminOrderDetailsResponseDto })
+  async getOrderDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AdminOrderDetailsResponseDto> {
+    return this.orders.getOrderDetailsForAdmin({ orderId: id });
   }
 
   @Post(':id/mark-creator-paid')

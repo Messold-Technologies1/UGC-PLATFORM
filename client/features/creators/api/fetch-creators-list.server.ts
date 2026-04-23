@@ -23,6 +23,9 @@ export async function fetchCreatorsListServer({
         .join("; ");
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+
     const res = await fetch(`${env.apiUrl}${ENDPOINTS.CREATORS.LIST}`, {
       headers: {
         Accept: "application/json",
@@ -31,7 +34,9 @@ export async function fetchCreatorsListServer({
       ...(revalidate === false
         ? { cache: "no-store" as const }
         : { next: { revalidate } }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
       return null;

@@ -85,7 +85,7 @@ let CreatorProfileController = class CreatorProfileController {
 };
 _ts_decorate([
     (0, _common.Post)('profile'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
         summary: 'Create creator profile for the authenticated user'
@@ -104,7 +104,7 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "createProfile", null);
 _ts_decorate([
     (0, _common.Post)('profile/uploads/presign'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
         summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image'

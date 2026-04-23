@@ -32,7 +32,9 @@ import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
-import { ActiveWorkspaceGuard } from 'src/auth/guards/active-workspace.guard';
+import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
+import { BrandOrderDetailsResponseDto } from './dto/brand-order-details-response.dto';
+import { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -58,6 +60,23 @@ export class OrdersController {
     });
   }
 
+  @Get('brand/:id')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @ApiOperation({
+    summary:
+      'Get order details for the authenticated brand (excludes brief payload)',
+  })
+  @ApiOkResponse({ type: BrandOrderDetailsResponseDto })
+  async getBrandOrderDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BrandOrderDetailsResponseDto> {
+    return this.ordersService.getOrderDetailsForBrand({
+      orderId: id,
+      brandUserId: req.user.id,
+    });
+  }
+
   @Get('creator')
   @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @ApiOperation({
@@ -73,6 +92,23 @@ export class OrdersController {
       creatorUserId: req.user.id,
       page: query.page,
       limit: query.limit,
+    });
+  }
+
+  @Get('creator/:id')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @ApiOperation({
+    summary:
+      'Get order details for the authenticated creator (excludes brief payload)',
+  })
+  @ApiOkResponse({ type: CreatorOrderDetailsResponseDto })
+  async getCreatorOrderDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorOrderDetailsResponseDto> {
+    return this.ordersService.getOrderDetailsForCreator({
+      orderId: id,
+      creatorUserId: req.user.id,
     });
   }
 

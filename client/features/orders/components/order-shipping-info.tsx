@@ -2,11 +2,17 @@
 
 import { ClipboardList, Clock3, MapPin, RotateCcw, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../api/types";
+import type {
+  OrderBrandSnapshot,
+  OrderCreatorSnapshot,
+  OrderDetailsPublic,
+} from "../api/types";
 
 interface OrderShippingInfoProps {
+  role?: "brand" | "creator";
   order?: OrderDetailsPublic;
   creator?: OrderCreatorSnapshot;
+  brand?: OrderBrandSnapshot;
 }
 
 function formatDate(value?: string | null) {
@@ -19,8 +25,10 @@ function formatDate(value?: string | null) {
 }
 
 export function OrderShippingInfo({
+  role = "brand",
   order,
   creator,
+  brand,
 }: OrderShippingInfoProps) {
   if (!order) {
     return (
@@ -70,6 +78,10 @@ export function OrderShippingInfo({
     );
   }
 
+  const partnerLabel = role === "creator" ? "Brand" : "Creator Base";
+  const partnerValue =
+    role === "creator" ? brand?.companyName || "Brand partner" : creator?.city || "Remote";
+
   return (
     <section className="bg-card rounded-3xl p-6 md:p-8 border shadow-sm">
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -110,10 +122,10 @@ export function OrderShippingInfo({
           <div className="rounded-2xl border bg-muted/20 px-4 py-3">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               <MapPin className="w-3.5 h-3.5" />
-              Creator Base
+              {partnerLabel}
             </div>
             <p className="mt-2 text-sm font-semibold text-card-foreground">
-              {creator?.city || "Remote"}
+              {partnerValue}
             </p>
           </div>
         </div>

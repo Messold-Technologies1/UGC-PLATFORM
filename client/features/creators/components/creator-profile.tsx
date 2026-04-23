@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { AnimatePresence, motion } from "framer-motion";
 import { ProfileHeader } from "./profile-header";
 import type { CreatorProfile as CreatorProfileType } from "../types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
@@ -62,7 +63,9 @@ export function CreatorProfile({
   initialPortfolioVideos,
 }: CreatorProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Portfolio");
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
+    null,
+  );
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
 
   const selectedPackage = useMemo(
@@ -81,7 +84,9 @@ export function CreatorProfile({
 
   const handleToggleAddOn = useCallback((id: string) => {
     setSelectedAddOnIds((prev) =>
-      prev.includes(id) ? prev.filter((addOnId) => addOnId !== id) : [...prev, id],
+      prev.includes(id)
+        ? prev.filter((addOnId) => addOnId !== id)
+        : [...prev, id],
     );
   }, []);
 
@@ -105,7 +110,7 @@ export function CreatorProfile({
 
           <div>
             <div
-              className="flex border-b border-border"
+              className="flex border-b border-border/40"
               role="tablist"
               aria-label="Creator profile sections"
             >
@@ -130,7 +135,15 @@ export function CreatorProfile({
                     </span>
                   )}
                   {activeTab === tab && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full" />
+                    <motion.span
+                      layoutId="creator-tab-underline"
+                      className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full"
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 40,
+                      }}
+                    />
                   )}
                 </button>
               ))}
@@ -142,31 +155,41 @@ export function CreatorProfile({
               id={`tabpanel-${activeTab.toLowerCase()}`}
               aria-labelledby={`tab-${activeTab.toLowerCase()}`}
             >
-              {activeTab === "Portfolio" && (
-                <PortfolioTab
-                  creatorId={creator.id}
-                  initialVideos={initialPortfolioVideos}
-                />
-              )}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {activeTab === "Portfolio" && (
+                    <PortfolioTab
+                      creatorId={creator.id}
+                      initialVideos={initialPortfolioVideos}
+                    />
+                  )}
 
-              {activeTab === "Packages" && (
-                <PackagesTab
-                  packages={creator.packages}
-                  addOns={creator.addOns}
-                  selectedPackageId={selectedPackageId}
-                  selectedAddOnIds={selectedAddOnIds}
-                  onSelectPackage={handleSelectPackage}
-                  onToggleAddOn={handleToggleAddOn}
-                />
-              )}
+                  {activeTab === "Packages" && (
+                    <PackagesTab
+                      packages={creator.packages}
+                      addOns={creator.addOns}
+                      selectedPackageId={selectedPackageId}
+                      selectedAddOnIds={selectedAddOnIds}
+                      onSelectPackage={handleSelectPackage}
+                      onToggleAddOn={handleToggleAddOn}
+                    />
+                  )}
 
-              {activeTab === "Reviews" && (
-                <ReviewsTab
-                  reviews={creator.reviews}
-                  overallRating={creator.rating}
-                  totalReviews={creator.reviewCount}
-                />
-              )}
+                  {activeTab === "Reviews" && (
+                    <ReviewsTab
+                      reviews={creator.reviews}
+                      overallRating={creator.rating}
+                      totalReviews={creator.reviewCount}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
         </div>

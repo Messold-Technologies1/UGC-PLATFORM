@@ -2,11 +2,29 @@
 
 import { memo } from "react";
 import { isAxiosError } from "axios";
+import { motion, type Variants } from "framer-motion";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
+
+const gridVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
+  },
+};
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  },
+};
 
 function errorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -77,7 +95,12 @@ export const PortfolioTab = memo(function PortfolioTab({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <motion.div
+      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+      variants={gridVariants}
+      initial="hidden"
+      animate="show"
+    >
       {videos.map((v, index) => {
         const isFirst = index === 0;
         const title = v.description?.trim() || "Portfolio video";
@@ -99,11 +122,12 @@ export const PortfolioTab = memo(function PortfolioTab({
 
         if (isFirst) {
           return (
-            <a
+            <motion.a
               key={v.id}
               href={v.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
+              variants={cardVariants}
               className="md:col-span-2 xl:col-span-2 group relative rounded-3xl overflow-hidden bg-muted h-[320px] sm:h-[360px] md:h-[380px]"
             >
               <video
@@ -148,18 +172,19 @@ export const PortfolioTab = memo(function PortfolioTab({
                   <Play className="size-8 text-white ml-1 fill-white" />
                 </div>
               </div>
-            </a>
+            </motion.a>
           );
         }
 
         const isSecond = index === 1;
 
         return (
-          <a
+          <motion.a
             key={v.id}
             href={v.videoUrl}
             target="_blank"
             rel="noopener noreferrer"
+            variants={cardVariants}
             className={`group relative rounded-3xl overflow-hidden bg-muted ${isSecond ? "h-[320px] sm:h-[360px] md:h-[380px]" : "aspect-3/4"}`}
           >
             <video
@@ -185,9 +210,9 @@ export const PortfolioTab = memo(function PortfolioTab({
                 <Play className="size-6 text-white ml-1 fill-white" />
               </div>
             </div>
-          </a>
+          </motion.a>
         );
       })}
-    </div>
+    </motion.div>
   );
 });

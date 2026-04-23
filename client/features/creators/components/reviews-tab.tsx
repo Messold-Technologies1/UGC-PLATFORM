@@ -9,7 +9,11 @@ interface ReviewsTabProps {
   totalReviews: number;
 }
 
-export const ReviewsTab = memo(function ReviewsTab({ reviews, overallRating, totalReviews }: ReviewsTabProps) {
+export const ReviewsTab = memo(function ReviewsTab({
+  reviews,
+  overallRating,
+  totalReviews,
+}: ReviewsTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
@@ -18,16 +22,22 @@ export const ReviewsTab = memo(function ReviewsTab({ reviews, overallRating, tot
           <div className="mt-1">
             <StarRating rating={overallRating} size="md" />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{totalReviews} reviews</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {totalReviews} reviews
+          </p>
         </div>
 
         <div className="flex-1 space-y-1.5">
           {[5, 4, 3, 2, 1].map((stars) => {
-            const count = reviews.filter((r) => Math.round(r.rating) === stars).length;
+            const count = reviews.filter(
+              (r) => Math.round(r.rating) === stars,
+            ).length;
             const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
             return (
               <div key={stars} className="flex items-center gap-2 text-xs">
-                <span className="w-3 text-right text-muted-foreground">{stars}</span>
+                <span className="w-3 text-right text-muted-foreground">
+                  {stars}
+                </span>
                 <Star className="size-3 fill-amber-400 text-amber-400" />
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                   <div
@@ -35,7 +45,9 @@ export const ReviewsTab = memo(function ReviewsTab({ reviews, overallRating, tot
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <span className="w-6 text-right text-muted-foreground">{count}</span>
+                <span className="w-6 text-right text-muted-foreground">
+                  {count}
+                </span>
               </div>
             );
           })}
@@ -55,7 +67,9 @@ export const ReviewsTab = memo(function ReviewsTab({ reviews, overallRating, tot
                 </div>
                 <div>
                   <p className="text-sm font-medium">{review.author}</p>
-                  <p className="text-xs text-muted-foreground">{review.brand} · {review.date}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {review.brand} · {review.date}
+                  </p>
                 </div>
               </div>
               <StarRating rating={review.rating} />

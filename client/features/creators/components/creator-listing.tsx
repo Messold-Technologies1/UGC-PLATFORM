@@ -130,8 +130,6 @@ function EmptyBrowseState({
   );
 }
 
-
-
 export function CreatorListing({
   initialData,
 }: {
@@ -167,12 +165,15 @@ export function CreatorListing({
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: currentFilters, search: currentSearch } = listingRef.current;
+    const { filters: currentFilters, search: currentSearch } =
+      listingRef.current;
     syncUrlImmediate(currentFilters, currentSearch);
   }, 500);
 
   useEffect(() => {
-    const parsed = parseBrowseListingParams(new URLSearchParams(searchParamsKey));
+    const parsed = parseBrowseListingParams(
+      new URLSearchParams(searchParamsKey),
+    );
     startTransition(() => {
       setFilters((previous) =>
         filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
@@ -204,23 +205,20 @@ export function CreatorListing({
     [filters],
   );
 
-  const {
-    data,
-    isPending,
-    isError,
-    error,
-    refetch,
-    isFetching,
-  } = useCreatorsListQuery({
-    filters: apiFilters,
-    initialData:
-      initialData && filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
-        ? initialData
-        : undefined,
-  });
+  const { data, isPending, isError, error, refetch, isFetching } =
+    useCreatorsListQuery({
+      filters: apiFilters,
+      initialData:
+        initialData && filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+          ? initialData
+          : undefined,
+    });
 
   const creators = useMemo(() => data?.creators ?? [], [data?.creators]);
-  const results = useMemo(() => applySearch(creators, search), [creators, search]);
+  const results = useMemo(
+    () => applySearch(creators, search),
+    [creators, search],
+  );
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),
     [creators],
@@ -314,17 +312,16 @@ export function CreatorListing({
   return (
     <div className="w-full min-w-0">
       <header className="mb-10 md:mb-12">
-        <h1 className="text-4xl font-extrabold tracking-tighter text-foreground md:text-5xl">
+        <h1 className="text-2xl font-extrabold tracking-tighter text-foreground md:text-4xl">
           Browse Creators
         </h1>
         <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
-          Find and hire talented UGC creators to bring your brand story to life
-          with authentic content.
+          Find and hire talented UGC creators to bring your brand story to life.
         </p>
       </header>
 
       <div className="sticky top-0 z-30 mb-10">
-        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/40 p-4 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
+        <div className="flex flex-col gap-4 p-4 py-3 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
           <div className="flex w-full shrink-0 flex-col gap-4 sm:flex-row sm:items-center md:w-auto">
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -372,7 +369,7 @@ export function CreatorListing({
               placeholder="Search creators, niches, or locations…"
               value={localSearch}
               onChange={(event) => handleSearchChange(event.target.value)}
-              className="h-10 rounded-full py-2.5 pl-11 pr-4 text-sm"
+              className="h-10 rounded-2xl py-2.5 pl-11 pr-4 text-sm"
             />
           </div>
         </div>

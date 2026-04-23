@@ -14,36 +14,53 @@ function maskUpi(vpa: string): string {
 export class CreatorPayoutDetailsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private validateBankUpiExclusivity(dto: UpsertCreatorPayoutDetailsDto): void {
-    const bankFields = [dto.accountHolderName, dto.accountNumber, dto.ifsc].filter(
-      (v) => v != null && String(v).trim() !== '',
-    );
-    const hasAnyBank = bankFields.length > 0;
+  private hasOwn(dto: UpsertCreatorPayoutDetailsDto, key: keyof UpsertCreatorPayoutDetailsDto): boolean {
+    return Object.hasOwn(dto, key);
+  }
+
+  private validatePayoutUpdate(params: {
+    dto: UpsertCreatorPayoutDetailsDto;
+    hasExistingRow: boolean;
+  }): {
+    bankKeysPresent: boolean;
+    upiKeyPresent: boolean;
+    hasFullBank: boolean;
+  } {
+    const { dto, hasExistingRow } = params;
+    const bankKeysPresent =
+      this.hasOwn(dto, 'accountHolderName') ||
+      this.hasOwn(dto, 'accountNumber') ||
+      this.hasOwn(dto, 'ifsc');
+    const upiKeyPresent = this.hasOwn(dto, 'upiId');
+
     const hasFullBank =
-      dto.accountHolderName &&
-      dto.accountNumber &&
-      dto.ifsc &&
+      !!dto.accountHolderName &&
+      !!dto.accountNumber &&
+      !!dto.ifsc &&
       dto.accountHolderName.trim() !== '' &&
       dto.accountNumber.trim() !== '' &&
       dto.ifsc.trim() !== '';
-    const upi = dto.upiId?.trim();
 
-    if (hasAnyBank && !hasFullBank) {
+    if (bankKeysPresent && !hasFullBank) {
       throw new BadRequestException(
         'Bank payout requires accountHolderName, accountNumber, and ifsc together',
       );
     }
-    if (!hasFullBank && !upi) {
-      throw new BadRequestException('Provide full bank details or a UPI ID');
+
+    if (!hasExistingRow) {
+      const upi = dto.upiId?.trim();
+      if (!hasFullBank && !upi) {
+        throw new BadRequestException('Provide full bank details or a UPI ID');
+      }
     }
+
+    return { bankKeysPresent, upiKeyPresent, hasFullBank };
   }
 
   async upsertForCurrentCreator(
     userId: string,
     dto: UpsertCreatorPayoutDetailsDto,
   ): Promise<CreatorPayoutDetailsMaskedDto> {
-    this.validateBankUpiExclusivity(dto);
-
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { userId },
       select: { id: true },
@@ -52,25 +69,37 @@ export class CreatorPayoutDetailsService {
       throw new NotFoundException('Creator profile not found');
     }
 
+    const existing = await this.prisma.creatorPayoutDetails.findUnique({
+      where: { creatorId: profile.id },
+      select: { creatorId: true },
+    });
+    const { bankKeysPresent, upiKeyPresent, hasFullBank } =
+      this.validatePayoutUpdate({
+        dto,
+        hasExistingRow: !!existing,
+      });
+
     const name = dto.accountHolderName;
     const num = dto.accountNumber;
     const ifscCode = dto.ifsc;
     let bankHolder: string | null = null;
     let bankNumber: string | null = null;
     let bankIfsc: string | null = null;
-    if (
-      name &&
-      num &&
-      ifscCode &&
-      name.trim() !== '' &&
-      num.trim() !== '' &&
-      ifscCode.trim() !== ''
-    ) {
+    if (hasFullBank && name && num && ifscCode) {
       bankHolder = name.trim();
       bankNumber = num.trim();
       bankIfsc = ifscCode.trim().toUpperCase();
     }
-    const upiTrim = dto.upiId?.trim() || null;
+
+    const updateData: Record<string, unknown> = {};
+    if (bankKeysPresent) {
+      updateData.accountHolderName = bankHolder;
+      updateData.accountNumber = bankNumber;
+      updateData.ifsc = bankIfsc;
+    }
+    if (upiKeyPresent) {
+      updateData.upiId = dto.upiId?.trim() || null;
+    }
 
     await this.prisma.creatorPayoutDetails.upsert({
       where: { creatorId: profile.id },
@@ -79,14 +108,9 @@ export class CreatorPayoutDetailsService {
         accountHolderName: bankHolder,
         accountNumber: bankNumber,
         ifsc: bankIfsc,
-        upiId: upiTrim,
+        upiId: dto.upiId?.trim() || null,
       },
-      update: {
-        accountHolderName: bankHolder,
-        accountNumber: bankNumber,
-        ifsc: bankIfsc,
-        upiId: upiTrim,
-      },
+      update: updateData as any,
     });
 
     return this.getMaskedForCurrentCreator(userId);

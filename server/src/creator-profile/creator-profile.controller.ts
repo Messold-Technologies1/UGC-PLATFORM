@@ -8,7 +8,6 @@ import {
   Param,
   Patch,
   Post,
-  Put,
   Query,
   Req,
   UseGuards,
@@ -141,12 +140,15 @@ export class CreatorProfileController {
     return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(req.user.id);
   }
 
-  @Put('profile/me/payout-details')
+  @Patch('profile/me/payout-details')
   @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Save or update bank / UPI details for manual creator payouts' })
+  @ApiOperation({
+    summary:
+      'Partially update bank / UPI details for manual creator payouts (only provided fields are changed)',
+  })
   @ApiOkResponse({ type: CreatorPayoutDetailsMaskedDto })
-  async upsertMyPayoutDetails(
+  async patchMyPayoutDetails(
     @Body() dto: UpsertCreatorPayoutDetailsDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {

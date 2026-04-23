@@ -63,7 +63,7 @@ let CreatorProfileController = class CreatorProfileController {
     async getMyPayoutDetails(req) {
         return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(req.user.id);
     }
-    async upsertMyPayoutDetails(dto, req) {
+    async patchMyPayoutDetails(dto, req) {
         return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
     }
     async getCreator(id, req) {
@@ -214,11 +214,11 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "getMyPayoutDetails", null);
 _ts_decorate([
-    (0, _common.Put)('profile/me/payout-details'),
+    (0, _common.Patch)('profile/me/payout-details'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
     (0, _common.HttpCode)(_common.HttpStatus.OK),
     (0, _swagger.ApiOperation)({
-        summary: 'Save or update bank / UPI details for manual creator payouts'
+        summary: 'Partially update bank / UPI details for manual creator payouts (only provided fields are changed)'
     }),
     (0, _swagger.ApiOkResponse)({
         type: _creatorpayoutdetailsmaskeddto.CreatorPayoutDetailsMaskedDto
@@ -231,7 +231,7 @@ _ts_decorate([
         Object
     ]),
     _ts_metadata("design:returntype", Promise)
-], CreatorProfileController.prototype, "upsertMyPayoutDetails", null);
+], CreatorProfileController.prototype, "patchMyPayoutDetails", null);
 _ts_decorate([
     (0, _common.Get)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),

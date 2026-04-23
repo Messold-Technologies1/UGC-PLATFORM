@@ -1,8 +1,10 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { brandOrderDetailsQueryOptions } from "@/features/orders/api/get-brand-order-details";
 import { toast } from "sonner";
 import type { AddOn, CreatorProfile, Package } from "@/features/creators/types";
 import type { CheckoutSession } from "@/features/payments/api/create-checkout";
@@ -102,6 +104,7 @@ export function useRazorpayCheckout({
   selectedAddOns = [],
 }: UseRazorpayCheckoutArgs) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [cachedSession, setCachedSession] = useState<{
@@ -203,6 +206,9 @@ export function useRazorpayCheckout({
         handler: () => {
           didCompletePayment = true;
           setIsProcessing(false);
+          void queryClient.prefetchQuery(
+            brandOrderDetailsQueryOptions(session.orderId),
+          );
           toast.success("Payment successful", {
             description: "Redirecting to your order...",
           });
@@ -235,6 +241,7 @@ export function useRazorpayCheckout({
     },
     [
       creator.id,
+      queryClient,
       redirectToOrderDetails,
       selectedPackage?.id,
       selectedPackage?.label,

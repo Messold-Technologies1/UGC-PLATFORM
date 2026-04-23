@@ -1,44 +1,69 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
-import { PlayCircle, CheckCircle, FileEdit, CloudUpload, Upload, Plus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CheckCircle,
+  CloudUpload,
+  FileEdit,
+  PlayCircle,
+  Plus,
+  Upload,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
 import { Spinner } from "@/components/ui/spinner";
-import { toast } from "sonner";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import type { OrderDetailsPublic } from "../api/types";
+import { STATUS_COLORS, STATUS_LABELS } from "../constants";
 
 interface OrderDeliveryStatusProps {
   role?: "brand" | "creator";
+  order?: OrderDetailsPublic;
 }
 
-export function OrderDeliveryStatus({ role = "brand" }: OrderDeliveryStatusProps) {
+function formatDate(value?: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function OrderDeliveryStatus({
+  role = "brand",
+  order,
+}: OrderDeliveryStatusProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<CarouselAsset[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cleanup object URLs to avoid memory leaks
   useEffect(() => {
     return () => {
-      previews.forEach((p) => URL.revokeObjectURL(p.full));
+      previews.forEach((preview) => URL.revokeObjectURL(preview.full));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const processFiles = useCallback((newFiles: File[]) => {
     const validFiles = newFiles.filter(
-      (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+      (file) => file.type.startsWith("image/") || file.type.startsWith("video/"),
     );
-    
+
     if (validFiles.length === 0) {
       toast.error("Please upload valid image or video files.");
       return;
     }
 
-    setFiles((prev) => [...prev, ...validFiles]);
+    setFiles((current) => [...current, ...validFiles]);
 
     const newPreviews: CarouselAsset[] = validFiles.map((file) => {
       const objectUrl = URL.createObjectURL(file);
@@ -46,47 +71,50 @@ export function OrderDeliveryStatus({ role = "brand" }: OrderDeliveryStatusProps
         type: file.type.startsWith("video/") ? "video" : "image",
         full: objectUrl,
         thumb: objectUrl,
-        id: Math.random().toString(36).substring(7),
+        id: Math.random().toString(36).slice(2),
       };
     });
-    
-    setPreviews((prev) => [...prev, ...newPreviews]);
+
+    setPreviews((current) => [...current, ...newPreviews]);
   }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(Array.from(e.dataTransfer.files));
+
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      processFiles(Array.from(event.dataTransfer.files));
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processFiles(Array.from(e.target.files));
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      processFiles(Array.from(event.target.files));
     }
-    // Reset file input so the same files can be selected again
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleRemove = (index: number) => {
     URL.revokeObjectURL(previews[index].full);
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
+    setFiles((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    setPreviews((current) =>
+      current.filter((_, currentIndex) => currentIndex !== index),
+    );
   };
 
   const handleUploadClick = () => {
@@ -98,85 +126,253 @@ export function OrderDeliveryStatus({ role = "brand" }: OrderDeliveryStatusProps
   const handleSubmit = () => {
     if (files.length === 0) return;
     setIsSubmitting(true);
-    
-    // MOCK SUBMISSION TO SERVER / NO BACKEND ENDPOINT YET
+
     setTimeout(() => {
       setIsSubmitting(false);
       toast.success("Delivery submitted successfully. Awaiting brand approval!");
-      
-      // Cleanup
-      previews.forEach((p) => URL.revokeObjectURL(p.full));
+      previews.forEach((preview) => URL.revokeObjectURL(preview.full));
       setFiles([]);
       setPreviews([]);
     }, 2000);
   };
 
+  if (role === "brand" && order) {
+    const canReviewDelivery =
+      order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
+    const milestones = [
+      {
+        label: "Payment captured",
+        date: order.paidAt,
+        done: Boolean(order.paidAt),
+        description: "The order has been paid and confirmed.",
+      },
+      {
+        label: "Brief submitted",
+        date: order.briefSubmittedAt,
+        done: order.hasBrief,
+        description: "The creator can work against the campaign requirements.",
+      },
+      {
+        label: "Delivery submitted",
+        date: order.deliveredAt,
+        done: Boolean(order.deliveredAt),
+        description: "The creator has marked the work as delivered or revised.",
+      },
+      {
+        label: "Order completed",
+        date: order.acceptedAt ?? order.refundedAt ?? order.creatorPaidAt,
+        done: ["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(order.status),
+        description: "Completion, payout, or refund has been recorded.",
+      },
+    ];
+
+    const statusHint =
+      order.status === "BRIEF_SUBMISSION_PENDING"
+        ? "Submit the brief to start the delivery timer."
+        : order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED"
+          ? "The creator has marked this order as delivered and it is ready for review."
+          : order.status === "DISPUTED"
+            ? "This order is currently being handled as a dispute."
+            : order.status === "REFUNDED"
+              ? "This order has already been refunded."
+              : "Progress is being tracked from payment through completion.";
+
+    return (
+      <section className="bg-card rounded-3xl overflow-hidden border shadow-sm">
+        <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <PlayCircle className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Delivery Status</h2>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{statusHint}</p>
+          </div>
+          <Badge
+            variant="outline"
+            className={`${STATUS_COLORS[order.status] || "bg-muted text-muted-foreground"} w-fit rounded-full px-3 py-1 text-[11px] font-semibold`}
+          >
+            {STATUS_LABELS[order.status] || order.status}
+          </Badge>
+        </div>
+
+        <div className="space-y-6 p-6 md:p-8">
+          <div className="rounded-3xl border border-border/60 bg-background/80 p-5">
+            <div className="flex flex-col gap-3 border-b border-border/50 pb-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  Delivered Content
+                </h3>
+                {/* <p className="mt-1 text-sm text-muted-foreground">
+                  This carousel stays in place for creator-submitted photos and
+                  videos. We can wire it to real delivery assets as soon as that
+                  payload is added.
+                </p> */}
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "w-fit rounded-full px-3 py-1 text-[11px] font-semibold",
+                  canReviewDelivery
+                    ? "border-primary/20 bg-primary/10 text-primary"
+                    : "border-border/70 bg-muted text-muted-foreground",
+                )}
+              >
+                {canReviewDelivery ? "Ready for review" : "Awaiting delivery"}
+              </Badge>
+            </div>
+
+            <div className="pt-5">
+              <ThumbnailsCarousel />
+
+              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
+                <Button
+                  disabled={!canReviewDelivery}
+                  className="w-full py-4 font-bold shadow-lg shadow-primary/10 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!canReviewDelivery}
+                  className="w-full px-8 py-4 font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  <FileEdit className="w-5 h-5" />
+                  Request Revision
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border bg-muted/20 px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Expected Total
+              </p>
+              <p className="mt-2 text-2xl font-black text-foreground">
+                {(order.expectedAmountPaise / 100).toLocaleString("en-US", {
+                  style: "currency",
+                  currency: order.currency || "USD",
+                })}
+              </p>
+            </div>
+            <div className="rounded-2xl border bg-muted/20 px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Delivery Deadline
+              </p>
+              <p className="mt-2 text-lg font-bold text-foreground">
+                {formatDate(order.deliveryDeadlineAt) || "Starts after brief"}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {milestones.map((milestone) => (
+              <div
+                key={milestone.label}
+                className="flex gap-4 rounded-2xl border border-border/60 bg-background/80 px-5 py-4"
+              >
+                <div
+                  className={cn(
+                    "mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+                    milestone.done
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-border/70 bg-muted text-muted-foreground",
+                  )}
+                >
+                  {milestone.done ? <CheckCircle className="w-4 h-4" /> : "•"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                    <p className="font-semibold text-foreground">{milestone.label}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(milestone.date) || "Pending"}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {milestone.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (role === "creator") {
     return (
       <section className="bg-card rounded-3xl border shadow-sm relative">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] -z-10 rounded-tr-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 -z-10 h-64 w-64 rounded-tr-3xl bg-primary/5 blur-[100px] pointer-events-none" />
         <div className="p-6 md:p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
               <CloudUpload className="w-5 h-5" />
             </div>
-            <h2 className="text-xl font-bold font-heading text-foreground">Delivery Upload</h2>
+            <h2 className="text-xl font-bold text-foreground">Delivery Upload</h2>
           </div>
 
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            multiple 
-            accept="video/*,image/*" 
-            className="hidden" 
+          <input
+            type="file"
+            ref={fileInputRef}
+            multiple
+            accept="video/*,image/*"
+            className="hidden"
             onChange={handleFileChange}
           />
 
           {previews.length === 0 ? (
-            <div 
+            <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={handleUploadClick}
               className={cn(
-                "border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center transition-colors group cursor-pointer",
-                isDragging ? "border-primary bg-primary/5" : "border-border/60 bg-muted/10 hover:border-primary/50"
+                "group flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-12 text-center transition-colors",
+                isDragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border/60 bg-muted/10 hover:border-primary/50",
               )}
             >
-              <div className={cn(
-                "w-16 h-16 rounded-full bg-background flex items-center justify-center mb-6 shadow-xl transition-transform",
-                isDragging ? "scale-110" : "group-hover:scale-110"
-              )}>
+              <div
+                className={cn(
+                  "mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-background shadow-xl transition-transform",
+                  isDragging ? "scale-110" : "group-hover:scale-110",
+                )}
+              >
                 <Upload className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">Drag and drop your final cut</h3>
-              <p className="text-muted-foreground text-sm max-w-xs text-balance">
+              <h3 className="mb-2 text-lg font-bold text-foreground">
+                Drag and drop your final cut
+              </h3>
+              <p className="max-w-xs text-balance text-sm text-muted-foreground">
                 High-resolution MP4 or MOV files are preferred for maximum quality.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
-              <ThumbnailsCarousel 
-                assets={previews} 
+              <ThumbnailsCarousel
+                assets={previews}
                 isEditable={true}
                 onRemove={handleRemove}
               />
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-border/40">
-                <Button 
+
+              <div className="flex flex-col items-center gap-4 border-t border-border/40 pt-4 sm:flex-row">
+                <Button
                   type="button"
                   variant="outline"
                   onClick={handleUploadClick}
                   disabled={isSubmitting}
-                  className="w-full sm:w-auto px-6 py-6 rounded-xl font-bold flex items-center justify-center gap-2 border-dashed border-2 hover:bg-muted/50"
+                  className="w-full rounded-xl border-2 border-dashed px-6 py-6 font-bold hover:bg-muted/50 sm:w-auto"
                 >
                   <Plus className="w-4 h-4" />
                   Add More Files
                 </Button>
-                <Button 
+                <Button
                   onClick={handleSubmit}
                   disabled={isSubmitting || previews.length === 0}
-                  className="w-full sm:flex-1 py-6 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all"
+                  className="w-full py-6 font-bold shadow-lg shadow-primary/10 transition-all hover:shadow-primary/20 sm:flex-1"
                 >
                   {isSubmitting ? (
                     <>
@@ -191,26 +387,34 @@ export function OrderDeliveryStatus({ role = "brand" }: OrderDeliveryStatusProps
             </div>
           )}
 
-          {previews.length === 0 && (
-            <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-muted/30 p-4 rounded-2xl border border-border/40 flex flex-col justify-center">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-bold">Aspect Ratio</p>
+          {previews.length === 0 ? (
+            <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Aspect Ratio
+                </p>
                 <p className="text-sm font-bold text-foreground">9:16 Vertical</p>
               </div>
-              <div className="bg-muted/30 p-4 rounded-2xl border border-border/40 flex flex-col justify-center">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-bold">Resolution</p>
+              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Resolution
+                </p>
                 <p className="text-sm font-bold text-foreground">1080p+ Min</p>
               </div>
-              <div className="bg-muted/30 p-4 rounded-2xl border border-border/40 flex flex-col justify-center">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-bold">File Size</p>
+              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  File Size
+                </p>
                 <p className="text-sm font-bold text-foreground">Max 500MB</p>
               </div>
-              <div className="bg-muted/30 p-4 rounded-2xl border border-border/40 flex flex-col justify-center">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-bold">Duration</p>
+              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Duration
+                </p>
                 <p className="text-sm font-bold text-foreground">15-45 Sec</p>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
     );
@@ -218,20 +422,23 @@ export function OrderDeliveryStatus({ role = "brand" }: OrderDeliveryStatusProps
 
   return (
     <section className="bg-card rounded-3xl overflow-hidden border shadow-sm">
-      <div className="p-5 border-b flex items-center justify-between bg-muted/30">
+      <div className="flex items-center justify-between border-b bg-muted/30 p-5">
         <div className="flex items-center gap-3">
           <PlayCircle className="w-5 h-5 text-primary" />
-          <h2 className="font-heading font-bold text-lg text-foreground">Final Delivery</h2>
+          <h2 className="text-lg font-bold text-foreground">Final Delivery</h2>
         </div>
       </div>
       <div className="p-6 md:p-8">
         <ThumbnailsCarousel />
-        <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
-          <Button className="w-full sm:flex-1 py-6 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/10">
+        <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
+          <Button className="w-full py-6 font-bold shadow-lg shadow-primary/10 sm:flex-1">
             <CheckCircle className="w-5 h-5" />
             Approve & Release Funds
           </Button>
-          <Button variant="outline" className="w-full sm:w-auto px-8 py-6 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-muted/50 border-border/60">
+          <Button
+            variant="outline"
+            className="w-full px-8 py-6 font-semibold hover:bg-muted/50 sm:w-auto"
+          >
             <FileEdit className="w-5 h-5" />
             Request Revision
           </Button>

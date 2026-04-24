@@ -21,9 +21,16 @@ import type { BrandOrderDetailsResponseDto } from './dto/brand-order-details-res
 import type { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
 import type { OrderDetailsPublicDto } from './dto/order-details-public.dto';
 import type { OrderDetailsAdminDto } from './dto/order-details-admin.dto';
+import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
+import type { PresignDeliveryUploadResponseDto } from './dto/presign-delivery-upload-response.dto';
+import type {
+  SubmitDeliveryDto,
+  SubmitDeliveryResponseDto,
+} from './dto/submit-delivery.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
+import { StorageService } from '../storage/storage.service';
 
 function toPaise(amount: Prisma.Decimal): number {
   // priceAmount has 2 decimals; paise = * 100
@@ -60,6 +67,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly razorpay: RazorpayService,
     private readonly orderRealtime: OrderRealtimeNotifier,
+    private readonly storage: StorageService,
   ) {}
 
   async createCheckout(params: {
@@ -299,6 +307,184 @@ export class OrdersService {
     await this.orderRealtime.emitOrderBriefSubmitted({
       orderId: order.id,
       briefSubmittedAt: now,
+    });
+  }
+
+  async presignDeliveryUploads(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: PresignDeliveryUploadDto;
+  }): Promise<PresignDeliveryUploadResponseDto> {
+    const creator: any = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        creatorId: true,
+        status: true,
+        revisionCount: true,
+        maxRevisionsSnapshot: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+    if (order.status !== 'BRIEF_SUBMITTED' && order.status !== 'REVISION_REQUESTED') {
+      throw new BadRequestException('Order is not ready for delivery uploads');
+    }
+
+    if (
+      order.status === 'REVISION_REQUESTED' &&
+      order.revisionCount > order.maxRevisionsSnapshot
+    ) {
+      throw new BadRequestException('Max revisions reached for this order');
+    }
+
+    const revisionNumber =
+      order.status === 'REVISION_REQUESTED' ? order.revisionCount : 0;
+
+    const uploads = await Promise.all(
+      params.dto.files.map(async (f) => {
+        const key = this.storage.buildObjectKey({
+          kind: 'order_delivery_asset',
+          userId: params.creatorUserId,
+          orderId: order.id,
+          revisionNumber,
+          contentType: f.contentType,
+        });
+        return this.storage.createPresignedPutUpload({
+          key,
+          contentType: f.contentType,
+          contentLength: f.contentLength,
+        });
+      }),
+    );
+
+    return { uploads };
+  }
+
+  async submitDelivery(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: SubmitDeliveryDto;
+  }): Promise<SubmitDeliveryResponseDto> {
+    const creator: any = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        creatorId: true,
+        status: true,
+        revisionCount: true,
+        deliveredAt: true,
+      } as any,
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+
+    if (order.status !== 'BRIEF_SUBMITTED' && order.status !== 'REVISION_REQUESTED') {
+      throw new BadRequestException('Order is not ready for delivery submission');
+    }
+
+    const expectedPrefix = `order-deliveries/${order.id}/`;
+    for (const a of params.dto.assets ?? []) {
+      if (!a.key || !a.key.startsWith(expectedPrefix)) {
+        throw new BadRequestException('Invalid delivery asset key');
+      }
+    }
+
+    const revisionNumber =
+      order.status === 'REVISION_REQUESTED' ? order.revisionCount : 0;
+    const nextStatus =
+      order.status === 'REVISION_REQUESTED'
+        ? ('REVISION_SUBMITTED' as const)
+        : ('DELIVERED' as const);
+
+    const assets = (params.dto.assets ?? []).map((a) => ({
+      key: a.key,
+      kind: a.kind,
+      url: this.storage.buildCdnUrl(a.key),
+    }));
+
+    await this.prisma.$transaction([
+      (this.prisma as any).orderDelivery.upsert({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber,
+          },
+        },
+        create: {
+          orderId: order.id,
+          creatorId: creator.id,
+          revisionNumber,
+          assets: assets as any,
+          note: params.dto.note?.trim() || null,
+        },
+        update: {
+          assets: assets as any,
+          note: params.dto.note?.trim() || null,
+        },
+      }),
+      this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextStatus as any,
+          deliveredAt: order.deliveredAt ?? new Date(),
+        } as any,
+      }),
+    ]);
+
+    return {
+      orderId: order.id,
+      revisionNumber,
+      status: nextStatus,
+    };
+  }
+
+  async requestRevision(params: { orderId: string; brandUserId: string }): Promise<void> {
+    const brand: any = await this.prisma.brandProfile.findUnique({
+      where: { userId: params.brandUserId },
+      select: { id: true },
+    });
+    if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        status: true,
+        revisionCount: true,
+        maxRevisionsSnapshot: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+
+    const allowed = new Set(['DELIVERED', 'REVISION_SUBMITTED']);
+    if (!allowed.has(String(order.status))) {
+      throw new BadRequestException('Order is not eligible for revision request');
+    }
+    if (order.revisionCount >= order.maxRevisionsSnapshot) {
+      throw new BadRequestException('Max revisions reached for this order');
+    }
+
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'REVISION_REQUESTED' as any,
+        revisionCount: order.revisionCount + 1,
+      } as any,
     });
   }
 

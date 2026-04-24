@@ -5,9 +5,10 @@ import { AdminOrdersController } from './admin-orders.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [AuthModule, RazorpayModule, RealtimeModule],
+  imports: [AuthModule, RazorpayModule, RealtimeModule, StorageModule],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

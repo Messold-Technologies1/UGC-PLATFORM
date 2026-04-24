@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import { BoneyardBootstrap } from "@/app/bones/bootstrap";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppShellProviders } from "@/providers/app-providers";
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -63,6 +64,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${dmSans.variable} font-sans antialiased flex min-h-svh flex-col`}
       >
+        <BoneyardBootstrap />
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:z-100 focus:left-4 focus:top-4 focus:rounded-lg focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:ring-2 focus:ring-ring"

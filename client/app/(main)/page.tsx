@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { LandingPageContent } from "@/components/landing/landing-page-content";
-import { fetchServerAuthUser } from "@/lib/server-auth-guard";
+import {
+  fetchServerAuthUserState,
+  redirectToSessionRestoreIfPossible,
+} from "@/lib/server-auth-guard";
 
 export const dynamic = "force-dynamic";
 function canUseWorkspaceRole(
@@ -19,7 +22,13 @@ function workspacePath(role: "CREATOR" | "BRAND" | "ADMIN" | null | undefined) {
 }
 
 export default async function Home() {
-  const user = await fetchServerAuthUser();
+  const auth = await fetchServerAuthUserState();
+  const user = auth.user;
+
+  if (!user && auth.status === "unauthenticated") {
+    await redirectToSessionRestoreIfPossible("/", "/");
+  }
+
   const target = canUseWorkspaceRole(
     user?.brandAccessRevoked,
     user?.primaryRole,

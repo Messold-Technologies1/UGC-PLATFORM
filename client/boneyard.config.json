@@ -1,0 +1,12 @@
+{
+  "breakpoints": [375, 768, 1280],
+  "out": "./app/bones",
+  "routes": ["/boneyard/admin-brand-management", "/boneyard/brand-creators-browser"],
+  "animate": "shimmer",
+  "color": "#ece7dd",
+  "darkColor": "#26221c",
+  "shimmerColor": "#f6f1e8",
+  "darkShimmerColor": "#312b24",
+  "speed": "2s",
+  "shimmerAngle": 110
+}

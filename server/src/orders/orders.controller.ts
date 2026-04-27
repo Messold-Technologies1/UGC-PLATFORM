@@ -230,22 +230,6 @@ export class OrdersController {
     });
   }
 
-  @Post(':id/deliver')
-  @RequiredWorkspace('CREATOR')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Creator marks order as delivered' })
-  @ApiNoContentResponse({ description: 'Delivered' })
-  async deliver(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.ordersService.markDelivered({
-      creatorUserId: req.user.id,
-      orderId: id,
-    });
-  }
-
   @Post(':id/accept')
   @RequiredWorkspace('BRAND')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)

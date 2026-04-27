@@ -327,13 +327,24 @@ export class OrdersService {
         id: true,
         creatorId: true,
         status: true,
+        acceptedAt: true,
         revisionCount: true,
         maxRevisionsSnapshot: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
-    if (order.status !== 'BRIEF_SUBMITTED' && order.status !== 'REVISION_REQUESTED') {
+    if (order.acceptedAt) {
+      throw new BadRequestException('Order is already accepted');
+    }
+
+    const uploadableStatuses = new Set([
+      'BRIEF_SUBMITTED',
+      'REVISION_REQUESTED',
+      'DELIVERED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (!uploadableStatuses.has(String(order.status))) {
       throw new BadRequestException('Order is not ready for delivery uploads');
     }
 
@@ -344,8 +355,10 @@ export class OrdersService {
       throw new BadRequestException('Max revisions reached for this order');
     }
 
-    const revisionNumber =
-      order.status === 'REVISION_REQUESTED' ? order.revisionCount : 0;
+    const isRevisionFlow =
+      String(order.status) === 'REVISION_REQUESTED' ||
+      String(order.status) === 'REVISION_SUBMITTED';
+    const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
 
     const uploads = await Promise.all(
       params.dto.files.map(async (f) => {
@@ -386,28 +399,41 @@ export class OrdersService {
         status: true,
         revisionCount: true,
         deliveredAt: true,
+        acceptedAt: true,
       } as any,
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
 
-    if (order.status !== 'BRIEF_SUBMITTED' && order.status !== 'REVISION_REQUESTED') {
+    if (order.acceptedAt) {
+      throw new BadRequestException('Order is already accepted');
+    }
+
+    const submittableStatuses = new Set([
+      'BRIEF_SUBMITTED',
+      'REVISION_REQUESTED',
+      // allow creator to fix/replace delivery before brand accepts
+      'DELIVERED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (!submittableStatuses.has(String(order.status))) {
       throw new BadRequestException('Order is not ready for delivery submission');
     }
 
     const expectedPrefix = `order-deliveries/${order.id}/`;
     for (const a of params.dto.assets ?? []) {
-      if (!a.key || !a.key.startsWith(expectedPrefix)) {
+      if (!a.key?.startsWith(expectedPrefix)) {
         throw new BadRequestException('Invalid delivery asset key');
       }
     }
 
-    const revisionNumber =
-      order.status === 'REVISION_REQUESTED' ? order.revisionCount : 0;
-    const nextStatus =
-      order.status === 'REVISION_REQUESTED'
-        ? ('REVISION_SUBMITTED' as const)
-        : ('DELIVERED' as const);
+    const isRevisionFlow =
+      String(order.status) === 'REVISION_REQUESTED' ||
+      String(order.status) === 'REVISION_SUBMITTED';
+    const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
+    const nextStatus = isRevisionFlow
+      ? ('REVISION_SUBMITTED' as const)
+      : ('DELIVERED' as const);
 
     const assets = (params.dto.assets ?? []).map((a) => ({
       key: a.key,
@@ -1022,31 +1048,6 @@ export class OrdersService {
       briefSubmittedAt: order.briefSubmittedAt,
       brief,
     };
-  }
-
-  async markDelivered(params: { creatorUserId: string; orderId: string }): Promise<void> {
-    const creator = await this.prisma.creatorProfile.findUnique({
-      where: { userId: params.creatorUserId },
-      select: { id: true },
-    });
-    if (!creator) throw new NotFoundException('Creator profile not found');
-
-    const order = await this.prisma.order.findUnique({
-      where: { id: params.orderId },
-      select: { id: true, creatorId: true, status: true, deliveredAt: true },
-    });
-    if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
-    if (order.deliveredAt) return;
-
-    if (order.status !== 'BRIEF_SUBMITTED' && order.status !== 'REVISION_REQUESTED') {
-      throw new BadRequestException('Order is not ready for delivery submission');
-    }
-
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: { status: 'DELIVERED', deliveredAt: new Date() },
-    });
   }
 
   async acceptDelivery(params: { brandUserId: string; orderId: string }): Promise<void> {

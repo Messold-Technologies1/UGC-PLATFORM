@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
+type ServerWorkspaceRole = "CREATOR" | "BRAND" | "ADMIN";
+
 export type ServerAuthUser = {
   id: string;
   email: string;
-  roles?: Array<"CREATOR" | "BRAND" | "ADMIN">;
-  primaryRole?: "CREATOR" | "BRAND" | "ADMIN" | null;
+  roles?: ServerWorkspaceRole[];
+  primaryRole?: ServerWorkspaceRole | null;
   brandAccessRevoked?: boolean;
 };
 
@@ -109,26 +111,43 @@ export async function requireAuthenticatedUser(callbackPath: string) {
   }
 }
 
+function workspacePathForRole(role: ServerWorkspaceRole): string {
+  if (role === "ADMIN") return "/admin";
+  if (role === "BRAND") return "/brand/dashboard";
+  return "/creator/dashboard";
+}
+
+function canAccessWorkspaceRole(
+  user: ServerAuthUser,
+  role: ServerWorkspaceRole,
+): boolean {
+  const hasRole = user.roles?.includes(role) ?? false;
+  if (!hasRole) return false;
+
+  return role !== "BRAND" || !user.brandAccessRevoked;
+}
+
 function fallbackWorkspacePath(user: ServerAuthUser): string {
-  if (user.roles?.includes("ADMIN")) return "/admin";
-  if (
-    user.primaryRole === "BRAND" &&
-    user.roles?.includes("BRAND") &&
-    !user.brandAccessRevoked
-  ) {
-    return "/brand/dashboard";
+  const rolePriority: Array<ServerWorkspaceRole | null | undefined> = [
+    "ADMIN",
+    user.primaryRole,
+    "BRAND",
+    "CREATOR",
+  ];
+
+  for (const role of rolePriority) {
+    if (role && canAccessWorkspaceRole(user, role)) {
+      return workspacePathForRole(role);
+    }
   }
-  if (user.primaryRole === "CREATOR" && user.roles?.includes("CREATOR")) {
-    return "/creator/dashboard";
-  }
-  if (user.roles?.includes("BRAND") && !user.brandAccessRevoked) {
-    return "/brand/dashboard";
-  }
-  if (user.roles?.includes("CREATOR")) return "/creator/dashboard";
+
   return "/auth/continue";
 }
 
-export async function requireAdminWorkspace(callbackPath: string) {
+async function requireWorkspaceRole(
+  callbackPath: string,
+  role: ServerWorkspaceRole,
+) {
   const auth = await fetchServerAuthUserState();
   const user = auth.user;
   if (!user) {
@@ -141,52 +160,21 @@ export async function requireAdminWorkspace(callbackPath: string) {
     redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
   }
 
-  const hasAdminRole = user.roles?.includes("ADMIN") ?? false;
-  if (!hasAdminRole) {
+  if (!canAccessWorkspaceRole(user, role)) {
     redirect(fallbackWorkspacePath(user));
   }
 
   return user;
+}
+
+export async function requireAdminWorkspace(callbackPath: string) {
+  return requireWorkspaceRole(callbackPath, "ADMIN");
 }
 
 export async function requireBrandWorkspace(callbackPath: string) {
-  const auth = await fetchServerAuthUserState();
-  const user = auth.user;
-  if (!user) {
-    if (auth.status === "unauthenticated") {
-      await redirectToSessionRestoreIfPossible(
-        callbackPath,
-        `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
-      );
-    }
-    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
-  }
-
-  const hasBrandRole = user.roles?.includes("BRAND") ?? false;
-  if (!hasBrandRole || user.brandAccessRevoked) {
-    redirect(fallbackWorkspacePath(user));
-  }
-
-  return user;
+  return requireWorkspaceRole(callbackPath, "BRAND");
 }
 
 export async function requireCreatorWorkspace(callbackPath: string) {
-  const auth = await fetchServerAuthUserState();
-  const user = auth.user;
-  if (!user) {
-    if (auth.status === "unauthenticated") {
-      await redirectToSessionRestoreIfPossible(
-        callbackPath,
-        `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
-      );
-    }
-    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
-  }
-
-  const hasCreatorRole = user.roles?.includes("CREATOR") ?? false;
-  if (!hasCreatorRole) {
-    redirect(fallbackWorkspacePath(user));
-  }
-
-  return user;
+  return requireWorkspaceRole(callbackPath, "CREATOR");
 }

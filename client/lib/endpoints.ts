@@ -26,7 +26,10 @@ export const ENDPOINTS = {
   },
   ORDERS: {
     BRAND_LIST: "/api/orders/brand",
+    BRAND_DETAIL: (id: string) => `/api/orders/brand/${encodeURIComponent(id)}`,
     CREATOR_LIST: "/api/orders/creator",
+    CREATOR_DETAIL: (id: string) =>
+      `/api/orders/creator/${encodeURIComponent(id)}`,
     CHECKOUT: "/api/orders/checkout",
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,

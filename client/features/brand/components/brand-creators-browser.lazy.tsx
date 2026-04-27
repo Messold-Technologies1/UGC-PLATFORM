@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { CreatorsBrowserLoadingShell } from "@/components/dashboard/route-loading-shells";
+import { BrandCreatorsLoadingState } from "./brand-creators-loading";
 
 export type { BrandCreatorsBrowserProps } from "./brand-creators-browser";
 
@@ -11,6 +11,6 @@ export const BrandCreatorsBrowser = dynamic(
       default: module.BrandCreatorsBrowser,
     })),
   {
-    loading: () => <CreatorsBrowserLoadingShell />,
+    loading: () => <BrandCreatorsLoadingState />,
   },
 );

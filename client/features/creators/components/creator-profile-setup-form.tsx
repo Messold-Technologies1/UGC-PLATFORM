@@ -70,7 +70,14 @@ function isCompletedPackageDraft(row: PackageDraft): boolean {
   const price = row.priceAmount.trim();
   const days = Number.parseInt(row.deliveryDays, 10);
   const revisions = Number.parseInt(row.maxRevisions, 10);
-  return !!name && !!price && !Number.isNaN(days) && days >= 0 && !Number.isNaN(revisions) && revisions >= 0;
+  return (
+    !!name &&
+    !!price &&
+    !Number.isNaN(days) &&
+    days >= 0 &&
+    !Number.isNaN(revisions) &&
+    revisions >= 0
+  );
 }
 
 function createAddOnDraft(
@@ -127,8 +134,14 @@ function createInitialPackageDrafts(
   mode: "create" | "update",
   initialProfile?: CreatorProfileItemApi | null,
 ): PackageDraft[] {
-  if (mode !== "update" || !initialProfile || initialProfile.packages.length === 0) {
-    return [createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" })];
+  if (
+    mode !== "update" ||
+    !initialProfile ||
+    initialProfile.packages.length === 0
+  ) {
+    return [
+      createPackageDraft("pkg-0", { name: "Starter", deliveryDays: "3" }),
+    ];
   }
 
   return initialProfile.packages.map((p) => ({
@@ -145,7 +158,11 @@ function createInitialAddOnDrafts(
   mode: "create" | "update",
   initialProfile?: CreatorProfileItemApi | null,
 ): AddOnDraft[] {
-  if (mode !== "update" || !initialProfile || (initialProfile.addOns ?? []).length === 0) {
+  if (
+    mode !== "update" ||
+    !initialProfile ||
+    (initialProfile.addOns ?? []).length === 0
+  ) {
     return [];
   }
 
@@ -210,7 +227,8 @@ function CreatorProfileSetupFormContent({
   onPendingChange,
   user,
 }: CreatorProfileSetupFormContentProps) {
-  const uploadCreatorProfileImageMutation = useUploadCreatorProfileImageMutation();
+  const uploadCreatorProfileImageMutation =
+    useUploadCreatorProfileImageMutation();
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
@@ -231,20 +249,26 @@ function CreatorProfileSetupFormContent({
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
   const [displayName, setDisplayName] = useState(() =>
-    mode === "update" ? initialProfile?.displayName ?? "" : getInitialCreatorName(user),
+    mode === "update"
+      ? (initialProfile?.displayName ?? "")
+      : getInitialCreatorName(user),
   );
   const [city, setCity] = useState(() => initialProfile?.city?.trim() ?? "");
   const [bio, setBio] = useState(() => initialProfile?.bio?.trim() ?? "");
-  const [gender, setGender] = useState(() => initialProfile?.gender?.trim() ?? "");
-  const [travelRadius, setTravelRadius] = useState(() =>
-    initialProfile?.travelRadius != null ? String(initialProfile.travelRadius) : "",
+  const [gender, setGender] = useState(
+    () => initialProfile?.gender?.trim() ?? "",
   );
-  const [languages, setLanguages] = useState(() =>
-    initialProfile?.languages.map((l) => l.language).join(", ") ?? "",
+  const [travelRadius, setTravelRadius] = useState(() =>
+    initialProfile?.travelRadius != null
+      ? String(initialProfile.travelRadius)
+      : "",
+  );
+  const [languages, setLanguages] = useState(
+    () => initialProfile?.languages.map((l) => l.language).join(", ") ?? "",
   );
 
-  const [categoriesInput, setCategoriesInput] = useState(() =>
-    initialProfile?.categories.map((c) => c.category).join(", ") ?? "",
+  const [categoriesInput, setCategoriesInput] = useState(
+    () => initialProfile?.categories.map((c) => c.category).join(", ") ?? "",
   );
   const [personaTagsInput, setPersonaTagsInput] = useState(() =>
     (initialProfile?.personaTags ?? []).map((t) => t.tag).join(", "),
@@ -275,7 +299,9 @@ function CreatorProfileSetupFormContent({
     createInitialPackageDrafts(mode, initialProfile),
   );
   const nextAddOnIdRef = useRef(
-    mode === "update" && initialProfile && (initialProfile.addOns ?? []).length > 0
+    mode === "update" &&
+      initialProfile &&
+      (initialProfile.addOns ?? []).length > 0
       ? (initialProfile.addOns ?? []).length
       : 1,
   );
@@ -465,7 +491,11 @@ function CreatorProfileSetupFormContent({
         const hasDeliveryInput = row.deliveryDays.trim() !== "";
         const hasRevisionsInput = row.maxRevisions.trim() !== "";
         const touched =
-          !!pkgName || !!price || !!row.deliverables.trim() || hasDeliveryInput || hasRevisionsInput;
+          !!pkgName ||
+          !!price ||
+          !!row.deliverables.trim() ||
+          hasDeliveryInput ||
+          hasRevisionsInput;
         const daysOk = !Number.isNaN(rowDays) && rowDays >= 0;
         const revisionsOk = !Number.isNaN(rowRevisions) && rowRevisions >= 0;
         const isComplete = !!pkgName && !!price && daysOk && revisionsOk;
@@ -490,7 +520,8 @@ function CreatorProfileSetupFormContent({
 
       const packages: CreateCreatorProfilePayload["packages"] =
         builtPackages.length > 0 ? builtPackages : undefined;
-      const builtAddOns: NonNullable<CreateCreatorProfilePayload["addOns"]> = [];
+      const builtAddOns: NonNullable<CreateCreatorProfilePayload["addOns"]> =
+        [];
       const seenAddOnNames = new Set<string>();
 
       for (const row of addOnDrafts) {
@@ -694,13 +725,13 @@ function CreatorProfileSetupFormContent({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="city">City</Label>
-          <Input
-            id="city"
-            className={inputClass}
-            disabled={pending}
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="e.g. Bengaluru"
+            <Input
+              id="city"
+              className={inputClass}
+              disabled={pending}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Bengaluru"
             />
           </div>
           <div className="space-y-2">
@@ -805,8 +836,8 @@ function CreatorProfileSetupFormContent({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <Label htmlFor="onLocation" className="text-sm font-medium">
                 On-location / store shoots
@@ -824,8 +855,18 @@ function CreatorProfileSetupFormContent({
           </div>
 
           {onLocationAvailable ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
+            <div className="space-y-4 rounded-lg bg-background/50 p-4">
+              {/* <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  On-location details
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Add your travel radius and any optional extras for location
+                  shoots.
+                </p>
+              </div> */}
+
+              <div className="max-w-sm space-y-2">
                 <Label htmlFor="travelRadius">Travel radius (km)</Label>
                 <Input
                   id="travelRadius"
@@ -838,6 +879,17 @@ function CreatorProfileSetupFormContent({
                   placeholder="0 if none"
                 />
               </div>
+
+              <CreatorProfileAddOnFields
+                rows={addOnDrafts}
+                inputClassName={inputClass}
+                maxAddOns={MAX_ADD_ONS_IN_CREATOR_SETUP_FORM}
+                disabled={pending}
+                layout={mode === "update" ? "grid" : "stack"}
+                onAdd={addAddOnDraft}
+                onRemove={removeAddOnDraft}
+                onChange={updateAddOnDraft}
+              />
             </div>
           ) : null}
         </div>

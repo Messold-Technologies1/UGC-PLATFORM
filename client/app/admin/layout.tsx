@@ -7,7 +7,11 @@ import { AuthenticatedAppProviders } from "@/providers/app-providers";
 const manrope = Manrope({ subsets: ["latin"], variable: '--font-heading' });
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600"], variable: '--font-sans' });
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <AuthenticatedAppProviders>
       <div className={`${manrope.variable} ${inter.variable} bg-background text-foreground font-body selection:bg-primary/30 min-h-screen m-0 p-0`}>

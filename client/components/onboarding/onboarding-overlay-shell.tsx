@@ -9,6 +9,8 @@ export type OnboardingOverlayShellProps = {
   open: boolean;
   onOpenChange?: (open: boolean) => void;
   dismissible?: boolean;
+  showCloseButton?: boolean;
+  closeButtonDisabled?: boolean;
   srTitle: string;
   srDescription: string;
   left: React.ReactNode;
@@ -22,6 +24,8 @@ export function OnboardingOverlayShell({
   open,
   onOpenChange,
   dismissible = false,
+  showCloseButton = dismissible,
+  closeButtonDisabled = false,
   srTitle,
   srDescription,
   left,
@@ -71,12 +75,14 @@ export function OnboardingOverlayShell({
             {srDescription}
           </DialogPrimitive.Description>
 
-          {dismissible ? (
+          {showCloseButton ? (
             <DialogPrimitive.Close
+              disabled={closeButtonDisabled}
               className={cn(
                 "absolute top-4 right-4 z-10 inline-flex size-9 items-center justify-center rounded-full",
                 "border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors",
                 "hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "disabled:pointer-events-none disabled:opacity-50",
               )}
               aria-label="Close"
             >

@@ -134,9 +134,6 @@ export function DashboardOnboardingGate({
         onClose={replaceUrlWithoutOnboardingParam}
         onBrandDismiss={handleBrandDismiss}
         onCreatorBack={creatorBackRole ? handleCreatorBack : undefined}
-        creatorBackLabel={
-          creatorBackRole === "BRAND" ? "Back to brand workspace" : undefined
-        }
       />
     );
   }

@@ -94,54 +94,56 @@ export function ThumbnailsCarousel({
         ))}
       </Carousel.ItemGroup>
 
-      {assets.length > 1 && (
-        <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3">
+        {assets.length > 1 && (
           <Carousel.PrevTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">
             <ChevronLeft className="w-5 h-5" />
           </Carousel.PrevTrigger>
+        )}
 
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
-            {assets.map((asset, index) => (
-              <div key={index} className="relative shrink-0 w-24 aspect-video group/thumb">
-                <Carousel.Indicator
-                  index={index}
-                  className="absolute inset-0 w-full h-full border-2 border-transparent data-current:border-primary rounded-lg overflow-hidden cursor-pointer transition-all hover:border-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Image
-                    src={asset.thumb}
-                    alt={`Thumbnail ${index + 1}`}
-                    fill
-                    className="object-cover opacity-60 data-current:opacity-100 transition-opacity"
-                  />
-                  {asset.type === "video" && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />
-                    </div>
-                  )}
-                </Carousel.Indicator>
-                {isEditable && onRemove && (
-                  <button 
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onRemove(index);
-                    }}
-                    className="absolute top-1 right-1 bg-black/60 rounded-full p-1 hover:bg-destructive/80 transition-colors z-10"
-                    aria-label="Remove asset"
-                  >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
+          {assets.map((asset, index) => (
+            <div key={index} className="relative shrink-0 w-24 aspect-video group/thumb">
+              <Carousel.Indicator
+                index={index}
+                className="absolute inset-0 w-full h-full border-2 border-transparent data-current:border-primary rounded-lg overflow-hidden cursor-pointer transition-all hover:border-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Image
+                  src={asset.thumb}
+                  alt={`Thumbnail ${index + 1}`}
+                  fill
+                  className="object-cover opacity-60 data-current:opacity-100 transition-opacity"
+                />
+                {asset.type === "video" && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />
+                  </div>
                 )}
-              </div>
-            ))}
-          </div>
+              </Carousel.Indicator>
+              {isEditable && onRemove && (
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onRemove(index);
+                  }}
+                  className="absolute top-1 right-1 bg-black/60 rounded-full p-1 hover:bg-destructive/80 transition-colors z-10"
+                  aria-label="Remove asset"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
 
+        {assets.length > 1 && (
           <Carousel.NextTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">
             <ChevronRight className="w-5 h-5" />
           </Carousel.NextTrigger>
-        </div>
-      )}
+        )}
+      </div>
     </Carousel.Root>
   );
 }

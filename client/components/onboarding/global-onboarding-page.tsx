@@ -5,7 +5,6 @@ import { Building2, Clapperboard } from "lucide-react";
 
 import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form.lazy";
 import { BrandProfileSetupForm } from "@/features/brands/components/brand-profile-setup-form.lazy";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { OnboardingOverlayShell } from "@/components/onboarding/onboarding-overlay-shell";
 import { OnboardingMarketingColumn } from "@/components/onboarding/onboarding-marketing-column";
@@ -41,7 +40,6 @@ export type GlobalOnboardingPageProps = {
 
   onBrandDismiss?: () => void;
   onCreatorBack?: () => void | Promise<void>;
-  creatorBackLabel?: string;
   className?: string;
 };
 
@@ -50,7 +48,6 @@ export function GlobalOnboardingPage({
   onClose,
   onBrandDismiss,
   onCreatorBack,
-  creatorBackLabel,
   className,
 }: GlobalOnboardingPageProps) {
   const [brandContinuePending, setBrandContinuePending] = useState(false);
@@ -73,11 +70,32 @@ export function GlobalOnboardingPage({
     role === "brand" ? "bg-emerald-800" : "bg-[#7a2a3a]";
   const marketingFooter =
     role === "brand" ? BRAND_MARKETING_FOOTER : CREATOR_MARKETING_FOOTER;
+  const handleClose = useCallback(async () => {
+    if (role === "creator" && onCreatorBack) {
+      await onCreatorBack();
+      return;
+    }
+
+    if (role === "brand") {
+      await handleBrandContinue();
+      return;
+    }
+
+    onClose();
+  }, [handleBrandContinue, onClose, onCreatorBack, role]);
 
   return (
     <OnboardingOverlayShell
       open
+      onOpenChange={(open) => {
+        if (open) return;
+        void handleClose();
+      }}
       dismissible={false}
+      showCloseButton
+      closeButtonDisabled={
+        creationPending || (role === "brand" && brandContinuePending)
+      }
       contentVariant="scrollable"
       className={cn("max-w-[min(100%,72rem)]", className)}
       srTitle={
@@ -120,18 +138,6 @@ export function GlobalOnboardingPage({
               onSuccess={() => {}}
               onPendingChange={setCreationPending}
             />
-            {onCreatorBack ? (
-              <div className="mt-6 flex items-center justify-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={creationPending}
-                  onClick={() => void onCreatorBack()}
-                >
-                  {creatorBackLabel ?? "Go back"}
-                </Button>
-              </div>
-            ) : null}
           </div>
         ) : (
           <div className={rightColumnClass}>
@@ -154,16 +160,6 @@ export function GlobalOnboardingPage({
               onSuccess={async () => {}}
               onPendingChange={setCreationPending}
             />
-            <div className="mt-6 flex items-center justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={brandContinuePending || creationPending}
-                onClick={() => void handleBrandContinue()}
-              >
-                Skip for now
-              </Button>
-            </div>
           </div>
         )
       }

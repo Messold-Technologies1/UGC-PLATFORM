@@ -1,7 +1,7 @@
 import React, { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Star, ShoppingBag, Play, Pause } from "lucide-react";
+import { MapPin, Star, ShoppingBag, Play, Pause, MoveRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,10 +55,10 @@ export const CreatorCard = memo(function CreatorCard({
     return (
       <article
         className={cn(
-          "group creator-browse-lift relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+          "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
         )}
       >
-        <div className="relative aspect-4/5 overflow-hidden bg-muted">
+        <div className="relative aspect-square overflow-hidden bg-muted">
           {hasPreviewVideo ? (
             <div
               className="relative size-full cursor-pointer"
@@ -104,84 +104,61 @@ export const CreatorCard = memo(function CreatorCard({
               priority
             />
           )}
-          <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10 transition-opacity duration-300 group-hover:opacity-90" />
-          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-white backdrop-blur-sm">
-            <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-semibold">{creator.rating}</span>
-            <span className="text-[10px] text-white/70">
-              ({creator.reviewCount})
-            </span>
-          </div>
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-lg font-semibold leading-6">
-                {creator.name}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
-                  <MapPin className="size-3.5 shrink-0" />
-                  <span className="line-clamp-1">{locationLabel}</span>
-                </span>
-                <span className="rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
-                  {categoryLabel}
-                </span>
-              </div>
-            </div>
-          </div>
+          {/* <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[9px] font-bold tracking-wider text-white backdrop-blur-md">
+            <div className="size-1.5 rounded-full bg-green-500" />
+            AVAILABLE
+          </div> */}
         </div>
 
-        <div className="flex flex-1 flex-col p-5">
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant="outline"
-              className="border-border/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-            >
-              <ShoppingBag className="mr-1 size-3" />
-              {creator.ordersCompleted} orders
-            </Badge>
-            {creator.travelAvailable && (
-              <Badge
-                variant="outline"
-                className="border-border/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-              >
-                Travels
-              </Badge>
-            )}
-            {creator.storeVisit && (
-              <Badge
-                variant="outline"
-                className="border-border/80 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-              >
-                On-location
-              </Badge>
-            )}
-          </div>
-
-          <div className="mt-4 min-h-12">
-            <div className="flex max-h-12 flex-wrap content-start gap-1.5 overflow-hidden">
-              {browseTags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="outline"
-                  className="border-border/80 px-2.5 py-0.5 text-[10px] font-medium"
-                >
-                  {tag}
-                </Badge>
-              ))}
+        <div className="flex flex-1 flex-col p-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="line-clamp-1 text-base font-bold text-foreground">
+              {creator.name}
+            </h3>
+            <div className="flex shrink-0 items-center gap-1">
+              <Star className="size-3.5 fill-amber-400 text-amber-400" />
+              <span className="text-xs font-semibold text-foreground">{creator.rating}</span>
+              <span className="text-[10px] text-muted-foreground">({creator.reviewCount})</span>
             </div>
           </div>
 
-          <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
+          <div className="mt-1 flex flex-col gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <MapPin className="size-3.5 shrink-0" />
+              <span className="line-clamp-1">{locationLabel}</span>
+            </div>
+            <div className="flex items-center gap-2 text-blue-400">
+              <ShoppingBag className="size-3.5 shrink-0" />
+              <span className="font-medium">{creator.ordersCompleted} orders completed</span>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {browseTags.map((tag) => (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="rounded-full bg-muted/50 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+
+          <div className="mt-auto flex items-center justify-between pt-3.5">
             <div className="flex flex-col">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                 Starting from
               </span>
               <span className="text-lg font-bold text-foreground">
                 ₹{creator.startingPrice.toLocaleString("en-IN")}
               </span>
             </div>
-            <Button asChild size="sm" variant="outline" className="text-xs">
-              <Link href={profileUrl}>View Profile</Link>
+            <Button asChild size="sm" variant="outline" className="h-7 rounded-full pl-3 pr-2 text-xs font-medium border-border/50 hover:bg-muted">
+              <Link href={profileUrl} className="flex items-center gap-1">
+                Profile 
+                <MoveRight className="size-3.5" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -329,27 +306,28 @@ export function CreatorCardSkeleton({
 }) {
   if (appearance === "browse") {
     return (
-      <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card">
-        <Skeleton className="aspect-4/5 w-full rounded-none" />
-        <div className="flex flex-1 flex-col p-5">
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-6 w-20 rounded-full" />
-            <Skeleton className="h-6 w-16 rounded-full" />
-            <Skeleton className="h-6 w-18 rounded-full" />
+      <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
+        <Skeleton className="aspect-square w-full rounded-none" />
+        <div className="flex flex-1 flex-col p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <Skeleton className="h-5 w-32 rounded-full" />
+            <Skeleton className="h-4 w-12 rounded-full" />
           </div>
-          <div className="mt-4 min-h-12">
-            <div className="flex max-h-12 flex-wrap content-start gap-2 overflow-hidden">
-              <Skeleton className="h-6 w-14 rounded-full" />
-              <Skeleton className="h-6 w-16 rounded-full" />
-              <Skeleton className="h-6 w-12 rounded-full" />
-            </div>
+          <div className="mt-1 space-y-2">
+            <Skeleton className="h-3 w-24 rounded-full" />
+            <Skeleton className="h-3 w-36 rounded-full" />
           </div>
-          <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-6 w-20" />
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Skeleton className="h-5 w-14 rounded-full" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+          <div className="mt-auto flex items-center justify-between pt-3.5">
+            <div className="space-y-1">
+              <Skeleton className="h-2 w-16 rounded-full" />
+              <Skeleton className="h-5 w-20 rounded-full" />
             </div>
-            <Skeleton className="h-9 w-24 rounded-xl" />
+            <Skeleton className="h-7 w-20 rounded-full" />
           </div>
         </div>
       </div>

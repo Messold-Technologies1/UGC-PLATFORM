@@ -44,7 +44,9 @@ function saveLastPathForWorkspaceRole(role: WorkspaceRole, href: string): void {
   } catch {}
 }
 
-export function readLastPathForWorkspaceRole(role: WorkspaceRole): string | null {
+export function readLastPathForWorkspaceRole(
+  role: WorkspaceRole,
+): string | null {
   try {
     const raw = sessionStorage.getItem(lastPathStorageKey(role));
     if (!raw?.trim() || !raw.startsWith("/") || raw.startsWith("//")) {
@@ -124,6 +126,10 @@ export function useWorkspaceNavigation() {
     const currentSearch = readCurrentSearchString();
     const fullCurrent = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
 
+    if (sameWorkspace) {
+      return;
+    }
+
     if (currentRole && !sameWorkspace) {
       const prefix = pathPrefixForWorkspaceRole(currentRole);
       if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
@@ -144,7 +150,10 @@ export function useWorkspaceNavigation() {
       return;
     }
 
-    if (current && (!current.roles.includes(role) || !canUseWorkspaceRole(current, role))) {
+    if (
+      current &&
+      (!current.roles.includes(role) || !canUseWorkspaceRole(current, role))
+    ) {
       toast.error(`Could not continue as ${role.toLowerCase()}.`);
       return;
     }
@@ -153,7 +162,7 @@ export function useWorkspaceNavigation() {
       ? pathAfterWorkspaceSelection(current, role, callbackUrl, {
           promptIncompleteProfileOnboarding: false,
         })
-      : callbackUrl ?? fallbackPathForWorkspaceRole(role);
+      : (callbackUrl ?? fallbackPathForWorkspaceRole(role));
 
     if (!isAlreadyAtDestination(pathname, currentSearch, dest)) {
       setSwitchingWorkspaceRole(role);

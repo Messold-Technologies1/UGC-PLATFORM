@@ -3,14 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Bell,
-  LogOut,
-  Shield,
-  UserRound,
-  Building2,
-  Video,
-} from "lucide-react";
+import { LogOut, UserRound, Building2, Video } from "lucide-react";
 import {
   accountMenuGlassPanel,
   accountMenuItemClass,
@@ -58,21 +51,12 @@ export function SidebarUserMenu({
       : activeWorkspace === "BRAND"
         ? "brand"
         : "creator";
-  const settingsHref = hub === "brand" ? "/brand/account" : "/creator/settings";
   const accountHref = workspaceAccountHref(
     hub === "brand" ? "BRAND" : "CREATOR",
   );
 
   const isAccountSectionActive =
     pathname === accountHref || pathname.startsWith(`${accountHref}/`);
-
-  const notificationsHref = `${settingsHref}/notifications`;
-  const securityHref = `${settingsHref}/security`;
-  const isNotificationsActive =
-    pathname === notificationsHref ||
-    pathname.startsWith(`${notificationsHref}/`);
-  const isSecurityActive =
-    pathname === securityHref || pathname.startsWith(`${securityHref}/`);
 
   const closeMobile = useCallback(() => {
     setMobileOpen(false);
@@ -221,32 +205,6 @@ export function SidebarUserMenu({
               Try As Creator
             </button>
           )}
-          <Link
-            href={settingsHref}
-            role="menuitem"
-            className={cn(
-              accountMenuItemClass,
-              "w-full",
-              isNotificationsActive && "bg-accent/80 text-accent-foreground",
-            )}
-            onClick={closeMobile}
-          >
-            <Bell className="size-4" aria-hidden />
-            Notifications
-          </Link>
-          <Link
-            href={settingsHref}
-            role="menuitem"
-            className={cn(
-              accountMenuItemClass,
-              "w-full",
-              isSecurityActive && "bg-accent/80 text-accent-foreground",
-            )}
-            onClick={closeMobile}
-          >
-            <Shield className="size-4" aria-hidden />
-            Security
-          </Link>
           <Link
             href={accountHref}
             role="menuitem"

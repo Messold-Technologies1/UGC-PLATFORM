@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
-import { requireCreatorWorkspace } from "@/lib/server-auth-guard";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
@@ -12,13 +11,11 @@ export const metadata: Metadata = {
   description: "Manage your portfolio, campaigns, and earnings.",
 };
 
-export default async function CreatorLayout({
+export default function CreatorLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requireCreatorWorkspace("/creator/dashboard");
-
   return (
     <AuthenticatedAppProviders>
       <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-background text-foreground">

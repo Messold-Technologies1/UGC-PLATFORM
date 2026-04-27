@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react"; //useMemo,
 // import Image from "next/image";
 import Link from "next/link";
-import { Clock3, Package, ShoppingCart, Wallet, ChevronRight } from "lucide-react";
+import { ShoppingCart, ChevronRight } from "lucide-react";// Wallet, Package,Clock3,
 
 import {
   Pagination,
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 
 import { PageHeader } from "@/components/dashboard/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
+// import { StatCard } from "@/components/dashboard/stat-card";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGetCreatorOrdersQuery } from "../hooks/use-get-creator-orders-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,52 +40,60 @@ export function CreatorOrdersList() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const stats = useMemo(() => {
-    let activeOrders = 0;
-    let pendingDelivery = 0;
-    let completed = 0;
-    let totalEarnings = 0;
+  // const stats = useMemo(() => {
+  //   let activeOrders = 0;
+  //   let pendingDelivery = 0;
+  //   let completed = 0;
+  //   let totalEarnings = 0;
 
-    const items = data?.items || [];
-    items.forEach(({ order }) => {
-      if (
-        [
-          "BRIEF_SUBMISSION_PENDING",
-          "BRIEF_SUBMITTED",
-          "DELIVERED",
-          "REVISION_REQUESTED",
-          "REVISION_SUBMITTED",
-          "DISPUTED",
-        ].includes(order.status)
-      ) {
-        activeOrders++;
-      }
+  //   const items = data?.items || [];
+  //   items.forEach(({ order }) => {
+  //     if (
+  //       [
+  //         "BRIEF_SUBMISSION_PENDING",
+  //         "BRIEF_SUBMITTED",
+  //         "DELIVERED",
+  //         "REVISION_REQUESTED",
+  //         "REVISION_SUBMITTED",
+  //         "DISPUTED",
+  //       ].includes(order.status)
+  //     ) {
+  //       activeOrders++;
+  //     }
 
-      if (["BRIEF_SUBMITTED", "REVISION_REQUESTED"].includes(order.status)) {
-        pendingDelivery++;
-      }
+  //     if (["BRIEF_SUBMITTED", "REVISION_REQUESTED"].includes(order.status)) {
+  //       pendingDelivery++;
+  //     }
 
-      if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(order.status)) {
-        completed++;
-      }
+  //     if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(order.status)) {
+  //       completed++;
+  //     }
 
-      if (!["PENDING_PAYMENT", "REJECTED"].includes(order.status)) {
-        const amount = parseFloat(order.priceAmountSnapshot) || 0;
-        totalEarnings += amount;
-      }
-    });
+  //     if (!["PENDING_PAYMENT", "REJECTED"].includes(order.status)) {
+  //       const amount = parseFloat(order.priceAmountSnapshot) || 0;
+  //       totalEarnings += amount;
+  //     }
+  //   });
 
-    return [
-      { label: "Active Orders", value: activeOrders.toString(), icon: ShoppingCart },
-      { label: "Pending Delivery", value: pendingDelivery.toString(), icon: Clock3 },
-      { label: "Completed", value: completed.toString(), icon: Package },
-      { 
-        label: "Total Earnings", 
-        value: `$${totalEarnings.toFixed(2)}`, 
-        icon: Wallet 
-      },
-    ];
-  }, [data]);
+  //   return [
+  //     {
+  //       label: "Active Orders",
+  //       value: activeOrders.toString(),
+  //       icon: ShoppingCart,
+  //     },
+  //     {
+  //       label: "Pending Delivery",
+  //       value: pendingDelivery.toString(),
+  //       icon: Clock3,
+  //     },
+  //     { label: "Completed", value: completed.toString(), icon: Package },
+  //     {
+  //       label: "Total Earnings",
+  //       value: `$${totalEarnings.toFixed(2)}`,
+  //       icon: Wallet,
+  //     },
+  //   ];
+  // }, [data]);
 
   return (
     <div className="space-y-8">
@@ -94,11 +102,11 @@ export function CreatorOrdersList() {
         description="Track your creator collaborations, delivery status, and payouts."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
-      </div>
+      </div> */}
 
       <div className="mt-8 space-y-6 w-full">
         <h2 className="text-xl font-bold font-headline">Order activity</h2>
@@ -113,8 +121,8 @@ export function CreatorOrdersList() {
                   <div className="flex items-center gap-6 min-w-[250px] w-full xl:w-auto">
                     <Skeleton className="h-14 w-14 rounded-full" />
                     <div className="min-w-0 space-y-2">
-                       <Skeleton className="h-5 w-32" />
-                       <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-20" />
                     </div>
                   </div>
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-6 w-full pl-0 xl:pl-8">
@@ -146,8 +154,8 @@ export function CreatorOrdersList() {
               </div>
               <p className="text-sm font-medium">No orders yet</p>
               <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                When brands place orders with you, they&apos;ll appear here so you
-                can follow progress and manage delivery.
+                When brands place orders with you, they&apos;ll appear here so
+                you can follow progress and manage delivery.
               </p>
             </div>
           ) : (
@@ -156,13 +164,16 @@ export function CreatorOrdersList() {
                 {data.items.map(({ order, brand }) => (
                   <div
                     key={order.id}
-                    className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 w-full transition-all duration-300 hover:bg-accent/60 hover:shadow-lg hover:shadow-primary/5"
+                    className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 w-full transition-all duration-300 hover:shadow-primary/5"
                   >
                     <div className="flex items-center gap-6 min-w-[250px] w-full xl:w-auto">
                       <div className="relative">
                         <div className="absolute -inset-1 bg-linear-to-tr from-primary to-secondary rounded-full opacity-0 group-hover/item:opacity-100 blur transition-opacity duration-500"></div>
                         <Avatar className="relative h-14 w-14 border-2 border-border bg-muted z-10 shrink-0">
-                          <AvatarImage src={brand.logoUrl || undefined} className="object-cover" />
+                          <AvatarImage
+                            src={brand.logoUrl || undefined}
+                            className="object-cover"
+                          />
                           <AvatarFallback>
                             {brand.companyName
                               .split(" ")
@@ -181,34 +192,48 @@ export function CreatorOrdersList() {
                     </div>
 
                     <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-6 w-full pl-0 xl:pl-8">
-                       <div className="flex flex-col">
-                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">Package</p>
-                         <p className="font-bold text-sm truncate text-foreground/90">{order.packageNameSnapshot}</p>
-                         <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">ID: {order.id.split("-").pop() || order.id.substring(0, 8)}</p>
-                       </div>
-                       <div className="flex flex-col">
-                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">Status</p>
-                         <Badge
-                           variant="outline"
-                           className={`${STATUS_COLORS[order.status] || "bg-muted text-muted-foreground"} w-fit rounded-md px-2.5 py-0.5 text-xs font-semibold`}
-                         >
-                           {STATUS_LABELS[order.status] || order.status}
-                         </Badge>
-                       </div>
-                       <div className="flex flex-col">
-                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">Amount</p>
-                         <p className="font-bold text-sm text-foreground/90">
-                           {new Intl.NumberFormat("en-US", {
-                             style: "currency",
-                             currency: order.currency || "USD",
-                           }).format(parseFloat(order.priceAmountSnapshot))}
-                         </p>
-                         <p className="text-xs text-muted-foreground mt-0.5">{order.deliveryDaysSnapshot || 0} days delivery</p>
-                       </div>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
+                          Package
+                        </p>
+                        <p className="font-bold text-sm truncate text-foreground/90">
+                          {order.packageNameSnapshot}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">
+                          ID:{" "}
+                          {order.id.split("-").pop() ||
+                            order.id.substring(0, 8)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
+                          Status
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={`${STATUS_COLORS[order.status] || "bg-muted text-muted-foreground"} w-fit rounded-md px-2.5 py-0.5 text-xs font-semibold`}
+                        >
+                          {STATUS_LABELS[order.status] || order.status}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
+                          Amount
+                        </p>
+                        <p className="font-bold text-sm text-foreground/90">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: order.currency || "USD",
+                          }).format(parseFloat(order.priceAmountSnapshot))}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {order.deliveryDaysSnapshot || 0} days delivery
+                        </p>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-end gap-6 shrink-0 w-full xl:w-auto mt-4 xl:mt-0">
-                      <Link 
+                      <Link
                         href={`/creator/orders/${order.id}`}
                         className="flex items-center size-10 justify-center rounded-full bg-primary/5 text-primary opacity-80 hover:bg-primary hover:text-primary-foreground group-hover/item:bg-primary group-hover/item:text-primary-foreground group-hover/item:opacity-100 transition-all cursor-pointer"
                       >
@@ -222,13 +247,17 @@ export function CreatorOrdersList() {
                 <div className="flex items-center justify-center md:justify-start space-x-4 min-w-[150px] w-full md:w-auto">
                   <div className="flex items-center space-x-1">
                     <span className="text-sm text-muted-foreground">Page</span>
-                    <span className="text-sm font-bold text-foreground">{page}</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {page}
+                    </span>
                     <span className="text-sm text-muted-foreground">
                       of {totalPages}
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-4 hidden md:inline-block">
-                    Showing {data.items.length === 0 ? 0 : (page - 1) * limit + 1}-{Math.min(page * limit, total)} of {total} results
+                    Showing{" "}
+                    {data.items.length === 0 ? 0 : (page - 1) * limit + 1}-
+                    {Math.min(page * limit, total)} of {total} results
                   </span>
                 </div>
 
@@ -269,7 +298,10 @@ export function CreatorOrdersList() {
                           );
                         }
 
-                        if (pageNumber === page - 2 || pageNumber === page + 2) {
+                        if (
+                          pageNumber === page - 2 ||
+                          pageNumber === page + 2
+                        ) {
                           return (
                             <PaginationItem key={pageNumber}>
                               <PaginationEllipsis />
@@ -284,7 +316,9 @@ export function CreatorOrdersList() {
                         <PaginationNext
                           onClick={(event: MouseEvent) => {
                             event.preventDefault();
-                            setPage((current) => Math.min(totalPages, current + 1));
+                            setPage((current) =>
+                              Math.min(totalPages, current + 1),
+                            );
                           }}
                           disabled={page >= totalPages}
                         />
@@ -308,11 +342,36 @@ export function CreatorOrdersList() {
                       <SelectValue placeholder={limit.toString()} />
                     </SelectTrigger>
                     <SelectContent align="end" className="min-w-[75px]">
-                      <SelectItem value="6" className="text-xs font-bold cursor-pointer">6</SelectItem>
-                      <SelectItem value="10" className="text-xs font-bold cursor-pointer">10</SelectItem>
-                      <SelectItem value="20" className="text-xs font-bold cursor-pointer">20</SelectItem>
-                      <SelectItem value="30" className="text-xs font-bold cursor-pointer">30</SelectItem>
-                      <SelectItem value="50" className="text-xs font-bold cursor-pointer">50</SelectItem>
+                      <SelectItem
+                        value="6"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        6
+                      </SelectItem>
+                      <SelectItem
+                        value="10"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        10
+                      </SelectItem>
+                      <SelectItem
+                        value="20"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        20
+                      </SelectItem>
+                      <SelectItem
+                        value="30"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        30
+                      </SelectItem>
+                      <SelectItem
+                        value="50"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        50
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

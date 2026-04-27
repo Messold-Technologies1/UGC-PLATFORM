@@ -176,7 +176,6 @@ function AuthContinueOverlayContent({
         onCreatorBack={
           setupRole === "creator" ? clearSetupRole : undefined
         }
-        creatorBackLabel="Choose another path"
       />
     );
   }

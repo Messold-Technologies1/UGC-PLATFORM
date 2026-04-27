@@ -8,7 +8,7 @@ import type {
 export async function updateCreatorPayoutDetailsMe(
   payload: UpsertCreatorPayoutDetailsApi,
 ): Promise<CreatorPayoutDetailsMaskedApi> {
-  const { data } = await api.put<CreatorPayoutDetailsMaskedApi>(
+  const { data } = await api.patch<CreatorPayoutDetailsMaskedApi>(
     ENDPOINTS.CREATORS.PROFILE_PAYOUT_DETAILS,
     payload,
   );

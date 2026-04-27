@@ -33,7 +33,7 @@ import {
 } from "../lib/browse-listing-url";
 import { deriveCreatorFilterOptions } from "../lib/derive-filter-options";
 import {
-  useCreatorsListQuery,
+  useInfiniteCreatorsListQuery,
   type CreatorsListResult,
 } from "../hooks/use-creators-list-query";
 
@@ -58,23 +58,6 @@ function filtersEqual(a: Filters, b: Filters): boolean {
   );
 }
 
-function applySearch(creators: CreatorsListResult["creators"], search: string) {
-  const query = search.trim().toLowerCase();
-  if (!query) return creators;
-
-  return creators.filter((creator) => {
-    const haystacks = [
-      creator.name,
-      creator.location,
-      creator.industryLabel ?? "",
-      ...(creator.categories ?? []),
-      ...(creator.tags ?? []),
-    ];
-
-    return haystacks.some((value) => value.toLowerCase().includes(query));
-  });
-}
-
 function formatPriceRangeForCopy(filters: Filters): string | null {
   if (!filters.minPrice && !filters.maxPrice) return null;
   const min = filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN;
@@ -86,14 +69,11 @@ function formatPriceRangeForCopy(filters: Filters): string | null {
 
 function EmptyBrowseState({
   filters,
-  searchQuery,
 }: {
   filters: Filters;
-  searchQuery: string;
 }) {
   const location = filters.city.trim();
   const priceLabel = formatPriceRangeForCopy(filters);
-  const query = searchQuery.trim();
   const accent = "font-medium text-foreground";
 
   return (
@@ -106,12 +86,6 @@ function EmptyBrowseState({
       </p>
       <p className="mt-2 max-w-md text-center text-sm leading-relaxed text-muted-foreground">
         We couldn&apos;t find creators matching your filters
-        {query ? (
-          <>
-            {" "}
-            for <span className={accent}>&quot;{query}&quot;</span>
-          </>
-        ) : null}
         {location ? (
           <>
             {" "}
@@ -130,8 +104,6 @@ function EmptyBrowseState({
   );
 }
 
-
-
 export function CreatorListing({
   initialData,
 }: {
@@ -146,20 +118,18 @@ export function CreatorListing({
     [searchParams],
   );
 
-  const [localSearch, setLocalSearch] = useState(() => parsedInitial.search);
-  const [search, setSearch] = useState(() => parsedInitial.search);
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
-  const listingRef = useRef({ filters, search });
+  const listingRef = useRef({ filters });
 
   useEffect(() => {
-    listingRef.current = { filters, search };
-  }, [filters, search]);
+    listingRef.current = { filters };
+  }, [filters]);
 
   const syncUrlImmediate = useCallback(
-    (nextFilters: Filters, nextSearch: string) => {
-      const qs = serializeBrowseListingParams(nextFilters, nextSearch);
+    (nextFilters: Filters) => {
+      const qs = serializeBrowseListingParams(nextFilters, "");
       if (qs === searchParamsKey) return;
       router.replace(qs ? `?${qs}` : "?", { scroll: false });
     },
@@ -167,25 +137,23 @@ export function CreatorListing({
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: currentFilters, search: currentSearch } = listingRef.current;
-    syncUrlImmediate(currentFilters, currentSearch);
+    const { filters: currentFilters } = listingRef.current;
+    syncUrlImmediate(currentFilters);
   }, 500);
 
   useEffect(() => {
-    const parsed = parseBrowseListingParams(new URLSearchParams(searchParamsKey));
+    const parsed = parseBrowseListingParams(
+      new URLSearchParams(searchParamsKey),
+    );
     startTransition(() => {
       setFilters((previous) =>
         filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
       );
-      setSearch((previous) => {
-        if (previous !== parsed.search) {
-          setLocalSearch(parsed.search);
-          return parsed.search;
-        }
-        return previous;
-      });
     });
-  }, [searchParamsKey]);
+    if (parsed.search) {
+      syncUrlImmediate(parsed.filters);
+    }
+  }, [searchParamsKey, syncUrlImmediate]);
 
   const apiFilters = useMemo(
     () => ({
@@ -211,16 +179,24 @@ export function CreatorListing({
     error,
     refetch,
     isFetching,
-  } = useCreatorsListQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteCreatorsListQuery({
     filters: apiFilters,
     initialData:
-      initialData && filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+      initialData &&
+      initialData.page === 1 &&
+      initialData.limit === BROWSE_LIST_LIMIT &&
+      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
         ? initialData
         : undefined,
   });
 
-  const creators = useMemo(() => data?.creators ?? [], [data?.creators]);
-  const results = useMemo(() => applySearch(creators, search), [creators, search]);
+  const creators = useMemo(
+    () => data?.pages.flatMap((page) => page.creators) ?? [],
+    [data?.pages],
+  );
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),
     [creators],
@@ -256,29 +232,20 @@ export function CreatorListing({
     [debouncedPushUrl],
   );
 
-  const debouncedSetSearch = useDebouncedCallback((value: string) => {
-    setSearch(value);
-    listingRef.current.search = value;
-    debouncedPushUrl();
-  }, 400);
-
-  const handleSearchChange = useCallback(
-    (value: string) => {
-      setLocalSearch(value);
-      debouncedSetSearch(value);
-    },
-    [debouncedSetSearch],
-  );
-
   const handleResetFilters = useCallback(() => {
     listingRef.current.filters = DEFAULT_FILTERS;
     setFilters(DEFAULT_FILTERS);
-    syncUrlImmediate(DEFAULT_FILTERS, search);
-  }, [search, syncUrlImmediate]);
+    syncUrlImmediate(DEFAULT_FILTERS);
+  }, [syncUrlImmediate]);
 
   const handleCloseFilters = useCallback(() => setShowFilters(false), []);
 
-  const displayedCount = search.trim() ? results.length : (data?.total ?? 0);
+  const handleEndReached = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  const displayedCount = data?.pages[0]?.total ?? 0;
   const desktopFilterRailStyle = {
     "--creators-filter-top": "6.5rem",
     "--creators-filter-gap": "1.5rem",
@@ -314,17 +281,16 @@ export function CreatorListing({
   return (
     <div className="w-full min-w-0">
       <header className="mb-10 md:mb-12">
-        <h1 className="text-4xl font-extrabold tracking-tighter text-foreground md:text-5xl">
+        <h1 className="text-2xl font-extrabold tracking-tighter text-foreground md:text-4xl">
           Browse Creators
         </h1>
         <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
-          Find and hire talented UGC creators to bring your brand story to life
-          with authentic content.
+          Find and hire talented UGC creators to bring your brand story to life.
         </p>
       </header>
 
       <div className="sticky top-0 z-30 mb-10">
-        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/40 p-4 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
+        <div className="flex flex-col gap-4 p-4 py-3 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
           <div className="flex w-full shrink-0 flex-col gap-4 sm:flex-row sm:items-center md:w-auto">
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -360,7 +326,7 @@ export function CreatorListing({
               <p className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {displayedCount.toLocaleString()} creators found
               </p>
-              {isFetching ? (
+              {isFetching && !isFetchingNextPage ? (
                 <p className="text-xs text-muted-foreground">Updating…</p>
               ) : null}
             </div>
@@ -370,9 +336,10 @@ export function CreatorListing({
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
             <Input
               placeholder="Search creators, niches, or locations…"
-              value={localSearch}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              className="h-10 rounded-full py-2.5 pl-11 pr-4 text-sm"
+              value=""
+              disabled
+              aria-label="Creator search is currently unavailable"
+              className="h-10 rounded-2xl py-2.5 pl-11 pr-4 text-sm"
             />
           </div>
         </div>
@@ -407,27 +374,40 @@ export function CreatorListing({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {results.length > 0 ? (
-            <VirtuosoGrid
-              useWindowScroll
-              data={results}
-              listClassName={cn(
-                "grid w-full gap-x-6 gap-y-8",
-                showFilters
-                  ? "sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-                  : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
-              )}
-              itemClassName="min-w-0 h-full"
-              itemContent={(_index, creator) => (
-                <CreatorCard
-                  creator={creator}
-                  variant="listing"
-                  appearance="browse"
-                />
-              )}
-            />
+          {creators.length > 0 ? (
+            <>
+              <VirtuosoGrid
+                useWindowScroll
+                data={creators}
+                endReached={handleEndReached}
+                listClassName={cn(
+                  "grid w-full gap-x-6 gap-y-8",
+                  showFilters
+                    ? "sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
+                    : "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
+                )}
+                itemClassName="min-w-0 h-full"
+                components={{
+                  Footer: () => {
+                    if (!isFetchingNextPage) return null;
+                    return (
+                      <div className="col-span-full flex justify-center py-8 text-xs font-medium text-muted-foreground">
+                        Loading more creators…
+                      </div>
+                    );
+                  },
+                }}
+                itemContent={(_index, creator) => (
+                  <CreatorCard
+                    creator={creator}
+                    variant="listing"
+                    appearance="browse"
+                  />
+                )}
+              />
+            </>
           ) : (
-            <EmptyBrowseState filters={filters} searchQuery={search} />
+            <EmptyBrowseState filters={filters} />
           )}
         </div>
       </div>

@@ -15,7 +15,9 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { id } = await params;
 
   if (!isCreatorProfileUuid(id)) {
@@ -58,9 +60,7 @@ export default async function CreatorProfilePage({ params }: PageProps) {
           Log in to load creator profiles from your account.
         </p>
         <Button asChild className="mt-6">
-          <Link
-            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-          >
+          <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}>
             Log in
           </Link>
         </Button>

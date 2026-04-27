@@ -1,5 +1,5 @@
-import { CreatorsBrowserLoadingShell } from "@/components/dashboard/route-loading-shells";
+import { BrandCreatorsLoadingState } from "@/features/brand/components/brand-creators-loading";
 
 export default function BrandCreatorsLoading() {
-  return <CreatorsBrowserLoadingShell />;
+  return <BrandCreatorsLoadingState />;
 }

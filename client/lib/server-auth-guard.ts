@@ -111,8 +111,42 @@ export async function requireAuthenticatedUser(callbackPath: string) {
 
 function fallbackWorkspacePath(user: ServerAuthUser): string {
   if (user.roles?.includes("ADMIN")) return "/admin";
+  if (
+    user.primaryRole === "BRAND" &&
+    user.roles?.includes("BRAND") &&
+    !user.brandAccessRevoked
+  ) {
+    return "/brand/dashboard";
+  }
+  if (user.primaryRole === "CREATOR" && user.roles?.includes("CREATOR")) {
+    return "/creator/dashboard";
+  }
+  if (user.roles?.includes("BRAND") && !user.brandAccessRevoked) {
+    return "/brand/dashboard";
+  }
   if (user.roles?.includes("CREATOR")) return "/creator/dashboard";
   return "/auth/continue";
+}
+
+export async function requireAdminWorkspace(callbackPath: string) {
+  const auth = await fetchServerAuthUserState();
+  const user = auth.user;
+  if (!user) {
+    if (auth.status === "unauthenticated") {
+      await redirectToSessionRestoreIfPossible(
+        callbackPath,
+        `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
+      );
+    }
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+  }
+
+  const hasAdminRole = user.roles?.includes("ADMIN") ?? false;
+  if (!hasAdminRole) {
+    redirect(fallbackWorkspacePath(user));
+  }
+
+  return user;
 }
 
 export async function requireBrandWorkspace(callbackPath: string) {

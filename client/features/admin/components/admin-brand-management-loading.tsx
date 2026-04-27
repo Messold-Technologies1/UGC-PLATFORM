@@ -136,7 +136,7 @@ function BrandManagementLoadingShell({ limit }: { limit: number }) {
               className="glass-panel p-5 rounded-2xl border border-border/10 bg-card/10 flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
               <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
-                <div className="flex items-center gap-4 min-w-[250px]">
+                <div className="flex items-center gap-4 min-w-62.5">
                   <Skeleton className="size-11 rounded-full" />
                   <div className="space-y-2">
                     <Skeleton className="h-4 w-36" />
@@ -148,7 +148,7 @@ function BrandManagementLoadingShell({ limit }: { limit: number }) {
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-4 w-28" />
                 </div>
-                <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-[200px]">
+                <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-50">
                   <Skeleton className="h-6 w-16 rounded-full" />
                   <Skeleton className="h-9 w-24 rounded-md" />
                 </div>
@@ -207,7 +207,7 @@ function BrandManagementFixtureContent() {
                 className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full transition-all duration-300 border-l-4 border-l-transparent"
               >
                 <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
-                  <div className="flex items-center gap-6 min-w-[280px]">
+                  <div className="flex items-center gap-6 min-w-70">
                     <div className="relative">
                       <div className="absolute -inset-1 bg-linear-to-tr from-primary to-secondary rounded-full opacity-0 blur transition-opacity duration-500"></div>
                       {brand.logoUrl ? (
@@ -271,7 +271,7 @@ function BrandManagementFixtureContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-[180px] w-full md:w-auto mt-2 md:mt-0">
+                  <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-45 w-full md:w-auto mt-2 md:mt-0">
                     <StatusBadge status={brand.status} />
                     <Button
                       variant="destructive"
@@ -289,7 +289,7 @@ function BrandManagementFixtureContent() {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between border-t border-border/50 pt-8 mt-12 pb-20 gap-6">
-          <div className="flex items-center justify-center md:justify-start space-x-4 min-w-[150px] w-full md:w-auto">
+          <div className="flex items-center justify-center md:justify-start space-x-4 min-w-37.5 w-full md:w-auto">
             <div className="flex items-center space-x-1">
               <span className="text-sm text-muted-foreground">Page</span>
               <span className="text-sm font-bold text-foreground">1</span>
@@ -330,15 +330,15 @@ function BrandManagementFixtureContent() {
             </Pagination>
           </div>
 
-          <div className="flex items-center space-x-2 min-w-[150px] justify-center md:justify-end w-full md:w-auto">
+          <div className="flex items-center space-x-2 min-w-37.5 justify-center md:justify-end w-full md:w-auto">
             <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest whitespace-nowrap">
               Rows per page:
             </span>
             <Select value={BRAND_MANAGEMENT_FIXTURE_LIMIT.toString()}>
-              <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
+              <SelectTrigger className="w-18.75 h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
                 <SelectValue placeholder={BRAND_MANAGEMENT_FIXTURE_LIMIT.toString()} />
               </SelectTrigger>
-              <SelectContent align="end" className="min-w-[75px]">
+              <SelectContent align="end" className="min-w-18.75">
                 <SelectItem value="10" className="text-xs font-bold cursor-pointer">
                   10
                 </SelectItem>

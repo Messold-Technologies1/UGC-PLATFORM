@@ -2,12 +2,19 @@ import SideNavBar from "@/components/admin/SideNavBar";
 import TopNavBar from "@/components/admin/TopNavBar";
 import React from "react";
 import { Manrope, Inter } from "next/font/google";
+import { requireAdminWorkspace } from "@/lib/server-auth-guard";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 const manrope = Manrope({ subsets: ["latin"], variable: '--font-heading' });
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600"], variable: '--font-sans' });
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  await requireAdminWorkspace("/admin");
+
   return (
     <AuthenticatedAppProviders>
       <div className={`${manrope.variable} ${inter.variable} bg-background text-foreground font-body selection:bg-primary/30 min-h-screen m-0 p-0`}>

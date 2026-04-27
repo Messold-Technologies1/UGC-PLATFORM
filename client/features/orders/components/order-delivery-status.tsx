@@ -137,8 +137,8 @@ export function OrderDeliveryStatus({
   };
 
   if (role === "brand" && order) {
-    const canReviewDelivery =
-      order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
+    // const canReviewDelivery =
+    //   order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
     const milestones = [
       {
         label: "Payment captured",
@@ -166,26 +166,26 @@ export function OrderDeliveryStatus({
       },
     ];
 
-    const statusHint =
-      order.status === "BRIEF_SUBMISSION_PENDING"
-        ? "Submit the brief to start the delivery timer."
-        : order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED"
-          ? "The creator has marked this order as delivered and it is ready for review."
-          : order.status === "DISPUTED"
-            ? "This order is currently being handled as a dispute."
-            : order.status === "REFUNDED"
-              ? "This order has already been refunded."
-              : "Progress is being tracked from payment through completion.";
+    // const statusHint =
+    //   order.status === "BRIEF_SUBMISSION_PENDING"
+    //     ? "Submit the brief to start the delivery timer."
+    //     : order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED"
+    //       ? "The creator has marked this order as delivered and it is ready for review."
+    //       : order.status === "DISPUTED"
+    //         ? "This order is currently being handled as a dispute."
+    //         : order.status === "REFUNDED"
+    //           ? "This order has already been refunded."
+    //           : "Progress is being tracked from payment through completion.";
 
     return (
       <section className="bg-card rounded-3xl overflow-hidden border shadow-sm">
         <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <PlayCircle className="w-5 h-5 text-primary" />
+              <PlayCircle className="w-5 h-5 text-foreground" />
               <h2 className="text-lg font-bold text-foreground">Delivery Status</h2>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{statusHint}</p>
+            {/* <p className="mt-2 text-sm text-muted-foreground">{statusHint}</p> */}
           </div>
           <Badge
             variant="outline"
@@ -196,54 +196,6 @@ export function OrderDeliveryStatus({
         </div>
 
         <div className="space-y-6 p-6 md:p-8">
-          <div className="rounded-3xl border border-border/60 bg-background/80 p-5">
-            <div className="flex flex-col gap-3 border-b border-border/50 pb-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Delivered Content
-                </h3>
-                {/* <p className="mt-1 text-sm text-muted-foreground">
-                  This carousel stays in place for creator-submitted photos and
-                  videos. We can wire it to real delivery assets as soon as that
-                  payload is added.
-                </p> */}
-              </div>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "w-fit rounded-full px-3 py-1 text-[11px] font-semibold",
-                  canReviewDelivery
-                    ? "border-primary/20 bg-primary/10 text-primary"
-                    : "border-border/70 bg-muted text-muted-foreground",
-                )}
-              >
-                {canReviewDelivery ? "Ready for review" : "Awaiting delivery"}
-              </Badge>
-            </div>
-
-            <div className="pt-5">
-              <ThumbnailsCarousel />
-
-              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
-                <Button
-                  disabled={!canReviewDelivery}
-                  className="w-full py-4 font-bold shadow-lg shadow-primary/10 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Approve
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={!canReviewDelivery}
-                  className="w-full px-8 py-4 font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                >
-                  <FileEdit className="w-5 h-5" />
-                  Request Revision
-                </Button>
-              </div>
-            </div>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border bg-muted/20 px-5 py-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -307,7 +259,7 @@ export function OrderDeliveryStatus({
         <div className="absolute top-0 right-0 -z-10 h-64 w-64 rounded-tr-3xl bg-primary/5 blur-[100px] pointer-events-none" />
         <div className="p-6 md:p-8">
           <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground shadow-sm">
               <CloudUpload className="w-5 h-5" />
             </div>
             <h2 className="text-xl font-bold text-foreground">Delivery Upload</h2>
@@ -364,15 +316,15 @@ export function OrderDeliveryStatus({
                   variant="outline"
                   onClick={handleUploadClick}
                   disabled={isSubmitting}
-                  className="w-full rounded-xl border-2 border-dashed px-6 py-6 font-bold hover:bg-muted/50 sm:w-auto"
+                  className="w-full px-8 py-4 font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-5 h-5" />
                   Add More Files
                 </Button>
                 <Button
                   onClick={handleSubmit}
                   disabled={isSubmitting || previews.length === 0}
-                  className="w-full py-6 font-bold shadow-lg shadow-primary/10 transition-all hover:shadow-primary/20 sm:flex-1"
+                  className="w-full py-4 font-bold shadow-lg shadow-primary/10 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
                 >
                   {isSubmitting ? (
                     <>
@@ -387,34 +339,6 @@ export function OrderDeliveryStatus({
             </div>
           )}
 
-          {previews.length === 0 ? (
-            <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Aspect Ratio
-                </p>
-                <p className="text-sm font-bold text-foreground">9:16 Vertical</p>
-              </div>
-              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Resolution
-                </p>
-                <p className="text-sm font-bold text-foreground">1080p+ Min</p>
-              </div>
-              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  File Size
-                </p>
-                <p className="text-sm font-bold text-foreground">Max 500MB</p>
-              </div>
-              <div className="flex flex-col justify-center rounded-2xl border border-border/40 bg-muted/30 p-4">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Duration
-                </p>
-                <p className="text-sm font-bold text-foreground">15-45 Sec</p>
-              </div>
-            </div>
-          ) : null}
         </div>
       </section>
     );
@@ -424,7 +348,7 @@ export function OrderDeliveryStatus({
     <section className="bg-card rounded-3xl overflow-hidden border shadow-sm">
       <div className="flex items-center justify-between border-b bg-muted/30 p-5">
         <div className="flex items-center gap-3">
-          <PlayCircle className="w-5 h-5 text-primary" />
+          <PlayCircle className="w-5 h-5 text-foreground" />
           <h2 className="text-lg font-bold text-foreground">Final Delivery</h2>
         </div>
       </div>

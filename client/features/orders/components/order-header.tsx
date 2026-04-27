@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Download } from "lucide-react";
+import { AlertTriangle} from "lucide-react"; //, Download 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -168,24 +168,24 @@ export function OrderHeader({
         <div className="flex flex-wrap gap-3">
           <Button
             variant="destructive"
-            className="rounded-xl font-semibold shadow-sm transition-all hover:opacity-90"
+            className="rounded-xl font-semibold shadow-sm transition-all bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:opacity-90"
             onClick={() => setIsDisputeDrawerOpen(true)}
             disabled={!canOpenDispute}
           >
             <AlertTriangle className="w-4 h-4" />
             Raise Dispute
           </Button>
-          <Button
+          {/* <Button
             variant="outline"
             className="rounded-xl font-semibold shadow-sm"
             disabled
           >
             <Download className="w-4 h-4" />
             Invoice
-          </Button>
+          </Button> */}
           <Button
             onClick={() => setIsDrawerOpen(true)}
-            className="rounded-xl bg-linear-to-r from-primary to-secondary font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90"
+            className="rounded-xl font-bold transition-all hover:opacity-90"
             disabled={!canOpenBrief}
           >
             {briefActionLabel}
@@ -244,8 +244,8 @@ export function OrderHeader({
               Raise Dispute
             </DrawerTitle>
             <DrawerDescription className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              Please provide a detailed reason for raising a dispute for order{" "}
-              {orderId}.
+              Please provide a detailed reason for raising a dispute for order{" "}.
+              {/* {orderId}. */}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -275,9 +275,8 @@ export function OrderHeader({
 
           <DrawerFooter className="sticky bottom-0 flex flex-col gap-3 border-t border-border/20 bg-background/95 px-8 py-6 backdrop-blur-sm">
             <Button
-              size="lg"
               variant="destructive"
-              className="h-14 w-full rounded-xl text-base font-semibold shadow-lg shadow-destructive/20"
+              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDisputeSubmit}
               disabled={isDisputePending || trimmedDisputeReason.length < 3}
             >
@@ -293,7 +292,7 @@ export function OrderHeader({
             <DrawerClose asChild>
               <Button
                 variant="ghost"
-                className="h-12 w-full font-semibold text-muted-foreground hover:text-foreground"
+                className="w-full font-semibold text-muted-foreground hover:text-foreground"
                 disabled={isDisputePending}
               >
                 Cancel

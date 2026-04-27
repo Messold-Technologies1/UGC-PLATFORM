@@ -37,7 +37,7 @@ export function OrderFinancialSummary({
           </div>
           <div className="mt-2 flex items-center justify-between border-t pt-5">
             <span className="font-bold text-card-foreground">Total Amount</span>
-            <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-2xl font-black text-transparent">
+            <span className="text-2xl font-black">
               $603.75
             </span>
           </div>
@@ -92,7 +92,7 @@ export function OrderFinancialSummary({
 
         <div className="mt-2 flex items-center justify-between border-t pt-5">
           <span className="font-bold text-card-foreground">Total Amount</span>
-          <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-2xl font-black text-transparent">
+          <span className="text-2xl font-black">
             {formatMoney(totalAmount, order.currency)}
           </span>
         </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
+// import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { OrderDeliveryStatus } from "@/features/orders/components/order-delivery-status";
 import { OrderFinancialSummary } from "@/features/orders/components/order-financial-summary";
 import { OrderHeader } from "@/features/orders/components/order-header";
@@ -85,16 +85,19 @@ export function CreatorOrderDetailsView({
         brand={data.brand}
       />
 
-      <div className="grid grid-cols-1 gap-8 items-start lg:grid-cols-12">
-        <div className="flex flex-col gap-8 lg:col-span-8">
-          <OrderDeliveryStatus role="creator" order={data.order} />
-          <OrderShippingInfo role="creator" order={data.order} brand={data.brand} />
-        </div>
+      <div className="flex flex-col gap-8">
+        <OrderDeliveryStatus role="creator" order={data.order} />
 
-        <aside className="flex flex-col gap-8 lg:col-span-4">
-          <OrderChatWidget />
-          <OrderFinancialSummary order={data.order} />
-        </aside>
+        <div className="grid grid-cols-1 gap-8 items-start lg:grid-cols-12">
+          <div className="flex flex-col gap-8 lg:col-span-8">
+            <OrderShippingInfo role="creator" order={data.order} brand={data.brand} />
+          </div>
+
+          <aside className="flex flex-col gap-8 lg:col-span-4">
+            {/* <OrderChatWidget /> */}
+            <OrderFinancialSummary order={data.order} />
+          </aside>
+        </div>
       </div>
     </div>
   );

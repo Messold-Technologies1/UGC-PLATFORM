@@ -119,7 +119,7 @@ export function CreatorListing({
   );
 
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   const listingRef = useRef({ filters });
 
@@ -383,8 +383,8 @@ export function CreatorListing({
                 listClassName={cn(
                   "grid w-full gap-x-6 gap-y-8",
                   showFilters
-                    ? "sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-                    : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+                    ? "sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
+                    : "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
                 )}
                 itemClassName="min-w-0 h-full"
                 components={{

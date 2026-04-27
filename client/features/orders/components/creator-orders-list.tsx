@@ -1,15 +1,9 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react"; //useMemo,
 // import Image from "next/image";
 import Link from "next/link";
-import {
-  Clock3,
-  Package,
-  ShoppingCart,
-  Wallet,
-  ChevronRight,
-} from "lucide-react";
+import { ShoppingCart, ChevronRight } from "lucide-react";// Wallet, Package,Clock3,
 
 import {
   Pagination,
@@ -29,7 +23,7 @@ import {
 } from "@/components/ui/select";
 
 import { PageHeader } from "@/components/dashboard/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
+// import { StatCard } from "@/components/dashboard/stat-card";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGetCreatorOrdersQuery } from "../hooks/use-get-creator-orders-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,60 +40,60 @@ export function CreatorOrdersList() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const stats = useMemo(() => {
-    let activeOrders = 0;
-    let pendingDelivery = 0;
-    let completed = 0;
-    let totalEarnings = 0;
+  // const stats = useMemo(() => {
+  //   let activeOrders = 0;
+  //   let pendingDelivery = 0;
+  //   let completed = 0;
+  //   let totalEarnings = 0;
 
-    const items = data?.items || [];
-    items.forEach(({ order }) => {
-      if (
-        [
-          "BRIEF_SUBMISSION_PENDING",
-          "BRIEF_SUBMITTED",
-          "DELIVERED",
-          "REVISION_REQUESTED",
-          "REVISION_SUBMITTED",
-          "DISPUTED",
-        ].includes(order.status)
-      ) {
-        activeOrders++;
-      }
+  //   const items = data?.items || [];
+  //   items.forEach(({ order }) => {
+  //     if (
+  //       [
+  //         "BRIEF_SUBMISSION_PENDING",
+  //         "BRIEF_SUBMITTED",
+  //         "DELIVERED",
+  //         "REVISION_REQUESTED",
+  //         "REVISION_SUBMITTED",
+  //         "DISPUTED",
+  //       ].includes(order.status)
+  //     ) {
+  //       activeOrders++;
+  //     }
 
-      if (["BRIEF_SUBMITTED", "REVISION_REQUESTED"].includes(order.status)) {
-        pendingDelivery++;
-      }
+  //     if (["BRIEF_SUBMITTED", "REVISION_REQUESTED"].includes(order.status)) {
+  //       pendingDelivery++;
+  //     }
 
-      if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(order.status)) {
-        completed++;
-      }
+  //     if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(order.status)) {
+  //       completed++;
+  //     }
 
-      if (!["PENDING_PAYMENT", "REJECTED"].includes(order.status)) {
-        const amount = parseFloat(order.priceAmountSnapshot) || 0;
-        totalEarnings += amount;
-      }
-    });
+  //     if (!["PENDING_PAYMENT", "REJECTED"].includes(order.status)) {
+  //       const amount = parseFloat(order.priceAmountSnapshot) || 0;
+  //       totalEarnings += amount;
+  //     }
+  //   });
 
-    return [
-      {
-        label: "Active Orders",
-        value: activeOrders.toString(),
-        icon: ShoppingCart,
-      },
-      {
-        label: "Pending Delivery",
-        value: pendingDelivery.toString(),
-        icon: Clock3,
-      },
-      { label: "Completed", value: completed.toString(), icon: Package },
-      {
-        label: "Total Earnings",
-        value: `$${totalEarnings.toFixed(2)}`,
-        icon: Wallet,
-      },
-    ];
-  }, [data]);
+  //   return [
+  //     {
+  //       label: "Active Orders",
+  //       value: activeOrders.toString(),
+  //       icon: ShoppingCart,
+  //     },
+  //     {
+  //       label: "Pending Delivery",
+  //       value: pendingDelivery.toString(),
+  //       icon: Clock3,
+  //     },
+  //     { label: "Completed", value: completed.toString(), icon: Package },
+  //     {
+  //       label: "Total Earnings",
+  //       value: `$${totalEarnings.toFixed(2)}`,
+  //       icon: Wallet,
+  //     },
+  //   ];
+  // }, [data]);
 
   return (
     <div className="space-y-8">
@@ -108,11 +102,11 @@ export function CreatorOrdersList() {
         description="Track your creator collaborations, delivery status, and payouts."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
-      </div>
+      </div> */}
 
       <div className="mt-8 space-y-6 w-full">
         <h2 className="text-xl font-bold font-headline">Order activity</h2>

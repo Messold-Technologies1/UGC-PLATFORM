@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { OrderDetailsPublic } from "../api/types";
 import { STATUS_COLORS, STATUS_LABELS } from "../constants";
+import { useSubmitDeliveryFlowMutation } from "../hooks/use-submit-delivery-flow-mutation";
 
 interface OrderDeliveryStatusProps {
   role?: "brand" | "creator";
@@ -35,6 +36,22 @@ function formatDate(value?: string | null) {
   });
 }
 
+function isSupportedDeliveryFile(file: File) {
+  if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+    return true;
+  }
+
+  return /\.(jpe?g|png|webp|mp4|mov|webm)$/i.test(file.name);
+}
+
+function getDeliveryFilePreviewType(file: File): CarouselAsset["type"] {
+  if (file.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(file.name)) {
+    return "video";
+  }
+
+  return "image";
+}
+
 export function OrderDeliveryStatus({
   role = "brand",
   order,
@@ -42,24 +59,48 @@ export function OrderDeliveryStatus({
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<CarouselAsset[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitDeliveryFlowMutation = useSubmitDeliveryFlowMutation();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewsRef = useRef<CarouselAsset[]>([]);
+  const canUploadDelivery = order
+    ? ["BRIEF_SUBMITTED", "REVISION_REQUESTED", "DELIVERED", "REVISION_SUBMITTED"].includes(
+        order.status,
+      ) && !order.acceptedAt
+    : true;
+  const isSubmitting = submitDeliveryFlowMutation.isPending;
+
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
 
   useEffect(() => {
     return () => {
-      previews.forEach((preview) => URL.revokeObjectURL(preview.full));
+      previewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.full));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const processFiles = useCallback((newFiles: File[]) => {
-    const validFiles = newFiles.filter(
-      (file) => file.type.startsWith("image/") || file.type.startsWith("video/"),
-    );
+    const validFiles = newFiles.filter(isSupportedDeliveryFile);
+
+    const rejectedCount = newFiles.length - validFiles.length;
 
     if (validFiles.length === 0) {
       toast.error("Please upload valid image or video files.");
+      return;
+    }
+
+    if (rejectedCount > 0) {
+      toast.error("Some files were skipped because they are not images or videos.");
+    }
+
+    if (files.length + validFiles.length > 10) {
+      toast.error("You can upload up to 10 delivery files at once.");
+      return;
+    }
+
+    if (validFiles.some((file) => file.size > 250_000_000)) {
+      toast.error("Each delivery file must be 250 MB or smaller.");
       return;
     }
 
@@ -68,7 +109,7 @@ export function OrderDeliveryStatus({
     const newPreviews: CarouselAsset[] = validFiles.map((file) => {
       const objectUrl = URL.createObjectURL(file);
       return {
-        type: file.type.startsWith("video/") ? "video" : "image",
+        type: getDeliveryFilePreviewType(file),
         full: objectUrl,
         thumb: objectUrl,
         id: Math.random().toString(36).slice(2),
@@ -76,11 +117,15 @@ export function OrderDeliveryStatus({
     });
 
     setPreviews((current) => [...current, ...newPreviews]);
-  }, []);
+  }, [files.length]);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!canUploadDelivery || isSubmitting) {
+      return;
+    }
+
     setIsDragging(true);
   };
 
@@ -95,13 +140,22 @@ export function OrderDeliveryStatus({
     event.stopPropagation();
     setIsDragging(false);
 
+    if (!canUploadDelivery || isSubmitting) {
+      return;
+    }
+
     if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
       processFiles(Array.from(event.dataTransfer.files));
     }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
+    if (
+      canUploadDelivery &&
+      !isSubmitting &&
+      event.target.files &&
+      event.target.files.length > 0
+    ) {
       processFiles(Array.from(event.target.files));
     }
     if (fileInputRef.current) {
@@ -118,22 +172,25 @@ export function OrderDeliveryStatus({
   };
 
   const handleUploadClick = () => {
-    if (fileInputRef.current) {
+    if (canUploadDelivery && !isSubmitting && fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
   const handleSubmit = () => {
-    if (files.length === 0) return;
-    setIsSubmitting(true);
+    if (!order || files.length === 0 || !canUploadDelivery) return;
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast.success("Delivery submitted successfully. Awaiting brand approval!");
-      previews.forEach((preview) => URL.revokeObjectURL(preview.full));
-      setFiles([]);
-      setPreviews([]);
-    }, 2000);
+    submitDeliveryFlowMutation.mutate(
+      { orderId: order.id, files },
+      {
+        onSuccess: () => {
+          previews.forEach((preview) => URL.revokeObjectURL(preview.full));
+          previewsRef.current = [];
+          setFiles([]);
+          setPreviews([]);
+        },
+      },
+    );
   };
 
   if (role === "brand" && order) {
@@ -254,6 +311,18 @@ export function OrderDeliveryStatus({
   }
 
   if (role === "creator") {
+    const uploadTitle =
+      order?.status === "REVISION_REQUESTED"
+        ? "Upload revised delivery"
+        : ["DELIVERED", "REVISION_SUBMITTED"].includes(order?.status ?? "")
+          ? "Replace submitted delivery"
+          : "Drag and drop your final cut";
+    const uploadHint = canUploadDelivery
+      ? "High-resolution MP4, MOV, WebM, JPEG, PNG, or WebP files are supported."
+      : order?.status === "BRIEF_SUBMISSION_PENDING"
+        ? "The brand brief must be submitted before delivery uploads open."
+        : "Delivery uploads are not available for this order status.";
+
     return (
       <section className="bg-card rounded-3xl overflow-hidden border shadow-sm relative">
         <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
@@ -261,6 +330,14 @@ export function OrderDeliveryStatus({
             <CloudUpload className="w-5 h-5 text-foreground" />
             <h2 className="text-lg font-bold text-foreground">Delivery Upload</h2>
           </div>
+          {order ? (
+            <Badge
+              variant="outline"
+              className={`${STATUS_COLORS[order.status] || "bg-muted text-muted-foreground"} w-fit rounded-full px-3 py-1 text-[11px] font-semibold`}
+            >
+              {STATUS_LABELS[order.status] || order.status}
+            </Badge>
+          ) : null}
         </div>
 
         <div className="p-6 md:p-8 relative">
@@ -282,8 +359,11 @@ export function OrderDeliveryStatus({
               onDrop={handleDrop}
               onClick={handleUploadClick}
               className={cn(
-                "group flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-12 text-center transition-colors",
-                isDragging
+                "group flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-12 text-center transition-colors",
+                canUploadDelivery && !isSubmitting
+                  ? "cursor-pointer"
+                  : "cursor-not-allowed opacity-70",
+                isDragging && canUploadDelivery
                   ? "border-primary bg-primary/5"
                   : "border-border/60 bg-muted/10 hover:border-primary/50",
               )}
@@ -297,10 +377,10 @@ export function OrderDeliveryStatus({
                 <Upload className="w-8 h-8 text-primary" />
               </div>
               <h3 className="mb-2 text-lg font-bold text-foreground">
-                Drag and drop your final cut
+                {uploadTitle}
               </h3>
               <p className="max-w-xs text-balance text-sm text-muted-foreground">
-                High-resolution MP4 or MOV files are preferred for maximum quality.
+                {uploadHint}
               </p>
             </div>
           ) : (
@@ -316,7 +396,7 @@ export function OrderDeliveryStatus({
                   type="button"
                   variant="outline"
                   onClick={handleUploadClick}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !canUploadDelivery}
                   className="w-full px-8 py-4 font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   <Plus className="w-5 h-5" />
@@ -324,7 +404,7 @@ export function OrderDeliveryStatus({
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || previews.length === 0}
+                  disabled={isSubmitting || previews.length === 0 || !canUploadDelivery}
                   className="w-full py-4 font-bold shadow-lg shadow-primary/10 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
                 >
                   {isSubmitting ? (
@@ -333,7 +413,7 @@ export function OrderDeliveryStatus({
                       Uploading Media...
                     </>
                   ) : (
-                    "Upload Final Video"
+                    "Submit Delivery"
                   )}
                 </Button>
               </div>

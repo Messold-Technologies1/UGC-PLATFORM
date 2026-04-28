@@ -33,10 +33,17 @@ export const ENDPOINTS = {
     CHECKOUT: "/api/orders/checkout",
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
+    DELIVERY_UPLOADS_PRESIGN: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/deliveries/presign`,
+    SUBMIT_DELIVERY: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/deliveries`,
     BRAND_DISPUTE: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/disputes/brand`,
     CREATOR_DISPUTE: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/disputes/creator`,
+    ACCEPT: (id: string) => `/api/orders/${encodeURIComponent(id)}/accept`,
+    REQUEST_REVISION: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/revisions/request`,
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",

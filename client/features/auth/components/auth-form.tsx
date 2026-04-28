@@ -86,7 +86,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           const callback = searchParams.get("callbackUrl");
           const target = resolveImmediatePostAuthPath(result.user, callback);
           beginClientNavigation();
-          router.replace(target);
+          // Use a hard navigation so the next request definitely includes the
+          // freshly-set HttpOnly cookies (avoids occasional redirect loops in prod).
+          window.location.assign(target);
         },
         onError: (error) => {
           if (isAxiosError(error) && error.response) {
@@ -117,7 +119,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             const callback = searchParams.get("callbackUrl");
             const target = resolveImmediatePostAuthPath(result.user, callback);
             beginClientNavigation();
-            router.replace(target);
+            window.location.assign(target);
           },
           onError: (error) => {
             if (isAxiosError(error) && error.response) {

@@ -1,13 +1,5 @@
 import type { NextConfig } from "next";
 
-function resolveApiOrigin() {
-  const raw =
-    process.env.API_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    "http://localhost:4000";
-  return raw.replace(/\/+$/, "");
-}
-
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
@@ -31,14 +23,6 @@ const nextConfig: NextConfig = {
             value: "camera=(), microphone=(), geolocation=()",
           },
         ],
-      },
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${resolveApiOrigin()}/api/:path*`,
       },
     ];
   },

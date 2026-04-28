@@ -14,9 +14,11 @@ export function useGetCreatorOrdersQuery(
   params?: GetCreatorOrdersParams,
   options?: UseGetCreatorOrdersQueryOptions,
 ) {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
   return useQuery({
     ...options,
-    queryKey: ["orders", "creator", params],
-    queryFn: () => getCreatorOrders(params),
+    queryKey: ["orders", "creator", page, limit],
+    queryFn: () => getCreatorOrders({ page, limit }),
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent } from "react"; //useMemo,
+import { useMemo, useState, type MouseEvent } from "react"; //useMemo,
 // import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart, ChevronRight } from "lucide-react";// Wallet, Package,Clock3,
@@ -35,7 +35,11 @@ export function CreatorOrdersList() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(6);
 
-  const { data, isLoading } = useGetCreatorOrdersQuery({ page, limit });
+  const params = useMemo(() => ({ page, limit }), [page, limit]);
+  const { data, isLoading, isError, error, isFetching } = useGetCreatorOrdersQuery(params, {
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -111,6 +115,16 @@ export function CreatorOrdersList() {
       <div className="mt-8 space-y-6 w-full">
         <h2 className="text-xl font-bold font-headline">Order activity</h2>
         <div className="w-full">
+          {isError && (
+            <div className="flex min-h-32 flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 p-6 w-full text-center">
+              <p className="text-sm font-semibold text-destructive">
+                Failed to load orders
+              </p>
+              <p className="mt-2 max-w-2xl text-xs text-muted-foreground break-words">
+                {error?.message ?? "Unknown error"}
+              </p>
+            </div>
+          )}
           {isLoading ? (
             <div className="flex flex-col space-y-4 w-full">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -160,6 +174,11 @@ export function CreatorOrdersList() {
             </div>
           ) : (
             <>
+              {isFetching && (
+                <p className="text-xs text-muted-foreground">
+                  Refreshing…
+                </p>
+              )}
               <div className="flex flex-col space-y-4 w-full">
                 {data.items.map(({ order, brand }) => (
                   <div

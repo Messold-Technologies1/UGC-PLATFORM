@@ -41,6 +41,7 @@ import {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
+import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -78,6 +79,23 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<BrandOrderDetailsResponseDto> {
     return this.ordersService.getOrderDetailsForBrand({
+      orderId: id,
+      brandUserId: req.user.id,
+    });
+  }
+
+  @Get('brand/:id/deliveries')
+  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @ApiOperation({
+    summary:
+      'List submitted deliveries for an order (authenticated brand only)',
+  })
+  @ApiOkResponse({ type: OrderDeliveriesResponseDto })
+  async listBrandOrderDeliveries(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<OrderDeliveriesResponseDto> {
+    return this.ordersService.listDeliveriesForBrand({
       orderId: id,
       brandUserId: req.user.id,
     });

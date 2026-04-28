@@ -13,37 +13,6 @@ export type CarouselAsset = {
   id?: string;
 };
 
-const DEFAULT_ASSETS: CarouselAsset[] = [
-  {
-    type: "video",
-    full: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=300&auto=format&fit=crop",
-    duration: "00:45",
-  },
-  {
-    type: "image",
-    full: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=300&auto=format&fit=crop",
-  },
-  {
-    type: "video",
-    full: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?q=80&w=300&auto=format&fit=crop",
-    duration: "01:20",
-  },
-  {
-    type: "image",
-    full: "https://images.unsplash.com/photo-1540553016722-983e48a2cd10?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1540553016722-983e48a2cd10?q=80&w=300&auto=format&fit=crop",
-  },
-  {
-    type: "video",
-    full: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=300&auto=format&fit=crop",
-    duration: "00:15",
-  }
-];
-
 export interface ThumbnailsCarouselProps {
   className?: string;
   assets?: CarouselAsset[];
@@ -53,7 +22,7 @@ export interface ThumbnailsCarouselProps {
 
 export function ThumbnailsCarousel({ 
   className,
-  assets = DEFAULT_ASSETS,
+  assets = [],
   isEditable = false,
   onRemove
 }: ThumbnailsCarouselProps) {

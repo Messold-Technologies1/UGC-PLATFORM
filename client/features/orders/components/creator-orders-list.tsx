@@ -199,11 +199,11 @@ export function CreatorOrdersList() {
                         <p className="font-bold text-sm truncate text-foreground/90">
                           {order.packageNameSnapshot}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">
+                        {/* <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">
                           ID:{" "}
                           {order.id.split("-").pop() ||
                             order.id.substring(0, 8)}
-                        </p>
+                        </p> */}
                       </div>
                       <div className="flex flex-col">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">

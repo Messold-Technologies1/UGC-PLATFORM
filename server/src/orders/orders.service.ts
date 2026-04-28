@@ -27,6 +27,9 @@ import type {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
+import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
+import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
+import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
@@ -57,6 +60,19 @@ function razorpayRefundErrorMessage(err: unknown): string {
 function mapDeliverablesSnapshot(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string');
+}
+
+function mapDeliveryAssets(value: Prisma.JsonValue): OrderDeliveryAssetDto[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+    .filter(Boolean)
+    .map((a: any) => ({
+      key: typeof a.key === 'string' ? a.key : '',
+      kind: a.kind === 'video' || a.kind === 'image' ? a.kind : null,
+      url: typeof a.url === 'string' ? a.url : '',
+    }))
+    .filter((a) => a.key && a.url && (a.kind === 'video' || a.kind === 'image')) as any;
 }
 
 @Injectable()
@@ -753,6 +769,50 @@ export class OrdersService {
         logoUrl: brand.logoUrl ?? null,
       },
     };
+  }
+
+  async listDeliveriesForBrand(params: {
+    orderId: string;
+    brandUserId: string;
+  }): Promise<OrderDeliveriesResponseDto> {
+    const brand = await this.prisma.brandProfile.findUnique({
+      where: { userId: params.brandUserId },
+      select: { id: true },
+    });
+    if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, brandId: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+
+    const rows: any[] = await (this.prisma as any).orderDelivery.findMany({
+      where: { orderId: order.id },
+      orderBy: [{ revisionNumber: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        orderId: true,
+        creatorId: true,
+        revisionNumber: true,
+        assets: true,
+        note: true,
+        createdAt: true,
+      },
+    });
+
+    const items: OrderDeliveryItemDto[] = rows.map((r) => ({
+      id: r.id,
+      orderId: r.orderId,
+      creatorId: r.creatorId,
+      revisionsUsed: r.revisionNumber,
+      assets: mapDeliveryAssets(r.assets),
+      note: r.note ?? null,
+      createdAt: r.createdAt,
+    }));
+
+    return { items };
   }
 
   async getOrderDetailsForAdmin(params: {

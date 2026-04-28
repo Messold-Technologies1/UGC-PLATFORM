@@ -25,63 +25,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreatorPayoutDetailsQuery } from "@/features/creators/hooks/use-creator-payout-details-query";
 import { useCreatorPayoutDetailsMutation } from "@/features/creators/hooks/use-creator-payout-details-mutation";
 
-const payoutSchema = z
-  .object({
-    accountHolderName: z.string().trim().optional(),
-    accountNumber: z.string().trim().optional(),
-    ifsc: z.string().trim().toUpperCase().optional(),
-    upiId: z.string().trim().toLowerCase().optional(),
-  })
-  .superRefine((data, ctx) => {
-    const { accountHolderName, accountNumber, ifsc, upiId } = data;
-
-    const hasAnyBankData = !!(accountHolderName || accountNumber || ifsc);
-    const hasFullBankData = !!(accountHolderName && accountNumber && ifsc);
-
-    if (!hasFullBankData && !upiId) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Please provide either complete Bank details or a UPI ID.",
-        path: [!hasAnyBankData ? "upiId" : "accountNumber"],
-      });
-    }
-    if (hasAnyBankData) {
-      if (!accountHolderName || accountHolderName.length < 3) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Full name is required (min 3 chars)",
-          path: ["accountHolderName"],
-        });
-      }
-
-      if (!accountNumber || !/^\d{9,18}$/.test(accountNumber)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Account number must be between 9 and 18 digits",
-          path: ["accountNumber"],
-        });
-      }
-
-      if (!ifsc || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Invalid IFSC format (e.g., HDFC0001234)",
-          path: ["ifsc"],
-        });
-      }
-    }
-
-    if (upiId) {
-      const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-      if (!upiRegex.test(upiId)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Invalid UPI ID format (e.g., name@bank)",
-          path: ["upiId"],
-        });
-      }
-    }
-  });
+const payoutSchema = z.discriminatedUnion("method", [
+  z.object({
+    method: z.literal("bank"),
+    accountHolderName: z.string().trim().min(3, "Full name is required (min 3 chars)"),
+    accountNumber: z
+      .string()
+      .trim()
+      .regex(/^\d{9,18}$/, "Account number must be between 9 and 18 digits"),
+    ifsc: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format (e.g., HDFC0001234)"),
+    // On the Bank tab we intentionally don't validate UPI to keep validation tab-based.
+    upiId: z.string().optional(),
+  }),
+  z.object({
+    method: z.literal("upi"),
+    upiId: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(
+        /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/,
+        "Invalid UPI ID format (e.g., name@bank)",
+      ),
+    // On the UPI tab we intentionally don't validate bank fields to keep validation tab-based.
+    accountHolderName: z.string().optional(),
+    accountNumber: z.string().optional(),
+    ifsc: z.string().optional(),
+  }),
+]);
 
 export type FormValues = z.infer<typeof payoutSchema>;
 
@@ -107,6 +82,7 @@ export function DashboardPayoutDetails() {
   const form = useForm<FormValues>({
     resolver: zodResolver(payoutSchema),
     defaultValues: {
+      method: "bank",
       accountHolderName: "",
       accountNumber: "",
       ifsc: "",
@@ -245,16 +221,26 @@ export function DashboardPayoutDetails() {
 
             <form
               onSubmit={form.handleSubmit((v) => {
-                const payload = Object.fromEntries(
-                  Object.entries(v).filter(([, val]) => val !== "")
-                ) as FormValues;
+                const payload =
+                  v.method === "upi"
+                    ? ({ upiId: v.upiId } as const)
+                    : ({
+                        accountHolderName: v.accountHolderName,
+                        accountNumber: v.accountNumber,
+                        ifsc: v.ifsc,
+                      } as const);
                 mutation.mutate(payload);
               })}
               className="space-y-6 pt-2"
             >
+              <input type="hidden" {...form.register("method")} />
               <Tabs
                 value={activeTab}
-                onValueChange={(v) => setActiveTab(v as "bank" | "upi")}
+                onValueChange={(v) => {
+                  const next = v as "bank" | "upi";
+                  setActiveTab(next);
+                  form.setValue("method", next);
+                }}
               >
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="bank">Bank Details</TabsTrigger>

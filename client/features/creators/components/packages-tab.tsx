@@ -155,10 +155,17 @@ export const PackagesTab = memo(function PackagesTab({
                     </span>
                   )}
                   <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
-                    {addon.label}{" "}
-                    <span className="text-muted-foreground">
-                      (+₹{addon.price.toLocaleString("en-IN")})
+                    <span>
+                      {addon.label}{" "}
+                      <span className="text-muted-foreground">
+                        (+₹{addon.price.toLocaleString("en-IN")})
+                      </span>
                     </span>
+                    {addon.description ? (
+                      <span className="mt-1 block text-xs font-normal leading-relaxed text-muted-foreground">
+                        {addon.description}
+                      </span>
+                    ) : null}
                   </span>
                 </label>
               </li>

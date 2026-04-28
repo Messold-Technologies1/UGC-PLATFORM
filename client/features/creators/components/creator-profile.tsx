@@ -67,7 +67,7 @@ export function CreatorProfile({
     null,
   );
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
-
+console.log("Creator packages", creator.packages);
   const selectedPackage = useMemo(
     () => creator.packages.find((p) => p.id === selectedPackageId) ?? null,
     [creator.packages, selectedPackageId],

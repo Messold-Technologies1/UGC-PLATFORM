@@ -50,7 +50,7 @@ export const PortfolioTab = memo(function PortfolioTab({
   initialVideos,
 }: PortfolioTabProps) {
   const query = usePublicPortfolioVideosQuery(creatorId, {
-    initialData: initialVideos,
+    placeholderData: initialVideos,
     staleTime: 5 * 60_000,
   });
 

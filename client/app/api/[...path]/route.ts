@@ -49,9 +49,16 @@ async function proxy(request: NextRequest): Promise<NextResponse> {
   const hasBody = !["GET", "HEAD"].includes(method);
   const body = hasBody ? await request.arrayBuffer() : undefined;
 
+  const upstreamHeaders = filterRequestHeaders(request.headers);
+  const cookie = request.headers.get("cookie");
+  if (cookie) {
+    // Make cookie forwarding explicit and robust across runtimes.
+    upstreamHeaders.set("cookie", cookie);
+  }
+
   const upstreamResponse = await fetch(upstreamUrl, {
     method,
-    headers: filterRequestHeaders(request.headers),
+    headers: upstreamHeaders,
     body,
     redirect: "manual",
     cache: "no-store",
@@ -75,6 +82,10 @@ async function proxy(request: NextRequest): Promise<NextResponse> {
   for (const setCookie of getSetCookieHeaders(upstreamResponse.headers)) {
     response.headers.append("set-cookie", setCookie);
   }
+
+  // Debug helpers (safe): confirm whether proxy received cookies.
+  response.headers.set("x-proxy-has-cookie", cookie ? "1" : "0");
+  response.headers.set("x-proxy-cookie-bytes", String(cookie?.length ?? 0));
 
   return response;
 }

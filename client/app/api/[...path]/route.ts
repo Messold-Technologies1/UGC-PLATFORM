@@ -76,6 +76,10 @@ async function proxy(request: NextRequest): Promise<NextResponse> {
 
   upstreamResponse.headers.forEach((value, key) => {
     if (key.toLowerCase() === "set-cookie") return;
+    const lower = key.toLowerCase();
+    if (lower === "content-encoding") return;
+    if (lower === "content-length") return;
+    if (lower === "transfer-encoding") return;
     response.headers.set(key, value);
   });
 

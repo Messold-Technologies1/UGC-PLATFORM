@@ -38,7 +38,6 @@ const payoutSchema = z.discriminatedUnion("method", [
       .trim()
       .toUpperCase()
       .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format (e.g., HDFC0001234)"),
-    // On the Bank tab we intentionally don't validate UPI to keep validation tab-based.
     upiId: z.string().optional(),
   }),
   z.object({
@@ -51,7 +50,6 @@ const payoutSchema = z.discriminatedUnion("method", [
         /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/,
         "Invalid UPI ID format (e.g., name@bank)",
       ),
-    // On the UPI tab we intentionally don't validate bank fields to keep validation tab-based.
     accountHolderName: z.string().optional(),
     accountNumber: z.string().optional(),
     ifsc: z.string().optional(),

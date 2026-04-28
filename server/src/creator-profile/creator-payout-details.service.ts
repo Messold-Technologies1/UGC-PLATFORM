@@ -14,10 +14,6 @@ function maskUpi(vpa: string): string {
 export class CreatorPayoutDetailsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private hasOwn(dto: UpsertCreatorPayoutDetailsDto, key: keyof UpsertCreatorPayoutDetailsDto): boolean {
-    return Object.hasOwn(dto, key);
-  }
-
   private validatePayoutUpdate(params: {
     dto: UpsertCreatorPayoutDetailsDto;
     hasExistingRow: boolean;
@@ -27,11 +23,12 @@ export class CreatorPayoutDetailsService {
     hasFullBank: boolean;
   } {
     const { dto, hasExistingRow } = params;
+ 
     const bankKeysPresent =
-      this.hasOwn(dto, 'accountHolderName') ||
-      this.hasOwn(dto, 'accountNumber') ||
-      this.hasOwn(dto, 'ifsc');
-    const upiKeyPresent = this.hasOwn(dto, 'upiId');
+      dto.accountHolderName !== undefined ||
+      dto.accountNumber !== undefined ||
+      dto.ifsc !== undefined;
+    const upiKeyPresent = dto.upiId !== undefined;
 
     const hasFullBank =
       !!dto.accountHolderName &&

@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useCreatorPayoutDetailsQuery } from "@/features/creators/hooks/use-creator-payout-details-query";
 import { useCreatorPayoutDetailsMutation } from "@/features/creators/hooks/use-creator-payout-details-mutation";
+import { useAuth } from "@/providers/auth-provider";
 
 const payoutSchema = z
   .object({
@@ -86,12 +87,13 @@ const payoutSchema = z
 export type FormValues = z.infer<typeof payoutSchema>;
 
 export function DashboardPayoutDetails() {
+  const { user } = useAuth();
   const {
     data: payoutDetails,
     isLoading,
     isError,
   } = useCreatorPayoutDetailsQuery({
-    enabled: true,
+    enabled: !!user,
   });
   const mutation = useCreatorPayoutDetailsMutation({
     onSuccess: () => {

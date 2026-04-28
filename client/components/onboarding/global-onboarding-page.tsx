@@ -40,6 +40,7 @@ export type GlobalOnboardingPageProps = {
 
   onBrandDismiss?: () => void;
   onCreatorBack?: () => void | Promise<void>;
+  onProfileCreated?: () => void | Promise<void>;
   className?: string;
 };
 
@@ -48,6 +49,7 @@ export function GlobalOnboardingPage({
   onClose,
   onBrandDismiss,
   onCreatorBack,
+  onProfileCreated,
   className,
 }: GlobalOnboardingPageProps) {
   const [brandContinuePending, setBrandContinuePending] = useState(false);
@@ -63,8 +65,10 @@ export function GlobalOnboardingPage({
     }
   }, [onBrandDismiss, onClose]);
 
-  const rightColumnClass =
-    "relative flex max-h-[inherit] min-h-0 flex-col overflow-y-auto bg-background p-8 md:p-10";
+  const rightColumnShellClass =
+    "relative flex min-h-0 max-h-[inherit] flex-col overflow-hidden bg-background";
+  const rightColumnScrollClass =
+    "min-h-0 flex-1 overflow-y-auto p-8 md:p-10";
 
   const marketingAccentClass =
     role === "brand" ? "bg-emerald-800" : "bg-[#7a2a3a]";
@@ -118,7 +122,7 @@ export function GlobalOnboardingPage({
       }
       right={
         role === "creator" ? (
-          <div className={rightColumnClass}>
+          <div className={rightColumnShellClass}>
             {creationPending ? (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/78 text-center backdrop-blur-sm">
                 <Spinner className="size-8 text-primary" aria-hidden />
@@ -132,15 +136,17 @@ export function GlobalOnboardingPage({
                 </div>
               </div>
             ) : null}
-            <CreatorProfileSetupForm
-              variant="onboarding"
-              mode="create"
-              onSuccess={() => {}}
-              onPendingChange={setCreationPending}
-            />
+            <div className={rightColumnScrollClass}>
+              <CreatorProfileSetupForm
+                variant="onboarding"
+                mode="create"
+                onSuccess={onProfileCreated ?? (() => {})}
+                onPendingChange={setCreationPending}
+              />
+            </div>
           </div>
         ) : (
-          <div className={rightColumnClass}>
+          <div className={rightColumnShellClass}>
             {creationPending ? (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/78 text-center backdrop-blur-sm">
                 <Spinner className="size-8 text-primary" aria-hidden />
@@ -154,12 +160,14 @@ export function GlobalOnboardingPage({
                 </div>
               </div>
             ) : null}
-            <BrandProfileSetupForm
-              variant="onboarding"
-              mode="create"
-              onSuccess={async () => {}}
-              onPendingChange={setCreationPending}
-            />
+            <div className={rightColumnScrollClass}>
+              <BrandProfileSetupForm
+                variant="onboarding"
+                mode="create"
+                onSuccess={onProfileCreated ?? (() => {})}
+                onPendingChange={setCreationPending}
+              />
+            </div>
           </div>
         )
       }

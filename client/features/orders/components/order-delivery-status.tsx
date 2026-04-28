@@ -255,16 +255,17 @@ export function OrderDeliveryStatus({
 
   if (role === "creator") {
     return (
-      <section className="bg-card rounded-3xl border shadow-sm relative">
-        <div className="absolute top-0 right-0 -z-10 h-64 w-64 rounded-tr-3xl bg-primary/5 blur-[100px] pointer-events-none" />
-        <div className="p-6 md:p-8">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground shadow-sm">
-              <CloudUpload className="w-5 h-5" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">Delivery Upload</h2>
+      <section className="bg-card rounded-3xl overflow-hidden border shadow-sm relative">
+        <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <CloudUpload className="w-5 h-5 text-foreground" />
+            <h2 className="text-lg font-bold text-foreground">Delivery Upload</h2>
           </div>
+        </div>
 
+        <div className="p-6 md:p-8 relative">
+          <div className="absolute top-0 right-0 -z-10 h-64 w-64 rounded-tr-3xl bg-primary/5 blur-[100px] pointer-events-none" />
+          
           <input
             type="file"
             ref={fileInputRef}
@@ -303,14 +304,14 @@ export function OrderDeliveryStatus({
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <>
               <ThumbnailsCarousel
                 assets={previews}
                 isEditable={true}
                 onRemove={handleRemove}
               />
 
-              <div className="flex flex-col items-center gap-4 border-t border-border/40 pt-4 sm:flex-row">
+              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
@@ -336,7 +337,7 @@ export function OrderDeliveryStatus({
                   )}
                 </Button>
               </div>
-            </div>
+            </>
           )}
 
         </div>

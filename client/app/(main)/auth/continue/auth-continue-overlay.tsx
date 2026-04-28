@@ -23,6 +23,12 @@ import {
   parseAuthContinueSetupRole,
 } from "./setup-role";
 
+function setupRoleToWorkspaceRole(
+  setupRole: "brand" | "creator",
+): WorkspaceRole {
+  return setupRole === "brand" ? "BRAND" : "CREATOR";
+}
+
 function replaceAuthContinueSearchParam(
   searchParams: ReadonlyURLSearchParams,
   key: string,
@@ -40,17 +46,17 @@ function replaceAuthContinueSearchParam(
 
 export function AuthContinueOverlay() {
   const searchParams = useSearchParams();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshUser } = useAuth();
   const callbackUrl = searchParams.get("callbackUrl");
   const setupRole = parseAuthContinueSetupRole(
     searchParams.get(AUTH_CONTINUE_SETUP_ROLE_PARAM),
   );
+ 
   const resetKey = [
     callbackUrl ?? "",
     user?.id ?? "",
     user?.primaryRole ?? "",
     user?.brandAccessRevoked ? "revoked" : "active",
-    user?.roles.join("|") ?? "",
   ].join("::");
 
   return (
@@ -58,6 +64,7 @@ export function AuthContinueOverlay() {
       key={resetKey}
       callbackUrl={callbackUrl}
       isLoading={isLoading}
+      refreshUser={refreshUser}
       searchParams={searchParams}
       setupRole={setupRole}
       user={user}
@@ -68,12 +75,14 @@ export function AuthContinueOverlay() {
 function AuthContinueOverlayContent({
   callbackUrl,
   isLoading,
+  refreshUser,
   searchParams,
   setupRole,
   user,
 }: {
   callbackUrl: string | null;
   isLoading: boolean;
+  refreshUser: ReturnType<typeof useAuth>["refreshUser"];
   searchParams: ReadonlyURLSearchParams;
   setupRole: "brand" | "creator" | null;
   user: ReturnType<typeof useAuth>["user"];
@@ -92,6 +101,19 @@ function AuthContinueOverlayContent({
       return;
     }
     if (setupRole) {
+      const targetRole = setupRoleToWorkspaceRole(setupRole);
+      if (
+        user.roles.includes(targetRole) &&
+        canUseWorkspaceRole(user, targetRole)
+      ) {
+        if (autoRedirectRef.current) return;
+        autoRedirectRef.current = true;
+        beginClientNavigation();
+        router.replace(
+          pathAfterWorkspaceSelection(user, targetRole, callbackUrl),
+        );
+        return;
+      }
       autoRedirectRef.current = false;
       return;
     }
@@ -130,6 +152,24 @@ function AuthContinueOverlayContent({
       ),
     );
   }, [router, searchParams]);
+
+  const handleProfileCreated = useCallback(async () => {
+    if (!setupRole) return;
+    const targetRole = setupRoleToWorkspaceRole(setupRole);
+    let latest = await refreshUser();
+    if (!latest) latest = user;
+    if (
+      !latest ||
+      !latest.roles.includes(targetRole) ||
+      !canUseWorkspaceRole(latest, targetRole)
+    ) {
+      clearSetupRole();
+      return;
+    }
+    autoRedirectRef.current = true;
+    beginClientNavigation();
+    router.replace(pathAfterWorkspaceSelection(latest, targetRole, callbackUrl));
+  }, [callbackUrl, clearSetupRole, refreshUser, router, setupRole, user]);
 
   const runSelect = useCallback(
     async (workspaceRole: WorkspaceRole) => {
@@ -176,6 +216,7 @@ function AuthContinueOverlayContent({
         onCreatorBack={
           setupRole === "creator" ? clearSetupRole : undefined
         }
+        onProfileCreated={handleProfileCreated}
       />
     );
   }

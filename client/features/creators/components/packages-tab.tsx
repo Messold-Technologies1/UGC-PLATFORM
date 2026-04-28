@@ -7,19 +7,21 @@ import type { Package, AddOn } from "../types";
 interface PackagesTabProps {
   packages: Package[];
   addOns: AddOn[];
-  selectedPackageId: string | null;
-  selectedAddOnIds: string[];
-  onSelectPackage: (id: string) => void;
-  onToggleAddOn: (id: string) => void;
+  selectedPackageId?: string | null;
+  selectedAddOnIds?: string[];
+  onSelectPackage?: (id: string) => void;
+  onToggleAddOn?: (id: string) => void;
+  readOnly?: boolean;
 }
 
 export const PackagesTab = memo(function PackagesTab({
   packages,
   addOns,
-  selectedPackageId,
-  selectedAddOnIds,
-  onSelectPackage,
-  onToggleAddOn,
+  selectedPackageId = null,
+  selectedAddOnIds = [],
+  onSelectPackage = () => {},
+  onToggleAddOn = () => {},
+  readOnly = false,
 }: PackagesTabProps) {
   return (
     <div className="space-y-8">
@@ -31,19 +33,26 @@ export const PackagesTab = memo(function PackagesTab({
           return (
             <Card
               key={pkg.id}
-              role="button"
-              tabIndex={0}
-              aria-pressed={isSelected}
+              role={readOnly ? undefined : "button"}
+              tabIndex={readOnly ? undefined : 0}
+              aria-pressed={readOnly ? undefined : isSelected}
               onKeyDown={(e) => {
+                if (readOnly) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   onSelectPackage(pkg.id);
                 }
               }}
-              onClick={() => onSelectPackage(pkg.id)}
-              className={`flex flex-col relative transition-all duration-300 cursor-pointer ${
+              onClick={() => {
+                if (!readOnly) onSelectPackage(pkg.id);
+              }}
+              className={`flex flex-col relative transition-all duration-300 ${
+                readOnly ? "" : "cursor-pointer"
+              } ${
                 isSelected
                   ? "border-2 border-primary scale-105 z-10 shadow-xl shadow-primary/20"
+                  : readOnly
+                  ? "border-border"
                   : "hover:border-primary/30 group"
               }`}
             >
@@ -82,18 +91,20 @@ export const PackagesTab = memo(function PackagesTab({
                 </ul>
               </CardContent>
 
-              <CardFooter className="mt-auto">
-                <Button
-                  variant={isSelected ? "default" : "outline"}
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectPackage(pkg.id);
-                  }}
-                >
-                  {isSelected ? "Selected" : "Get Started"}
-                </Button>
-              </CardFooter>
+              {readOnly ? null : (
+                <CardFooter className="mt-auto">
+                  <Button
+                    variant={isSelected ? "default" : "outline"}
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPackage(pkg.id);
+                    }}
+                  >
+                    {isSelected ? "Selected" : "Get Started"}
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           );
         })}
@@ -111,9 +122,13 @@ export const PackagesTab = memo(function PackagesTab({
             return (
               <li key={addon.id}>
                 <label
-                  className={`relative flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-all ${
+                  className={`relative flex items-center gap-4 rounded-2xl border p-5 transition-all ${
+                    readOnly ? "cursor-default" : "cursor-pointer"
+                  } ${
                     isChecked
                       ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                      : readOnly
+                      ? "border-border shadow-sm"
                       : "border-border hover:border-foreground/20 shadow-sm"
                   }`}
                 >
@@ -121,19 +136,24 @@ export const PackagesTab = memo(function PackagesTab({
                     type="checkbox"
                     className="sr-only"
                     checked={isChecked}
-                    onChange={() => onToggleAddOn(addon.id)}
+                    disabled={readOnly}
+                    onChange={() => {
+                      if (!readOnly) onToggleAddOn(addon.id);
+                    }}
                     aria-label={`${addon.label} (+₹${addon.price.toLocaleString("en-IN")})`}
                   />
-                  <span
-                    className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
-                      isChecked
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border"
-                    }`}
-                    aria-hidden
-                  >
-                    {isChecked && <Check className="size-3" strokeWidth={3} />}
-                  </span>
+                  {!readOnly && (
+                    <span
+                      className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                        isChecked
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border"
+                      }`}
+                      aria-hidden
+                    >
+                      {isChecked && <Check className="size-3" strokeWidth={3} />}
+                    </span>
+                  )}
                   <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
                     {addon.label}{" "}
                     <span className="text-muted-foreground">

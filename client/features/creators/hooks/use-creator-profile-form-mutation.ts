@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   useMutation,
   useQueryClient,
@@ -67,10 +66,9 @@ export function useSubmitCreatorProfileMutation({
 }: {
   mode: CreatorProfileMode;
   profileId?: string;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
 }) {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   const invalidateCreatorQueries = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
@@ -111,7 +109,7 @@ export function useSubmitCreatorProfileMutation({
 
       if (result.status === "updated") {
         toast.success("Profile updated");
-        onSuccess?.();
+        await onSuccess?.();
         return;
       }
 
@@ -123,8 +121,7 @@ export function useSubmitCreatorProfileMutation({
         toast.success("Creator profile created");
       }
 
-      onSuccess?.();
-      router.replace("/creator/account");
+      await onSuccess?.();
     },
     onError: () => {
       toast.error(

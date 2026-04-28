@@ -29,7 +29,7 @@ interface AuthContextType {
   isLoading: boolean;
   isLoggingOut: boolean;
   isAuthenticated: boolean;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<AuthUser | null>;
   logout: () => Promise<void>;
 }
 
@@ -43,7 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutStartedRef = useRef(false);
 
   const refreshUser = useCallback(async () => {
-    await refetch();
+    const result = await refetch();
+    return result.data ?? null;
   }, [refetch]);
 
   const logout = useCallback(async () => {

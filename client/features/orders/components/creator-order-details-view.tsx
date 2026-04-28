@@ -85,19 +85,16 @@ export function CreatorOrderDetailsView({
         brand={data.brand}
       />
 
-      <div className="flex flex-col gap-8">
-        <OrderDeliveryStatus role="creator" order={data.order} />
-
-        <div className="grid grid-cols-1 gap-8 items-start lg:grid-cols-12">
-          <div className="flex flex-col gap-8 lg:col-span-8">
-            <OrderShippingInfo role="creator" order={data.order} brand={data.brand} />
-          </div>
-
-          <aside className="flex flex-col gap-8 lg:col-span-4">
-            {/* <OrderChatWidget /> */}
-            <OrderFinancialSummary order={data.order} />
-          </aside>
+      <div className="grid grid-cols-1 gap-8 items-start lg:grid-cols-12">
+        <div className="flex flex-col gap-8 lg:col-span-8">
+          <OrderDeliveryStatus role="creator" order={data.order} />
+          <OrderShippingInfo role="creator" order={data.order} brand={data.brand} />
         </div>
+
+        <aside className="flex flex-col gap-8 lg:col-span-4">
+          {/* <OrderChatWidget /> */}
+          <OrderFinancialSummary order={data.order} />
+        </aside>
       </div>
     </div>
   );

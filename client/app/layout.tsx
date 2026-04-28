@@ -5,6 +5,8 @@ import { BoneyardBootstrap } from "@/app/bones/bootstrap";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppShellProviders } from "@/providers/app-providers";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
 
 const themeColorScript = `
@@ -58,6 +60,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <Analytics />
+      <SpeedInsights />
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeColorScript }} />
       </head>

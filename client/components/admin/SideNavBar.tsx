@@ -10,12 +10,12 @@ export default function SideNavBar() {
   const pathname = usePathname();
 
   const navItems = [
-    {
-      href: "/admin",
-      icon: "dashboard",
-      label: "Overview",
-      match: (p: string) => p === "/admin",
-    },
+    // {
+    //   href: "/admin",
+    //   icon: "dashboard",
+    //   label: "Overview",
+    //   match: (p: string) => p === "/admin",
+    // },
     {
       href: "/admin/approvals",
       icon: "verified_user",
@@ -28,7 +28,7 @@ export default function SideNavBar() {
       label: "Brand Management",
       match: (p: string) => p?.includes("/brandManagement"),
     },
-    { href: "#", icon: "assessment", label: "Reports", match: () => false },
+    // { href: "#", icon: "assessment", label: "Reports", match: () => false },
     {
       href: "/admin/settings",
       icon: "settings",

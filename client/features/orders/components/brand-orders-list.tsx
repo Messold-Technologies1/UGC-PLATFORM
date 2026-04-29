@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type MouseEvent } from "react"; //useMemo,
-// import Image from "next/image";
+import { useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { ShoppingCart, ChevronRight } from "lucide-react"; //Wallet,Package, Clock3,
+import { ShoppingCart, ChevronRight } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import {
   Pagination,
@@ -22,12 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { PageHeader } from "@/components/dashboard/page-header";
-// import { StatCard } from "@/components/dashboard/stat-card";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGetBrandOrdersQuery } from "../hooks/use-get-brand-orders-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COLORS, STATUS_LABELS } from "../constants";
 
@@ -39,350 +35,314 @@ export function BrandOrdersList() {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
-
-  // const stats = useMemo(() => {
-  //   let activeOrders = 0;
-  //   let pendingApproval = 0;
-  //   let completed = 0;
-  //   let totalSpent = 0;
-
-  //   const items = data?.items || [];
-  //   items.forEach(({ order }) => {
-  //     if (
-  //       [
-  //         "BRIEF_SUBMISSION_PENDING",
-  //         "BRIEF_SUBMITTED",
-  //         "DELIVERED",
-  //         "REVISION_REQUESTED",
-  //         "REVISION_SUBMITTED",
-  //         "DISPUTED",
-  //       ].includes(order.status)
-  //     ) {
-  //       activeOrders++;
-  //     }
-
-  //     if (["DELIVERED", "REVISION_SUBMITTED"].includes(order.status)) {
-  //       pendingApproval++;
-  //     }
-
-  //     if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(order.status)) {
-  //       completed++;
-  //     }
-
-  //     if (!["PENDING_PAYMENT", "REJECTED"].includes(order.status)) {
-  //       const amount = parseFloat(order.priceAmountSnapshot) || 0;
-  //       totalSpent += amount;
-  //     }
-  //   });
-
-  //   return [
-  //     {
-  //       label: "Active Orders",
-  //       value: activeOrders.toString(),
-  //       icon: ShoppingCart,
-  //     },
-  //     {
-  //       label: "Pending Approval",
-  //       value: pendingApproval.toString(),
-  //       icon: Clock3,
-  //     },
-  //     { label: "Completed", value: completed.toString(), icon: Package },
-  //     {
-  //       label: "Total Spent",
-  //       value: `$${totalSpent.toFixed(2)}`,
-  //       icon: Wallet,
-  //     },
-  //   ];
-  // }, [data]);
+  const items = data?.items || [];
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Collaborations"
-        description="Track your creator collaborations, delivery status, and payments."
-      />
+    <div className="p-12 max-w-[1400px] mx-auto space-y-8 group selection-active">
+      <section className="space-y-6">
+        <div className="flex items-end justify-between">
+          <div>
+            <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
+              Active Collaborations
+            </h1>
+          </div>
+        </div>
+      </section>
 
-      {/* <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div> */}
+      <div className="grid grid-cols-1 gap-4">
+        {isLoading &&
+          Array.from({ length: limit }).map((_, i) => (
+            <div
+              key={i}
+              className="glass-panel p-5 rounded-2xl border border-border/10 bg-card/10 flex items-center justify-between"
+            >
+              <div className="flex items-center space-x-6 w-full">
+                <Skeleton className="h-5 w-5 rounded opacity-50" />
+                <div className="flex items-center space-x-4 flex-1">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <div className="hidden md:flex space-x-2 min-w-[200px]">
+                  <Skeleton className="h-7 w-20 rounded-md" />
+                  <Skeleton className="h-7 w-24 rounded-md" />
+                </div>
+                <div className="hidden lg:flex flex-col space-y-1.5 min-w-[150px]">
+                  <Skeleton className="h-2 w-16 mb-0.5" />
+                  <div className="flex -space-x-2">
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4 min-w-[120px] justify-end">
+                  <Skeleton className="h-9 w-24 rounded-full" />
+                </div>
+              </div>
+            </div>
+          ))}
+        {!isLoading && items.length === 0 && (
+          <div className="py-20 flex flex-col items-center justify-center text-center text-muted-foreground">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/10">
+              <ShoppingCart className="size-5 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-foreground">No orders yet</p>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+              When you place orders with creators, they&apos;ll appear here so
+              you can follow progress and manage delivery.
+            </p>
+          </div>
+        )}
+        {items.map(({ order, creator }, i) => (
+          <div
+            key={order.id}
+            className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex items-center justify-between transition-all duration-300 hover:bg-accent/60 border-l-4 border-l-transparent hover:border-l-primary hover:shadow-lg hover:shadow-primary/5 reveal-item"
+            style={{ animationDelay: `${i * 100}ms` }}
+          >
+            <div className="flex items-center space-x-6">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-linear-to-tr from-primary to-secondary rounded-full opacity-0 group-hover/item:opacity-100 blur transition-opacity duration-500"></div>
+                <Avatar className="relative w-14 h-14 rounded-full border-2 border-border">
+                  <AvatarImage
+                    src={creator.profileImageUrl || undefined}
+                    alt={creator.displayName}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary/5 text-primary font-bold">
+                    {creator.displayName.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-lg mb-0.5">
+                  {creator.displayName}
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider truncate max-w-[150px]">
+                    {order.packageNameSnapshot}
+                  </span>
+                  <span className="text-muted-foreground text-xs">•</span>
+                  <span className="text-muted-foreground text-xs">
+                    {creator.city ? creator.city : "Remote"}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-      <div className="mt-8 space-y-6 w-full">
-        <h2 className="text-xl font-bold font-headline">Order activity</h2>
-        <div className="w-full">
-          {isLoading ? (
-            <div className="flex flex-col space-y-4 w-full">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 w-full"
+            <div className="flex items-center space-x-10">
+              <div className="hidden xl:block min-w-[120px]">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
+                  Amount
+                </p>
+                <p className="font-bold text-base">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: order.currency || "USD",
+                  }).format(
+                    parseFloat(order.priceAmountSnapshot as string),
+                  )}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    / {order.deliveryDaysSnapshot || 0} days
+                  </span>
+                </p>
+              </div>
+
+              <div className="hidden xl:block min-w-[100px]">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
+                  Status
+                </p>
+                <Badge
+                  variant="outline"
+                  className={`${STATUS_COLORS[order.status as keyof typeof STATUS_COLORS] || "bg-muted text-muted-foreground"} rounded-md px-2.5 py-0.5 text-xs font-semibold`}
                 >
-                  <div className="flex items-center gap-6 min-w-[250px] w-full xl:w-auto">
-                    <Skeleton className="h-14 w-14 rounded-full" />
-                    <div className="min-w-0 space-y-2">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                  </div>
-                  <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-6 w-full pl-0 xl:pl-8">
-                    <div className="flex flex-col space-y-2.5">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-3 w-20" />
-                    </div>
-                    <div className="flex flex-col space-y-2.5">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-5 w-24 rounded-md" />
-                    </div>
-                    <div className="flex flex-col space-y-2.5">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-6 shrink-0 w-full xl:w-auto mt-4 xl:mt-0">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                  </div>
-                </div>
-              ))}
+                  {STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ||
+                    order.status}
+                </Badge>
+              </div>
+
+              <div className="flex items-center space-x-3 sm:space-x-4 ml-4 shrink-0">
+                <Link
+                  href={`/brand/orders/${order.id}`}
+                  className="hidden sm:inline-flex px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-primary/10 transition-colors whitespace-nowrap"
+                >
+                  View Details
+                </Link>
+                <Link
+                  href={`/brand/orders/${order.id}`}
+                  className="flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer shrink-0 group-hover/item:bg-primary group-hover/item:text-primary-foreground"
+                >
+                  <ChevronRight className="size-5 transition-transform group-hover/item:translate-x-0.5" />
+                </Link>
+              </div>
             </div>
-          ) : !data || data.items.length === 0 ? (
-            <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 p-10 w-full text-center">
-              <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/10">
-                <ShoppingCart className="size-5 text-primary" />
-              </div>
-              <p className="text-sm font-medium">No orders yet</p>
-              <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                When you place orders with creators, they&apos;ll appear here so
-                you can follow progress and manage delivery.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col space-y-4 w-full">
-                {data.items.map(({ order, creator }) => (
-                  <div
-                    key={order.id}
-                    className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 w-full transition-all duration-300 hover:shadow-primary/5"
-                  >
-                    <div className="flex items-center gap-6 min-w-[250px] w-full xl:w-auto">
-                      <div className="relative">
-                        <div className="absolute -inset-1 bg-linear-to-tr from-primary to-secondary rounded-full opacity-0 group-hover/item:opacity-100 blur transition-opacity duration-500"></div>
-                        <Avatar className="relative h-14 w-14 border-2 border-border bg-muted z-10 shrink-0">
-                          <AvatarImage
-                            src={creator.profileImageUrl || undefined}
-                            className="object-cover"
-                          />
-                          <AvatarFallback>
-                            {creator.displayName
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .substring(0, 2)
-                              .toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="truncate font-headline font-bold text-lg mb-0.5 group-hover/item:text-primary transition-colors">
-                          {creator.displayName}
-                        </h3>
-                        <p className="truncate text-sm text-muted-foreground">
-                          {creator.city ? creator.city : "Remote"}
-                        </p>
-                      </div>
-                    </div>
+          </div>
+        ))}
+      </div>
 
-                    <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-6 w-full pl-0 xl:pl-8">
-                      <div className="flex flex-col">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
-                          Package
-                        </p>
-                        <p className="font-bold text-sm truncate text-foreground/90">
-                          {order.packageNameSnapshot}
-                        </p>
-                        {/* <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">
-                          ID:{" "}
-                          {order.id.split("-").pop() ||
-                            order.id.substring(0, 8)}
-                        </p> */}
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
-                          Status
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={`${STATUS_COLORS[order.status] || "bg-muted text-muted-foreground"} w-fit rounded-md px-2.5 py-0.5 text-xs font-semibold`}
-                        >
-                          {STATUS_LABELS[order.status] || order.status}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
-                          Amount
-                        </p>
-                        <p className="font-bold text-sm text-foreground/90">
-                          {new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: order.currency || "USD",
-                          }).format(parseFloat(order.priceAmountSnapshot))}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {order.deliveryDaysSnapshot || 0} days delivery
-                        </p>
-                      </div>
-                    </div>
+      <div className="flex items-center justify-between border-t border-border/50 pt-8 mt-12 pb-20">
+        <div className="flex items-center space-x-4 min-w-[150px]">
+          <div className="flex items-center space-x-1">
+            <span className="text-sm text-muted-foreground">Page</span>
+            <span className="text-sm font-bold text-foreground">{page}</span>
+            <span className="text-sm text-muted-foreground">
+              of {totalPages}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-4 hidden md:inline-block">
+            Showing {items.length === 0 ? 0 : (page - 1) * limit + 1}-
+            {Math.min(page * limit, total)} of {total} results
+          </span>
+        </div>
 
-                    <div className="flex items-center justify-end gap-6 shrink-0 w-full xl:w-auto mt-4 xl:mt-0">
-                      <Link
-                        href={`/brand/orders/${order.id}`}
-                        className="flex items-center size-10 justify-center rounded-full bg-primary/5 text-primary opacity-80 hover:bg-primary hover:text-primary-foreground group-hover/item:bg-primary group-hover/item:text-primary-foreground group-hover/item:opacity-100 transition-all cursor-pointer"
+        <div className="flex-1 flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={(e: MouseEvent) => {
+                    e.preventDefault();
+                    setPage((p) => Math.max(1, p - 1));
+                  }}
+                  disabled={page <= 1}
+                />
+              </PaginationItem>
+
+              {[...Array(totalPages)].map((_, i) => {
+                const pageNum = i + 1;
+
+                if (
+                  pageNum === 1 ||
+                  pageNum === totalPages ||
+                  (pageNum >= page - 1 && pageNum <= page + 1)
+                ) {
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        href="#"
+                        isActive={page === pageNum}
+                        onClick={(e: MouseEvent) => {
+                          e.preventDefault();
+                          setPage(pageNum);
+                        }}
                       >
-                        <ChevronRight className="size-5 transition-transform group-hover/item:translate-x-0.5" />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-col md:flex-row items-center justify-between p-2 mt-4 gap-6">
-                <div className="flex items-center justify-center md:justify-start space-x-4 min-w-[150px] w-full md:w-auto">
-                  <div className="flex items-center space-x-1">
-                    <span className="text-sm text-muted-foreground">Page</span>
-                    <span className="text-sm font-bold text-foreground">
-                      {page}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      of {totalPages}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-4 hidden md:inline-block">
-                    Showing{" "}
-                    {data.items.length === 0 ? 0 : (page - 1) * limit + 1}-
-                    {Math.min(page * limit, total)} of {total} results
-                  </span>
-                </div>
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                }
 
-                <div className="flex-1 flex justify-center w-full">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={(event: MouseEvent) => {
-                            event.preventDefault();
-                            setPage((current) => Math.max(1, current - 1));
-                          }}
-                          disabled={page <= 1}
-                        />
-                      </PaginationItem>
+                if (pageNum === page - 2 || pageNum === page + 2) {
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
 
-                      {Array.from({ length: totalPages }).map((_, index) => {
-                        const pageNumber = index + 1;
+                return null;
+              })}
 
-                        if (
-                          pageNumber === 1 ||
-                          pageNumber === totalPages ||
-                          (pageNumber >= page - 1 && pageNumber <= page + 1)
-                        ) {
-                          return (
-                            <PaginationItem key={pageNumber}>
-                              <PaginationLink
-                                href="#"
-                                isActive={page === pageNumber}
-                                onClick={(event: MouseEvent) => {
-                                  event.preventDefault();
-                                  setPage(pageNumber);
-                                }}
-                              >
-                                {pageNumber}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
+              <PaginationItem>
+                <PaginationNext
+                  onClick={(e: MouseEvent) => {
+                    e.preventDefault();
+                    setPage((p) => Math.min(totalPages, p + 1));
+                  }}
+                  disabled={page >= totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
 
-                        if (
-                          pageNumber === page - 2 ||
-                          pageNumber === page + 2
-                        ) {
-                          return (
-                            <PaginationItem key={pageNumber}>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          );
-                        }
-
-                        return null;
-                      })}
-
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={(event: MouseEvent) => {
-                            event.preventDefault();
-                            setPage((current) =>
-                              Math.min(totalPages, current + 1),
-                            );
-                          }}
-                          disabled={page >= totalPages}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-
-                <div className="flex items-center space-x-2 min-w-[150px] justify-center md:justify-end w-full md:w-auto">
-                  <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest whitespace-nowrap">
-                    Rows per page:
-                  </span>
-                  <Select
-                    value={limit.toString()}
-                    onValueChange={(value) => {
-                      setLimit(Number(value));
-                      setPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
-                      <SelectValue placeholder={limit.toString()} />
-                    </SelectTrigger>
-                    <SelectContent align="end" className="min-w-[75px]">
-                      <SelectItem
-                        value="6"
-                        className="text-xs font-bold cursor-pointer"
-                      >
-                        6
-                      </SelectItem>
-                      <SelectItem
-                        value="10"
-                        className="text-xs font-bold cursor-pointer"
-                      >
-                        10
-                      </SelectItem>
-                      <SelectItem
-                        value="20"
-                        className="text-xs font-bold cursor-pointer"
-                      >
-                        20
-                      </SelectItem>
-                      <SelectItem
-                        value="30"
-                        className="text-xs font-bold cursor-pointer"
-                      >
-                        30
-                      </SelectItem>
-                      <SelectItem
-                        value="50"
-                        className="text-xs font-bold cursor-pointer"
-                      >
-                        50
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </>
-          )}
+        <div className="flex items-center space-x-2 min-w-[150px] justify-end">
+          <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest whitespace-nowrap">
+            Rows per page:
+          </span>
+          <Select
+            value={limit.toString()}
+            onValueChange={(v) => {
+              setLimit(Number(v));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
+              <SelectValue placeholder={limit.toString()} />
+            </SelectTrigger>
+            <SelectContent align="end" className="min-w-[75px]">
+              <SelectItem
+                value="6"
+                className="text-xs font-bold cursor-pointer"
+              >
+                6
+              </SelectItem>
+              <SelectItem
+                value="15"
+                className="text-xs font-bold cursor-pointer"
+              >
+                15
+              </SelectItem>
+              <SelectItem
+                value="30"
+                className="text-xs font-bold cursor-pointer"
+              >
+                30
+              </SelectItem>
+              <SelectItem
+                value="50"
+                className="text-xs font-bold cursor-pointer"
+              >
+                50
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
+
+      {/* <section className="mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="glass-panel p-8 rounded-3xl space-y-6 relative overflow-hidden group">
+            <h2 className="font-headline font-extrabold text-2xl tracking-tight">
+              Order Pipeline Insights
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Track your ongoing collaborations seamlessly. Click into any order
+              to view milestones, communicate with the creator, and download
+              high-resolution deliverables.
+            </p>
+          </div>
+          <div className="bg-linear-to-br from-primary/10 to-secondary/10 border border-primary/20 p-8 rounded-3xl flex flex-col justify-between">
+            <div>
+              <span
+                className="material-symbols-outlined text-primary text-4xl mb-4"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                verified
+              </span>
+              <h2 className="font-headline font-extrabold text-2xl tracking-tight mb-2">
+                Secure Delivery Checking
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                All submitted deliverables are securely held until you review
+                and approve them. Our automated systems also scan assets to
+                ensure high quality and correct formatting.
+              </p>
+            </div>
+            <div className="mt-6">
+              <Link
+                href="#"
+                className="text-secondary font-bold text-sm flex items-center group"
+              >
+                Learn more about our review process
+                <span className="material-symbols-outlined ml-2 transition-transform group-hover:translate-x-1">
+                  arrow_forward
+                </span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section> */}
     </div>
   );
 }

@@ -110,7 +110,7 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
 function BrandManagementLoadingShell({ limit }: { limit: number }) {
   return (
     <div className="space-y-8">
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <StatsCard
           label="Total Brands"
           value="..."
@@ -126,12 +126,14 @@ function BrandManagementLoadingShell({ limit }: { limit: number }) {
           value="..."
           helper="Distinct industries represented on the current page."
         />
-      </section>
+      </section> */}
 
       <section className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
           <div>
-            <h2 className="text-xl font-headline font-semibold">Active Brands</h2>
+            <h2 className="text-xl font-headline font-semibold">
+              Active Brands
+            </h2>
             <p className="text-sm text-muted-foreground">
               Only brands with an active profile are listed here.
             </p>
@@ -200,7 +202,7 @@ function BrandManagementContent({
 
   return (
     <>
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <StatsCard
           label="Total Brands"
           value={total}
@@ -216,12 +218,14 @@ function BrandManagementContent({
           value={coveredIndustries}
           helper="Distinct industries represented on the current page."
         />
-      </section>
+      </section> */}
 
       <section className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
           <div>
-            <h2 className="text-xl font-headline font-semibold">Active Brands</h2>
+            <h2 className="text-xl font-headline font-semibold">
+              Active Brands
+            </h2>
             <p className="text-sm text-muted-foreground">
               Only brands with an active profile are listed here.
             </p>
@@ -271,9 +275,12 @@ function BrandManagementContent({
                           <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider">
                             Brand
                           </span>
-                          <span className="text-muted-foreground text-xs">•</span>
+                          <span className="text-muted-foreground text-xs">
+                            •
+                          </span>
                           <p className="truncate text-xs text-muted-foreground">
-                            Added {new Date(brand.createdAt).toLocaleDateString()}
+                            Added{" "}
+                            {new Date(brand.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -294,7 +301,9 @@ function BrandManagementContent({
                           Industry
                         </p>
                         <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                          <span className="truncate">{brand.industry ?? "—"}</span>
+                          <span className="truncate">
+                            {brand.industry ?? "—"}
+                          </span>
                         </div>
                       </div>
                       <div className="flex flex-col">
@@ -421,16 +430,28 @@ function BrandManagementContent({
                 <SelectValue placeholder={limit.toString()} />
               </SelectTrigger>
               <SelectContent align="end" className="min-w-[75px]">
-                <SelectItem value="10" className="text-xs font-bold cursor-pointer">
+                <SelectItem
+                  value="10"
+                  className="text-xs font-bold cursor-pointer"
+                >
                   10
                 </SelectItem>
-                <SelectItem value="20" className="text-xs font-bold cursor-pointer">
+                <SelectItem
+                  value="20"
+                  className="text-xs font-bold cursor-pointer"
+                >
                   20
                 </SelectItem>
-                <SelectItem value="30" className="text-xs font-bold cursor-pointer">
+                <SelectItem
+                  value="30"
+                  className="text-xs font-bold cursor-pointer"
+                >
                   30
                 </SelectItem>
-                <SelectItem value="50" className="text-xs font-bold cursor-pointer">
+                <SelectItem
+                  value="50"
+                  className="text-xs font-bold cursor-pointer"
+                >
                   50
                 </SelectItem>
               </SelectContent>
@@ -463,9 +484,8 @@ function BrandManagementContent({
 export default function BrandManagementPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [selectedBrand, setSelectedBrand] = useState<AdminBrandListItemDto | null>(
-    null,
-  );
+  const [selectedBrand, setSelectedBrand] =
+    useState<AdminBrandListItemDto | null>(null);
 
   const { data, isLoading, isError } = useBrandsQuery({ page, limit });
   const removeBrandAccess = useRemoveBrandAccessMutation();
@@ -492,12 +512,12 @@ export default function BrandManagementPage() {
 
   return (
     <>
-    <div className="p-8 space-y-8">
+      <div className="p-8 space-y-8">
         <section className="space-y-4">
           <h1 className="text-4xl font-headline font-bold">Brand Management</h1>
           <p className="max-w-3xl text-muted-foreground font-body">
             Review brands that currently have an active profile and remove brand
-            access without deleting the underlying user account.
+            access.
           </p>
         </section>
 
@@ -543,7 +563,10 @@ export default function BrandManagementPage() {
         )}
       </div>
 
-      <Dialog open={!!selectedBrand} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog
+        open={!!selectedBrand}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Remove Brand Access</DialogTitle>
@@ -553,7 +576,9 @@ export default function BrandManagementPage() {
             <p>
               This will permanently remove brand access for{" "}
               <span className="font-semibold text-foreground">
-                {selectedBrand?.companyName ?? selectedBrand?.name ?? selectedBrand?.email}
+                {selectedBrand?.companyName ??
+                  selectedBrand?.name ??
+                  selectedBrand?.email}
               </span>
               .
             </p>
@@ -576,7 +601,9 @@ export default function BrandManagementPage() {
               onClick={() => void confirmRemoval()}
               disabled={removeBrandAccess.isPending}
             >
-              {removeBrandAccess.isPending ? "Removing..." : "Remove Brand Access"}
+              {removeBrandAccess.isPending
+                ? "Removing..."
+                : "Remove Brand Access"}
             </Button>
           </DialogFooter>
         </DialogContent>

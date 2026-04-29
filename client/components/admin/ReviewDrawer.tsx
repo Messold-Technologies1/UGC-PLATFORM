@@ -98,7 +98,7 @@ export default function ReviewDrawer({
         }}
         direction="right"
       >
-        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[500px] lg:data-[vaul-drawer-direction=right]:max-w-[600px] h-full data-[vaul-drawer-direction=right]:rounded-none border-l border-border/30 bg-background shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[500px] lg:data-[vaul-drawer-direction=right]:max-w-[600px] h-full data-[vaul-drawer-direction=right]:rounded-none border-l border-border/30 bg-background shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto overflow-x-hidden flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           {creator && (
             <>
               <div className="flex items-center justify-between px-8 py-6 border-b border-border/20 sticky top-0 bg-background z-10">
@@ -226,6 +226,7 @@ export default function ReviewDrawer({
                       packages={mappedPackages}
                       addOns={mappedAddOns}
                       readOnly={true}
+                      horizontalScroll={true}
                     />
                   </section>
                 )}

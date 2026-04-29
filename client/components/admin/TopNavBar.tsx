@@ -2,7 +2,7 @@ import React from "react";
 
 export default function TopNavBar() {
   return (
-    <header className="flex items-center justify-between px-8 sticky top-0 z-40 bg-background/80 backdrop-blur-md w-full h-16 border-b border-border/30 shadow-[0_4px_30px_rgba(189,157,255,0.04)] font-body text-sm">
+    <header className="flex items-center justify-between px-8 sticky top-0 z-40 bg-background/80 backdrop-blur-md w-full h-16 font-body text-sm">
       <div className="flex-1"></div>
       <div className="flex items-center space-x-6">
         <div className="flex items-center space-x-4">

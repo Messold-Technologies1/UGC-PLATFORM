@@ -12,6 +12,8 @@ interface PackagesTabProps {
   onSelectPackage?: (id: string) => void;
   onToggleAddOn?: (id: string) => void;
   readOnly?: boolean;
+  compact?: boolean;
+  horizontalScroll?: boolean;
 }
 
 export const PackagesTab = memo(function PackagesTab({
@@ -22,10 +24,18 @@ export const PackagesTab = memo(function PackagesTab({
   onSelectPackage = () => {},
   onToggleAddOn = () => {},
   readOnly = false,
+  compact = false,
+  horizontalScroll = false,
 }: PackagesTabProps) {
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div
+        className={
+          horizontalScroll
+            ? "flex overflow-x-auto pt-4 pb-6 -mx-8 px-8 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none] gap-6"
+            : `grid gap-6 pt-4 ${compact ? "grid-cols-1" : "sm:grid-cols-3"}`
+        }
+      >
         {packages.map((pkg) => {
           const isSelected = selectedPackageId === pkg.id;
           const isPopular = pkg.tier === "standard";
@@ -47,8 +57,8 @@ export const PackagesTab = memo(function PackagesTab({
                 if (!readOnly) onSelectPackage(pkg.id);
               }}
               className={`flex flex-col relative transition-all duration-300 ${
-                readOnly ? "" : "cursor-pointer"
-              } ${
+                horizontalScroll ? "shrink-0 w-[280px] snap-center" : ""
+              } ${readOnly ? "" : "cursor-pointer"} ${
                 isSelected
                   ? "border-2 border-primary scale-105 z-10 shadow-xl shadow-primary/20"
                   : readOnly
@@ -116,7 +126,11 @@ export const PackagesTab = memo(function PackagesTab({
           Optional extras — tap to include or remove from your order
         </p>
 
-        <ul className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-2">
+        <ul
+          className={`mt-4 grid list-none gap-3 p-0 ${
+            compact ? "grid-cols-1" : "sm:grid-cols-2"
+          }`}
+        >
           {addOns.map((addon) => {
             const isChecked = selectedAddOnIds.includes(addon.id);
             return (
@@ -140,7 +154,9 @@ export const PackagesTab = memo(function PackagesTab({
                     onChange={() => {
                       if (!readOnly) onToggleAddOn(addon.id);
                     }}
-                    aria-label={`${addon.label} (+₹${addon.price.toLocaleString("en-IN")})`}
+                    aria-label={`${addon.label} (+₹${addon.price.toLocaleString(
+                      "en-IN",
+                    )})`}
                   />
                   {!readOnly && (
                     <span
@@ -151,7 +167,9 @@ export const PackagesTab = memo(function PackagesTab({
                       }`}
                       aria-hidden
                     >
-                      {isChecked && <Check className="size-3" strokeWidth={3} />}
+                      {isChecked && (
+                        <Check className="size-3" strokeWidth={3} />
+                      )}
                     </span>
                   )}
                   <span className="min-w-0 flex-1 text-sm font-medium leading-snug">

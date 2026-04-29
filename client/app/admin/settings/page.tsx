@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
+// import Image from "next/image";
 import { useRegisterAdminMutation } from "@/features/admin/hooks/use-register-admin-mutation";
 
 export default function AdminSettings() {
@@ -36,7 +36,7 @@ export default function AdminSettings() {
   return (
     <div className="p-8 space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <section className="lg:col-span-7 glass-card rounded-xl p-10 relative overflow-hidden">
+          <section className="lg:col-span-7 rounded-xl p-10 relative overflow-hidden">
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full"></div>
             <div className="relative z-10">
               <h2 className="font-headline text-3xl font-extrabold text-foreground mb-2 tracking-tight">
@@ -100,7 +100,7 @@ export default function AdminSettings() {
                     </button>
                   </div>
                   <div className="flex justify-between items-center px-1 pt-1">
-                    <p className="text-[10px] text-muted-foreground font-bold">
+                    {password.length > 0 && <p className="text-[10px] text-muted-foreground font-bold">
                       STRENGTH:{" "}
                       <span className="text-primary uppercase">
                         {password.length > 10
@@ -109,7 +109,7 @@ export default function AdminSettings() {
                             ? "GOOD"
                             : "WEAK"}
                       </span>
-                    </p>
+                    </p>}
                     <button
                       className="text-[10px] font-bold text-primary hover:text-secondary flex items-center gap-1 transition-all uppercase tracking-wider"
                       type="button"
@@ -141,7 +141,7 @@ export default function AdminSettings() {
             </div>
           </section>
 
-          <div className="lg:col-span-5 space-y-8">
+          {/* <div className="lg:col-span-5 space-y-8">
             <div className="glass-card rounded-xl p-8 border-primary/10 group">
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
@@ -206,10 +206,10 @@ export default function AdminSettings() {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
 
-        <section className="glass-card rounded-xl overflow-hidden mt-12">
+        {/* <section className="glass-card rounded-xl overflow-hidden mt-12">
           <div className="px-8 py-6 border-b border-foreground/5 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-foreground/2">
             <div className="mb-4 sm:mb-0">
               <h3 className="font-headline font-extrabold text-2xl text-foreground tracking-tight">
@@ -416,7 +416,7 @@ export default function AdminSettings() {
               </button>
             </div>
           </div>
-      </section>
+      </section> */}
     </div>
   );
 }

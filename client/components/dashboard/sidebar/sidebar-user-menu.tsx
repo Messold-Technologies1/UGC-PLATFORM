@@ -39,11 +39,12 @@ export function SidebarUserMenu({
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const hasMultipleRoles = user?.roles && user.roles.length > 1;
+  const isAdmin = pathname.startsWith("/admin");
   const activeWorkspace = pathname.startsWith("/brand")
     ? "BRAND"
     : pathname.startsWith("/creator")
       ? "CREATOR"
-      : user?.primaryRole ?? null;
+      : (user?.primaryRole ?? null);
   const hub = pathname.startsWith("/brand")
     ? "brand"
     : pathname.startsWith("/creator")
@@ -140,9 +141,7 @@ export function SidebarUserMenu({
           {getInitialsFromUser(user)}
         </span>
         <div className={cn("min-w-0 flex-1", desktopCollapsed && "lg:hidden")}>
-          <p className="truncate text-sm font-medium text-foreground">
-            {name}
-          </p>
+          <p className="truncate text-sm font-medium text-foreground">{name}</p>
         </div>
       </button>
 
@@ -162,88 +161,108 @@ export function SidebarUserMenu({
         <div className="min-w-60 space-y-2">
           <ThemeAppearancePanel />
           <div className={cn("rounded-xl p-1", accountMenuGlassPanel)}>
-          {!hasMultipleRoles && canTryAsBrand && (
+            {!isAdmin && !hasMultipleRoles && canTryAsBrand && (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={isLoggingOut}
+                className={cn(
+                  accountMenuItemClass,
+                  "w-full text-left",
+                  isLoggingOut && "pointer-events-none opacity-70",
+                )}
+                onClick={() => {
+                  navigateToSetup(
+                    workspaceSetupHref("BRAND", workspaceAccountHref("BRAND")),
+                  );
+                }}
+              >
+                <Building2 className="size-4 opacity-60" aria-hidden />
+                Try As Brand
+              </button>
+            )}
+            {!isAdmin && !hasMultipleRoles && canTryAsCreator && (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={isLoggingOut}
+                className={cn(
+                  accountMenuItemClass,
+                  "w-full text-left",
+                  isLoggingOut && "pointer-events-none opacity-70",
+                )}
+                onClick={() => {
+                  navigateToSetup(
+                    workspaceSetupHref(
+                      "CREATOR",
+                      workspaceAccountHref("CREATOR"),
+                    ),
+                  );
+                }}
+              >
+                <Video className="size-4 opacity-60" aria-hidden />
+                Try As Creator
+              </button>
+            )}
+            {/* In admin, Profile option is commented out 
+          {isAdmin && (
+            <Link
+              href={accountHref}
+              role="menuitem"
+              className={cn(
+                accountMenuItemClass,
+                "w-full",
+                isAccountSectionActive && "bg-accent/80 text-accent-foreground",
+              )}
+              onClick={closeMobile}
+            >
+              <UserRound className="size-4" aria-hidden />
+              Profile
+            </Link>
+          )}
+          */}
+            {!isAdmin && (
+              <Link
+                href={accountHref}
+                role="menuitem"
+                className={cn(
+                  accountMenuItemClass,
+                  "w-full",
+                  isAccountSectionActive &&
+                    "bg-accent/80 text-accent-foreground",
+                )}
+                onClick={closeMobile}
+              >
+                <UserRound className="size-4" aria-hidden />
+                Profile
+              </Link>
+            )}
+            <div
+              className="my-1 h-px bg-border/60"
+              role="separator"
+              aria-hidden
+            />
             <button
               type="button"
               role="menuitem"
               disabled={isLoggingOut}
-              className={cn(
-                accountMenuItemClass,
-                "w-full text-left",
-                isLoggingOut && "pointer-events-none opacity-70",
-              )}
               onClick={() => {
-                navigateToSetup(
-                  workspaceSetupHref("BRAND", workspaceAccountHref("BRAND")),
-                );
+                closeMobile();
+                void logout();
               }}
-            >
-              <Building2 className="size-4 opacity-60" aria-hidden />
-              Try As Brand
-            </button>
-          )}
-          {!hasMultipleRoles && canTryAsCreator && (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={isLoggingOut}
               className={cn(
-                accountMenuItemClass,
+                accountMenuItemLogoutClass,
                 "w-full text-left",
-                isLoggingOut && "pointer-events-none opacity-70",
+                isLoggingOut && "pointer-events-none opacity-60",
               )}
-              onClick={() => {
-                navigateToSetup(
-                  workspaceSetupHref(
-                    "CREATOR",
-                    workspaceAccountHref("CREATOR"),
-                  ),
-                );
-              }}
             >
-              <Video className="size-4 opacity-60" aria-hidden />
-              Try As Creator
+              {isLoggingOut ? (
+                <Spinner className="size-4 shrink-0" aria-hidden />
+              ) : (
+                <LogOut className="size-4 shrink-0" />
+              )}
+              {isLoggingOut ? "Logging out…" : "Log out"}
             </button>
-          )}
-          <Link
-            href={accountHref}
-            role="menuitem"
-            className={cn(
-              accountMenuItemClass,
-              "w-full",
-              isAccountSectionActive && "bg-accent/80 text-accent-foreground",
-            )}
-            onClick={closeMobile}
-          >
-            <UserRound className="size-4" aria-hidden />
-            Profile
-          </Link>
-          <div
-            className="my-1 h-px bg-border/60"
-            role="separator"
-            aria-hidden
-          />
-          <button
-            type="button"
-            role="menuitem"
-            disabled={isLoggingOut}
-            onClick={() => {
-              closeMobile();
-              void logout();
-            }}
-            className={cn(
-              accountMenuItemLogoutClass,
-              "w-full text-left",
-              isLoggingOut && "pointer-events-none opacity-60",
-            )}
-          >
-            {isLoggingOut ? (
-              <Spinner className="size-4 shrink-0" aria-hidden />
-            ) : (
-              <LogOut className="size-4 shrink-0" />
-            )}
-            {isLoggingOut ? "Logging out…" : "Log out"}
-          </button>
           </div>
         </div>
       </div>

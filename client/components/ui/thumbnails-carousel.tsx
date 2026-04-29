@@ -39,12 +39,22 @@ export function ThumbnailsCarousel({
       <Carousel.ItemGroup className="relative aspect-video rounded-2xl overflow-hidden bg-black group border shadow-sm mb-4">
         {assets.map((asset, index) => (
           <Carousel.Item key={index} index={index} className="w-full h-full relative">
-            <Image
-              src={asset.full}
-              alt={`Slide ${index + 1}`}
-              fill
-              className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
-            />
+            {asset.type === "video" ? (
+              <video
+                src={asset.full}
+                className="h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
+                muted
+                playsInline
+                preload="metadata"
+              />
+            ) : (
+              <Image
+                src={asset.full}
+                alt={`Slide ${index + 1}`}
+                fill
+                className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+              />
+            )}
             {asset.type === "video" && (
               <>
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -70,19 +80,29 @@ export function ThumbnailsCarousel({
           </Carousel.PrevTrigger>
         )}
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0 py-1 px-0.5">
           {assets.map((asset, index) => (
             <div key={index} className="relative shrink-0 w-24 aspect-video group/thumb">
               <Carousel.Indicator
                 index={index}
-                className="absolute inset-0 w-full h-full border-2 border-transparent data-current:border-primary rounded-lg overflow-hidden cursor-pointer transition-all hover:border-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="absolute inset-0 w-full h-full ring-2 ring-transparent data-current:ring-primary data-current:ring-offset-2 ring-offset-background rounded-lg overflow-hidden cursor-pointer transition-all hover:ring-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Image
-                  src={asset.thumb}
-                  alt={`Thumbnail ${index + 1}`}
-                  fill
-                  className="object-cover opacity-60 data-current:opacity-100 transition-opacity"
-                />
+                {asset.type === "video" ? (
+                  <video
+                    src={asset.thumb}
+                    className="h-full w-full object-cover opacity-60 transition-opacity data-current:opacity-100"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <Image
+                    src={asset.thumb}
+                    alt={`Thumbnail ${index + 1}`}
+                    fill
+                    className="object-cover opacity-60 data-current:opacity-100 transition-opacity"
+                  />
+                )}
                 {asset.type === "video" && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />

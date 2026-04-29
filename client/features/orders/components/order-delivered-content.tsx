@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, FileEdit, PlayCircle } from "lucide-react";
+import { CheckCircle, ExternalLink, FileEdit, PlayCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,9 +14,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { ThumbnailsCarousel } from "@/components/ui/thumbnails-carousel";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useAcceptOrderDeliveryMutation } from "../hooks/use-accept-order-delivery-mutation";
+import { useGetBrandOrderDeliveriesQuery } from "../hooks/use-get-brand-order-deliveries-query";
 import { useRequestOrderRevisionMutation } from "../hooks/use-request-order-revision-mutation";
 import type { OrderDetailsPublic } from "../api/types";
 
@@ -24,25 +33,41 @@ interface OrderDeliveredContentProps {
   order?: OrderDetailsPublic;
 }
 
+function formatDate(value?: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
+  const orderId = order?.id ?? "";
   const acceptOrderDeliveryMutation = useAcceptOrderDeliveryMutation({
     onSuccess: () => setIsApproveDialogOpen(false),
   });
   const requestOrderRevisionMutation = useRequestOrderRevisionMutation({
     onSuccess: () => setIsRevisionDialogOpen(false),
   });
+  const deliveriesQuery = useGetBrandOrderDeliveriesQuery(orderId, {
+    enabled: Boolean(orderId),
+  });
 
   if (!order) return null;
 
-  const orderId = order.id;
   const canReviewDelivery =
     order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
   const isAccepted = ["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(order.status);
   const hasRevisionsRemaining =
     order.revisionCount < order.maxRevisionsSnapshot;
   const canRequestRevision = canReviewDelivery && hasRevisionsRemaining;
+  const revisionsLeft = Math.max(
+    order.maxRevisionsSnapshot - order.revisionCount,
+    0,
+  );
   const isActionPending =
     acceptOrderDeliveryMutation.isPending ||
     requestOrderRevisionMutation.isPending;
@@ -51,6 +76,17 @@ export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
     : canReviewDelivery
       ? "Ready for review"
       : "Awaiting delivery";
+  const deliveries = deliveriesQuery.data?.items ?? [];
+  const latestDelivery = deliveries.at(-1);
+  const revisionsUsed = latestDelivery?.revisionsUsed ?? order.revisionCount;
+  const latestAssets: CarouselAsset[] =
+    latestDelivery?.assets.map((asset) => ({
+      id: asset.key,
+      type: asset.kind,
+      full: asset.url,
+      thumb: asset.url,
+    })) ?? [];
+  const hasDeliveryAssets = latestAssets.length > 0;
 
   function handleApproveDelivery() {
     if (!canReviewDelivery || isActionPending) {
@@ -92,7 +128,67 @@ export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
         </div>
 
         <div className="p-6 md:p-8">
-          <ThumbnailsCarousel />
+          {deliveriesQuery.isLoading ? (
+            <div className="flex aspect-video items-center justify-center rounded-2xl border bg-muted/20 text-sm text-muted-foreground">
+              <Spinner className="mr-2 size-4" aria-hidden />
+              Loading delivery...
+            </div>
+          ) : latestDelivery && hasDeliveryAssets ? (
+            <div className="space-y-6">
+              <ThumbnailsCarousel assets={latestAssets} />
+
+              <div className="rounded-2xl border bg-muted/20 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">
+                      {latestDelivery.revisionsUsed === 0
+                        ? "Initial delivery"
+                        : `Revision ${latestDelivery.revisionsUsed}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Submitted {formatDate(latestDelivery.createdAt) ?? "recently"}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="w-fit rounded-full">
+                    {latestDelivery.assets.length} asset
+                    {latestDelivery.assets.length === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+
+                {latestDelivery.note ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {latestDelivery.note}
+                  </p>
+                ) : null}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {latestDelivery.assets.map((asset, index) => (
+                    <Button
+                      key={asset.key}
+                      asChild
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                    >
+                      <a href={asset.url} target="_blank" rel="noreferrer">
+                        <ExternalLink className="w-4 h-4" />
+                        {asset.kind === "video" ? "Video" : "Image"} {index + 1}
+                      </a>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : deliveriesQuery.isError ? (
+            <div className="flex aspect-video items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/5 px-6 text-center text-sm text-destructive">
+              Unable to load delivered assets.
+            </div>
+          ) : (
+            <div className="flex aspect-video items-center justify-center rounded-2xl border bg-muted/20 px-6 text-center text-sm text-muted-foreground">
+              No delivery assets submitted yet.
+            </div>
+          )}
 
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
             <Button
@@ -104,16 +200,28 @@ export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
               <CheckCircle className="w-5 h-5" />
               {isAccepted ? "Approved" : "Approve"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!canRequestRevision || isActionPending}
-              onClick={() => setIsRevisionDialogOpen(true)}
-              className="w-full px-8 py-4 font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              <FileEdit className="w-5 h-5" />
-              {hasRevisionsRemaining ? "Request Revision" : "No Revisions Left"}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!canRequestRevision || isActionPending}
+                    onClick={() => setIsRevisionDialogOpen(true)}
+                    className="w-full px-8 py-4 font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    <FileEdit className="w-5 h-5" />
+                    {hasRevisionsRemaining
+                      ? "Request Revision"
+                      : "No Revisions Left"}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-center">
+                {revisionsUsed} used / {order.maxRevisionsSnapshot} total ·{" "}
+                {revisionsLeft} left
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </section>

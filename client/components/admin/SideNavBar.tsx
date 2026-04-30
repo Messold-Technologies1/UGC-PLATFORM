@@ -28,7 +28,11 @@ export default function SideNavBar() {
       label: "Brand Management",
       match: (p: string) => p?.includes("/brandManagement"),
     },
-    // { href: "#", icon: "assessment", label: "Reports", match: () => false },
+    {
+      href: "/admin/orderManagement", icon: "inventory_2",
+      label: "Order Management",
+      match: (p: string) => p?.includes("/orderManagement"),
+    },
     {
       href: "/admin/settings",
       icon: "settings",

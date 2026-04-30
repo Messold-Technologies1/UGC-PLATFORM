@@ -55,7 +55,7 @@ export default function AdminDashboardPage() {
         </section>
 
         <div className="flex items-center justify-end px-2">
-          <div className="flex items-center space-x-2">
+          {/* <div className="flex items-center space-x-2">
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mr-2">
               Sort:
             </span>
@@ -65,7 +65,7 @@ export default function AdminDashboardPage() {
             <button className="px-4 py-2 rounded-full border border-border/50 text-xs font-medium text-muted-foreground hover:text-foreground transition-all">
               Followers
             </button>
-          </div>
+          </div> */}
         </div>
 
         <div className="grid grid-cols-1 gap-4">

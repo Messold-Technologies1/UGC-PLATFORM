@@ -162,12 +162,12 @@ export function BrandOrdersList() {
               </div>
 
               <div className="flex items-center space-x-3 sm:space-x-4 ml-4 shrink-0">
-                <Link
+                {/* <Link
                   href={`/brand/orders/${order.id}`}
                   className="hidden sm:inline-flex px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-primary/10 transition-colors whitespace-nowrap"
                 >
                   View Details
-                </Link>
+                </Link> */}
                 <Link
                   href={`/brand/orders/${order.id}`}
                   className="flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer shrink-0 group-hover/item:bg-primary group-hover/item:text-primary-foreground"

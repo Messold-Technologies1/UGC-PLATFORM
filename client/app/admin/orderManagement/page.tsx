@@ -1,9 +1,7 @@
 import React from 'react'
 
-function OrderManagement() {
+export default function OrderManagement() {
     return (
         <div>OrderManagement</div>
     )
 }
-
-export default OrderManagement;

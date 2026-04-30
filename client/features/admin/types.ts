@@ -1,3 +1,9 @@
+import type {
+  OrderBrandSnapshot,
+  OrderCreatorSnapshot,
+  OrderListSummary,
+} from "@/features/orders/api/types";
+
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface CreatorLanguageResponseDto {
@@ -100,6 +106,24 @@ export interface AdminBrandListItemDto {
 
 export interface AdminBrandsListResponseDto {
   items: AdminBrandListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface AdminOrdersQueryDto {
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminOrderListItemDto {
+  order: OrderListSummary;
+  creator: OrderCreatorSnapshot;
+  brand: OrderBrandSnapshot;
+}
+
+export interface AdminOrdersListResponseDto {
+  items: AdminOrderListItemDto[];
   total: number;
   page: number;
   limit: number;

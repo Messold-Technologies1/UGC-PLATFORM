@@ -68,6 +68,9 @@ export const ENDPOINTS = {
       REMOVE: (userId: string) =>
         `/api/admin/brands/user/${encodeURIComponent(userId)}/role`,
     },
+    ORDERS: {
+      LIST: "/api/admin/orders",
+    },
   },
 } as const;
 

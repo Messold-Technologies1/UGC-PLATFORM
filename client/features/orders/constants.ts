@@ -9,6 +9,7 @@ export const STATUS_COLORS: Record<string, string> = {
   CREATOR_PAYMENT_DONE: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   DISPUTED: "bg-red-500/10 text-red-500 border-red-500/20",
   REJECTED: "bg-red-500/10 text-red-500 border-red-500/20",
+  REFUNDED: "bg-slate-500/10 text-slate-500 border-slate-500/20",
 };
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -22,4 +23,5 @@ export const STATUS_LABELS: Record<string, string> = {
   CREATOR_PAYMENT_DONE: "Paid Out",
   DISPUTED: "Disputed",
   REJECTED: "Rejected",
+  REFUNDED: "Refunded",
 };

@@ -7,23 +7,35 @@ import type { Package, AddOn } from "../types";
 interface PackagesTabProps {
   packages: Package[];
   addOns: AddOn[];
-  selectedPackageId: string | null;
-  selectedAddOnIds: string[];
-  onSelectPackage: (id: string) => void;
-  onToggleAddOn: (id: string) => void;
+  selectedPackageId?: string | null;
+  selectedAddOnIds?: string[];
+  onSelectPackage?: (id: string) => void;
+  onToggleAddOn?: (id: string) => void;
+  readOnly?: boolean;
+  compact?: boolean;
+  horizontalScroll?: boolean;
 }
 
 export const PackagesTab = memo(function PackagesTab({
   packages,
   addOns,
-  selectedPackageId,
-  selectedAddOnIds,
-  onSelectPackage,
-  onToggleAddOn,
+  selectedPackageId = null,
+  selectedAddOnIds = [],
+  onSelectPackage = () => {},
+  onToggleAddOn = () => {},
+  readOnly = false,
+  compact = false,
+  horizontalScroll = false,
 }: PackagesTabProps) {
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div
+        className={
+          horizontalScroll
+            ? "flex overflow-x-auto pt-4 pb-6 -mx-8 px-8 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none] gap-6"
+            : `grid gap-6 pt-4 ${compact ? "grid-cols-1" : "sm:grid-cols-3"}`
+        }
+      >
         {packages.map((pkg) => {
           const isSelected = selectedPackageId === pkg.id;
           const isPopular = pkg.tier === "standard";
@@ -31,19 +43,26 @@ export const PackagesTab = memo(function PackagesTab({
           return (
             <Card
               key={pkg.id}
-              role="button"
-              tabIndex={0}
-              aria-pressed={isSelected}
+              role={readOnly ? undefined : "button"}
+              tabIndex={readOnly ? undefined : 0}
+              aria-pressed={readOnly ? undefined : isSelected}
               onKeyDown={(e) => {
+                if (readOnly) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   onSelectPackage(pkg.id);
                 }
               }}
-              onClick={() => onSelectPackage(pkg.id)}
-              className={`flex flex-col relative transition-all duration-300 cursor-pointer ${
+              onClick={() => {
+                if (!readOnly) onSelectPackage(pkg.id);
+              }}
+              className={`flex flex-col relative transition-all duration-300 ${
+                horizontalScroll ? "shrink-0 w-[280px] snap-center" : ""
+              } ${readOnly ? "" : "cursor-pointer"} ${
                 isSelected
                   ? "border-2 border-primary scale-105 z-10 shadow-xl shadow-primary/20"
+                  : readOnly
+                  ? "border-border"
                   : "hover:border-primary/30 group"
               }`}
             >
@@ -82,18 +101,20 @@ export const PackagesTab = memo(function PackagesTab({
                 </ul>
               </CardContent>
 
-              <CardFooter className="mt-auto">
-                <Button
-                  variant={isSelected ? "default" : "outline"}
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectPackage(pkg.id);
-                  }}
-                >
-                  {isSelected ? "Selected" : "Get Started"}
-                </Button>
-              </CardFooter>
+              {readOnly ? null : (
+                <CardFooter className="mt-auto">
+                  <Button
+                    variant={isSelected ? "default" : "outline"}
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPackage(pkg.id);
+                    }}
+                  >
+                    {isSelected ? "Selected" : "Get Started"}
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           );
         })}
@@ -105,15 +126,23 @@ export const PackagesTab = memo(function PackagesTab({
           Optional extras — tap to include or remove from your order
         </p>
 
-        <ul className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-2">
+        <ul
+          className={`mt-4 grid list-none gap-3 p-0 ${
+            compact ? "grid-cols-1" : "sm:grid-cols-2"
+          }`}
+        >
           {addOns.map((addon) => {
             const isChecked = selectedAddOnIds.includes(addon.id);
             return (
               <li key={addon.id}>
                 <label
-                  className={`relative flex cursor-pointer items-center gap-4 rounded-2xl border p-5 transition-all ${
+                  className={`relative flex items-center gap-4 rounded-2xl border p-5 transition-all ${
+                    readOnly ? "cursor-default" : "cursor-pointer"
+                  } ${
                     isChecked
                       ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                      : readOnly
+                      ? "border-border shadow-sm"
                       : "border-border hover:border-foreground/20 shadow-sm"
                   }`}
                 >
@@ -121,24 +150,40 @@ export const PackagesTab = memo(function PackagesTab({
                     type="checkbox"
                     className="sr-only"
                     checked={isChecked}
-                    onChange={() => onToggleAddOn(addon.id)}
-                    aria-label={`${addon.label} (+₹${addon.price.toLocaleString("en-IN")})`}
+                    disabled={readOnly}
+                    onChange={() => {
+                      if (!readOnly) onToggleAddOn(addon.id);
+                    }}
+                    aria-label={`${addon.label} (+₹${addon.price.toLocaleString(
+                      "en-IN",
+                    )})`}
                   />
-                  <span
-                    className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
-                      isChecked
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border"
-                    }`}
-                    aria-hidden
-                  >
-                    {isChecked && <Check className="size-3" strokeWidth={3} />}
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
-                    {addon.label}{" "}
-                    <span className="text-muted-foreground">
-                      (+₹{addon.price.toLocaleString("en-IN")})
+                  {!readOnly && (
+                    <span
+                      className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                        isChecked
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border"
+                      }`}
+                      aria-hidden
+                    >
+                      {isChecked && (
+                        <Check className="size-3" strokeWidth={3} />
+                      )}
                     </span>
+                  )}
+                  <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
+                    <span>
+                      {addon.label}{" "}
+                      <span className="text-muted-foreground">
+                        (+₹{addon.price.toLocaleString("en-IN")})
+                      </span>
+                    </span>
+                    {addon.description ? (
+                      <span className="mt-1 block text-xs font-normal leading-relaxed text-muted-foreground">
+                        {addon.description}
+                      </span>
+                    ) : null}
                   </span>
                 </label>
               </li>

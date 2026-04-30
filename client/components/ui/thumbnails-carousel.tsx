@@ -1,9 +1,14 @@
 "use client";
 
 import { Carousel } from "@ark-ui/react/carousel";
-import { ChevronLeft, ChevronRight, Play, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+
+type CarouselPageChangeDetails = {
+  page: number;
+};
 
 export type CarouselAsset = {
   type: "video" | "image";
@@ -12,37 +17,6 @@ export type CarouselAsset = {
   duration?: string;
   id?: string;
 };
-
-const DEFAULT_ASSETS: CarouselAsset[] = [
-  {
-    type: "video",
-    full: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=300&auto=format&fit=crop",
-    duration: "00:45",
-  },
-  {
-    type: "image",
-    full: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=300&auto=format&fit=crop",
-  },
-  {
-    type: "video",
-    full: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?q=80&w=300&auto=format&fit=crop",
-    duration: "01:20",
-  },
-  {
-    type: "image",
-    full: "https://images.unsplash.com/photo-1540553016722-983e48a2cd10?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1540553016722-983e48a2cd10?q=80&w=300&auto=format&fit=crop",
-  },
-  {
-    type: "video",
-    full: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200&auto=format&fit=crop",
-    thumb: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=300&auto=format&fit=crop",
-    duration: "00:15",
-  }
-];
 
 export interface ThumbnailsCarouselProps {
   className?: string;
@@ -53,10 +27,87 @@ export interface ThumbnailsCarouselProps {
 
 export function ThumbnailsCarousel({ 
   className,
-  assets = DEFAULT_ASSETS,
+  assets = [],
   isEditable = false,
   onRemove
 }: ThumbnailsCarouselProps) {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
+
+  const pauseVideo = useCallback((index: number, reset = false) => {
+    const video = videoRefs.current[index];
+
+    if (!video) {
+      return;
+    }
+
+    video.pause();
+    if (reset) {
+      video.currentTime = 0;
+    }
+  }, []);
+
+  const pauseOtherVideos = useCallback(
+    (activeIndex: number) => {
+      videoRefs.current.forEach((video, index) => {
+        if (video && index !== activeIndex) {
+          pauseVideo(index);
+        }
+      });
+    },
+    [pauseVideo],
+  );
+
+  const handlePageChange = useCallback(
+    (details: CarouselPageChangeDetails) => {
+      setCurrentPage(details.page);
+      videoRefs.current.forEach((video, index) => {
+        if (video && index !== details.page) {
+          pauseVideo(index);
+        }
+      });
+      setPlayingIndex((index) => (index === details.page ? index : null));
+    },
+    [pauseVideo],
+  );
+
+  const toggleVideo = useCallback(
+    (index: number) => {
+      const video = videoRefs.current[index];
+
+      if (!video) {
+        return;
+      }
+
+      if (!video.paused) {
+        pauseVideo(index);
+        setPlayingIndex(null);
+        return;
+      }
+
+      pauseOtherVideos(index);
+      video.play()
+        .then(() => {
+          setPlayingIndex(index);
+        })
+        .catch(() => {
+          setPlayingIndex(null);
+        });
+    },
+    [pauseOtherVideos, pauseVideo],
+  );
+
+  useEffect(() => {
+    videoRefs.current = videoRefs.current.slice(0, assets.length);
+  }, [assets.length]);
+
+  useEffect(() => {
+    return () => {
+      videoRefs.current.forEach((video) => video?.pause());
+    };
+  }, []);
+
   if (!assets || assets.length === 0) {
     return null;
   }
@@ -65,26 +116,80 @@ export function ThumbnailsCarousel({
     <Carousel.Root
       defaultPage={0}
       slideCount={assets.length}
+      onPageChange={handlePageChange}
       className={cn("w-full transition-opacity duration-300", className)}
     >
-      <Carousel.ItemGroup className="relative aspect-video rounded-2xl overflow-hidden bg-black group border shadow-sm mb-4">
+      <Carousel.ItemGroup className="relative mb-4 aspect-video max-h-[70vh] overflow-hidden rounded-2xl border bg-black shadow-sm">
         {assets.map((asset, index) => (
-          <Carousel.Item key={index} index={index} className="w-full h-full relative">
-            <Image
-              src={asset.full}
-              alt={`Slide ${index + 1}`}
-              fill
-              className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
-            />
+          <Carousel.Item key={asset.id ?? index} index={index} className="relative h-full w-full">
+            {asset.type === "video" ? (
+              <>
+                <video
+                  ref={(node) => {
+                    videoRefs.current[index] = node;
+                  }}
+                  src={asset.full}
+                  className="absolute inset-0 z-10 h-full w-full object-contain"
+                  playsInline
+                  preload="metadata"
+                  controls={playingIndex === index}
+                  onPlay={() => {
+                    pauseOtherVideos(index);
+                    setPlayingIndex(index);
+                  }}
+                  onPause={() => {
+                    setPlayingIndex((current) => (current === index ? null : current));
+                  }}
+                  onEnded={() => {
+                    setPlayingIndex((current) => (current === index ? null : current));
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <Image
+                  src={asset.full}
+                  alt=""
+                  fill
+                  sizes="(min-width: 768px) 80vw, 100vw"
+                  className="scale-105 object-cover opacity-25 blur-xl"
+                  aria-hidden="true"
+                  unoptimized={asset.full.startsWith("blob:")}
+                />
+                <Image
+                  src={asset.full}
+                  alt={`Delivery asset ${index + 1}`}
+                  fill
+                  sizes="(min-width: 768px) 80vw, 100vw"
+                  className="object-contain"
+                  unoptimized={asset.full.startsWith("blob:")}
+                />
+              </>
+            )}
             {asset.type === "video" && (
               <>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <button className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center hover:bg-primary transition-colors border border-white/20 group/play">
-                    <Play className="w-8 h-8 text-white ml-1 group-hover/play:scale-110 transition-transform" />
+                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleVideo(index);
+                    }}
+                    className={cn(
+                      "pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-md transition-all hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                      playingIndex === index && "opacity-0 hover:opacity-100 focus-visible:opacity-100",
+                    )}
+                    aria-label={playingIndex === index ? "Pause video" : "Play video"}
+                  >
+                    {playingIndex === index ? (
+                      <Pause className="h-8 w-8 transition-transform" fill="currentColor" />
+                    ) : (
+                      <Play className="ml-1 h-8 w-8 transition-transform" fill="currentColor" />
+                    )}
                   </button>
                 </div>
                 {asset.duration && (
-                  <div className="absolute bottom-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg text-xs font-mono text-white/90">
+                  <div className="absolute bottom-4 right-4 z-20 rounded-lg bg-black/60 px-3 py-1 font-mono text-xs text-white/90 backdrop-blur-md">
                     {asset.duration}
                   </div>
                 )}
@@ -101,19 +206,37 @@ export function ThumbnailsCarousel({
           </Carousel.PrevTrigger>
         )}
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
+        <div className="scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto px-0.5 py-1">
           {assets.map((asset, index) => (
-            <div key={index} className="relative shrink-0 w-24 aspect-video group/thumb">
+            <div key={asset.id ?? index} className="group/thumb relative aspect-video w-24 shrink-0">
               <Carousel.Indicator
                 index={index}
-                className="absolute inset-0 w-full h-full border-2 border-transparent data-current:border-primary rounded-lg overflow-hidden cursor-pointer transition-all hover:border-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="absolute inset-0 w-full h-full ring-2 ring-transparent data-current:ring-primary data-current:ring-offset-2 ring-offset-background rounded-lg overflow-hidden cursor-pointer transition-all hover:ring-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Image
-                  src={asset.thumb}
-                  alt={`Thumbnail ${index + 1}`}
-                  fill
-                  className="object-cover opacity-60 data-current:opacity-100 transition-opacity"
-                />
+                {asset.type === "video" ? (
+                  <video
+                    src={asset.thumb}
+                    className={cn(
+                      "h-full w-full object-cover transition-opacity",
+                      currentPage === index ? "opacity-100" : "opacity-65",
+                    )}
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <Image
+                    src={asset.thumb}
+                    alt={`Thumbnail ${index + 1}`}
+                    fill
+                    sizes="8rem"
+                    className={cn(
+                      "object-cover transition-opacity",
+                      currentPage === index ? "opacity-100" : "opacity-65",
+                    )}
+                    unoptimized={asset.thumb.startsWith("blob:")}
+                  />
+                )}
                 {asset.type === "video" && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />

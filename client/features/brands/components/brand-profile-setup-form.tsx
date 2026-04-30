@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Spinner } from "@/components/ui/spinner";
 import {
   useSubmitBrandProfileMutation,
   useUploadBrandLogoMutation,
@@ -45,7 +46,7 @@ export type BrandProfileSetupFormProps = {
   variant: "onboarding" | "settings";
   mode: "create" | "update";
   initialProfile?: BrandProfileItemApi | null;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
 };
 
@@ -99,7 +100,7 @@ function BrandProfileSetupFormContent({
     onSuccess,
   });
   const pending = submitBrandProfileMutation.isPending;
-  useEffect(() => {
+  useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
   const uploadingLogo = uploadBrandLogoMutation.isPending;
@@ -330,13 +331,24 @@ function BrandProfileSetupFormContent({
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <Button type="submit" disabled={pending || uploadingLogo}>
-            {pending
-              ? mode === "update"
-                ? "Saving…"
-                : "Creating…"
-              : mode === "update"
-                ? "Save changes"
-                : "Create profile"}
+            {pending ? (
+              variant === "onboarding" ? (
+                mode === "update" ? (
+                  "Saving…"
+                ) : (
+                  "Creating…"
+                )
+              ) : (
+                <>
+                  <Spinner className="size-4" aria-hidden />
+                  {mode === "update" ? "Saving…" : "Creating…"}
+                </>
+              )
+            ) : mode === "update" ? (
+              "Save changes"
+            ) : (
+              "Create profile"
+            )}
           </Button>
         </div>
       </form>

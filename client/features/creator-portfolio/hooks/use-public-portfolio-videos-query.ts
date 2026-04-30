@@ -8,6 +8,7 @@ import {
 type UsePublicPortfolioVideosQueryOptions = {
   enabled?: boolean;
   initialData?: PortfolioVideoApi[];
+  placeholderData?: PortfolioVideoApi[];
   staleTime?: number;
 };
 
@@ -20,6 +21,7 @@ export function usePublicPortfolioVideosQuery(
     queryFn: () => fetchPublicPortfolioVideosByCreatorId(creatorId),
     enabled: options?.enabled,
     initialData: options?.initialData,
+    placeholderData: options?.placeholderData,
     staleTime: options?.staleTime,
   });
 }

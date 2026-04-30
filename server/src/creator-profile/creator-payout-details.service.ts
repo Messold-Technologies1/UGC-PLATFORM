@@ -144,6 +144,7 @@ export class CreatorPayoutDetailsService {
       accountHolderName: hasBank ? row.accountHolderName ?? undefined : undefined,
       hasUpi,
       upiMasked: hasUpi && upiVal ? maskUpi(upiVal) : undefined,
+      upiId: hasUpi && upiVal ? upiVal : undefined,
     };
   }
 

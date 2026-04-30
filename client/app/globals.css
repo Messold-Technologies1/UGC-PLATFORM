@@ -191,7 +191,7 @@
   .dark {
     --skeleton-color: #ece7dd;
     --skeleton-dark-color: #26221c;
-    --background: oklch(0.17 0.007 17);
+    --background: oklch(0% 0 0);
     --foreground: oklch(0.969 0.004 17.3);
     --card: oklch(0.23 0.009 17.2);
     --card-foreground: oklch(0.969 0.004 17.3);

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -182,7 +183,7 @@ export type CreatorProfileSetupFormProps = {
 
   profileId?: string;
   initialProfile?: CreatorProfileItemApi | null;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
 };
 
@@ -245,7 +246,7 @@ function CreatorProfileSetupFormContent({
     staleTime: 5 * 60_000,
   });
   const pending = submitCreatorProfileMutation.isPending;
-  useEffect(() => {
+  useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
   const [displayName, setDisplayName] = useState(() =>
@@ -922,13 +923,24 @@ function CreatorProfileSetupFormContent({
         className="mt-8 w-full sm:w-auto"
         disabled={pending}
       >
-        {pending
-          ? mode === "update"
-            ? "Saving…"
-            : "Creating…"
-          : mode === "update"
-            ? "Save changes"
-            : "Create profile"}
+        {pending ? (
+          variant === "onboarding" ? (
+            mode === "update" ? (
+              "Saving…"
+            ) : (
+              "Creating…"
+            )
+          ) : (
+            <>
+              <Spinner className="size-4" aria-hidden />
+              {mode === "update" ? "Saving…" : "Creating…"}
+            </>
+          )
+        ) : mode === "update" ? (
+          "Save changes"
+        ) : (
+          "Create profile"
+        )}
       </Button>
     </form>
   );

@@ -11,5 +11,7 @@ export function useCreatorPayoutDetailsQuery(options?: {
     queryKey: creatorPayoutDetailsQueryKey,
     queryFn: fetchCreatorPayoutDetailsMe,
     enabled: options?.enabled,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }

@@ -51,6 +51,7 @@ export interface AddOn {
   id: string;
   label: string;
   price: number;
+  description?: string | null;
 }
 
 export interface Review {

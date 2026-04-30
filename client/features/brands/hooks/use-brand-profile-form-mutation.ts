@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   useMutation,
   useQueryClient,
@@ -78,10 +77,9 @@ export function useSubmitBrandProfileMutation({
   onSuccess,
 }: {
   mode: BrandProfileMode;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
 }) {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   const invalidateBrandProfileQueries = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
@@ -142,11 +140,7 @@ export function useSubmitBrandProfileMutation({
         toast.success("Brand profile created");
       }
 
-      onSuccess?.();
-
-      if (mode === "create") {
-        router.replace("/brand/account");
-      }
+      await onSuccess?.();
     },
     onError: (error) => {
       if (isAxiosError(error) && error.response?.status === 403) {

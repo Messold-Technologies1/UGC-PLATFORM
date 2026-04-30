@@ -3,15 +3,9 @@ import Image from "next/image";
 import { CreatorProfileResponseDto } from "@/features/admin/types";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { RejectDialog } from "./RejectDialog";
+import { PackagesTab } from "@/features/creators/components/packages-tab";
 
 export default function ReviewDrawer({
   isOpen,
@@ -27,6 +21,36 @@ export default function ReviewDrawer({
   const { mutate: reject, isPending: isRejecting } = useRejectCreatorMutation();
 
   const [isRejectOpen, setIsRejectOpen] = React.useState(false);
+
+
+  const mappedPackages = (() => {
+    if (!creator?.packages) return [];
+    return creator.packages.map((p) => {
+      let tier: "basic" | "standard" | "premium" = "basic";
+      const lowerName = p.name.toLowerCase();
+      if (lowerName.includes("standard") || lowerName.includes("pro") || lowerName.includes("popular")) tier = "standard";
+      else if (lowerName.includes("premium") || lowerName.includes("elite")) tier = "premium";
+
+      return {
+        id: p.id,
+        tier,
+        label: p.name,
+        price: parseFloat(p.priceAmount) || 0,
+        deliveryDays: p.deliveryDays,
+        revisions: (p as unknown as { maxRevisions?: number }).maxRevisions || 1,
+        features: p.deliverables || [],
+      };
+    });
+  })();
+
+  const mappedAddOns = (() => {
+    if (!creator?.addOns) return [];
+    return creator.addOns.map((a) => ({
+      id: a.id,
+      label: a.name,
+      price: parseFloat(a.priceAmount) || 0,
+    }));
+  })();
 
   const handleApprove = () => {
     if (!creator) return;
@@ -74,7 +98,7 @@ export default function ReviewDrawer({
         }}
         direction="right"
       >
-        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[500px] lg:data-[vaul-drawer-direction=right]:max-w-[600px] h-full data-[vaul-drawer-direction=right]:rounded-none border-l border-border/30 bg-background shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[500px] lg:data-[vaul-drawer-direction=right]:max-w-[600px] h-full data-[vaul-drawer-direction=right]:rounded-none border-l border-border/30 bg-background shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto overflow-x-hidden flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           {creator && (
             <>
               <div className="flex items-center justify-between px-8 py-6 border-b border-border/20 sticky top-0 bg-background z-10">
@@ -148,7 +172,7 @@ export default function ReviewDrawer({
                         {creator.personaTags.map((p) => (
                           <span
                             key={p.id}
-                            className="text-[10px] font-bold px-2 py-1 bg-secondary/10 border border-secondary/20 text-secondary rounded-md uppercase tracking-wider"
+                            className="text-[10px] font-bold px-2 py-1 bg-secondary text-secondary-foreground rounded-md uppercase tracking-wider"
                           >
                             {p.tag}
                           </span>
@@ -193,98 +217,17 @@ export default function ReviewDrawer({
                   </div>
                 </section>
 
-                {creator.packages && creator.packages.length > 0 && (
-                  <section className="space-y-4">
+                {(mappedPackages.length > 0 || mappedAddOns.length > 0) && (
+                  <section className="space-y-6">
                     <h3 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Packages & Delivery
                     </h3>
-                    <div className="px-10">
-                      <Carousel opts={{ align: "start" }} className="w-full">
-                        <CarouselContent>
-                          {creator.packages.map((p) => (
-                            <CarouselItem key={p.id} className="md:basis-1/2">
-                              <div className="relative group p-px rounded-2xl bg-border/40 hover:bg-linear-to-b hover:from-primary/50 hover:to-border/40 transition-all duration-300 h-full flex flex-col cursor-default">
-                                <div className="bg-background/90 backdrop-blur-md p-5 rounded-2xl flex flex-col h-full z-10 transition-colors group-hover:bg-background/95 shadow-sm">
-                                  <div className="flex justify-between items-start mb-3">
-                                    <h4 className="font-headline font-extrabold text-base text-foreground pr-4 leading-tight group-hover:text-primary transition-colors">
-                                      {p.name}
-                                    </h4>
-                                    <div className="px-2.5 py-1 bg-primary/10 rounded-lg whitespace-nowrap">
-                                      <span className="font-black text-sm text-primary tracking-tight">
-                                        ${p.priceAmount}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center space-x-2 text-xs font-semibold text-muted-foreground mb-4 bg-muted/50 w-fit px-2 py-1 rounded-md">
-                                    <span className="material-symbols-outlined text-[13px] text-primary/70">
-                                      schedule
-                                    </span>
-                                    <span>{p.deliveryDays} Days Delivery</span>
-                                  </div>
-
-                                  {p.deliverables &&
-                                    p.deliverables.length > 0 && (
-                                      <div className="mt-auto space-y-2 border-t border-border/50 pt-4">
-                                        <h5 className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/80 mb-2">
-                                          Deliverables
-                                        </h5>
-                                        <ul className="space-y-2">
-                                          {p.deliverables.map((d, i) => (
-                                            <li
-                                              key={i}
-                                              className="flex items-start space-x-2 text-xs text-foreground/80"
-                                            >
-                                              <span className="material-symbols-outlined text-[14px] text-green-500 shrink-0 mt-0.5">
-                                                check_circle
-                                              </span>
-                                              <span className="leading-snug">
-                                                {d}
-                                              </span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                </div>
-                              </div>
-                            </CarouselItem>
-                          ))}
-                        </CarouselContent>
-                        <CarouselPrevious className="-left-6 md:-left-8 border-primary/20 hover:bg-primary hover:text-primary-foreground bg-background shadow-md transition-all" />
-                        <CarouselNext className="-right-6 md:-right-8 border-primary/20 hover:bg-primary hover:text-primary-foreground bg-background shadow-md transition-all" />
-                      </Carousel>
-                    </div>
-                  </section>
-                )}
-
-                {creator.addOns && creator.addOns.length > 0 && (
-                  <section className="space-y-4">
-                    <h3 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      Add-Ons
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {creator.addOns.map((a) => (
-                        <div
-                          key={a.id}
-                          className="p-3 rounded-xl border border-border/30 bg-card/30 flex flex-col justify-between group hover:border-secondary/30 transition-colors"
-                        >
-                          <div>
-                            <h4 className="text-xs font-bold text-foreground mb-1">
-                              {a.name}
-                            </h4>
-                            {a.description && (
-                              <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
-                                {a.description}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-xs font-bold text-secondary mt-3">
-                            +${a.priceAmount}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    <PackagesTab
+                      packages={mappedPackages}
+                      addOns={mappedAddOns}
+                      readOnly={true}
+                      horizontalScroll={true}
+                    />
                   </section>
                 )}
 

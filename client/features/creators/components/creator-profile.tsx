@@ -67,7 +67,7 @@ export function CreatorProfile({
     null,
   );
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
-
+console.log("Creator packages", creator.packages);
   const selectedPackage = useMemo(
     () => creator.packages.find((p) => p.id === selectedPackageId) ?? null,
     [creator.packages, selectedPackageId],
@@ -204,7 +204,7 @@ export function CreatorProfile({
               onProceedToCheckout={handleProceedToCheckout}
             />
 
-            <div className="rounded-2xl border border-border bg-card p-6">
+            {/* <div className="rounded-2xl border border-border bg-card p-6">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Why Book {creator.name.split(" ")[0]}?
               </h3>
@@ -256,7 +256,7 @@ export function CreatorProfile({
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

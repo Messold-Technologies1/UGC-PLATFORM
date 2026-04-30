@@ -121,6 +121,17 @@ export function CreatorListing({
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
   const [showFilters, setShowFilters] = useState(true);
 
+  const [scrollParent, setScrollParent] = useState<HTMLElement | undefined>();
+
+  useEffect(() => {
+    const parent = document.getElementById("main-content");
+    if (parent) {
+      requestAnimationFrame(() => {
+        setScrollParent(parent);
+      });
+    }
+  }, []);
+
   const listingRef = useRef({ filters });
 
   useEffect(() => {
@@ -281,7 +292,7 @@ export function CreatorListing({
   return (
     <div className="w-full min-w-0">
       <header className="mb-10 md:mb-12">
-        <h1 className="text-2xl font-extrabold tracking-tighter text-foreground md:text-4xl">
+        <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
           Browse Creators
         </h1>
         <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
@@ -377,7 +388,8 @@ export function CreatorListing({
           {creators.length > 0 ? (
             <>
               <VirtuosoGrid
-                useWindowScroll
+                useWindowScroll={!scrollParent}
+                customScrollParent={scrollParent}
                 data={creators}
                 endReached={handleEndReached}
                 listClassName={cn(

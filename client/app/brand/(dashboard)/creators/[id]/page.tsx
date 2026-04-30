@@ -7,12 +7,30 @@ import {
   isCreatorProfileUuid,
 } from "@/features/creators/api/fetch-creator-profile";
 import { mapProfileItemToCreatorProfile } from "@/features/creators/api/map-profile-to-creator";
+import type { CreatorProfileItemApi } from "@/features/creators/api/types";
+import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+}
+
+function mapFirstPortfolioVideoToInitialVideos(
+  profile: CreatorProfileItemApi,
+): PortfolioVideoApi[] | undefined {
+  const video = profile.firstPortfolioVideo;
+  if (!video) return undefined;
+
+  return [
+    {
+      ...video,
+      language: null,
+      description: null,
+      visibilityStatus: "public",
+    },
+  ];
 }
 
 export async function generateMetadata({
@@ -46,7 +64,15 @@ export default async function CreatorProfilePage({ params }: PageProps) {
 
   if (result.ok) {
     const creator = mapProfileItemToCreatorProfile(result.profile);
-    return <CreatorProfile key={id} creator={creator} />;
+    return (
+      <CreatorProfile
+        key={id}
+        creator={creator}
+        initialPortfolioVideos={mapFirstPortfolioVideoToInitialVideos(
+          result.profile,
+        )}
+      />
+    );
   }
 
   if (result.status === 401) {

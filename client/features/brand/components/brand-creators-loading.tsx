@@ -179,13 +179,17 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
 function BrandCreatorsFixtureView() {
   return (
     <div className="w-full min-w-0">
-      <header className="mb-10 md:mb-12">
-        <h1 className="text-2xl font-extrabold tracking-tighter text-foreground md:text-4xl">
+      <header className="space-y-6">
+        <div className="flex items-end justify-between">
+          <div>
+        <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
           Browse Creators
         </h1>
-        <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
+        {/* <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
           Find and hire talented UGC creators to bring your brand story to life.
-        </p>
+        </p> */}
+        </div>
+        </div>
       </header>
 
       <div className="sticky top-0 z-30 mb-10">

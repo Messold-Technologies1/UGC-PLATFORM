@@ -157,7 +157,7 @@ function mapApiPackages(
     label: p.name,
     price: Math.round(Number.parseFloat(p.priceAmount)) || 0,
     deliveryDays: p.deliveryDays,
-    revisions: 0,
+    revisions: p.maxRevisions,
     features:
       p.deliverables.length > 0 ? p.deliverables : ["See package details"],
   }));
@@ -171,6 +171,7 @@ function mapApiAddOns(
     id: addOn.id,
     label: addOn.name,
     price: Math.round(Number.parseFloat(addOn.priceAmount)) || 0,
+    description: addOn.description ?? null,
   }));
 }
 

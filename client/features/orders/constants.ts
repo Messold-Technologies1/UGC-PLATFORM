@@ -17,7 +17,7 @@ export const STATUS_LABELS: Record<string, string> = {
   BRIEF_SUBMISSION_PENDING: "Brief Required",
   BRIEF_SUBMITTED: "In Progress",
   DELIVERED: "Delivered",
-  REVISION_REQUESTED: "Revising",
+  REVISION_REQUESTED: "Revision Requested",
   REVISION_SUBMITTED: "Revision Delivered",
   ACCEPTED: "Completed",
   CREATOR_PAYMENT_DONE: "Paid Out",

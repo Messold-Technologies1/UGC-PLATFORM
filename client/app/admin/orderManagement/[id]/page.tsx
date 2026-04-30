@@ -16,12 +16,16 @@ import {
   History,
   Package,
   User,
+  ClipboardCheck,
+  BadgeDollarSign,
+  RotateCcw,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import TrackingTimeline, { TimelineItem } from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 
@@ -122,14 +126,16 @@ function AdminOrderDetailsSkeleton() {
       </section>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
-        <div className="space-y-8 xl:col-span-2">
+        <div className="flex flex-col gap-8 xl:col-span-2">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+            <Skeleton className="h-44 rounded-3xl" />
+            <Skeleton className="h-44 rounded-3xl" />
+          </div>
           <Skeleton className="h-136 rounded-3xl" />
-          <Skeleton className="h-96 rounded-3xl" />
         </div>
-        <div className="space-y-8">
-          <Skeleton className="h-44 rounded-3xl" />
-          <Skeleton className="h-44 rounded-3xl" />
+        <div className="flex flex-col gap-8">
           <Skeleton className="h-80 rounded-3xl" />
+          <Skeleton className="h-[600px] rounded-3xl" />
         </div>
       </div>
     </div>
@@ -194,44 +200,80 @@ export default function AdminOrderDetailsPage() {
   const totalAmount = order.expectedAmountPaise / 100;
   const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
 
-  const timeline = [
-    { label: "Order Created", date: order.createdAt, active: true },
+  const timelineConfig = [
+    { label: "Order Created", date: order.createdAt, active: true, icon: ClipboardCheck },
     {
       label: "Payment Received",
       date: order.paidAt,
       active: Boolean(order.paidAt),
+      icon: BadgeDollarSign,
     },
     {
       label: "Brief Submitted",
       date: order.briefSubmittedAt,
       active: Boolean(order.briefSubmittedAt),
+      icon: FileText,
     },
     {
       label: "Delivery Deadline",
       date: order.deliveryDeadlineAt,
       active: Boolean(order.deliveryDeadlineAt),
+      icon: Clock,
     },
     {
       label: "Content Delivered",
       date: order.deliveredAt,
       active: Boolean(order.deliveredAt),
+      icon: Package,
     },
     {
       label: "Order Accepted",
       date: order.acceptedAt,
       active: Boolean(order.acceptedAt),
+      icon: CheckCircle2,
     },
     {
       label: "Creator Paid",
       date: order.creatorPaidAt,
       active: Boolean(order.creatorPaidAt),
+      icon: BadgeDollarSign,
     },
     {
       label: "Refunded",
       date: order.refundedAt,
       active: Boolean(order.refundedAt),
+      icon: RotateCcw,
     },
   ];
+
+  const lastActiveIndex = timelineConfig.map((s) => s.active).lastIndexOf(true);
+
+  const timelineItems: TimelineItem[] = timelineConfig.map((step, index) => {
+    let status: TimelineItem["status"] = "pending";
+    if (step.active) {
+      status =
+        index === lastActiveIndex && index !== timelineConfig.length - 1
+          ? "in-progress"
+          : "completed";
+    }
+
+    const iconColor =
+      status === "completed"
+        ? "text-primary-foreground"
+        : status === "in-progress"
+          ? "text-primary"
+          : "text-muted-foreground";
+    
+    const IconComponent = step.icon;
+
+    return {
+      id: step.label,
+      title: step.label,
+      date: formatDate(step.date),
+      status,
+      icon: <IconComponent className={`h-4 w-4 ${iconColor}`} />,
+    };
+  });
 
   return (
     <div className="p-12 max-w-[1400px] mx-auto space-y-8 group selection-active">
@@ -273,7 +315,78 @@ export default function AdminOrderDetailsPage() {
         animate="visible"
         className="grid grid-cols-1 gap-8 xl:grid-cols-3"
       >
-        <div className="space-y-8 xl:col-span-2">
+        <div className="flex flex-col gap-8 xl:col-span-2">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+            <motion.div variants={itemVariants}>
+              <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+                <CardHeader className="border-b border-border/50 bg-muted/30 px-6 py-5 dark:border-border/10 dark:bg-card/20">
+                  <CardTitle className="flex items-center justify-between font-headline text-lg font-bold text-foreground">
+                    Brand
+                    <Badge className="border-indigo-500/20 bg-indigo-500/10 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-500/20">
+                      Client
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-5">
+                    <Avatar className="h-16 w-16 border-2 border-background shadow-md">
+                      <AvatarImage
+                        src={brand.logoUrl || undefined}
+                        alt={brand.companyName}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-primary/5 text-lg">
+                        <Building2 className="h-7 w-7 text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-xl font-bold leading-tight">
+                        {brand.companyName}
+                      </h4>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+                <CardHeader className="border-b border-border/50 bg-muted/30 px-6 py-5 dark:border-border/10 dark:bg-card/20">
+                  <CardTitle className="flex items-center justify-between font-headline text-lg font-bold text-foreground">
+                    Creator
+                    <Badge className="border-pink-500/20 bg-pink-500/10 text-[10px] font-bold uppercase tracking-wider text-pink-600 hover:bg-pink-500/20">
+                      Talent
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-5">
+                    <Avatar className="h-16 w-16 border-2 border-background shadow-md">
+                      <AvatarImage
+                        src={creator.profileImageUrl || undefined}
+                        alt={creator.displayName}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-primary/5 text-lg">
+                        {initials(creator.displayName) || (
+                          <User className="h-7 w-7 text-primary" />
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-xl font-bold leading-tight">
+                        {creator.displayName}
+                      </h4>
+                      <p className="mt-1.5 truncate text-sm text-muted-foreground">
+                        {creator.city ?? "Remote"}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
           <motion.div variants={itemVariants}>
             <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
               <div className="border-b border-border/50 bg-linear-to-br from-primary/10 via-primary/5 to-transparent px-8 py-6 dark:border-border/10">
@@ -294,7 +407,7 @@ export default function AdminOrderDetailsPage() {
                       Delivery in {order.deliveryDaysSnapshot} days
                     </p>
                   </div>
-                  <div className="rounded-2xl  p-5 backdrop-blur-sm dark:border-border/10 md:text-right">
+                  <div className="rounded-2xl p-5 backdrop-blur-sm dark:border-border/10 md:text-right">
                     <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                       Base Price
                     </p>
@@ -384,119 +497,9 @@ export default function AdminOrderDetailsPage() {
               </CardContent>
             </Card>
           </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-              <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
-                <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
-                  <Clock className="h-5 w-5 text-primary" />
-                  Order Journey
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="relative ml-5 space-y-8 border-l-2 border-primary/20 py-2">
-                  {timeline.map((step) => (
-                    <div
-                      key={step.label}
-                      className={`relative pl-10 transition-opacity duration-300 ${
-                        step.active ? "opacity-100" : "opacity-40"
-                      }`}
-                    >
-                      <span
-                        className={`absolute -left-[11px] top-0.5 h-5 w-5 rounded-full ring-4 ring-card shadow-sm ${
-                          step.active
-                            ? "bg-primary"
-                            : "border-2 border-muted-foreground/30 bg-muted"
-                        }`}
-                      />
-                      <h4
-                        className={`text-base font-bold ${
-                          step.active ? "" : "text-muted-foreground"
-                        }`}
-                      >
-                        {step.label}
-                      </h4>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {formatDate(step.date)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
 
-        <div className="space-y-8">
-          <motion.div variants={itemVariants}>
-            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-              <CardHeader className="border-b border-border/50 bg-muted/30 px-6 py-5 dark:border-border/10 dark:bg-card/20">
-                <CardTitle className="flex items-center justify-between font-headline text-lg font-bold text-foreground">
-                  Brand
-                  <Badge className="border-indigo-500/20 bg-indigo-500/10 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-500/20">
-                    Client
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-5">
-                  <Avatar className="h-16 w-16 border-2 border-background shadow-md">
-                    <AvatarImage
-                      src={brand.logoUrl || undefined}
-                      alt={brand.companyName}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-primary/5 text-lg">
-                      <Building2 className="h-7 w-7 text-primary" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-xl font-bold leading-tight">
-                      {brand.companyName}
-                    </h4>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-              <CardHeader className="border-b border-border/50 bg-muted/30 px-6 py-5 dark:border-border/10 dark:bg-card/20">
-                <CardTitle className="flex items-center justify-between font-headline text-lg font-bold text-foreground">
-                  Creator
-                  <Badge className="border-pink-500/20 bg-pink-500/10 text-[10px] font-bold uppercase tracking-wider text-pink-600 hover:bg-pink-500/20">
-                    Talent
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-5">
-                  <Avatar className="h-16 w-16 border-2 border-background shadow-md">
-                    <AvatarImage
-                      src={creator.profileImageUrl || undefined}
-                      alt={creator.displayName}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-primary/5 text-lg">
-                      {initials(creator.displayName) || (
-                        <User className="h-7 w-7 text-primary" />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-xl font-bold leading-tight">
-                      {creator.displayName}
-                    </h4>
-                    <p className="mt-1.5 truncate text-sm text-muted-foreground">
-                      {creator.city ?? "Remote"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
+        <div className="flex flex-col gap-8">
           <motion.div variants={itemVariants}>
             <Card className="overflow-hidden rounded-3xl border-border/50 bg-linear-to-b from-card to-secondary/10 shadow-sm dark:border-border/10 dark:from-black/80 dark:to-black/50">
               <CardHeader className="border-b border-border/50 px-6 py-5 dark:border-border/10">
@@ -553,6 +556,20 @@ export default function AdminOrderDetailsPage() {
                     id={order.razorpayRefundId}
                   />
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+              <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+                <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
+                  <Clock className="h-5 w-5 text-primary" />
+                  Order Journey
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-8">
+                <TrackingTimeline items={timelineItems} />
               </CardContent>
             </Card>
           </motion.div>

@@ -70,6 +70,7 @@ export const ENDPOINTS = {
     },
     ORDERS: {
       LIST: "/api/admin/orders",
+      DETAIL: (id: string) => `/api/admin/orders/${encodeURIComponent(id)}`,
     },
   },
 } as const;

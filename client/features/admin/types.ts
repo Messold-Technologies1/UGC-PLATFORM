@@ -1,6 +1,7 @@
 import type {
   OrderBrandSnapshot,
   OrderCreatorSnapshot,
+  OrderDetailsPublic,
   OrderListSummary,
 } from "@/features/orders/api/types";
 
@@ -127,4 +128,16 @@ export interface AdminOrdersListResponseDto {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface AdminOrderDetailsDto extends OrderDetailsPublic {
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpayRefundId?: string | null;
+}
+
+export interface AdminOrderDetailsResponseDto {
+  order: AdminOrderDetailsDto;
+  creator: OrderCreatorSnapshot;
+  brand: OrderBrandSnapshot;
 }

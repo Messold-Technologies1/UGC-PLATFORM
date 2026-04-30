@@ -158,7 +158,8 @@ export default function OrderManagement() {
           </table>
         </div>
       </section>
-      <div className="flex items-center justify-between border-t border-border/50 dark:border-border/10 px-8 py-6 bg-muted/30 dark:bg-card/20">
+
+      <div className="flex items-center justify-between border-t border-border/50 dark:border-border/10 px-8 py-6 dark:bg-card/20">
         <div className="flex items-center space-x-4 min-w-[150px]">
           <div className="flex items-center space-x-1">
             <span className="text-sm text-muted-foreground">Page</span>

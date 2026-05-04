@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeft,
+  Ban,
   Building2,
   //Calendar,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   Copy,
   FileText,
   History,
+  Loader2,
   Package,
   User,
   ClipboardCheck,
@@ -24,7 +26,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  useMarkAdminOrderCreatorPaidMutation,
+  useRefundAdminOrderMutation,
+  useRejectAdminOrderMutation,
+} from "@/features/admin/hooks/use-admin-order-action-mutations";
 import TrackingTimeline, { TimelineItem } from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
@@ -159,9 +175,17 @@ export default function AdminOrderDetailsPage() {
   const params = useParams();
   const idParam = params.id;
   const orderId = Array.isArray(idParam) ? idParam[0] : idParam;
+  const [confirmAction, setConfirmAction] = useState<
+    "mark-creator-paid" | "refund" | null
+  >(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectNotes, setRejectNotes] = useState("");
   const { data, isLoading, isError, error } = useAdminOrderDetailsQuery(
     orderId ?? "",
   );
+  const markCreatorPaidMutation = useMarkAdminOrderCreatorPaidMutation();
+  const rejectOrderMutation = useRejectAdminOrderMutation();
+  const refundOrderMutation = useRefundAdminOrderMutation();
 
   if (isLoading) {
     return <AdminOrderDetailsSkeleton />;
@@ -197,8 +221,68 @@ export default function AdminOrderDetailsPage() {
   }
 
   const { order, creator, brand } = data;
+  const canMarkCreatorPaid =
+    order.status === "ACCEPTED" && !order.creatorPaidAt;
+  const canRejectOrder = order.status === "DISPUTED";
+  const canRefundOrder = order.status === "REJECTED" && !order.refundedAt;
+  const isActionPending =
+    markCreatorPaidMutation.isPending ||
+    rejectOrderMutation.isPending ||
+    refundOrderMutation.isPending;
   const totalAmount = order.expectedAmountPaise / 100;
   const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+
+    if (confirmAction === "mark-creator-paid") {
+      markCreatorPaidMutation.mutate(
+        { orderId: order.id },
+        { onSuccess: () => setConfirmAction(null) },
+      );
+      return;
+    }
+
+    refundOrderMutation.mutate(
+      { orderId: order.id },
+      { onSuccess: () => setConfirmAction(null) },
+    );
+  };
+
+  const handleRejectOrder = () => {
+    const resolutionNotes = rejectNotes.trim();
+
+    rejectOrderMutation.mutate(
+      {
+        orderId: order.id,
+        resolutionNotes: resolutionNotes || undefined,
+      },
+      {
+        onSuccess: () => {
+          setRejectDialogOpen(false);
+          setRejectNotes("");
+        },
+      },
+    );
+  };
+
+  const confirmActionCopy =
+    confirmAction === "mark-creator-paid"
+      ? {
+          title: "Mark Creator Paid",
+          description:
+            "Use this only after the creator has been paid manually from the company bank account.",
+          action: "Mark Paid",
+          icon: BadgeDollarSign,
+        }
+      : {
+          title: "Trigger Razorpay Refund",
+          description:
+            "This calls Razorpay immediately. The order must already be rejected, and a successful refund will mark it refunded.",
+          action: "Trigger Refund",
+          icon: RotateCcw,
+        };
+  const ConfirmIcon = confirmActionCopy.icon;
 
   const timelineConfig = [
     { label: "Order Created", date: order.createdAt, active: true, icon: ClipboardCheck },
@@ -501,6 +585,66 @@ export default function AdminOrderDetailsPage() {
 
         <div className="flex flex-col gap-8">
           <motion.div variants={itemVariants}>
+            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+              <CardHeader className="border-b border-border/50 bg-muted/30 px-6 py-5 dark:border-border/10 dark:bg-card/20">
+                <CardTitle className="flex items-center gap-2 font-headline text-lg font-bold text-foreground">
+                  <BadgeDollarSign className="h-5 w-5 text-primary" />
+                  Admin Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="relative space-y-3 p-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full justify-start rounded-xl border-emerald-500/20 bg-emerald-500/10 text-emerald-700 shadow-none hover:bg-emerald-500/20 hover:text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 dark:hover:text-emerald-300"
+                  disabled={!canMarkCreatorPaid || isActionPending}
+                  onClick={() => setConfirmAction("mark-creator-paid")}
+                >
+                  {markCreatorPaidMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <BadgeDollarSign className="h-4 w-4" />
+                  )}
+                  Mark creator paid
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full justify-start rounded-xl border-rose-500/20 bg-rose-500/10 text-rose-700 shadow-none hover:bg-rose-500/20 hover:text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 dark:hover:text-rose-300"
+                  disabled={!canRejectOrder || isActionPending}
+                  onClick={() => setRejectDialogOpen(true)}
+                >
+                  {rejectOrderMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Ban className="h-4 w-4" />
+                  )}
+                  Reject
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full justify-start rounded-xl border-amber-500/20 bg-amber-500/10 text-amber-700 shadow-none hover:bg-amber-500/20 hover:text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
+                  disabled={!canRefundOrder || isActionPending}
+                  onClick={() => setConfirmAction("refund")}
+                >
+                  {refundOrderMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
+                  Trigger Razorpay refund
+                </Button>
+                {/* <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
+                  Available actions are based on the current order status. Paid
+                  creator requires Accepted, reject requires Disputed, and
+                  refund requires Rejected.
+                </p> */}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
             <Card className="overflow-hidden rounded-3xl border-border/50 bg-linear-to-b from-card to-secondary/10 shadow-sm dark:border-border/10 dark:from-black/80 dark:to-black/50">
               <CardHeader className="border-b border-border/50 px-6 py-5 dark:border-border/10">
                 <CardTitle className="flex items-center gap-2 font-headline text-lg font-bold text-foreground">
@@ -575,6 +719,97 @@ export default function AdminOrderDetailsPage() {
           </motion.div>
         </div>
       </motion.div>
+
+      <Dialog
+        open={Boolean(confirmAction)}
+        onOpenChange={(open) => {
+          if (!open && !isActionPending) setConfirmAction(null);
+        }}
+      >
+        <DialogContent showCloseButton={!isActionPending}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ConfirmIcon className="h-4 w-4 text-primary" />
+              {confirmActionCopy.title}
+            </DialogTitle>
+            <DialogDescription>{confirmActionCopy.description}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isActionPending}
+              onClick={() => setConfirmAction(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isActionPending}
+              onClick={handleConfirmAction}
+            >
+              {isActionPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              {confirmActionCopy.action}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={rejectDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !rejectOrderMutation.isPending) setRejectDialogOpen(false);
+        }}
+      >
+        <DialogContent showCloseButton={!rejectOrderMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-4 w-4 text-destructive" />
+              Reject Order
+            </DialogTitle>
+            <DialogDescription>
+              This marks the order rejected and resolves open disputes as
+              refunded. Add internal resolution notes if helpful.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Resolution notes
+            </p>
+            <Textarea
+              value={rejectNotes}
+              onChange={(event) => setRejectNotes(event.target.value)}
+              disabled={rejectOrderMutation.isPending}
+              maxLength={2000}
+              placeholder="Optional admin notes"
+              className="min-h-28"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={rejectOrderMutation.isPending}
+              onClick={() => setRejectDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={rejectOrderMutation.isPending}
+              onClick={handleRejectOrder}
+            >
+              {rejectOrderMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Reject Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -159,8 +159,8 @@ export default function OrderManagement() {
         </div>
       </section>
 
-      <div className="flex items-center justify-between border-t border-border/50 dark:border-border/10 px-8 py-6 dark:bg-card/20">
-        <div className="flex items-center space-x-4 min-w-[150px]">
+      <div className="flex flex-col md:flex-row items-center justify-between border-t border-border/50 pt-8 mt-12 pb-20 gap-6">
+        <div className="flex items-center justify-center md:justify-start space-x-4 min-w-[150px] w-full md:w-auto">
           <div className="flex items-center space-x-1">
             <span className="text-sm text-muted-foreground">Page</span>
             <span className="text-sm font-bold text-foreground">{page}</span>
@@ -168,12 +168,12 @@ export default function OrderManagement() {
               of {totalPages}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground font-bold border-l border-border uppercase tracking-widest whitespace-nowrap">
+          <span className="text-xs text-muted-foreground font-bold border-l border-border uppercase tracking-widest whitespace-nowrap pl-4">
             Showing: {showingStart}-{showingEnd} of {total} results
           </span>
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 flex justify-center w-full">
           <Pagination>
             <PaginationContent>
               <PaginationItem>
@@ -234,9 +234,9 @@ export default function OrderManagement() {
           </Pagination>
         </div>
 
-        <div className="flex items-center space-x-2 min-w-[150px] justify-end">
+        <div className="flex items-center space-x-2 min-w-[150px] justify-center md:justify-end w-full md:w-auto">
           <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest whitespace-nowrap">
-            Rows Per Page:
+            Rows per page:
           </span>
           <Select
             value={limit.toString()}

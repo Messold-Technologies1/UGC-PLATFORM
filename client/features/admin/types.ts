@@ -141,3 +141,16 @@ export interface AdminOrderDetailsResponseDto {
   creator: OrderCreatorSnapshot;
   brand: OrderBrandSnapshot;
 }
+
+export interface AdminOrderActionPayload {
+  orderId: string;
+}
+
+export interface AdminRejectOrderPayload extends AdminOrderActionPayload {
+  resolutionNotes?: string;
+}
+
+export interface AdminOrderRefundResponseDto {
+  refundId: string;
+  refundStatus: string;
+}

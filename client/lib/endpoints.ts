@@ -71,6 +71,12 @@ export const ENDPOINTS = {
     ORDERS: {
       LIST: "/api/admin/orders",
       DETAIL: (id: string) => `/api/admin/orders/${encodeURIComponent(id)}`,
+      MARK_CREATOR_PAID: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/mark-creator-paid`,
+      REJECT: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/reject`,
+      REFUND: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/refund`,
     },
   },
 } as const;

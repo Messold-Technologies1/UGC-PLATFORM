@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BrandCategory, BrandProductType } from '@prisma/client';
 
 export class BrandProfileResponseDto {
   @ApiProperty({ example: 'uuid' })
@@ -10,8 +11,32 @@ export class BrandProfileResponseDto {
   @ApiProperty({ example: 'brand@example.com' })
   email!: string;
 
-  @ApiProperty({ example: 'Acme Inc.' })
-  companyName!: string;
+  @ApiPropertyOptional({ example: 'Jane Doe' })
+  contactFullName!: string | null;
+
+  @ApiPropertyOptional({ example: 'brand@example.com' })
+  contactEmail!: string | null;
+
+  @ApiPropertyOptional({ example: '+91 98765 43210' })
+  contactPhone!: string | null;
+
+  @ApiProperty({ example: 'Acme' })
+  brandName!: string;
+
+  @ApiPropertyOptional({ example: 'ACK-mee' })
+  brandPronunciation!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'brand-pronunciation/<brandProfileId>/<uuid>.webm',
+    nullable: true,
+  })
+  brandPronunciationAudioKey!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/brand-pronunciation/...webm',
+    nullable: true,
+  })
+  brandPronunciationAudioUrl!: string | null;
 
   @ApiPropertyOptional({ example: 'brand-logo/<brandProfileId>/<uuid>.png' })
   logoKey!: string | null;
@@ -22,11 +47,18 @@ export class BrandProfileResponseDto {
   @ApiPropertyOptional({ example: 'https://acme.com' })
   website!: string | null;
 
-  @ApiPropertyOptional({ example: 'Skincare' })
-  industry!: string | null;
+  @ApiPropertyOptional({ example: 'https://instagram.com/acme' })
+  instagramUrl!: string | null;
 
-  @ApiPropertyOptional({ example: 'Jane (Marketing Lead)' })
-  contactPerson!: string | null;
+  @ApiPropertyOptional({ enum: BrandProductType })
+  productType!: BrandProductType | null;
+
+  @ApiProperty({
+    enum: BrandCategory,
+    isArray: true,
+    description: 'Selected brand categories.',
+  })
+  categories!: BrandCategory[];
 
   @ApiProperty()
   createdAt!: Date;

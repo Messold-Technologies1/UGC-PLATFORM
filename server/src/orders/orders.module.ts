@@ -6,9 +6,10 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageModule } from '../storage/storage.module';
+import { OrderChatModule } from '../order-chat/order-chat.module';
 
 @Module({
-  imports: [AuthModule, RazorpayModule, RealtimeModule, StorageModule],
+  imports: [AuthModule, RazorpayModule, RealtimeModule, StorageModule, OrderChatModule],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

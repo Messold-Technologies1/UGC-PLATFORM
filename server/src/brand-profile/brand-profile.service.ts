@@ -5,18 +5,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RoleName } from '@prisma/client';
+import { BrandCategory, RoleName } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
+import { UpdateBrandProfileDto } from './dto/update-brand-profile.dto';
 import {
   PresignBrandLogoUploadDto,
   PresignUploadResponseDto,
 } from './dto/presign-brand-logo-upload.dto';
+import {
+  PresignBrandPronunciationUploadDto,
+} from './dto/presign-brand-pronunciation-upload.dto';
 import { BrandsListResponseDto } from './dto/brands-list-response.dto';
 import { BrandProfileResponseDto } from './dto/brand-profile-response.dto';
 import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { RemoveBrandRoleDto } from './dto/remove-brand-role.dto';
+import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
+import { BRAND_CATEGORY_OPTIONS } from './brand-category-options';
 
 @Injectable()
 export class BrandProfileService {
@@ -31,22 +37,45 @@ export class BrandProfileService {
     }
   }
 
+  private assertTempBrandPronunciationAudioKeyOwner(
+    userId: string,
+    key: string,
+  ): void {
+    if (!this.storage.isTempBrandPronunciationAudioKeyForUser(userId, key)) {
+      throw new BadRequestException('Invalid brandPronunciationAudioKey');
+    }
+  }
+
   // Keep this mapping loosely typed because Prisma client types can lag behind
   // generation in some monorepo/dev setups.
   private mapBrandProfile(profile: any): BrandProfileResponseDto {
+    const categories: BrandCategory[] =
+      profile.brandCategories?.map((b: { category: BrandCategory }) => b.category) ?? [];
+
     return {
       id: profile.id,
       userId: profile.userId,
       email: profile.user?.email ?? profile.email,
-      companyName: profile.companyName,
+      contactFullName: profile.contactFullName ?? null,
+      contactEmail: profile.contactEmail ?? null,
+      contactPhone: profile.contactPhone ?? null,
+      brandName: profile.brandName,
+      brandPronunciation: profile.brandPronunciation ?? null,
+      brandPronunciationAudioKey: profile.brandPronunciationAudioKey ?? null,
+      brandPronunciationAudioUrl: profile.brandPronunciationAudioUrl ?? null,
       logoKey: profile.logoKey ?? null,
       logoUrl: profile.logoUrl ?? null,
       website: profile.website ?? null,
-      industry: profile.industry ?? null,
-      contactPerson: profile.contactPerson ?? null,
+      instagramUrl: profile.instagramUrl ?? null,
+      productType: profile.productType ?? null,
+      categories,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     };
+  }
+
+  getBrandCategoryOptions(): BrandCategoryOptionsResponseDto {
+    return { items: [...BRAND_CATEGORY_OPTIONS] };
   }
 
   async presignBrandLogoUpload(
@@ -55,6 +84,23 @@ export class BrandProfileService {
   ): Promise<PresignUploadResponseDto> {
     const key = this.storage.buildObjectKey({
       kind: 'brand_logo',
+      userId,
+      contentType: dto.contentType,
+    });
+
+    return this.storage.createPresignedPutUpload({
+      key,
+      contentType: dto.contentType,
+      contentLength: dto.contentLength,
+    });
+  }
+
+  async presignBrandPronunciationUpload(
+    userId: string,
+    dto: PresignBrandPronunciationUploadDto,
+  ): Promise<PresignUploadResponseDto> {
+    const key = this.storage.buildObjectKey({
+      kind: 'brand_pronunciation_audio',
       userId,
       contentType: dto.contentType,
     });
@@ -93,6 +139,14 @@ export class BrandProfileService {
       this.assertTempBrandLogoKeyOwner(userId, logoKey);
     }
 
+    const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
+    if (pronunciationAudioKey) {
+      this.assertTempBrandPronunciationAudioKeyOwner(
+        userId,
+        pronunciationAudioKey,
+      );
+    }
+
     const brandProfileId = await this.prisma.$transaction(async (tx) => {
       const brandRole = await tx.role.findUnique({
         where: { name: RoleName.BRAND },
@@ -124,13 +178,28 @@ export class BrandProfileService {
       const created = await tx.brandProfile.create({
         data: {
           userId,
-          companyName: dto.companyName,
-          website: dto.website ?? null,
-          industry: dto.industry ?? null,
-          contactPerson: dto.contactPerson ?? null,
+          brandName: dto.brandName.trim(),
+          contactFullName: dto.contactFullName.trim(),
+          contactEmail: dto.contactEmail.trim(),
+          contactPhone: dto.contactPhone.trim(),
+          brandPronunciation: dto.brandPronunciation?.trim() || null,
+          website: dto.website?.trim() || null,
+          instagramUrl: dto.instagramUrl?.trim() || null,
+          productType: dto.productType ?? null,
         },
         select: { id: true },
       });
+
+      const uniqueCategories = [...new Set(dto.categories ?? [])];
+      if (uniqueCategories.length) {
+        await tx.brandProfileBrandCategory.createMany({
+          data: uniqueCategories.map((category) => ({
+            brandProfileId: created.id,
+            category,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       await tx.userRole.upsert({
         where: { userId_roleId: { userId, roleId: brandRole.id } },
@@ -148,19 +217,30 @@ export class BrandProfileService {
       return created.id;
     });
 
+    const assetData: Record<string, string> = {};
     if (logoKey) {
       const finalLogoKey = await this.storage.finalizeBrandLogoKey({
         tempKey: logoKey,
         brandProfileId,
         deleteTemp: true,
       });
-
+      assetData.logoKey = finalLogoKey;
+      assetData.logoUrl = this.storage.buildCdnUrl(finalLogoKey);
+    }
+    if (pronunciationAudioKey) {
+      const finalPKey = await this.storage.finalizeBrandPronunciationAudioKey({
+        tempKey: pronunciationAudioKey,
+        brandProfileId,
+        deleteTemp: true,
+      });
+      assetData.brandPronunciationAudioKey = finalPKey;
+      assetData.brandPronunciationAudioUrl =
+        this.storage.buildCdnUrl(finalPKey);
+    }
+    if (Object.keys(assetData).length) {
       await this.prisma.brandProfile.update({
         where: { id: brandProfileId },
-        data: {
-          logoKey: finalLogoKey,
-          logoUrl: this.storage.buildCdnUrl(finalLogoKey),
-        } as any,
+        data: assetData as any,
       });
     }
 
@@ -169,15 +249,22 @@ export class BrandProfileService {
       select: {
         id: true,
         userId: true,
-        companyName: true,
+        contactFullName: true,
+        contactEmail: true,
+        contactPhone: true,
+        brandName: true,
+        brandPronunciation: true,
+        brandPronunciationAudioKey: true,
+        brandPronunciationAudioUrl: true,
         logoKey: true,
         logoUrl: true,
         website: true,
-        industry: true,
-        contactPerson: true,
+        instagramUrl: true,
+        productType: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { email: true } },
+        brandCategories: { select: { category: true } },
       } as any,
     });
 
@@ -224,9 +311,10 @@ export class BrandProfileService {
         brandProfileId: user.brandProfile?.id ?? null,
         email: user.email,
         name: user.name ?? null,
-        companyName: user.brandProfile?.companyName ?? null,
-        industry: user.brandProfile?.industry ?? null,
-        contactPerson: user.brandProfile?.contactPerson ?? null,
+        brandName: user.brandProfile?.brandName ?? null,
+        contactFullName: user.brandProfile?.contactFullName ?? null,
+        contactPhone: user.brandProfile?.contactPhone ?? null,
+        categories: user.brandProfile?.brandCategories?.map((bc: { category: BrandCategory }) => bc.category) ?? [],
         logoUrl: user.brandProfile?.logoUrl ?? null,
         status: user.status,
         createdAt: user.createdAt,
@@ -244,6 +332,7 @@ export class BrandProfileService {
     dto?: RemoveBrandRoleDto,
   ): Promise<void> {
     let logoKeyToDelete: string | null = null;
+    let pronunciationAudioKeyToDelete: string | null = null;
 
     await this.prisma.$transaction(
       async (tx) => {
@@ -289,7 +378,8 @@ export class BrandProfileService {
           !!creatorRole &&
           user.userRoles.some((ur: any) => ur.roleId === creatorRole.id);
 
-        const fallbackRoleId = hasCreatorRole ? creatorRole!.id : null;
+        const fallbackRoleId =
+          hasCreatorRole && creatorRole ? creatorRole.id : null;
 
         await tx.userRole.deleteMany({
           where: {
@@ -309,6 +399,8 @@ export class BrandProfileService {
 
         if (user.brandProfile) {
           logoKeyToDelete = user.brandProfile.logoKey ?? null;
+          pronunciationAudioKeyToDelete =
+            user.brandProfile.brandPronunciationAudioKey ?? null;
 
           await tx.brandProfile.delete({
             where: { userId },
@@ -334,6 +426,13 @@ export class BrandProfileService {
         // Keep removal durable even if storage cleanup fails.
       }
     }
+    if (pronunciationAudioKeyToDelete) {
+      try {
+        await this.storage.deleteObjectIfExists(pronunciationAudioKeyToDelete);
+      } catch {
+        // same
+      }
+    }
   }
 
   async getBrandProfileForCurrentUser(
@@ -344,15 +443,22 @@ export class BrandProfileService {
       select: {
         id: true,
         userId: true,
-        companyName: true,
+        contactFullName: true,
+        contactEmail: true,
+        contactPhone: true,
+        brandName: true,
+        brandPronunciation: true,
+        brandPronunciationAudioKey: true,
+        brandPronunciationAudioUrl: true,
         logoKey: true,
         logoUrl: true,
         website: true,
-        industry: true,
-        contactPerson: true,
+        instagramUrl: true,
+        productType: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { email: true } },
+        brandCategories: { select: { category: true } },
       } as any,
     });
 
@@ -361,5 +467,192 @@ export class BrandProfileService {
     }
 
     return this.mapBrandProfile(profile);
+  }
+
+  async updateBrandProfileForCurrentUser(
+    userId: string,
+    dto: UpdateBrandProfileDto,
+  ): Promise<BrandProfileResponseDto> {
+    const existing = await this.prisma.brandProfile.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        logoKey: true,
+        brandPronunciationAudioKey: true,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Brand profile not found');
+    }
+
+    const trimmedName =
+      dto.brandName === undefined ? undefined : dto.brandName.trim();
+    if (trimmedName !== undefined && !trimmedName) {
+      throw new BadRequestException('brandName cannot be empty');
+    }
+
+    let website: string | null | undefined;
+    if (dto.website === undefined) {
+      website = undefined;
+    } else if (dto.website === null) {
+      website = null;
+    } else {
+      website = dto.website.trim() || null;
+    }
+
+    let instagramUrl: string | null | undefined;
+    if (dto.instagramUrl === undefined) {
+      instagramUrl = undefined;
+    } else if (dto.instagramUrl === null) {
+      instagramUrl = null;
+    } else {
+      instagramUrl = dto.instagramUrl.trim() || null;
+    }
+
+    const data: Record<string, unknown> = {};
+    if (trimmedName !== undefined) {
+      data.brandName = trimmedName;
+    }
+    if (website !== undefined) {
+      data.website = website;
+    }
+    if (instagramUrl !== undefined) {
+      data.instagramUrl = instagramUrl;
+    }
+
+    if (dto.contactFullName !== undefined) {
+      const v = dto.contactFullName.trim();
+      if (!v) {
+        throw new BadRequestException('contactFullName cannot be empty');
+      }
+      data.contactFullName = v;
+    }
+    if (dto.contactEmail !== undefined) {
+      const v = dto.contactEmail.trim();
+      if (!v) {
+        throw new BadRequestException('contactEmail cannot be empty');
+      }
+      data.contactEmail = v;
+    }
+    if (dto.contactPhone !== undefined) {
+      const v = dto.contactPhone.trim();
+      if (v.length < 7) {
+        throw new BadRequestException('contactPhone is too short');
+      }
+      data.contactPhone = v;
+    }
+
+    if (dto.brandPronunciation !== undefined) {
+      data.brandPronunciation =
+        dto.brandPronunciation === null
+          ? null
+          : dto.brandPronunciation.trim() || null;
+    }
+    if (dto.productType !== undefined) {
+      data.productType = dto.productType;
+    }
+
+    const logoKeyRaw = dto.logoKey;
+    if (logoKeyRaw !== undefined) {
+      if (logoKeyRaw === null || logoKeyRaw === '') {
+        data.logoKey = null;
+        data.logoUrl = null;
+      } else {
+        const logoKey = logoKeyRaw.trim();
+        if (this.storage.isTempBrandLogoKeyForUser(userId, logoKey)) {
+          this.assertTempBrandLogoKeyOwner(userId, logoKey);
+          const finalLogoKey = await this.storage.finalizeBrandLogoKey({
+            tempKey: logoKey,
+            brandProfileId: existing.id,
+            deleteTemp: true,
+          });
+          data.logoKey = finalLogoKey;
+          data.logoUrl = this.storage.buildCdnUrl(finalLogoKey);
+        } else if (logoKey === (existing.logoKey ?? '')) {
+          // Unchanged final key from the client; leave logo as-is.
+        } else {
+          throw new BadRequestException('Invalid logoKey');
+        }
+      }
+    }
+
+    let pronunciationAudioToDelete: string | null = null;
+    const pronunciationKeyRaw = dto.brandPronunciationAudioKey;
+    if (pronunciationKeyRaw !== undefined) {
+      if (pronunciationKeyRaw === null || pronunciationKeyRaw === '') {
+        data.brandPronunciationAudioKey = null;
+        data.brandPronunciationAudioUrl = null;
+        if (existing.brandPronunciationAudioKey) {
+          pronunciationAudioToDelete = existing.brandPronunciationAudioKey;
+        }
+      } else {
+        const pKey = pronunciationKeyRaw.trim();
+        if (this.storage.isTempBrandPronunciationAudioKeyForUser(userId, pKey)) {
+          this.assertTempBrandPronunciationAudioKeyOwner(userId, pKey);
+          if (
+            existing.brandPronunciationAudioKey &&
+            existing.brandPronunciationAudioKey !== pKey
+          ) {
+            pronunciationAudioToDelete = existing.brandPronunciationAudioKey;
+          }
+          const finalPKey =
+            await this.storage.finalizeBrandPronunciationAudioKey({
+              tempKey: pKey,
+              brandProfileId: existing.id,
+              deleteTemp: true,
+            });
+          data.brandPronunciationAudioKey = finalPKey;
+          data.brandPronunciationAudioUrl =
+            this.storage.buildCdnUrl(finalPKey);
+        } else if (
+          pKey === (existing.brandPronunciationAudioKey ?? '')
+        ) {
+          // unchanged final key
+        } else {
+          throw new BadRequestException('Invalid brandPronunciationAudioKey');
+        }
+      }
+    }
+
+    const hasScalarUpdates = Object.keys(data).length > 0;
+    const hasCategoryUpdates = dto.categories !== undefined;
+
+    if (!hasScalarUpdates && !hasCategoryUpdates) {
+      return this.getBrandProfileForCurrentUser(userId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (hasScalarUpdates) {
+        await tx.brandProfile.update({
+          where: { userId },
+          data: data as any,
+        });
+      }
+      if (hasCategoryUpdates) {
+        const uniqueCategories = [...new Set(dto.categories ?? [])];
+        await tx.brandProfileBrandCategory.deleteMany({
+          where: { brandProfileId: existing.id },
+        });
+        if (uniqueCategories.length) {
+          await tx.brandProfileBrandCategory.createMany({
+            data: uniqueCategories.map((category) => ({
+              brandProfileId: existing.id,
+              category,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    });
+
+    if (pronunciationAudioToDelete) {
+      try {
+        await this.storage.deleteObjectIfExists(pronunciationAudioToDelete);
+      } catch {
+        // non-fatal
+      }
+    }
+
+    return this.getBrandProfileForCurrentUser(userId);
   }
 }

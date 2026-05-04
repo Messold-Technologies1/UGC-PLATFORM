@@ -21,7 +21,4 @@ export class CreatorPayoutDetailsMaskedDto {
 
   @ApiPropertyOptional()
   upiMasked?: string;
-
-  @ApiPropertyOptional()
-  upiId?: string;
 }

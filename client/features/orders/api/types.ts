@@ -7,7 +7,7 @@ export interface OrderCreatorSnapshot {
 
 export interface OrderBrandSnapshot {
   id: string;
-  companyName: string;
+  brandName: string;
   logoUrl?: string | null;
 }
 

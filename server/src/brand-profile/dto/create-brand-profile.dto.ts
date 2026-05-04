@@ -1,10 +1,46 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl } from 'class-validator';
+import { BrandCategory, BrandProductType } from '@prisma/client';
+import {
+  ArrayUnique,
+  IsArray,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateBrandProfileDto {
-  @ApiProperty({ example: 'Acme Inc.' })
+  @ApiProperty({ example: 'Jane Doe', description: 'Primary contact name' })
   @IsString()
-  companyName!: string;
+  @MinLength(1)
+  @MaxLength(200)
+  contactFullName!: string;
+
+  @ApiProperty({ example: 'brand@example.com' })
+  @IsEmail()
+  @MaxLength(320)
+  contactEmail!: string;
+
+  @ApiProperty({ example: '+91 98765 43210' })
+  @IsString()
+  @MinLength(7)
+  @MaxLength(32)
+  contactPhone!: string;
+
+  @ApiProperty({ example: 'Acme', description: 'Public brand name shown to creators.' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  brandName!: string;
+
+  @ApiPropertyOptional({ example: 'ACK-mee' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  brandPronunciation?: string;
 
   @ApiPropertyOptional({
     example: 'brand-logo-temp/<userId>/<uuid>.png',
@@ -15,18 +51,41 @@ export class CreateBrandProfileDto {
   @IsString()
   logoKey?: string;
 
+  @ApiPropertyOptional({
+    example: 'brand-pronunciation-temp/<userId>/<uuid>.webm',
+    description:
+      'Temporary S3 key from pronunciation presign after uploading recorded audio (optional).',
+  })
+  @IsOptional()
+  @IsString()
+  brandPronunciationAudioKey?: string;
+
   @ApiPropertyOptional({ example: 'https://acme.com' })
   @IsOptional()
   @IsUrl({ require_tld: false })
   website?: string;
 
-  @ApiPropertyOptional({ example: 'Skincare' })
+  @ApiPropertyOptional({ example: 'https://instagram.com/acme' })
   @IsOptional()
-  @IsString()
-  industry?: string;
+  @IsUrl({ require_tld: false })
+  instagramUrl?: string;
 
-  @ApiPropertyOptional({ example: 'Jane (Marketing Lead)' })
+  @ApiPropertyOptional({
+    enum: BrandProductType,
+    description: 'Physical, digital, or both.',
+  })
   @IsOptional()
-  @IsString()
-  contactPerson?: string;
+  @IsEnum(BrandProductType)
+  productType?: BrandProductType;
+
+  @ApiPropertyOptional({
+    enum: BrandCategory,
+    isArray: true,
+    description: 'One or more categories from the prefilled list.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsEnum(BrandCategory, { each: true })
+  categories?: BrandCategory[];
 }

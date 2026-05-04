@@ -49,9 +49,10 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     brandProfileId: "fixture-profile-1",
     email: "hello@northstar.co",
     name: "Northstar Labs",
-    companyName: "Northstar Labs",
-    industry: "Skincare",
-    contactPerson: "Anika Rao",
+    brandName: "Northstar Labs",
+    contactFullName: "Anika Rao",
+    contactPhone: "+91 98765 43210",
+    categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
     createdAt: "2026-03-10T09:00:00.000Z",
@@ -62,9 +63,10 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     brandProfileId: "fixture-profile-2",
     email: "team@peakhome.com",
     name: "Peak Home",
-    companyName: "Peak Home",
-    industry: "Home Goods",
-    contactPerson: "Marcus Lee",
+    brandName: "Peak Home",
+    contactFullName: "Marcus Lee",
+    contactPhone: "+91 91234 56789",
+    categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
     createdAt: "2026-02-18T09:00:00.000Z",
@@ -75,9 +77,10 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     brandProfileId: "fixture-profile-3",
     email: "ops@tailwindcoffee.com",
     name: "Tailwind Coffee",
-    companyName: "Tailwind Coffee",
-    industry: "Food & Beverage",
-    contactPerson: "Sofia Bennett",
+    brandName: "Tailwind Coffee",
+    contactFullName: "Sofia Bennett",
+    contactPhone: "+91 99887 76655",
+    categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
     createdAt: "2026-01-27T09:00:00.000Z",
@@ -173,10 +176,13 @@ function BrandManagementContent({
   onPageChange,
   onLimitChange,
 }: BrandManagementContentProps) {
-
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
 
+  const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
+  const distinctContactNames = new Set(
+    items.map((item) => item.contactFullName?.trim()).filter(Boolean),
+  ).size;
   return (
     <>
       {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -191,9 +197,9 @@ function BrandManagementContent({
           helper="Brands on this page that have a logo configured."
         />
         <StatsCard
-          label="Industries"
-          value={coveredIndustries}
-          helper="Distinct industries represented on the current page."
+          label="Contacts"
+          value={distinctContactNames}
+          helper="Distinct contact names on the current page."
         />
       </section> */}
 
@@ -217,7 +223,7 @@ function BrandManagementContent({
           ) : (
             items.map((brand) => {
               const displayName =
-                brand.companyName ?? brand.name ?? "Unnamed Brand";
+                brand.brandName ?? brand.name ?? "Unnamed Brand";
 
               return (
                 <div
@@ -275,22 +281,22 @@ function BrandManagementContent({
                       </div>
                       <div className="flex flex-col">
                         <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
-                          Industry
+                          Contact name
                         </p>
                         <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                          <UserRound className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
                           <span className="truncate">
-                            {brand.industry ?? "—"}
+                            {brand.contactFullName ?? "—"}
                           </span>
                         </div>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
-                          Contact
+                          Mobile
                         </p>
                         <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                          <UserRound className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
                           <span className="truncate">
-                            {brand.contactPerson ?? "—"}
+                            {brand.contactPhone ?? "—"}
                           </span>
                         </div>
                       </div>
@@ -551,7 +557,7 @@ export default function BrandManagementPage() {
             <p>
               This will permanently remove brand access for{" "}
               <span className="font-semibold text-foreground">
-                {selectedBrand?.companyName ??
+                {selectedBrand?.brandName ??
                   selectedBrand?.name ??
                   selectedBrand?.email}
               </span>

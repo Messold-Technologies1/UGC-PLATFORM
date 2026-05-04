@@ -23,6 +23,11 @@ function extFromContentType(contentType: string): string | null {
   if (ct === 'video/mp4') return 'mp4';
   if (ct === 'video/quicktime') return 'mov';
   if (ct === 'video/webm') return 'webm';
+  if (ct === 'audio/webm') return 'webm';
+  if (ct === 'audio/mp4') return 'm4a';
+  if (ct === 'audio/mpeg') return 'mp3';
+  if (ct === 'audio/ogg') return 'ogg';
+  if (ct === 'audio/wav') return 'wav';
   return null;
 }
 
@@ -32,6 +37,12 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
     ct === 'image/jpeg' || ct === 'image/png' || ct === 'image/webp';
   const isVideo =
     ct === 'video/mp4' || ct === 'video/quicktime' || ct === 'video/webm';
+  const isAudio =
+    ct === 'audio/webm' ||
+    ct === 'audio/mp4' ||
+    ct === 'audio/mpeg' ||
+    ct === 'audio/ogg' ||
+    ct === 'audio/wav';
 
   if (
     kind === 'creator_profile_image' ||
@@ -47,6 +58,10 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
   }
   if (kind === 'order_delivery_asset') {
     if (!isImage && !isVideo) throw new Error('Unsupported delivery content type');
+    return;
+  }
+  if (kind === 'brand_pronunciation_audio') {
+    if (!isAudio) throw new Error('Unsupported audio content type');
     return;
   }
   throw new Error('Unsupported upload kind');
@@ -116,6 +131,14 @@ export class StorageService {
       return this.buildTempBrandLogoKey(input.userId, ext);
     }
 
+    if (input.kind === 'brand_pronunciation_audio') {
+      const brandId = input.brandProfileId;
+      if (brandId) {
+        return `brand-pronunciation/${brandId}/${id}.${ext}`;
+      }
+      return this.buildTempBrandPronunciationAudioKey(input.userId, ext);
+    }
+
     if (input.kind === 'order_delivery_asset') {
       const orderId = input.orderId;
       if (!orderId) throw new Error('orderId is required');
@@ -165,6 +188,21 @@ export class StorageService {
     return key.startsWith(`brand-logo-temp/${userId}/`);
   }
 
+  buildTempBrandPronunciationAudioKey(userId: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `brand-pronunciation-temp/${userId}/${randomUUID()}.${ext}`;
+  }
+
+  isTempBrandPronunciationAudioKeyForUser(userId: string, key: string): boolean {
+    return key.startsWith(`brand-pronunciation-temp/${userId}/`);
+  }
+
   async finalizeCreatorProfileImageKey(input: {
     tempKey: string;
     creatorProfileId: string;
@@ -206,6 +244,37 @@ export class StorageService {
       throw new Error('Invalid temporary brand logo key');
     }
     const finalKey = `brand-logo/${input.brandProfileId}/${fileName}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.tempKey}`,
+      }),
+    );
+
+    if (input.deleteTemp ?? true) {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: input.tempKey,
+        }),
+      );
+    }
+
+    return finalKey;
+  }
+
+  async finalizeBrandPronunciationAudioKey(input: {
+    tempKey: string;
+    brandProfileId: string;
+    deleteTemp?: boolean;
+  }): Promise<string> {
+    const fileName = input.tempKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid temporary brand pronunciation audio key');
+    }
+    const finalKey = `brand-pronunciation/${input.brandProfileId}/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

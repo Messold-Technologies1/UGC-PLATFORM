@@ -106,17 +106,17 @@ export function CreatorOrdersList() {
                 <Avatar className="relative w-14 h-14 rounded-full border-2 border-border">
                   <AvatarImage
                     src={brand.logoUrl || undefined}
-                    alt={brand.companyName}
+                    alt={brand.brandName}
                     className="object-cover"
                   />
                   <AvatarFallback className="bg-primary/5 text-primary font-bold">
-                    {brand.companyName.substring(0, 2).toUpperCase()}
+                    {brand.brandName.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </div>
               <div>
                 <h3 className="font-headline font-bold text-lg mb-0.5">
-                  {brand.companyName}
+                  {brand.brandName}
                 </h3>
                 <div className="flex items-center space-x-2">
                   <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider truncate max-w-[150px]">

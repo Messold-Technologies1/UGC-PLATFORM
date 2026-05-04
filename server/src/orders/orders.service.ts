@@ -35,6 +35,31 @@ import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
 
+/**
+ * Nested `BrandProfile` fields for order API brand snapshots.
+ * Cast so Prisma accepts the select object even if generated types lag (run `npx prisma generate` in `server/` after schema changes).
+ */
+const orderBrandSnapshotSelect = {
+  id: true,
+  brandName: true,
+  logoUrl: true,
+} as Prisma.BrandProfileSelect;
+
+type OrderBrandSnapshotDto = {
+  id: string;
+  brandName: string;
+  logoUrl: string | null;
+};
+
+function toOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
+  const b = brand as OrderBrandSnapshotDto;
+  return {
+    id: b.id,
+    brandName: b.brandName,
+    logoUrl: b.logoUrl ?? null,
+  };
+}
+
 function toPaise(amount: Prisma.Decimal): number {
   // priceAmount has 2 decimals; paise = * 100
   const n = Number.parseFloat(amount.toString());
@@ -749,11 +774,7 @@ export class OrdersService {
         createdAt: true,
         updatedAt: true,
         brand: {
-          select: {
-            id: true,
-            companyName: true,
-            logoUrl: true,
-          },
+          select: orderBrandSnapshotSelect,
         },
       },
     });
@@ -763,11 +784,7 @@ export class OrdersService {
     const { brand, creatorId, ...orderFields } = order;
     return {
       order: this.mapOrderDetails(orderFields),
-      brand: {
-        id: brand.id,
-        companyName: brand.companyName,
-        logoUrl: brand.logoUrl ?? null,
-      },
+      brand: toOrderBrandSnapshotDto(brand),
     };
   }
 
@@ -854,11 +871,7 @@ export class OrdersService {
           },
         },
         brand: {
-          select: {
-            id: true,
-            companyName: true,
-            logoUrl: true,
-          },
+          select: orderBrandSnapshotSelect,
         },
       },
     });
@@ -873,11 +886,7 @@ export class OrdersService {
         profileImageUrl: creator.profileImageUrl ?? null,
         city: creator.city ?? null,
       },
-      brand: {
-        id: brand.id,
-        companyName: brand.companyName,
-        logoUrl: brand.logoUrl ?? null,
-      },
+      brand: toOrderBrandSnapshotDto(brand),
     };
   }
 
@@ -980,11 +989,7 @@ export class OrdersService {
           createdAt: true,
           updatedAt: true,
           brand: {
-            select: {
-              id: true,
-              companyName: true,
-              logoUrl: true,
-            },
+            select: orderBrandSnapshotSelect,
           },
         },
       }),
@@ -994,11 +999,7 @@ export class OrdersService {
       const { brand, ...orderFields } = r;
       return {
         order: this.mapOrderListSummary(orderFields),
-        brand: {
-          id: brand.id,
-          companyName: brand.companyName,
-          logoUrl: brand.logoUrl ?? null,
-        },
+        brand: toOrderBrandSnapshotDto(brand),
       };
     });
 
@@ -1040,11 +1041,7 @@ export class OrdersService {
             },
           },
           brand: {
-            select: {
-              id: true,
-              companyName: true,
-              logoUrl: true,
-            },
+            select: orderBrandSnapshotSelect,
           },
         },
       }),
@@ -1060,11 +1057,7 @@ export class OrdersService {
           profileImageUrl: creator.profileImageUrl ?? null,
           city: creator.city ?? null,
         },
-        brand: {
-          id: brand.id,
-          companyName: brand.companyName,
-          logoUrl: brand.logoUrl ?? null,
-        },
+        brand: toOrderBrandSnapshotDto(brand),
       };
     });
 

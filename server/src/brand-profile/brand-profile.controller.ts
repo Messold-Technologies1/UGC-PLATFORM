@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -20,18 +21,31 @@ import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
+import { UpdateBrandProfileDto } from './dto/update-brand-profile.dto';
 import {
   PresignBrandLogoUploadDto,
   PresignUploadResponseDto,
 } from './dto/presign-brand-logo-upload.dto';
+import { PresignBrandPronunciationUploadDto } from './dto/presign-brand-pronunciation-upload.dto';
 import { BrandProfileResponseDto } from './dto/brand-profile-response.dto';
 import { BrandProfileService } from './brand-profile.service';
+import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
 
 @ApiTags('Brands')
 @ApiBearerAuth()
 @Controller('brands')
 export class BrandProfileController {
   constructor(private readonly brandProfileService: BrandProfileService) {}
+
+  @Get('profile/brand-category-options')
+  @ApiOperation({
+    summary:
+      'List allowed brand categories (prefilled options for brand profile creation)',
+  })
+  @ApiOkResponse({ type: BrandCategoryOptionsResponseDto })
+  getBrandCategoryOptions(): BrandCategoryOptionsResponseDto {
+    return this.brandProfileService.getBrandCategoryOptions();
+  }
 
   @Post('profile/uploads/presign')
   @UseGuards(JwtAuthGuard)
@@ -45,6 +59,24 @@ export class BrandProfileController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
     return this.brandProfileService.presignBrandLogoUpload(req.user.id, dto);
+  }
+
+  @Post('profile/uploads/presign-pronunciation')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Create a presigned URL for uploading brand pronunciation audio (optional).',
+  })
+  @ApiCreatedResponse({ type: PresignUploadResponseDto })
+  async presignBrandPronunciationUpload(
+    @Body() dto: PresignBrandPronunciationUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PresignUploadResponseDto> {
+    return this.brandProfileService.presignBrandPronunciationUpload(
+      req.user.id,
+      dto,
+    );
   }
 
   @Post('profile')
@@ -72,5 +104,21 @@ export class BrandProfileController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<BrandProfileResponseDto> {
     return this.brandProfileService.getBrandProfileForCurrentUser(req.user.id);
+  }
+
+  @Patch('profile')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update brand profile for the authenticated user' })
+  @ApiOkResponse({ type: BrandProfileResponseDto })
+  async updateMyBrandProfile(
+    @Body() dto: UpdateBrandProfileDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BrandProfileResponseDto> {
+    return this.brandProfileService.updateBrandProfileForCurrentUser(
+      req.user.id,
+      dto,
+    );
   }
 }

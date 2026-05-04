@@ -25,7 +25,7 @@ export async function presignBrandLogoUpload(
 }
 
 export async function putFileToPresignedUrl(
-  file: File,
+  file: Blob,
   presign: PresignBrandLogoUploadResponse,
 ): Promise<void> {
   const res = await fetch(presign.uploadUrl, {

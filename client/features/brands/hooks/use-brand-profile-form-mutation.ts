@@ -24,6 +24,11 @@ import {
   putFileToPresignedUrl,
   type PresignBrandLogoUploadResponse,
 } from "../api/presign-brand-logo-upload";
+import {
+  presignBrandPronunciationUpload,
+  putBlobToPresignedUrl,
+  type PresignBrandPronunciationUploadResponse,
+} from "../api/presign-brand-pronunciation-upload";
 
 type BrandProfileMode = "create" | "update";
 
@@ -36,6 +41,37 @@ type SubmitBrandProfileResult =
   | { status: "created" }
   | { status: "updated" }
   | { status: "already-exists" };
+
+export function useUploadBrandPronunciationMutation(mode: BrandProfileMode) {
+  return useMutation({
+    mutationKey: ["brands", "profile", "pronunciation-upload", mode],
+    mutationFn: async (
+      blob: Blob,
+    ): Promise<PresignBrandPronunciationUploadResponse | null> => {
+      const presign = await presignBrandPronunciationUpload({
+        contentType: blob.type || "audio/webm",
+        contentLength: blob.size,
+      });
+      await putBlobToPresignedUrl(blob, presign);
+      return presign;
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      toast.success(
+        mode === "update"
+          ? "Pronunciation uploaded — save your profile to apply."
+          : "Pronunciation uploaded — create your profile to apply.",
+      );
+    },
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 403) {
+        toast.error("Your brand access has been removed by admin.");
+        return;
+      }
+      toast.error("Could not upload pronunciation audio. Try again.");
+    },
+  });
+}
 
 export function useUploadBrandLogoMutation(mode: BrandProfileMode) {
   return useMutation({

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BrandCategory } from '@prisma/client';
 
 export class AdminBrandListItemDto {
   @ApiProperty({ example: 'user-uuid' })
@@ -13,20 +14,26 @@ export class AdminBrandListItemDto {
   @ApiPropertyOptional({ example: 'Acme Team', nullable: true })
   name!: string | null;
 
-  @ApiPropertyOptional({ example: 'Acme Inc.', nullable: true })
-  companyName!: string | null;
+  @ApiPropertyOptional({ example: 'Acme', nullable: true })
+  brandName!: string | null;
 
-  @ApiPropertyOptional({ example: 'Skincare', nullable: true })
-  industry!: string | null;
+  @ApiPropertyOptional({ example: 'Jane Doe', nullable: true })
+  contactFullName!: string | null;
 
-  @ApiPropertyOptional({ example: 'Jane (Marketing Lead)', nullable: true })
-  contactPerson!: string | null;
+  @ApiPropertyOptional({ example: '+91 98765 43210', nullable: true })
+  contactPhone!: string | null;
 
   @ApiPropertyOptional({
     example: 'https://cdn.example.com/brand-logo/logo.png',
     nullable: true,
   })
   logoUrl!: string | null;
+  @ApiProperty({
+    enum: BrandCategory,
+    isArray: true,
+    description: 'Selected brand categories.',
+  })
+  categories!: BrandCategory[];
 
   @ApiProperty({ example: 'ACTIVE' })
   status!: string;

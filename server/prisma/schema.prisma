@@ -61,6 +61,35 @@ enum OrderDisputeOpenedBy {
   CREATOR
 }
 
+
+enum BrandCategory {
+  APPAREL_AND_FASHION
+  ELECTRONICS_AND_GADGETS
+  HEALTH_AND_BEAUTY
+  FOOD_AND_BEVERAGES
+  HOME_AND_LIFESTYLE
+  SPORTS_AND_FITNESS
+  TOYS_AND_KIDS
+  PETS_AND_ANIMALS
+  AUTOMOBILE_AND_VEHICLES
+  REAL_ESTATE
+  RESTAURANTS_AND_CAFES
+  CLINICS_AND_HEALTHCARE
+  SALONS_AND_PERSONAL_CARE
+  EDUCATION_AND_COACHING
+  TRAVEL_AND_HOSPITALITY
+  LOCAL_BUSINESSES
+  SAAS_AND_APPS
+  PROFESSIONAL_SERVICES
+  OTHER
+}
+
+enum BrandProductType {
+  PHYSICAL
+  DIGITAL
+  BOTH
+}
+
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique
@@ -88,6 +117,8 @@ model User {
   featuredCreatorRecords CreatorFeature[]  @relation("CreatorFeaturedBy")
   auditLogs              AuditLog[]        @relation("AuditLogActor")
   resolvedDisputes       OrderDispute[]    @relation("OrderDisputeResolvedBy")
+  sentChatMessages       OrderChatMessage[]
+  orderChatReadStates    OrderChatReadState[]
 
   @@index([status])
   @@index([deletedAt])
@@ -266,11 +297,47 @@ model Order {
   package CreatorPackage @relation(fields: [creatorPackageId], references: [id], onDelete: Restrict)
   disputes OrderDispute[]
   deliveries OrderDelivery[]
+  chatMessages OrderChatMessage[]
+  chatReadStates OrderChatReadState[]
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
   @@index([status, createdAt])
   @@index([deliveryDeadlineAt])
+}
+
+model OrderChatMessage {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @db.Uuid
+  senderUserId    String   @db.Uuid
+  text            String
+  clientMessageId String?
+  createdAt       DateTime @default(now())
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+  lastReadBy OrderChatReadState[] @relation("LastReadMessage")
+
+  @@index([orderId, createdAt])
+  @@unique([orderId, senderUserId, clientMessageId])
+}
+
+model OrderChatReadState {
+  id               String   @id @default(uuid()) @db.Uuid
+  orderId          String   @db.Uuid
+  userId           String   @db.Uuid
+  lastReadMessageId String? @db.Uuid
+  lastReadAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage OrderChatMessage? @relation("LastReadMessage", fields: [lastReadMessageId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, userId])
+  @@index([orderId])
+  @@index([userId])
 }
 
 model OrderDelivery {
@@ -452,17 +519,36 @@ model CreatorRestrictionSuggestion {
 model BrandProfile {
   id            String   @id @default(uuid()) @db.Uuid
   userId        String   @unique @db.Uuid
-  companyName   String
+  brandName     String
   logoKey       String?
   logoUrl       String?
   website       String?
-  industry      String?
-  contactPerson String?
+  /// Primary contact name on the brand profile form.
+  contactFullName String?
+  contactEmail    String?
+  contactPhone    String?
+  brandPronunciation  String?
+  brandPronunciationAudioKey String?
+  brandPronunciationAudioUrl String?
+  instagramUrl        String?
+  productType         BrandProductType?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders Order[]
+  brandCategories BrandProfileBrandCategory[]
+}
+
+model BrandProfileBrandCategory {
+  id             String        @id @default(uuid()) @db.Uuid
+  brandProfileId String        @db.Uuid
+  category       BrandCategory
+
+  brand BrandProfile @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([brandProfileId, category])
+  @@index([brandProfileId])
 }
 
 model CreatorStats {

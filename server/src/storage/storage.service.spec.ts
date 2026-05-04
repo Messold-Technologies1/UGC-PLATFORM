@@ -81,6 +81,17 @@ describe('StorageService', () => {
     expect(sendMock).toHaveBeenCalledTimes(1);
   });
 
+  it('buildObjectKey creates a temporary brand pronunciation audio key', () => {
+    const storage = new StorageService(config as any);
+    const key = storage.buildObjectKey({
+      kind: 'brand_pronunciation_audio',
+      userId: 'u1',
+      contentType: 'audio/webm',
+    });
+    expect(key.startsWith('brand-pronunciation-temp/u1/')).toBe(true);
+    expect(key.endsWith('.webm')).toBe(true);
+  });
+
   it('creates a presigned PUT upload result', async () => {
     const storage = new StorageService(config as any);
     const res = await storage.createPresignedPutUpload({

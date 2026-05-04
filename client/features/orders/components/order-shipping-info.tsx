@@ -80,7 +80,7 @@ export function OrderShippingInfo({
 
   const partnerLabel = role === "creator" ? "Brand" : "Creator Base";
   const partnerValue =
-    role === "creator" ? brand?.companyName || "Brand partner" : creator?.city || "Remote";
+    role === "creator" ? brand?.brandName || "Brand partner" : creator?.city || "Remote";
 
   return (
     <section className="bg-card rounded-3xl p-6 md:p-8 border shadow-sm">

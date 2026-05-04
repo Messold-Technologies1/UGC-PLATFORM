@@ -82,7 +82,7 @@ export function OrderHeader({
   const counterpartyName =
     role === "brand"
       ? creator?.displayName ?? "Riya Sharma"
-      : brand?.companyName ?? "Brand partner";
+      : brand?.brandName ?? "Brand partner";
   const counterpartyImageUrl =
     role === "brand" ? creator?.profileImageUrl : brand?.logoUrl;
   const canManageBrief =

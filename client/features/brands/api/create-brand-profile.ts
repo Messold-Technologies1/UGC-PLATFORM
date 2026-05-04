@@ -2,13 +2,20 @@ import { isAxiosError } from "axios";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import type { BrandProfileItemApi } from "./types";
+import type { BrandCategoryApi, BrandProductTypeApi } from "./brand-category-types";
 
 export type CreateBrandProfilePayload = {
-  companyName: string;
+  contactFullName: string;
+  contactEmail: string;
+  contactPhone: string;
+  brandName: string;
+  brandPronunciation?: string;
+  brandPronunciationAudioKey?: string;
   logoKey?: string;
   website?: string;
-  industry?: string;
-  contactPerson?: string;
+  instagramUrl?: string;
+  productType?: BrandProductTypeApi;
+  categories?: BrandCategoryApi[];
 };
 
 export async function createBrandProfile(
@@ -34,4 +41,3 @@ export async function ensureBrandProfile(
     throw err;
   }
 }
-

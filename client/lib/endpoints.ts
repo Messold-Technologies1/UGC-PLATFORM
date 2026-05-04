@@ -23,6 +23,10 @@ export const ENDPOINTS = {
     PROFILE: "/api/brands/profile",
     PROFILE_ME: "/api/brands/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/brands/profile/uploads/presign",
+    PROFILE_PRONUNCIATION_PRESIGN:
+      "/api/brands/profile/uploads/presign-pronunciation",
+    PROFILE_BRAND_CATEGORY_OPTIONS:
+      "/api/brands/profile/brand-category-options",
   },
   ORDERS: {
     BRAND_LIST: "/api/orders/brand",

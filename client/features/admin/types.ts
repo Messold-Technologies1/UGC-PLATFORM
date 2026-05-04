@@ -1,3 +1,5 @@
+import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
+
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface CreatorLanguageResponseDto {
@@ -89,9 +91,10 @@ export interface AdminBrandListItemDto {
   brandProfileId: string | null;
   email: string;
   name: string | null;
-  companyName: string | null;
-  industry: string | null;
-  contactPerson: string | null;
+  brandName: string | null;
+  contactFullName: string | null;
+  contactPhone: string | null;
+  categories: BrandCategoryApi[];
   logoUrl: string | null;
   status: string;
   createdAt: string;

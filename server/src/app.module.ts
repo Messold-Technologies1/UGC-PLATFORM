@@ -16,6 +16,7 @@ import { OrdersModule } from './orders/orders.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { OrderChatModule } from './order-chat/order-chat.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     CreatorPortfolioModule,
     BrandProfileModule,
     OrdersModule,
+    OrderChatModule,
     WebhooksModule,
     JobsModule,
     RealtimeModule,

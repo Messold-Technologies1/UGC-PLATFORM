@@ -3,17 +3,17 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useMemo } from "react";
-import {
-  BriefcaseBusiness,
-  Globe,
-  UserRound,
-} from "lucide-react";
+import { Globe, Mail, Phone, Store, UserRound } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/providers/auth-provider";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
+import {
+  BRAND_CATEGORY_LABEL,
+  type BrandCategoryApi,
+} from "@/features/brands/api/brand-category-types";
 
 export function DashboardBrandAccountProfile() {
   const { user, isLoading: authLoading } = useAuth();
@@ -146,7 +146,7 @@ export function DashboardBrandAccountProfile() {
                   <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:size-24">
                     <Image
                       src={profile.logoUrl}
-                      alt={`${profile.companyName} logo`}
+                      alt={`${profile.brandName} logo`}
                       fill
                       className="object-cover"
                       sizes="96px"
@@ -157,13 +157,13 @@ export function DashboardBrandAccountProfile() {
                     className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary sm:size-24"
                     aria-hidden
                   >
-                    <BriefcaseBusiness className="size-9 opacity-80 sm:size-10" />
+                    <Store className="size-9 opacity-80 sm:size-10" />
                   </div>
                 )}
 
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                    {profile.companyName}
+                    {profile.brandName}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Manage the details creators see for your brand.
@@ -187,7 +187,7 @@ export function DashboardBrandAccountProfile() {
                     Company name
                   </dt>
                   <dd className="mt-1 text-sm font-medium text-foreground">
-                    {profile.companyName}
+                    {profile.brandName}
                   </dd>
                 </div>
 
@@ -203,27 +203,55 @@ export function DashboardBrandAccountProfile() {
                   </dd>
                 </div>
 
-                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-3">
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">
-                    Industry
-                  </dt>
-                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    <BriefcaseBusiness className="size-4 opacity-70" aria-hidden />
-                    <span className="wrap-break-word">
-                      {profile.industry ?? "—"}
-                    </span>
-                  </dd>
-                </div>
-
-                <div className="rounded-xl border border-border/70 bg-card p-4 sm:col-span-2 xl:col-span-3">
-                  <dt className="text-xs font-medium text-muted-foreground">
-                    Contact person
+                    Contact name
                   </dt>
                   <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
                     <UserRound className="size-4 opacity-70" aria-hidden />
                     <span className="wrap-break-word">
-                      {profile.contactPerson ?? "—"}
+                      {profile.contactFullName ?? "—"}
                     </span>
+                  </dd>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Contact email
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Mail className="size-4 opacity-70" aria-hidden />
+                    <span className="wrap-break-word">
+                      {profile.contactEmail ?? "—"}
+                    </span>
+                  </dd>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Mobile
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Phone className="size-4 opacity-70" aria-hidden />
+                    <span className="wrap-break-word">
+                      {profile.contactPhone ?? "—"}
+                    </span>
+                  </dd>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-6">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Categories
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium text-foreground">
+                    {profile.categories?.length
+                      ? profile.categories
+                          .map(
+                            (c) =>
+                              BRAND_CATEGORY_LABEL[c as BrandCategoryApi] ?? c,
+                          )
+                          .join(", ")
+                      : "—"}
                   </dd>
                 </div>
               </dl>

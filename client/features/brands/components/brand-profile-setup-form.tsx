@@ -1,9 +1,18 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
+import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +21,9 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   useSubmitBrandProfileMutation,
   useUploadBrandLogoMutation,
+  useUploadBrandPronunciationMutation,
 } from "@/features/brands/hooks/use-brand-profile-form-mutation";
-
+import { useAuth } from "@/providers/auth-provider";
 import type { BrandProfileItemApi } from "@/features/brands/api/types";
 import {
   type CreateBrandProfilePayload,
@@ -21,6 +31,14 @@ import {
 import {
   type UpdateBrandProfilePayload,
 } from "@/features/brands/api/update-brand-profile";
+import {
+  brandCategoryOptionsQueryKey,
+  fetchBrandCategoryOptions,
+} from "@/features/brands/api/fetch-brand-category-options";
+import type {
+  BrandCategoryApi,
+  BrandProductTypeApi,
+} from "@/features/brands/api/brand-category-types";
 
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;
 const LOGO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -78,14 +96,53 @@ function BrandProfileSetupFormContent({
   onSuccess,
   onPendingChange,
 }: BrandProfileSetupFormProps) {
-  const [companyName, setCompanyName] = useState(
-    initialProfile?.companyName ?? "",
+  const { user } = useAuth();
+
+  const { data: categoryOptionRows = [] } = useQuery({
+    queryKey: brandCategoryOptionsQueryKey,
+    queryFn: fetchBrandCategoryOptions,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const [contactFullName, setContactFullName] = useState(
+    initialProfile?.contactFullName ?? "",
+  );
+  const [contactEmail, setContactEmail] = useState(
+    initialProfile?.contactEmail ?? "",
+  );
+  const [contactPhone, setContactPhone] = useState(
+    initialProfile?.contactPhone ?? "",
+  );
+  const [brandName, setBrandName] = useState(
+    initialProfile?.brandName ?? "",
+  );
+  const [brandPronunciation, setBrandPronunciation] = useState(
+    initialProfile?.brandPronunciation ?? "",
   );
   const [website, setWebsite] = useState(initialProfile?.website ?? "");
-  const [industry, setIndustry] = useState(initialProfile?.industry ?? "");
-  const [contactPerson, setContactPerson] = useState(
-    initialProfile?.contactPerson ?? "",
+  const [instagramUrl, setInstagramUrl] = useState(
+    initialProfile?.instagramUrl ?? "",
   );
+  const [productType, setProductType] = useState<"" | BrandProductTypeApi>(
+    (initialProfile?.productType as BrandProductTypeApi | null) ?? "",
+  );
+  const [selectedCategories, setSelectedCategories] = useState<
+    BrandCategoryApi[]
+  >((initialProfile?.categories as BrandCategoryApi[] | undefined) ?? []);
+
+  useEffect(() => {
+    if (initialProfile?.contactEmail) return;
+    if (user?.email) {
+      setContactEmail((prev) => prev || user.email);
+    }
+  }, [user?.email, initialProfile?.contactEmail]);
+
+  useEffect(() => {
+    if (initialProfile?.contactFullName) return;
+    if (user?.name) {
+      setContactFullName((prev) => prev || user.name || "");
+    }
+  }, [user?.name, initialProfile?.contactFullName]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(
@@ -94,7 +151,14 @@ function BrandProfileSetupFormContent({
   const [pendingLogoKey, setPendingLogoKey] = useState<string | null>(
     initialProfile?.logoKey ?? null,
   );
+  const [pendingPronunciationAudioKey, setPendingPronunciationAudioKey] =
+    useState<string | null>(
+      initialProfile?.brandPronunciationAudioKey ?? null,
+    );
+  const [pronunciationAudioPreviewUrl, setPronunciationAudioPreviewUrl] =
+    useState<string | null>(initialProfile?.brandPronunciationAudioUrl ?? null);
   const uploadBrandLogoMutation = useUploadBrandLogoMutation(mode);
+  const uploadPronunciationMutation = useUploadBrandPronunciationMutation(mode);
   const submitBrandProfileMutation = useSubmitBrandProfileMutation({
     mode,
     onSuccess,
@@ -104,6 +168,7 @@ function BrandProfileSetupFormContent({
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
   const uploadingLogo = uploadBrandLogoMutation.isPending;
+  const uploadingPronunciation = uploadPronunciationMutation.isPending;
 
   const title = useMemo(() => {
     if (mode === "update") return "Edit your brand profile";
@@ -113,21 +178,32 @@ function BrandProfileSetupFormContent({
 
   const description = useMemo(() => {
     if (mode === "update") {
-      return "Update your company details and logo.";
+      return "Update your brand details and logo.";
     }
     if (variant === "settings") {
-      return "Add your company details and logo.";
+      return "Add your brand details and logo.";
     }
-    return "Add your company details so creators know who they’re working with.";
+    return "Add your brand details so creators know who they’re working with.";
   }, [mode, variant]);
+
+  const toggleCategory = useCallback((value: BrandCategoryApi) => {
+    setSelectedCategories((prev) =>
+      prev.includes(value)
+        ? prev.filter((c) => c !== value)
+        : [...prev, value],
+    );
+  }, []);
 
   const completionSummary = useMemo(() => {
     const checkpoints = [
-      Boolean(companyName.trim()),
+      Boolean(brandName.trim()),
+      Boolean(contactFullName.trim()),
+      Boolean(contactEmail.trim()),
+      Boolean(contactPhone.trim()),
       Boolean(website.trim()),
-      Boolean(industry.trim()),
-      Boolean(contactPerson.trim()),
       Boolean(logoPreviewUrl || pendingLogoKey),
+      selectedCategories.length > 0,
+      Boolean(productType),
     ];
     const completed = checkpoints.filter(Boolean).length;
     const total = checkpoints.length;
@@ -137,12 +213,15 @@ function BrandProfileSetupFormContent({
       percent: Math.round((completed / total) * 100),
     };
   }, [
-    companyName,
+    brandName,
+    contactFullName,
+    contactEmail,
+    contactPhone,
     website,
-    industry,
-    contactPerson,
     logoPreviewUrl,
     pendingLogoKey,
+    selectedCategories.length,
+    productType,
   ]);
 
   const handleLogoSelected = useCallback(
@@ -180,13 +259,31 @@ function BrandProfileSetupFormContent({
     setLogoPreviewUrl(null);
   }, []);
 
+  const handlePronunciationBlob = useCallback(
+    (blob: Blob) => {
+      uploadPronunciationMutation.mutate(blob, {
+        onSuccess: (result) => {
+          if (!result) return;
+          setPendingPronunciationAudioKey(result.key);
+          setPronunciationAudioPreviewUrl(result.cdnUrl);
+        },
+      });
+    },
+    [uploadPronunciationMutation],
+  );
+
+  const clearPronunciationAudio = useCallback(() => {
+    setPendingPronunciationAudioKey(null);
+    setPronunciationAudioPreviewUrl(null);
+  }, []);
+
   const handleSubmit = useCallback(
     async (e: React.SubmitEvent<HTMLFormElement>) => {
       e.preventDefault();
 
-      const name = companyName.trim();
+      const name = brandName.trim();
       if (!name) {
-        toast.error("Company name is required");
+        toast.error("Brand name is required");
         return;
       }
 
@@ -195,18 +292,49 @@ function BrandProfileSetupFormContent({
         return;
       }
 
+      if (instagramUrl.trim() && !normalizeOptionalUrl(instagramUrl)) {
+        toast.error("Instagram URL must be a valid http(s) URL");
+        return;
+      }
+
       if (mode === "create") {
+        const fullName = contactFullName.trim();
+        const email = contactEmail.trim();
+        const phone = contactPhone.trim();
+        if (!fullName) {
+          toast.error("Name is required");
+          return;
+        }
+        if (!email) {
+          toast.error("Email is required");
+          return;
+        }
+        if (phone.length < 7) {
+          toast.error("Please enter a valid mobile number");
+          return;
+        }
+
         const payload: CreateBrandProfilePayload = {
-          companyName: name,
+          contactFullName: fullName,
+          contactEmail: email,
+          contactPhone: phone,
+          brandName: name,
+          ...(normalizeOptionalString(brandPronunciation)
+            ? { brandPronunciation: normalizeOptionalString(brandPronunciation) }
+            : {}),
+          ...(pendingPronunciationAudioKey
+            ? { brandPronunciationAudioKey: pendingPronunciationAudioKey }
+            : {}),
           ...(pendingLogoKey ? { logoKey: pendingLogoKey } : {}),
           ...(normalizeOptionalUrl(website)
             ? { website: normalizeOptionalUrl(website) }
             : {}),
-          ...(normalizeOptionalString(industry)
-            ? { industry: normalizeOptionalString(industry) }
+          ...(normalizeOptionalUrl(instagramUrl)
+            ? { instagramUrl: normalizeOptionalUrl(instagramUrl) }
             : {}),
-          ...(normalizeOptionalString(contactPerson)
-            ? { contactPerson: normalizeOptionalString(contactPerson) }
+          ...(productType ? { productType } : {}),
+          ...(selectedCategories.length
+            ? { categories: selectedCategories }
             : {}),
         };
 
@@ -215,22 +343,30 @@ function BrandProfileSetupFormContent({
       }
 
       const payload: UpdateBrandProfilePayload = {
-        companyName: name,
+        brandName: name,
         logoKey: pendingLogoKey,
         website: normalizeOptionalUrl(website) ?? null,
-        industry: normalizeOptionalString(industry) ?? null,
-        contactPerson: normalizeOptionalString(contactPerson) ?? null,
+        brandPronunciation: brandPronunciation.trim()
+          ? brandPronunciation.trim()
+          : null,
+        brandPronunciationAudioKey: pendingPronunciationAudioKey,
       };
 
       submitBrandProfileMutation.mutate({ payload });
     },
     [
       mode,
-      companyName,
+      brandName,
+      contactFullName,
+      contactEmail,
+      contactPhone,
+      brandPronunciation,
       pendingLogoKey,
+      pendingPronunciationAudioKey,
       website,
-      industry,
-      contactPerson,
+      instagramUrl,
+      productType,
+      selectedCategories,
       submitBrandProfileMutation,
     ],
   );
@@ -269,20 +405,87 @@ function BrandProfileSetupFormContent({
         onSubmit={(e) => void handleSubmit(e)}
         className="space-y-6 rounded-2xl border border-border bg-card p-6"
       >
+        {mode === "create" ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="brand-contact-full-name">Name</Label>
+                <Input
+                  id="brand-contact-full-name"
+                  value={contactFullName}
+                  onChange={(e) => setContactFullName(e.target.value)}
+                  placeholder="Your full name"
+                  autoComplete="name"
+                  disabled={pending}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="brand-contact-email">Email</Label>
+                <Input
+                  id="brand-contact-email"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                  disabled={pending}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="brand-contact-phone">Mobile</Label>
+                <Input
+                  id="brand-contact-phone"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  autoComplete="tel"
+                  disabled={pending}
+                />
+              </div>
+            </div>
+
+          </>
+        ) : null}
+
         <div className="grid gap-2">
-          <Label htmlFor="brand-company-name">Company name</Label>
+          <Label htmlFor="brand-name">Brand name</Label>
           <Input
-            id="brand-company-name"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="Acme Inc."
+            id="brand-name"
+            value={brandName}
+            onChange={(e) => setBrandName(e.target.value)}
+            placeholder="How you appear to creators"
             autoComplete="organization"
             disabled={pending}
+            required
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="brand-website">Website (optional)</Label>
+          <Label htmlFor="brand-pronunciation">
+            Phonetic spelling (optional)
+          </Label>
+          <Input
+            id="brand-pronunciation"
+            value={brandPronunciation}
+            onChange={(e) => setBrandPronunciation(e.target.value)}
+            placeholder="ACK-mee"
+            disabled={pending}
+          />
+        </div>
+
+        <BrandPronunciationAudioField
+          disabled={pending}
+          uploading={uploadingPronunciation}
+          audioUrl={pronunciationAudioPreviewUrl}
+          hasRecording={Boolean(
+            pendingPronunciationAudioKey && pronunciationAudioPreviewUrl,
+          )}
+          onRecordingReady={handlePronunciationBlob}
+          onRemove={clearPronunciationAudio}
+        />
+
+        <div className="grid gap-2">
+          <Label htmlFor="brand-website">Brand website (optional)</Label>
           <Input
             id="brand-website"
             value={website}
@@ -294,30 +497,97 @@ function BrandProfileSetupFormContent({
           />
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        {mode === "create" ? (
           <div className="grid gap-2">
-            <Label htmlFor="brand-industry">Industry (optional)</Label>
-            <Input
-              id="brand-industry"
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              placeholder="Skincare"
-              disabled={pending}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="brand-contact-person">
-              Contact person (optional)
+            <Label htmlFor="brand-instagram">
+              Brand Instagram URL (optional)
             </Label>
             <Input
-              id="brand-contact-person"
-              value={contactPerson}
-              onChange={(e) => setContactPerson(e.target.value)}
-              placeholder="Jane (Marketing Lead)"
+              id="brand-instagram"
+              value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="https://instagram.com/yourbrand"
+              autoComplete="url"
+              inputMode="url"
               disabled={pending}
             />
           </div>
-        </div>
+        ) : null}
+
+        {mode === "create" ? (
+          <fieldset className="space-y-3 rounded-xl border border-border/60 p-4">
+            <legend className="text-sm font-medium text-foreground px-1">
+              Categories (optional)
+            </legend>
+            <p className="text-xs text-muted-foreground">
+              Select all that apply. Same list as the API reference options.
+            </p>
+            <div className="grid max-h-56 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+              {categoryOptionRows.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex cursor-pointer items-start gap-2 rounded-md border border-transparent px-1 py-1 text-sm hover:bg-muted/40"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={selectedCategories.includes(
+                      opt.value as BrandCategoryApi,
+                    )}
+                    onChange={() =>
+                      toggleCategory(opt.value as BrandCategoryApi)
+                    }
+                    disabled={pending}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
+        {mode === "create" ? (
+          <fieldset className="space-y-2 rounded-xl border border-border/60 p-4">
+            <legend className="text-sm font-medium text-foreground px-1">
+              Product type (optional)
+            </legend>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {(
+                [
+                  ["PHYSICAL", "Physical"],
+                  ["DIGITAL", "Digital"],
+                  ["BOTH", "Both"],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-center gap-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="productType"
+                    value={value}
+                    checked={productType === value}
+                    onChange={() => setProductType(value)}
+                    disabled={pending}
+                  />
+                  {label}
+                </label>
+              ))}
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="productType"
+                  value=""
+                  checked={productType === ""}
+                  onChange={() => setProductType("")}
+                  disabled={pending}
+                />
+                Prefer not to say
+              </label>
+            </div>
+          </fieldset>
+        ) : null}
 
         <BrandLogoField
           previewUrl={logoPreviewUrl}
@@ -330,7 +600,10 @@ function BrandProfileSetupFormContent({
         />
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <Button type="submit" disabled={pending || uploadingLogo}>
+          <Button
+            type="submit"
+            disabled={pending || uploadingLogo || uploadingPronunciation}
+          >
             {pending ? (
               variant === "onboarding" ? (
                 mode === "update" ? (

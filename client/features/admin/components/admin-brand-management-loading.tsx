@@ -62,9 +62,10 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     brandProfileId: "fixture-profile-1",
     email: "hello@northstar.co",
     name: "Northstar Labs",
-    companyName: "Northstar Labs",
-    industry: "Skincare",
-    contactPerson: "Anika Rao",
+    brandName: "Northstar Labs",
+    contactFullName: "Anika Rao",
+    contactPhone: "+91 98765 43210",
+    categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
     createdAt: "2026-03-10T09:00:00.000Z",
@@ -75,9 +76,10 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     brandProfileId: "fixture-profile-2",
     email: "team@peakhome.com",
     name: "Peak Home",
-    companyName: "Peak Home",
-    industry: "Home Goods",
-    contactPerson: "Marcus Lee",
+    brandName: "Peak Home",
+    contactFullName: "Marcus Lee",
+    contactPhone: "+91 91234 56789",
+    categories: ["HOME_AND_LIFESTYLE"],
     logoUrl: null,
     status: "ACTIVE",
     createdAt: "2026-02-18T09:00:00.000Z",
@@ -88,9 +90,10 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     brandProfileId: "fixture-profile-3",
     email: "ops@tailwindcoffee.com",
     name: "Tailwind Coffee",
-    companyName: "Tailwind Coffee",
-    industry: "Food & Beverage",
-    contactPerson: "Sofia Bennett",
+    brandName: "Tailwind Coffee",
+    contactFullName: "Sofia Bennett",
+    contactPhone: "+91 99887 76655",
+    categories: ["FOOD_AND_BEVERAGES"],
     logoUrl: null,
     status: "ACTIVE",
     createdAt: "2026-01-27T09:00:00.000Z",
@@ -113,9 +116,9 @@ function BrandManagementLoadingShell({ limit }: { limit: number }) {
           helper="Brands on this page that have a logo configured."
         />
         <StatsCard
-          label="Industries"
+          label="Contacts"
           value="..."
-          helper="Distinct industries represented on the current page."
+          helper="Distinct contact names on the current page."
         />
       </section>
 
@@ -181,9 +184,9 @@ function BrandManagementFixtureContent() {
           helper="Brands on this page that have a logo configured."
         />
         <StatsCard
-          label="Industries"
+          label="Contacts"
           value={3}
-          helper="Distinct industries represented on the current page."
+          helper="Distinct contact names on the current page."
         />
       </section>
 
@@ -199,7 +202,7 @@ function BrandManagementFixtureContent() {
 
         <div className="grid grid-cols-1 gap-4">
           {BRAND_MANAGEMENT_FIXTURE_ITEMS.map((brand) => {
-            const displayName = brand.companyName ?? brand.name ?? "Unnamed Brand";
+            const displayName = brand.brandName ?? brand.name ?? "Unnamed Brand";
 
             return (
               <div
@@ -254,19 +257,23 @@ function BrandManagementFixtureContent() {
                     </div>
                     <div className="flex flex-col">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
-                        Industry
+                        Contact name
                       </p>
                       <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                        <span className="truncate">{brand.industry ?? "—"}</span>
+                        <UserRound className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
+                        <span className="truncate">
+                          {brand.contactFullName ?? "—"}
+                        </span>
                       </div>
                     </div>
                     <div className="flex flex-col">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
-                        Contact
+                        Mobile
                       </p>
                       <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                        <UserRound className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
-                        <span className="truncate">{brand.contactPerson ?? "—"}</span>
+                        <span className="truncate">
+                          {brand.contactPhone ?? "—"}
+                        </span>
                       </div>
                     </div>
                   </div>

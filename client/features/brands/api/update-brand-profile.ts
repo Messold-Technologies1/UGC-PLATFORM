@@ -1,13 +1,20 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import type { BrandCategoryApi, BrandProductTypeApi } from "./brand-category-types";
 import type { BrandProfileItemApi } from "./types";
 
 export type UpdateBrandProfilePayload = {
-  companyName?: string;
-  logoKey?: string | null;
+  brandName?: string;
+  contactFullName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  brandPronunciation?: string | null;
+  brandPronunciationAudioKey?: string | null;
   website?: string | null;
-  industry?: string | null;
-  contactPerson?: string | null;
+  instagramUrl?: string | null;
+  productType?: BrandProductTypeApi | null;
+  categories?: BrandCategoryApi[];
+  logoKey?: string | null;
 };
 
 export async function updateBrandProfile(

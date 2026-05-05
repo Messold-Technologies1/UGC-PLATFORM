@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-// import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
+import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { OrderDeliveredContent } from "@/features/orders/components/order-delivered-content";
 import { OrderDeliveryStatus } from "@/features/orders/components/order-delivery-status";
 import { OrderFinancialSummary } from "@/features/orders/components/order-financial-summary";
@@ -87,8 +87,12 @@ export function BrandOrderDetailsView({
         </div>
 
         <aside className="flex flex-col gap-8 lg:col-span-4">
+          <OrderChatWidget
+            orderId={orderId}
+            role="brand"
+            creator={data.creator}
+          />
           <OrderDeliveryStatus order={data.order} />
-          {/* <OrderChatWidget /> */}
           <OrderFinancialSummary order={data.order} />
         </aside>
       </div>

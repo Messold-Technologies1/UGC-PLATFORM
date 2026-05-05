@@ -39,6 +39,12 @@ export const ENDPOINTS = {
     CHECKOUT: "/api/orders/checkout",
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
+    CHAT_MESSAGES: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/messages`,
+    CHAT_READ: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/read`,
+    CHAT_STATE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/state`,
     DELIVERY_UPLOADS_PRESIGN: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/deliveries/presign`,
     SUBMIT_DELIVERY: (id: string) =>

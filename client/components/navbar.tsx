@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { Menu, X, User, Moon, Sun } from "lucide-react";
+import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { 
+  Menu, X, User, Moon, Sun, 
+  LayoutDashboard, Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, type LucideIcon 
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,19 +78,118 @@ function ThemeToggle() {
   );
 }
 
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  match?: (p: string) => boolean;
+}
+
+const roleConfigs: Record<string, NavItem[]> = {
+  brand: [
+    { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/brand/creators", label: "Browse Creators", icon: Users },
+    { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
+  ],
+  creator: [
+    { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
+    { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
+  ],
+  admin: [
+    { href: "/admin/approvals", label: "Creator Approval", icon: UserCheck, match: (p) => p.includes("/approvals") },
+    { href: "/admin/brandManagement", label: "Brand Management", icon: Users, match: (p) => p.includes("/brandManagement") },
+    { href: "/admin/orderManagement", label: "Order Management", icon: Package, match: (p) => p.includes("/orderManagement") },
+    { href: "/admin/settings", label: "Settings", icon: Settings },
+  ],
+};
+
+function getNavItems(pathname: string): NavItem[] {
+  const segment = pathname.split("/")[1];
+  return roleConfigs[segment] ?? [];
+}
+
+function isNavItemActive(pathname: string, item: NavItem): boolean {
+  if (item.match) return item.match(pathname);
+  if (pathname === item.href) return true;
+  if (item.href.length > 1 && pathname.startsWith(`${item.href}/`)) return true;
+  return false;
+}
+
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
+  const pathname = usePathname();
+
+  const navItems = getNavItems(pathname || "");
+
+  const [hidden, setHidden] = useState(false);
+  const { scrollY } = useScroll();
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() ?? 0;
+    
+    if (mobileOpen) return;
+
+    if (latest > 100 && latest > previous) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+  });
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background/50 backdrop-blur-sm backdrop-saturate-125">
-      <div className="mx-auto flex h-17 max-w-site items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" prefetch className="flex items-center gap-2">
-          {}
-          <span className="text-lg font-bold font-heading tracking-tight">{SITE_NAME}</span>
-        </Link>
+    <motion.header
+      variants={{
+        visible: { 
+          y: 0,
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1, delay: 0.45 }
+        },
+        hidden: { 
+          y: "-150%",
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1, delay: 0.15 }
+        }
+      }}
+      animate={hidden ? "hidden" : "visible"}
+      className="sticky top-6 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
+    >
+      <div className={cn(
+        "flex flex-col border border-border/50 bg-[#f7f7f7cc] dark:bg-background/60 shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300",
+        mobileOpen ? "rounded-2xl" : "rounded-full"
+      )}>
+        <div className="flex h-12 w-full items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-6 lg:gap-8">
+            <Link href="/" prefetch className="flex items-center gap-2 shrink-0">
+              <span className="text-lg font-bold font-heading tracking-tight">{SITE_NAME}</span>
+            </Link>
 
-        <div className="hidden items-center gap-2 md:flex">
+           
+            {navItems.length > 0 && (
+              <nav className="hidden md:flex items-center gap-1">
+                {navItems.map((item) => {
+                  const isActive = isNavItemActive(pathname || "", item);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      prefetch
+                      className={cn(
+                        "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
+                        isActive
+                          ? "text-primary bg-primary/10"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )}
+                    >
+                      <item.icon className="size-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
+          </div>
+
+        <div className="hidden items-center gap-2 md:flex shrink-0">
           <ThemeToggle />
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
@@ -147,6 +251,32 @@ export function Navbar() {
         )}
       >
         <div className="flex flex-col gap-1 px-4 py-3">
+          {navItems.length > 0 && (
+            <>
+              {navItems.map((item) => {
+                const isActive = isNavItemActive(pathname || "", item);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading transition-colors",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="size-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+              <div className="my-2 h-px bg-border/60" />
+            </>
+          )}
+
           {isAuthenticated ? (
             <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
           ) : (
@@ -172,6 +302,7 @@ export function Navbar() {
           )}
         </div>
       </div>
-    </header>
+      </div>
+    </motion.header>
   );
 }

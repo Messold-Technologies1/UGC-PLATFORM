@@ -1,11 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import {
   Copy,
   Flag,
   Loader2,
   MoreHorizontal,
-  PlusCircle,
   Reply,
   Send,
   Trash2,
@@ -37,6 +37,7 @@ export type MessagingConversationMessage = {
   senderUserId: string;
   createdAt?: string;
   timeLabel?: string;
+  statusLabel?: string;
 };
 
 type MessagingConversationProps = {
@@ -53,6 +54,10 @@ type MessagingConversationProps = {
   hasMoreMessages?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
+  sendError?: string | null;
+  inputPlaceholder?: string;
+  maxMessageLength?: number;
+  onSendMessage?: (text: string) => Promise<void> | void;
 };
 
 const DEMO_USER: MessagingParticipant = {
@@ -254,9 +259,16 @@ export function MessagingConversation({
   hasMoreMessages = false,
   isLoadingMore = false,
   onLoadMore,
+  sendError,
+  inputPlaceholder = "Type a message...",
+  maxMessageLength = 5000,
+  onSendMessage,
 }: MessagingConversationProps) {
+  const [draft, setDraft] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const resolvedParticipants = participants ?? [DEMO_USER, DEMO_OTHER];
   const resolvedMessages = messages ?? DEMO_MESSAGES;
+  const lastMessageId = resolvedMessages.at(-1)?.id;
   const rightAlignedUserId = alignRightUserId ?? DEMO_USER.id;
   const participantById = new Map(
     resolvedParticipants.map((participant) => [participant.id, participant]),
@@ -268,11 +280,29 @@ export function MessagingConversation({
   const subtitle =
     headerSubtitle ?? statusLabel(headerParticipant?.status) ?? "Messages";
   const avatarUrl = headerAvatarUrl ?? headerParticipant?.avatar;
+  const trimmedDraft = draft.trim();
+  const canSend = Boolean(onSendMessage) && Boolean(trimmedDraft);
+
+  const handleSendMessage = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSend || !onSendMessage) return;
+
+    setDraft("");
+    try {
+      await onSendMessage(trimmedDraft);
+    } catch {
+      setDraft(trimmedDraft);
+    }
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [lastMessageId]);
 
   return (
     <section
       className={cn(
-        "bg-card rounded-3xl flex flex-col h-[640px] border shadow-sm overflow-hidden",
+        "bg-card rounded-3xl flex flex-col h-160 border shadow-sm overflow-hidden",
         className,
       )}
     >
@@ -381,6 +411,7 @@ export function MessagingConversation({
                     )}
                   >
                     {timestamp ? <span>{timestamp}</span> : null}
+                    {msg.statusLabel ? <span>{msg.statusLabel}</span> : null}
                     {readOnly ? null : (
                       <div className="opacity-0 transition-opacity group-hover:opacity-100">
                         <MessageActions isMe={isMe} />
@@ -391,32 +422,36 @@ export function MessagingConversation({
               );
             })
           )}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
       {readOnly ? null : (
         <div className="p-4 bg-muted/20 border-t">
-          <div className="relative flex items-center">
-            <button
-              aria-label="Add attachment"
-              className="absolute left-3 text-muted-foreground hover:text-primary transition-colors p-1"
-              type="button"
-            >
-              <PlusCircle className="w-5 h-5" />
-            </button>
+          <form className="relative flex items-center" onSubmit={handleSendMessage}>
             <input
               type="text"
-              placeholder="Type a message..."
-              className="w-full bg-background border rounded-xl py-3 pl-11 pr-12 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all placeholder:text-muted-foreground shadow-sm"
+              placeholder={inputPlaceholder}
+              className="w-full bg-background border rounded-xl py-3 pl-4 pr-12 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all placeholder:text-muted-foreground shadow-sm"
+              disabled={!onSendMessage}
+              maxLength={maxMessageLength}
+              onChange={(event) => setDraft(event.target.value)}
+              value={draft}
             />
             <button
               aria-label="Send message"
-              className="absolute right-1.5 w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
-              type="button"
+              className="absolute right-1.5 w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary/10 disabled:hover:text-primary disabled:active:scale-100"
+              disabled={!canSend}
+              type="submit"
             >
               <Send className="w-4 h-4" />
             </button>
-          </div>
+          </form>
+          {sendError ? (
+            <p className="mt-2 text-xs font-medium text-destructive">
+              {sendError}
+            </p>
+          ) : null}
         </div>
       )}
     </section>

@@ -41,6 +41,7 @@ import {
   useRefundAdminOrderMutation,
   useRejectAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
+import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
 import TrackingTimeline, { TimelineItem } from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
@@ -416,7 +417,7 @@ export default function AdminOrderDetailsPage() {
                     <Avatar className="h-16 w-16 border-2 border-background shadow-md">
                       <AvatarImage
                         src={brand.logoUrl || undefined}
-                        alt={brand.companyName}
+                        alt={brand.brandName}
                         className="object-cover"
                       />
                       <AvatarFallback className="bg-primary/5 text-lg">
@@ -425,7 +426,7 @@ export default function AdminOrderDetailsPage() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <h4 className="truncate text-xl font-bold leading-tight">
-                        {brand.companyName}
+                        {brand.brandName}
                       </h4>
                     </div>
                   </div>
@@ -704,20 +705,25 @@ export default function AdminOrderDetailsPage() {
             </Card>
           </motion.div>
 
-          <motion.div variants={itemVariants}>
-            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-              <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
-                <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
-                  <Clock className="h-5 w-5 text-primary" />
-                  Order Journey
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <TrackingTimeline items={timelineItems} />
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
+
+        <motion.div variants={itemVariants} className="xl:col-span-2">
+          <AdminOrderChat orderId={order.id} brand={brand} creator={creator} />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+            <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+              <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
+                <Clock className="h-5 w-5 text-primary" />
+                Order Journey
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-8">
+              <TrackingTimeline items={timelineItems} />
+            </CardContent>
+          </Card>
+        </motion.div>
       </motion.div>
 
       <Dialog

@@ -179,10 +179,10 @@ function BrandManagementContent({
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
 
-  const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
-  const distinctContactNames = new Set(
-    items.map((item) => item.contactFullName?.trim()).filter(Boolean),
-  ).size;
+  // const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
+  // const distinctContactNames = new Set(
+  //   items.map((item) => item.contactFullName?.trim()).filter(Boolean),
+  // ).size;
   return (
     <>
       {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">

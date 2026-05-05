@@ -75,6 +75,10 @@ export const ENDPOINTS = {
     ORDERS: {
       LIST: "/api/admin/orders",
       DETAIL: (id: string) => `/api/admin/orders/${encodeURIComponent(id)}`,
+      CHAT_MESSAGES: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/chat/messages`,
+      CHAT_STATE: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/chat/state`,
       MARK_CREATOR_PAID: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/mark-creator-paid`,
       REJECT: (id: string) =>

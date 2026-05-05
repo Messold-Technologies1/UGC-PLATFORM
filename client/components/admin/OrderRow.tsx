@@ -66,12 +66,12 @@ export default function OrderRow({ order, creator, brand, delay = 0 }: OrderRowP
             <div className="p-1 bg-accent/20 rounded-lg border border-border/10">
               <Avatar className="w-10 h-10 rounded-md">
                 <AvatarImage
-                  alt={brand.companyName}
+                  alt={brand.brandName}
                   className="object-cover"
                   src={brand.logoUrl || undefined}
                 />
                 <AvatarFallback className="rounded-md bg-secondary/10 text-secondary text-xs font-bold">
-                  {initials(brand.companyName)}
+                  {initials(brand.brandName)}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -88,7 +88,7 @@ export default function OrderRow({ order, creator, brand, delay = 0 }: OrderRowP
             <div className="w-px h-6 bg-border/20 self-center"></div>
             <div>
               <p className="font-bold text-muted-foreground text-xs leading-tight">
-                {brand.companyName}
+                {brand.brandName}
               </p>
               <p className="text-[10px] text-muted-foreground/60">Brand</p>
             </div>

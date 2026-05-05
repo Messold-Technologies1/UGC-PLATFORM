@@ -144,6 +144,35 @@ export interface AdminOrderDetailsResponseDto {
   brand: OrderBrandSnapshot;
 }
 
+export interface OrderChatMessageDto {
+  id: string;
+  orderId: string;
+  senderUserId: string;
+  text: string;
+  clientMessageId?: string | null;
+  createdAt: string;
+}
+
+export interface OrderChatMessagesResponseDto {
+  items: OrderChatMessageDto[];
+  nextCursor?: string;
+}
+
+export interface OrderChatStateDto {
+  orderId: string;
+  brandUserId: string;
+  creatorUserId: string;
+  brandLastReadMessageId?: string;
+  brandLastReadAt?: string;
+  creatorLastReadMessageId?: string;
+  creatorLastReadAt?: string;
+}
+
+export interface AdminOrderChatMessagesQueryDto {
+  limit?: number;
+  cursor?: string;
+}
+
 export interface AdminOrderActionPayload {
   orderId: string;
 }

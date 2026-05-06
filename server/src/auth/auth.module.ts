@@ -3,7 +3,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthController } from './auth.controller';
+import { AuthPhoneController } from './auth-phone.controller';
 import { AuthService } from './auth.service';
+import { PhoneVerificationService } from './phone-verification.service';
 import { AdminGuard } from './guards/admin.guard';
 import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
 
@@ -24,8 +26,8 @@ import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, AdminGuard, WorkspacePermissionGuard],
+  controllers: [AuthController, AuthPhoneController],
+  providers: [AuthService, PhoneVerificationService, AdminGuard, WorkspacePermissionGuard],
   exports: [AuthService, JwtModule, AdminGuard, WorkspacePermissionGuard],
 })
 export class AuthModule {}

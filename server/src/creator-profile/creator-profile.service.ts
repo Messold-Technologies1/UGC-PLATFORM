@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import {
   ApprovalStatus,
+  CreatorFacetDimension,
+  CreatorLanguageFluency,
   PortfolioVisibilityStatus,
   Prisma,
   PrismaClient,
@@ -33,9 +35,12 @@ import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
+import { computeAgeGroup, computeAgeYears } from './creator-age.util';
+import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 
 const creatorProfileWithRelationsInclude = {
-  languages: true,
+  facetSelections: { include: { option: true } },
+  profileLanguages: { include: { option: true } },
   categories: true,
   personaTags: true,
   restrictions: true,
@@ -161,21 +166,51 @@ export class CreatorProfileService {
           tags: (first.tags ?? []).map((t: any) => t.tag).filter(Boolean),
         }
       : null;
+
+    const dob: Date | null = mapped.dateOfBirth
+      ? new Date(mapped.dateOfBirth)
+      : null;
+    const age =
+      dob && !Number.isNaN(dob.getTime()) ? computeAgeYears(dob) : null;
+    const ageGroup =
+      dob && !Number.isNaN(dob.getTime()) ? computeAgeGroup(dob) : null;
+    const dobStr =
+      dob && !Number.isNaN(dob.getTime())
+        ? dob.toISOString().slice(0, 10)
+        : null;
+
     return {
       id: mapped.id,
       userId: mapped.userId,
       displayName: mapped.displayName,
       profileImageUrl: mapped.profileImageUrl ?? null,
+      countryName: mapped.countryName ?? null,
+      stateName: mapped.stateName ?? null,
       city: mapped.city ?? null,
       bio: mapped.bio ?? null,
       gender: mapped.gender ?? null,
+      dateOfBirth: dobStr,
+      age,
+      ageGroup,
+      shippingAddress: mapped.shippingAddress ?? null,
+      instagramUrl: mapped.instagramUrl ?? null,
+      contentVolume: mapped.contentVolume ?? null,
+      collaborationCount: mapped.collaborationCount ?? 0,
       travelRadius: mapped.travelRadius ?? null,
       onLocationAvailable: mapped.onLocationAvailable,
       approvalStatus: mapped.creatorApproval?.status,
       rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
-      languages: (mapped.languages ?? []).map((l) => ({
-        id: l.id,
-        language: l.language,
+      profileLanguages: (mapped.profileLanguages ?? []).map((row: any) => ({
+        id: row.id,
+        slug: row.option?.slug ?? '',
+        label: row.option?.label ?? '',
+        fluency: row.fluency,
+      })),
+      facetSelections: (mapped.facetSelections ?? []).map((row: any) => ({
+        id: row.id,
+        dimension: row.option?.dimension,
+        slug: row.option?.slug ?? '',
+        label: row.option?.label ?? '',
       })),
       categories: (mapped.categories ?? []).map((c) => ({
         id: c.id,
@@ -243,21 +278,144 @@ export class CreatorProfileService {
     return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
   }
 
+  private async assertPhoneVerifiedForCreator(userId: string): Promise<void> {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phoneVerified: true, phone: true },
+    });
+    if (!u?.phoneVerified || !u?.phone?.trim()) {
+      throw new BadRequestException(
+        'Verify your mobile number before managing a creator profile.',
+      );
+    }
+  }
+
+  private async syncUserDisplayName(
+    tx: PrismaTransactionClient,
+    userId: string,
+    displayName: string,
+  ): Promise<void> {
+    const trimmed = displayName.trim();
+    if (!trimmed) return;
+    await tx.user.update({
+      where: { id: userId },
+      data: { name: trimmed },
+    });
+  }
+
+  private async resolveFacetOptionIds(
+    tx: PrismaTransactionClient,
+    selections: { dimension: CreatorFacetDimension; slug: string }[],
+  ): Promise<string[]> {
+    if (!selections.length) return [];
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const s of selections) {
+      if (s.dimension === CreatorFacetDimension.LANGUAGE) {
+        throw new BadRequestException(
+          'Use profileLanguages for LANGUAGE options, not facetSelections.',
+        );
+      }
+      const key = `${s.dimension}:${s.slug}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const opt = await tx.creatorFacetOption.findUnique({
+        where: {
+          dimension_slug: { dimension: s.dimension, slug: s.slug },
+        },
+      });
+      if (!opt) {
+        throw new BadRequestException(
+          `Unknown facet option ${s.dimension} / ${s.slug}`,
+        );
+      }
+      ids.push(opt.id);
+    }
+    return ids;
+  }
+
+  private async resolveLanguageRows(
+    tx: PrismaTransactionClient,
+    inputs: { slug: string; fluency: CreatorLanguageFluency }[],
+  ): Promise<{ optionId: string; fluency: CreatorLanguageFluency }[]> {
+    const out: { optionId: string; fluency: CreatorLanguageFluency }[] = [];
+    const seen = new Set<string>();
+    for (const row of inputs) {
+      if (seen.has(row.slug)) continue;
+      seen.add(row.slug);
+      const opt = await tx.creatorFacetOption.findUnique({
+        where: {
+          dimension_slug: {
+            dimension: CreatorFacetDimension.LANGUAGE,
+            slug: row.slug,
+          },
+        },
+      });
+      if (!opt) {
+        throw new BadRequestException(`Unknown language slug: ${row.slug}`);
+      }
+      out.push({ optionId: opt.id, fluency: row.fluency });
+    }
+    return out;
+  }
+
+  private async replaceFacetSelections(
+    tx: PrismaTransactionClient,
+    creatorProfileId: string,
+    optionIds: string[],
+  ): Promise<void> {
+    await tx.creatorProfileFacetSelection.deleteMany({
+      where: { creatorProfileId },
+    });
+    if (optionIds.length === 0) return;
+    await tx.creatorProfileFacetSelection.createMany({
+      data: optionIds.map((optionId) => ({
+        creatorProfileId,
+        optionId,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  private async replaceProfileLanguages(
+    tx: PrismaTransactionClient,
+    creatorProfileId: string,
+    rows: { optionId: string; fluency: CreatorLanguageFluency }[],
+  ): Promise<void> {
+    await tx.creatorProfileLanguage.deleteMany({
+      where: { creatorProfileId },
+    });
+    if (rows.length === 0) return;
+    await tx.creatorProfileLanguage.createMany({
+      data: rows.map((r) => ({
+        creatorProfileId,
+        optionId: r.optionId,
+        fluency: r.fluency,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  async listFacetOptions(): Promise<CreatorFacetOptionsResponseDto> {
+    const options = await this.prisma.creatorFacetOption.findMany({
+      orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }],
+    });
+    return { options };
+  }
+
   async createCreatorProfile(
     userId: string,
     dto: CreateCreatorProfileDto,
   ): Promise<CreatorProfileResponseDto> {
-    const normalizedLanguages = this.normalizeUniqueStrings(dto.languages);
-    const normalizedCategories = this.normalizeUniqueStrings(dto.categories);
-    const normalizedPersonaTags = this.normalizeUniqueStrings(dto.personaTags);
-    const normalizedRestrictions = this.normalizeUniqueStrings(
-      dto.restrictions,
-    );
+    await this.assertPhoneVerifiedForCreator(userId);
 
     const profileImageKey = dto.profileImageKey?.trim();
     if (profileImageKey) {
       this.assertTempProfileImageKeyOwner(userId, profileImageKey);
     }
+
+    const facetInputs = dto.facetSelections ?? [];
+    const langInputs = dto.profileLanguages ?? [];
 
     const creatorProfileId = await this.prisma.$transaction(
       async (tx) => {
@@ -286,13 +444,30 @@ export class CreatorProfileService {
           throw new ConflictException('Creator profile already exists');
         }
 
+        await this.syncUserDisplayName(tx, userId, dto.displayName);
+
+        const dateOfBirth = dto.dateOfBirth
+          ? new Date(dto.dateOfBirth)
+          : undefined;
+        const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
+        const langRows = await this.resolveLanguageRows(tx, langInputs);
+
         const creatorProfile = await tx.creatorProfile.create({
           data: {
             userId,
-            displayName: dto.displayName,
-            city: dto.city ?? null,
-            bio: dto.bio ?? null,
+            displayName: dto.displayName.trim(),
+            city: dto.city?.trim() || null,
+            countryName: dto.countryName?.trim() || null,
+            stateName: dto.stateName?.trim() || null,
+            bio: dto.bio?.trim() || null,
             gender: dto.gender ?? null,
+            dateOfBirth: dateOfBirth && !Number.isNaN(dateOfBirth.getTime())
+              ? dateOfBirth
+              : null,
+            shippingAddress: dto.shippingAddress?.trim() || null,
+            instagramUrl: dto.instagramUrl?.trim() || null,
+            contentVolume: dto.contentVolume ?? null,
+            collaborationCount: dto.collaborationCount ?? 0,
             travelRadius: dto.travelRadius ?? null,
             onLocationAvailable: dto.onLocationAvailable ?? false,
             creatorApproval: {
@@ -301,7 +476,9 @@ export class CreatorProfileService {
           },
         });
 
-        // Independent writes: can be done in parallel once we have creatorProfile.id.
+        await this.replaceFacetSelections(tx, creatorProfile.id, facetIds);
+        await this.replaceProfileLanguages(tx, creatorProfile.id, langRows);
+
         const ops: Array<Promise<unknown>> = [];
 
         ops.push(
@@ -312,61 +489,11 @@ export class CreatorProfileService {
           }),
         );
 
-        // With URL-based workspace selection, creator profile creation should
-        // make CREATOR the primary role if none is set yet.
         if (!currentUser.primaryRoleId) {
           ops.push(
             tx.user.update({
               where: { id: userId },
               data: { primaryRoleId: creatorRole.id } as any,
-            }),
-          );
-        }
-
-        if (normalizedLanguages.length > 0) {
-          ops.push(
-            tx.creatorLanguage.createMany({
-              data: normalizedLanguages.map((language) => ({
-                creatorId: creatorProfile.id,
-                language,
-              })),
-              skipDuplicates: true,
-            }),
-          );
-        }
-
-        if (normalizedCategories.length > 0) {
-          ops.push(
-            (tx as any).creatorCategory.createMany({
-              data: normalizedCategories.map((category) => ({
-                creatorId: creatorProfile.id,
-                category,
-              })),
-              skipDuplicates: true,
-            }),
-          );
-        }
-
-        if (normalizedPersonaTags.length > 0) {
-          ops.push(
-            (tx as any).creatorPersonaTag.createMany({
-              data: normalizedPersonaTags.map((tag) => ({
-                creatorId: creatorProfile.id,
-                tag,
-              })),
-              skipDuplicates: true,
-            }),
-          );
-        }
-
-        if (normalizedRestrictions.length > 0) {
-          ops.push(
-            (tx as any).creatorRestriction.createMany({
-              data: normalizedRestrictions.map((restriction) => ({
-                creatorId: creatorProfile.id,
-                restriction,
-              })),
-              skipDuplicates: true,
             }),
           );
         }
@@ -383,7 +510,7 @@ export class CreatorProfileService {
 
         if (dto.addOns?.length) {
           ops.push(
-            (tx as any).creatorAddOn.createMany({
+            tx.creatorAddOn.createMany({
               data: dto.addOns.map((addOn) => ({
                 creatorId: creatorProfile.id,
                 name: addOn.name,
@@ -486,20 +613,49 @@ export class CreatorProfileService {
         }))
       : [];
 
+    const dob: Date | null = profile.dateOfBirth
+      ? new Date(profile.dateOfBirth)
+      : null;
+    const age =
+      dob && !Number.isNaN(dob.getTime()) ? computeAgeYears(dob) : null;
+
+    const profileLanguages = Array.isArray(profile.profileLanguages)
+      ? profile.profileLanguages
+          .map((row: any) => ({
+            slug: String(row?.option?.slug ?? ''),
+            label: String(row?.option?.label ?? ''),
+            fluency: row.fluency,
+          }))
+          .filter((x: any) => x.slug)
+      : [];
+
+    const facetSelections = Array.isArray(profile.facetSelections)
+      ? profile.facetSelections
+          .map((row: any) => ({
+            dimension: row?.option?.dimension,
+            slug: String(row?.option?.slug ?? ''),
+            label: String(row?.option?.label ?? ''),
+          }))
+          .filter((x: any) => x.slug && x.dimension)
+      : [];
+
     return {
       id: profile.id,
       userId: profile.userId,
       name: profile.displayName,
       profileImageUrl: profile.profileImageUrl ?? null,
       city: profile.city ?? null,
+      countryName: profile.countryName ?? null,
+      stateName: profile.stateName ?? null,
       bio: profile.bio ?? null,
       gender: profile.gender ?? null,
+      age,
+      contentVolume: profile.contentVolume ?? null,
+      collaborationCount: profile.collaborationCount ?? 0,
       onLocationAvailable: !!profile.onLocationAvailable,
-      languages: Array.isArray(profile.languages)
-        ? profile.languages
-            .map((l: any) => l?.language)
-            .filter((v: unknown): v is string => typeof v === 'string')
-        : [],
+      languages: profileLanguages.map((l) => l.label),
+      profileLanguages,
+      facetSelections,
       categories: Array.isArray(profile.categories)
         ? profile.categories
             .map((c: any) => c?.category)
@@ -686,6 +842,14 @@ export class CreatorProfileService {
     creatorProfileId: string,
     dto: UpdateCreatorProfileDto,
   ): Promise<CreatorProfileResponseDto> {
+    const profileForGate = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { userId: true },
+    });
+    if (profileForGate?.userId === actingUserId) {
+      await this.assertPhoneVerifiedForCreator(actingUserId);
+    }
+
     return this.prisma.$transaction(
       async (tx) => {
         const profile = await tx.creatorProfile.findUnique({
@@ -705,6 +869,10 @@ export class CreatorProfileService {
           );
         }
 
+        if (dto.displayName !== undefined) {
+          await this.syncUserDisplayName(tx, profile.userId, dto.displayName);
+        }
+
         let nextProfileImageKey: string | null | undefined = undefined;
         let nextProfileImageUrl: string | null | undefined = undefined;
         if (dto.profileImageKey !== undefined) {
@@ -719,34 +887,85 @@ export class CreatorProfileService {
           }
         }
 
-        await tx.creatorProfile.update({
-          where: { id: creatorProfileId },
-          data: {
-            displayName: dto.displayName ?? undefined,
-            profileImageKey: nextProfileImageKey,
-            profileImageUrl: nextProfileImageUrl,
-            city: dto.city ?? undefined,
-            bio: dto.bio ?? undefined,
-            gender: dto.gender ?? undefined,
-            travelRadius: dto.travelRadius ?? undefined,
-            onLocationAvailable: dto.onLocationAvailable ?? undefined,
-          } as any,
-        });
-
-        if (dto.languages) {
-          const normalized = this.normalizeUniqueStrings(dto.languages);
-          await tx.creatorLanguage.deleteMany({
-            where: { creatorId: creatorProfileId },
-          });
-          if (normalized.length > 0) {
-            await tx.creatorLanguage.createMany({
-              data: normalized.map((language) => ({
-                creatorId: creatorProfileId,
-                language,
-              })),
-              skipDuplicates: true,
-            });
+        const data: Prisma.CreatorProfileUpdateInput = {};
+        if (dto.displayName !== undefined) {
+          data.displayName = dto.displayName.trim();
+        }
+        if (dto.city !== undefined) {
+          data.city = dto.city?.trim() || null;
+        }
+        if (dto.countryName !== undefined) {
+          data.countryName = dto.countryName?.trim() || null;
+        }
+        if (dto.stateName !== undefined) {
+          data.stateName = dto.stateName?.trim() || null;
+        }
+        if (dto.bio !== undefined) {
+          data.bio = dto.bio?.trim() || null;
+        }
+        if (dto.gender !== undefined) {
+          data.gender = dto.gender;
+        }
+        if (dto.dateOfBirth !== undefined) {
+          if (!dto.dateOfBirth) {
+            data.dateOfBirth = null;
+          } else {
+            const d = new Date(dto.dateOfBirth);
+            data.dateOfBirth = Number.isNaN(d.getTime()) ? null : d;
           }
+        }
+        if (dto.shippingAddress !== undefined) {
+          data.shippingAddress = dto.shippingAddress?.trim() || null;
+        }
+        if (dto.instagramUrl !== undefined) {
+          data.instagramUrl = dto.instagramUrl?.trim() || null;
+        }
+        if (dto.contentVolume !== undefined) {
+          data.contentVolume = dto.contentVolume;
+        }
+        if (dto.collaborationCount !== undefined) {
+          data.collaborationCount = dto.collaborationCount;
+        }
+        if (dto.travelRadius !== undefined) {
+          data.travelRadius = dto.travelRadius;
+        }
+        if (dto.onLocationAvailable !== undefined) {
+          data.onLocationAvailable = dto.onLocationAvailable;
+        }
+        if (nextProfileImageKey !== undefined) {
+          data.profileImageKey = nextProfileImageKey;
+          data.profileImageUrl = nextProfileImageUrl;
+        }
+
+        if (Object.keys(data).length > 0) {
+          await tx.creatorProfile.update({
+            where: { id: creatorProfileId },
+            data,
+          });
+        }
+
+        if (dto.facetSelections !== undefined) {
+          const facetIds = await this.resolveFacetOptionIds(
+            tx,
+            dto.facetSelections,
+          );
+          await this.replaceFacetSelections(
+            tx,
+            creatorProfileId,
+            facetIds,
+          );
+        }
+
+        if (dto.profileLanguages !== undefined) {
+          const langRows = await this.resolveLanguageRows(
+            tx,
+            dto.profileLanguages,
+          );
+          await this.replaceProfileLanguages(
+            tx,
+            creatorProfileId,
+            langRows,
+          );
         }
 
         if (dto.categories) {

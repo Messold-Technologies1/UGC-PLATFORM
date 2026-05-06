@@ -1,11 +1,51 @@
 import {
   ApprovalStatus,
+  CreatorFacetDimension,
   PortfolioVisibilityStatus,
   Prisma,
 } from '@prisma/client';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
+import {
+  ageGroupToAgeRange,
+  dateOfBirthRangeForAgeFilter,
+} from './creator-age.util';
 
 const PUBLIC = PortfolioVisibilityStatus.PUBLIC;
+
+function facetWhere(
+  dimension: CreatorFacetDimension,
+  slugs: string[] | undefined,
+): Prisma.CreatorProfileWhereInput | undefined {
+  const s = slugs?.filter(Boolean);
+  if (!s?.length) return undefined;
+  return {
+    facetSelections: {
+      some: {
+        option: {
+          dimension,
+          slug: { in: s },
+        },
+      },
+    },
+  };
+}
+
+function languageFacetWhere(
+  slugs: string[] | undefined,
+): Prisma.CreatorProfileWhereInput | undefined {
+  const s = slugs?.filter(Boolean);
+  if (!s?.length) return undefined;
+  return {
+    profileLanguages: {
+      some: {
+        option: {
+          dimension: CreatorFacetDimension.LANGUAGE,
+          slug: { in: s },
+        },
+      },
+    },
+  };
+}
 
 /**
  * Match category / persona tag / restriction text the way users type it:
@@ -133,12 +173,83 @@ export function buildListCreatorsWhere(
     });
   }
 
-  const gender = query.gender?.trim();
-  if (gender) {
-    clauses.push({
-      gender: { equals: gender, mode: 'insensitive' },
-    });
+  if (query.gender !== undefined) {
+    clauses.push({ gender: query.gender });
   }
+
+  let effMin = query.minAge;
+  let effMax = query.maxAge;
+  if (query.ageGroup) {
+    const r = ageGroupToAgeRange(query.ageGroup);
+    effMin = effMin !== undefined ? Math.max(effMin, r.minAge) : r.minAge;
+    effMax = effMax !== undefined ? Math.min(effMax, r.maxAge) : r.maxAge;
+  }
+  if (effMin !== undefined || effMax !== undefined) {
+    const { lte, gte } = dateOfBirthRangeForAgeFilter(effMin, effMax);
+    const dob: Prisma.DateTimeNullableFilter = {};
+    if (lte !== undefined) dob.lte = lte;
+    if (gte !== undefined) dob.gte = gte;
+    if (Object.keys(dob).length > 0) {
+      clauses.push({ dateOfBirth: dob });
+    }
+  }
+
+  const facetClause = facetWhere(
+    CreatorFacetDimension.CASTING_TYPE,
+    query.castingType,
+  );
+  if (facetClause) clauses.push(facetClause);
+
+  const appearanceClause = facetWhere(
+    CreatorFacetDimension.APPEARANCE,
+    query.appearance,
+  );
+  if (appearanceClause) clauses.push(appearanceClause);
+
+  const contentStyleClause = facetWhere(
+    CreatorFacetDimension.CONTENT_STYLE,
+    query.contentStyle,
+  );
+  if (contentStyleClause) clauses.push(contentStyleClause);
+
+  const capabilityClause = facetWhere(
+    CreatorFacetDimension.CAPABILITY,
+    query.capability,
+  );
+  if (capabilityClause) clauses.push(capabilityClause);
+
+  const lifeClause = facetWhere(
+    CreatorFacetDimension.LIFE_CONTEXT,
+    query.lifeContext,
+  );
+  if (lifeClause) clauses.push(lifeClause);
+
+  const occupationClause = facetWhere(
+    CreatorFacetDimension.OCCUPATION,
+    query.occupation,
+  );
+  if (occupationClause) clauses.push(occupationClause);
+
+  const interestClause = facetWhere(
+    CreatorFacetDimension.INTEREST,
+    query.interest,
+  );
+  if (interestClause) clauses.push(interestClause);
+
+  const catExpClause = facetWhere(
+    CreatorFacetDimension.CATEGORY_EXPERIENCE,
+    query.categoryExperience,
+  );
+  if (catExpClause) clauses.push(catExpClause);
+
+  const availClause = facetWhere(
+    CreatorFacetDimension.AVAILABLE_WITH,
+    query.availableWith,
+  );
+  if (availClause) clauses.push(availClause);
+
+  const langClause = languageFacetWhere(query.language);
+  if (langClause) clauses.push(langClause);
 
   if (query.onLocationAvailable !== undefined) {
     clauses.push({
@@ -232,6 +343,14 @@ const portfolioSelect = {
   createdAt: true,
 } as const;
 
+const facetOptionSelect = {
+  id: true,
+  dimension: true,
+  slug: true,
+  label: true,
+  sortOrder: true,
+} as const;
+
 /**
  * Include for list endpoint: one preview video — latest public, or latest matching
  * industry/tag filters when those are present.
@@ -244,7 +363,8 @@ export function buildCreatorListRelationsInclude(
     portfolioMatch ?? { visibilityStatus: PUBLIC };
 
   return {
-    languages: { select: { language: true } },
+    facetSelections: { include: { option: { select: facetOptionSelect } } },
+    profileLanguages: { include: { option: { select: facetOptionSelect } } },
     categories: { select: { category: true } },
     personaTags: { select: { tag: true } },
     restrictions: { select: { restriction: true } },

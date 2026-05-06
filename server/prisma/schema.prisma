@@ -90,6 +90,50 @@ enum BrandProductType {
   BOTH
 }
 
+enum CreatorFacetDimension {
+  CASTING_TYPE
+  APPEARANCE
+  CONTENT_STYLE
+  CAPABILITY
+  LIFE_CONTEXT
+  OCCUPATION
+  INTEREST
+  CATEGORY_EXPERIENCE
+  AVAILABLE_WITH
+  LANGUAGE
+}
+
+enum CreatorGender {
+  FEMALE
+  MALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+  OTHER
+}
+
+enum CreatorContentVolumeBucket {
+  NONE
+  RANGE_1_5
+  RANGE_5_15
+  RANGE_15_25
+  RANGE_25_50
+  RANGE_50_PLUS
+}
+
+enum CreatorLanguageFluency {
+  NATIVE
+  FLUENT
+  CONVERSATIONAL
+}
+
+enum CreatorAgeGroup {
+  AGE_18_24
+  AGE_25_34
+  AGE_35_44
+  AGE_45_54
+  AGE_55_PLUS
+}
+
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique
@@ -98,6 +142,10 @@ model User {
   phone         String?
   emailVerified Boolean    @default(false)
   phoneVerified Boolean    @default(false)
+  phoneOtpFailedAttempts Int      @default(0)
+  phoneOtpLastAttemptAt  DateTime?
+  phoneOtpLastStatus     String?
+  phoneOtpLastPhone      String?
   status        UserStatus @default(ACTIVE)
   deletedAt     DateTime?
   createdAt     DateTime   @default(now())
@@ -124,6 +172,7 @@ model User {
   @@index([deletedAt])
   @@index([primaryRoleId])
   @@index([brandAccessRevokedAt])
+  @@index([phoneOtpLastAttemptAt])
 }
 
 model AuthAccount {
@@ -209,8 +258,15 @@ model CreatorProfile {
   profileImageKey String?
   profileImageUrl String?
   city         String?
+  countryName  String?
+  stateName    String?
   bio          String?
-  gender       String?
+  gender       CreatorGender?
+  dateOfBirth  DateTime? @db.Date
+  shippingAddress String?
+  instagramUrl String?
+  contentVolume CreatorContentVolumeBucket?
+  collaborationCount Int @default(0)
   travelRadius Int?
   onLocationAvailable Boolean @default(false)
   createdAt    DateTime @default(now())
@@ -218,7 +274,8 @@ model CreatorProfile {
 
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   creatorApproval CreatorApproval?
-  languages       CreatorLanguage[]
+  facetSelections CreatorProfileFacetSelection[]
+  profileLanguages CreatorProfileLanguage[]
   categories      CreatorCategory[]
   personaTags     CreatorPersonaTag[]
   restrictions    CreatorRestriction[]
@@ -232,9 +289,53 @@ model CreatorProfile {
   payoutDetails   CreatorPayoutDetails?
 
   @@index([city])
+  @@index([countryName])
+  @@index([dateOfBirth])
   @@index([gender])
   @@index([onLocationAvailable])
   @@index([createdAt])
+}
+
+model CreatorFacetOption {
+  id        String               @id @default(uuid()) @db.Uuid
+  dimension CreatorFacetDimension
+  slug      String
+  label     String
+  sortOrder Int                  @default(0)
+  createdAt DateTime             @default(now())
+
+  selections CreatorProfileFacetSelection[]
+  profileLanguages CreatorProfileLanguage[] @relation("LanguageOption")
+
+  @@unique([dimension, slug])
+  @@index([dimension, sortOrder])
+}
+
+model CreatorProfileFacetSelection {
+  id                String   @id @default(uuid()) @db.Uuid
+  creatorProfileId  String   @db.Uuid
+  optionId          String   @db.Uuid
+  createdAt         DateTime @default(now())
+
+  creator CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  option  CreatorFacetOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorProfileId, optionId])
+  @@index([optionId])
+}
+
+model CreatorProfileLanguage {
+  id               String   @id @default(uuid()) @db.Uuid
+  creatorProfileId String   @db.Uuid
+  optionId         String   @db.Uuid
+  fluency          CreatorLanguageFluency
+  createdAt        DateTime @default(now())
+
+  creator CreatorProfile   @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  option  CreatorFacetOption @relation("LanguageOption", fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorProfileId, optionId])
+  @@index([optionId])
 }
 
 /// Bank / UPI details for manual creator payouts. Full values are admin-only via API.
@@ -445,18 +546,6 @@ model CreatorApproval {
 
   @@index([status])
   @@index([approvedById])
-}
-
-model CreatorLanguage {
-  id        String   @id @default(uuid()) @db.Uuid
-  creatorId String   @db.Uuid
-  language  String
-  createdAt DateTime @default(now())
-
-  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-
-  @@unique([creatorId, language])
-  @@index([language])
 }
 
 model CreatorCategory {

@@ -22,8 +22,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
+import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
@@ -35,6 +36,7 @@ import {
   PresignUploadResponseDto,
 } from './dto/presign-profile-image-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
+import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
@@ -88,6 +90,15 @@ export class CreatorProfileController {
     return this.creatorProfileService.listCreators(query);
   }
 
+  @Get('facet-options')
+  @ApiOperation({
+    summary: 'List predefined creator facet options (catalog)',
+  })
+  @ApiOkResponse({ type: CreatorFacetOptionsResponseDto })
+  async listFacetOptions(): Promise<CreatorFacetOptionsResponseDto> {
+    return this.creatorProfileService.listFacetOptions();
+  }
+
   @Get('suggestions/categories')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List creator category suggestions' })
@@ -113,7 +124,8 @@ export class CreatorProfileController {
   }
 
   @Get('profile/me')
-  @UseGuards(JwtAuthGuard)
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary: 'Get creator profile for the authenticated user',
   })
@@ -128,7 +140,8 @@ export class CreatorProfileController {
   }
 
   @Get('profile/me/payout-details')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'Get payout details for manual transfers (masked; full account/UPI only visible to admins)',
@@ -141,7 +154,8 @@ export class CreatorProfileController {
   }
 
   @Patch('profile/me/payout-details')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -168,7 +182,8 @@ export class CreatorProfileController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)',
@@ -188,7 +203,8 @@ export class CreatorProfileController {
   }
 
   @Patch(':id/add-ons')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary: 'Add or update add-ons for a creator profile (by name, append-only)',
   })
@@ -207,7 +223,8 @@ export class CreatorProfileController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({ description: 'Deleted' })
   @ApiOperation({ summary: 'Delete creator profile' })

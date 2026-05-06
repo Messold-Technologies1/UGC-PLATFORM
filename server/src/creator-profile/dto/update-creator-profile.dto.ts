@@ -1,12 +1,20 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  CreatorContentVolumeBucket,
+  CreatorGender,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsDateString,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -14,6 +22,8 @@ import {
   CreatorAddOnCreateDto,
   CreatorPackageCreateDto,
 } from './create-creator-profile.dto';
+import { CreatorFacetSelectionInputDto } from './creator-facet-selection-input.dto';
+import { CreatorProfileLanguageInputDto } from './creator-profile-language-input.dto';
 
 export class UpdateCreatorProfileDto {
   @ApiPropertyOptional({ example: 'Jane Doe' })
@@ -30,20 +40,62 @@ export class UpdateCreatorProfileDto {
   @IsString()
   profileImageKey?: string;
 
+  @ApiPropertyOptional({ example: 'India' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  countryName?: string;
+
+  @ApiPropertyOptional({ example: 'Karnataka' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  stateName?: string;
+
   @ApiPropertyOptional({ example: 'Bengaluru' })
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   city?: string;
 
-  @ApiPropertyOptional({ example: 'I make short-form UGC for brands.' })
+  @ApiPropertyOptional({ example: 'One line about the creator.' })
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   bio?: string;
 
-  @ApiPropertyOptional({ example: 'Female' })
+  @ApiPropertyOptional({ enum: CreatorGender })
+  @IsOptional()
+  @IsEnum(CreatorGender)
+  gender?: CreatorGender;
+
+  @ApiPropertyOptional({ example: '1995-04-15' })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  gender?: string;
+  @MaxLength(2000)
+  shippingAddress?: string;
+
+  @ApiPropertyOptional({ example: 'https://instagram.com/jane' })
+  @IsOptional()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(500)
+  instagramUrl?: string;
+
+  @ApiPropertyOptional({ enum: CreatorContentVolumeBucket })
+  @IsOptional()
+  @IsEnum(CreatorContentVolumeBucket)
+  contentVolume?: CreatorContentVolumeBucket;
+
+  @ApiPropertyOptional({ example: 3 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  collaborationCount?: number;
 
   @ApiPropertyOptional({ example: 15 })
   @IsOptional()
@@ -56,42 +108,19 @@ export class UpdateCreatorProfileDto {
   @IsBoolean()
   onLocationAvailable?: boolean;
 
-  @ApiPropertyOptional({ type: [String], example: ['English', 'Hindi'] })
+  @ApiPropertyOptional({ type: [CreatorFacetSelectionInputDto] })
   @IsOptional()
   @IsArray()
-  @ArrayUnique()
-  @IsString({ each: true })
-  languages?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => CreatorFacetSelectionInputDto)
+  facetSelections?: CreatorFacetSelectionInputDto[];
 
-  @ApiPropertyOptional({
-    type: [String],
-    example: ['UGC Video', 'Voice Over'],
-  })
+  @ApiPropertyOptional({ type: [CreatorProfileLanguageInputDto] })
   @IsOptional()
   @IsArray()
-  @ArrayUnique()
-  @IsString({ each: true })
-  categories?: string[];
-
-  @ApiPropertyOptional({
-    type: [String],
-    example: ['Clean aesthetic', 'Friendly'],
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayUnique()
-  @IsString({ each: true })
-  personaTags?: string[];
-
-  @ApiPropertyOptional({
-    type: [String],
-    example: ['does not accept alcohol', 'does not accept gambling'],
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayUnique()
-  @IsString({ each: true })
-  restrictions?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => CreatorProfileLanguageInputDto)
+  profileLanguages?: CreatorProfileLanguageInputDto[];
 
   @ApiPropertyOptional({ type: [CreatorPackageCreateDto] })
   @IsOptional()
@@ -106,4 +135,28 @@ export class UpdateCreatorProfileDto {
   @ValidateNested({ each: true })
   @Type(() => CreatorAddOnCreateDto)
   addOns?: CreatorAddOnCreateDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Legacy free-text categories (read in responses; optional replace).',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  categories?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  personaTags?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  restrictions?: string[];
 }

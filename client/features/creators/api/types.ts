@@ -58,6 +58,8 @@ export type CreatorPublicListItemApi = {
   name: string;
   profileImageUrl?: string | null;
   city?: string | null;
+  countryName?: string | null;
+  stateName?: string | null;
   bio?: string | null;
   gender?: string | null;
   onLocationAvailable: boolean;
@@ -75,6 +77,8 @@ export type CreatorProfileItemApi = {
   displayName: string;
   profileImageUrl?: string | null;
   city?: string | null;
+  countryName?: string | null;
+  stateName?: string | null;
   bio?: string | null;
   gender?: string | null;
   ageRange?: string | null;

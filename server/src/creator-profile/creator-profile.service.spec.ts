@@ -20,9 +20,18 @@ interface TxMock {
   creatorProfile: {
     findUnique: TxAsyncMock;
     create: TxAsyncMock;
+    update: TxAsyncMock;
   };
-  creatorLanguage: {
+  creatorProfileFacetSelection: {
+    deleteMany: TxAsyncMock;
     createMany: TxAsyncMock;
+  };
+  creatorProfileLanguage: {
+    deleteMany: TxAsyncMock;
+    createMany: TxAsyncMock;
+  };
+  creatorFacetOption: {
+    findUnique: TxAsyncMock;
   };
   creatorCategory: {
     createMany: TxAsyncMock;
@@ -55,14 +64,22 @@ interface TxMock {
 describe('CreatorProfileService', () => {
   const creatorId = 'creator-user-1';
 
-  // We only mock the subset of Prisma methods used by the service.
   const txMock: TxMock = {
     creatorProfile: {
       findUnique: createTxAsyncMock(),
       create: createTxAsyncMock(),
+      update: createTxAsyncMock(),
     },
-    creatorLanguage: {
+    creatorProfileFacetSelection: {
+      deleteMany: createTxAsyncMock(),
       createMany: createTxAsyncMock(),
+    },
+    creatorProfileLanguage: {
+      deleteMany: createTxAsyncMock(),
+      createMany: createTxAsyncMock(),
+    },
+    creatorFacetOption: {
+      findUnique: createTxAsyncMock(),
     },
     creatorCategory: {
       createMany: createTxAsyncMock(),
@@ -92,22 +109,28 @@ describe('CreatorProfileService', () => {
     },
   };
 
+  const prismaUserFindUnique = jest.fn();
+
   const prismaMock = {
     $transaction: jest.fn(
       (fn: (tx: TxMock) => Promise<unknown>): Promise<unknown> =>
         Promise.resolve(fn(txMock)),
     ),
-    creatorProfile: txMock.creatorProfile,
-    creatorLanguage: txMock.creatorLanguage,
+    creatorProfile: {
+      findUnique: txMock.creatorProfile.findUnique,
+    },
+    creatorFacetOption: {
+      findMany: jest.fn(),
+    },
+    user: {
+      findUnique: prismaUserFindUnique,
+    },
+    creatorLanguage: txMock.creatorProfileLanguage,
     creatorCategory: txMock.creatorCategory,
     creatorPersonaTag: txMock.creatorPersonaTag,
     creatorRestriction: txMock.creatorRestriction,
     creatorAddOn: txMock.creatorAddOn,
     role: txMock.role,
-    user: {
-      update: txMock.user.update,
-      findUnique: txMock.user.findUnique,
-    },
     userRole: txMock.userRole,
     creatorPackage: txMock.creatorPackage,
   };
@@ -136,11 +159,14 @@ describe('CreatorProfileService', () => {
   let service: CreatorProfileService;
 
   beforeEach(() => {
-    // Reset only the methods we control; this prevents leaking `mockResolvedValueOnce` queues
-    // between tests.
     txMock.creatorProfile.findUnique.mockReset();
     txMock.creatorProfile.create.mockReset();
-    txMock.creatorLanguage.createMany.mockReset();
+    txMock.creatorProfile.update.mockReset();
+    txMock.creatorProfileFacetSelection.deleteMany.mockReset();
+    txMock.creatorProfileFacetSelection.createMany.mockReset();
+    txMock.creatorProfileLanguage.deleteMany.mockReset();
+    txMock.creatorProfileLanguage.createMany.mockReset();
+    txMock.creatorFacetOption.findUnique.mockReset();
     txMock.creatorCategory.createMany.mockReset();
     txMock.creatorPersonaTag.createMany.mockReset();
     txMock.creatorRestriction.createMany.mockReset();
@@ -150,12 +176,25 @@ describe('CreatorProfileService', () => {
     txMock.user.update.mockReset();
     txMock.user.findUnique.mockReset();
     txMock.user.findUnique.mockResolvedValue({
-      primaryRole: null,
-      userRoles: [],
+      primaryRoleId: null,
     });
     txMock.userRole.upsert.mockReset();
     txMock.creatorPackage.createMany.mockReset();
     creatorPackageService.createPackages.mockReset();
+    prismaUserFindUnique.mockReset();
+    prismaUserFindUnique.mockResolvedValue({
+      phoneVerified: true,
+      phone: '+10000000000',
+    });
+
+    txMock.creatorProfileFacetSelection.deleteMany.mockResolvedValue({
+      count: 0,
+    });
+    txMock.creatorProfileFacetSelection.createMany.mockResolvedValue({
+      count: 0,
+    });
+    txMock.creatorProfileLanguage.deleteMany.mockResolvedValue({ count: 0 });
+    txMock.creatorProfileLanguage.createMany.mockResolvedValue({ count: 0 });
 
     const storageMock = {
       buildObjectKey: jest.fn(),
@@ -171,6 +210,7 @@ describe('CreatorProfileService', () => {
   });
 
   it('throws ConflictException if profile already exists', async () => {
+    txMock.role.findUnique.mockResolvedValueOnce({ id: 'role-creator' });
     txMock.creatorProfile.findUnique.mockResolvedValueOnce({ id: 'profile-1' });
 
     const dto: CreateCreatorProfileDto = { displayName: 'Jane' };
@@ -182,25 +222,34 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorProfile.create).not.toHaveBeenCalled();
   });
 
-  it('creates profile, languages, categories, packages', async () => {
+  it('creates profile, facet rows, packages, and add-ons', async () => {
     const profileId = 'profile-1';
     const role = { id: 'role-creator' };
 
     txMock.creatorProfile.findUnique
-      .mockResolvedValueOnce(null) // existing check
+      .mockResolvedValueOnce(null)
       .mockResolvedValue({
         id: profileId,
         userId: creatorId,
         displayName: 'Jane',
+        profileImageUrl: null,
+        countryName: null,
+        stateName: null,
         city: null,
         bio: null,
         gender: null,
+        dateOfBirth: null,
+        shippingAddress: null,
+        instagramUrl: null,
+        contentVolume: null,
+        collaborationCount: 0,
         travelRadius: null,
         onLocationAvailable: false,
-        languages: [{ id: 'lang-1', language: 'English' }],
-        categories: [{ id: 'cat-1', category: 'UGC Video' }],
-        personaTags: [{ id: 'pt-1', tag: 'Friendly' }],
-        restrictions: [{ id: 'r-1', restriction: 'does not accept alcohol' }],
+        facetSelections: [],
+        profileLanguages: [],
+        categories: [],
+        personaTags: [],
+        restrictions: [],
         packages: [
           {
             id: 'pkg-1',
@@ -211,24 +260,23 @@ describe('CreatorProfileService', () => {
             maxRevisions: 2,
           },
         ],
-      }); // final fetch
+        addOns: [],
+        creatorApproval: { status: ApprovalStatus.PENDING, rejectionReason: null },
+        portfolioVideos: [],
+      });
 
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
 
     const dto: CreateCreatorProfileDto = {
       displayName: 'Jane',
-      languages: ['English'],
-      categories: ['UGC Video'],
-      personaTags: ['Friendly'],
-      restrictions: ['does not accept alcohol'],
-        addOns: [
-          {
-            name: 'On-location shoot fee',
-            priceAmount: '499.00',
-            description: 'Travel and setup for in-store shoots',
-          },
-        ],
+      addOns: [
+        {
+          name: 'On-location shoot fee',
+          priceAmount: '499.00',
+          description: 'Travel and setup for in-store shoots',
+        },
+      ],
       packages: [
         {
           name: 'Basic',
@@ -243,10 +291,8 @@ describe('CreatorProfileService', () => {
     const result = await service.createCreatorProfile(creatorId, dto);
 
     expect(result.id).toBe(profileId);
-    expect(txMock.creatorLanguage.createMany).toHaveBeenCalled();
-    expect(txMock.creatorCategory.createMany).toHaveBeenCalled();
-    expect(txMock.creatorPersonaTag.createMany).toHaveBeenCalled();
-    expect(txMock.creatorRestriction.createMany).toHaveBeenCalled();
+    expect(txMock.creatorProfileFacetSelection.deleteMany).toHaveBeenCalled();
+    expect(txMock.creatorProfileLanguage.deleteMany).toHaveBeenCalled();
     expect(creatorPackageService.createPackages).toHaveBeenCalled();
     expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
   });
@@ -267,12 +313,21 @@ describe('CreatorProfileService', () => {
       gender: null,
       travelRadius: null,
       onLocationAvailable: true,
-      languages: [],
+      countryName: null,
+      stateName: null,
+      dateOfBirth: null,
+      shippingAddress: null,
+      instagramUrl: null,
+      contentVolume: null,
+      collaborationCount: 0,
+      facetSelections: [],
+      profileLanguages: [],
       categories: [],
       personaTags: [],
       restrictions: [],
       packages: [],
       addOns: [],
+      creatorApproval: null,
       portfolioVideos: [],
     });
 
@@ -305,11 +360,19 @@ describe('CreatorProfileService', () => {
       displayName: 'Jane',
       profileImageUrl: null,
       city: null,
+      countryName: null,
+      stateName: null,
       bio: null,
       gender: null,
+      dateOfBirth: null,
+      shippingAddress: null,
+      instagramUrl: null,
+      contentVolume: null,
+      collaborationCount: 0,
       travelRadius: null,
       onLocationAvailable: false,
-      languages: [],
+      facetSelections: [],
+      profileLanguages: [],
       categories: [],
       personaTags: [],
       restrictions: [],

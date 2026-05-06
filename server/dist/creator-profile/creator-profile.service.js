@@ -14,6 +14,7 @@ const _prismaservice = require("../prisma/prisma.service");
 const _creatorpackageservice = require("../creator-package/creator-package.service");
 const _storageservice = require("../storage/storage.service");
 const _creatorlistfiltersutil = require("./creator-list-filters.util");
+const _creatorageutil = require("./creator-age.util");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -24,7 +25,16 @@ function _ts_metadata(k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 }
 const creatorProfileWithRelationsInclude = {
-    languages: true,
+    facetSelections: {
+        include: {
+            option: true
+        }
+    },
+    profileLanguages: {
+        include: {
+            option: true
+        }
+    },
     categories: true,
     personaTags: true,
     restrictions: true,
@@ -109,21 +119,42 @@ let CreatorProfileService = class CreatorProfileService {
             ...first,
             tags: (first.tags ?? []).map((t)=>t.tag).filter(Boolean)
         } : null;
+        const dob = mapped.dateOfBirth ? new Date(mapped.dateOfBirth) : null;
+        const age = dob && !Number.isNaN(dob.getTime()) ? (0, _creatorageutil.computeAgeYears)(dob) : null;
+        const ageGroup = dob && !Number.isNaN(dob.getTime()) ? (0, _creatorageutil.computeAgeGroup)(dob) : null;
+        const dobStr = dob && !Number.isNaN(dob.getTime()) ? dob.toISOString().slice(0, 10) : null;
         return {
             id: mapped.id,
             userId: mapped.userId,
             displayName: mapped.displayName,
             profileImageUrl: mapped.profileImageUrl ?? null,
+            countryName: mapped.countryName ?? null,
+            stateName: mapped.stateName ?? null,
             city: mapped.city ?? null,
             bio: mapped.bio ?? null,
             gender: mapped.gender ?? null,
+            dateOfBirth: dobStr,
+            age,
+            ageGroup,
+            shippingAddress: mapped.shippingAddress ?? null,
+            instagramUrl: mapped.instagramUrl ?? null,
+            contentVolume: mapped.contentVolume ?? null,
+            collaborationCount: mapped.collaborationCount ?? 0,
             travelRadius: mapped.travelRadius ?? null,
             onLocationAvailable: mapped.onLocationAvailable,
             approvalStatus: mapped.creatorApproval?.status,
             rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
-            languages: (mapped.languages ?? []).map((l)=>({
-                    id: l.id,
-                    language: l.language
+            profileLanguages: (mapped.profileLanguages ?? []).map((row)=>({
+                    id: row.id,
+                    slug: row.option?.slug ?? '',
+                    label: row.option?.label ?? '',
+                    fluency: row.fluency
+                })),
+            facetSelections: (mapped.facetSelections ?? []).map((row)=>({
+                    id: row.id,
+                    dimension: row.option?.dimension,
+                    slug: row.option?.slug ?? '',
+                    label: row.option?.label ?? ''
                 })),
             categories: (mapped.categories ?? []).map((c)=>({
                     id: c.id,
@@ -189,15 +220,136 @@ let CreatorProfileService = class CreatorProfileService {
             ...new Set(values.map((v)=>v.trim()).filter(Boolean))
         ];
     }
+    async assertPhoneVerifiedForCreator(userId) {
+        const u = await this.prisma.user.findUnique({
+            where: {
+                id: userId
+            },
+            select: {
+                phoneVerified: true,
+                phone: true
+            }
+        });
+        if (!u?.phoneVerified || !u?.phone?.trim()) {
+            throw new _common.BadRequestException('Verify your mobile number before managing a creator profile.');
+        }
+    }
+    async syncUserDisplayName(tx, userId, displayName) {
+        const trimmed = displayName.trim();
+        if (!trimmed) return;
+        await tx.user.update({
+            where: {
+                id: userId
+            },
+            data: {
+                name: trimmed
+            }
+        });
+    }
+    async resolveFacetOptionIds(tx, selections) {
+        if (!selections.length) return [];
+        const seen = new Set();
+        const ids = [];
+        for (const s of selections){
+            if (s.dimension === _client.CreatorFacetDimension.LANGUAGE) {
+                throw new _common.BadRequestException('Use profileLanguages for LANGUAGE options, not facetSelections.');
+            }
+            const key = `${s.dimension}:${s.slug}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const opt = await tx.creatorFacetOption.findUnique({
+                where: {
+                    dimension_slug: {
+                        dimension: s.dimension,
+                        slug: s.slug
+                    }
+                }
+            });
+            if (!opt) {
+                throw new _common.BadRequestException(`Unknown facet option ${s.dimension} / ${s.slug}`);
+            }
+            ids.push(opt.id);
+        }
+        return ids;
+    }
+    async resolveLanguageRows(tx, inputs) {
+        const out = [];
+        const seen = new Set();
+        for (const row of inputs){
+            if (seen.has(row.slug)) continue;
+            seen.add(row.slug);
+            const opt = await tx.creatorFacetOption.findUnique({
+                where: {
+                    dimension_slug: {
+                        dimension: _client.CreatorFacetDimension.LANGUAGE,
+                        slug: row.slug
+                    }
+                }
+            });
+            if (!opt) {
+                throw new _common.BadRequestException(`Unknown language slug: ${row.slug}`);
+            }
+            out.push({
+                optionId: opt.id,
+                fluency: row.fluency
+            });
+        }
+        return out;
+    }
+    async replaceFacetSelections(tx, creatorProfileId, optionIds) {
+        await tx.creatorProfileFacetSelection.deleteMany({
+            where: {
+                creatorProfileId
+            }
+        });
+        if (optionIds.length === 0) return;
+        await tx.creatorProfileFacetSelection.createMany({
+            data: optionIds.map((optionId)=>({
+                    creatorProfileId,
+                    optionId
+                })),
+            skipDuplicates: true
+        });
+    }
+    async replaceProfileLanguages(tx, creatorProfileId, rows) {
+        await tx.creatorProfileLanguage.deleteMany({
+            where: {
+                creatorProfileId
+            }
+        });
+        if (rows.length === 0) return;
+        await tx.creatorProfileLanguage.createMany({
+            data: rows.map((r)=>({
+                    creatorProfileId,
+                    optionId: r.optionId,
+                    fluency: r.fluency
+                })),
+            skipDuplicates: true
+        });
+    }
+    async listFacetOptions() {
+        const options = await this.prisma.creatorFacetOption.findMany({
+            orderBy: [
+                {
+                    dimension: 'asc'
+                },
+                {
+                    sortOrder: 'asc'
+                }
+            ]
+        });
+        return {
+            options
+        };
+    }
     async createCreatorProfile(userId, dto) {
-        const normalizedLanguages = this.normalizeUniqueStrings(dto.languages);
-        const normalizedCategories = this.normalizeUniqueStrings(dto.categories);
-        const normalizedPersonaTags = this.normalizeUniqueStrings(dto.personaTags);
-        const normalizedRestrictions = this.normalizeUniqueStrings(dto.restrictions);
+        await this.assertPhoneVerifiedForCreator(userId);
         const profileImageKey = dto.profileImageKey?.trim();
         if (profileImageKey) {
             this.assertTempProfileImageKeyOwner(userId, profileImageKey);
         }
+        const facetInputs = dto.facetSelections ?? [];
+        const langInputs = dto.profileLanguages ?? [];
         const creatorProfileId = await this.prisma.$transaction(async (tx)=>{
             const creatorRole = await tx.role.findUnique({
                 where: {
@@ -229,13 +381,24 @@ let CreatorProfileService = class CreatorProfileService {
             if (existing) {
                 throw new _common.ConflictException('Creator profile already exists');
             }
+            await this.syncUserDisplayName(tx, userId, dto.displayName);
+            const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined;
+            const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
+            const langRows = await this.resolveLanguageRows(tx, langInputs);
             const creatorProfile = await tx.creatorProfile.create({
                 data: {
                     userId,
-                    displayName: dto.displayName,
-                    city: dto.city ?? null,
-                    bio: dto.bio ?? null,
+                    displayName: dto.displayName.trim(),
+                    city: dto.city?.trim() || null,
+                    countryName: dto.countryName?.trim() || null,
+                    stateName: dto.stateName?.trim() || null,
+                    bio: dto.bio?.trim() || null,
                     gender: dto.gender ?? null,
+                    dateOfBirth: dateOfBirth && !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
+                    shippingAddress: dto.shippingAddress?.trim() || null,
+                    instagramUrl: dto.instagramUrl?.trim() || null,
+                    contentVolume: dto.contentVolume ?? null,
+                    collaborationCount: dto.collaborationCount ?? 0,
                     travelRadius: dto.travelRadius ?? null,
                     onLocationAvailable: dto.onLocationAvailable ?? false,
                     creatorApproval: {
@@ -243,7 +406,8 @@ let CreatorProfileService = class CreatorProfileService {
                     }
                 }
             });
-            // Independent writes: can be done in parallel once we have creatorProfile.id.
+            await this.replaceFacetSelections(tx, creatorProfile.id, facetIds);
+            await this.replaceProfileLanguages(tx, creatorProfile.id, langRows);
             const ops = [];
             ops.push(tx.userRole.upsert({
                 where: {
@@ -258,8 +422,6 @@ let CreatorProfileService = class CreatorProfileService {
                 },
                 update: {}
             }));
-            // With URL-based workspace selection, creator profile creation should
-            // make CREATOR the primary role if none is set yet.
             if (!currentUser.primaryRoleId) {
                 ops.push(tx.user.update({
                     where: {
@@ -268,42 +430,6 @@ let CreatorProfileService = class CreatorProfileService {
                     data: {
                         primaryRoleId: creatorRole.id
                     }
-                }));
-            }
-            if (normalizedLanguages.length > 0) {
-                ops.push(tx.creatorLanguage.createMany({
-                    data: normalizedLanguages.map((language)=>({
-                            creatorId: creatorProfile.id,
-                            language
-                        })),
-                    skipDuplicates: true
-                }));
-            }
-            if (normalizedCategories.length > 0) {
-                ops.push(tx.creatorCategory.createMany({
-                    data: normalizedCategories.map((category)=>({
-                            creatorId: creatorProfile.id,
-                            category
-                        })),
-                    skipDuplicates: true
-                }));
-            }
-            if (normalizedPersonaTags.length > 0) {
-                ops.push(tx.creatorPersonaTag.createMany({
-                    data: normalizedPersonaTags.map((tag)=>({
-                            creatorId: creatorProfile.id,
-                            tag
-                        })),
-                    skipDuplicates: true
-                }));
-            }
-            if (normalizedRestrictions.length > 0) {
-                ops.push(tx.creatorRestriction.createMany({
-                    data: normalizedRestrictions.map((restriction)=>({
-                            creatorId: creatorProfile.id,
-                            restriction
-                        })),
-                    skipDuplicates: true
                 }));
             }
             if (dto.packages?.length) {
@@ -395,16 +521,35 @@ let CreatorProfileService = class CreatorProfileService {
                 tags: Array.isArray(v.tags) ? v.tags.map((t)=>t?.tag).filter((x)=>typeof x === 'string') : [],
                 createdAt: v.createdAt
             })) : [];
+        const dob = profile.dateOfBirth ? new Date(profile.dateOfBirth) : null;
+        const age = dob && !Number.isNaN(dob.getTime()) ? (0, _creatorageutil.computeAgeYears)(dob) : null;
+        const profileLanguages = Array.isArray(profile.profileLanguages) ? profile.profileLanguages.map((row)=>({
+                slug: String(row?.option?.slug ?? ''),
+                label: String(row?.option?.label ?? ''),
+                fluency: row.fluency
+            })).filter((x)=>x.slug) : [];
+        const facetSelections = Array.isArray(profile.facetSelections) ? profile.facetSelections.map((row)=>({
+                dimension: row?.option?.dimension,
+                slug: String(row?.option?.slug ?? ''),
+                label: String(row?.option?.label ?? '')
+            })).filter((x)=>x.slug && x.dimension) : [];
         return {
             id: profile.id,
             userId: profile.userId,
             name: profile.displayName,
             profileImageUrl: profile.profileImageUrl ?? null,
             city: profile.city ?? null,
+            countryName: profile.countryName ?? null,
+            stateName: profile.stateName ?? null,
             bio: profile.bio ?? null,
             gender: profile.gender ?? null,
+            age,
+            contentVolume: profile.contentVolume ?? null,
+            collaborationCount: profile.collaborationCount ?? 0,
             onLocationAvailable: !!profile.onLocationAvailable,
-            languages: Array.isArray(profile.languages) ? profile.languages.map((l)=>l?.language).filter((v)=>typeof v === 'string') : [],
+            languages: profileLanguages.map((l)=>l.label),
+            profileLanguages,
+            facetSelections,
             categories: Array.isArray(profile.categories) ? profile.categories.map((c)=>c?.category).filter((v)=>typeof v === 'string') : [],
             personaTags: Array.isArray(profile.personaTags) ? profile.personaTags.map((t)=>t?.tag).filter((v)=>typeof v === 'string') : [],
             restrictions: Array.isArray(profile.restrictions) ? profile.restrictions.map((r)=>r?.restriction).filter((v)=>typeof v === 'string') : [],
@@ -559,6 +704,17 @@ let CreatorProfileService = class CreatorProfileService {
         return this.mapCreatorProfileResponseDto(profile);
     }
     async updateCreatorProfile(actingUserId, creatorProfileId, dto) {
+        const profileForGate = await this.prisma.creatorProfile.findUnique({
+            where: {
+                id: creatorProfileId
+            },
+            select: {
+                userId: true
+            }
+        });
+        if (profileForGate?.userId === actingUserId) {
+            await this.assertPhoneVerifiedForCreator(actingUserId);
+        }
         return this.prisma.$transaction(async (tx)=>{
             const profile = await tx.creatorProfile.findUnique({
                 where: {
@@ -571,6 +727,9 @@ let CreatorProfileService = class CreatorProfileService {
             const allowed = profile.userId === actingUserId || await this.isAdmin(actingUserId, tx);
             if (!allowed) {
                 throw new _common.ForbiddenException('Not allowed to update this creator profile');
+            }
+            if (dto.displayName !== undefined) {
+                await this.syncUserDisplayName(tx, profile.userId, dto.displayName);
             }
             let nextProfileImageKey = undefined;
             let nextProfileImageUrl = undefined;
@@ -585,37 +744,70 @@ let CreatorProfileService = class CreatorProfileService {
                     nextProfileImageUrl = null;
                 }
             }
-            await tx.creatorProfile.update({
-                where: {
-                    id: creatorProfileId
-                },
-                data: {
-                    displayName: dto.displayName ?? undefined,
-                    profileImageKey: nextProfileImageKey,
-                    profileImageUrl: nextProfileImageUrl,
-                    city: dto.city ?? undefined,
-                    bio: dto.bio ?? undefined,
-                    gender: dto.gender ?? undefined,
-                    travelRadius: dto.travelRadius ?? undefined,
-                    onLocationAvailable: dto.onLocationAvailable ?? undefined
+            const data = {};
+            if (dto.displayName !== undefined) {
+                data.displayName = dto.displayName.trim();
+            }
+            if (dto.city !== undefined) {
+                data.city = dto.city?.trim() || null;
+            }
+            if (dto.countryName !== undefined) {
+                data.countryName = dto.countryName?.trim() || null;
+            }
+            if (dto.stateName !== undefined) {
+                data.stateName = dto.stateName?.trim() || null;
+            }
+            if (dto.bio !== undefined) {
+                data.bio = dto.bio?.trim() || null;
+            }
+            if (dto.gender !== undefined) {
+                data.gender = dto.gender;
+            }
+            if (dto.dateOfBirth !== undefined) {
+                if (!dto.dateOfBirth) {
+                    data.dateOfBirth = null;
+                } else {
+                    const d = new Date(dto.dateOfBirth);
+                    data.dateOfBirth = Number.isNaN(d.getTime()) ? null : d;
                 }
-            });
-            if (dto.languages) {
-                const normalized = this.normalizeUniqueStrings(dto.languages);
-                await tx.creatorLanguage.deleteMany({
+            }
+            if (dto.shippingAddress !== undefined) {
+                data.shippingAddress = dto.shippingAddress?.trim() || null;
+            }
+            if (dto.instagramUrl !== undefined) {
+                data.instagramUrl = dto.instagramUrl?.trim() || null;
+            }
+            if (dto.contentVolume !== undefined) {
+                data.contentVolume = dto.contentVolume;
+            }
+            if (dto.collaborationCount !== undefined) {
+                data.collaborationCount = dto.collaborationCount;
+            }
+            if (dto.travelRadius !== undefined) {
+                data.travelRadius = dto.travelRadius;
+            }
+            if (dto.onLocationAvailable !== undefined) {
+                data.onLocationAvailable = dto.onLocationAvailable;
+            }
+            if (nextProfileImageKey !== undefined) {
+                data.profileImageKey = nextProfileImageKey;
+                data.profileImageUrl = nextProfileImageUrl;
+            }
+            if (Object.keys(data).length > 0) {
+                await tx.creatorProfile.update({
                     where: {
-                        creatorId: creatorProfileId
-                    }
+                        id: creatorProfileId
+                    },
+                    data
                 });
-                if (normalized.length > 0) {
-                    await tx.creatorLanguage.createMany({
-                        data: normalized.map((language)=>({
-                                creatorId: creatorProfileId,
-                                language
-                            })),
-                        skipDuplicates: true
-                    });
-                }
+            }
+            if (dto.facetSelections !== undefined) {
+                const facetIds = await this.resolveFacetOptionIds(tx, dto.facetSelections);
+                await this.replaceFacetSelections(tx, creatorProfileId, facetIds);
+            }
+            if (dto.profileLanguages !== undefined) {
+                const langRows = await this.resolveLanguageRows(tx, dto.profileLanguages);
+                await this.replaceProfileLanguages(tx, creatorProfileId, langRows);
             }
             if (dto.categories) {
                 const normalized = this.normalizeUniqueStrings(dto.categories);

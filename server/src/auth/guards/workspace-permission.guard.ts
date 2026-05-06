@@ -42,13 +42,14 @@ export class WorkspacePermissionGuard implements CanActivate {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        status: true,
         brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
       },
     });
 
-    if (!user) {
+    if (!user || !user.status || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('User not found');
     }
 

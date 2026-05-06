@@ -34,4 +34,9 @@ export const envValidationSchema = Joi.object({
   RAZORPAY_KEY_ID: Joi.string().min(1).required(),
   RAZORPAY_KEY_SECRET: Joi.string().min(1).required(),
   RAZORPAY_WEBHOOK_SECRET: Joi.string().min(1).required(),
+
+  // Twilio Verify (optional until phone OTP is used)
+  TWILIO_ACCOUNT_SID: Joi.string().optional(),
+  TWILIO_AUTH_TOKEN: Joi.string().optional(),
+  TWILIO_VERIFY_SERVICE_SID: Joi.string().optional(),
 });

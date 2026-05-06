@@ -10,8 +10,9 @@ Object.defineProperty(exports, "CreatorProfileController", {
 });
 const _common = require("@nestjs/common");
 const _swagger = require("@nestjs/swagger");
+const _requiredworkspacedecorator = require("../auth/decorators/required-workspace.decorator");
 const _jwtauthguard = require("../auth/guards/jwt-auth.guard");
-const _activeworkspaceguard = require("../auth/guards/active-workspace.guard");
+const _workspacepermissionguard = require("../auth/guards/workspace-permission.guard");
 const _createcreatorprofiledto = require("./dto/create-creator-profile.dto");
 const _listcreatorsquerydto = require("./dto/list-creators-query.dto");
 const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
@@ -20,6 +21,7 @@ const _creatorprofileresponsedto = require("./dto/creator-profile-response.dto")
 const _creatorprofileservice = require("./creator-profile.service");
 const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
 const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
+const _creatorfacetoptionsresponsedto = require("./dto/creator-facet-options-response.dto");
 const _addcreatoraddonsdto = require("./dto/add-creator-addons.dto");
 const _creatorpayoutdetailsservice = require("./creator-payout-details.service");
 const _upsertcreatorpayoutdetailsdto = require("./dto/upsert-creator-payout-details.dto");
@@ -47,6 +49,9 @@ let CreatorProfileController = class CreatorProfileController {
     }
     async listCreators(query) {
         return this.creatorProfileService.listCreators(query);
+    }
+    async listFacetOptions() {
+        return this.creatorProfileService.listFacetOptions();
     }
     async listCategorySuggestions() {
         return this.creatorProfileService.listCategorySuggestions();
@@ -137,6 +142,18 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "listCreators", null);
 _ts_decorate([
+    (0, _common.Get)('facet-options'),
+    (0, _swagger.ApiOperation)({
+        summary: 'List predefined creator facet options (catalog)'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatorfacetoptionsresponsedto.CreatorFacetOptionsResponseDto
+    }),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", []),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listFacetOptions", null);
+_ts_decorate([
     (0, _common.Get)('suggestions/categories'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
@@ -183,7 +200,8 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "listRestrictionSuggestions", null);
 _ts_decorate([
     (0, _common.Get)('profile/me'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _swagger.ApiOperation)({
         summary: 'Get creator profile for the authenticated user'
     }),
@@ -199,7 +217,8 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "getMyCreatorProfile", null);
 _ts_decorate([
     (0, _common.Get)('profile/me/payout-details'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _swagger.ApiOperation)({
         summary: 'Get payout details for manual transfers (masked; full account/UPI only visible to admins)'
     }),
@@ -215,7 +234,8 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "getMyPayoutDetails", null);
 _ts_decorate([
     (0, _common.Patch)('profile/me/payout-details'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _common.HttpCode)(_common.HttpStatus.OK),
     (0, _swagger.ApiOperation)({
         summary: 'Partially update bank / UPI details for manual creator payouts (only provided fields are changed)'
@@ -252,7 +272,8 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "getCreator", null);
 _ts_decorate([
     (0, _common.Patch)(':id'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _swagger.ApiOperation)({
         summary: 'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)'
     }),
@@ -272,7 +293,8 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "updateCreator", null);
 _ts_decorate([
     (0, _common.Patch)(':id/add-ons'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _swagger.ApiOperation)({
         summary: 'Add or update add-ons for a creator profile (by name, append-only)'
     }),
@@ -292,7 +314,8 @@ _ts_decorate([
 ], CreatorProfileController.prototype, "addOrUpdateAddOns", null);
 _ts_decorate([
     (0, _common.Delete)(':id'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, (0, _activeworkspaceguard.ActiveWorkspaceGuard)('CREATOR')),
+    (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _common.HttpCode)(_common.HttpStatus.NO_CONTENT),
     (0, _swagger.ApiNoContentResponse)({
         description: 'Deleted'

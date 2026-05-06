@@ -22,6 +22,7 @@ const _creatorprofileservice = require("./creator-profile.service");
 const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
 const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
 const _creatorfacetoptionsresponsedto = require("./dto/creator-facet-options-response.dto");
+const _creatoraddonoptionsresponsedto = require("./dto/creator-addon-options-response.dto");
 const _addcreatoraddonsdto = require("./dto/add-creator-addons.dto");
 const _creatorpayoutdetailsservice = require("./creator-payout-details.service");
 const _upsertcreatorpayoutdetailsdto = require("./dto/upsert-creator-payout-details.dto");
@@ -52,6 +53,9 @@ let CreatorProfileController = class CreatorProfileController {
     }
     async listFacetOptions() {
         return this.creatorProfileService.listFacetOptions();
+    }
+    async listAddOnOptions() {
+        return this.creatorProfileService.listAddOnOptions();
     }
     async listCategorySuggestions() {
         return this.creatorProfileService.listCategorySuggestions();
@@ -153,6 +157,18 @@ _ts_decorate([
     _ts_metadata("design:paramtypes", []),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "listFacetOptions", null);
+_ts_decorate([
+    (0, _common.Get)('add-on-options'),
+    (0, _swagger.ApiOperation)({
+        summary: 'List predefined creator add-on options (catalog)'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatoraddonoptionsresponsedto.CreatorAddOnOptionsResponseDto
+    }),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", []),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listAddOnOptions", null);
 _ts_decorate([
     (0, _common.Get)('suggestions/categories'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),

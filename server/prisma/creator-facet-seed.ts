@@ -35,7 +35,7 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     ['pet_owner', 'Pet + Owner'],
     ['friends', 'Friends'],
   ].map(([slug, label], i) => ({
-    dimension: CreatorFacetDimension.CASTING_TYPE,
+    dimension: CreatorFacetDimension.CONTENT_FORMAT,
     slug,
     label,
     sortOrder: i,
@@ -83,7 +83,7 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     ['outdoor_travel', 'Outdoor / Travel'],
     ['in_relationship', 'In a Relationship'],
   ].map(([slug, label], i) => ({
-    dimension: CreatorFacetDimension.LIFE_CONTEXT,
+    dimension: CreatorFacetDimension.LIFE_STYLE,
     slug,
     label,
     sortOrder: i,
@@ -147,7 +147,7 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     ['friends', 'Friends'],
     ['pets', 'Pets'],
   ].map(([slug, label], i) => ({
-    dimension: CreatorFacetDimension.AVAILABLE_WITH,
+    dimension: CreatorFacetDimension.CAN_CREATE_WITH,
     slug,
     label,
     sortOrder: i,

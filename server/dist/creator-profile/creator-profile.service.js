@@ -172,9 +172,10 @@ let CreatorProfileService = class CreatorProfileService {
                     id: p.id,
                     name: p.name,
                     deliverables: p.deliverables,
+                    videoLengthSeconds: p.videoLengthSeconds ?? 60,
                     priceAmount: p.priceAmount,
                     deliveryDays: p.deliveryDays,
-                    maxRevisions: p.maxRevisions ?? 0
+                    maxRevisions: p.maxRevisions ?? 1
                 })),
             addOns: (mapped.addOns ?? []).map((a)=>({
                     id: a.id,
@@ -187,6 +188,48 @@ let CreatorProfileService = class CreatorProfileService {
     }
     async isAdminUser(userId) {
         return this.isAdmin(userId, this.prisma);
+    }
+    async normalizeCreatorAddOns(tx, addOns) {
+        const options = await tx.creatorAddOnOption.findMany({
+            select: {
+                slug: true,
+                name: true,
+                fixedPrice: true,
+                minPrice: true,
+                stepPrice: true
+            }
+        });
+        const bySlug = new Map(options.map((o)=>[
+                o.slug,
+                o
+            ]));
+        return addOns.map((a)=>{
+            const slug = String(a.slug ?? '').trim();
+            const rule = bySlug.get(slug);
+            if (rule == null) {
+                throw new _common.BadRequestException('Invalid add-on.');
+            }
+            const n = Number(a.priceAmount);
+            if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+                throw new _common.BadRequestException('Add-on priceAmount must be a whole number.');
+            }
+            if (rule.fixedPrice != null) {
+                if (n !== rule.fixedPrice) {
+                    throw new _common.BadRequestException(`"${rule.name}" price must be exactly ${rule.fixedPrice}.`);
+                }
+            } else {
+                const min = rule.minPrice ?? 0;
+                const step = rule.stepPrice ?? 1;
+                if (n < min || n % step !== 0) {
+                    throw new _common.BadRequestException(`"${rule.name}" price must be >= ${min} and in steps of ${step}.`);
+                }
+            }
+            return {
+                name: rule.name,
+                priceAmount: new _client.Prisma.Decimal(String(n)),
+                description: a.description ?? null
+            };
+        });
     }
     async isAdmin(userId, tx) {
         const user = await tx.user.findUnique({
@@ -338,6 +381,37 @@ let CreatorProfileService = class CreatorProfileService {
                 }
             ]
         });
+        const optionsByDimension = options.reduce((acc, o)=>{
+            (acc[o.dimension] ??= []).push({
+                slug: o.slug,
+                label: o.label,
+                sortOrder: o.sortOrder
+            });
+            return acc;
+        }, {});
+        return {
+            optionsByDimension
+        };
+    }
+    async listAddOnOptions() {
+        const options = await this.prisma.creatorAddOnOption.findMany({
+            orderBy: [
+                {
+                    sortOrder: 'asc'
+                },
+                {
+                    name: 'asc'
+                }
+            ],
+            select: {
+                slug: true,
+                name: true,
+                sortOrder: true,
+                fixedPrice: true,
+                minPrice: true,
+                stepPrice: true
+            }
+        });
         return {
             options
         };
@@ -436,14 +510,17 @@ let CreatorProfileService = class CreatorProfileService {
                 ops.push(this.creatorPackageService.createPackages(tx, creatorProfile.id, dto.packages));
             }
             if (dto.addOns?.length) {
-                ops.push(tx.creatorAddOn.createMany({
-                    data: dto.addOns.map((addOn)=>({
-                            creatorId: creatorProfile.id,
-                            name: addOn.name,
-                            priceAmount: new _client.Prisma.Decimal(addOn.priceAmount),
-                            description: addOn.description ?? null
-                        }))
-                }));
+                ops.push((async ()=>{
+                    const normalizedAddOns = await this.normalizeCreatorAddOns(tx, dto.addOns);
+                    await tx.creatorAddOn.createMany({
+                        data: normalizedAddOns.map((addOn)=>({
+                                creatorId: creatorProfile.id,
+                                name: addOn.name,
+                                priceAmount: addOn.priceAmount,
+                                description: addOn.description
+                            }))
+                    });
+                })());
             }
             await Promise.all(ops);
             return creatorProfile.id;
@@ -875,12 +952,13 @@ let CreatorProfileService = class CreatorProfileService {
                     }
                 });
                 if (dto.addOns.length > 0) {
+                    const normalizedAddOns = await this.normalizeCreatorAddOns(tx, dto.addOns);
                     await tx.creatorAddOn.createMany({
-                        data: dto.addOns.map((addOn)=>({
+                        data: normalizedAddOns.map((addOn)=>({
                                 creatorId: creatorProfileId,
                                 name: addOn.name,
-                                priceAmount: new _client.Prisma.Decimal(addOn.priceAmount),
-                                description: addOn.description ?? null
+                                priceAmount: addOn.priceAmount,
+                                description: addOn.description
                             }))
                     });
                 }
@@ -916,22 +994,22 @@ let CreatorProfileService = class CreatorProfileService {
             }
             const payload = dto.addOns ?? [];
             if (payload.length > 0) {
-                const names = Array.from(new Set(payload.map((a)=>a.name.trim()).filter((name)=>name.length > 0)));
-                if (names.length > 0) {
+                const slugs = Array.from(new Set(payload.map((a)=>String(a.slug ?? '').trim()).filter((slug)=>slug.length > 0)));
+                if (slugs.length > 0) {
+                    // For slug-based update we replace all current add-ons in one go to avoid
+                    // name-matching issues and keep logic simple.
                     await tx.creatorAddOn.deleteMany({
                         where: {
-                            creatorId: creatorProfileId,
-                            name: {
-                                in: names
-                            }
+                            creatorId: creatorProfileId
                         }
                     });
+                    const normalizedAddOns = await this.normalizeCreatorAddOns(tx, payload);
                     await tx.creatorAddOn.createMany({
-                        data: payload.map((addOn)=>({
+                        data: normalizedAddOns.map((addOn)=>({
                                 creatorId: creatorProfileId,
-                                name: addOn.name.trim(),
-                                priceAmount: new _client.Prisma.Decimal(addOn.priceAmount),
-                                description: addOn.description ?? null
+                                name: addOn.name,
+                                priceAmount: addOn.priceAmount,
+                                description: addOn.description
                             }))
                     });
                 }

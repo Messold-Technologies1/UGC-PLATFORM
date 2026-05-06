@@ -37,6 +37,7 @@ import {
 } from './creator-list-filters.util';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
+import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 
 const creatorProfileWithRelationsInclude = {
   facetSelections: { include: { option: true } },
@@ -228,9 +229,10 @@ export class CreatorProfileService {
         id: p.id,
         name: p.name,
         deliverables: p.deliverables,
+        videoLengthSeconds: (p as any).videoLengthSeconds ?? 60,
         priceAmount: p.priceAmount,
         deliveryDays: p.deliveryDays,
-        maxRevisions: p.maxRevisions ?? 0,
+        maxRevisions: p.maxRevisions ?? 1,
       })),
       addOns: (mapped.addOns ?? []).map((a: any) => ({
         id: a.id,
@@ -252,6 +254,67 @@ export class CreatorProfileService {
       userId,
       this.prisma as unknown as PrismaTransactionClient,
     );
+  }
+
+  private async normalizeCreatorAddOns(
+    tx: PrismaTransactionClient,
+    addOns: { slug: string; priceAmount: string; description?: string }[],
+  ): Promise<
+    { name: string; priceAmount: Prisma.Decimal; description: string | null }[]
+  > {
+    const options = (await (tx as any).creatorAddOnOption.findMany({
+      select: {
+        slug: true,
+        name: true,
+        fixedPrice: true,
+        minPrice: true,
+        stepPrice: true,
+      },
+    })) as Array<{
+      slug: string;
+      name: string;
+      fixedPrice: number | null;
+      minPrice: number | null;
+      stepPrice: number | null;
+    }>;
+    const bySlug = new Map<string, (typeof options)[number]>(
+      options.map((o) => [o.slug, o]),
+    );
+
+    return addOns.map((a) => {
+      const slug = String(a.slug ?? '').trim();
+      const rule = bySlug.get(slug);
+      if (rule == null) {
+        throw new BadRequestException('Invalid add-on.');
+      }
+
+      const n = Number(a.priceAmount);
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+        throw new BadRequestException('Add-on priceAmount must be a whole number.');
+      }
+
+      if (rule.fixedPrice != null) {
+        if (n !== rule.fixedPrice) {
+          throw new BadRequestException(
+            `"${rule.name}" price must be exactly ${rule.fixedPrice}.`,
+          );
+        }
+      } else {
+        const min = rule.minPrice ?? 0;
+        const step = rule.stepPrice ?? 1;
+        if (n < min || n % step !== 0) {
+          throw new BadRequestException(
+            `"${rule.name}" price must be >= ${min} and in steps of ${step}.`,
+          );
+        }
+      }
+
+      return {
+        name: rule.name,
+        priceAmount: new Prisma.Decimal(String(n)),
+        description: a.description ?? null,
+      };
+    });
   }
 
   private async isAdmin(
@@ -400,6 +463,33 @@ export class CreatorProfileService {
     const options = await this.prisma.creatorFacetOption.findMany({
       orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }],
     });
+    const optionsByDimension = options.reduce(
+      (acc, o) => {
+        (acc[o.dimension] ??= []).push({
+          slug: o.slug,
+          label: o.label,
+          sortOrder: o.sortOrder,
+        });
+        return acc;
+      },
+      {} as CreatorFacetOptionsResponseDto['optionsByDimension'],
+    );
+
+    return { optionsByDimension };
+  }
+
+  async listAddOnOptions(): Promise<CreatorAddOnOptionsResponseDto> {
+    const options = await (this.prisma as any).creatorAddOnOption.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: {
+        slug: true,
+        name: true,
+        sortOrder: true,
+        fixedPrice: true,
+        minPrice: true,
+        stepPrice: true,
+      },
+    });
     return { options };
   }
 
@@ -510,14 +600,20 @@ export class CreatorProfileService {
 
         if (dto.addOns?.length) {
           ops.push(
-            tx.creatorAddOn.createMany({
-              data: dto.addOns.map((addOn) => ({
-                creatorId: creatorProfile.id,
-                name: addOn.name,
-                priceAmount: new Prisma.Decimal(addOn.priceAmount),
-                description: addOn.description ?? null,
-              })),
-            }),
+            (async () => {
+              const normalizedAddOns = await this.normalizeCreatorAddOns(
+                tx,
+                dto.addOns as any,
+              );
+              await tx.creatorAddOn.createMany({
+                data: normalizedAddOns.map((addOn) => ({
+                  creatorId: creatorProfile.id,
+                  name: addOn.name,
+                  priceAmount: addOn.priceAmount,
+                  description: addOn.description,
+                })),
+              });
+            })(),
           );
         }
 
@@ -1032,12 +1128,16 @@ export class CreatorProfileService {
             where: { creatorId: creatorProfileId },
           });
           if (dto.addOns.length > 0) {
+            const normalizedAddOns = await this.normalizeCreatorAddOns(
+              tx,
+              dto.addOns as any,
+            );
             await tx.creatorAddOn.createMany({
-              data: dto.addOns.map((addOn) => ({
+              data: normalizedAddOns.map((addOn) => ({
                 creatorId: creatorProfileId,
                 name: addOn.name,
-                priceAmount: new Prisma.Decimal(addOn.priceAmount),
-                description: addOn.description ?? null,
+                priceAmount: addOn.priceAmount,
+                description: addOn.description,
               })),
             });
           }
@@ -1084,28 +1184,31 @@ export class CreatorProfileService {
 
         const payload = dto.addOns ?? [];
         if (payload.length > 0) {
-          const names = Array.from(
+          const slugs = Array.from(
             new Set(
               payload
-                .map((a) => a.name.trim())
-                .filter((name) => name.length > 0),
+                .map((a: any) => String(a.slug ?? '').trim())
+                .filter((slug) => slug.length > 0),
             ),
           );
 
-          if (names.length > 0) {
+          if (slugs.length > 0) {
+            // For slug-based update we replace all current add-ons in one go to avoid
+            // name-matching issues and keep logic simple.
             await (tx as any).creatorAddOn.deleteMany({
-              where: {
-                creatorId: creatorProfileId,
-                name: { in: names },
-              },
+              where: { creatorId: creatorProfileId },
             });
 
+            const normalizedAddOns = await this.normalizeCreatorAddOns(
+              tx,
+              payload as any,
+            );
             await (tx as any).creatorAddOn.createMany({
-              data: payload.map((addOn) => ({
+              data: normalizedAddOns.map((addOn) => ({
                 creatorId: creatorProfileId,
-                name: addOn.name.trim(),
-                priceAmount: new Prisma.Decimal(addOn.priceAmount),
-                description: addOn.description ?? null,
+                name: addOn.name,
+                priceAmount: addOn.priceAmount,
+                description: addOn.description,
               })),
             });
           }

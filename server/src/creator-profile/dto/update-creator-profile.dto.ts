@@ -6,6 +6,7 @@ import {
 import { Type } from 'class-transformer';
 import {
   ArrayUnique,
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -125,6 +126,7 @@ export class UpdateCreatorProfileDto {
   @ApiPropertyOptional({ type: [CreatorPackageCreateDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreatorPackageCreateDto)
   packages?: CreatorPackageCreateDto[];

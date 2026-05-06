@@ -10,6 +10,7 @@ import {
   IsUrl,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateBrandProfileDto {
@@ -84,6 +85,18 @@ export class UpdateBrandProfileDto {
   @ArrayUnique()
   @IsEnum(BrandCategory, { each: true })
   categories?: BrandCategory[];
+
+  @ApiPropertyOptional({
+    example: 'Handmade crafts',
+    nullable: true,
+    description:
+      'Custom category label for OTHER. Required when categories includes OTHER. Set null to clear.',
+  })
+  @ValidateIf((o: UpdateBrandProfileDto) => (o.categories ?? []).includes(BrandCategory.OTHER))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  otherCategoryLabel?: string | null;
 
   @ApiPropertyOptional({
     example: 'brand-logo-temp/<userId>/<uuid>.png',

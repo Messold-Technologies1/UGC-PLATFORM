@@ -69,6 +69,7 @@ export class BrandProfileService {
       instagramUrl: profile.instagramUrl ?? null,
       productType: profile.productType ?? null,
       categories,
+      otherCategoryLabel: profile.otherCategoryLabel ?? null,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     };
@@ -147,6 +148,15 @@ export class BrandProfileService {
       );
     }
 
+    const selectedCategories = [...new Set(dto.categories ?? [])];
+    const includesOther = selectedCategories.includes(BrandCategory.OTHER);
+    const otherCategoryLabel = includesOther
+      ? (dto.otherCategoryLabel ?? '').trim()
+      : '';
+    if (includesOther && !otherCategoryLabel) {
+      throw new BadRequestException('otherCategoryLabel is required for OTHER category');
+    }
+
     const brandProfileId = await this.prisma.$transaction(async (tx) => {
       const brandRole = await tx.role.findUnique({
         where: { name: RoleName.BRAND },
@@ -186,14 +196,14 @@ export class BrandProfileService {
           website: dto.website?.trim() || null,
           instagramUrl: dto.instagramUrl?.trim() || null,
           productType: dto.productType ?? null,
-        },
+          otherCategoryLabel: includesOther ? otherCategoryLabel : null,
+        } as any,
         select: { id: true },
       });
 
-      const uniqueCategories = [...new Set(dto.categories ?? [])];
-      if (uniqueCategories.length) {
+      if (selectedCategories.length) {
         await tx.brandProfileBrandCategory.createMany({
-          data: uniqueCategories.map((category) => ({
+          data: selectedCategories.map((category) => ({
             brandProfileId: created.id,
             category,
           })),
@@ -261,6 +271,7 @@ export class BrandProfileService {
         website: true,
         instagramUrl: true,
         productType: true,
+        otherCategoryLabel: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { email: true } },
@@ -455,6 +466,7 @@ export class BrandProfileService {
         website: true,
         instagramUrl: true,
         productType: true,
+        otherCategoryLabel: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { email: true } },
@@ -473,14 +485,15 @@ export class BrandProfileService {
     userId: string,
     dto: UpdateBrandProfileDto,
   ): Promise<BrandProfileResponseDto> {
-    const existing = await this.prisma.brandProfile.findUnique({
+    const existing: any = await this.prisma.brandProfile.findUnique({
       where: { userId },
       select: {
         id: true,
         logoKey: true,
         brandPronunciationAudioKey: true,
+        otherCategoryLabel: true,
       },
-    });
+    } as any);
     if (!existing) {
       throw new NotFoundException('Brand profile not found');
     }
@@ -630,6 +643,34 @@ export class BrandProfileService {
       }
       if (hasCategoryUpdates) {
         const uniqueCategories = [...new Set(dto.categories ?? [])];
+        const includesOther = uniqueCategories.includes(BrandCategory.OTHER);
+        const existingOther = (existing as any).otherCategoryLabel ?? null;
+        const requestedOther =
+          dto.otherCategoryLabel === undefined ? undefined : dto.otherCategoryLabel;
+
+        if (includesOther) {
+          const label =
+            requestedOther === undefined
+              ? (existingOther ?? '')
+              : (requestedOther ?? '');
+          const trimmed = String(label).trim();
+          if (!trimmed) {
+            throw new BadRequestException(
+              'otherCategoryLabel is required for OTHER category',
+            );
+          }
+          await tx.brandProfile.update({
+            where: { userId },
+            data: { otherCategoryLabel: trimmed } as any,
+          });
+        } else {
+          // If OTHER is not selected, clear any stored custom label.
+          await tx.brandProfile.update({
+            where: { userId },
+            data: { otherCategoryLabel: null } as any,
+          });
+        }
+
         await tx.brandProfileBrandCategory.deleteMany({
           where: { brandProfileId: existing.id },
         });

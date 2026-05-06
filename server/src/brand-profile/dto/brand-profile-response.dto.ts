@@ -60,6 +60,13 @@ export class BrandProfileResponseDto {
   })
   categories!: BrandCategory[];
 
+  @ApiPropertyOptional({
+    example: 'Handmade crafts',
+    nullable: true,
+    description: 'Custom category label when categories includes OTHER.',
+  })
+  otherCategoryLabel!: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 

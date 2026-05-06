@@ -2,18 +2,20 @@
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useEffect,
 } from "react";
+import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { BrandLogoField } from "@/features/brands/components/brand-logo-field";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -105,10 +107,10 @@ function BrandProfileSetupFormContent({
   });
 
   const [contactFullName, setContactFullName] = useState(
-    initialProfile?.contactFullName ?? "",
+    initialProfile?.contactFullName ?? user?.name ?? "",
   );
   const [contactEmail, setContactEmail] = useState(
-    initialProfile?.contactEmail ?? "",
+    initialProfile?.contactEmail ?? user?.email ?? "",
   );
   const [contactPhone, setContactPhone] = useState(
     initialProfile?.contactPhone ?? "",
@@ -129,20 +131,30 @@ function BrandProfileSetupFormContent({
   const [selectedCategories, setSelectedCategories] = useState<
     BrandCategoryApi[]
   >((initialProfile?.categories as BrandCategoryApi[] | undefined) ?? []);
+  const [otherCategoryText, setOtherCategoryText] = useState("");
+  const [isCategoriesDropdownOpen, setIsCategoriesDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (initialProfile?.contactEmail) return;
-    if (user?.email) {
-      setContactEmail((prev) => prev || user.email);
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsCategoriesDropdownOpen(false);
+      }
     }
-  }, [user?.email, initialProfile?.contactEmail]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  useEffect(() => {
-    if (initialProfile?.contactFullName) return;
-    if (user?.name) {
+  const [prevUserEmail, setPrevUserEmail] = useState(user?.email);
+  if (user?.email !== prevUserEmail) {
+    setPrevUserEmail(user?.email);
+    if (!initialProfile?.contactEmail && user?.email) {
+      setContactEmail((prev) => prev || user.email || "");
+    }
+    if (!initialProfile?.contactFullName && user?.name) {
       setContactFullName((prev) => prev || user.name || "");
     }
-  }, [user?.name, initialProfile?.contactFullName]);
+  }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(
@@ -336,6 +348,9 @@ function BrandProfileSetupFormContent({
           ...(selectedCategories.length
             ? { categories: selectedCategories }
             : {}),
+          ...(selectedCategories.includes("OTHER") && otherCategoryText.trim()
+            ? { otherCategory: otherCategoryText.trim() }
+            : {}),
         };
 
         submitBrandProfileMutation.mutate({ payload });
@@ -367,6 +382,7 @@ function BrandProfileSetupFormContent({
       instagramUrl,
       productType,
       selectedCategories,
+      otherCategoryText,
       submitBrandProfileMutation,
     ],
   );
@@ -515,35 +531,64 @@ function BrandProfileSetupFormContent({
         ) : null}
 
         {mode === "create" ? (
-          <fieldset className="space-y-3 rounded-xl border border-border/60 p-4">
-            <legend className="text-sm font-medium text-foreground px-1">
-              Categories (optional)
-            </legend>
-            <p className="text-xs text-muted-foreground">
-              Select all that apply. Same list as the API reference options.
-            </p>
-            <div className="grid max-h-56 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
-              {categoryOptionRows.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex cursor-pointer items-start gap-2 rounded-md border border-transparent px-1 py-1 text-sm hover:bg-muted/40"
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={selectedCategories.includes(
-                      opt.value as BrandCategoryApi,
-                    )}
-                    onChange={() =>
-                      toggleCategory(opt.value as BrandCategoryApi)
-                    }
-                    disabled={pending}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
+          <div className="space-y-2">
+            <Label>Categories (optional)</Label>
+            <p className="text-xs text-muted-foreground">Select all that apply.</p>
+            <div className="relative" ref={dropdownRef}>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={isCategoriesDropdownOpen}
+                className="w-full justify-between"
+                onClick={() => setIsCategoriesDropdownOpen(!isCategoriesDropdownOpen)}
+                disabled={pending}
+              >
+                {selectedCategories.length > 0
+                  ? `${selectedCategories.length} selected`
+                  : "Select categories..."}
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+              {isCategoriesDropdownOpen && (
+                <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95">
+                  <div className="max-h-60 overflow-y-auto p-1">
+                    {categoryOptionRows.map((opt) => (
+                      <div key={opt.value} className="flex flex-col">
+                        <label
+                          className="flex cursor-pointer items-start gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <Checkbox
+                            className="mt-0.5"
+                            checked={selectedCategories.includes(
+                              opt.value as BrandCategoryApi,
+                            )}
+                            onCheckedChange={() =>
+                              toggleCategory(opt.value as BrandCategoryApi)
+                            }
+                            disabled={pending}
+                          />
+                          <span>{opt.label}</span>
+                        </label>
+                        {opt.value === "OTHER" && selectedCategories.includes("OTHER") && (
+                          <div className="px-2 pb-2 pt-1 animate-in fade-in slide-in-from-top-1">
+                            <Input
+                              id="other-category-input"
+                              value={otherCategoryText}
+                              onChange={(e) => setOtherCategoryText(e.target.value)}
+                              placeholder="Enter custom category"
+                              disabled={pending}
+                              className="h-8 text-xs"
+                              autoFocus
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </fieldset>
+          </div>
         ) : null}
 
         {mode === "create" ? (
@@ -570,6 +615,7 @@ function BrandProfileSetupFormContent({
                     checked={productType === value}
                     onChange={() => setProductType(value)}
                     disabled={pending}
+                    className="size-4 accent-primary dark:scheme-dark"
                   />
                   {label}
                 </label>
@@ -582,6 +628,7 @@ function BrandProfileSetupFormContent({
                   checked={productType === ""}
                   onChange={() => setProductType("")}
                   disabled={pending}
+                  className="size-4 accent-primary dark:scheme-dark"
                 />
                 Prefer not to say
               </label>

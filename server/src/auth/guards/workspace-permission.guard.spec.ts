@@ -5,22 +5,31 @@ import { RoleName } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { WorkspacePermissionGuard } from './workspace-permission.guard';
 
-describe('WorkspacePermissionGuard', () => {
-  function createContext(userId?: string): ExecutionContext {
-    return {
-      getHandler: () => 'handler',
-      getClass: () => class TestClass {},
-      switchToHttp: () => ({
-        getRequest: () => ({
-          user: userId ? { id: userId } : undefined,
-        }),
+function createContext(userId?: string): ExecutionContext {
+  const ctx = {
+    getHandler: () => 'handler',
+    getClass: () => class TestClass {},
+    getArgs: () => [],
+    getArgByIndex: () => undefined,
+    getType: () => 'http' as const,
+    switchToHttp: () => ({
+      getRequest: () => ({
+        user: userId ? { id: userId } : undefined,
       }),
-    } as ExecutionContext;
-  }
+      getResponse: () => ({}),
+      getNext: () => undefined,
+    }),
+    switchToRpc: () => ({ getContext: () => ({}) }),
+    switchToWs: () => ({ getClient: () => ({}), getData: () => undefined }),
+  };
+  return ctx as unknown as ExecutionContext;
+}
 
+describe('WorkspacePermissionGuard', () => {
   function createGuard(options?: {
     requiredWorkspace?: 'BRAND' | 'CREATOR';
     user?: {
+      status?: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
       brandAccessRevokedAt: Date | null;
       primaryRole?: { name: RoleName | null } | null;
       userRoles: Array<{ role: { name: RoleName | null } | null }>;
@@ -68,6 +77,7 @@ describe('WorkspacePermissionGuard', () => {
     const { guard } = createGuard({
       requiredWorkspace: 'BRAND',
       user: {
+        status: 'ACTIVE',
         brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.BRAND },
         userRoles: [],
@@ -83,6 +93,7 @@ describe('WorkspacePermissionGuard', () => {
     const { guard } = createGuard({
       requiredWorkspace: 'CREATOR',
       user: {
+        status: 'ACTIVE',
         brandAccessRevokedAt: null,
         primaryRole: null,
         userRoles: [{ role: { name: RoleName.CREATOR } }],
@@ -98,6 +109,7 @@ describe('WorkspacePermissionGuard', () => {
     const { guard } = createGuard({
       requiredWorkspace: 'CREATOR',
       user: {
+        status: 'ACTIVE',
         brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.BRAND },
         userRoles: [{ role: { name: RoleName.CREATOR } }],
@@ -113,6 +125,7 @@ describe('WorkspacePermissionGuard', () => {
     const { guard } = createGuard({
       requiredWorkspace: 'BRAND',
       user: {
+        status: 'ACTIVE',
         brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.CREATOR },
         userRoles: [{ role: { name: RoleName.BRAND } }],
@@ -128,6 +141,7 @@ describe('WorkspacePermissionGuard', () => {
     const { guard } = createGuard({
       requiredWorkspace: 'CREATOR',
       user: {
+        status: 'ACTIVE',
         brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.BRAND },
         userRoles: [],
@@ -143,6 +157,7 @@ describe('WorkspacePermissionGuard', () => {
     const { guard } = createGuard({
       requiredWorkspace: 'BRAND',
       user: {
+        status: 'ACTIVE',
         brandAccessRevokedAt: new Date(),
         primaryRole: { name: RoleName.BRAND },
         userRoles: [],
@@ -152,5 +167,21 @@ describe('WorkspacePermissionGuard', () => {
     await expect(
       guard.canActivate(createContext('user-1')),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects when the user is not ACTIVE', async () => {
+    const { guard } = createGuard({
+      requiredWorkspace: 'CREATOR',
+      user: {
+        status: 'SUSPENDED',
+        brandAccessRevokedAt: null,
+        primaryRole: { name: RoleName.CREATOR },
+        userRoles: [],
+      },
+    });
+
+    await expect(
+      guard.canActivate(createContext('user-1')),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

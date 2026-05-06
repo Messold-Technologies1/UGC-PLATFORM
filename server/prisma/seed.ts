@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { seedCreatorFacetOptions } from './creator-facet-seed';
 
 const prisma = new PrismaClient();
 const db = prisma as any;
@@ -229,6 +230,7 @@ async function seedBootstrapAdmin(): Promise<void> {
 
 async function main(): Promise<void> {
   await seedRolesAndPermissions();
+  await seedCreatorFacetOptions(prisma);
   await seedCreatorSuggestions();
   await seedPortfolioSuggestions();
   await seedBootstrapAdmin();

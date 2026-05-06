@@ -59,6 +59,8 @@ export interface CreatorProfileResponseDto {
   displayName: string;
   profileImageUrl?: string | null;
   city?: string | null;
+  countryName?: string | null;
+  stateName?: string | null;
   bio?: string | null;
   gender?: string | null;
   travelRadius?: number | null;

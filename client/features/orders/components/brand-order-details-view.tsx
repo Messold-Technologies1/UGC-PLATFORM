@@ -18,20 +18,20 @@ interface BrandOrderDetailsViewProps {
 
 function BrandOrderDetailsSkeleton() {
   return (
-    <div className="flex flex-col gap-8 pb-10">
+    <div className="w-full px-4 py-8 md:px-8 lg:px-12 xl:px-16 flex flex-col gap-6 pb-10">
       <div className="space-y-4">
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-5 w-96 max-w-full" />
         <Skeleton className="h-5 w-48" />
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
-        <div className="flex flex-col gap-8 lg:col-span-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+        <div className="flex flex-col gap-6 lg:col-span-8 xl:col-span-8">
           <Skeleton className="h-96 w-full rounded-3xl" />
           <Skeleton className="h-80 w-full rounded-3xl" />
         </div>
 
-        <aside className="flex flex-col gap-8 lg:col-span-4">
+        <aside className="flex flex-col gap-6 lg:col-span-4 xl:col-span-4">
           <Skeleton className="h-72 w-full rounded-3xl" />
           <Skeleton className="h-72 w-full rounded-3xl" />
         </aside>
@@ -51,7 +51,8 @@ export function BrandOrderDetailsView({
 
   if (isError || !data) {
     return (
-      <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-8">
+      <div className="w-full px-4 py-8 md:px-8 lg:px-12 xl:px-16">
+        <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-8">
         <div className="flex items-start gap-4">
           <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
             <AlertCircle className="w-5 h-5" />
@@ -71,22 +72,23 @@ export function BrandOrderDetailsView({
               </Link>
             </Button>
           </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8 pb-10">
+    <div className="w-full px-4 py-8 md:px-8 lg:px-12 xl:px-16 flex flex-col gap-6 pb-10">
       <OrderHeader orderId={orderId} order={data.order} creator={data.creator} />
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
-        <div className="flex flex-col gap-8 lg:col-span-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+        <div className="flex flex-col gap-6 lg:col-span-8 xl:col-span-8">
           <OrderDeliveredContent order={data.order} />
           <OrderShippingInfo order={data.order} creator={data.creator} />
         </div>
 
-        <aside className="flex flex-col gap-8 lg:col-span-4">
+        <aside className="flex flex-col gap-6 lg:col-span-4 xl:col-span-4">
           <OrderChatWidget
             orderId={orderId}
             role="brand"

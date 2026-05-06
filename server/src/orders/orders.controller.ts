@@ -32,7 +32,6 @@ import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
-import { ActiveWorkspaceGuard } from '../auth/guards/active-workspace.guard';
 import { BrandOrderDetailsResponseDto } from './dto/brand-order-details-response.dto';
 import { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
 import { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
@@ -50,7 +49,8 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get('brand')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'List orders for the authenticated brand (creator snapshot per row)',
@@ -68,7 +68,8 @@ export class OrdersController {
   }
 
   @Get('brand/:id')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'Get order details for the authenticated brand (excludes brief payload)',
@@ -85,7 +86,8 @@ export class OrdersController {
   }
 
   @Get('brand/:id/deliveries')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('BRAND'))
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'List submitted deliveries for an order (authenticated brand only)',
@@ -102,7 +104,8 @@ export class OrdersController {
   }
 
   @Get('creator')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'List orders for the authenticated creator (brand snapshot per row)',
@@ -120,7 +123,8 @@ export class OrdersController {
   }
 
   @Get('creator/:id')
-  @UseGuards(JwtAuthGuard, ActiveWorkspaceGuard('CREATOR'))
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
       'Get order details for the authenticated creator (excludes brief payload)',

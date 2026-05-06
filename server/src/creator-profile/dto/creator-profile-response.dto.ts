@@ -1,12 +1,39 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ApprovalStatus } from '@prisma/client';
+import {
+  ApprovalStatus,
+  CreatorAgeGroup,
+  CreatorContentVolumeBucket,
+  CreatorFacetDimension,
+  CreatorGender,
+  CreatorLanguageFluency,
+} from '@prisma/client';
 
-export class CreatorLanguageResponseDto {
+export class CreatorProfileLanguageResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
+  @ApiProperty({ example: 'english' })
+  slug!: string;
+
   @ApiProperty({ example: 'English' })
-  language!: string;
+  label!: string;
+
+  @ApiProperty({ enum: CreatorLanguageFluency })
+  fluency!: CreatorLanguageFluency;
+}
+
+export class CreatorFacetSelectionResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: CreatorFacetDimension })
+  dimension!: CreatorFacetDimension;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty()
+  label!: string;
 }
 
 export class CreatorCategoryResponseDto {
@@ -116,14 +143,41 @@ export class CreatorProfileResponseDto {
   })
   profileImageUrl?: string | null;
 
+  @ApiPropertyOptional({ example: 'India' })
+  countryName?: string | null;
+
+  @ApiPropertyOptional({ example: 'Karnataka' })
+  stateName?: string | null;
+
   @ApiPropertyOptional({ example: 'Bengaluru' })
   city?: string | null;
 
-  @ApiPropertyOptional({ example: 'I make short-form UGC for brands.' })
+  @ApiPropertyOptional({ example: 'One line about the creator.' })
   bio?: string | null;
 
-  @ApiPropertyOptional({ example: 'Female' })
-  gender?: string | null;
+  @ApiPropertyOptional({ enum: CreatorGender })
+  gender?: CreatorGender | null;
+
+  @ApiPropertyOptional({ example: '1995-04-15' })
+  dateOfBirth?: string | null;
+
+  @ApiPropertyOptional({ description: 'Completed age in years (from dateOfBirth).' })
+  age?: number | null;
+
+  @ApiPropertyOptional({ enum: CreatorAgeGroup })
+  ageGroup?: CreatorAgeGroup | null;
+
+  @ApiPropertyOptional()
+  shippingAddress?: string | null;
+
+  @ApiPropertyOptional()
+  instagramUrl?: string | null;
+
+  @ApiPropertyOptional({ enum: CreatorContentVolumeBucket })
+  contentVolume?: CreatorContentVolumeBucket | null;
+
+  @ApiProperty()
+  collaborationCount!: number;
 
   @ApiPropertyOptional({ example: 15 })
   travelRadius?: number | null;
@@ -142,8 +196,14 @@ export class CreatorProfileResponseDto {
   })
   rejectionReason?: string | null;
 
-  @ApiProperty({ type: () => [CreatorLanguageResponseDto] })
-  languages!: CreatorLanguageResponseDto[];
+  @ApiProperty({
+    type: () => [CreatorProfileLanguageResponseDto],
+    description: 'Languages with fluency (replaces legacy string list).',
+  })
+  profileLanguages!: CreatorProfileLanguageResponseDto[];
+
+  @ApiProperty({ type: () => [CreatorFacetSelectionResponseDto] })
+  facetSelections!: CreatorFacetSelectionResponseDto[];
 
   @ApiProperty({ type: () => [CreatorCategoryResponseDto] })
   categories!: CreatorCategoryResponseDto[];

@@ -1,8 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { CreatorAgeGroup, CreatorGender } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -124,11 +126,116 @@ export class ListCreatorsQueryDto {
   @IsString()
   city?: string;
 
-  @ApiPropertyOptional({ example: 'Female' })
+  @ApiPropertyOptional({ enum: CreatorGender })
   @IsOptional()
-  @Transform(({ value }) => trimOrUndefined(value))
-  @IsString()
-  gender?: string;
+  @IsEnum(CreatorGender)
+  gender?: CreatorGender;
+
+  @ApiPropertyOptional({
+    example: 18,
+    description: 'Minimum completed age (uses dateOfBirth). Combine with maxAge.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  minAge?: number;
+
+  @ApiPropertyOptional({
+    example: 35,
+    description: 'Maximum completed age (uses dateOfBirth).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  maxAge?: number;
+
+  @ApiPropertyOptional({
+    enum: CreatorAgeGroup,
+    description: 'Predefined age band (combined with minAge/maxAge using intersection).',
+  })
+  @IsOptional()
+  @IsEnum(CreatorAgeGroup)
+  ageGroup?: CreatorAgeGroup;
+
+  @ApiPropertyOptional({
+    example: ['solo_individual', 'couple'],
+    description: 'Facet slugs; OR within list, AND with other facet dimensions.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  castingType?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  appearance?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  contentStyle?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  capability?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  lifeContext?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  occupation?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  interest?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  categoryExperience?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  availableWith?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Language facet slugs; OR within list.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  language?: string[];
 
   @ApiPropertyOptional({
     example: true,

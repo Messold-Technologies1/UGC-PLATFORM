@@ -80,7 +80,7 @@ describe('Request-scoped workspace routes', () => {
     expect(requiredWorkspaceFor(controller, 'getMyPayoutDetails')).toBe(
       'CREATOR',
     );
-    expect(requiredWorkspaceFor(controller, 'upsertMyPayoutDetails')).toBe(
+    expect(requiredWorkspaceFor(controller, 'patchMyPayoutDetails')).toBe(
       'CREATOR',
     );
     expect(guardsFor(controller, 'getMyCreatorProfile')).toEqual([
@@ -125,11 +125,17 @@ describe('Request-scoped workspace routes', () => {
       unknown
     >;
 
+    expect(requiredWorkspaceFor(controller, 'listBrandOrders')).toBe('BRAND');
+    expect(requiredWorkspaceFor(controller, 'getBrandOrderDetails')).toBe('BRAND');
+    expect(requiredWorkspaceFor(controller, 'listBrandOrderDeliveries')).toBe('BRAND');
+    expect(requiredWorkspaceFor(controller, 'listCreatorOrders')).toBe('CREATOR');
+    expect(requiredWorkspaceFor(controller, 'getCreatorOrderDetails')).toBe('CREATOR');
+
     expect(requiredWorkspaceFor(controller, 'createCheckout')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'submitBrief')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'accept')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'openBrandDispute')).toBe('BRAND');
-    expect(requiredWorkspaceFor(controller, 'deliver')).toBe('CREATOR');
+    expect(requiredWorkspaceFor(controller, 'submitDelivery')).toBe('CREATOR');
     expect(requiredWorkspaceFor(controller, 'openCreatorDispute')).toBe(
       'CREATOR',
     );

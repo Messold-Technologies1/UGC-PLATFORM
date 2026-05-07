@@ -195,8 +195,8 @@ export function buildListCreatorsWhere(
   }
 
   const facetClause = facetWhere(
-    CreatorFacetDimension.CASTING_TYPE,
-    query.castingType,
+    CreatorFacetDimension.CONTENT_FORMAT,
+    query.contentFormat,
   );
   if (facetClause) clauses.push(facetClause);
 
@@ -219,8 +219,8 @@ export function buildListCreatorsWhere(
   if (capabilityClause) clauses.push(capabilityClause);
 
   const lifeClause = facetWhere(
-    CreatorFacetDimension.LIFE_CONTEXT,
-    query.lifeContext,
+    CreatorFacetDimension.LIFE_STYLE,
+    query.lifeStyle,
   );
   if (lifeClause) clauses.push(lifeClause);
 
@@ -243,8 +243,8 @@ export function buildListCreatorsWhere(
   if (catExpClause) clauses.push(catExpClause);
 
   const availClause = facetWhere(
-    CreatorFacetDimension.AVAILABLE_WITH,
-    query.availableWith,
+    CreatorFacetDimension.CAN_CREATE_WITH,
+    query.canCreateWith,
   );
   if (availClause) clauses.push(availClause);
 

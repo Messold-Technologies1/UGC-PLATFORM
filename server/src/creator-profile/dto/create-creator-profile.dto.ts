@@ -5,19 +5,21 @@ import {
 } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  ArrayNotEmpty,
+  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
-  IsNumberString,
   IsOptional,
+  Matches,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { CreatorFacetSelectionInputDto } from './creator-facet-selection-input.dto';
@@ -28,21 +30,50 @@ export class CreatorPackageCreateDto {
   @IsString()
   name!: string;
 
-  @ApiProperty({ example: '["1 Video", "Basic editing"]' })
+  @ApiPropertyOptional({
+    example: ['1 Video'],
+    description:
+      'Optional. If omitted/empty, backend defaults to ["1 Video"].',
+    type: [String],
+  })
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayUnique()
   @IsString({ each: true })
-  deliverables!: string[];
+  deliverables?: string[];
 
-  @ApiProperty({ example: '199.99' })
-  @IsNumberString()
+  @ApiPropertyOptional({
+    example: 60,
+    description: 'Max 60 seconds.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  videoLengthSeconds?: number;
+
+  @ApiPropertyOptional({ example: true, description: 'Basic Editing: Yes/No' })
+  @IsOptional()
+  @IsBoolean()
+  basicEditing?: boolean;
+
+  @ApiProperty({
+    example: '1500',
+    description: 'Must be >= 500 and in steps of 500 (500, 1000, 1500, ...).',
+  })
+  @Matches(/^\d+$/, { message: 'priceAmount must be a whole number string' })
   priceAmount!: string;
 
-  @ApiProperty({ example: 3 })
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Fixed at 5 days (backend will enforce).',
+  })
+  @IsOptional()
   @IsInt()
-  @Min(0)
-  deliveryDays!: number;
+  @ValidateIf((_, v) => v !== undefined)
+  @Min(5)
+  @Max(5)
+  deliveryDays?: number;
 
   @ApiProperty({
     example: 2,
@@ -50,17 +81,34 @@ export class CreatorPackageCreateDto {
       'Maximum number of revision cycles included in this package.',
   })
   @IsInt()
-  @Min(0)
+  @Min(1)
   maxRevisions!: number;
 }
 
 export class CreatorAddOnCreateDto {
-  @ApiProperty({ example: 'On-location shoot fee' })
-  @IsString()
-  name!: string;
+  @ApiProperty({
+    example: 'on_location_shoot',
+    description:
+      'Predefined add-on slug from GET /creators/add-on-options.',
+  })
+  @Matches(/^[a-z0-9_]+$/, { message: 'slug must be snake_case' })
+  slug!: string;
 
-  @ApiProperty({ example: '499.00' })
-  @IsNumberString()
+  @ApiPropertyOptional({
+    example: 'On-location Shoot',
+    description:
+      'Optional display name (backend will override with catalog name).',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    example: '500',
+    description:
+      'Whole number string. Backend enforces per add-on rules (fixed/min/step).',
+  })
+  @Matches(/^\d+$/, { message: 'priceAmount must be a whole number string' })
   priceAmount!: string;
 
   @ApiPropertyOptional({
@@ -174,16 +222,20 @@ export class CreateCreatorProfileDto {
     type: [CreatorPackageCreateDto],
     example: [
       {
-        name: 'Basic',
+        name: '1 Video UGC',
+        // deliverables optional; defaults to ["1 Video"] if omitted
         deliverables: ['1 Video', 'Basic editing'],
-        priceAmount: '199.99',
-        deliveryDays: 3,
-        maxRevisions: 2,
+        videoLengthSeconds: 60,
+        basicEditing: true,
+        priceAmount: '500',
+        deliveryDays: 5,
+        maxRevisions: 1,
       },
     ],
   })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreatorPackageCreateDto)
   packages?: CreatorPackageCreateDto[];

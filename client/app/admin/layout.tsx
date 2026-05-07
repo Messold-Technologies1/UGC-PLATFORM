@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/navbar";
+import { Navbar } from "@/components/navbar/navbar";
 import React from "react";
 import { Manrope, Inter } from "next/font/google";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Navbar } from "@/components/navbar";
+import { Navbar } from "@/components/navbar/navbar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 

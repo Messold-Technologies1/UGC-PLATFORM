@@ -37,6 +37,7 @@ import {
 } from './dto/presign-profile-image-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
+import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
@@ -97,6 +98,15 @@ export class CreatorProfileController {
   @ApiOkResponse({ type: CreatorFacetOptionsResponseDto })
   async listFacetOptions(): Promise<CreatorFacetOptionsResponseDto> {
     return this.creatorProfileService.listFacetOptions();
+  }
+
+  @Get('add-on-options')
+  @ApiOperation({
+    summary: 'List predefined creator add-on options (catalog)',
+  })
+  @ApiOkResponse({ type: CreatorAddOnOptionsResponseDto })
+  async listAddOnOptions(): Promise<CreatorAddOnOptionsResponseDto> {
+    return this.creatorProfileService.listAddOnOptions();
   }
 
   @Get('suggestions/categories')

@@ -169,7 +169,7 @@ export class ListCreatorsQueryDto {
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
   @IsString({ each: true })
-  castingType?: string[];
+  contentFormat?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -197,7 +197,7 @@ export class ListCreatorsQueryDto {
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
   @IsString({ each: true })
-  lifeContext?: string[];
+  lifeStyle?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -225,7 +225,7 @@ export class ListCreatorsQueryDto {
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
   @IsString({ each: true })
-  availableWith?: string[];
+  canCreateWith?: string[];
 
   @ApiPropertyOptional({
     type: [String],

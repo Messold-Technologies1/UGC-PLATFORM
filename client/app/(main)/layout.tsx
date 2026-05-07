@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { Navbar } from "@/components/navbar";
-import { NavbarFallback } from "@/components/navbar-fallback";
+import { Navbar } from "@/components/navbar/navbar";
+import { NavbarFallback } from "@/components/navbar/navbar-fallback";
 import { Footer } from "@/components/footer";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 

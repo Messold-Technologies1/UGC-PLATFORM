@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { NavbarProfileMenu } from "@/components/navbar-profile-menu";
+import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 

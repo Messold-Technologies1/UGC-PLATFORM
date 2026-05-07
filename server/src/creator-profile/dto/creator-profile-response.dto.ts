@@ -73,10 +73,13 @@ export class CreatorPackageResponseDto {
   })
   deliverables!: string[];
 
-  @ApiProperty({ example: '199.99' })
+  @ApiProperty({ example: 60, description: 'Max 60 seconds.' })
+  videoLengthSeconds!: number;
+
+  @ApiProperty({ example: '500' })
   priceAmount!: string;
 
-  @ApiProperty({ example: 3 })
+  @ApiProperty({ example: 5 })
   deliveryDays!: number;
 
   @ApiProperty({

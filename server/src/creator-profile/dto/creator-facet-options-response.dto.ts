@@ -3,12 +3,6 @@ import { CreatorFacetDimension } from '@prisma/client';
 
 export class CreatorFacetOptionItemDto {
   @ApiProperty()
-  id!: string;
-
-  @ApiProperty({ enum: CreatorFacetDimension })
-  dimension!: CreatorFacetDimension;
-
-  @ApiProperty()
   slug!: string;
 
   @ApiProperty()
@@ -19,6 +13,14 @@ export class CreatorFacetOptionItemDto {
 }
 
 export class CreatorFacetOptionsResponseDto {
-  @ApiProperty({ type: [CreatorFacetOptionItemDto] })
-  options!: CreatorFacetOptionItemDto[];
+  @ApiProperty({
+    description:
+      'Facet options grouped by dimension. Each dimension key contains an ordered list of { slug, label, sortOrder }.',
+    type: 'object',
+    additionalProperties: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/CreatorFacetOptionItemDto' },
+    },
+  })
+  optionsByDimension!: Record<CreatorFacetDimension, CreatorFacetOptionItemDto[]>;
 }

@@ -17,6 +17,7 @@ export type BrandProfileItemApi = {
   instagramUrl: string | null;
   productType: BrandProductTypeApi | null;
   categories: BrandCategoryApi[];
+  otherCategoryLabel: string | null;
   createdAt: string;
   updatedAt: string;
 };

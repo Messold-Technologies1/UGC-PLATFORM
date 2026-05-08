@@ -1208,7 +1208,7 @@ function CreatorProfileSetupFormContent({
         ) : null}
       </div>
 
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} className="flex justify-end">
         <Button
         type="submit"
         className="mt-8 w-full sm:w-auto"

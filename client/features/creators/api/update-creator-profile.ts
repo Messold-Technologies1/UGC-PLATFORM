@@ -2,18 +2,31 @@ import api from "@/lib/api";
 import { creatorsByIdPath } from "@/lib/endpoints";
 import type {
   CreatorAddOnCreatePayload,
+  CreatorContentVolumeBucket,
+  CreatorFacetSelectionPayload,
+  CreatorGender,
   CreatorPackageCreatePayload,
+  CreatorProfileLanguagePayload,
 } from "./create-creator-profile";
 import type { CreatorProfileItemApi } from "./types";
 
 export type UpdateCreatorProfilePayload = {
   displayName?: string;
   profileImageKey?: string;
+  countryName?: string;
+  stateName?: string;
   city?: string;
   bio?: string;
-  gender?: string;
+  gender?: CreatorGender;
+  dateOfBirth?: string;
+  shippingAddress?: string;
+  instagramUrl?: string;
+  contentVolume?: CreatorContentVolumeBucket;
+  collaborationCount?: number;
   travelRadius?: number;
   onLocationAvailable?: boolean;
+  facetSelections?: CreatorFacetSelectionPayload[];
+  profileLanguages?: CreatorProfileLanguagePayload[];
   languages?: string[];
   categories?: string[];
   personaTags?: string[];

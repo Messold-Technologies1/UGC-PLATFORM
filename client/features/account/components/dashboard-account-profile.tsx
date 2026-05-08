@@ -91,6 +91,16 @@ export function DashboardAccountProfile({
       </div>
     );
   }
+  const languageBadges =
+    profile.profileLanguages?.length
+      ? profile.profileLanguages.map((language) => ({
+          id: language.id,
+          label: language.label,
+        }))
+      : (profile.languages ?? []).map((language) => ({
+          id: language.id,
+          label: language.language,
+        }));
 
   return (
     <div className="space-y-8">
@@ -210,18 +220,18 @@ export function DashboardAccountProfile({
             ) : null}
           </dl>
 
-          {profile.languages.length ? (
+          {languageBadges.length ? (
             <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-3">
               <h4 className="text-xs font-medium text-muted-foreground">
                 Languages
               </h4>
               <div className="mt-3 flex flex-wrap gap-2">
-                {profile.languages.map((l) => (
+                {languageBadges.map((l) => (
                   <span
                     key={l.id}
                     className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-foreground"
                   >
-                    {l.language}
+                    {l.label}
                   </span>
                 ))}
               </div>

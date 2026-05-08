@@ -17,6 +17,8 @@ export const ENDPOINTS = {
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",
     PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
+    FACET_OPTIONS: "/api/creators/facet-options",
+    ADD_ON_OPTIONS: "/api/creators/add-on-options",
     SUGGESTIONS_CATEGORIES: "/api/creators/suggestions/categories",
     SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
     SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",

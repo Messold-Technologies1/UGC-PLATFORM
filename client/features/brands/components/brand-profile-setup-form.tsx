@@ -1,5 +1,7 @@
 "use client";
 
+import { motion, type Variants } from "framer-motion";
+
 import {
   useCallback,
   useEffect,
@@ -657,9 +659,33 @@ function BrandProfileSetupFormContent({
     ],
   );
 
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring", stiffness: 300, damping: 24 },
+    },
+  };
+
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
+      <motion.header variants={itemVariants} className="space-y-1">
         <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
           {title}
         </h1>
@@ -685,13 +711,13 @@ function BrandProfileSetupFormContent({
             className="mt-3 h-1"
           />
         </div>
-      </header>
+      </motion.header>
 
       <form
         onSubmit={form.handleSubmit(handleSubmit)}
         className="space-y-6 rounded-2xl border border-border bg-card p-6"
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <motion.div variants={itemVariants} className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2 sm:col-span-2">
                 <Label htmlFor="brand-contact-full-name">Name</Label>
                 <Input
@@ -828,9 +854,9 @@ function BrandProfileSetupFormContent({
                   </div>
                 ) : null}
               </div>
-            </div>
+        </motion.div>
 
-        <div className="grid gap-2">
+        <motion.div variants={itemVariants} className="grid gap-2">
           <Label htmlFor="brand-name">Brand name</Label>
           <Input
             id="brand-name"
@@ -846,9 +872,9 @@ function BrandProfileSetupFormContent({
               {form.formState.errors.brandName.message}
             </p>
           ) : null}
-        </div>
+        </motion.div>
 
-        <div className="grid gap-2">
+        <motion.div variants={itemVariants} className="grid gap-2">
           <Label htmlFor="brand-pronunciation">
             Phonetic spelling (optional)
           </Label>
@@ -858,9 +884,10 @@ function BrandProfileSetupFormContent({
             disabled={pending}
             {...form.register("brandPronunciation")}
           />
-        </div>
+        </motion.div>
 
-        <BrandPronunciationAudioField
+        <motion.div variants={itemVariants}>
+          <BrandPronunciationAudioField
           disabled={pending}
           uploading={uploadingPronunciation}
           audioUrl={pronunciationAudioPreviewUrl}
@@ -870,8 +897,9 @@ function BrandProfileSetupFormContent({
           onRecordingReady={handlePronunciationBlob}
           onRemove={clearPronunciationAudio}
         />
+        </motion.div>
 
-        <div className="grid gap-2">
+        <motion.div variants={itemVariants} className="grid gap-2">
           <Label htmlFor="brand-website">Brand website (optional)</Label>
           <Input
             id="brand-website"
@@ -887,9 +915,9 @@ function BrandProfileSetupFormContent({
               {form.formState.errors.website.message}
             </p>
           ) : null}
-        </div>
+        </motion.div>
 
-        <div className="grid gap-2">
+        <motion.div variants={itemVariants} className="grid gap-2">
             <Label htmlFor="brand-instagram">
               Brand Instagram URL (optional)
             </Label>
@@ -909,9 +937,9 @@ function BrandProfileSetupFormContent({
                 {form.formState.errors.instagramUrl.message}
               </p>
             ) : null}
-          </div>
+          </motion.div>
 
-        <div className="space-y-2">
+        <motion.div variants={itemVariants} className="space-y-2">
             <Label>Categories (optional)</Label>
             <p className="text-xs text-muted-foreground">Select all that apply.</p>
             <div className="relative" ref={dropdownRef}>
@@ -977,9 +1005,9 @@ function BrandProfileSetupFormContent({
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
 
-        <fieldset className="space-y-2 rounded-xl border border-border/60 p-4">
+        <motion.fieldset variants={itemVariants} className="space-y-2 rounded-xl border border-border/60 p-4">
             <legend className="text-sm font-medium text-foreground px-1">
               Product type (optional)
             </legend>
@@ -1030,9 +1058,10 @@ function BrandProfileSetupFormContent({
                 Prefer not to say
               </label>
             </div>
-          </fieldset>
+          </motion.fieldset>
 
-        <BrandLogoField
+        <motion.div variants={itemVariants}>
+          <BrandLogoField
           previewUrl={logoPreviewUrl}
           accept={LOGO_ACCEPT}
           disabled={pending || uploadingLogo}
@@ -1041,8 +1070,9 @@ function BrandProfileSetupFormContent({
           onSelectFile={(file) => void handleLogoSelected(file)}
           onRemove={clearLogo}
         />
+        </motion.div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <motion.div variants={itemVariants} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <Button
             type="submit"
             disabled={
@@ -1071,8 +1101,8 @@ function BrandProfileSetupFormContent({
               "Create profile"
             )}
           </Button>
-        </div>
+        </motion.div>
       </form>
-    </div>
+    </motion.div>
   );
 }

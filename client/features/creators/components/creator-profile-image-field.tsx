@@ -29,7 +29,7 @@ export function CreatorProfileImageField({
   onDiscard: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-start">
+    <div className="flex flex-col gap-3 mb-2 border-b border-border pb-6 sm:flex-row sm:items-start">
       <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
         {imagePreviewUrl ? (
           <Image
@@ -52,7 +52,7 @@ export function CreatorProfileImageField({
       <div className="min-w-0 flex-1 space-y-2">
         <Label className="text-base">Profile photo</Label>
         <p className="text-xs text-muted-foreground">
-          Upload a square image. Shown in search and on your public profile.
+          Shown in search and on your public profile.
         </p>
         <input
           ref={fileInputRef}

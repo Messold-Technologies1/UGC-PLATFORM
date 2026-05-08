@@ -83,7 +83,11 @@ export class CreatorProfileController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List creators (paginated)' })
+  @ApiOperation({
+    summary: 'List creators (paginated)',
+    description:
+      'Discovery list for brands and guests: does not include phone numbers or Instagram URLs. Use admin pending-approvals or creator detail as admin/owner for those fields.',
+  })
   @ApiOkResponse({ type: CreatorsPublicListResponseDto })
   async listCreators(
     @Query() query: ListCreatorsQueryDto,
@@ -181,7 +185,11 @@ export class CreatorProfileController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get creator by creator profile id' })
+  @ApiOperation({
+    summary: 'Get creator by creator profile id',
+    description:
+      'Phone, verification flag, and Instagram URL are only present for the profile owner and admins; other authenticated users do not receive those properties.',
+  })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async getCreator(
     @Param('id', ParseUUIDPipe) id: string,

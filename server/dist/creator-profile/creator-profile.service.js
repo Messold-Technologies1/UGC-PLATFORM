@@ -25,6 +25,12 @@ function _ts_metadata(k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 }
 const creatorProfileWithRelationsInclude = {
+    user: {
+        select: {
+            phone: true,
+            phoneVerified: true
+        }
+    },
     facetSelections: {
         include: {
             option: true
@@ -127,6 +133,8 @@ let CreatorProfileService = class CreatorProfileService {
             id: mapped.id,
             userId: mapped.userId,
             displayName: mapped.displayName,
+            phone: mapped.user?.phone ?? null,
+            phoneVerified: mapped.user?.phoneVerified ?? false,
             profileImageUrl: mapped.profileImageUrl ?? null,
             countryName: mapped.countryName ?? null,
             stateName: mapped.stateName ?? null,
@@ -188,6 +196,10 @@ let CreatorProfileService = class CreatorProfileService {
     }
     async isAdminUser(userId) {
         return this.isAdmin(userId, this.prisma);
+    }
+    /** Strip direct contact fields from brands and other non-admin viewers (keys omitted from JSON). */ redactCreatorContactForViewer(dto) {
+        const { phone: _phone, phoneVerified: _phoneVerified, instagramUrl: _instagramUrl, ...rest } = dto;
+        return rest;
     }
     async normalizeCreatorAddOns(tx, addOns) {
         const options = await tx.creatorAddOnOption.findMany({
@@ -286,6 +298,37 @@ let CreatorProfileService = class CreatorProfileService {
             },
             data: {
                 name: trimmed
+            }
+        });
+    }
+    /**
+   * Persists phone on User. If the E.164 value differs from the stored number,
+   * clears verification and OTP attempt metadata so the new number must be verified.
+   */ async syncUserPhoneIfChanged(tx, userId, phone) {
+        const trimmed = phone.trim();
+        const current = await tx.user.findUnique({
+            where: {
+                id: userId
+            },
+            select: {
+                phone: true
+            }
+        });
+        const prev = current?.phone?.trim() ?? '';
+        if (prev === trimmed) {
+            return;
+        }
+        await tx.user.update({
+            where: {
+                id: userId
+            },
+            data: {
+                phone: trimmed,
+                phoneVerified: false,
+                phoneOtpFailedAttempts: 0,
+                phoneOtpLastAttemptAt: null,
+                phoneOtpLastStatus: null,
+                phoneOtpLastPhone: null
             }
         });
     }
@@ -655,7 +698,11 @@ let CreatorProfileService = class CreatorProfileService {
         if (!isApproved && !isOwner && !admin) {
             throw new _common.NotFoundException('Creator not found');
         }
-        return this.mapCreatorProfileResponseDto(profile);
+        const dto = this.mapCreatorProfileResponseDto(profile);
+        if (isOwner || admin) {
+            return dto;
+        }
+        return this.redactCreatorContactForViewer(dto);
     }
     async listPendingCreatorApprovals(query) {
         const page = query.page ?? 1;
@@ -807,6 +854,9 @@ let CreatorProfileService = class CreatorProfileService {
             }
             if (dto.displayName !== undefined) {
                 await this.syncUserDisplayName(tx, profile.userId, dto.displayName);
+            }
+            if (dto.phone !== undefined) {
+                await this.syncUserPhoneIfChanged(tx, profile.userId, dto.phone);
             }
             let nextProfileImageKey = undefined;
             let nextProfileImageUrl = undefined;

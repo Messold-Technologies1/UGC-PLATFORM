@@ -191,7 +191,7 @@ export class OrdersController {
     await this.ordersService.submitBrief({
       brandUserId: req.user.id,
       orderId: id,
-      brief: dto.brief,
+      briefId: dto.briefId,
     });
   }
 

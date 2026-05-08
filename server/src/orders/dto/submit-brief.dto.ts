@@ -1,17 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsObject } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 export class SubmitBriefDto {
   @ApiProperty({
     description:
-      'Campaign brief payload. Stored as JSON on the order (schema-free for now).',
-    example: {
-      brandName: 'Acme',
-      product: 'Skincare',
-      talkingPoints: ['Hydration', 'SPF'],
-    },
+      'Link an existing saved brief to this order (briefs are reusable by brand).',
+    example: 'uuid',
   })
-  @IsObject()
-  brief!: Record<string, unknown>;
+  @IsUUID()
+  briefId!: string;
 }
 

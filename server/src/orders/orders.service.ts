@@ -304,7 +304,7 @@ export class OrdersService {
   async submitBrief(params: {
     brandUserId: string;
     orderId: string;
-    brief: Record<string, unknown>;
+    briefId: string;
   }): Promise<void> {
     const brand = await this.prisma.brandProfile.findUnique({
       where: { userId: params.brandUserId },
@@ -335,11 +335,19 @@ export class OrdersService {
     // deliveryDays + 2 grace (platform-defined buffer)
     deadline.setDate(deadline.getDate() + order.deliveryDaysSnapshot + 2);
 
+    const brief = await this.prisma.brief.findFirst({
+      where: { id: params.briefId, brandId: brand.id },
+      select: { id: true },
+    });
+    if (!brief) {
+      throw new NotFoundException('Brief not found for this brand');
+    }
+
     await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'BRIEF_SUBMITTED',
-        brief: params.brief as any,
+        briefId: params.briefId,
         briefSubmittedAt: now,
         deliveryDeadlineAt: deadline,
       },
@@ -628,12 +636,11 @@ export class OrdersService {
         id: String(a.id ?? ''),
         name: String(a.name ?? ''),
         priceAmount: String(a.priceAmount ?? '0'),
-        description:
-          a.description == null
-            ? null
-            : typeof a.description === 'string'
-              ? a.description
-              : String(a.description),
+        description: (() => {
+          if (a.description == null) return null;
+          if (typeof a.description === 'string') return a.description;
+          return String(a.description);
+        })(),
       }))
       .filter((a) => a.id && a.name);
 
@@ -1072,8 +1079,31 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brief: true,
+        briefId: true,
         briefSubmittedAt: true,
+        briefRef: {
+          select: {
+            id: true,
+            brandName: true,
+            brandPronunciationAudioKey: true,
+            brandPronunciationAudioUrl: true,
+            industry: true,
+            brandLogoKey: true,
+            brandLogoUrl: true,
+            productName: true,
+            productDescription: true,
+            productPageUrl: true,
+            shootLocationKind: true,
+            shootLocationAddress: true,
+            durationBucket: true,
+            contentType: true,
+            toneStyle: true,
+            referenceLinks: true,
+            finalNotes: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
         brand: { select: { userId: true } },
         creator: { select: { userId: true } },
       },
@@ -1088,13 +1118,39 @@ export class OrdersService {
       throw new ForbiddenException('Not allowed to view this brief');
     }
 
-    const raw = order.brief;
-    let brief: Record<string, unknown> | null = null;
-    if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
-      brief = raw as Record<string, unknown>;
-    } else if (raw != null) {
-      brief = { value: raw as unknown };
-    }
+    const brief: Record<string, unknown> | null = order.briefRef
+      ? {
+          id: order.briefRef.id,
+          brandName: order.briefRef.brandName ?? null,
+          brandPronunciationAudio: order.briefRef.brandPronunciationAudioKey
+            ? {
+                key: order.briefRef.brandPronunciationAudioKey,
+                url: order.briefRef.brandPronunciationAudioUrl ?? null,
+              }
+            : null,
+          industry: order.briefRef.industry ?? null,
+          brandLogo: order.briefRef.brandLogoKey
+            ? {
+                key: order.briefRef.brandLogoKey,
+                url: order.briefRef.brandLogoUrl ?? null,
+              }
+            : null,
+          productName: order.briefRef.productName ?? null,
+          productDescription: order.briefRef.productDescription ?? null,
+          productPageUrl: order.briefRef.productPageUrl ?? null,
+          shootLocationKind: order.briefRef.shootLocationKind ?? null,
+          shootLocationAddress: order.briefRef.shootLocationAddress ?? null,
+          durationBucket: order.briefRef.durationBucket ?? null,
+          contentType: order.briefRef.contentType ?? null,
+          toneStyle: order.briefRef.toneStyle ?? null,
+          referenceLinks: Array.isArray(order.briefRef.referenceLinks)
+            ? order.briefRef.referenceLinks
+            : [],
+          finalNotes: order.briefRef.finalNotes ?? null,
+          createdAt: order.briefRef.createdAt,
+          updatedAt: order.briefRef.updatedAt,
+        }
+      : null;
 
     return {
       orderId: order.id,
@@ -1209,7 +1265,7 @@ export class OrdersService {
       select: { id: true, status: true, creatorPaidAt: true } as any,
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (String(order.status) !== 'ACCEPTED') {
+    if (order.status !== 'ACCEPTED') {
       throw new BadRequestException(
         'Order must be ACCEPTED before marking creator paid',
       );

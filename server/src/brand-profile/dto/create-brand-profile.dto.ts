@@ -37,12 +37,6 @@ export class CreateBrandProfileDto {
   @MaxLength(200)
   brandName!: string;
 
-  @ApiPropertyOptional({ example: 'ACK-mee' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  brandPronunciation?: string;
-
   @ApiPropertyOptional({
     example: 'brand-logo-temp/<userId>/<uuid>.png',
     description:

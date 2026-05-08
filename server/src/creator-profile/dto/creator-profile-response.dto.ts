@@ -142,6 +142,21 @@ export class CreatorProfileResponseDto {
   displayName!: string;
 
   @ApiPropertyOptional({
+    example: '+919876543210',
+    nullable: true,
+    description:
+      'Account phone from User (E.164). Omitted when the viewer is not the profile owner or an admin.',
+  })
+  phone?: string | null;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Whether the account phone has passed SMS verification. Omitted (not sent) when the viewer is not the profile owner or an admin.',
+  })
+  phoneVerified?: boolean;
+
+  @ApiPropertyOptional({
     example: 'https://cdn.example.com/creator-profile/<userId>/<uuid>.jpg',
   })
   profileImageUrl?: string | null;
@@ -173,7 +188,10 @@ export class CreatorProfileResponseDto {
   @ApiPropertyOptional()
   shippingAddress?: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
   instagramUrl?: string | null;
 
   @ApiPropertyOptional({ enum: CreatorContentVolumeBucket })

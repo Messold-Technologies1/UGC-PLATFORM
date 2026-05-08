@@ -15,8 +15,10 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -31,6 +33,19 @@ export class UpdateCreatorProfileDto {
   @IsOptional()
   @IsString()
   displayName?: string;
+
+  @ApiPropertyOptional({
+    example: '+919876543210',
+    description:
+      'Updates User.phone (E.164). If the number changes, phoneVerified is cleared until OTP verification.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  @Matches(/^\+\d{8,15}$/, {
+    message: 'phone must be E.164 (e.g. +919876543210)',
+  })
+  phone?: string;
 
   @ApiPropertyOptional({
     example: 'creator-profile/<userId>/<uuid>.jpg',

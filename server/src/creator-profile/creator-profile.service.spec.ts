@@ -273,6 +273,7 @@ describe('CreatorProfileService', () => {
       addOns: [
         {
           name: 'On-location shoot fee',
+          slug: 'on-location-shoot-fee',
           priceAmount: '499.00',
           description: 'Travel and setup for in-store shoots',
         },
@@ -335,6 +336,7 @@ describe('CreatorProfileService', () => {
       addOns: [
         {
           name: 'On-location shoot fee',
+          slug: 'on-location-shoot-fee',
           priceAmount: '499.00',
           description: 'Travel and setup for in-store shoots',
         },
@@ -358,6 +360,7 @@ describe('CreatorProfileService', () => {
       id: 'profile-1',
       userId: 'owner-user',
       displayName: 'Jane',
+      user: { phone: '+919876543210', phoneVerified: true },
       profileImageUrl: null,
       city: null,
       countryName: null,
@@ -366,7 +369,7 @@ describe('CreatorProfileService', () => {
       gender: null,
       dateOfBirth: null,
       shippingAddress: null,
-      instagramUrl: null,
+      instagramUrl: 'https://instagram.com/jane',
       contentVolume: null,
       collaborationCount: 0,
       travelRadius: null,
@@ -410,6 +413,9 @@ describe('CreatorProfileService', () => {
 
       const result = await service.getCreatorById(creatorId, 'profile-1');
       expect(result.id).toBe('profile-1');
+      expect(result.phone).toBe('+919876543210');
+      expect(result.phoneVerified).toBe(true);
+      expect(result.instagramUrl).toBe('https://instagram.com/jane');
     });
 
     it('returns profile when APPROVED for any viewer', async () => {
@@ -424,6 +430,9 @@ describe('CreatorProfileService', () => {
 
       const result = await service.getCreatorById('stranger-user', 'profile-1');
       expect(result.id).toBe('profile-1');
+      expect(result).not.toHaveProperty('phone');
+      expect(result).not.toHaveProperty('phoneVerified');
+      expect(result).not.toHaveProperty('instagramUrl');
     });
   });
 });

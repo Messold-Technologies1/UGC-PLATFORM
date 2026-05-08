@@ -133,7 +133,8 @@ _ts_decorate([
 _ts_decorate([
     (0, _common.Get)(),
     (0, _swagger.ApiOperation)({
-        summary: 'List creators (paginated)'
+        summary: 'List creators (paginated)',
+        description: 'Discovery list for brands and guests: does not include phone numbers or Instagram URLs. Use admin pending-approvals or creator detail as admin/owner for those fields.'
     }),
     (0, _swagger.ApiOkResponse)({
         type: _creatorspubliclistresponsedto.CreatorsPublicListResponseDto
@@ -272,7 +273,8 @@ _ts_decorate([
     (0, _common.Get)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
-        summary: 'Get creator by creator profile id'
+        summary: 'Get creator by creator profile id',
+        description: 'Phone, verification flag, and Instagram URL are only present for the profile owner and admins; other authenticated users do not receive those properties.'
     }),
     (0, _swagger.ApiOkResponse)({
         type: _creatorprofileresponsedto.CreatorProfileResponseDto

@@ -210,7 +210,7 @@ export async function LandingPageContent() {
                 size="lg"
                 className="mt-8 w-full gap-2 bg-foreground border-0 text-background hover:opacity-90"
               >
-                <Link href="/creator/dashboard">
+                <Link href="/creator/orders">
                   Join as Creator
                   <ArrowRight className="size-4" />
                 </Link>
@@ -242,7 +242,7 @@ export async function LandingPageContent() {
                 size="lg"
                 className="mt-8 w-full gap-2"
               >
-                <Link href="/brand/dashboard">
+                <Link href="/brand/creators">
                   Join as Brand
                   <ArrowRight className="size-4" />
                 </Link>

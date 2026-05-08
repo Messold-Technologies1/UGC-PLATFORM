@@ -5,7 +5,7 @@ import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "Brand Dashboard",
+    default: "Brand Workspace",
     template: "%s — Brand | Collabry",
   },
   description: "Manage your campaigns, browse creators, and track performance.",

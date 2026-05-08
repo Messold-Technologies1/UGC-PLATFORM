@@ -32,8 +32,8 @@ describe('Client workspace routing helpers', () => {
     expect(resolveImmediatePostAuthPath(user, '/creator/jobs')).toBe(
       '/auth/continue?callbackUrl=%2Fcreator%2Fjobs',
     );
-    expect(resolvePostAuthRedirectPath(user, '/brand/dashboard')).toBe(
-      '/auth/continue?callbackUrl=%2Fbrand%2Fdashboard',
+    expect(resolvePostAuthRedirectPath(user, '/brand/creators')).toBe(
+      '/auth/continue?callbackUrl=%2Fbrand%2Fcreators',
     );
   });
 
@@ -64,7 +64,7 @@ describe('Client workspace routing helpers', () => {
     ).toBe('/brand/orders/42');
   });
 
-  it('falls back to the selected workspace dashboard when the callback points at another namespace', () => {
+  it('falls back to the selected workspace landing page when the callback points at another namespace', () => {
     const user = createUser({
       roles: ['CREATOR', 'BRAND'],
       primaryRole: 'CREATOR',
@@ -72,10 +72,10 @@ describe('Client workspace routing helpers', () => {
     });
 
     expect(pathAfterWorkspaceSelection(user, 'CREATOR', '/brand/orders/42')).toBe(
-      '/creator/dashboard',
+      '/creator/orders',
     );
     expect(pathAfterWorkspaceSelection(user, 'BRAND', '/creator/jobs/42')).toBe(
-      '/brand/dashboard',
+      '/brand/creators',
     );
   });
 
@@ -87,11 +87,11 @@ describe('Client workspace routing helpers', () => {
       brandAccessRevoked: true,
     });
 
-    expect(resolveImmediatePostAuthPath(user, '/brand/dashboard')).toBe(
-      '/auth/continue?callbackUrl=%2Fbrand%2Fdashboard',
+    expect(resolveImmediatePostAuthPath(user, '/brand/creators')).toBe(
+      '/auth/continue?callbackUrl=%2Fbrand%2Fcreators',
     );
-    expect(pathAfterWorkspaceSelection(user, 'BRAND', '/brand/dashboard')).toBe(
-      '/creator/dashboard',
+    expect(pathAfterWorkspaceSelection(user, 'BRAND', '/brand/creators')).toBe(
+      '/creator/orders',
     );
   });
 
@@ -102,17 +102,17 @@ describe('Client workspace routing helpers', () => {
       hasBrandProfile: true,
     });
 
-    expect(stripOnboardingFromHref('/creator/dashboard?onboarding=creator')).toBe(
-      '/creator/dashboard',
+    expect(stripOnboardingFromHref('/creator/orders?onboarding=creator')).toBe(
+      '/creator/orders',
     );
     expect(
       pathAfterWorkspaceSelection(
         user,
         'CREATOR',
-        '/creator/dashboard?onboarding=creator&tab=active',
+        '/creator/orders?onboarding=creator&tab=active',
         { promptIncompleteProfileOnboarding: false },
       ),
-    ).toBe('/creator/dashboard?tab=active');
+    ).toBe('/creator/orders?tab=active');
   });
 
   it('builds the continue route safely when there is no callback URL', () => {

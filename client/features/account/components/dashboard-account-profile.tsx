@@ -29,7 +29,7 @@ export function DashboardAccountProfile({
       <div className="space-y-8">
         <PageHeader
           title="Profile"
-          description="Complete creator onboarding from the dashboard first."
+          description="Complete creator onboarding from your workspace first."
         />
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <p className="text-sm text-muted-foreground">

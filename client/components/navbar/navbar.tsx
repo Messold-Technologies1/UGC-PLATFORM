@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { 
-  Menu, X, User, Moon, Sun, 
-  LayoutDashboard, Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, type LucideIcon 
+import {
+  Menu, X, User, Moon, Sun,
+  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -87,12 +87,10 @@ interface NavItem {
 
 const roleConfigs: Record<string, NavItem[]> = {
   brand: [
-    { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/brand/creators", label: "Browse Creators", icon: Users },
     { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
   ],
   creator: [
-    { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
   ],
@@ -157,14 +155,15 @@ export function Navbar() {
         "flex flex-col border border-border/50 bg-[#f7f7f7cc] dark:bg-background/60 shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300",
         mobileOpen ? "rounded-2xl" : "rounded-full"
       )}>
-        <div className="flex h-12 w-full items-center justify-between px-4 sm:px-6">
+        <div className="relative flex h-12 w-full items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-6 lg:gap-8">
             <Link href="/" prefetch className="flex items-center gap-2 shrink-0">
               <span className="text-lg font-bold font-heading tracking-tight">{SITE_NAME}</span>
             </Link>
-
+          </div>
            
-            {navItems.length > 0 && (
+          {navItems.length > 0 && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <nav className="hidden md:flex items-center gap-1">
                 {navItems.map((item) => {
                   const isActive = isNavItemActive(pathname || "", item);
@@ -186,9 +185,8 @@ export function Navbar() {
                   );
                 })}
               </nav>
-            )}
-          </div>
-
+            </div>
+          )}
         <div className="hidden items-center gap-2 md:flex shrink-0">
           <ThemeToggle />
           {isLoading ? (

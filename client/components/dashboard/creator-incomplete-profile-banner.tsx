@@ -6,7 +6,7 @@ import { ArrowRight, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/auth-provider";
 
-const PROFILE_SETUP_HREF = "/creator/dashboard";
+const PROFILE_SETUP_HREF = "/creator/orders";
 
 export function CreatorIncompleteProfileBanner() {
   const pathname = usePathname();

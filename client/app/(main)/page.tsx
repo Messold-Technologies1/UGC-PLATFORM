@@ -16,8 +16,8 @@ function canUseWorkspaceRole(
 
 function workspacePath(role: "CREATOR" | "BRAND" | "ADMIN" | null | undefined) {
   if (role === "ADMIN") return "/admin";
-  if (role === "BRAND") return "/brand/dashboard";
-  if (role === "CREATOR") return "/creator/dashboard";
+  if (role === "BRAND") return "/brand/creators";
+  if (role === "CREATOR") return "/creator/orders";
   return null;
 }
 

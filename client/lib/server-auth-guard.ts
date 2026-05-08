@@ -113,8 +113,8 @@ export async function requireAuthenticatedUser(callbackPath: string) {
 
 function workspacePathForRole(role: ServerWorkspaceRole): string {
   if (role === "ADMIN") return "/admin";
-  if (role === "BRAND") return "/brand/dashboard";
-  return "/creator/dashboard";
+  if (role === "BRAND") return "/brand/creators";
+  return "/creator/orders";
 }
 
 function canAccessWorkspaceRole(

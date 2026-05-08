@@ -34,10 +34,10 @@ export default function CreatorSettingsProfilePage() {
       <div className="space-y-6">
         <PageHeader
           title="Profile"
-          description="Complete creator onboarding from the dashboard first."
+          description="Complete creator onboarding from your workspace first."
         />
         <Button asChild>
-          <Link href="/creator/dashboard">Back to dashboard</Link>
+          <Link href="/creator/orders">Back to orders</Link>
         </Button>
       </div>
     );

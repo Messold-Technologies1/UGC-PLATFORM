@@ -7,8 +7,8 @@ const columns = [
   {
     title: "Platform",
     links: [
-      { href: "/creator/dashboard", label: "For Creators" },
-      { href: "/brand/dashboard", label: "For Brands" },
+      { href: "/creator/orders", label: "For Creators" },
+      { href: "/brand/creators", label: "For Brands" },
       { href: "/pricing", label: "Pricing" },
     ],
   },

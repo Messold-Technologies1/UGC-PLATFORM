@@ -2,8 +2,8 @@ import type { AuthUser, WorkspaceRole } from "../hooks/use-me-query";
 
 export type PostAuthRole = "creator" | "brand" | "admin";
 
-const CREATOR_FALLBACK = "/creator/dashboard";
-const BRAND_FALLBACK = "/brand/dashboard";
+const CREATOR_FALLBACK = "/creator/orders";
+const BRAND_FALLBACK = "/brand/creators";
 const ADMIN_FALLBACK = "/admin";
 
 function toPostAuthRole(r: WorkspaceRole): PostAuthRole {

@@ -5,7 +5,7 @@ export default async function CreatorHubTemplate({
 }: {
   children: React.ReactNode;
 }) {
-  await requireCreatorWorkspace("/creator/dashboard");
+  await requireCreatorWorkspace("/creator/orders");
 
   return <div className="nav-route-enter">{children}</div>;
 }

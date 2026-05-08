@@ -92,15 +92,10 @@ export function DashboardAccountProfile({
     );
   }
   const languageBadges =
-    profile.profileLanguages?.length
-      ? profile.profileLanguages.map((language) => ({
-          id: language.id,
-          label: language.label,
-        }))
-      : (profile.languages ?? []).map((language) => ({
-          id: language.id,
-          label: language.language,
-        }));
+    profile.profileLanguages?.map((language) => ({
+      id: language.id ?? language.slug,
+      label: language.label,
+    })) ?? [];
 
   return (
     <div className="space-y-8">
@@ -208,16 +203,6 @@ export function DashboardAccountProfile({
               </div>
             ) : null}
 
-            {profile.onLocationFee?.trim() ? (
-              <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-2">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  On-location fee
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-foreground">
-                  {profile.onLocationFee.trim()}
-                </dd>
-              </div>
-            ) : null}
           </dl>
 
           {languageBadges.length ? (

@@ -31,7 +31,6 @@ export interface CreatorProfile extends Creator {
 
   travelRadiusKm: number | null;
 
-  onLocationFee: string | null;
   packages: Package[];
   addOns: AddOn[];
   reviews: Review[];

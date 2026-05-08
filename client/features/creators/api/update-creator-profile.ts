@@ -12,6 +12,7 @@ import type { CreatorProfileItemApi } from "./types";
 
 export type UpdateCreatorProfilePayload = {
   displayName?: string;
+  phone?: string;
   profileImageKey?: string;
   countryName?: string;
   stateName?: string;
@@ -27,7 +28,6 @@ export type UpdateCreatorProfilePayload = {
   onLocationAvailable?: boolean;
   facetSelections?: CreatorFacetSelectionPayload[];
   profileLanguages?: CreatorProfileLanguagePayload[];
-  languages?: string[];
   categories?: string[];
   personaTags?: string[];
   restrictions?: string[];

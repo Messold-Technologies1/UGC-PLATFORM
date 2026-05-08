@@ -42,10 +42,6 @@ export default function CreatorRow({
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.displayName)}&background=random`;
   };
 
-  const formattedDate = creator.createdAt
-    ? new Date(creator.createdAt).toLocaleDateString()
-    : "Recent";
-
   const niche = creator.categories?.[0]?.category || "Creator";
   const portfolioVideos = creator.firstPortfolioVideo
     ? [
@@ -79,10 +75,6 @@ export default function CreatorRow({
           <div className="flex items-center space-x-2">
             <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider">
               {niche}
-            </span>
-            <span className="text-muted-foreground text-xs">•</span>
-            <span className="text-muted-foreground text-xs">
-              Submitted {formattedDate}
             </span>
           </div>
         </div>

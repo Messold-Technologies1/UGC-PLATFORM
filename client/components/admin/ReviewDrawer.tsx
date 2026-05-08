@@ -37,7 +37,7 @@ export default function ReviewDrawer({
         label: p.name,
         price: parseFloat(p.priceAmount) || 0,
         deliveryDays: p.deliveryDays,
-        revisions: (p as unknown as { maxRevisions?: number }).maxRevisions || 1,
+        revisions: p.maxRevisions,
         features: p.deliverables || [],
       };
     });
@@ -180,14 +180,15 @@ export default function ReviewDrawer({
                       </div>
                     )}
 
-                    {creator.languages && creator.languages.length > 0 && (
+                    {creator.profileLanguages &&
+                      creator.profileLanguages.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {creator.languages.map((l) => (
+                        {creator.profileLanguages.map((l) => (
                           <span
                             key={l.id}
                             className="text-[10px] font-bold px-2 py-1 bg-card border border-border/40 text-muted-foreground rounded-md uppercase tracking-wider"
                           >
-                            {l.language}
+                            {l.label}
                           </span>
                         ))}
                       </div>

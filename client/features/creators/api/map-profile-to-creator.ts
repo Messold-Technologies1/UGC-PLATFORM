@@ -26,11 +26,9 @@ function getProfileName(profile: ListingProfileApi): string {
 
 function getProfileLanguages(profile: ListingProfileApi): string[] {
   if (isCreatorProfileItemApi(profile)) {
-    const structured = trimStringArray(
+    return trimStringArray(
       (profile.profileLanguages ?? []).map((item) => item?.label),
     );
-    if (structured.length > 0) return structured;
-    return trimStringArray((profile.languages ?? []).map((item) => item?.language));
   }
   return trimStringArray(profile.languages);
 }
@@ -193,7 +191,6 @@ export function mapProfileItemToCreatorProfile(
       profile.travelRadius != null && !Number.isNaN(profile.travelRadius)
         ? profile.travelRadius
         : null,
-    onLocationFee: profile.onLocationFee?.trim() ?? null,
     packages: mapApiPackages(profile.packages),
     addOns: mapApiAddOns(profile.addOns),
     reviews: [],

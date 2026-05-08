@@ -5,15 +5,6 @@ import type {
 } from "./create-creator-profile";
 import type { CreatorFacetDimension } from "./get-creator-facet-options";
 
-export type CreatorProfileLanguageApi = {
-  id: string;
-  slug?: string;
-  label?: string;
-  language?: string;
-  fluency?: CreatorLanguageFluency;
-};
-
-
 export type CreatorProfileCategoryApi = {
   id: string;
   category: string;
@@ -23,7 +14,7 @@ export type CreatorProfilePackageApi = {
   id: string;
   name: string;
   deliverables: string[];
-  videoLengthSeconds?: number;
+  videoLengthSeconds: number;
   priceAmount: string;
   deliveryDays: number;
   maxRevisions: number;
@@ -47,14 +38,14 @@ export type CreatorProfileAddOnApi = {
 };
 
 export type CreatorProfileFacetSelectionApi = {
-  id: string;
+  id?: string;
   dimension: CreatorFacetDimension;
   slug: string;
   label: string;
 };
 
 export type CreatorProfileStructuredLanguageApi = {
-  id: string;
+  id?: string;
   slug: string;
   label: string;
   fluency: CreatorLanguageFluency;
@@ -103,6 +94,8 @@ export type CreatorProfileItemApi = {
   id: string;
   userId: string;
   displayName: string;
+  phone?: string | null;
+  phoneVerified?: boolean;
   profileImageUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
@@ -119,8 +112,6 @@ export type CreatorProfileItemApi = {
   collaborationCount?: number;
   travelRadius?: number | null;
   onLocationAvailable?: boolean;
-  onLocationFee?: string | null;
-  languages?: CreatorProfileLanguageApi[];
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
   facetSelections?: CreatorProfileFacetSelectionApi[];
   categories: CreatorProfileCategoryApi[];

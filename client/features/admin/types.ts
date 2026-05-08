@@ -8,9 +8,32 @@ import type { BrandCategoryApi } from "@/features/brands/api/brand-category-type
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-export interface CreatorLanguageResponseDto {
+export type CreatorLanguageFluency = "NATIVE" | "FLUENT" | "CONVERSATIONAL";
+
+export type CreatorFacetDimension =
+  | "CONTENT_FORMAT"
+  | "APPEARANCE"
+  | "CONTENT_STYLE"
+  | "CAPABILITY"
+  | "LIFE_STYLE"
+  | "OCCUPATION"
+  | "INTEREST"
+  | "CATEGORY_EXPERIENCE"
+  | "CAN_CREATE_WITH"
+  | "LANGUAGE";
+
+export interface CreatorProfileLanguageResponseDto {
   id: string;
-  language: string;
+  slug: string;
+  label: string;
+  fluency: CreatorLanguageFluency;
+}
+
+export interface CreatorFacetSelectionResponseDto {
+  id: string;
+  dimension: CreatorFacetDimension;
+  slug: string;
+  label: string;
 }
 
 export interface CreatorCategoryResponseDto {
@@ -32,8 +55,10 @@ export interface CreatorPackageResponseDto {
   id: string;
   name: string;
   deliverables: string[];
+  videoLengthSeconds: number;
   priceAmount: string;
   deliveryDays: number;
+  maxRevisions: number;
 }
 
 export interface CreatorAddOnResponseDto {
@@ -57,24 +82,33 @@ export interface CreatorProfileResponseDto {
   id: string;
   userId: string;
   displayName: string;
+  phone?: string | null;
+  phoneVerified?: boolean;
   profileImageUrl?: string | null;
-  city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
+  city?: string | null;
   bio?: string | null;
   gender?: string | null;
+  dateOfBirth?: string | null;
+  age?: number | null;
+  ageGroup?: string | null;
+  shippingAddress?: string | null;
+  instagramUrl?: string | null;
+  contentVolume?: string | null;
+  collaborationCount: number;
   travelRadius?: number | null;
   onLocationAvailable: boolean;
   approvalStatus?: ApprovalStatus;
   rejectionReason?: string | null;
-  languages: CreatorLanguageResponseDto[];
+  profileLanguages: CreatorProfileLanguageResponseDto[];
+  facetSelections: CreatorFacetSelectionResponseDto[];
   categories: CreatorCategoryResponseDto[];
   personaTags: CreatorPersonaTagResponseDto[];
   restrictions: CreatorRestrictionResponseDto[];
   packages: CreatorPackageResponseDto[];
   addOns: CreatorAddOnResponseDto[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
-  createdAt?: string;
 }
 
 export interface CreatorsListResponseDto {

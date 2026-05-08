@@ -23,9 +23,6 @@ export class BrandProfileResponseDto {
   @ApiProperty({ example: 'Acme' })
   brandName!: string;
 
-  @ApiPropertyOptional({ example: 'ACK-mee' })
-  brandPronunciation!: string | null;
-
   @ApiPropertyOptional({
     example: 'brand-pronunciation/<brandProfileId>/<uuid>.webm',
     nullable: true,

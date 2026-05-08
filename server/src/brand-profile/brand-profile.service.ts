@@ -60,7 +60,6 @@ export class BrandProfileService {
       contactEmail: profile.contactEmail ?? null,
       contactPhone: profile.contactPhone ?? null,
       brandName: profile.brandName,
-      brandPronunciation: profile.brandPronunciation ?? null,
       brandPronunciationAudioKey: profile.brandPronunciationAudioKey ?? null,
       brandPronunciationAudioUrl: profile.brandPronunciationAudioUrl ?? null,
       logoKey: profile.logoKey ?? null,
@@ -192,7 +191,6 @@ export class BrandProfileService {
           contactFullName: dto.contactFullName.trim(),
           contactEmail: dto.contactEmail.trim(),
           contactPhone: dto.contactPhone.trim(),
-          brandPronunciation: dto.brandPronunciation?.trim() || null,
           website: dto.website?.trim() || null,
           instagramUrl: dto.instagramUrl?.trim() || null,
           productType: dto.productType ?? null,
@@ -263,7 +261,6 @@ export class BrandProfileService {
         contactEmail: true,
         contactPhone: true,
         brandName: true,
-        brandPronunciation: true,
         brandPronunciationAudioKey: true,
         brandPronunciationAudioUrl: true,
         logoKey: true,
@@ -458,7 +455,6 @@ export class BrandProfileService {
         contactEmail: true,
         contactPhone: true,
         brandName: true,
-        brandPronunciation: true,
         brandPronunciationAudioKey: true,
         brandPronunciationAudioUrl: true,
         logoKey: true,
@@ -555,12 +551,6 @@ export class BrandProfileService {
       data.contactPhone = v;
     }
 
-    if (dto.brandPronunciation !== undefined) {
-      data.brandPronunciation =
-        dto.brandPronunciation === null
-          ? null
-          : dto.brandPronunciation.trim() || null;
-    }
     if (dto.productType !== undefined) {
       data.productType = dto.productType;
     }
@@ -644,7 +634,7 @@ export class BrandProfileService {
       if (hasCategoryUpdates) {
         const uniqueCategories = [...new Set(dto.categories ?? [])];
         const includesOther = uniqueCategories.includes(BrandCategory.OTHER);
-        const existingOther = (existing as any).otherCategoryLabel ?? null;
+        const existingOther = existing.otherCategoryLabel ?? null;
         const requestedOther =
           dto.otherCategoryLabel === undefined ? undefined : dto.otherCategoryLabel;
 

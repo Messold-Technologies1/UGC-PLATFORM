@@ -61,7 +61,6 @@ enum OrderDisputeOpenedBy {
   CREATOR
 }
 
-
 enum BrandCategory {
   APPAREL_AND_FASHION
   ELECTRONICS_AND_GADGETS
@@ -135,36 +134,36 @@ enum CreatorAgeGroup {
 }
 
 model User {
-  id            String     @id @default(uuid()) @db.Uuid
-  email         String     @unique
-  name          String?
-  passwordHash  String?
-  phone         String?
-  emailVerified Boolean    @default(false)
-  phoneVerified Boolean    @default(false)
-  phoneOtpFailedAttempts Int      @default(0)
-  phoneOtpLastAttemptAt  DateTime?
-  phoneOtpLastStatus     String?
-  phoneOtpLastPhone      String?
-  status        UserStatus @default(ACTIVE)
-  deletedAt     DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  primaryRoleId String?    @db.Uuid
+  id                          String     @id @default(uuid()) @db.Uuid
+  email                       String     @unique
+  name                        String?
+  passwordHash                String?
+  phone                       String?
+  emailVerified               Boolean    @default(false)
+  phoneVerified               Boolean    @default(false)
+  phoneOtpFailedAttempts      Int        @default(0)
+  phoneOtpLastAttemptAt       DateTime?
+  phoneOtpLastStatus          String?
+  phoneOtpLastPhone           String?
+  status                      UserStatus @default(ACTIVE)
+  deletedAt                   DateTime?
+  createdAt                   DateTime   @default(now())
+  updatedAt                   DateTime   @updatedAt
+  primaryRoleId               String?    @db.Uuid
   brandAccessRevokedAt        DateTime?
   brandAccessRevokedById      String?    @db.Uuid
   brandAccessRevocationReason String?
 
-  primaryRole            Role?             @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
+  primaryRole            Role?                @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
   authAccounts           AuthAccount[]
   sessions               Session[]
   userRoles              UserRole[]
   creatorProfile         CreatorProfile?
   brandProfile           BrandProfile?
-  approvedCreatorRecords CreatorApproval[] @relation("CreatorApprovedBy")
-  featuredCreatorRecords CreatorFeature[]  @relation("CreatorFeaturedBy")
-  auditLogs              AuditLog[]        @relation("AuditLogActor")
-  resolvedDisputes       OrderDispute[]    @relation("OrderDisputeResolvedBy")
+  approvedCreatorRecords CreatorApproval[]    @relation("CreatorApprovedBy")
+  featuredCreatorRecords CreatorFeature[]     @relation("CreatorFeaturedBy")
+  auditLogs              AuditLog[]           @relation("AuditLogActor")
+  resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
   sentChatMessages       OrderChatMessage[]
   orderChatReadStates    OrderChatReadState[]
 
@@ -252,41 +251,41 @@ model UserRole {
 }
 
 model CreatorProfile {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @unique @db.Uuid
-  displayName  String
-  profileImageKey String?
-  profileImageUrl String?
-  city         String?
-  countryName  String?
-  stateName    String?
-  bio          String?
-  gender       CreatorGender?
-  dateOfBirth  DateTime? @db.Date
-  shippingAddress String?
-  instagramUrl String?
-  contentVolume CreatorContentVolumeBucket?
-  collaborationCount Int @default(0)
-  travelRadius Int?
-  onLocationAvailable Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String                      @id @default(uuid()) @db.Uuid
+  userId              String                      @unique @db.Uuid
+  displayName         String
+  profileImageKey     String?
+  profileImageUrl     String?
+  city                String?
+  countryName         String?
+  stateName           String?
+  bio                 String?
+  gender              CreatorGender?
+  dateOfBirth         DateTime?                   @db.Date
+  shippingAddress     String?
+  instagramUrl        String?
+  contentVolume       CreatorContentVolumeBucket?
+  collaborationCount  Int                         @default(0)
+  travelRadius        Int?
+  onLocationAvailable Boolean                     @default(false)
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  creatorApproval CreatorApproval?
-  facetSelections CreatorProfileFacetSelection[]
+  user             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorApproval  CreatorApproval?
+  facetSelections  CreatorProfileFacetSelection[]
   profileLanguages CreatorProfileLanguage[]
-  categories      CreatorCategory[]
-  personaTags     CreatorPersonaTag[]
-  restrictions    CreatorRestriction[]
-  stats           CreatorStats?
-  features        CreatorFeature[]
-  packages        CreatorPackage[]
-  addOns          CreatorAddOn[]
-  portfolioVideos CreatorPortfolioVideo[]
-  receivedOrders  Order[] @relation("OrderCreator")
-  orderDeliveries OrderDelivery[]
-  payoutDetails   CreatorPayoutDetails?
+  categories       CreatorCategory[]
+  personaTags      CreatorPersonaTag[]
+  restrictions     CreatorRestriction[]
+  stats            CreatorStats?
+  features         CreatorFeature[]
+  packages         CreatorPackage[]
+  addOns           CreatorAddOn[]
+  portfolioVideos  CreatorPortfolioVideo[]
+  receivedOrders   Order[]                        @relation("OrderCreator")
+  orderDeliveries  OrderDelivery[]
+  payoutDetails    CreatorPayoutDetails?
 
   @@index([city])
   @@index([countryName])
@@ -297,27 +296,27 @@ model CreatorProfile {
 }
 
 model CreatorFacetOption {
-  id        String               @id @default(uuid()) @db.Uuid
+  id        String                @id @default(uuid()) @db.Uuid
   dimension CreatorFacetDimension
   slug      String
   label     String
-  sortOrder Int                  @default(0)
-  createdAt DateTime             @default(now())
+  sortOrder Int                   @default(0)
+  createdAt DateTime              @default(now())
 
-  selections CreatorProfileFacetSelection[]
-  profileLanguages CreatorProfileLanguage[] @relation("LanguageOption")
+  selections       CreatorProfileFacetSelection[]
+  profileLanguages CreatorProfileLanguage[]       @relation("LanguageOption")
 
   @@unique([dimension, slug])
   @@index([dimension, sortOrder])
 }
 
 model CreatorProfileFacetSelection {
-  id                String   @id @default(uuid()) @db.Uuid
-  creatorProfileId  String   @db.Uuid
-  optionId          String   @db.Uuid
-  createdAt         DateTime @default(now())
+  id               String   @id @default(uuid()) @db.Uuid
+  creatorProfileId String   @db.Uuid
+  optionId         String   @db.Uuid
+  createdAt        DateTime @default(now())
 
-  creator CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  creator CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
   option  CreatorFacetOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
   @@unique([creatorProfileId, optionId])
@@ -325,13 +324,13 @@ model CreatorProfileFacetSelection {
 }
 
 model CreatorProfileLanguage {
-  id               String   @id @default(uuid()) @db.Uuid
-  creatorProfileId String   @db.Uuid
-  optionId         String   @db.Uuid
+  id               String                 @id @default(uuid()) @db.Uuid
+  creatorProfileId String                 @db.Uuid
+  optionId         String                 @db.Uuid
   fluency          CreatorLanguageFluency
-  createdAt        DateTime @default(now())
+  createdAt        DateTime               @default(now())
 
-  creator CreatorProfile   @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  creator CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
   option  CreatorFacetOption @relation("LanguageOption", fields: [optionId], references: [id], onDelete: Cascade)
 
   @@unique([creatorProfileId, optionId])
@@ -355,56 +354,131 @@ model CreatorPayoutDetails {
 }
 
 model Order {
-  id                  String      @id @default(uuid()) @db.Uuid
-  brandId             String      @db.Uuid
-  creatorId           String      @db.Uuid
-  creatorPackageId    String      @db.Uuid
-  status              OrderStatus @default(PENDING_PAYMENT)
+  id               String      @id @default(uuid()) @db.Uuid
+  brandId          String      @db.Uuid
+  creatorId        String      @db.Uuid
+  creatorPackageId String      @db.Uuid
+  status           OrderStatus @default(PENDING_PAYMENT)
 
   // Snapshots at purchase time
-  packageNameSnapshot String
+  packageNameSnapshot  String
   deliverablesSnapshot Json
-  priceAmountSnapshot Decimal @db.Decimal(12, 2)
-  currency            String  @default("INR")
+  priceAmountSnapshot  Decimal @db.Decimal(12, 2)
+  currency             String  @default("INR")
   deliveryDaysSnapshot Int
-  maxRevisionsSnapshot Int @default(0)
+  maxRevisionsSnapshot Int     @default(0)
 
   // Add-ons at purchase (catalog may change later)
-  addOnsSnapshot       Json @default("[]")
-  addOnsTotalSnapshot  Decimal? @db.Decimal(12, 2)
-  expectedAmountPaise  Int      @default(0)
+  addOnsSnapshot      Json     @default("[]")
+  addOnsTotalSnapshot Decimal? @db.Decimal(12, 2)
+  expectedAmountPaise Int      @default(0)
 
   // Timeline
-  paidAt              DateTime?
-  brief               Json?
-  briefSubmittedAt    DateTime?
-  deliveryDeadlineAt  DateTime?
-  deliveredAt         DateTime?
-  acceptedAt          DateTime?
-  creatorPaidAt       DateTime?
-  revisionCount       Int      @default(0)
+  paidAt             DateTime?
+  briefId            String?   @db.Uuid
+  briefSubmittedAt   DateTime?
+  deliveryDeadlineAt DateTime?
+  deliveredAt        DateTime?
+  acceptedAt         DateTime?
+  creatorPaidAt      DateTime?
+  revisionCount      Int       @default(0)
 
   // Razorpay Payments
-  razorpayOrderId     String?   @unique
-  razorpayPaymentId   String?
-  razorpayRefundId    String?
-  refundedAt          DateTime?
+  razorpayOrderId   String?   @unique
+  razorpayPaymentId String?
+  razorpayRefundId  String?
+  refundedAt        DateTime?
 
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  brand   BrandProfile   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  creator CreatorProfile @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  package CreatorPackage @relation(fields: [creatorPackageId], references: [id], onDelete: Restrict)
-  disputes OrderDispute[]
-  deliveries OrderDelivery[]
-  chatMessages OrderChatMessage[]
+  brand          BrandProfile         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  creator        CreatorProfile       @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  package        CreatorPackage       @relation(fields: [creatorPackageId], references: [id], onDelete: Restrict)
+  briefRef       Brief?               @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  disputes       OrderDispute[]
+  deliveries     OrderDelivery[]
+  chatMessages   OrderChatMessage[]
   chatReadStates OrderChatReadState[]
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
   @@index([status, createdAt])
   @@index([deliveryDeadlineAt])
+  @@index([briefId])
+}
+
+enum BriefShootLocationKind {
+  CREATOR_OWN_SETUP
+  OUTDOOR_PUBLIC_LOCATION
+  BRAND_SELECTED_LOCATION
+  CREATOR_DECIDES
+}
+
+enum BriefDurationBucket {
+  SEC_0_15
+  SEC_15_30
+  SEC_30_45
+  SEC_45_60
+  SEC_60_100
+  NOT_SURE
+}
+
+enum BriefContentType {
+  TALKING_VIDEO
+  PRODUCT_DEMO
+  TESTIMONIAL
+  AESTHETIC_REEL
+  UGC_AD
+  CREATOR_DECIDES
+}
+
+enum BriefToneStyle {
+  FUNNY
+  EMOTIONAL
+  PREMIUM
+  CASUAL
+  TRENDY
+  CREATOR_DECIDES
+}
+
+model Brief {
+  id      String @id @default(uuid()) @db.Uuid
+  brandId String @db.Uuid
+
+  /// Brand / campaign context (frontend can "auto pick" from BrandProfile)
+  brandName                  String?
+  brandPronunciationAudioKey String?
+  brandPronunciationAudioUrl String?
+  industry                   String?
+  brandLogoKey               String?
+  brandLogoUrl               String?
+
+  /// Product
+  productName        String?
+  productDescription String?
+  productPageUrl     String?
+
+  /// Production guidance
+  shootLocationKind    BriefShootLocationKind? @default(CREATOR_DECIDES)
+  shootLocationAddress String?
+
+  durationBucket BriefDurationBucket? @default(NOT_SURE)
+  contentType    BriefContentType?    @default(CREATOR_DECIDES)
+  toneStyle      BriefToneStyle?      @default(CREATOR_DECIDES)
+
+  /// Links (Instagram / Drive / Youtube)
+  referenceLinks Json @default("[]")
+
+  finalNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([brandId, createdAt])
 }
 
 model OrderChatMessage {
@@ -415,25 +489,25 @@ model OrderChatMessage {
   clientMessageId String?
   createdAt       DateTime @default(now())
 
-  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  sender User  @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+  order      Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender     User                 @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
   lastReadBy OrderChatReadState[] @relation("LastReadMessage")
 
-  @@index([orderId, createdAt])
   @@unique([orderId, senderUserId, clientMessageId])
+  @@index([orderId, createdAt])
 }
 
 model OrderChatReadState {
-  id               String   @id @default(uuid()) @db.Uuid
-  orderId          String   @db.Uuid
-  userId           String   @db.Uuid
-  lastReadMessageId String? @db.Uuid
-  lastReadAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                String    @id @default(uuid()) @db.Uuid
+  orderId           String    @db.Uuid
+  userId            String    @db.Uuid
+  lastReadMessageId String?   @db.Uuid
+  lastReadAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastReadMessage OrderChatMessage? @relation("LastReadMessage", fields: [lastReadMessageId], references: [id], onDelete: SetNull)
 
   @@unique([orderId, userId])
@@ -453,21 +527,21 @@ model OrderDelivery {
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
+  @@unique([orderId, revisionNumber])
   @@index([orderId, createdAt])
   @@index([creatorId, createdAt])
-  @@unique([orderId, revisionNumber])
 }
 
 model OrderDispute {
-  id          String              @id @default(uuid()) @db.Uuid
-  orderId     String              @db.Uuid
-  status      OrderDisputeStatus  @default(OPEN)
-  openedBy    OrderDisputeOpenedBy
-  reason      String
-  openedAt    DateTime            @default(now())
-  resolvedAt  DateTime?
-  resolvedByUserId String?        @db.Uuid
-  resolutionNotes String?
+  id               String               @id @default(uuid()) @db.Uuid
+  orderId          String               @db.Uuid
+  status           OrderDisputeStatus   @default(OPEN)
+  openedBy         OrderDisputeOpenedBy
+  reason           String
+  openedAt         DateTime             @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?              @db.Uuid
+  resolutionNotes  String?
 
   order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   resolvedBy User? @relation("OrderDisputeResolvedBy", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
@@ -477,8 +551,8 @@ model OrderDispute {
 }
 
 model CreatorPortfolioVideo {
-  id               String                   @id @default(uuid()) @db.Uuid
-  creatorId        String                   @db.Uuid
+  id               String                    @id @default(uuid()) @db.Uuid
+  creatorId        String                    @db.Uuid
   videoKey         String
   videoUrl         String
   thumbnailKey     String?
@@ -487,10 +561,10 @@ model CreatorPortfolioVideo {
   language         String?
   description      String?
   visibilityStatus PortfolioVisibilityStatus @default(PUBLIC)
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
-  creator CreatorProfile            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creator CreatorProfile             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   tags    CreatorPortfolioVideoTag[]
 
   @@index([creatorId, visibilityStatus, createdAt])
@@ -606,27 +680,27 @@ model CreatorRestrictionSuggestion {
 }
 
 model BrandProfile {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String   @unique @db.Uuid
-  brandName     String
-  logoKey       String?
-  logoUrl       String?
-  website       String?
+  id                         String            @id @default(uuid()) @db.Uuid
+  userId                     String            @unique @db.Uuid
+  brandName                  String
+  logoKey                    String?
+  logoUrl                    String?
+  website                    String?
   /// Primary contact name on the brand profile form.
-  contactFullName String?
-  contactEmail    String?
-  contactPhone    String?
-  brandPronunciation  String?
+  contactFullName            String?
+  contactEmail               String?
+  contactPhone               String?
   brandPronunciationAudioKey String?
   brandPronunciationAudioUrl String?
-  instagramUrl        String?
-  productType         BrandProductType?
-  otherCategoryLabel  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  instagramUrl               String?
+  productType                BrandProductType?
+  otherCategoryLabel         String?
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders Order[]
+  user            User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders          Order[]
+  briefs          Brief[]
   brandCategories BrandProfileBrandCategory[]
 }
 
@@ -674,17 +748,17 @@ model CreatorFeature {
 }
 
 model CreatorPackage {
-  id           String   @id @default(uuid()) @db.Uuid
-  creatorId    String   @unique @db.Uuid
-  name         String
-  title        String?
-  deliverables Json     // array of strings e.g. ["1 Video", "Basic editing"]
-  videoLengthSeconds Int @default(60)
-  priceAmount  Decimal  @db.Decimal(12, 2)
-  deliveryDays Int      @default(5)
-  maxRevisions Int      @default(1)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String   @id @default(uuid()) @db.Uuid
+  creatorId          String   @unique @db.Uuid
+  name               String
+  title              String?
+  deliverables       Json // array of strings e.g. ["1 Video", "Basic editing"]
+  videoLengthSeconds Int      @default(60)
+  priceAmount        Decimal  @db.Decimal(12, 2)
+  deliveryDays       Int      @default(5)
+  maxRevisions       Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   orders  Order[]
@@ -702,17 +776,17 @@ model CreatorAddOn {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  creator     CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([creatorId])
 }
 
 /// Catalog of predefined add-ons creators can attach to their profile.
 model CreatorAddOnOption {
-  id        String   @id @default(uuid()) @db.Uuid
-  slug      String   @unique
-  name      String   @unique
-  sortOrder Int      @default(0)
+  id        String @id @default(uuid()) @db.Uuid
+  slug      String @unique
+  name      String @unique
+  sortOrder Int    @default(0)
 
   /// When set, price must equal this amount.
   fixedPrice Int?

@@ -41,12 +41,6 @@ export class UpdateBrandProfileDto {
   @MaxLength(32)
   contactPhone?: string;
 
-  @ApiPropertyOptional({ example: 'ACK-mee', nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  brandPronunciation?: string | null;
-
   @ApiPropertyOptional({
     example: 'https://acme.com',
     nullable: true,

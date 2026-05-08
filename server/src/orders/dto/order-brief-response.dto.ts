@@ -8,7 +8,8 @@ export class OrderBriefResponseDto {
   briefSubmittedAt?: Date | null;
 
   @ApiPropertyOptional({
-    description: 'Campaign brief JSON; null if not submitted yet',
+    description:
+      'Campaign brief (structured object from saved Brief); null if not submitted yet',
     type: 'object',
     additionalProperties: true,
   })

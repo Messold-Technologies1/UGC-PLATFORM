@@ -133,6 +133,7 @@ describe('Request-scoped workspace routes', () => {
 
     expect(requiredWorkspaceFor(controller, 'createCheckout')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'submitBrief')).toBe('BRAND');
+    expect(requiredWorkspaceFor(controller, 'acceptBrief')).toBe('CREATOR');
     expect(requiredWorkspaceFor(controller, 'accept')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'openBrandDispute')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'submitDelivery')).toBe('CREATOR');

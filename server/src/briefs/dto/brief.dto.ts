@@ -37,6 +37,13 @@ export class BriefDto {
   @ApiPropertyOptional()
   productPageUrl?: string | null;
 
+  @ApiProperty({
+    description:
+      'Whether the brand will physically ship a product to the creator for this campaign',
+    default: false,
+  })
+  willShipPhysicalProductToCreator!: boolean;
+
   @ApiPropertyOptional({ enum: BriefShootLocationKind })
   shootLocationKind?: BriefShootLocationKind | null;
 

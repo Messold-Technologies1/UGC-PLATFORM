@@ -359,6 +359,53 @@ export class OrdersService {
     });
   }
 
+  async acceptBrief(params: {
+    creatorUserId: string;
+    orderId: string;
+  }): Promise<void> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        creatorId: true,
+        status: true,
+        briefSubmittedAt: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
+
+    if (String(order.status) === 'BRIEF_ACCEPTED') return;
+
+    if (String(order.status) !== 'BRIEF_SUBMITTED') {
+      throw new BadRequestException('Order is not awaiting brief acceptance');
+    }
+    if (!order.briefSubmittedAt) {
+      throw new BadRequestException('No submitted brief on this order');
+    }
+
+    const now = new Date();
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'BRIEF_ACCEPTED',
+        briefAcceptedAt: now,
+      },
+    });
+
+    await this.orderRealtime.emitOrderBriefAccepted({
+      orderId: order.id,
+      briefAcceptedAt: now,
+    });
+  }
+
   async presignDeliveryUploads(params: {
     orderId: string;
     creatorUserId: string;
@@ -388,7 +435,7 @@ export class OrdersService {
     }
 
     const uploadableStatuses = new Set([
-      'BRIEF_SUBMITTED',
+      'BRIEF_ACCEPTED',
       'REVISION_REQUESTED',
       'DELIVERED',
       'REVISION_SUBMITTED',
@@ -459,7 +506,7 @@ export class OrdersService {
     }
 
     const submittableStatuses = new Set([
-      'BRIEF_SUBMITTED',
+      'BRIEF_ACCEPTED',
       'REVISION_REQUESTED',
       // allow creator to fix/replace delivery before brand accepts
       'DELIVERED',
@@ -585,6 +632,7 @@ export class OrdersService {
     deliveryDaysSnapshot: number;
     paidAt: Date | null;
     briefSubmittedAt: Date | null;
+    briefAcceptedAt: Date | null;
     deliveryDeadlineAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -598,6 +646,7 @@ export class OrdersService {
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       paidAt: order.paidAt,
       briefSubmittedAt: order.briefSubmittedAt,
+      briefAcceptedAt: order.briefAcceptedAt,
       hasBrief: order.briefSubmittedAt != null,
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
@@ -619,6 +668,7 @@ export class OrdersService {
     expectedAmountPaise: number;
     paidAt: Date | null;
     briefSubmittedAt: Date | null;
+    briefAcceptedAt: Date | null;
     deliveryDeadlineAt: Date | null;
     deliveredAt: Date | null;
     acceptedAt: Date | null;
@@ -653,6 +703,7 @@ export class OrdersService {
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       paidAt: order.paidAt,
       briefSubmittedAt: order.briefSubmittedAt,
+      briefAcceptedAt: order.briefAcceptedAt,
       hasBrief: order.briefSubmittedAt != null,
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
@@ -712,6 +763,7 @@ export class OrdersService {
         expectedAmountPaise: true,
         paidAt: true,
         briefSubmittedAt: true,
+        briefAcceptedAt: true,
         deliveryDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
@@ -772,6 +824,7 @@ export class OrdersService {
         expectedAmountPaise: true,
         paidAt: true,
         briefSubmittedAt: true,
+        briefAcceptedAt: true,
         deliveryDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
@@ -858,6 +911,7 @@ export class OrdersService {
         expectedAmountPaise: true,
         paidAt: true,
         briefSubmittedAt: true,
+        briefAcceptedAt: true,
         deliveryDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
@@ -929,6 +983,7 @@ export class OrdersService {
           deliveryDaysSnapshot: true,
           paidAt: true,
           briefSubmittedAt: true,
+          briefAcceptedAt: true,
           deliveryDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
@@ -992,6 +1047,7 @@ export class OrdersService {
           deliveryDaysSnapshot: true,
           paidAt: true,
           briefSubmittedAt: true,
+          briefAcceptedAt: true,
           deliveryDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
@@ -1036,6 +1092,7 @@ export class OrdersService {
           deliveryDaysSnapshot: true,
           paidAt: true,
           briefSubmittedAt: true,
+          briefAcceptedAt: true,
           deliveryDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
@@ -1081,6 +1138,7 @@ export class OrdersService {
         id: true,
         briefId: true,
         briefSubmittedAt: true,
+        briefAcceptedAt: true,
         briefRef: {
           select: {
             id: true,
@@ -1093,6 +1151,7 @@ export class OrdersService {
             productName: true,
             productDescription: true,
             productPageUrl: true,
+            willShipPhysicalProductToCreator: true,
             shootLocationKind: true,
             shootLocationAddress: true,
             durationBucket: true,
@@ -1138,6 +1197,8 @@ export class OrdersService {
           productName: order.briefRef.productName ?? null,
           productDescription: order.briefRef.productDescription ?? null,
           productPageUrl: order.briefRef.productPageUrl ?? null,
+          willShipPhysicalProductToCreator:
+            order.briefRef.willShipPhysicalProductToCreator,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,
           shootLocationAddress: order.briefRef.shootLocationAddress ?? null,
           durationBucket: order.briefRef.durationBucket ?? null,
@@ -1155,6 +1216,7 @@ export class OrdersService {
     return {
       orderId: order.id,
       briefSubmittedAt: order.briefSubmittedAt,
+      briefAcceptedAt: order.briefAcceptedAt,
       brief,
     };
   }
@@ -1262,7 +1324,7 @@ export class OrdersService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, status: true, creatorPaidAt: true } as any,
+      select: { id: true, status: true, creatorPaidAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.status !== 'ACCEPTED') {
@@ -1272,12 +1334,12 @@ export class OrdersService {
     }
     if (order.creatorPaidAt) return;
 
-    await (this.prisma.order as any).update({
+    await this.prisma.order.update({
       where: { id: order.id },
       data: {
-        status: 'CREATOR_PAYMENT_DONE' as any,
+        status: 'CREATOR_PAYMENT_DONE',
         creatorPaidAt: new Date(),
-      } as any,
+      },
     });
   }
 

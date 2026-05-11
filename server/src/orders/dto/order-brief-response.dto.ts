@@ -7,6 +7,9 @@ export class OrderBriefResponseDto {
   @ApiPropertyOptional()
   briefSubmittedAt?: Date | null;
 
+  @ApiPropertyOptional()
+  briefAcceptedAt?: Date | null;
+
   @ApiPropertyOptional({
     description:
       'Campaign brief (structured object from saved Brief); null if not submitted yet',

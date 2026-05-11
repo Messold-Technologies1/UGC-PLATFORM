@@ -39,6 +39,7 @@ enum OrderStatus {
   PENDING_PAYMENT
   BRIEF_SUBMISSION_PENDING
   BRIEF_SUBMITTED
+  BRIEF_ACCEPTED
   DELIVERED
   REVISION_REQUESTED
   REVISION_SUBMITTED
@@ -377,6 +378,7 @@ model Order {
   paidAt             DateTime?
   briefId            String?   @db.Uuid
   briefSubmittedAt   DateTime?
+  briefAcceptedAt    DateTime?
   deliveryDeadlineAt DateTime?
   deliveredAt        DateTime?
   acceptedAt         DateTime?
@@ -458,6 +460,9 @@ model Brief {
   productName        String?
   productDescription String?
   productPageUrl     String?
+
+  /// Logistics: brand will mail / courier a physical item to the creator for the shoot
+  willShipPhysicalProductToCreator Boolean @default(false)
 
   /// Production guidance
   shootLocationKind    BriefShootLocationKind? @default(CREATOR_DECIDES)

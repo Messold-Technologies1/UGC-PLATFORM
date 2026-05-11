@@ -40,9 +40,15 @@ export class JobsService {
 
     const deliveryOverdueCount = await this.prisma.order.count({
       where: {
-        status: 'BRIEF_ACCEPTED',
         deliveredAt: null,
         deliveryDeadlineAt: { lte: now },
+        OR: [
+          {
+            status: 'BRIEF_ACCEPTED',
+            requiresPhysicalProductShipment: false,
+          },
+          { status: 'PRODUCT_RECEIVED' },
+        ],
       },
     });
 

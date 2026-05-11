@@ -100,6 +100,44 @@ function mapDeliveryAssets(value: Prisma.JsonValue): OrderDeliveryAssetDto[] {
     .filter((a) => a.key && a.url && (a.kind === 'video' || a.kind === 'image')) as any;
 }
 
+/** Calendar day YYYY-MM-DD as UTC midnight (validated). */
+function parseDispatchDateUtcYmd(ymd: string): Date {
+  const parts = ymd.split('-').map((p) => Number(p));
+  if (parts.length !== 3) throw new BadRequestException('Invalid dispatchDate');
+  const [y, m, d] = parts;
+  if (
+    !Number.isFinite(y) ||
+    !Number.isFinite(m) ||
+    !Number.isFinite(d) ||
+    m < 1 ||
+    m > 12 ||
+    d < 1 ||
+    d > 31
+  ) {
+    throw new BadRequestException('Invalid dispatchDate');
+  }
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    throw new BadRequestException('Invalid dispatchDate');
+  }
+  return dt;
+}
+
+function canCreatorUploadOrSubmitDelivery(order: {
+  status: OrderStatus | string;
+  requiresPhysicalProductShipment: boolean;
+}): boolean {
+  const st = String(order.status);
+  if (st === 'REVISION_REQUESTED' || st === 'REVISION_SUBMITTED') return true;
+  if (st === 'DELIVERED') return true;
+  if (order.requiresPhysicalProductShipment) return st === 'PRODUCT_RECEIVED';
+  return st === 'BRIEF_ACCEPTED';
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -337,7 +375,7 @@ export class OrdersService {
 
     const brief = await this.prisma.brief.findFirst({
       where: { id: params.briefId, brandId: brand.id },
-      select: { id: true },
+      select: { id: true, willShipPhysicalProductToCreator: true },
     });
     if (!brief) {
       throw new NotFoundException('Brief not found for this brand');
@@ -350,6 +388,7 @@ export class OrdersService {
         briefId: params.briefId,
         briefSubmittedAt: now,
         deliveryDeadlineAt: deadline,
+        requiresPhysicalProductShipment: brief.willShipPhysicalProductToCreator,
       },
     });
 
@@ -406,6 +445,116 @@ export class OrdersService {
     });
   }
 
+  async markProductShipped(params: {
+    brandUserId: string;
+    orderId: string;
+    courierName: string;
+    trackingId?: string | null;
+    dispatchDateYmd: string;
+  }): Promise<void> {
+    const brand = await this.prisma.brandProfile.findUnique({
+      where: { userId: params.brandUserId },
+      select: { id: true },
+    });
+    if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        status: true,
+        requiresPhysicalProductShipment: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
+    if (!order.requiresPhysicalProductShipment) {
+      throw new BadRequestException(
+        'This order does not require physical shipment to the creator',
+      );
+    }
+    if (String(order.status) === 'PRODUCT_SHIPPED') return;
+    if (String(order.status) !== 'BRIEF_ACCEPTED') {
+      throw new BadRequestException(
+        'Order must be BRIEF_ACCEPTED before marking product shipped',
+      );
+    }
+
+    const dispatchedAt = parseDispatchDateUtcYmd(params.dispatchDateYmd);
+    const courierName = params.courierName.trim();
+    const trackingTrimmed = params.trackingId?.trim();
+    const trackingId =
+      trackingTrimmed && trackingTrimmed.length > 0 ? trackingTrimmed : null;
+
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'PRODUCT_SHIPPED',
+        courierName,
+        trackingId,
+        dispatchedAt,
+      },
+    });
+
+    await this.orderRealtime.emitOrderProductShipped({
+      orderId: order.id,
+      courierName,
+      trackingId,
+      dispatchedAt,
+    });
+  }
+
+  async markProductReceived(params: {
+    creatorUserId: string;
+    orderId: string;
+  }): Promise<void> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        creatorId: true,
+        status: true,
+        requiresPhysicalProductShipment: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
+    if (!order.requiresPhysicalProductShipment) {
+      throw new BadRequestException(
+        'This order does not use the physical shipment workflow',
+      );
+    }
+    if (String(order.status) === 'PRODUCT_RECEIVED') return;
+    if (String(order.status) !== 'PRODUCT_SHIPPED') {
+      throw new BadRequestException(
+        'Order must be PRODUCT_SHIPPED before confirming receipt',
+      );
+    }
+
+    const now = new Date();
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'PRODUCT_RECEIVED',
+        productReceivedAt: now,
+      },
+    });
+
+    await this.orderRealtime.emitOrderProductReceived({
+      orderId: order.id,
+      productReceivedAt: now,
+    });
+  }
+
   async presignDeliveryUploads(params: {
     orderId: string;
     creatorUserId: string;
@@ -426,6 +575,7 @@ export class OrdersService {
         acceptedAt: true,
         revisionCount: true,
         maxRevisionsSnapshot: true,
+        requiresPhysicalProductShipment: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -434,13 +584,25 @@ export class OrdersService {
       throw new BadRequestException('Order is already accepted');
     }
 
-    const uploadableStatuses = new Set([
-      'BRIEF_ACCEPTED',
-      'REVISION_REQUESTED',
-      'DELIVERED',
-      'REVISION_SUBMITTED',
-    ]);
-    if (!uploadableStatuses.has(String(order.status))) {
+    if (
+      !canCreatorUploadOrSubmitDelivery({
+        status: order.status,
+        requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+      })
+    ) {
+      if (
+        order.requiresPhysicalProductShipment &&
+        String(order.status) === 'BRIEF_ACCEPTED'
+      ) {
+        throw new BadRequestException(
+          'Brand must mark the product as shipped before you can upload delivery',
+        );
+      }
+      if (String(order.status) === 'PRODUCT_SHIPPED') {
+        throw new BadRequestException(
+          'Confirm product received before uploading delivery',
+        );
+      }
       throw new BadRequestException('Order is not ready for delivery uploads');
     }
 
@@ -496,7 +658,8 @@ export class OrdersService {
         revisionCount: true,
         deliveredAt: true,
         acceptedAt: true,
-      } as any,
+        requiresPhysicalProductShipment: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
@@ -505,14 +668,25 @@ export class OrdersService {
       throw new BadRequestException('Order is already accepted');
     }
 
-    const submittableStatuses = new Set([
-      'BRIEF_ACCEPTED',
-      'REVISION_REQUESTED',
-      // allow creator to fix/replace delivery before brand accepts
-      'DELIVERED',
-      'REVISION_SUBMITTED',
-    ]);
-    if (!submittableStatuses.has(String(order.status))) {
+    if (
+      !canCreatorUploadOrSubmitDelivery({
+        status: order.status,
+        requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+      })
+    ) {
+      if (
+        order.requiresPhysicalProductShipment &&
+        String(order.status) === 'BRIEF_ACCEPTED'
+      ) {
+        throw new BadRequestException(
+          'Brand must mark the product as shipped before you can submit delivery',
+        );
+      }
+      if (String(order.status) === 'PRODUCT_SHIPPED') {
+        throw new BadRequestException(
+          'Confirm product received before submitting delivery',
+        );
+      }
       throw new BadRequestException('Order is not ready for delivery submission');
     }
 
@@ -633,6 +807,7 @@ export class OrdersService {
     paidAt: Date | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
+    requiresPhysicalProductShipment: boolean;
     deliveryDeadlineAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -647,6 +822,7 @@ export class OrdersService {
       paidAt: order.paidAt,
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
+      requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       hasBrief: order.briefSubmittedAt != null,
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
@@ -669,6 +845,11 @@ export class OrdersService {
     paidAt: Date | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
+    requiresPhysicalProductShipment: boolean;
+    courierName: string | null;
+    trackingId: string | null;
+    dispatchedAt: Date | null;
+    productReceivedAt: Date | null;
     deliveryDeadlineAt: Date | null;
     deliveredAt: Date | null;
     acceptedAt: Date | null;
@@ -704,6 +885,11 @@ export class OrdersService {
       paidAt: order.paidAt,
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
+      requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+      courierName: order.courierName ?? null,
+      trackingId: order.trackingId ?? null,
+      dispatchedAt: order.dispatchedAt ?? null,
+      productReceivedAt: order.productReceivedAt ?? null,
       hasBrief: order.briefSubmittedAt != null,
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
@@ -764,6 +950,11 @@ export class OrdersService {
         paidAt: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        requiresPhysicalProductShipment: true,
+        courierName: true,
+        trackingId: true,
+        dispatchedAt: true,
+        productReceivedAt: true,
         deliveryDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
@@ -825,6 +1016,11 @@ export class OrdersService {
         paidAt: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        requiresPhysicalProductShipment: true,
+        courierName: true,
+        trackingId: true,
+        dispatchedAt: true,
+        productReceivedAt: true,
         deliveryDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
@@ -912,6 +1108,11 @@ export class OrdersService {
         paidAt: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        requiresPhysicalProductShipment: true,
+        courierName: true,
+        trackingId: true,
+        dispatchedAt: true,
+        productReceivedAt: true,
         deliveryDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
@@ -984,6 +1185,7 @@ export class OrdersService {
           paidAt: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
+          requiresPhysicalProductShipment: true,
           deliveryDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
@@ -1048,6 +1250,7 @@ export class OrdersService {
           paidAt: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
+          requiresPhysicalProductShipment: true,
           deliveryDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
@@ -1093,6 +1296,7 @@ export class OrdersService {
           paidAt: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
+          requiresPhysicalProductShipment: true,
           deliveryDeadlineAt: true,
           createdAt: true,
           updatedAt: true,

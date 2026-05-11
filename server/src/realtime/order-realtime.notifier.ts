@@ -96,4 +96,48 @@ export class OrderRealtimeNotifier {
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
     });
   }
+
+  /** Brand dispatched physical product; notify creator (tracking metadata only). */
+  async emitOrderProductShipped(params: {
+    orderId: string;
+    courierName: string;
+    trackingId: string | null;
+    dispatchedAt: Date;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { creator: { select: { userId: true } } },
+    });
+    if (!order) {
+      this.logger.warn(`emitOrderProductShipped: order not found ${params.orderId}`);
+      return;
+    }
+    const creatorUserId = order.creator.userId;
+    this.gateway.server.to(`user:${creatorUserId}`).emit('order.product_shipped', {
+      orderId: params.orderId,
+      courierName: params.courierName,
+      trackingId: params.trackingId,
+      dispatchedAt: params.dispatchedAt.toISOString(),
+    });
+  }
+
+ /** Creator received physical product; notify brand. */
+  async emitOrderProductReceived(params: {
+    orderId: string;
+    productReceivedAt: Date;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { brand: { select: { userId: true } } },
+    });
+    if (!order) {
+      this.logger.warn(`emitOrderProductReceived: order not found ${params.orderId}`);
+      return;
+    }
+    const brandUserId = order.brand.userId;
+    this.gateway.server.to(`user:${brandUserId}`).emit('order.product_received', {
+      orderId: params.orderId,
+      productReceivedAt: params.productReceivedAt.toISOString(),
+    });
+  }
 }

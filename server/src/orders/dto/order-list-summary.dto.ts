@@ -29,6 +29,12 @@ export class OrderListSummaryDto {
   @ApiPropertyOptional()
   briefAcceptedAt?: Date | null;
 
+  @ApiProperty({
+    description:
+      'True when the brief required shipping a physical product to the creator',
+  })
+  requiresPhysicalProductShipment!: boolean;
+
   @ApiProperty({ example: true })
   hasBrief!: boolean;
 

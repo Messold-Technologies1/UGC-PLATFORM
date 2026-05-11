@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle} from "lucide-react"; //, Download 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +61,7 @@ export function OrderHeader({
   creator,
   brand,
 }: OrderHeaderProps) {
+  const router = useRouter();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDisputeDrawerOpen, setIsDisputeDrawerOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
@@ -127,6 +129,14 @@ export function OrderHeader({
     });
   }
 
+  function handleBriefAction() {
+    if (briefActionLabel === "Submit Brief") {
+      router.push(`/brand/briefs/create?orderId=${orderId}`);
+    } else {
+      setIsDrawerOpen(true);
+    }
+  }
+
   return (
     <>
       <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -184,7 +194,7 @@ export function OrderHeader({
             Invoice
           </Button> */}
           <Button
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={handleBriefAction}
             className="rounded-xl font-bold transition-all hover:opacity-90"
             disabled={!canOpenBrief}
           >

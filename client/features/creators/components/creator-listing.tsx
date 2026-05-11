@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, Users } from "lucide-react";
+import { ExternalLink, Search, SlidersHorizontal, Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,8 @@ import {
 } from "../hooks/use-creators-list-query";
 
 const BROWSE_LIST_LIMIT = 50;
+const BRAND_CREATOR_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform?usp=header";
 
 function stringArraysEqual(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
@@ -349,6 +351,16 @@ export function CreatorListing({
               className="h-10 rounded-2xl py-2.5 pl-11 pr-4 text-sm"
             />
           </div>
+
+          <a
+            href={BRAND_CREATOR_FORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
+          >
+            Can&apos;t find the right fit? Request help
+            <ExternalLink className="size-4" aria-hidden />
+          </a>
         </div>
       </div>
 

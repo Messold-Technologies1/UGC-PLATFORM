@@ -32,6 +32,10 @@ export const ENDPOINTS = {
     PROFILE_BRAND_CATEGORY_OPTIONS:
       "/api/brands/profile/brand-category-options",
   },
+  BRIEFS: {
+    LIST: "/api/briefs",
+    DETAIL: (id: string) => `/api/briefs/${encodeURIComponent(id)}`,
+  },
   ORDERS: {
     BRAND_LIST: "/api/orders/brand",
     BRAND_DETAIL: (id: string) => `/api/orders/brand/${encodeURIComponent(id)}`,

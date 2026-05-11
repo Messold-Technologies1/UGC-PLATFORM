@@ -7,7 +7,7 @@ import { useTheme } from "next-themes";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
   Menu, X, User, Moon, Sun,
-  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, type LucideIcon
+  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, ArrowUpRight, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -79,19 +79,39 @@ function ThemeToggle() {
 }
 
 interface NavItem {
-  href: string;
+  href?: string;
   label: string;
   icon: LucideIcon;
   match?: (p: string) => boolean;
+  children?: {
+    href: string;
+    label: string;
+    icon: LucideIcon;
+    description: string;
+  }[];
 }
 
 const roleConfigs: Record<string, NavItem[]> = {
   brand: [
     { href: "/brand/creators", label: "Browse Creators", icon: Users },
-    { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
+    {
+      label: "Activity",
+      icon: Activity,
+      children: [
+        { href: "/brand/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing creator partnerships and orders." },
+        { href: "/brand/briefs", label: "Briefs", icon: FileText, description: "View and manage your active campaign briefs." },
+      ]
+    },
   ],
   creator: [
-    { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
+    {
+      label: "Activity",
+      icon: Activity,
+      children: [
+        { href: "/creator/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing brand partnerships and orders." },
+        { href: "/creator/briefs", label: "Briefs", icon: FileText, description: "View your received and active campaign briefs." },
+      ]
+    },
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
   ],
   admin: [
@@ -109,8 +129,9 @@ function getNavItems(pathname: string): NavItem[] {
 
 function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (item.match) return item.match(pathname);
-  if (pathname === item.href) return true;
-  if (item.href.length > 1 && pathname.startsWith(`${item.href}/`)) return true;
+  if (item.href && pathname === item.href) return true;
+  if (item.href && item.href.length > 1 && pathname.startsWith(`${item.href}/`)) return true;
+  if (item.children?.some(child => pathname === child.href || (child.href.length > 1 && pathname.startsWith(`${child.href}/`)))) return true;
   return false;
 }
 
@@ -181,10 +202,99 @@ export function Navbar() {
               <nav className="hidden md:flex items-center gap-1">
                 {navItems.map((item) => {
                   const isActive = isNavItemActive(pathname || "", item);
+                  
+                  if (item.children) {
+                    return (
+                      <div key={item.label} className="group relative">
+                        <button
+                          className={cn(
+                            "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
+                            isActive
+                              ? "text-primary bg-primary/10"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          <item.icon className="size-4" />
+                          <span>{item.label}</span>
+                          <ChevronDown className="size-3 opacity-50 transition-transform group-hover:rotate-180" />
+                        </button>
+                        
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 pointer-events-none opacity-0 translate-y-2 group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-50">
+                          <div className="w-[960px] max-w-[95vw] rounded-[2rem] bg-[#f7f7f7] shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:bg-slate-950 border border-border/50 overflow-hidden flex p-6 gap-6 items-stretch">
+                            
+                            {/* Left Section */}
+                            <div className="flex-1 flex flex-col justify-start pt-1 pl-2">
+                              {/* <div className="text-sm text-muted-foreground mb-4 px-4">By feature</div> */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <Link href={item.children[0].href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
+                                  <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{item.children[0].label}</div>
+                                  <div className="text-sm text-muted-foreground leading-relaxed">
+                                    {item.children[0].description}
+                                  </div>
+                                </Link>
+                                <Link href={item.children[1].href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
+                                  <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{item.children[1].label}</div>
+                                  <div className="text-sm text-muted-foreground leading-relaxed">
+                                    {item.children[1].description}
+                                  </div>
+                                </Link>
+                              </div>
+                            </div>
+
+                            {/* Right Section - Blue Card */}
+                            {/* <div className="w-[300px] shrink-0 flex flex-col">
+                              <div className="bg-[#c2e2ff] dark:bg-blue-900/40 rounded-3xl p-5 flex flex-col relative overflow-hidden h-full">
+                                <div className="relative z-10 mb-3">
+                                  <div className="text-sm text-blue-900/80 dark:text-blue-200 mb-0.5">Now Live:</div>
+                                  <div className="text-[24px] leading-tight font-medium text-blue-950 dark:text-blue-50 tracking-tight">CreativeOps</div>
+                                </div>
+                                
+                                <div className="flex flex-col gap-2 relative z-10">
+                                 
+                                  <div className="bg-white/95 dark:bg-slate-800/90 rounded-[16px] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+                                    <div className="text-[13px] font-semibold text-foreground mb-0.5">Brief</div>
+                                    <div className="text-[10px] text-muted-foreground mb-2">New Year, New Me</div>
+                                    <div className="h-1 bg-gray-200 dark:bg-slate-700 rounded-full w-full mb-1.5"></div>
+                                    <div className="h-1 bg-gray-200 dark:bg-slate-700 rounded-full w-2/3"></div>
+                                  </div>
+                                  
+                                 
+                                  <div className="bg-white/95 dark:bg-slate-800/90 rounded-[16px] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex items-center gap-3">
+                                    <div className="size-8 bg-blue-50 dark:bg-blue-900/50 rounded-lg shrink-0 flex items-center justify-center">
+                                      <Package className="size-4 text-blue-500 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                      <div className="text-[13px] font-semibold text-foreground">Product</div>
+                                      <div className="text-[10px] text-muted-foreground">Skincare Set</div>
+                                    </div>
+                                  </div>
+
+                                  
+                                  <div className="bg-white/95 dark:bg-slate-800/90 rounded-[16px] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <span className="text-[13px] font-semibold text-foreground">Creators</span>
+                                      <span className="text-[8px] bg-[#dcfce7] text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">99% match</span>
+                                    </div>
+                                    <div className="flex -space-x-1.5">
+                                      <div className="size-5 rounded-full bg-slate-200 dark:bg-slate-600 border-2 border-white dark:border-slate-800"></div>
+                                      <div className="size-5 rounded-full bg-slate-300 dark:bg-slate-500 border-2 border-white dark:border-slate-800"></div>
+                                      <div className="size-5 rounded-full bg-slate-400 dark:bg-slate-400 border-2 border-white dark:border-slate-800"></div>
+                                      <div className="size-5 rounded-full bg-[#dcfce7] dark:bg-green-900/50 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[8px] text-green-700 dark:text-green-400 font-bold z-10">+50</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div> */}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <Link
-                      key={item.href}
-                      href={item.href}
+                      key={item.href || item.label}
+                      href={item.href || "#"}
                       prefetch
                       className={cn(
                         "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
@@ -267,10 +377,39 @@ export function Navbar() {
             <>
               {navItems.map((item) => {
                 const isActive = isNavItemActive(pathname || "", item);
+                if (item.children) {
+                  return (
+                    <div key={item.label} className="flex flex-col gap-1">
+                      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                        {item.label}
+                      </div>
+                      {item.children.map(child => {
+                        const isChildActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            prefetch
+                            onClick={() => setMobileOpen(false)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading transition-colors",
+                              isChildActive
+                                ? "bg-primary/10 text-primary"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            )}
+                          >
+                            <child.icon className="size-4" />
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  );
+                }
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    key={item.href || item.label}
+                    href={item.href || "#"}
                     prefetch
                     onClick={() => setMobileOpen(false)}
                     className={cn(

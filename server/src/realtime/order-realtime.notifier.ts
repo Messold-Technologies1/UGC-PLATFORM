@@ -76,4 +76,24 @@ export class OrderRealtimeNotifier {
       briefSubmittedAt: params.briefSubmittedAt.toISOString(),
     });
   }
+
+  /** Notify the brand that the client (creator) has accepted the brief (no brief payload). */
+  async emitOrderBriefAccepted(params: {
+    orderId: string;
+    briefAcceptedAt: Date;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { brand: { select: { userId: true } } },
+    });
+    if (!order) {
+      this.logger.warn(`emitOrderBriefAccepted: order not found ${params.orderId}`);
+      return;
+    }
+    const brandUserId = order.brand.userId;
+    this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
+      orderId: params.orderId,
+      briefAcceptedAt: params.briefAcceptedAt.toISOString(),
+    });
+  }
 }

@@ -26,6 +26,9 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional()
   briefSubmittedAt?: Date | null;
 
+  @ApiPropertyOptional()
+  briefAcceptedAt?: Date | null;
+
   @ApiProperty({ example: true })
   hasBrief!: boolean;
 

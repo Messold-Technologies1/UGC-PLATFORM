@@ -16,6 +16,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
@@ -177,11 +178,40 @@ export class OrdersController {
     });
   }
 
+  @Post(':id/brief/accept')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Creator accepts the brand-submitted brief (order moves to BRIEF_ACCEPTED; required before delivery uploads)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
+  @ApiNoContentResponse({ description: 'Brief accepted' })
+  async acceptBrief(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.acceptBrief({
+      creatorUserId: req.user.id,
+      orderId: id,
+    });
+  }
+
   @Post(':id/brief')
   @RequiredWorkspace('BRAND')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Submit campaign brief (starts delivery timeline)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Brief submitted' })
   async submitBrief(
     @Param('id', ParseUUIDPipe) id: string,
@@ -200,6 +230,11 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create presigned S3 URLs for delivery uploads' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiCreatedResponse({ type: PresignDeliveryUploadResponseDto })
   async presignDeliveryUploads(
     @Param('id', ParseUUIDPipe) id: string,
@@ -221,6 +256,11 @@ export class OrdersController {
     summary:
       'Submit delivery assets and transition order status (excludes brief)',
   })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiCreatedResponse({ type: SubmitDeliveryResponseDto })
   async submitDelivery(
     @Param('id', ParseUUIDPipe) id: string,
@@ -241,6 +281,11 @@ export class OrdersController {
   @ApiOperation({
     summary: 'Brand requests revision (enforces max revisions)',
   })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Revision requested' })
   async requestRevision(
     @Param('id', ParseUUIDPipe) id: string,
@@ -257,6 +302,11 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Brand accepts delivery (order completed)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Accepted' })
   async accept(
     @Param('id', ParseUUIDPipe) id: string,
@@ -273,6 +323,11 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Brand opens dispute' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Dispute opened' })
   async openBrandDispute(
     @Param('id', ParseUUIDPipe) id: string,
@@ -292,6 +347,11 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Creator opens dispute' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Dispute opened' })
   async openCreatorDispute(
     @Param('id', ParseUUIDPipe) id: string,

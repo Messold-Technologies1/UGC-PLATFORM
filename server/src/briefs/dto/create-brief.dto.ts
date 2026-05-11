@@ -8,6 +8,7 @@ import {
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -59,6 +60,15 @@ export class CreateBriefDto {
   @IsOptional()
   @IsUrl()
   productPageUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Set true if the brand will physically ship a product to the creator for the shoot',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  willShipPhysicalProductToCreator?: boolean;
 
   @ApiPropertyOptional({ enum: BriefShootLocationKind })
   @IsOptional()

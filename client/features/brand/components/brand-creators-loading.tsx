@@ -182,13 +182,13 @@ function BrandCreatorsFixtureView() {
       <header className="space-y-6">
         <div className="flex items-end justify-between">
           <div>
-        <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
-          Browse Creators
-        </h1>
-        {/* <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
+            <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
+              Browse Creators
+            </h1>
+            {/* <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
           Find and hire talented UGC creators to bring your brand story to life.
         </p> */}
-        </div>
+          </div>
         </div>
       </header>
 
@@ -213,7 +213,8 @@ function BrandCreatorsFixtureView() {
 
             <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
               <p className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {BRAND_CREATORS_FIXTURE_DATA.total.toLocaleString()} creators found
+                {BRAND_CREATORS_FIXTURE_DATA.total.toLocaleString()} creators
+                found
               </p>
             </div>
           </div>

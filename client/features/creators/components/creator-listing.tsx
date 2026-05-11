@@ -67,11 +67,7 @@ function formatPriceRangeForCopy(filters: Filters): string | null {
   return `₹${min.toLocaleString("en-IN")} - ${maxLabel}`;
 }
 
-function EmptyBrowseState({
-  filters,
-}: {
-  filters: Filters;
-}) {
+function EmptyBrowseState({ filters }: { filters: Filters }) {
   const location = filters.city.trim();
   const priceLabel = formatPriceRangeForCopy(filters);
   const accent = "font-medium text-foreground";
@@ -291,14 +287,14 @@ export function CreatorListing({
 
   return (
     <div className="w-full min-w-0">
-      <header className="mb-10 md:mb-12">
+      {/* <header className="mb-10 md:mb-12">
         <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
           Browse Creators
         </h1>
         <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
           Find and hire talented UGC creators to bring your brand story to life.
         </p>
-      </header>
+      </header> */}
 
       <div className="sticky top-0 z-30 mb-10">
         <div className="flex flex-col gap-4 p-4 py-3 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
@@ -393,10 +389,10 @@ export function CreatorListing({
                 data={creators}
                 endReached={handleEndReached}
                 listClassName={cn(
-                  "grid w-full gap-x-6 gap-y-8",
+                  "grid w-full gap-x-5 gap-y-6",
                   showFilters
-                    ? "sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
-                    : "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
+                    ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4"
+                    : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5",
                 )}
                 itemClassName="min-w-0 h-full"
                 components={{

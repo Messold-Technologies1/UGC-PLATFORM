@@ -44,6 +44,16 @@
   }
 }
 
+@keyframes marketing-float {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+  }
+  50% {
+    transform: translateY(-12px) rotate(var(--tw-rotate, 0deg));
+  }
+}
+
 .nav-route-enter {
   animation: nav-route-enter 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -147,6 +157,40 @@
   --color-on-primary-container: #2e006c;
   --color-primary-fixed-dim: #a67aff;
   --color-outline-variant: #47484c;
+
+  /* Marketing landing (reference design accents) */
+  --color-lime: #c6ff3d;
+  --color-lime-foreground: #181313;
+  --color-pink: #ff5da2;
+  --color-pink-foreground: #ffffff;
+  --color-sky: #62d6ff;
+  --color-sky-foreground: #181313;
+  --color-grape: #8b5cf6;
+  --color-grape-foreground: #ffffff;
+  --shadow-pop: 0 8px 30px -8px rgb(24 19 19 / 0.12);
+  --shadow-sticker: 0 4px 0 rgb(24 19 19 / 0.9);
+  --shadow-hard: 6px 6px 0 rgb(24 19 19);
+  --animate-float: marketing-float 6s ease-in-out infinite;
+  --animate-float-delayed: marketing-float 7s ease-in-out 1s infinite;
+}
+
+@utility bg-grain {
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--foreground) 4%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 18px 18px;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-delayed {
+    animation: none;
+  }
 }
 
 @layer base {

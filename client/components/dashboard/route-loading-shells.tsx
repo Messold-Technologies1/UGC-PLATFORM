@@ -12,7 +12,11 @@ export function DashboardPageHeaderSkeleton() {
 
 export function CreatorsBrowserLoadingShell() {
   return (
-    <div className="space-y-10 pb-10" aria-busy="true" aria-label="Loading creators">
+    <div
+      className="space-y-10 pb-10"
+      aria-busy="true"
+      aria-label="Loading creators"
+    >
       <header className="space-y-3">
         <Skeleton className="h-12 w-full max-w-md md:h-14" />
         <Skeleton className="h-5 w-full max-w-2xl md:h-6" />
@@ -138,10 +142,7 @@ export function DashboardHomeLoadingShell() {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {Array.from({ length: 2 }, (_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-border bg-card p-6"
-          >
+          <div key={i} className="rounded-2xl border border-border bg-card p-6">
             <Skeleton className="h-10 w-10 rounded-xl" />
             <Skeleton className="mt-4 h-6 w-40" />
             <Skeleton className="mt-2 h-4 w-full max-w-sm" />
@@ -241,7 +242,11 @@ export function PortfolioUploadLoadingShell() {
 
 export function CreatorProfileLoadingShell() {
   return (
-    <div className="w-full min-w-0" aria-busy="true" aria-label="Loading creator profile">
+    <div
+      className="w-full min-w-0"
+      aria-busy="true"
+      aria-label="Loading creator profile"
+    >
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-8">
           {/* Profile Header Skeleton */}

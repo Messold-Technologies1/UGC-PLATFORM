@@ -1,7 +1,14 @@
 import React, { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Star, ShoppingBag, Play, Pause, MoveRight } from "lucide-react";
+import {
+  MapPin,
+  Star,
+  ShoppingBag,
+  Play,
+  Pause,
+  MoveRight,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,7 +65,7 @@ export const CreatorCard = memo(function CreatorCard({
           "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
         )}
       >
-        <div className="relative aspect-square overflow-hidden bg-muted">
+        <div className="relative aspect-[4/5] overflow-hidden bg-muted">
           {hasPreviewVideo ? (
             <div
               className="relative size-full cursor-pointer"
@@ -110,15 +117,19 @@ export const CreatorCard = memo(function CreatorCard({
           </div> */}
         </div>
 
-        <div className="flex flex-1 flex-col p-3.5">
+        <div className="flex flex-1 flex-col p-3">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="line-clamp-1 text-base font-bold text-foreground">
+            <h3 className="line-clamp-1 text-sm font-bold text-foreground">
               {creator.name}
             </h3>
             <div className="flex shrink-0 items-center gap-1">
               <Star className="size-3.5 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-semibold text-foreground">{creator.rating}</span>
-              <span className="text-[10px] text-muted-foreground">({creator.reviewCount})</span>
+              <span className="text-xs font-semibold text-foreground">
+                {creator.rating}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                ({creator.reviewCount})
+              </span>
             </div>
           </div>
 
@@ -129,11 +140,13 @@ export const CreatorCard = memo(function CreatorCard({
             </div>
             <div className="flex items-center gap-2 text-blue-400">
               <ShoppingBag className="size-3.5 shrink-0" />
-              <span className="font-medium">{creator.ordersCompleted} orders completed</span>
+              <span className="font-medium">
+                {creator.ordersCompleted} orders completed
+              </span>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {browseTags.map((tag) => (
               <Badge
                 key={tag}
@@ -145,18 +158,23 @@ export const CreatorCard = memo(function CreatorCard({
             ))}
           </div>
 
-          <div className="mt-auto flex items-center justify-between pt-3.5">
+          <div className="mt-auto flex items-center justify-between pt-3">
             <div className="flex flex-col">
               <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                 Starting from
               </span>
-              <span className="text-lg font-bold text-foreground">
+              <span className="text-base font-bold text-foreground">
                 ₹{creator.startingPrice.toLocaleString("en-IN")}
               </span>
             </div>
-            <Button asChild size="sm" variant="outline" className="h-7 rounded-full pl-3 pr-2 text-xs font-medium border-border/50 hover:bg-muted">
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="h-7 rounded-full pl-3 pr-2 text-xs font-medium border-border/50 hover:bg-muted"
+            >
               <Link href={profileUrl} className="flex items-center gap-1">
-                Profile 
+                Profile
                 <MoveRight className="size-3.5" />
               </Link>
             </Button>
@@ -307,8 +325,8 @@ export function CreatorCardSkeleton({
   if (appearance === "browse") {
     return (
       <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
-        <Skeleton className="aspect-square w-full rounded-none" />
-        <div className="flex flex-1 flex-col p-3.5">
+        <Skeleton className="aspect-[4/5] w-full rounded-none" />
+        <div className="flex flex-1 flex-col p-3">
           <div className="flex items-center justify-between gap-2">
             <Skeleton className="h-5 w-32 rounded-full" />
             <Skeleton className="h-4 w-12 rounded-full" />
@@ -317,12 +335,12 @@ export function CreatorCardSkeleton({
             <Skeleton className="h-3 w-24 rounded-full" />
             <Skeleton className="h-3 w-36 rounded-full" />
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             <Skeleton className="h-5 w-14 rounded-full" />
             <Skeleton className="h-5 w-16 rounded-full" />
             <Skeleton className="h-5 w-20 rounded-full" />
           </div>
-          <div className="mt-auto flex items-center justify-between pt-3.5">
+          <div className="mt-auto flex items-center justify-between pt-3">
             <div className="space-y-1">
               <Skeleton className="h-2 w-16 rounded-full" />
               <Skeleton className="h-5 w-20 rounded-full" />

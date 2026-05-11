@@ -152,13 +152,27 @@ export function Navbar() {
       className="sticky top-6 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
     >
       <div className={cn(
-        "flex flex-col border border-border/50 bg-[#f7f7f7cc] dark:bg-background/60 shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300",
-        mobileOpen ? "rounded-2xl" : "rounded-full"
+        "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
+        mobileOpen ? "rounded-2xl" : "rounded-full",
       )}>
-        <div className="relative flex h-12 w-full items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-6 lg:gap-8">
-            <Link href="/" prefetch className="flex items-center gap-2 shrink-0">
-              <span className="text-lg font-bold font-heading tracking-tight">{SITE_NAME}</span>
+        <div className="relative flex h-12 w-full items-center justify-between overflow-visible px-4 sm:px-6">
+          <div className="flex shrink-0 items-center gap-6 overflow-visible lg:gap-8">
+            <Link
+              href="/"
+              prefetch
+              className="z-10 flex shrink-0 items-center overflow-visible py-1"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static public asset; explicit box avoids Next/Image layout collapse in pill navbar */}
+              <img
+                src="/brand-logo.png"
+                alt={`${SITE_NAME} home`}
+                width={688}
+                height={160}
+                className="h-17.25 max-h-none w-auto max-w-[min(428px,calc(100vw-144px))] object-contain object-left sm:h-21.25 sm:max-w-[min(490px,calc(100vw-208px))] md:h-26 md:max-w-[min(548px,calc(100vw-300px))]"
+                loading="eager"
+                decoding="async"
+                draggable={false}
+              />
             </Link>
           </div>
            

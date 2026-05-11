@@ -14,6 +14,7 @@ interface PackagesTabProps {
   readOnly?: boolean;
   compact?: boolean;
   horizontalScroll?: boolean;
+  hideAddOns?: boolean;
 }
 
 export const PackagesTab = memo(function PackagesTab({
@@ -26,6 +27,7 @@ export const PackagesTab = memo(function PackagesTab({
   readOnly = false,
   compact = false,
   horizontalScroll = false,
+  hideAddOns = false,
 }: PackagesTabProps) {
   return (
     <div className="space-y-8">
@@ -120,77 +122,79 @@ export const PackagesTab = memo(function PackagesTab({
         })}
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium">Add-ons</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Optional extras — tap to include or remove from your order
-        </p>
+      {!hideAddOns && (
+        <div>
+          <h3 className="text-sm font-medium">Add-ons</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Optional extras — tap to include or remove from your order
+          </p>
 
-        <ul
-          className={`mt-4 grid list-none gap-3 p-0 ${
-            compact ? "grid-cols-1" : "sm:grid-cols-2"
-          }`}
-        >
-          {addOns.map((addon) => {
-            const isChecked = selectedAddOnIds.includes(addon.id);
-            return (
-              <li key={addon.id}>
-                <label
-                  className={`relative flex items-center gap-4 rounded-2xl border p-5 transition-all ${
-                    readOnly ? "cursor-default" : "cursor-pointer"
-                  } ${
-                    isChecked
-                      ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
-                      : readOnly
-                      ? "border-border shadow-sm"
-                      : "border-border hover:border-foreground/20 shadow-sm"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={isChecked}
-                    disabled={readOnly}
-                    onChange={() => {
-                      if (!readOnly) onToggleAddOn(addon.id);
-                    }}
-                    aria-label={`${addon.label} (+₹${addon.price.toLocaleString(
-                      "en-IN",
-                    )})`}
-                  />
-                  {!readOnly && (
-                    <span
-                      className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
-                        isChecked
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border"
-                      }`}
-                      aria-hidden
-                    >
-                      {isChecked && (
-                        <Check className="size-3" strokeWidth={3} />
-                      )}
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
-                    <span>
-                      {addon.label}{" "}
-                      <span className="text-muted-foreground">
-                        (+₹{addon.price.toLocaleString("en-IN")})
+          <ul
+            className={`mt-4 grid list-none gap-3 p-0 ${
+              compact ? "grid-cols-1" : "sm:grid-cols-2"
+            }`}
+          >
+            {addOns.map((addon) => {
+              const isChecked = selectedAddOnIds.includes(addon.id);
+              return (
+                <li key={addon.id}>
+                  <label
+                    className={`relative flex items-center gap-4 rounded-2xl border p-5 transition-all ${
+                      readOnly ? "cursor-default" : "cursor-pointer"
+                    } ${
+                      isChecked
+                        ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                        : readOnly
+                        ? "border-border shadow-sm"
+                        : "border-border hover:border-foreground/20 shadow-sm"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={isChecked}
+                      disabled={readOnly}
+                      onChange={() => {
+                        if (!readOnly) onToggleAddOn(addon.id);
+                      }}
+                      aria-label={`${addon.label} (+₹${addon.price.toLocaleString(
+                        "en-IN",
+                      )})`}
+                    />
+                    {!readOnly && (
+                      <span
+                        className={`pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                          isChecked
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border"
+                        }`}
+                        aria-hidden
+                      >
+                        {isChecked && (
+                          <Check className="size-3" strokeWidth={3} />
+                        )}
                       </span>
-                    </span>
-                    {addon.description ? (
-                      <span className="mt-1 block text-xs font-normal leading-relaxed text-muted-foreground">
-                        {addon.description}
+                    )}
+                    <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
+                      <span>
+                        {addon.label}{" "}
+                        <span className="text-muted-foreground">
+                          (+₹{addon.price.toLocaleString("en-IN")})
+                        </span>
                       </span>
-                    ) : null}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+                      {addon.description ? (
+                        <span className="mt-1 block text-xs font-normal leading-relaxed text-muted-foreground">
+                          {addon.description}
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 });

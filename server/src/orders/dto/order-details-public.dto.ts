@@ -29,6 +29,24 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional()
   briefAcceptedAt?: Date | null;
 
+  @ApiProperty({
+    description:
+      'True when the linked brief required physical shipment to the creator (snapshot at brief submit)',
+  })
+  requiresPhysicalProductShipment!: boolean;
+
+  @ApiPropertyOptional()
+  courierName?: string | null;
+
+  @ApiPropertyOptional()
+  trackingId?: string | null;
+
+  @ApiPropertyOptional()
+  dispatchedAt?: Date | null;
+
+  @ApiPropertyOptional()
+  productReceivedAt?: Date | null;
+
   @ApiProperty({ example: true })
   hasBrief!: boolean;
 

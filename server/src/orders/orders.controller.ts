@@ -42,6 +42,7 @@ import {
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
 import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
+import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -222,6 +223,58 @@ export class OrdersController {
       brandUserId: req.user.id,
       orderId: id,
       briefId: dto.briefId,
+    });
+  }
+
+  @Post(':id/product-shipment')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Mark physical product shipped to creator (PRODUCT_SHIPPED; only when brief required shipment)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
+  @ApiNoContentResponse({ description: 'Shipment recorded; creator notified' })
+  async markProductShipped(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MarkProductShippedDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.markProductShipped({
+      brandUserId: req.user.id,
+      orderId: id,
+      courierName: dto.courierName,
+      trackingId: dto.trackingId,
+      dispatchDateYmd: dto.dispatchDate,
+    });
+  }
+
+  @Post(':id/product-received')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Creator confirms physical product received (PRODUCT_RECEIVED; required before first delivery when shipment applies)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
+  @ApiNoContentResponse({ description: 'Receipt confirmed' })
+  async markProductReceived(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.markProductReceived({
+      creatorUserId: req.user.id,
+      orderId: id,
     });
   }
 

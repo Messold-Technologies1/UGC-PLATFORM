@@ -40,6 +40,8 @@ enum OrderStatus {
   BRIEF_SUBMISSION_PENDING
   BRIEF_SUBMITTED
   BRIEF_ACCEPTED
+  PRODUCT_SHIPPED
+  PRODUCT_RECEIVED
   DELIVERED
   REVISION_REQUESTED
   REVISION_SUBMITTED
@@ -379,6 +381,14 @@ model Order {
   briefId            String?   @db.Uuid
   briefSubmittedAt   DateTime?
   briefAcceptedAt    DateTime?
+
+  /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
+  requiresPhysicalProductShipment Boolean @default(false)
+  courierName                     String?
+  trackingId                      String?
+  dispatchedAt                    DateTime?
+  productReceivedAt               DateTime?
+
   deliveryDeadlineAt DateTime?
   deliveredAt        DateTime?
   acceptedAt         DateTime?

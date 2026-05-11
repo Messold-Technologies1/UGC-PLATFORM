@@ -5,6 +5,8 @@ export const ENDPOINTS = {
     REGISTER_ADMIN: "/api/auth/register-admin",
     GOOGLE: "/api/auth/google",
     GOOGLE_CALLBACK: "/api/auth/google/callback",
+    PHONE_SEND_OTP: "/api/auth/phone/send-otp",
+    PHONE_VERIFY_OTP: "/api/auth/phone/verify-otp",
     REFRESH: "/api/auth/refresh",
     ME: "/api/auth/me",
     LOGOUT: "/api/auth/logout",
@@ -15,6 +17,8 @@ export const ENDPOINTS = {
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",
     PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
+    FACET_OPTIONS: "/api/creators/facet-options",
+    ADD_ON_OPTIONS: "/api/creators/add-on-options",
     SUGGESTIONS_CATEGORIES: "/api/creators/suggestions/categories",
     SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
     SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
@@ -28,6 +32,10 @@ export const ENDPOINTS = {
     PROFILE_BRAND_CATEGORY_OPTIONS:
       "/api/brands/profile/brand-category-options",
   },
+  BRIEFS: {
+    LIST: "/api/briefs",
+    DETAIL: (id: string) => `/api/briefs/${encodeURIComponent(id)}`,
+  },
   ORDERS: {
     BRAND_LIST: "/api/orders/brand",
     BRAND_DETAIL: (id: string) => `/api/orders/brand/${encodeURIComponent(id)}`,
@@ -39,6 +47,12 @@ export const ENDPOINTS = {
     CHECKOUT: "/api/orders/checkout",
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
+    CHAT_MESSAGES: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/messages`,
+    CHAT_READ: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/read`,
+    CHAT_STATE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/state`,
     DELIVERY_UPLOADS_PRESIGN: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/deliveries/presign`,
     SUBMIT_DELIVERY: (id: string) =>
@@ -71,6 +85,20 @@ export const ENDPOINTS = {
       LIST: "/api/admin/brands",
       REMOVE: (userId: string) =>
         `/api/admin/brands/user/${encodeURIComponent(userId)}/role`,
+    },
+    ORDERS: {
+      LIST: "/api/admin/orders",
+      DETAIL: (id: string) => `/api/admin/orders/${encodeURIComponent(id)}`,
+      CHAT_MESSAGES: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/chat/messages`,
+      CHAT_STATE: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/chat/state`,
+      MARK_CREATOR_PAID: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/mark-creator-paid`,
+      REJECT: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/reject`,
+      REFUND: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/refund`,
     },
   },
 } as const;

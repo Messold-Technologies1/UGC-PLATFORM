@@ -96,7 +96,7 @@ export const PortfolioTab = memo(function PortfolioTab({
 
   return (
     <motion.div
-      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+      className="grid grid-cols-1 md:grid-cols-12 gap-6"
       variants={gridVariants}
       initial="hidden"
       animate="show"
@@ -128,7 +128,7 @@ export const PortfolioTab = memo(function PortfolioTab({
               target="_blank"
               rel="noopener noreferrer"
               variants={cardVariants}
-              className="md:col-span-2 xl:col-span-2 group relative rounded-3xl overflow-hidden bg-muted h-[320px] sm:h-[360px] md:h-[380px]"
+              className="md:col-span-7 group relative rounded-3xl overflow-hidden bg-muted h-[320px] sm:h-[360px] md:h-[380px]"
             >
               <video
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70"
@@ -185,7 +185,7 @@ export const PortfolioTab = memo(function PortfolioTab({
             target="_blank"
             rel="noopener noreferrer"
             variants={cardVariants}
-            className={`group relative rounded-3xl overflow-hidden bg-muted ${isSecond ? "h-[320px] sm:h-[360px] md:h-[380px]" : "aspect-3/4"}`}
+            className={`group relative rounded-3xl overflow-hidden bg-muted ${isSecond ? "md:col-span-5 h-[320px] sm:h-[360px] md:h-[380px]" : "md:col-span-6 xl:col-span-4 aspect-3/4"}`}
           >
             <video
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"

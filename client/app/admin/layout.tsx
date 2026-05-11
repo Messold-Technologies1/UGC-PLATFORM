@@ -1,5 +1,4 @@
-import SideNavBar from "@/components/admin/SideNavBar";
-import TopNavBar from "@/components/admin/TopNavBar";
+import { Navbar } from "@/components/navbar/navbar";
 import React from "react";
 import { Manrope, Inter } from "next/font/google";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
@@ -27,10 +26,9 @@ export default function AdminLayout({
           rel="stylesheet"
         />
 
-        <SideNavBar />
+        <Navbar />
 
-        <main className="ml-64 relative min-h-screen">
-          <TopNavBar />
+        <main className="flex-1 relative min-h-screen">
           {children}
         </main>
       </div>

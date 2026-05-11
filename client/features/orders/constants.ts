@@ -9,6 +9,7 @@ export const STATUS_COLORS: Record<string, string> = {
   CREATOR_PAYMENT_DONE: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   DISPUTED: "bg-red-500/10 text-red-500 border-red-500/20",
   REJECTED: "bg-red-500/10 text-red-500 border-red-500/20",
+  REFUNDED: "bg-slate-500/10 text-slate-500 border-slate-500/20",
 };
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -16,10 +17,11 @@ export const STATUS_LABELS: Record<string, string> = {
   BRIEF_SUBMISSION_PENDING: "Brief Required",
   BRIEF_SUBMITTED: "In Progress",
   DELIVERED: "Delivered",
-  REVISION_REQUESTED: "Revising",
+  REVISION_REQUESTED: "Revision Requested",
   REVISION_SUBMITTED: "Revision Delivered",
   ACCEPTED: "Completed",
   CREATOR_PAYMENT_DONE: "Paid Out",
   DISPUTED: "Disputed",
   REJECTED: "Rejected",
+  REFUNDED: "Refunded",
 };

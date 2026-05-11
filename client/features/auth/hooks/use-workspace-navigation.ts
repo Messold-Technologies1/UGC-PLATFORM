@@ -100,7 +100,7 @@ function readCurrentSearchString(): string {
 }
 
 function fallbackPathForWorkspaceRole(role: WorkspaceRole): string {
-  return role === "BRAND" ? "/brand/dashboard" : "/creator/dashboard";
+  return role === "BRAND" ? "/brand/creators" : "/creator/orders";
 }
 
 export function useWorkspaceNavigation() {

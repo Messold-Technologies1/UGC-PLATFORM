@@ -110,7 +110,7 @@ export function GlobalOnboardingPage({
       srDescription={
         role === "creator"
           ? "Complete your profile so brands can find you and brief you."
-          : "Continue to your brand dashboard or dismiss when ready."
+          : "Continue to your brand workspace or dismiss when ready."
       }
       left={
         <OnboardingMarketingColumn

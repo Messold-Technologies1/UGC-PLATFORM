@@ -115,7 +115,7 @@ export function useSubmitCreatorProfileMutation({
 
       if (result.status === "already-exists") {
         toast.message("Profile already exists", {
-          description: "Continuing to your dashboard.",
+          description: "Continuing to your workspace.",
         });
       } else {
         toast.success("Creator profile created");

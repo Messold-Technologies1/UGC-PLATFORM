@@ -29,7 +29,7 @@ export function DashboardAccountProfile({
       <div className="space-y-8">
         <PageHeader
           title="Profile"
-          description="Complete creator onboarding from the dashboard first."
+          description="Complete creator onboarding from your workspace first."
         />
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <p className="text-sm text-muted-foreground">
@@ -91,6 +91,11 @@ export function DashboardAccountProfile({
       </div>
     );
   }
+  const languageBadges =
+    profile.profileLanguages?.map((language) => ({
+      id: language.id ?? language.slug,
+      label: language.label,
+    })) ?? [];
 
   return (
     <div className="space-y-8">
@@ -198,30 +203,20 @@ export function DashboardAccountProfile({
               </div>
             ) : null}
 
-            {profile.onLocationFee?.trim() ? (
-              <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-2">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  On-location fee
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-foreground">
-                  {profile.onLocationFee.trim()}
-                </dd>
-              </div>
-            ) : null}
           </dl>
 
-          {profile.languages.length ? (
+          {languageBadges.length ? (
             <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-3">
               <h4 className="text-xs font-medium text-muted-foreground">
                 Languages
               </h4>
               <div className="mt-3 flex flex-wrap gap-2">
-                {profile.languages.map((l) => (
+                {languageBadges.map((l) => (
                   <span
                     key={l.id}
                     className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-foreground"
                   >
-                    {l.language}
+                    {l.label}
                   </span>
                 ))}
               </div>

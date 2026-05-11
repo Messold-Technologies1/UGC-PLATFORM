@@ -34,28 +34,6 @@ import { useBrandsQuery } from "@/features/admin/hooks/use-brands-query";
 import { useRemoveBrandAccessMutation } from "@/features/admin/hooks/use-remove-brand-access-mutation";
 import type { AdminBrandListItemDto } from "@/features/admin/types";
 
-function StatsCard({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string | number;
-  helper: string;
-}) {
-  return (
-    <div className="glass-card rounded-2xl p-6 text-card-foreground">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-headline font-bold text-foreground">
-        {value}
-      </p>
-      <p className="mt-2 text-sm text-muted-foreground">{helper}</p>
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: string }) {
   if (status === "ACTIVE") {
     return <Badge variant="default">Active</Badge>;
@@ -198,10 +176,13 @@ function BrandManagementContent({
   onPageChange,
   onLimitChange,
 }: BrandManagementContentProps) {
-  const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
-  const distinctContactNames = new Set(
-    items.map((item) => item.contactFullName?.trim()).filter(Boolean),
-  ).size;
+  const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
+  const showingEnd = Math.min(page * limit, total);
+
+  // const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
+  // const distinctContactNames = new Set(
+  //   items.map((item) => item.contactFullName?.trim()).filter(Boolean),
+  // ).size;
   return (
     <>
       {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -350,9 +331,8 @@ function BrandManagementContent({
                 of {totalPages}
               </span>
             </div>
-            <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-4 hidden md:inline-block">
-              Showing {items.length === 0 ? 0 : (page - 1) * limit + 1}-
-              {Math.min(page * limit, total)} of {total} results
+            <span className="text-xs text-muted-foreground font-bold border-l border-border uppercase tracking-widest whitespace-nowrap">
+              Showing: {showingStart}-{showingEnd} of {total} results
             </span>
           </div>
 
@@ -473,8 +453,7 @@ function BrandManagementContent({
             </h3>
             <p className="max-w-2xl text-sm text-muted-foreground">
               Removing a brand here deletes the brand profile and permanently
-              revokes brand access for that user. The user account itself stays
-              in the system.
+              revokes brand access for that user.
             </p>
           </div>
         </div>

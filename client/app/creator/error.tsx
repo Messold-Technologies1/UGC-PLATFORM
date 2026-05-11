@@ -17,7 +17,7 @@ export default function CreatorError({
       </div>
       <h2 className="text-lg font-bold">Something went wrong</h2>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        An unexpected error occurred in the creator dashboard.
+        An unexpected error occurred in the creator workspace.
       </p>
       <div className="mt-4 flex gap-2">
         <Button variant="outline" size="sm" className="gap-1.5" onClick={reset}>
@@ -25,9 +25,9 @@ export default function CreatorError({
           Try again
         </Button>
         <Button asChild variant="ghost" size="sm" className="gap-1.5">
-          <Link href="/creator/dashboard">
+          <Link href="/creator/orders">
             <ArrowLeft className="size-3.5" />
-            Dashboard
+            Orders
           </Link>
         </Button>
       </div>

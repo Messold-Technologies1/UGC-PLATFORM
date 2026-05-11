@@ -1,15 +1,18 @@
 import { memo } from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sticker } from "@/components/landing/marketing/sticker";
 import { SITE_NAME } from "@/config/site";
+
+const shell = "mx-auto w-full max-w-site px-4 sm:px-6 lg:px-8";
 
 const columns = [
   {
     title: "Platform",
     links: [
-      { href: "/creator/dashboard", label: "For Creators" },
-      { href: "/brand/dashboard", label: "For Brands" },
-      { href: "/pricing", label: "Pricing" },
+      { href: "/brand/creators", label: "For Brands" },
+      { href: "/signup", label: "For Creators" },
+      { href: "/brand/creators", label: "Browse Creators" },
+      { href: "/#pricing", label: "Pricing" },
     ],
   },
   {
@@ -25,53 +28,74 @@ const columns = [
     links: [
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
+      { href: "/terms", label: "Refund Policy" },
+      { href: "/terms", label: "Creator Guidelines" },
     ],
   },
 ];
 
 export const Footer = memo(function Footer() {
   return (
-    <footer className="border-t border-border bg-muted/30">
-      <div className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <Link href="/" className="flex items-center gap-2">
-              <div className="bg-foreground flex size-7 items-center justify-center rounded-lg">
-                <Sparkles className="size-3.5 text-white" />
-              </div>
-              <span className="text-sm font-bold">{SITE_NAME}</span>
-            </Link>
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted-foreground">
-              The marketplace connecting talented creators with brands that need authentic,
-              high-performing user-generated content.
-            </p>
+    <footer className="bg-foreground text-background">
+      <div
+        className={`${shell} grid gap-10 py-16 md:grid-cols-2 lg:grid-cols-5`}
+      >
+        <div className="lg:col-span-2">
+          <Link href="/" prefetch className="inline-flex shrink-0 items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- footer brand mark matches navbar asset */}
+            <img
+              src="/brand-logo.png"
+              alt={SITE_NAME}
+              width={688}
+              height={160}
+              className="h-11 max-h-none w-auto max-w-[min(260px,calc(100vw-48px))] object-contain object-left sm:h-12"
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+            />
+          </Link>
+          <p className="mt-4 max-w-sm text-background/70">
+            UGC without the DM drama. The marketplace where creators and brands
+            collaborate to create authentic content that actually sells.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Sticker tone="lime">Pay Safe</Sticker>
+            <Sticker tone="pink">Refund Safe</Sticker>
+            <Sticker tone="sky">Verified Creators</Sticker>
           </div>
-
-          {columns.map(({ title, links }) => (
-            <div key={title}>
-              <p className="text-xs font-medium uppercase tracking-wider text-foreground">
-                {title}
-              </p>
-              <ul className="mt-3 space-y-2">
-                {links.map(({ href, label }) => (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+        {columns.map(({ title, links }) => (
+          <div key={title}>
+            <h4 className="font-heading text-lg font-bold text-lime">
+              {title}
+            </h4>
+            <ul className="mt-4 space-y-2.5">
+              {links.map(({ href, label }) => (
+                <li key={`${title}-${label}`}>
+                  <Link
+                    href={href}
+                    prefetch
+                    className="text-sm text-background/70 hover:text-background"
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-background/10">
+        <div
+          className={`${shell} flex flex-col items-center justify-between gap-3 py-6 text-center text-sm text-background/60 sm:flex-row sm:text-left`}
+        >
+          <p>
+            © {new Date().getFullYear()} {SITE_NAME}. Made for brands that need
+            content and creators who want to get paid.
           </p>
+          <p>Built with ✦ for the creator economy.</p>
         </div>
       </div>
     </footer>

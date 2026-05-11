@@ -1,10 +1,9 @@
-
-
-export type CreatorProfileLanguageApi = {
-  id: string;
-  language: string;
-};
-
+import type {
+  CreatorContentVolumeBucket,
+  CreatorGender,
+  CreatorLanguageFluency,
+} from "./create-creator-profile";
+import type { CreatorFacetDimension } from "./get-creator-facet-options";
 
 export type CreatorProfileCategoryApi = {
   id: string;
@@ -15,6 +14,7 @@ export type CreatorProfilePackageApi = {
   id: string;
   name: string;
   deliverables: string[];
+  videoLengthSeconds: number;
   priceAmount: string;
   deliveryDays: number;
   maxRevisions: number;
@@ -35,6 +35,20 @@ export type CreatorProfileAddOnApi = {
   name: string;
   priceAmount: string;
   description?: string | null;
+};
+
+export type CreatorProfileFacetSelectionApi = {
+  id?: string;
+  dimension: CreatorFacetDimension;
+  slug: string;
+  label: string;
+};
+
+export type CreatorProfileStructuredLanguageApi = {
+  id?: string;
+  slug: string;
+  label: string;
+  fluency: CreatorLanguageFluency;
 };
 
 export type CreatorPortfolioVideoPreviewApi = {
@@ -61,9 +75,14 @@ export type CreatorPublicListItemApi = {
   countryName?: string | null;
   stateName?: string | null;
   bio?: string | null;
-  gender?: string | null;
+  gender?: CreatorGender | string | null;
+  age?: number | null;
+  contentVolume?: CreatorContentVolumeBucket | string | null;
+  collaborationCount?: number;
   onLocationAvailable: boolean;
   languages: string[];
+  profileLanguages?: CreatorProfileStructuredLanguageApi[];
+  facetSelections?: CreatorProfileFacetSelectionApi[];
   categories: string[];
   personaTags: string[];
   restrictions: string[];
@@ -75,17 +94,26 @@ export type CreatorProfileItemApi = {
   id: string;
   userId: string;
   displayName: string;
+  phone?: string | null;
+  phoneVerified?: boolean;
   profileImageUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
   bio?: string | null;
-  gender?: string | null;
+  gender?: CreatorGender | string | null;
+  dateOfBirth?: string | null;
+  age?: number | null;
+  ageGroup?: string | null;
   ageRange?: string | null;
+  shippingAddress?: string | null;
+  instagramUrl?: string | null;
+  contentVolume?: CreatorContentVolumeBucket | string | null;
+  collaborationCount?: number;
   travelRadius?: number | null;
   onLocationAvailable?: boolean;
-  onLocationFee?: string | null;
-  languages: CreatorProfileLanguageApi[];
+  profileLanguages?: CreatorProfileStructuredLanguageApi[];
+  facetSelections?: CreatorProfileFacetSelectionApi[];
   categories: CreatorProfileCategoryApi[];
   personaTags?: CreatorProfilePersonaTagApi[];
   restrictions?: CreatorProfileRestrictionApi[];

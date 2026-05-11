@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useMemo } from "react";
-import { Globe, Mail, Phone, Store, UserRound } from "lucide-react";
+import { Globe, Mail, Phone, Store, UserRound, Instagram, Box, Volume2 } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
@@ -239,11 +239,64 @@ export function DashboardBrandAccountProfile() {
                   </dd>
                 </div>
 
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Account email
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Mail className="size-4 opacity-70" aria-hidden />
+                    <span className="wrap-break-word">
+                      {profile.email ?? "—"}
+                    </span>
+                  </dd>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Instagram
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Instagram className="size-4 opacity-70" aria-hidden />
+                    <span className="break-all">
+                      {profile.instagramUrl ? (
+                        <a href={profile.instagramUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {profile.instagramUrl}
+                        </a>
+                      ) : "—"}
+                    </span>
+                  </dd>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Product type
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Box className="size-4 opacity-70" aria-hidden />
+                    <span className="capitalize">
+                      {profile.productType?.toLowerCase() ?? "—"}
+                    </span>
+                  </dd>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    Brand pronunciation
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Volume2 className="size-4 opacity-70" aria-hidden />
+                    <span>{profile.brandPronunciation ?? "—"}</span>
+                    {profile.brandPronunciationAudioUrl && (
+                      <audio controls src={profile.brandPronunciationAudioUrl} className="h-8 w-64 ml-2" />
+                    )}
+                  </dd>
+                </div>
+
                 <div className="rounded-xl border border-border/70 bg-card p-4 xl:col-span-6">
                   <dt className="text-xs font-medium text-muted-foreground">
                     Categories
                   </dt>
-                  <dd className="mt-1 text-sm font-medium text-foreground">
+                  <dd className="mt-1 text-sm font-medium text-foreground flex items-center gap-2 flex-wrap">
                     {profile.categories?.length
                       ? profile.categories
                           .map(
@@ -252,6 +305,11 @@ export function DashboardBrandAccountProfile() {
                           )
                           .join(", ")
                       : "—"}
+                    {profile.otherCategoryLabel && (
+                      <span className="text-muted-foreground">
+                        ({profile.otherCategoryLabel})
+                      </span>
+                    )}
                   </dd>
                 </div>
               </dl>

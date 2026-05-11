@@ -1,14 +1,15 @@
 "use client";
 
-import { Building2, LogOut, Video } from "lucide-react";
+import { Building2, LogOut, Video, UserRound } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import {
   accountMenuGlassPanel,
   accountMenuItemClass,
   accountMenuItemLogoutClass,
-} from "@/components/account-menu-styles";
+} from "@/components/navbar/account-menu-styles";
 import {
   getDisplayNameFromUser,
   getInitialsFromUser,
@@ -55,21 +56,24 @@ export function NavbarProfileMenu({
       ? "BRAND"
       : pathname === "/creator" || pathname.startsWith("/creator/")
         ? "CREATOR"
-        : user.primaryRole ?? null;
+        : (user.primaryRole ?? null);
   const brandProfileHref = workspaceAccountHref("BRAND");
   const creatorProfileHref = workspaceAccountHref("CREATOR");
-  const isBrandPath = pathname === brandProfileHref || pathname.startsWith("/brand/");
+  const isBrandPath =
+    pathname === brandProfileHref || pathname.startsWith("/brand/");
   const isCreatorPath =
     pathname === creatorProfileHref || pathname.startsWith("/creator/");
   const canContinueAsBrand = canSwitchToWorkspace(user, "BRAND");
   const canContinueAsCreator = canSwitchToWorkspace(user, "CREATOR");
   const canTryAsBrand = canSetUpWorkspace(user, "BRAND");
   const canTryAsCreator = canSetUpWorkspace(user, "CREATOR");
+  const isAdmin = user.roles?.includes("ADMIN");
   const showProfiles =
-    canContinueAsBrand ||
-    canContinueAsCreator ||
-    canTryAsBrand ||
-    canTryAsCreator;
+    !isAdmin &&
+    (canContinueAsBrand ||
+      canContinueAsCreator ||
+      canTryAsBrand ||
+      canTryAsCreator);
   const profileSectionLabel =
     canContinueAsBrand || canContinueAsCreator ? "Continue As" : "Try As";
   const switchingToBrand = switchingWorkspaceRole === "BRAND";
@@ -129,7 +133,9 @@ export function NavbarProfileMenu({
                   ),
                   "w-full",
                 )}
-                disabled={isLoggingOut || (canContinueAsBrand && switchingToBrand)}
+                disabled={
+                  isLoggingOut || (canContinueAsBrand && switchingToBrand)
+                }
                 onClick={wrapNavigate(() => {
                   if (canContinueAsBrand) {
                     void goWorkspace("BRAND", {
@@ -201,7 +207,9 @@ export function NavbarProfileMenu({
                       ? "Switching to Creator…"
                       : "As Creator"
                     : "Try As Creator"}
-                  {canContinueAsCreator && !switchingToCreator && isCreatorPath ? (
+                  {canContinueAsCreator &&
+                  !switchingToCreator &&
+                  isCreatorPath ? (
                     <span className="text-[10px] font-medium text-primary">
                       Open
                     </span>
@@ -242,7 +250,7 @@ export function NavbarProfileMenu({
         <button
           type="button"
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-full",
+            "flex h-9 shrink-0 items-center justify-center gap-2 rounded-full pl-1 pr-3",
             "border border-border/60 bg-background/50 backdrop-blur-md backdrop-saturate-125",
             "text-muted-foreground transition-colors",
             "hover:bg-background/70 dark:hover:bg-background/40",
@@ -252,7 +260,12 @@ export function NavbarProfileMenu({
           aria-haspopup="menu"
           aria-label={`Account menu (${display})`}
         >
-          <span className="text-sm font-semibold">{initials}</span>
+          <span className="flex size-7 items-center justify-center rounded-full bg-muted/80 text-xs font-semibold">
+            {initials}
+          </span>
+          <span className="text-sm font-medium max-w-30 truncate">
+            {display}
+          </span>
         </button>
 
         <div
@@ -265,137 +278,173 @@ export function NavbarProfileMenu({
           role="menu"
           aria-label="Account actions"
         >
-          <div className="min-w-60 space-y-2">
-            <ThemeAppearancePanel className="bg-background/95 backdrop-blur-xl" />
-            <div className={cn("rounded-xl p-1", accountMenuGlassPanel, "bg-background/95 backdrop-blur-xl")}>
-            {showProfiles ? (
-              <>
-                <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {profileSectionLabel}
-                </p>
-                {canContinueAsBrand || canTryAsBrand ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={cn(
-                      workspaceItemClass(
-                        canContinueAsBrand &&
-                          (isBrandPath || activeWorkspace === "BRAND"),
-                      ),
-                      "w-full",
-                    )}
-                    disabled={
-                      isLoggingOut || (canContinueAsBrand && switchingToBrand)
-                    }
-                    onClick={() => {
-                      if (canContinueAsBrand) {
-                        void goWorkspace("BRAND", {
-                          redirectIfCurrent: true,
-                          targetHref: brandProfileHref,
-                        });
-                        return;
+          <div
+            className={cn(
+              "min-w-60 flex flex-col overflow-hidden rounded-2xl",
+              "bg-background/95 dark:bg-background/80",
+              "backdrop-blur-2xl backdrop-saturate-[1.2]",
+              "border border-white/50 dark:border-white/20",
+              "shadow-xl",
+            )}
+          >
+            <ThemeAppearancePanel className="border-0 bg-transparent shadow-none backdrop-blur-none backdrop-saturate-100 rounded-none border-b border-border/50" />
+            <div className={cn("p-1")}>
+              {showProfiles ? (
+                <>
+                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {profileSectionLabel}
+                  </p>
+                  {canContinueAsBrand || canTryAsBrand ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={cn(
+                        workspaceItemClass(
+                          canContinueAsBrand &&
+                            (isBrandPath || activeWorkspace === "BRAND"),
+                        ),
+                        "w-full",
+                      )}
+                      disabled={
+                        isLoggingOut || (canContinueAsBrand && switchingToBrand)
                       }
+                      onClick={() => {
+                        if (canContinueAsBrand) {
+                          void goWorkspace("BRAND", {
+                            redirectIfCurrent: true,
+                            targetHref: brandProfileHref,
+                          });
+                          return;
+                        }
 
-                      navigateToSetup(
-                        workspaceSetupHref("BRAND", brandProfileHref),
-                      );
-                    }}
-                  >
-                    {canContinueAsBrand && switchingToBrand ? (
-                      <Spinner className="size-4 shrink-0" aria-hidden />
-                    ) : (
-                      <Building2 className="size-4" />
-                    )}
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      {canContinueAsBrand
-                        ? switchingToBrand
-                          ? "Switching to Brand…"
-                          : "As Brand"
-                        : "Try As Brand"}
-                      {canContinueAsBrand && !switchingToBrand && isBrandPath ? (
-                        <span className="text-[10px] font-medium text-primary">
-                          Open
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                ) : null}
-                {canContinueAsCreator || canTryAsCreator ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={cn(
-                      workspaceItemClass(
-                        canContinueAsCreator &&
-                          (isCreatorPath || activeWorkspace === "CREATOR"),
-                      ),
-                      "w-full",
-                    )}
-                    disabled={
-                      isLoggingOut || (canContinueAsCreator && switchingToCreator)
-                    }
-                    onClick={() => {
-                      if (canContinueAsCreator) {
-                        void goWorkspace("CREATOR", {
-                          redirectIfCurrent: true,
-                          targetHref: creatorProfileHref,
-                        });
-                        return;
+                        navigateToSetup(
+                          workspaceSetupHref("BRAND", brandProfileHref),
+                        );
+                      }}
+                    >
+                      {canContinueAsBrand && switchingToBrand ? (
+                        <Spinner className="size-4 shrink-0" aria-hidden />
+                      ) : (
+                        <Building2 className="size-4" />
+                      )}
+                      <span className="flex flex-1 items-center justify-between gap-2">
+                        {canContinueAsBrand
+                          ? switchingToBrand
+                            ? "Switching to Brand…"
+                            : "As Brand"
+                          : "Try As Brand"}
+                        {canContinueAsBrand &&
+                        !switchingToBrand &&
+                        isBrandPath ? (
+                          <span className="text-[10px] font-medium text-primary">
+                            Open
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  ) : null}
+                  {canContinueAsCreator || canTryAsCreator ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={cn(
+                        workspaceItemClass(
+                          canContinueAsCreator &&
+                            (isCreatorPath || activeWorkspace === "CREATOR"),
+                        ),
+                        "w-full",
+                      )}
+                      disabled={
+                        isLoggingOut ||
+                        (canContinueAsCreator && switchingToCreator)
                       }
+                      onClick={() => {
+                        if (canContinueAsCreator) {
+                          void goWorkspace("CREATOR", {
+                            redirectIfCurrent: true,
+                            targetHref: creatorProfileHref,
+                          });
+                          return;
+                        }
 
-                      navigateToSetup(
-                        workspaceSetupHref("CREATOR", creatorProfileHref),
-                      );
-                    }}
-                  >
-                    {canContinueAsCreator && switchingToCreator ? (
-                      <Spinner className="size-4 shrink-0" aria-hidden />
-                    ) : (
-                      <Video className="size-4" />
-                    )}
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      {canContinueAsCreator
-                        ? switchingToCreator
-                          ? "Switching to Creator…"
-                          : "As Creator"
-                        : "Try As Creator"}
-                      {canContinueAsCreator &&
-                      !switchingToCreator &&
-                      isCreatorPath ? (
-                        <span className="text-[10px] font-medium text-primary">
-                          Open
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                ) : null}
-                {showProfiles ? (
-                  <div
-                    className="my-1 h-px bg-border/60"
-                    role="separator"
-                    aria-hidden
-                  />
-                ) : null}
-              </>
-            ) : null}
-            <button
-              type="button"
-              role="menuitem"
-              disabled={isLoggingOut}
-              onClick={() => void logout()}
-              className={cn(
-                accountMenuItemLogoutClass,
-                "w-full text-left",
-                isLoggingOut && "pointer-events-none opacity-60",
+                        navigateToSetup(
+                          workspaceSetupHref("CREATOR", creatorProfileHref),
+                        );
+                      }}
+                    >
+                      {canContinueAsCreator && switchingToCreator ? (
+                        <Spinner className="size-4 shrink-0" aria-hidden />
+                      ) : (
+                        <Video className="size-4" />
+                      )}
+                      <span className="flex flex-1 items-center justify-between gap-2">
+                        {canContinueAsCreator
+                          ? switchingToCreator
+                            ? "Switching to Creator…"
+                            : "As Creator"
+                          : "Try As Creator"}
+                        {canContinueAsCreator &&
+                        !switchingToCreator &&
+                        isCreatorPath ? (
+                          <span className="text-[10px] font-medium text-primary">
+                            Open
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  ) : null}
+                  {showProfiles ? (
+                    <div
+                      className="my-1 h-px bg-border/60"
+                      role="separator"
+                      aria-hidden
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {!pathname.startsWith("/admin") && (
+                <Link
+                  href={
+                    activeWorkspace === "BRAND"
+                      ? brandProfileHref
+                      : creatorProfileHref
+                  }
+                  role="menuitem"
+                  className={cn(
+                    accountMenuItemClass,
+                    "w-full",
+                    (pathname === brandProfileHref ||
+                      pathname === creatorProfileHref) &&
+                      "bg-accent/80 text-accent-foreground",
+                  )}
+                >
+                  <UserRound className="size-4" aria-hidden />
+                  Profile
+                </Link>
               )}
-            >
-              {isLoggingOut ? (
-                <Spinner className="size-4 shrink-0" aria-hidden />
-              ) : (
-                <LogOut className="size-4 shrink-0" />
-              )}
-              {isLoggingOut ? "Logging out…" : "Log out"}
-            </button>
+              <div
+                className="my-1 h-px bg-border/60"
+                role="separator"
+                aria-hidden
+              />
+              <button
+                type="button"
+                role="menuitem"
+                disabled={isLoggingOut}
+                onClick={() => void logout()}
+                className={cn(
+                  accountMenuItemLogoutClass,
+                  "w-full text-left",
+                  isLoggingOut && "pointer-events-none opacity-60",
+                )}
+              >
+                {isLoggingOut ? (
+                  <Spinner className="size-4 shrink-0" aria-hidden />
+                ) : (
+                  <LogOut className="size-4 shrink-0" />
+                )}
+                {isLoggingOut ? "Logging out…" : "Log out"}
+              </button>
             </div>
           </div>
         </div>

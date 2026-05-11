@@ -16,6 +16,7 @@ export type CreateBrandProfilePayload = {
   instagramUrl?: string;
   productType?: BrandProductTypeApi;
   categories?: BrandCategoryApi[];
+  otherCategoryLabel?: string;
 };
 
 export async function createBrandProfile(

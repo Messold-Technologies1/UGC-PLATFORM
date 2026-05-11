@@ -312,9 +312,9 @@ export const CreatorFilters = memo(function CreatorFilters({
           <h3 className="text-base font-semibold tracking-tight text-foreground">
             Filters
           </h3>
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          {/* <p className="text-xs leading-relaxed text-muted-foreground">
             Refine creators using the exact filters supported by the API.
-          </p>
+          </p> */}
         </div>
         <Tooltip>
           <TooltipTrigger asChild>

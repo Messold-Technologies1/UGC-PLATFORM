@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
 import {
   accountMenuGlassPanel,
   accountMenuItemClass,
-} from "@/components/account-menu-styles";
+} from "@/components/navbar/account-menu-styles";
 import {
   Accordion,
   AccordionContent,
@@ -24,15 +24,12 @@ function useThemeMounted() {
   );
 }
 
-export function ThemeAppearancePanel({
-  className,
-}: {
-  className?: string;
-}) {
+export function ThemeAppearancePanel({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   const { themeColor, setThemeColor, options } = useThemeColor();
   const themeMounted = useThemeMounted();
-  const currentTheme = themeMounted && resolvedTheme === "dark" ? "dark" : "light";
+  const currentTheme =
+    themeMounted && resolvedTheme === "dark" ? "dark" : "light";
 
   return (
     <div className={cn("rounded-xl p-1", accountMenuGlassPanel, className)}>

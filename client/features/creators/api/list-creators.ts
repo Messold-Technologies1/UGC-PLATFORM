@@ -7,11 +7,24 @@ export type CreatorListApiFilters = {
   limit?: number;
   city?: string;
   gender?: string;
+  minAge?: number;
+  maxAge?: number;
+  ageGroup?: string;
   industry?: string;
   portfolioTag?: string;
   onLocationAvailable?: boolean;
   minPrice?: string | number;
   maxPrice?: string | number;
+  contentFormat?: string[];
+  appearance?: string[];
+  contentStyle?: string[];
+  capability?: string[];
+  lifeStyle?: string[];
+  occupation?: string[];
+  interest?: string[];
+  categoryExperience?: string[];
+  canCreateWith?: string[];
+  language?: string[];
   categories?: string[];
   personaTags?: string[];
   restrictions?: string[];
@@ -38,6 +51,12 @@ export function serializeCreatorListApiParams(
   const gender = filters.gender?.trim();
   if (gender) params.set("gender", gender);
 
+  if (filters.minAge !== undefined) params.set("minAge", String(filters.minAge));
+  if (filters.maxAge !== undefined) params.set("maxAge", String(filters.maxAge));
+
+  const ageGroup = filters.ageGroup?.trim();
+  if (ageGroup) params.set("ageGroup", ageGroup);
+
   const industry = filters.industry?.trim();
   if (industry) params.set("industry", industry);
 
@@ -53,6 +72,24 @@ export function serializeCreatorListApiParams(
   }
   if (filters.maxPrice !== undefined && filters.maxPrice !== "") {
     params.set("maxPrice", String(filters.maxPrice));
+  }
+
+  const facetArrayParams: Array<[string, string[] | undefined]> = [
+    ["contentFormat", filters.contentFormat],
+    ["appearance", filters.appearance],
+    ["contentStyle", filters.contentStyle],
+    ["capability", filters.capability],
+    ["lifeStyle", filters.lifeStyle],
+    ["occupation", filters.occupation],
+    ["interest", filters.interest],
+    ["categoryExperience", filters.categoryExperience],
+    ["canCreateWith", filters.canCreateWith],
+    ["language", filters.language],
+  ];
+  for (const [key, values] of facetArrayParams) {
+    for (const value of normalizeStringArray(values)) {
+      params.append(key, value);
+    }
   }
 
   for (const category of normalizeStringArray(filters.categories)) {

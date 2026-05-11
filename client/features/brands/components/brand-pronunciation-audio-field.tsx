@@ -26,6 +26,34 @@ function pickRecorderMimeType(): string {
   return "audio/webm";
 }
 
+function getRecordingStartErrorMessage(error: unknown): string {
+  if (!(error instanceof DOMException)) {
+    return "Could not start recording. Check your microphone and try again.";
+  }
+
+  if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+    return "Microphone permission is blocked. Allow microphone access in your browser settings, then try again.";
+  }
+
+  if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+    return "No microphone was found on this device.";
+  }
+
+  if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+    return "Your microphone is already in use by another app.";
+  }
+
+  if (error.name === "SecurityError") {
+    return "Microphone recording requires a secure HTTPS or localhost page.";
+  }
+
+  if (error.name === "NotSupportedError") {
+    return "Audio recording is not supported in this browser.";
+  }
+
+  return "Could not start recording. Check your microphone and try again.";
+}
+
 export type BrandPronunciationAudioFieldProps = {
   disabled?: boolean;
   uploading?: boolean;
@@ -83,9 +111,14 @@ export function BrandPronunciationAudioField({
 
   const startRecording = useCallback(async () => {
     if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      toast.error("Recording is not supported in this browser.");
+      toast.error(
+        window.isSecureContext
+          ? "Recording is not supported in this browser."
+          : "Microphone recording requires a secure HTTPS or localhost page.",
+      );
       return;
     }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -147,12 +180,12 @@ export function BrandPronunciationAudioField({
         });
         stopRecording();
       }, MAX_MS);
-    } catch {
-      toast.error("Microphone permission is required to record.");
+    } catch (error) {
+      toast.error(getRecordingStartErrorMessage(error));
       cleanupRecorder();
       setRecording(false);
     }
-  }, [cleanupRecorder, onRecordingReady, stopRecording]);
+  }, [cleanupRecorder, onRecordingReady, stopRecording, stopStream]);
 
   const busy = disabled || uploading;
 

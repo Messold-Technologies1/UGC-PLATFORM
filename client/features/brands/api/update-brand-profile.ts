@@ -14,6 +14,7 @@ export type UpdateBrandProfilePayload = {
   instagramUrl?: string | null;
   productType?: BrandProductTypeApi | null;
   categories?: BrandCategoryApi[];
+  otherCategoryLabel?: string | null;
   logoKey?: string | null;
 };
 

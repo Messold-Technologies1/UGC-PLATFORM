@@ -26,7 +26,9 @@ function getProfileName(profile: ListingProfileApi): string {
 
 function getProfileLanguages(profile: ListingProfileApi): string[] {
   if (isCreatorProfileItemApi(profile)) {
-    return trimStringArray((profile.languages ?? []).map((item) => item?.language));
+    return trimStringArray(
+      (profile.profileLanguages ?? []).map((item) => item?.label),
+    );
   }
   return trimStringArray(profile.languages);
 }
@@ -182,14 +184,13 @@ export function mapProfileItemToCreatorProfile(
   return {
     ...base,
     bio: profile.bio?.trim() || "No bio yet.",
-    languages: (profile.languages ?? []).map((l) => l.language),
+    languages: getProfileLanguages(profile),
     personaTags: (profile.personaTags ?? []).map((t) => t.tag),
     restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
     travelRadiusKm:
       profile.travelRadius != null && !Number.isNaN(profile.travelRadius)
         ? profile.travelRadius
         : null,
-    onLocationFee: profile.onLocationFee?.trim() ?? null,
     packages: mapApiPackages(profile.packages),
     addOns: mapApiAddOns(profile.addOns),
     reviews: [],

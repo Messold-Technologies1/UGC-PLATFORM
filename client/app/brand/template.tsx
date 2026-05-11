@@ -5,7 +5,7 @@ export default async function BrandHubTemplate({
 }: {
   children: React.ReactNode;
 }) {
-  await requireBrandWorkspace("/brand/dashboard");
+  await requireBrandWorkspace("/brand/creators");
 
   return <div className="nav-route-enter">{children}</div>;
 }

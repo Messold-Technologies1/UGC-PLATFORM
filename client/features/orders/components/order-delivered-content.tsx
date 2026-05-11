@@ -106,8 +106,8 @@ export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
 
   return (
     <>
-      <section className="bg-card rounded-3xl overflow-hidden border shadow-sm">
-        <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
+      <section className="bg-card rounded-3xl flex flex-col h-160 overflow-hidden border shadow-sm">
+        <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 md:flex-row md:items-center md:justify-between shrink-0">
           <div className="flex items-center gap-3">
             <PlayCircle className="w-5 h-5 text-foreground" />
             <h2 className="text-lg font-bold text-foreground">Delivered Content</h2>
@@ -127,7 +127,7 @@ export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
           </Badge>
         </div>
 
-        <div className="p-6 md:p-8">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col">
           {deliveriesQuery.isLoading ? (
             <div className="flex aspect-video items-center justify-center rounded-2xl border bg-muted/20 text-sm text-muted-foreground">
               <Spinner className="mr-2 size-4" aria-hidden />
@@ -190,7 +190,7 @@ export function OrderDeliveredContent({ order }: OrderDeliveredContentProps) {
             </div>
           )}
 
-          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row">
+          <div className="mt-auto pt-8 flex flex-col items-center gap-4 sm:flex-row shrink-0">
             <Button
               type="button"
               disabled={!canReviewDelivery || isActionPending}

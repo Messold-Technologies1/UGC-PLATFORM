@@ -39,7 +39,11 @@ const PortfolioTab = dynamic(
 );
 const PackagesTab = dynamic(
   () => import("./packages-tab").then((m) => ({ default: m.PackagesTab })),
-  { loading: () => <TabSkeleton /> },
+  { loading: () => <SidebarSkeleton /> },
+);
+const AddOnsDropdown = dynamic(
+  () => import("./add-ons-dropdown").then((m) => ({ default: m.AddOnsDropdown })),
+  { loading: () => <SidebarSkeleton /> },
 );
 const ReviewsTab = dynamic(
   () => import("./reviews-tab").then((m) => ({ default: m.ReviewsTab })),
@@ -55,7 +59,7 @@ interface CreatorProfileProps {
   initialPortfolioVideos?: PortfolioVideoApi[];
 }
 
-const TABS = ["Portfolio", "Packages", "Reviews"] as const;
+const TABS = ["Portfolio", "Reviews"] as const;
 type Tab = (typeof TABS)[number];
 
 export function CreatorProfile({
@@ -170,17 +174,6 @@ console.log("Creator packages", creator.packages);
                     />
                   )}
 
-                  {activeTab === "Packages" && (
-                    <PackagesTab
-                      packages={creator.packages}
-                      addOns={creator.addOns}
-                      selectedPackageId={selectedPackageId}
-                      selectedAddOnIds={selectedAddOnIds}
-                      onSelectPackage={handleSelectPackage}
-                      onToggleAddOn={handleToggleAddOn}
-                    />
-                  )}
-
                   {activeTab === "Reviews" && (
                     <ReviewsTab
                       reviews={creator.reviews}
@@ -196,6 +189,23 @@ console.log("Creator packages", creator.packages);
 
         <div className="w-full shrink-0 lg:w-80">
           <div className="sticky top-24 space-y-6">
+            <PackagesTab
+              packages={creator.packages}
+              addOns={creator.addOns}
+              selectedPackageId={selectedPackageId}
+              selectedAddOnIds={selectedAddOnIds}
+              onSelectPackage={handleSelectPackage}
+              onToggleAddOn={handleToggleAddOn}
+              compact={true}
+              hideAddOns={true}
+            />
+
+            <AddOnsDropdown
+              addOns={creator.addOns}
+              selectedAddOnIds={selectedAddOnIds}
+              onToggleAddOn={handleToggleAddOn}
+            />
+
             <OrderSummary
               selectedPackage={selectedPackage}
               addOns={creator.addOns}

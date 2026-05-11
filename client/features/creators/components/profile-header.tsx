@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import Image from "next/image";
 import { MapPin, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ function isRemoteImage(src: string): boolean {
 export const ProfileHeader = memo(function ProfileHeader({
   creator,
 }: ProfileHeaderProps) {
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
+
   const initials = useMemo(
     () =>
       creator.name
@@ -28,8 +30,8 @@ export const ProfileHeader = memo(function ProfileHeader({
   );
 
   return (
-    <div className="rounded-3xl border-0 bg-background p-5 sm:p-6 lg:p-7  shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)]
-    dark:shadow-[0_8px_24px_-8px_rgba(255,255,255,0.08)] sm:min-h-[360px] lg:min-h-[380px]">
+    <div className="rounded-3xl border-0 bg-background p-5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)]
+    dark:shadow-[0_8px_24px_-8px_rgba(255,255,255,0.08)]">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch sm:min-h-[300px] lg:min-h-[320px] lg:gap-8">
         <div className="relative shrink-0 flex flex-col w-full sm:w-56 lg:w-64 items-center">
           <div
@@ -58,8 +60,8 @@ export const ProfileHeader = memo(function ProfileHeader({
           )} */}
         </div>
 
-        <div className="min-w-0 flex-1 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
-          <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div className="min-w-0 lg:max-w-[50%] xl:max-w-[60%]">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                 {creator.name}
@@ -134,14 +136,24 @@ export const ProfileHeader = memo(function ProfileHeader({
             </div>
           </div>
 
-          <div className="hidden lg:flex w-72 shrink-0 flex-col justify-center gap-5 border-l border-border/50 pl-8 xl:w-80 overflow-hidden">
+          <div className="hidden lg:flex flex-1 flex-col justify-center gap-5 border-l border-border/50 pl-6 lg:pl-8 overflow-hidden">
             {creator.bio ? (
               <div>
                 <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1.5">
                   About
                 </h3>
-                <p className="text-[13px] text-foreground/80 leading-relaxed line-clamp-3">
-                  {creator.bio}
+                <p className="text-[13px] text-foreground/80 leading-relaxed">
+                  {isBioExpanded || creator.bio.length <= 140
+                    ? creator.bio
+                    : `${creator.bio.slice(0, 140).trim()} `}
+                  {creator.bio.length > 140 && (
+                    <button
+                      onClick={() => setIsBioExpanded(!isBioExpanded)}
+                      className="font-semibold text-primary hover:underline focus:outline-none"
+                    >
+                      {isBioExpanded ? " Show less" : "Read more"}
+                    </button>
+                  )}
                 </p>
               </div>
             ) : null}

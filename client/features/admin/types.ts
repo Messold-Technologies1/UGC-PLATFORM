@@ -1,10 +1,39 @@
+import type {
+  OrderBrandSnapshot,
+  OrderCreatorSnapshot,
+  OrderDetailsPublic,
+  OrderListSummary,
+} from "@/features/orders/api/types";
 import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-export interface CreatorLanguageResponseDto {
+export type CreatorLanguageFluency = "NATIVE" | "FLUENT" | "CONVERSATIONAL";
+
+export type CreatorFacetDimension =
+  | "CONTENT_FORMAT"
+  | "APPEARANCE"
+  | "CONTENT_STYLE"
+  | "CAPABILITY"
+  | "LIFE_STYLE"
+  | "OCCUPATION"
+  | "INTEREST"
+  | "CATEGORY_EXPERIENCE"
+  | "CAN_CREATE_WITH"
+  | "LANGUAGE";
+
+export interface CreatorProfileLanguageResponseDto {
   id: string;
-  language: string;
+  slug: string;
+  label: string;
+  fluency: CreatorLanguageFluency;
+}
+
+export interface CreatorFacetSelectionResponseDto {
+  id: string;
+  dimension: CreatorFacetDimension;
+  slug: string;
+  label: string;
 }
 
 export interface CreatorCategoryResponseDto {
@@ -26,8 +55,10 @@ export interface CreatorPackageResponseDto {
   id: string;
   name: string;
   deliverables: string[];
+  videoLengthSeconds: number;
   priceAmount: string;
   deliveryDays: number;
+  maxRevisions: number;
 }
 
 export interface CreatorAddOnResponseDto {
@@ -51,24 +82,33 @@ export interface CreatorProfileResponseDto {
   id: string;
   userId: string;
   displayName: string;
+  phone?: string | null;
+  phoneVerified?: boolean;
   profileImageUrl?: string | null;
-  city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
+  city?: string | null;
   bio?: string | null;
   gender?: string | null;
+  dateOfBirth?: string | null;
+  age?: number | null;
+  ageGroup?: string | null;
+  shippingAddress?: string | null;
+  instagramUrl?: string | null;
+  contentVolume?: string | null;
+  collaborationCount: number;
   travelRadius?: number | null;
   onLocationAvailable: boolean;
   approvalStatus?: ApprovalStatus;
   rejectionReason?: string | null;
-  languages: CreatorLanguageResponseDto[];
+  profileLanguages: CreatorProfileLanguageResponseDto[];
+  facetSelections: CreatorFacetSelectionResponseDto[];
   categories: CreatorCategoryResponseDto[];
   personaTags: CreatorPersonaTagResponseDto[];
   restrictions: CreatorRestrictionResponseDto[];
   packages: CreatorPackageResponseDto[];
   addOns: CreatorAddOnResponseDto[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
-  createdAt?: string;
 }
 
 export interface CreatorsListResponseDto {
@@ -108,4 +148,76 @@ export interface AdminBrandsListResponseDto {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface AdminOrdersQueryDto {
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminOrderListItemDto {
+  order: OrderListSummary;
+  creator: OrderCreatorSnapshot;
+  brand: OrderBrandSnapshot;
+}
+
+export interface AdminOrdersListResponseDto {
+  items: AdminOrderListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface AdminOrderDetailsDto extends OrderDetailsPublic {
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpayRefundId?: string | null;
+}
+
+export interface AdminOrderDetailsResponseDto {
+  order: AdminOrderDetailsDto;
+  creator: OrderCreatorSnapshot;
+  brand: OrderBrandSnapshot;
+}
+
+export interface OrderChatMessageDto {
+  id: string;
+  orderId: string;
+  senderUserId: string;
+  text: string;
+  clientMessageId?: string | null;
+  createdAt: string;
+}
+
+export interface OrderChatMessagesResponseDto {
+  items: OrderChatMessageDto[];
+  nextCursor?: string;
+}
+
+export interface OrderChatStateDto {
+  orderId: string;
+  brandUserId: string;
+  creatorUserId: string;
+  brandLastReadMessageId?: string;
+  brandLastReadAt?: string;
+  creatorLastReadMessageId?: string;
+  creatorLastReadAt?: string;
+}
+
+export interface AdminOrderChatMessagesQueryDto {
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AdminOrderActionPayload {
+  orderId: string;
+}
+
+export interface AdminRejectOrderPayload extends AdminOrderActionPayload {
+  resolutionNotes?: string;
+}
+
+export interface AdminOrderRefundResponseDto {
+  refundId: string;
+  refundStatus: string;
 }

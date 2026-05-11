@@ -170,7 +170,7 @@ export function useSubmitBrandProfileMutation({
         toast.success("Brand profile updated");
       } else if (result.status === "already-exists") {
         toast.message("Profile already exists", {
-          description: "Continuing to your dashboard.",
+          description: "Continuing to your workspace.",
         });
       } else {
         toast.success("Brand profile created");

@@ -38,6 +38,8 @@ export default function AdminDashboardPage() {
   const creators = data?.items || [];
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit) || 1;
+  const showingStart = creators.length === 0 ? 0 : (page - 1) * limit + 1;
+  const showingEnd = Math.min(page * limit, total);
 
   return (
     <>
@@ -126,9 +128,8 @@ export default function AdminDashboardPage() {
                 of {totalPages}
               </span>
             </div>
-            <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-4 hidden md:inline-block">
-              Showing {(page - 1) * limit + 1}-{Math.min(page * limit, total)}{" "}
-              of {total} results
+            <span className="text-xs text-muted-foreground font-bold border-l border-border uppercase tracking-widest whitespace-nowrap">
+              Showing: {showingStart}-{showingEnd} of {total} results
             </span>
           </div>
 

@@ -15,7 +15,30 @@ export interface OrderBriefSubmittedEvent {
   briefSubmittedAt: string;
 }
 
+export interface OrderChatMessage {
+  id: string;
+  orderId: string;
+  senderUserId: string;
+  text: string;
+  clientMessageId?: string | null;
+  createdAt: string;
+}
+
+export interface OrderChatMessageEvent {
+  orderId: string;
+  message: OrderChatMessage;
+}
+
+export interface OrderChatReadUpdatedEvent {
+  orderId: string;
+  userId: string;
+  lastReadMessageId?: string | null;
+  lastReadAt?: string | null;
+}
+
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
+  "chat.message": (e: OrderChatMessageEvent) => void;
+  "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

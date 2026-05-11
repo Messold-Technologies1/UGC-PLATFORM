@@ -3,7 +3,6 @@
 import {
   Briefcase,
   Building2,
-  LayoutDashboard,
   ShoppingCart,
   Users,
   Video,
@@ -33,7 +32,6 @@ const roleConfig: Record<WorkspaceBackdropRole, WorkspaceBackdropConfig> = {
     haloClassName:
       "bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_42%),radial-gradient(circle_at_80%_20%,rgba(6,182,212,0.1),transparent_30%)]",
     navItems: [
-      { href: "/brand/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/brand/creators", label: "Browse Creators", icon: Users },
       { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
     ],
@@ -45,7 +43,7 @@ const roleConfig: Record<WorkspaceBackdropRole, WorkspaceBackdropConfig> = {
     haloClassName:
       "bg-[radial-gradient(circle_at_top_left,rgba(122,42,58,0.18),transparent_42%),radial-gradient(circle_at_80%_20%,rgba(245,158,11,0.08),transparent_30%)]",
     navItems: [
-      { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
       { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
       { href: "/creator/campaigns", label: "Campaigns", icon: Video },
     ],

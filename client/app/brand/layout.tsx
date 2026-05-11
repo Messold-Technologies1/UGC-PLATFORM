@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { DashboardSidebarBoundary } from "@/components/dashboard/sidebar";
+import { Navbar } from "@/components/navbar/navbar";
 import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-shell";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "Brand Dashboard",
+    default: "Brand Workspace",
     template: "%s — Brand | Collabry",
   },
   description: "Manage your campaigns, browse creators, and track performance.",
@@ -18,11 +18,11 @@ export default function BrandLayout({
 }) {
   return (
     <AuthenticatedAppProviders>
-      <div className="fixed inset-0 z-0 flex min-h-0 overflow-hidden bg-background text-foreground">
-        <DashboardSidebarBoundary />
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <Navbar />
         <main
           id="main-content"
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain bg-background"
+          className="flex-1 flex flex-col min-w-0"
         >
           <PostLoginSetupShell role="brand">{children}</PostLoginSetupShell>
         </main>

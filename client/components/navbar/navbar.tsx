@@ -7,7 +7,7 @@ import { useTheme } from "next-themes";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
   Menu, X, User, Moon, Sun,
-  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, ArrowUpRight, type LucideIcon
+  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

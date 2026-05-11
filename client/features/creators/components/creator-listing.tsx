@@ -358,7 +358,7 @@ export function CreatorListing({
             rel="noopener noreferrer"
             className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
           >
-            Can&apos;t find the right fit? Request help
+            Can&apos;t find the right fit? 
             <ExternalLink className="size-4" aria-hidden />
           </a>
         </div>

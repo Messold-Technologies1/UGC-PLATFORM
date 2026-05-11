@@ -30,24 +30,24 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Collabry — Where Creators Meet Brands",
-    template: "%s | Collabry",
+    default: "Go Collab — Where Creators Meet Brands",
+    template: "%s | Go Collab",
   },
   description:
     "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://collabry.com",
+    process.env.NEXT_PUBLIC_SITE_URL || "https://gocollab.io",
   ),
   openGraph: {
     type: "website",
-    siteName: "Collabry",
-    title: "Collabry — Where Creators Meet Brands",
+    siteName: "Go Collab",
+    title: "Go Collab — Where Creators Meet Brands",
     description:
       "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Collabry — Where Creators Meet Brands",
+    title: "Go Collab — Where Creators Meet Brands",
     description:
       "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   },

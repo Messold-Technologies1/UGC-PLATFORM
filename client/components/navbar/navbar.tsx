@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
+import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 
@@ -109,7 +110,6 @@ const roleConfigs: Record<string, NavItem[]> = {
       icon: Activity,
       children: [
         { href: "/creator/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing brand partnerships and orders." },
-        { href: "/creator/briefs", label: "Briefs", icon: FileText, description: "View your received and active campaign briefs." },
       ]
     },
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
@@ -226,18 +226,14 @@ export function Navbar() {
                             <div className="flex-1 flex flex-col justify-start pt-1 pl-2">
                               {/* <div className="text-sm text-muted-foreground mb-4 px-4">By feature</div> */}
                               <div className="grid grid-cols-2 gap-2">
-                                <Link href={item.children[0].href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
-                                  <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{item.children[0].label}</div>
-                                  <div className="text-sm text-muted-foreground leading-relaxed">
-                                    {item.children[0].description}
-                                  </div>
-                                </Link>
-                                <Link href={item.children[1].href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
-                                  <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{item.children[1].label}</div>
-                                  <div className="text-sm text-muted-foreground leading-relaxed">
-                                    {item.children[1].description}
-                                  </div>
-                                </Link>
+                                {item.children.map((child) => (
+                                  <Link key={child.href} href={child.href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
+                                    <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{child.label}</div>
+                                    <div className="text-sm text-muted-foreground leading-relaxed">
+                                      {child.description}
+                                    </div>
+                                  </Link>
+                                ))}
                               </div>
                             </div>
 
@@ -316,7 +312,10 @@ export function Navbar() {
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
-            <NavbarProfileMenu />
+            <>
+              <NotificationDropdown />
+              <NavbarProfileMenu />
+            </>
           ) : (
             <>
               <Button asChild variant="outline" size="sm" className="font-heading">
@@ -429,7 +428,10 @@ export function Navbar() {
           )}
 
           {isAuthenticated ? (
-            <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
+            <div className="flex items-center gap-4 px-3 py-2">
+              <NotificationDropdown />
+              <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
+            </div>
           ) : (
             <>
               <Link

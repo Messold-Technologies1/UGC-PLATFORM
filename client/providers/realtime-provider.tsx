@@ -6,9 +6,13 @@ import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import { getSocket, disconnectSocket } from "@/lib/socket";
 import { useAuth } from "@/providers/auth-provider";
+import { useNotification } from "@/providers/notification-provider";
 import type {
   OrderPaymentEvent,
+  OrderBriefAcceptedEvent,
   OrderBriefSubmittedEvent,
+  OrderProductReceivedEvent,
+  OrderProductShippedEvent,
 } from "@/lib/realtime-events";
 
 type RealtimeCtx = { connected: boolean };
@@ -16,6 +20,7 @@ const Ctx = createContext<RealtimeCtx>({ connected: false });
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth();
+  const { addNotification } = useNotification();
   const queryClient = useQueryClient();
   const refreshAttemptedRef = useRef(false);
 
@@ -38,6 +43,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const rolePath = user.primaryRole?.toLowerCase() || "";
+
     const onOrderPayment = (e: OrderPaymentEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
@@ -54,6 +61,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       toast[variant](msg, {
         description: `Order ${e.orderId.slice(0, 8)}…`,
       });
+      addNotification({
+        type: variant,
+        title: msg,
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+      });
     };
 
     const onBriefSubmitted = (e: OrderBriefSubmittedEvent) => {
@@ -62,12 +75,65 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       toast.info("Brand submitted a brief", {
         description: `Order ${e.orderId.slice(0, 8)}…`,
       });
+      addNotification({
+        type: "info",
+        title: "Brand submitted a brief",
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+        link: rolePath ? `/${rolePath}/orders/${e.orderId}/brief` : undefined,
+      });
+    };
+
+    const onBriefAccepted = (e: OrderBriefAcceptedEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+      toast.success("Creator accepted the brief", {
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+      });
+      addNotification({
+        type: "success",
+        title: "Creator accepted the brief",
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+        link: rolePath ? `/${rolePath}/orders/${e.orderId}/brief` : undefined,
+      });
+    };
+
+    const onProductShipped = (e: OrderProductShippedEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.info("Product shipment recorded", {
+        description: e.trackingId
+          ? `${e.courierName} · ${e.trackingId}`
+          : `Order ${e.orderId.slice(0, 8)}...`,
+      });
+      addNotification({
+        type: "info",
+        title: "Product shipment recorded",
+        description: e.trackingId
+          ? `${e.courierName} · ${e.trackingId}`
+          : `Order ${e.orderId.slice(0, 8)}...`,
+        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+      });
+    };
+
+    const onProductReceived = (e: OrderProductReceivedEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success("Creator confirmed product receipt", {
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+      });
+      addNotification({
+        type: "success",
+        title: "Creator confirmed product receipt",
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+      });
     };
 
     s.on("connect", onConnect);
     s.on("connect_error", onConnectError);
     s.on("order.payment", onOrderPayment);
     s.on("order.brief_submitted", onBriefSubmitted);
+    s.on("order.brief_accepted", onBriefAccepted);
+    s.on("order.product_shipped", onProductShipped);
+    s.on("order.product_received", onProductReceived);
 
     s.connect();
 
@@ -76,9 +142,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("connect_error", onConnectError);
       s.off("order.payment", onOrderPayment);
       s.off("order.brief_submitted", onBriefSubmitted);
+      s.off("order.brief_accepted", onBriefAccepted);
+      s.off("order.product_shipped", onProductShipped);
+      s.off("order.product_received", onProductReceived);
       disconnectSocket();
     };
-  }, [isAuthenticated, user, queryClient]);
+  }, [isAuthenticated, user, queryClient, addNotification]);
 
   return <Ctx.Provider value={{ connected: true }}>{children}</Ctx.Provider>;
 }

@@ -47,6 +47,12 @@ export const ENDPOINTS = {
     CHECKOUT: "/api/orders/checkout",
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
+    ACCEPT_BRIEF: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/brief/accept`,
+    PRODUCT_SHIPMENT: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/product-shipment`,
+    PRODUCT_RECEIVED: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/product-received`,
     CHAT_MESSAGES: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/chat/messages`,
     CHAT_READ: (id: string) =>

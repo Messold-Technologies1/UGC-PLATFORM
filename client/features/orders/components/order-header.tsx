@@ -87,15 +87,19 @@ export function OrderHeader({
   const counterpartyImageUrl =
     role === "brand" ? creator?.profileImageUrl : brand?.logoUrl;
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
-  const briefId = orderBriefData?.brief
-    ? (orderBriefData.brief as Record<string, unknown>).id as string | undefined
-    : undefined;
+  const briefId = orderBriefData?.brief?.id;
   const canManageBrief =
     role === "brand" &&
     (order ? order.status === "BRIEF_SUBMISSION_PENDING" && !order.hasBrief : true);
   const isBriefReadOnly = role === "creator" || !canManageBrief;
   const canOpenBrief =
-    role === "creator" ? true : order ? canManageBrief || order.hasBrief : true;
+    role === "creator"
+      ? order
+        ? order.hasBrief
+        : true
+      : order
+        ? canManageBrief || order.hasBrief
+        : true;
   const briefActionLabel =
     role === "brand" && order && !canOpenBrief
       ? "Brief Unavailable"
@@ -135,6 +139,8 @@ export function OrderHeader({
   function handleBriefAction() {
     if (briefActionLabel === "Submit Brief") {
       router.push(`/brand/briefs/create?orderId=${orderId}`);
+    } else if (role === "creator") {
+      router.push(`/creator/orders/${orderId}/brief`);
     } else if (briefId) {
       router.push(`/brand/briefs/${briefId}`);
     }

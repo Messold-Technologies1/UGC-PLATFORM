@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 
 import {
   useCallback,
@@ -15,12 +15,7 @@ import { toast } from "sonner";
 import { CalendarIcon, ChevronDownIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1129,31 +1124,39 @@ function CreatorProfileSetupFormContent({
 
         {!facetOptionsQuery.isLoading && !facetOptionsQuery.isError ? (
           <motion.section variants={itemVariants} className="space-y-4">
-            <div>
+            {/* <div>
               <p className="text-sm font-medium text-foreground">
                 Profile facets
               </p>
               <p className="text-xs text-muted-foreground">
                 Select the catalog values that best describe your creator work.
               </p>
+            </div> */}
+            <div className="flex flex-col gap-3">
+              {facetSections.map((section) => {
+                const options = facetOptionsByDimension[section.dimension] ?? [];
+                const selected = selectedFacets[section.dimension] ?? [];
+                return (
+                  <FacetSectionDropdown
+                    key={section.dimension}
+                    dimension={section.dimension}
+                    label={section.label}
+                    options={options}
+                    selected={selected}
+                    disabled={pending}
+                    onToggle={(slug) => toggleFacet(section.dimension, slug)}
+                  />
+                );
+              })}
             </div>
-            <div className="relative">
-              <ProfileFacetsDropdown
-                facetSections={facetSections}
-                facetOptionsByDimension={facetOptionsByDimension}
-                selectedFacets={selectedFacets}
-                disabled={pending}
-                onToggleFacet={toggleFacet}
-              />
-            </div>
-            <div>
+            {/* <div>
               <p className="text-sm font-medium text-foreground">
                 Select languages
               </p>
               <p className="text-xs text-muted-foreground">
                 Select the languages you are comfortable creating content in.
               </p>
-            </div>
+            </div> */}
             <LanguageDropdown
               options={facetOptionsByDimension.LANGUAGE ?? []}
               selected={languageDrafts}
@@ -1326,28 +1329,30 @@ function CatalogStatus({
   return null;
 }
 
-function ProfileFacetsDropdown({
-  facetSections,
-  facetOptionsByDimension,
-  selectedFacets,
+function FacetSectionDropdown({
+  dimension,
+  label,
+  options,
+  selected,
   disabled,
-  onToggleFacet,
+  onToggle,
 }: {
-  facetSections: Array<{
-    dimension: Exclude<CreatorFacetDimension, "LANGUAGE">;
-    label: string;
-  }>;
-  facetOptionsByDimension: Record<string, CreatorFacetOption[]>;
-  selectedFacets: SelectedFacets;
+  dimension: string;
+  label: string;
+  options: CreatorFacetOption[];
+  selected: string[];
   disabled: boolean;
-  onToggleFacet: (dimension: Exclude<CreatorFacetDimension, "LANGUAGE">, slug: string) => void;
+  onToggle: (slug: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -1359,67 +1364,87 @@ function ProfileFacetsDropdown({
     };
   }, [isOpen]);
 
-  const selectedFacetCount = Object.values(selectedFacets).reduce(
-    (sum, values) => sum + (values?.length ?? 0),
-    0,
-  );
-
   return (
-    <div className="relative" ref={dropdownRef}>
-      <Button
+    <div ref={containerRef}>
+      <button
         type="button"
-        variant="outline"
-        className="w-full justify-between bg-muted/15 border-border/70 text-foreground"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm transition-colors",
+          "border-border/70 bg-muted/15 text-foreground hover:bg-accent/40",
+          disabled && "pointer-events-none opacity-50",
+          isOpen && "border-primary/50 bg-accent/30",
+        )}
       >
-        <span>
-          Select Facets {selectedFacetCount > 0 ? `(${selectedFacetCount})` : ""}
+        <span className="font-medium">
+          {label}
+          {selected.length > 0 && (
+            <motion.span
+              key={selected.length}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary"
+            >
+              {selected.length}
+            </motion.span>
+          )}
         </span>
-        <ChevronDownIcon className={cn("h-4 w-4 opacity-50 transition-transform", isOpen && "rotate-180")} />
-      </Button>
+        <motion.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          <ChevronDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </motion.div>
+      </button>
 
-      {isOpen && (
-        <div className="absolute top-full left-0 z-50 mt-2 w-full rounded-md border border-border/70 bg-popover text-popover-foreground shadow-md max-h-[300px] overflow-y-auto">
-          <Accordion type="multiple" className="w-full">
-            {facetSections.map((section) => {
-              const options = facetOptionsByDimension[section.dimension] ?? [];
-              const selected = selectedFacets[section.dimension] ?? [];
-              
-              return (
-                <AccordionItem key={section.dimension} value={section.dimension} className="border-b border-border/50 last:border-0 px-4">
-                  <AccordionTrigger className="text-sm font-medium py-3 hover:no-underline flex justify-between">
-                    <span>{section.label} {selected.length > 0 ? `(${selected.length})` : ""}</span>
-                    <ChevronDownIcon className="chevron h-4 w-4 shrink-0 transition-transform duration-200" />
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    {options.length ? (
-                      <div className="grid gap-2 sm:grid-cols-2 pt-1 pb-3">
-                        {options.map((option) => (
-                          <label
-                            key={option.slug}
-                            className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
-                          >
-                            <Checkbox
-                              className="mt-0.5"
-                              disabled={disabled}
-                              checked={selected.includes(option.slug)}
-                              onCheckedChange={() => onToggleFacet(section.dimension, option.slug)}
-                            />
-                            <span>{option.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground pb-3">No options configured.</p>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key={`panel-${dimension}`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-1 rounded-lg border border-border/50 bg-popover p-3 shadow-sm">
+              {options.length ? (
+                <motion.div
+                  className="grid gap-1.5 sm:grid-cols-2"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: {},
+                    visible: { transition: { staggerChildren: 0.025 } },
+                  }}
+                >
+                  {options.map((option) => (
+                    <motion.label
+                      key={option.slug}
+                      variants={{
+                        hidden: { opacity: 0, y: 6 },
+                        visible: { opacity: 1, y: 0, transition: { duration: 0.15 } },
+                      }}
+                      className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
+                    >
+                      <Checkbox
+                        className="mt-0.5"
+                        disabled={disabled}
+                        checked={selected.includes(option.slug)}
+                        onCheckedChange={() => onToggle(option.slug)}
+                      />
+                      <span>{option.label}</span>
+                    </motion.label>
+                  ))}
+                </motion.div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No options configured.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

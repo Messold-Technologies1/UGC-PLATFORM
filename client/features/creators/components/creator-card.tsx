@@ -65,7 +65,7 @@ export const CreatorCard = memo(function CreatorCard({
           "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
         )}
       >
-        <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+        <div className="relative aspect-4/5 overflow-hidden bg-muted">
           {hasPreviewVideo ? (
             <div
               className="relative size-full cursor-pointer"
@@ -325,7 +325,7 @@ export function CreatorCardSkeleton({
   if (appearance === "browse") {
     return (
       <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
-        <Skeleton className="aspect-[4/5] w-full rounded-none" />
+        <Skeleton className="aspect-4/5 w-full rounded-none" />
         <div className="flex flex-1 flex-col p-3">
           <div className="flex items-center justify-between gap-2">
             <Skeleton className="h-5 w-32 rounded-full" />

@@ -20,7 +20,13 @@ export interface OrderListSummary {
   deliveryDaysSnapshot: number;
   paidAt?: string | null;
   briefSubmittedAt?: string | null;
+  briefAcceptedAt?: string | null;
   hasBrief: boolean;
+  requiresPhysicalProductShipment: boolean;
+  courierName?: string | null;
+  trackingId?: string | null;
+  dispatchedAt?: string | null;
+  productReceivedAt?: string | null;
   deliveryDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;

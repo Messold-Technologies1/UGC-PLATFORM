@@ -1,10 +1,37 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
+export interface OrderBriefAsset {
+  key: string;
+  url?: string | null;
+}
+
+export interface OrderBriefPayload {
+  id: string;
+  brandName?: string | null;
+  brandPronunciationAudio?: OrderBriefAsset | null;
+  industry?: string | null;
+  brandLogo?: OrderBriefAsset | null;
+  productName?: string | null;
+  productDescription?: string | null;
+  productPageUrl?: string | null;
+  willShipPhysicalProductToCreator: boolean;
+  shootLocationKind?: string | null;
+  shootLocationAddress?: string | null;
+  durationBucket?: string | null;
+  contentType?: string | null;
+  toneStyle?: string | null;
+  referenceLinks: string[];
+  finalNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OrderBriefResponse {
   orderId: string;
   briefSubmittedAt?: string | null;
-  brief: Record<string, unknown> | null;
+  briefAcceptedAt?: string | null;
+  brief: OrderBriefPayload | null;
 }
 
 export async function getOrderBrief(orderId: string) {

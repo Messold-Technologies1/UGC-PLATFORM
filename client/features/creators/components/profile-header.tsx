@@ -122,17 +122,32 @@ export const ProfileHeader = memo(function ProfileHeader({
               </div>
             </div>
 
-            <div className="mt-6">
-              <div className="flex flex-wrap gap-2">
-                {[...creator.languages, ...creator.categories].map((tag) => (
-                  <Badge
-                    key={tag}
-                    className="bg-primary/10 text-primary hover:bg-primary/20 border-0 rounded-full px-4 py-0.5 text-xs"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+            <div className="mt-6 flex flex-col gap-3">
+              {creator.categories.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {creator.categories.map((tag) => (
+                    <Badge
+                      key={tag}
+                      className="bg-primary/10 text-primary hover:bg-primary/20 border-0 rounded-full px-4 py-0.5 text-xs"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {creator.languages.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {creator.languages.map((tag) => (
+                    <Badge
+                      key={`lang-${tag}`}
+                      variant="outline"
+                      className="border-muted-foreground/30 text-muted-foreground rounded-full px-4 py-0.5 text-xs"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -160,15 +175,14 @@ export const ProfileHeader = memo(function ProfileHeader({
 
             {creator.personaTags && creator.personaTags.length > 0 ? (
               <div>
-                <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                <h3 className="text-[10px] uppercase font-bold tracking-wider text-primary/80 mb-2">
                   Vibe & Persona
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {creator.personaTags.slice(0, 5).map((tag) => (
                     <Badge
                       key={tag}
-                      variant="outline"
-                      className="border-border/80 px-2 py-0.5 text-[10px] text-muted-foreground font-medium bg-muted/20"
+                      className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 px-2.5 py-0.5 text-[10px] font-semibold"
                     >
                       {tag}
                     </Badge>

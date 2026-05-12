@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, MapPin, Calendar } from "lucide-react";
+import {  ArrowRight, Send } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,7 +10,7 @@ import * as z from "zod";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
+import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
 import {
@@ -175,13 +176,13 @@ function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
   };
 }
 
-function formatEnumLabel(value: string | null | undefined) {
-  if (!value) return "N/A";
-  return value
-    .split("_")
-    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-    .join(" ");
-}
+// function formatEnumLabel(value: string | null | undefined) {
+//   if (!value) return "N/A";
+//   return value
+//     .split("_")
+//     .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+//     .join(" ");
+// }
 
 export default function CreateBriefPage() {
   const router = useRouter();
@@ -228,16 +229,33 @@ export default function CreateBriefPage() {
       toast.error("Could not upload pronunciation audio. Try again.");
     },
   });
+  const [savedBriefId, setSavedBriefId] = useState<string | null>(null);
+
   const createBriefMutation = useCreateBriefMutation({
     onSuccess: (result) => {
-      if (orderId) {
-        router.push(`/brand/orders/${orderId}`);
+      if (isFromOrder) {
+        // Don't redirect — keep the user here so they can submit the brief
+        setSavedBriefId(result.id);
         return;
       }
 
       router.push(`/brand/briefs/${result.id}`);
     },
   });
+
+  const submitBriefMutation = useSubmitBriefMutation({
+    onSuccess: () => {
+      router.push(`/brand/orders/${orderId}`);
+    },
+  });
+
+  const handleSubmitBrief = () => {
+    if (!orderId || !savedBriefId) return;
+    submitBriefMutation.mutate({
+      orderId,
+      briefId: savedBriefId,
+    });
+  };
 
   const watchShootLocation = useWatch({
     control: form.control,
@@ -291,6 +309,7 @@ export default function CreateBriefPage() {
   };
 
   const isSubmitting = createBriefMutation.isPending;
+  const isSubmittingBrief = submitBriefMutation.isPending;
   const isUploadPending = uploadPronunciationMutation.isPending;
   const pronunciationUrlRegister = form.register("brandPronunciationAudioUrl");
 
@@ -303,15 +322,15 @@ export default function CreateBriefPage() {
     >
       <div className={cn(isFromOrder && "flex gap-0 lg:items-start")}>
         <div className="flex-1 min-w-0">
-          <div className="mb-10 flex items-center gap-4">
-            {/* <Button
+          {/* <div className="mb-10 flex items-center gap-4">
+            <Button
           variant="ghost"
           size="icon"
           onClick={() => router.back()}
           className="rounded-full bg-background border border-border/40 shadow-sm transition-transform hover:-translate-x-1"
         >
           <ArrowLeft className="size-4" />
-        </Button> */}
+        </Button>
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
                 Create Campaign Brief
@@ -321,7 +340,7 @@ export default function CreateBriefPage() {
                 captures your brand&apos;s vision.
               </p>
             </div>
-          </div>
+          </div> */}
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Card className="rounded-2xl border-border/40 bg-card shadow-sm">
@@ -772,14 +791,14 @@ export default function CreateBriefPage() {
                 type="button"
                 variant="ghost"
                 onClick={() => router.back()}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSubmittingBrief}
                 className="rounded-xl font-semibold"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || isUploadPending}
+                disabled={isSubmitting || isUploadPending || isSubmittingBrief}
                 className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90"
               >
                 {isSubmitting ? (
@@ -794,11 +813,31 @@ export default function CreateBriefPage() {
                   </>
                 ) : (
                   <>
-                    <Check className="mr-2 size-4" />
-                    Save Brief
+                    {/* <Check className="mr-2 size-4" /> */}
+                    {savedBriefId ? "Update & Save Brief" : "Save Brief"}
                   </>
                 )}
               </Button>
+              {isFromOrder && savedBriefId && (
+                <Button
+                  type="button"
+                  disabled={isSubmittingBrief || isSubmitting}
+                  onClick={handleSubmitBrief}
+                  className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isSubmittingBrief ? (
+                    <>
+                      <Spinner className="mr-2 size-4" aria-hidden />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 size-4" />
+                      Submit Brief
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </div>
@@ -830,49 +869,45 @@ export default function CreateBriefPage() {
                       No existing briefs found.
                     </div>
                   ) : (
-                    existingBriefs.map((brief) => (
-                      <Card
-                        key={brief.id}
-                        className="rounded-xl border-border/40 shadow-sm transition-colors hover:bg-muted/30"
-                      >
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-semibold text-sm line-clamp-1">
-                              {brief.brandName}
-                            </h4>
-                            <Badge
-                              variant="outline"
-                              className="shrink-0 text-[10px] uppercase"
-                            >
-                              {formatEnumLabel(brief.contentType)}
-                            </Badge>
-                          </div>
-                          {brief.productName && (
-                            <div className="text-xs font-medium text-muted-foreground line-clamp-1">
-                              {brief.productName}
+                    <div className="flex flex-col divide-y divide-border/40 rounded-xl border border-border/40 bg-card overflow-hidden">
+                      {existingBriefs.map((brief) => (
+                        <div
+                          key={brief.id}
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 group"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold truncate">
+                                {brief.brandName || "Untitled Brief"}
+                              </span>
+                              {/* {brief.contentType && (
+                                <Badge
+                                  variant="outline"
+                                  className="shrink-0 text-[10px] uppercase"
+                                >
+                                  {formatEnumLabel(brief.contentType)}
+                                </Badge>
+                              )} */}
                             </div>
-                          )}
-                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {brief.durationBucket && (
-                              <div className="flex items-center gap-1">
-                                <Calendar className="size-3" />
-                                <span>
-                                  {formatEnumLabel(brief.durationBucket)}
-                                </span>
-                              </div>
-                            )}
-                            {brief.shootLocationKind && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="size-3" />
-                                <span>
-                                  {formatEnumLabel(brief.shootLocationKind)}
-                                </span>
-                              </div>
+                            {brief.productName && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {brief.productName}
+                              </p>
                             )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 size-8 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                            onClick={() => router.push(`/brand/briefs/${brief.id}${orderId ? `?orderId=${orderId}` : ""}`)}
+                            aria-label={`View brief ${brief.brandName || brief.id}`}
+                          >
+                            <ArrowRight className="size-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

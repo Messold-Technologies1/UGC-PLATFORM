@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { BriefForm } from "@/features/orders/components/brief-form";
+import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useOpenBrandDisputeMutation } from "@/features/orders/hooks/use-open-brand-dispute-mutation";
 import { useOpenCreatorDisputeMutation } from "@/features/orders/hooks/use-open-creator-dispute-mutation";
 import type {
@@ -62,7 +62,6 @@ export function OrderHeader({
   brand,
 }: OrderHeaderProps) {
   const router = useRouter();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDisputeDrawerOpen, setIsDisputeDrawerOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const openBrandDisputeMutation = useOpenBrandDisputeMutation({
@@ -87,6 +86,10 @@ export function OrderHeader({
       : brand?.brandName ?? "Brand partner";
   const counterpartyImageUrl =
     role === "brand" ? creator?.profileImageUrl : brand?.logoUrl;
+  const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
+  const briefId = orderBriefData?.brief
+    ? (orderBriefData.brief as Record<string, unknown>).id as string | undefined
+    : undefined;
   const canManageBrief =
     role === "brand" &&
     (order ? order.status === "BRIEF_SUBMISSION_PENDING" && !order.hasBrief : true);
@@ -132,8 +135,8 @@ export function OrderHeader({
   function handleBriefAction() {
     if (briefActionLabel === "Submit Brief") {
       router.push(`/brand/briefs/create?orderId=${orderId}`);
-    } else {
-      setIsDrawerOpen(true);
+    } else if (briefId) {
+      router.push(`/brand/briefs/${briefId}`);
     }
   }
 
@@ -203,36 +206,7 @@ export function OrderHeader({
         </div>
       </div>
 
-      <Drawer
-        open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
-        direction="right"
-      >
-        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-112.5 data-[vaul-drawer-direction=right]:rounded-none h-full border-l border-border/30 bg-background shadow-2xl flex flex-col p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-          <DrawerHeader className="sticky top-0 z-10 border-b border-border/20 bg-background/95 px-8 py-6 text-left backdrop-blur-sm">
-            <DrawerTitle className="text-xl font-headline font-extrabold tracking-tight">
-              Project Brief
-            </DrawerTitle>
-            <DrawerDescription className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              {order?.packageNameSnapshot ?? `Order ${orderId}`} - Brief details and
-              requirements.
-            </DrawerDescription>
-          </DrawerHeader>
 
-          <div className="flex-1 overflow-y-auto px-8 py-6 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            <BriefForm
-              orderId={orderId}
-              showHeading={false}
-              submitLabel="Send Details"
-              showCancelButton={role === "brand" && !isBriefReadOnly}
-              onSuccess={() => setIsDrawerOpen(false)}
-              onCancel={() => setIsDrawerOpen(false)}
-              className="border-0 bg-transparent p-0 shadow-none"
-              readOnly={isBriefReadOnly}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
 
       <Drawer
         open={isDisputeDrawerOpen}

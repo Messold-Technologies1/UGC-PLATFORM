@@ -360,7 +360,8 @@ model Order {
   id               String      @id @default(uuid()) @db.Uuid
   brandId          String      @db.Uuid
   creatorId        String      @db.Uuid
-  creatorPackageId String      @db.Uuid
+  /// Cleared if the listing package row is removed; use snapshot fields for purchased terms.
+  creatorPackageId String?     @db.Uuid
   status           OrderStatus @default(PENDING_PAYMENT)
 
   // Snapshots at purchase time
@@ -406,7 +407,7 @@ model Order {
 
   brand          BrandProfile         @relation(fields: [brandId], references: [id], onDelete: Cascade)
   creator        CreatorProfile       @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  package        CreatorPackage       @relation(fields: [creatorPackageId], references: [id], onDelete: Restrict)
+  package        CreatorPackage?      @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
   briefRef       Brief?               @relation(fields: [briefId], references: [id], onDelete: SetNull)
   disputes       OrderDispute[]
   deliveries     OrderDelivery[]

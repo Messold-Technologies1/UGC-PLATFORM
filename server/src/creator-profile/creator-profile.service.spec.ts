@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ApprovalStatus, Prisma } from '@prisma/client';
+import { CREATOR_ADDON_OPTION_SEED_ROWS } from '../../prisma/creator-addon-options-seed';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -8,6 +9,16 @@ import {
 } from './dto/create-creator-profile.dto';
 import { CreatorProfileService } from './creator-profile.service';
 import { StorageService } from '../storage/storage.service';
+
+const mockCreatorAddOnOptionsForCatalog = CREATOR_ADDON_OPTION_SEED_ROWS.map(
+  (row) => ({
+    slug: row.slug,
+    name: row.name,
+    fixedPrice: row.fixedPrice ?? null,
+    minPrice: row.minPrice ?? null,
+    stepPrice: row.stepPrice ?? null,
+  }),
+);
 
 /** Async Prisma delegate mock used in interactive transaction tests */
 type TxAsyncMock = jest.Mock<Promise<unknown>, unknown[]>;
@@ -45,6 +56,9 @@ interface TxMock {
   creatorAddOn: {
     createMany: TxAsyncMock;
     deleteMany: TxAsyncMock;
+  };
+  creatorAddOnOption: {
+    findMany: TxAsyncMock;
   };
   role: {
     findUnique: TxAsyncMock;
@@ -93,6 +107,9 @@ describe('CreatorProfileService', () => {
     creatorAddOn: {
       createMany: createTxAsyncMock(),
       deleteMany: createTxAsyncMock(),
+    },
+    creatorAddOnOption: {
+      findMany: createTxAsyncMock(),
     },
     role: {
       findUnique: createTxAsyncMock(),
@@ -172,6 +189,10 @@ describe('CreatorProfileService', () => {
     txMock.creatorRestriction.createMany.mockReset();
     txMock.creatorAddOn.createMany.mockReset();
     txMock.creatorAddOn.deleteMany.mockReset();
+    txMock.creatorAddOnOption.findMany.mockReset();
+    txMock.creatorAddOnOption.findMany.mockResolvedValue(
+      mockCreatorAddOnOptionsForCatalog,
+    );
     txMock.role.findUnique.mockReset();
     txMock.user.update.mockReset();
     txMock.user.findUnique.mockReset();
@@ -272,10 +293,8 @@ describe('CreatorProfileService', () => {
       displayName: 'Jane',
       addOns: [
         {
-          name: 'On-location shoot fee',
-          slug: 'on-location-shoot-fee',
-          priceAmount: '499.00',
-          description: 'Travel and setup for in-store shoots',
+          slug: 'on_location_shoot',
+          priceAmount: '500',
         },
       ],
       packages: [
@@ -296,9 +315,57 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorProfileLanguage.deleteMany).toHaveBeenCalled();
     expect(creatorPackageService.createPackages).toHaveBeenCalled();
     expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
+    const createManyArg = txMock.creatorAddOn.createMany.mock.calls[0]?.[0] as {
+      data: { name: string }[];
+    };
+    const addOnRows = createManyArg.data;
+    expect(addOnRows).toHaveLength(1);
+    expect(addOnRows.map((r) => r.name)).toEqual(['On-location Shoot']);
   });
 
-  it('addOrUpdateAddOns upserts add-ons by name without touching others', async () => {
+  it('does not persist add-ons when addOns omitted on create', async () => {
+    const profileId = 'profile-2';
+    const role = { id: 'role-creator' };
+
+    txMock.creatorProfile.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({
+        id: profileId,
+        userId: creatorId,
+        displayName: 'Alex',
+        profileImageUrl: null,
+        countryName: null,
+        stateName: null,
+        city: null,
+        bio: null,
+        gender: null,
+        dateOfBirth: null,
+        shippingAddress: null,
+        instagramUrl: null,
+        contentVolume: null,
+        collaborationCount: 0,
+        travelRadius: null,
+        onLocationAvailable: false,
+        facetSelections: [],
+        profileLanguages: [],
+        categories: [],
+        personaTags: [],
+        restrictions: [],
+        packages: [],
+        addOns: [],
+        creatorApproval: { status: ApprovalStatus.PENDING, rejectionReason: null },
+        portfolioVideos: [],
+      });
+
+    txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
+    txMock.role.findUnique.mockResolvedValueOnce(role);
+
+    await service.createCreatorProfile(creatorId, { displayName: 'Alex' });
+
+    expect(txMock.creatorAddOn.createMany).not.toHaveBeenCalled();
+  });
+
+  it('addOrUpdateAddOns replaces add-ons with the provided catalog slugs', async () => {
     const profileId = 'profile-1';
     (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce({
       id: profileId,
@@ -335,10 +402,8 @@ describe('CreatorProfileService', () => {
     const dto = {
       addOns: [
         {
-          name: 'On-location shoot fee',
-          slug: 'on-location-shoot-fee',
-          priceAmount: '499.00',
-          description: 'Travel and setup for in-store shoots',
+          slug: 'on_location_shoot',
+          priceAmount: '500',
         },
       ],
     };
@@ -348,10 +413,13 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorAddOn.deleteMany).toHaveBeenCalledWith({
       where: {
         creatorId: profileId,
-        name: { in: ['On-location shoot fee'] },
       },
     });
     expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
+    const createManyArgUpdate = txMock.creatorAddOn.createMany.mock
+      .calls[0]?.[0] as { data: { name: string }[] };
+    const addOnRowsUpdate = createManyArgUpdate.data;
+    expect(addOnRowsUpdate.map((r) => r.name)).toEqual(['On-location Shoot']);
     expect(result.id).toBe(profileId);
   });
 

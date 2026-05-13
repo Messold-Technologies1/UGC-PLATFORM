@@ -122,11 +122,6 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ type: () => [CreatorPublicListFacetDto] })
   facetSelections!: CreatorPublicListFacetDto[];
 
-  @ApiProperty({ type: [String], example: ['UGC Video', 'Product Demo'] })
-  categories!: string[];
-
-  @ApiProperty({ type: [String], example: ['skincare', 'minimal aesthetic'] })
-  personaTags!: string[];
 
   @ApiProperty({ type: [String], example: ['does not accept alcohol'] })
   restrictions!: string[];

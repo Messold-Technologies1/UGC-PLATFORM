@@ -17,7 +17,7 @@ export type CreatorFacetDimension =
   | "CAPABILITY"
   | "LIFE_STYLE"
   | "OCCUPATION"
-  | "INTEREST"
+  | "CONTENT_CATEGORY"
   | "CATEGORY_EXPERIENCE"
   | "CAN_CREATE_WITH"
   | "AI_CONTENT_PERMISSION"
@@ -35,11 +35,6 @@ export interface CreatorFacetSelectionResponseDto {
   dimension: CreatorFacetDimension;
   slug: string;
   label: string;
-}
-
-export interface CreatorCategoryResponseDto {
-  id: string;
-  category: string;
 }
 
 export interface CreatorPersonaTagResponseDto {
@@ -104,7 +99,6 @@ export interface CreatorProfileResponseDto {
   rejectionReason?: string | null;
   profileLanguages: CreatorProfileLanguageResponseDto[];
   facetSelections: CreatorFacetSelectionResponseDto[];
-  categories: CreatorCategoryResponseDto[];
   personaTags: CreatorPersonaTagResponseDto[];
   restrictions: CreatorRestrictionResponseDto[];
   packages: CreatorPackageResponseDto[];

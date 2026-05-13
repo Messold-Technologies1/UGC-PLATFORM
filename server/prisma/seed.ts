@@ -30,21 +30,6 @@ const permissionsByRole: Record<RoleName, string[]> = {
   ],
 };
 
-const creatorPersonaTags = [
-  'Polished look',
-  'High-end vibe',
-  'Clean aesthetic',
-  'Simple',
-  'Friendly',
-  'Everyday vibe',
-  'Trendy outfits',
-  'Fast talking',
-  'Reels style',
-  'Fit body',
-  'Gym vibe',
-  'Energy',
-] as const;
-
 const creatorRestrictionSuggestions = [
   'does not accept lingerie',
   'does not accept alcohol',
@@ -135,14 +120,6 @@ async function seedRolesAndPermissions(): Promise<void> {
 }
 
 async function seedCreatorSuggestions(): Promise<void> {
-  await db.creatorPersonaTagSuggestion.createMany({
-    data: creatorPersonaTags.map((name) => ({
-      name,
-      normalizedName: normalizeSuggestion(name),
-    })),
-    skipDuplicates: true,
-  });
-
   await db.creatorRestrictionSuggestion.createMany({
     data: creatorRestrictionSuggestions.map((name) => ({
       name,

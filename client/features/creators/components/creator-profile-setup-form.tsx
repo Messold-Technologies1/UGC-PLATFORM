@@ -86,7 +86,7 @@ const facetSections: Array<{
   { dimension: "CONTENT_STYLE", label: "Content style" },
   { dimension: "CAPABILITY", label: "Capabilities" },
   { dimension: "LIFE_STYLE", label: "Lifestyle" },
-  { dimension: "INTEREST", label: "Content category" },
+  { dimension: "CONTENT_CATEGORY", label: "Content category" },
   { dimension: "CATEGORY_EXPERIENCE", label: "Category experience" },
   { dimension: "OCCUPATION", label: "Occupation" },
   { dimension: "CAN_CREATE_WITH", label: "Can create with" },

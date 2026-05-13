@@ -1,4 +1,8 @@
-import { ApprovalStatus, PortfolioVisibilityStatus } from '@prisma/client';
+import {
+  ApprovalStatus,
+  CreatorFacetDimension,
+  PortfolioVisibilityStatus,
+} from '@prisma/client';
 import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
@@ -68,6 +72,27 @@ describe('creator-list-filters.util', () => {
       );
     });
 
+    it('filters by content category facet slugs', () => {
+      const q: ListCreatorsQueryDto = {
+        contentCategory: ['fashion', 'beauty_skincare'],
+      };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        AND: [
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          {
+            facetSelections: {
+              some: {
+                option: {
+                  dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+                  slug: { in: ['fashion', 'beauty_skincare'] },
+                },
+              },
+            },
+          },
+        ],
+      });
+    });
+
     it('ANDs city and industry', () => {
       const q: ListCreatorsQueryDto = {
         city: 'Kolkata',
@@ -96,26 +121,7 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('uses OR within personaTags with flexible match', () => {
-      const q: ListCreatorsQueryDto = {
-        personaTags: ['a', 'b'],
-      };
-      expect(buildListCreatorsWhere(q)).toEqual({
-        AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
-          {
-            personaTags: {
-              some: {
-                OR: [
-                  { tag: { contains: 'a', mode: 'insensitive' } },
-                  { tag: { contains: 'b', mode: 'insensitive' } },
-                ],
-              },
-            },
-          },
-        ],
-      });
-    });
+
 
     it('filters by package price range when min and max set', () => {
       const q: ListCreatorsQueryDto = { minPrice: 100, maxPrice: 500 };

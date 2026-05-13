@@ -111,8 +111,9 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     ['travel', 'Travel'],
     ['technology_gadgets', 'Technology / Gadgets'],
     ['home_lifestyle', 'Home / Lifestyle'],
+    ['health_wellness', 'Health / Wellness'],
   ].map(([slug, label], i) => ({
-    dimension: CreatorFacetDimension.INTEREST,
+    dimension: CreatorFacetDimension.CONTENT_CATEGORY,
     slug,
     label,
     sortOrder: i,

@@ -99,7 +99,7 @@ enum CreatorFacetDimension {
   CAPABILITY
   LIFE_STYLE
   OCCUPATION
-  INTEREST
+  CONTENT_CATEGORY
   CATEGORY_EXPERIENCE
   CAN_CREATE_WITH
   AI_CONTENT_PERMISSION
@@ -279,8 +279,6 @@ model CreatorProfile {
   creatorApproval  CreatorApproval?
   facetSelections  CreatorProfileFacetSelection[]
   profileLanguages CreatorProfileLanguage[]
-  categories       CreatorCategory[]
-  personaTags      CreatorPersonaTag[]
   restrictions     CreatorRestriction[]
   stats            CreatorStats?
   features         CreatorFeature[]
@@ -639,30 +637,6 @@ model CreatorApproval {
   @@index([approvedById])
 }
 
-model CreatorCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  creatorId String   @db.Uuid
-  category  String
-  createdAt DateTime @default(now())
-
-  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-
-  @@unique([creatorId, category])
-  @@index([category])
-}
-
-model CreatorPersonaTag {
-  id        String   @id @default(uuid()) @db.Uuid
-  creatorId String   @db.Uuid
-  tag       String
-  createdAt DateTime @default(now())
-
-  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-
-  @@unique([creatorId, tag])
-  @@index([tag])
-}
-
 model CreatorRestriction {
   id          String   @id @default(uuid()) @db.Uuid
   creatorId   String   @db.Uuid
@@ -673,20 +647,6 @@ model CreatorRestriction {
 
   @@unique([creatorId, restriction])
   @@index([restriction])
-}
-
-model CreatorCategorySuggestion {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String
-  normalizedName String   @unique
-  createdAt      DateTime @default(now())
-}
-
-model CreatorPersonaTagSuggestion {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String
-  normalizedName String   @unique
-  createdAt      DateTime @default(now())
 }
 
 model CreatorRestrictionSuggestion {

@@ -28,6 +28,7 @@ const _addcreatoraddonsdto = require("./dto/add-creator-addons.dto");
 const _creatorpayoutdetailsservice = require("./creator-payout-details.service");
 const _upsertcreatorpayoutdetailsdto = require("./dto/upsert-creator-payout-details.dto");
 const _creatorpayoutdetailsmaskeddto = require("./dto/creator-payout-details-masked.dto");
+const _suggestedcreatorsresponsedto = require("./dto/suggested-creators-response.dto");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -64,9 +65,6 @@ let CreatorProfileController = class CreatorProfileController {
     async listCategorySuggestions() {
         return this.creatorProfileService.listCategorySuggestions();
     }
-    async listPersonaTagSuggestions() {
-        return this.creatorProfileService.listPersonaTagSuggestions();
-    }
     async listRestrictionSuggestions() {
         return this.creatorProfileService.listRestrictionSuggestions();
     }
@@ -78,6 +76,9 @@ let CreatorProfileController = class CreatorProfileController {
     }
     async patchMyPayoutDetails(dto, req) {
         return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
+    }
+    async listSuggestedCreators(id) {
+        return this.creatorProfileService.listSuggestedCreators(id);
     }
     async getCreator(id, req) {
         return this.creatorProfileService.getCreatorById(req.user.id, id);
@@ -192,7 +193,8 @@ _ts_decorate([
     (0, _common.Get)('suggestions/categories'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
-        summary: 'List creator category suggestions'
+        summary: 'List category experience facet options (catalog)',
+        description: 'Returns CreatorFacetOption rows for dimension CATEGORY_EXPERIENCE (same slugs as facetSelections).'
     }),
     (0, _swagger.ApiOkResponse)({
         type: ()=>[
@@ -203,21 +205,6 @@ _ts_decorate([
     _ts_metadata("design:paramtypes", []),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "listCategorySuggestions", null);
-_ts_decorate([
-    (0, _common.Get)('suggestions/persona-tags'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
-    (0, _swagger.ApiOperation)({
-        summary: 'List creator persona tag suggestions'
-    }),
-    (0, _swagger.ApiOkResponse)({
-        type: ()=>[
-                _creatorsuggestionitemdto.CreatorSuggestionItemDto
-            ]
-    }),
-    _ts_metadata("design:type", Function),
-    _ts_metadata("design:paramtypes", []),
-    _ts_metadata("design:returntype", Promise)
-], CreatorProfileController.prototype, "listPersonaTagSuggestions", null);
 _ts_decorate([
     (0, _common.Get)('suggestions/restrictions'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
@@ -288,6 +275,22 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "patchMyPayoutDetails", null);
 _ts_decorate([
+    (0, _common.Get)(':id/suggested'),
+    (0, _swagger.ApiOperation)({
+        summary: 'Suggested creators for a profile page (same content category)',
+        description: 'Public discovery helper for brand (or guest) creator profile pages: returns up to five other approved creators sharing at least one CONTENT_CATEGORY facet with the anchor. Only available when the anchor creator is approved (404 otherwise). No authentication required.'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: ()=>_suggestedcreatorsresponsedto.SuggestedCreatorsResponseDto
+    }),
+    _ts_param(0, (0, _common.Param)('id', _common.ParseUUIDPipe)),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        String
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listSuggestedCreators", null);
+_ts_decorate([
     (0, _common.Get)(':id'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _swagger.ApiOperation)({
@@ -311,7 +314,7 @@ _ts_decorate([
     (0, _requiredworkspacedecorator.RequiredWorkspace)('CREATOR'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard, _workspacepermissionguard.WorkspacePermissionGuard),
     (0, _swagger.ApiOperation)({
-        summary: 'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)'
+        summary: 'Update creator profile (replace languages/facets/persona/restrictions/packages/addOns if provided)'
     }),
     (0, _swagger.ApiOkResponse)({
         type: _creatorprofileresponsedto.CreatorProfileResponseDto

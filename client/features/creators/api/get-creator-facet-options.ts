@@ -8,7 +8,7 @@ export const creatorFacetDimensions = [
   "CAPABILITY",
   "LIFE_STYLE",
   "OCCUPATION",
-  "INTEREST",
+  "CONTENT_CATEGORY",
   "CATEGORY_EXPERIENCE",
   "CAN_CREATE_WITH",
   "AI_CONTENT_PERMISSION",

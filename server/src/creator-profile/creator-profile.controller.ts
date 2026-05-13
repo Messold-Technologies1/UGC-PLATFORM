@@ -37,6 +37,7 @@ import {
 } from './dto/presign-profile-image-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
+import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
@@ -102,6 +103,17 @@ export class CreatorProfileController {
   @ApiOkResponse({ type: CreatorFacetOptionsResponseDto })
   async listFacetOptions(): Promise<CreatorFacetOptionsResponseDto> {
     return this.creatorProfileService.listFacetOptions();
+  }
+
+  @Get('facet-options/languages')
+  @ApiOperation({
+    summary: 'List creator language facet options (catalog)',
+    description:
+      'Returns CreatorFacetOption rows with dimension LANGUAGE (slug, label, sortOrder), for profile language pickers and filters.',
+  })
+  @ApiOkResponse({ type: CreatorLanguageOptionsResponseDto })
+  async listCreatorLanguageOptions(): Promise<CreatorLanguageOptionsResponseDto> {
+    return this.creatorProfileService.listCreatorLanguageOptions();
   }
 
   @Get('add-on-options')

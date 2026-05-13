@@ -174,6 +174,14 @@ describe('creator-list-filters.util', () => {
         take: 1,
         orderBy: { createdAt: 'desc' },
       });
+      expect(inc.packages).toEqual({
+        select: {
+          name: true,
+          priceAmount: true,
+          deliveryDays: true,
+          deliverables: true,
+        },
+      });
     });
 
     it('narrows preview when industry filter set', () => {

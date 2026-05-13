@@ -12,6 +12,12 @@ export class CreatorPublicListPackageDto {
 
   @ApiProperty({ example: '199.99' })
   priceAmount!: string;
+
+  @ApiProperty({ example: 5 })
+  deliveryDays!: number;
+
+  @ApiProperty({ example: true })
+  basicEditing!: boolean;
 }
 
 export class CreatorPublicListPortfolioVideoDto {

@@ -38,16 +38,9 @@ export const CREATOR_ADDON_OPTION_SEED_ROWS: AddOnOptionSeedRow[] = [
     stepPrice: 100,
   },
   {
-    slug: 'script_writing',
-    name: 'Script Writing',
-    sortOrder: 4,
-    minPrice: 100,
-    stepPrice: 100,
-  },
-  {
     slug: 'advanced_editing',
     name: 'Advanced Editing',
-    sortOrder: 5,
+    sortOrder: 4,
     minPrice: 100,
     stepPrice: 100,
   },

@@ -368,7 +368,9 @@ export function buildCreatorListRelationsInclude(
     categories: { select: { category: true } },
     personaTags: { select: { tag: true } },
     restrictions: { select: { restriction: true } },
-    packages: { select: { name: true, priceAmount: true } },
+    packages: {
+      select: { name: true, priceAmount: true, deliveryDays: true, deliverables: true },
+    },
     portfolioVideos: {
       where: baseWhere,
       orderBy: { createdAt: 'desc' },

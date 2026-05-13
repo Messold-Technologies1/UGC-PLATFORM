@@ -436,6 +436,28 @@ let CreatorProfileService = class CreatorProfileService {
             optionsByDimension
         };
     }
+    async listCreatorLanguageOptions() {
+        const options = await this.prisma.creatorFacetOption.findMany({
+            where: {
+                dimension: _client.CreatorFacetDimension.LANGUAGE
+            },
+            orderBy: {
+                sortOrder: 'asc'
+            },
+            select: {
+                slug: true,
+                label: true,
+                sortOrder: true
+            }
+        });
+        return {
+            languages: options.map((o)=>({
+                    slug: o.slug,
+                    label: o.label,
+                    sortOrder: o.sortOrder
+                }))
+        };
+    }
     async listAddOnOptions() {
         const options = await this.prisma.creatorAddOnOption.findMany({
             orderBy: [
@@ -601,7 +623,7 @@ let CreatorProfileService = class CreatorProfileService {
     }
     async listCreators(query) {
         const page = query.page ?? 1;
-        const limit = query.limit ?? 20;
+        const limit = query.limit ?? 4;
         const skip = (page - 1) * limit;
         const where = (0, _creatorlistfiltersutil.buildListCreatorsWhere)(query, {
             requireApproved: true
@@ -673,10 +695,16 @@ let CreatorProfileService = class CreatorProfileService {
             categories: Array.isArray(profile.categories) ? profile.categories.map((c)=>c?.category).filter((v)=>typeof v === 'string') : [],
             personaTags: Array.isArray(profile.personaTags) ? profile.personaTags.map((t)=>t?.tag).filter((v)=>typeof v === 'string') : [],
             restrictions: Array.isArray(profile.restrictions) ? profile.restrictions.map((r)=>r?.restriction).filter((v)=>typeof v === 'string') : [],
-            packages: Array.isArray(profile.packages) ? profile.packages.map((pkg)=>({
+            packages: Array.isArray(profile.packages) ? profile.packages.map((pkg)=>{
+                const deliverables = Array.isArray(pkg?.deliverables) ? pkg.deliverables : [];
+                const basicEditing = deliverables.some((d)=>d === 'Basic editing');
+                return {
                     name: String(pkg?.name ?? ''),
-                    priceAmount: pkg?.priceAmount?.toString?.() ?? (typeof pkg?.priceAmount === 'string' ? pkg.priceAmount : '')
-                })) : [],
+                    priceAmount: pkg?.priceAmount?.toString?.() ?? (typeof pkg?.priceAmount === 'string' ? pkg.priceAmount : ''),
+                    deliveryDays: typeof pkg?.deliveryDays === 'number' ? pkg.deliveryDays : 0,
+                    basicEditing: basicEditing
+                };
+            }) : [],
             portfolioVideos
         };
     }
@@ -1043,26 +1071,23 @@ let CreatorProfileService = class CreatorProfileService {
                 throw new _common.ForbiddenException('Not allowed to update this creator profile');
             }
             const payload = dto.addOns ?? [];
-            if (payload.length > 0) {
-                const slugs = Array.from(new Set(payload.map((a)=>String(a.slug ?? '').trim()).filter((slug)=>slug.length > 0)));
-                if (slugs.length > 0) {
-                    // For slug-based update we replace all current add-ons in one go to avoid
-                    // name-matching issues and keep logic simple.
-                    await tx.creatorAddOn.deleteMany({
-                        where: {
-                            creatorId: creatorProfileId
-                        }
-                    });
-                    const normalizedAddOns = await this.normalizeCreatorAddOns(tx, payload);
-                    await tx.creatorAddOn.createMany({
-                        data: normalizedAddOns.map((addOn)=>({
-                                creatorId: creatorProfileId,
-                                name: addOn.name,
-                                priceAmount: addOn.priceAmount,
-                                description: addOn.description
-                            }))
-                    });
+            // Slug-based update replaces all current add-ons in one go to avoid
+            // name-matching issues and keep logic simple.
+            await tx.creatorAddOn.deleteMany({
+                where: {
+                    creatorId: creatorProfileId
                 }
+            });
+            if (payload.length > 0) {
+                const normalizedAddOns = await this.normalizeCreatorAddOns(tx, payload);
+                await tx.creatorAddOn.createMany({
+                    data: normalizedAddOns.map((addOn)=>({
+                            creatorId: creatorProfileId,
+                            name: addOn.name,
+                            priceAmount: addOn.priceAmount,
+                            description: addOn.description
+                        }))
+                });
             }
             const updated = await tx.creatorProfile.findUnique({
                 where: {

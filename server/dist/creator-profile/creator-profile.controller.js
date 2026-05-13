@@ -22,6 +22,7 @@ const _creatorprofileservice = require("./creator-profile.service");
 const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
 const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
 const _creatorfacetoptionsresponsedto = require("./dto/creator-facet-options-response.dto");
+const _creatorlanguageoptionsresponsedto = require("./dto/creator-language-options-response.dto");
 const _creatoraddonoptionsresponsedto = require("./dto/creator-addon-options-response.dto");
 const _addcreatoraddonsdto = require("./dto/add-creator-addons.dto");
 const _creatorpayoutdetailsservice = require("./creator-payout-details.service");
@@ -53,6 +54,9 @@ let CreatorProfileController = class CreatorProfileController {
     }
     async listFacetOptions() {
         return this.creatorProfileService.listFacetOptions();
+    }
+    async listCreatorLanguageOptions() {
+        return this.creatorProfileService.listCreatorLanguageOptions();
     }
     async listAddOnOptions() {
         return this.creatorProfileService.listAddOnOptions();
@@ -158,6 +162,19 @@ _ts_decorate([
     _ts_metadata("design:paramtypes", []),
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "listFacetOptions", null);
+_ts_decorate([
+    (0, _common.Get)('facet-options/languages'),
+    (0, _swagger.ApiOperation)({
+        summary: 'List creator language facet options (catalog)',
+        description: 'Returns CreatorFacetOption rows with dimension LANGUAGE (slug, label, sortOrder), for profile language pickers and filters.'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _creatorlanguageoptionsresponsedto.CreatorLanguageOptionsResponseDto
+    }),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", []),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listCreatorLanguageOptions", null);
 _ts_decorate([
     (0, _common.Get)('add-on-options'),
     (0, _swagger.ApiOperation)({

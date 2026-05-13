@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Plus, Bookmark } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, Plus } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -64,10 +64,7 @@ const AGE_GROUP_OPTIONS = [
   { value: "AGE_55_PLUS", label: "55+" },
 ] as const;
 
-/**
- * Maps facet dimension keys to human-readable sidebar labels.
- * Order here determines section order in the sidebar.
- */
+
 const FACET_SECTION_CONFIG: {
   dimension: string;
   label: string;
@@ -82,6 +79,7 @@ const FACET_SECTION_CONFIG: {
     | "interest"
     | "categoryExperience"
     | "canCreateWith"
+    | "aiContentPermission"
     | "language"
   >;
 }[] = [
@@ -94,6 +92,7 @@ const FACET_SECTION_CONFIG: {
   { dimension: "INTEREST", label: "Interest", filterKey: "interest" },
   { dimension: "CATEGORY_EXPERIENCE", label: "Category Experience", filterKey: "categoryExperience" },
   { dimension: "CAN_CREATE_WITH", label: "Can Create With", filterKey: "canCreateWith" },
+  { dimension: "AI_CONTENT_PERMISSION", label: "AI Content Permission", filterKey: "aiContentPermission" },
   { dimension: "LANGUAGE", label: "Language", filterKey: "language" },
 ];
 
@@ -118,6 +117,7 @@ export interface Filters {
   interest: string[];
   categoryExperience: string[];
   canCreateWith: string[];
+  aiContentPermission: string[];
   language: string[];
   ageGroup: string;
 }
@@ -142,6 +142,7 @@ export const DEFAULT_FILTERS: Filters = {
   interest: [],
   categoryExperience: [],
   canCreateWith: [],
+  aiContentPermission: [],
   language: [],
   ageGroup: "",
 };
@@ -158,7 +159,7 @@ function normalizeSelectedValues(values: string[]) {
   );
 }
 
-/** Keys that hold string[] values and support multi-select toggle */
+
 type MultiSelectFilterKey =
   | "categories"
   | "personaTags"
@@ -172,6 +173,7 @@ type MultiSelectFilterKey =
   | "interest"
   | "categoryExperience"
   | "canCreateWith"
+  | "aiContentPermission"
   | "language";
 
 
@@ -186,7 +188,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     setDraftFilters(filters);
   }, [filters]);
 
-  // ---------- Local text-field state ----------
+  
   const [prevCity, setPrevCity] = useState(draftFilters.city);
   const [localCity, setLocalCity] = useState(draftFilters.city);
   if (draftFilters.city !== prevCity) {
@@ -208,7 +210,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     setLocalPortfolioTag(draftFilters.portfolioTag);
   }
 
-  // ---------- Price slider state ----------
+  
   const [prevMinPrice, setPrevMinPrice] = useState(draftFilters.minPrice);
   const [prevMaxPrice, setPrevMaxPrice] = useState(draftFilters.maxPrice);
   const [priceDraft, setPriceDraft] = useState<[number, number]>([
@@ -224,7 +226,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     ]);
   }
 
-  // ---------- Data queries ----------
+  
   const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
     staleTime: 5 * 60_000,
   });
@@ -241,7 +243,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     staleTime: 5 * 60_000,
   });
 
-  // ---------- Show-more toggles per section ----------
+  
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const toggleShowMore = useCallback((sectionKey: string) => {
     setExpandedSections((prev) => {
@@ -252,7 +254,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     });
   }, []);
 
-  // ---------- Handlers ----------
+  
   const handleChange = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
       setDraftFilters((prev) => ({ ...prev, [key]: value }));
@@ -296,7 +298,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     [],
   );
 
-  // ---------- Derived option lists ----------
+  
   const categoryNames = useMemo(() => {
     const fromQuery =
       categorySuggestionsQuery.data?.map((item) => item.name.trim()).filter(Boolean) ??
@@ -321,7 +323,7 @@ export const CreatorFilters = memo(function CreatorFilters({
     [restrictionSuggestionsQuery.data],
   );
 
-  /** Facet options grouped by dimension */
+  
   const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
   return (
@@ -348,7 +350,7 @@ export const CreatorFilters = memo(function CreatorFilters({
           defaultValue={DEFAULT_OPEN_SECTIONS}
           className="space-y-0"
         >
-          {/* ──────────── Content Category (categories text[]) ──────────── */}
+          
           <DropdownFilterSection value="category" label="Content Category">
             {categoryNames.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -366,7 +368,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             )}
           </DropdownFilterSection>
 
-          {/* ──────────── Persona Tags (personaTags text[]) ──────────── */}
+          
           <DropdownFilterSection value="persona-tags" label="Persona Tags">
             {personaNames.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -384,7 +386,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             )}
           </DropdownFilterSection>
 
-          {/* ──────────── Facet-based sections ──────────── */}
+          
           {FACET_SECTION_CONFIG.map(({ dimension, label, filterKey }) => {
             const options: CreatorFacetOption[] =
               (facetOptionsByDimension as Record<string, CreatorFacetOption[]> | undefined)?.[dimension] ?? [];
@@ -416,7 +418,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             );
           })}
 
-          {/* ──────────── Location ──────────── */}
+          
           <DropdownFilterSection value="location" label="Location">
             <div className="pb-2">
               <Input
@@ -431,7 +433,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          {/* ──────────── Restrictions (text[]) ──────────── */}
+          
           <DropdownFilterSection value="restrictions" label="Restrictions">
             <div className="space-y-1">
               {restrictionNames.map((label) => (
@@ -445,7 +447,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          {/* ──────────── Availability ──────────── */}
+          
           <DropdownFilterSection value="availability" label="Availability">
             <div className="flex items-center justify-between py-1">
               <span className="text-[13px] font-medium text-[#374151]">On-Location</span>
@@ -458,7 +460,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          {/* ──────────── Price Range ──────────── */}
+          
           <DropdownFilterSection value="price-range" label="Price Range">
             <div className="px-1 py-2">
               <Slider
@@ -481,7 +483,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          {/* ──────────── Gender ──────────── */}
+          
           <DropdownFilterSection value="gender" label="Gender">
             <div className="space-y-1">
               {GENDER_OPTIONS.map((option) => (
@@ -496,7 +498,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          {/* ──────────── Age Group ──────────── */}
+          
           <DropdownFilterSection value="age-group" label="Age Group">
             <div className="pb-2">
               <select
@@ -513,7 +515,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          {/* ──────────── Video (industry + portfolioTag) ──────────── */}
+          
           <DropdownFilterSection value="video" label="Video">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -563,7 +565,7 @@ export const CreatorFilters = memo(function CreatorFilters({
   );
 });
 
-// ─────────────────── Reusable sub-components ───────────────────
+
 
 const DropdownFilterSection = memo(function DropdownFilterSection({
   value,
@@ -634,16 +636,13 @@ const CheckboxItem = memo(function CheckboxItem({
   );
 });
 
-/**
- * Generic checkbox list with show-more/show-less toggle.
- * Supports optional label map (for facet options where the value is a slug).
- */
+
 const CheckboxList = memo(function CheckboxList({
   items,
   labels,
   selected,
   onToggle,
-  sectionKey,
+  // sectionKey,
   expanded,
   onToggleExpand,
   initialCount = 5,
@@ -674,7 +673,7 @@ const CheckboxList = memo(function CheckboxList({
           onClick={onToggleExpand}
           className="text-[13px] font-semibold text-primary hover:text-primary/80 mt-2 flex items-center gap-1.5"
         >
-          <Plus className={cn("size-3.5 stroke-[3] transition-transform", expanded && "rotate-45")} />
+          <Plus className={cn("size-3.5 stroke-3 transition-transform", expanded && "rotate-45")} />
           {expanded ? "Show less" : "Show more"}
         </button>
       )}

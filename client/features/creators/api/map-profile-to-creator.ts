@@ -112,7 +112,9 @@ export function mapProfileToListingCreator(
       ? thumb
       : "/globe.svg";
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
-  const previewVideoUrl = trimString(firstPortfolioVideo?.videoUrl) || null;
+  const introVideoUrl = trimString(profile.introVideoUrl);
+  const previewVideoUrl =
+    introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
     trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
   const industryLabel = trimString(firstPortfolioVideo?.industryLabel) || undefined;

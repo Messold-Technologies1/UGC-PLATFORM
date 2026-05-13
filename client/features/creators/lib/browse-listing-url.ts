@@ -64,6 +64,7 @@ export function parseBrowseListingParams(
       interest: parseMultiValue(sp, "interest"),
       categoryExperience: parseMultiValue(sp, "categoryExperience"),
       canCreateWith: parseMultiValue(sp, "canCreateWith"),
+      aiContentPermission: parseMultiValue(sp, "aiContentPermission"),
       language: parseMultiValue(sp, "language"),
       ageGroup: sp.get("ageGroup")?.trim() ?? DEFAULT_FILTERS.ageGroup,
     },
@@ -84,6 +85,7 @@ const MULTI_VALUE_KEYS = [
   "interest",
   "categoryExperience",
   "canCreateWith",
+  "aiContentPermission",
   "language",
 ] as const;
 

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  type CSSProperties,
   startTransition,
   useCallback,
   useEffect,
@@ -74,6 +73,7 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     stringArraysEqual(a.interest, b.interest) &&
     stringArraysEqual(a.categoryExperience, b.categoryExperience) &&
     stringArraysEqual(a.canCreateWith, b.canCreateWith) &&
+    stringArraysEqual(a.aiContentPermission, b.aiContentPermission) &&
     stringArraysEqual(a.language, b.language) &&
     a.ageGroup === b.ageGroup
   );
@@ -137,18 +137,7 @@ export function CreatorListing({
 
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
   const [page, setPage] = useState<number>(() => parsedInitial.page);
-  const [showFilters, setShowFilters] = useState(true);
 
-  const [scrollParent, setScrollParent] = useState<HTMLElement | undefined>();
-
-  useEffect(() => {
-    const parent = document.getElementById("main-content");
-    if (parent) {
-      requestAnimationFrame(() => {
-        setScrollParent(parent);
-      });
-    }
-  }, []);
 
   const listingRef = useRef({ filters, page });
 
@@ -180,7 +169,7 @@ export function CreatorListing({
       );
       setPage(parsed.page);
     });
-    // syncUrlImmediate gets called internally by components handling states, skipping here to prevent loops unless needed
+    
   }, [searchParamsKey]);
 
   const apiFilters = useMemo(
@@ -206,6 +195,7 @@ export function CreatorListing({
       interest: filters.interest.length ? filters.interest : undefined,
       categoryExperience: filters.categoryExperience.length ? filters.categoryExperience : undefined,
       canCreateWith: filters.canCreateWith.length ? filters.canCreateWith : undefined,
+      aiContentPermission: filters.aiContentPermission.length ? filters.aiContentPermission : undefined,
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
@@ -230,7 +220,7 @@ export function CreatorListing({
         : undefined,
   });
 
-  const creators = data?.creators ?? [];
+  const creators = useMemo(() => data?.creators ?? [], [data?.creators]);
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),
     [creators],
@@ -241,32 +231,7 @@ export function CreatorListing({
     [filters],
   );
 
-  const activeFilterCount = useMemo(
-    () =>
-      [
-        Boolean(filters.city),
-        filters.categories.length > 0,
-        Boolean(filters.gender),
-        Boolean(filters.minPrice || filters.maxPrice),
-        filters.onLocationAvailable,
-        Boolean(filters.industry),
-        Boolean(filters.portfolioTag),
-        filters.personaTags.length > 0,
-        filters.restrictions.length > 0,
-        filters.contentFormat.length > 0,
-        filters.appearance.length > 0,
-        filters.contentStyle.length > 0,
-        filters.capability.length > 0,
-        filters.lifeStyle.length > 0,
-        filters.occupation.length > 0,
-        filters.interest.length > 0,
-        filters.categoryExperience.length > 0,
-        filters.canCreateWith.length > 0,
-        filters.language.length > 0,
-        Boolean(filters.ageGroup),
-      ].filter(Boolean).length,
-    [filters],
-  );
+
 
   const activeTags = useMemo(() => {
     const tags: { id: string; label: string; type: keyof Filters; value?: string }[] = [];
@@ -284,6 +249,7 @@ export function CreatorListing({
     filters.interest.forEach(v => tags.push({ id: `int-${v}`, label: v, type: "interest", value: v }));
     filters.categoryExperience.forEach(v => tags.push({ id: `ce-${v}`, label: v, type: "categoryExperience", value: v }));
     filters.canCreateWith.forEach(v => tags.push({ id: `ccw-${v}`, label: v, type: "canCreateWith", value: v }));
+    filters.aiContentPermission.forEach(v => tags.push({ id: `acp-${v}`, label: v, type: "aiContentPermission", value: v }));
     filters.language.forEach(v => tags.push({ id: `lang-${v}`, label: v, type: "language", value: v }));
     return tags;
   }, [filters]);
@@ -326,14 +292,8 @@ export function CreatorListing({
     syncUrlImmediate(DEFAULT_FILTERS, 1);
   }, [syncUrlImmediate]);
 
-  const handleCloseFilters = useCallback(() => setShowFilters(false), []);
-
   const displayedCount = data?.total ?? 0;
   const totalPages = Math.ceil(displayedCount / BROWSE_LIST_LIMIT);
-  const desktopFilterRailStyle = {
-    "--creators-filter-top": "6.5rem",
-    "--creators-filter-gap": "1.5rem",
-  } as CSSProperties;
 
   if (isPending && !data) {
     return <CreatorsBrowserLoadingShell />;
@@ -365,7 +325,7 @@ export function CreatorListing({
   return (
     <div className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8 -mt-6">
       {/* Sidebar */}
-      <div className="hidden lg:block w-full max-w-[260px] shrink-0 lg:sticky lg:top-[5rem]">
+      <div className="hidden lg:block w-full max-w-[260px] shrink-0 lg:sticky lg:top-20">
         <CreatorFilters
           filters={filters}
           onChange={handleFiltersChange}
@@ -386,7 +346,7 @@ export function CreatorListing({
         </div> */}
 
         {/* Search & Request Help Row */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div className="relative w-full max-w-2xl">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
             <Input

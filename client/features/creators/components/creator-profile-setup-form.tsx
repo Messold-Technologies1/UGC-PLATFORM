@@ -32,8 +32,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
-import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-image-field";
-import { getInitials } from "@/lib/account-user";
+import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-intro-video-field";
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
 import type {
   CreateCreatorProfilePayload,
@@ -47,7 +46,7 @@ import type {
 } from "@/features/creators/api/create-creator-profile";
 import {
   useSubmitCreatorProfileMutation,
-  useUploadCreatorProfileImageMutation,
+  useUploadCreatorIntroVideoMutation,
 } from "@/features/creators/hooks/use-creator-profile-form-mutation";
 import {
   useCreatorAddOnOptionsQuery,
@@ -63,8 +62,13 @@ import type {
   CreatorFacetOption,
 } from "@/features/creators/api/get-creator-facet-options";
 
-const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
-const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+const MAX_INTRO_VIDEO_BYTES = 200 * 1024 * 1024;
+const INTRO_VIDEO_ACCEPT = "video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm";
+const INTRO_VIDEO_CONTENT_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+]);
 
 const SELECT_NONE = "__none__";
 const PACKAGE_NAME = "1 Video UGC";
@@ -154,16 +158,29 @@ function getInitialCreatorName(user: AuthUser | null): string {
   return user?.name?.trim() || user?.email?.split("@")[0] || "";
 }
 
-function getInitialCreatorImagePreviewUrl(
+function getInitialCreatorIntroVideoPreviewUrl(
   mode: "create" | "update",
   initialProfile?: CreatorProfileItemApi | null,
 ): string | null {
   if (mode !== "update") return null;
 
-  const url = initialProfile?.profileImageUrl?.trim();
+  const url = initialProfile?.introVideoUrl?.trim();
   if (!url) return null;
 
   return url.startsWith("http://") || url.startsWith("https://") ? url : null;
+}
+
+function getIntroVideoContentType(file: File): string | null {
+  const contentType = file.type.toLowerCase();
+  if (INTRO_VIDEO_CONTENT_TYPES.has(contentType)) {
+    return contentType;
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension === "mp4") return "video/mp4";
+  if (extension === "mov") return "video/quicktime";
+  if (extension === "webm") return "video/webm";
+  return null;
 }
 
 function normalizeWholeNumberInput(value: string): string {
@@ -301,8 +318,8 @@ function CreatorProfileSetupFormContent({
   user,
 }: CreatorProfileSetupFormContentProps) {
   const { refreshUser } = useAuth();
-  const uploadCreatorProfileImageMutation =
-    useUploadCreatorProfileImageMutation();
+  const uploadCreatorIntroVideoMutation =
+    useUploadCreatorIntroVideoMutation(mode);
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
@@ -382,14 +399,15 @@ function CreatorProfileSetupFormContent({
   const [addOnDrafts, setAddOnDrafts] = useState<Record<string, AddOnDraft>>({});
   const [addOnsTouched, setAddOnsTouched] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(() =>
-    getInitialCreatorImagePreviewUrl(mode, initialProfile),
-  );
-  const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
+  const introVideoInputRef = useRef<HTMLInputElement>(null);
+  const [introVideoPreviewUrl, setIntroVideoPreviewUrl] = useState<
+    string | null
+  >(() => getInitialCreatorIntroVideoPreviewUrl(mode, initialProfile));
+  const [pendingIntroVideoKey, setPendingIntroVideoKey] = useState<
     string | null
   >(null);
-  const uploadingImage = uploadCreatorProfileImageMutation.isPending;
+  const [introVideoRemoved, setIntroVideoRemoved] = useState(false);
+  const uploadingIntroVideo = uploadCreatorIntroVideoMutation.isPending;
 
   const countries = useMemo(() => Country.getAllCountries(), []);
   const states = useMemo(
@@ -460,53 +478,61 @@ function CreatorProfileSetupFormContent({
     ? addOnDrafts
     : hydratedAddOns.drafts;
 
-  const displayInitials = useCallback(() => {
-    const base =
-      displayName.trim() ||
-      user?.name?.trim() ||
-      user?.email?.split("@")[0] ||
-      "?";
-    return getInitials(base);
-  }, [displayName, user]);
-
-  const handleProfileImageSelected = useCallback(
+  const handleIntroVideoSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
 
-      if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
-        toast.error("Use JPEG, PNG, WebP, or GIF.");
+      const contentType = getIntroVideoContentType(file);
+      if (!contentType) {
+        toast.error("Use MP4, MOV, or WebM video.");
         return;
       }
-      if (file.size > MAX_PROFILE_IMAGE_BYTES) {
-        toast.error("Image must be 8 MB or smaller.");
+      if (file.size > MAX_INTRO_VIDEO_BYTES) {
+        toast.error("Intro video must be 200 MB or smaller.");
         return;
       }
 
-      uploadCreatorProfileImageMutation.mutate(file, {
-        onSuccess: (result) => {
-          if (!result) return;
-          setPendingProfileImageKey(result.key);
-          setImagePreviewUrl(result.cdnUrl);
+      uploadCreatorIntroVideoMutation.mutate(
+        { file, contentType },
+        {
+          onSuccess: (result) => {
+            if (!result) return;
+            setPendingIntroVideoKey(result.key);
+            setIntroVideoPreviewUrl(result.cdnUrl);
+            setIntroVideoRemoved(false);
+          },
+          onSettled: () => {
+            if (introVideoInputRef.current) {
+              introVideoInputRef.current.value = "";
+            }
+          },
         },
-        onSettled: () => {
-          if (fileInputRef.current) fileInputRef.current.value = "";
-        },
-      });
+      );
     },
-    [uploadCreatorProfileImageMutation],
+    [uploadCreatorIntroVideoMutation],
   );
 
-  const clearProfileImage = useCallback(() => {
-    setPendingProfileImageKey(null);
-    if (mode === "update" && initialProfile?.profileImageUrl?.trim()) {
-      const url = initialProfile.profileImageUrl.trim();
-      setImagePreviewUrl(
-        url.startsWith("http://") || url.startsWith("https://") ? url : null,
-      );
-    } else {
-      setImagePreviewUrl(null);
+  const restoreInitialIntroVideo = useCallback(() => {
+    setPendingIntroVideoKey(null);
+    setIntroVideoRemoved(false);
+
+    const url = initialProfile?.introVideoUrl?.trim();
+    setIntroVideoPreviewUrl(
+      mode === "update" &&
+        (url?.startsWith("http://") || url?.startsWith("https://"))
+        ? url
+        : null,
+    );
+  }, [initialProfile?.introVideoUrl, mode]);
+
+  const removeIntroVideo = useCallback(() => {
+    setPendingIntroVideoKey(null);
+    setIntroVideoPreviewUrl(null);
+    setIntroVideoRemoved(mode === "update");
+    if (introVideoInputRef.current) {
+      introVideoInputRef.current.value = "";
     }
-  }, [initialProfile, mode]);
+  }, [mode]);
 
   const toggleFacet = useCallback(
     (dimension: Exclude<CreatorFacetDimension, "LANGUAGE">, slug: string) => {
@@ -645,6 +671,10 @@ function CreatorProfileSetupFormContent({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
+      if (uploadingIntroVideo) {
+        toast.error("Wait for uploads to finish before saving your profile.");
+        return;
+      }
       if (facetOptionsQuery.isLoading || addOnOptionsQuery.isLoading) {
         toast.error("Profile options are still loading.");
         return;
@@ -712,9 +742,11 @@ function CreatorProfileSetupFormContent({
 
       const payload: CreateCreatorProfilePayload | UpdateCreatorProfilePayload = {
         displayName: name,
-        ...(pendingProfileImageKey
-          ? { profileImageKey: pendingProfileImageKey }
-          : {}),
+        ...(pendingIntroVideoKey
+          ? { introVideoKey: pendingIntroVideoKey }
+          : mode === "update" && introVideoRemoved
+            ? { introVideoKey: "" }
+            : {}),
         countryName: countryName || undefined,
         stateName: stateName || undefined,
         city: city.trim() || undefined,
@@ -751,10 +783,11 @@ function CreatorProfileSetupFormContent({
       facetOptionsQuery.isLoading,
       gender,
       instagramUrl,
+      introVideoRemoved,
       languageDrafts,
       mode,
       onLocationAvailable,
-      pendingProfileImageKey,
+      pendingIntroVideoKey,
       phoneVerified,
       profileId,
       selectedFacets,
@@ -762,6 +795,7 @@ function CreatorProfileSetupFormContent({
       stateName,
       submitCreatorProfileMutation,
       travelRadius,
+      uploadingIntroVideo,
     ],
   );
 
@@ -788,7 +822,7 @@ function CreatorProfileSetupFormContent({
   );
   const completionSummary = useMemo(() => {
     const checkpoints = [
-      Boolean(imagePreviewUrl || pendingProfileImageKey),
+      Boolean(introVideoPreviewUrl || pendingIntroVideoKey),
       phoneVerified,
       Boolean(displayName.trim()),
       Boolean(countryName && city.trim()),
@@ -807,10 +841,10 @@ function CreatorProfileSetupFormContent({
     dateOfBirth,
     displayName,
     gender,
-    imagePreviewUrl,
+    introVideoPreviewUrl,
     languageDrafts.length,
     packageDraft.priceAmount,
-    pendingProfileImageKey,
+    pendingIntroVideoKey,
     phoneVerified,
     selectedFacetCount,
   ]);
@@ -871,16 +905,18 @@ function CreatorProfileSetupFormContent({
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <CreatorProfileImageField
-          imagePreviewUrl={imagePreviewUrl}
-        initials={displayInitials()}
-        accept={PROFILE_IMAGE_ACCEPT}
-        disabled={uploadingImage || pending}
-        uploading={uploadingImage}
-        hasPendingImage={Boolean(pendingProfileImageKey)}
-        fileInputRef={fileInputRef}
-        onSelectFile={(file) => void handleProfileImageSelected(file)}
-        onDiscard={clearProfileImage}
+        <CreatorProfileIntroVideoField
+          videoPreviewUrl={introVideoPreviewUrl}
+          accept={INTRO_VIDEO_ACCEPT}
+          disabled={uploadingIntroVideo || pending}
+          uploading={uploadingIntroVideo}
+          hasPendingVideo={Boolean(pendingIntroVideoKey) || introVideoRemoved}
+          hasExistingVideo={Boolean(introVideoPreviewUrl)}
+          pendingActionLabel={introVideoRemoved ? "Undo remove" : undefined}
+          fileInputRef={introVideoInputRef}
+          onSelectFile={(file) => void handleIntroVideoSelected(file)}
+          onDiscard={restoreInitialIntroVideo}
+          onRemove={removeIntroVideo}
         />
       </motion.div>
 
@@ -1218,7 +1254,7 @@ function CreatorProfileSetupFormContent({
         className="mt-8 w-full sm:w-auto"
         disabled={
           pending ||
-          uploadingImage ||
+          uploadingIntroVideo ||
           facetOptionsQuery.isLoading ||
           addOnOptionsQuery.isLoading
         }

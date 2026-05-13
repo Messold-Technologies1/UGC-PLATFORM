@@ -1,65 +1,61 @@
 "use client";
 
-import Image from "next/image";
 import type { RefObject } from "react";
-import { Upload } from "lucide-react";
+import { Trash2, Upload, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
-export function CreatorProfileImageField({
-  imagePreviewUrl,
-  initials,
+export function CreatorProfileIntroVideoField({
+  videoPreviewUrl,
   accept,
   disabled,
   uploading,
-  hasPendingImage,
+  hasPendingVideo,
+  hasExistingVideo,
+  pendingActionLabel = "Discard new video",
   fileInputRef,
   onSelectFile,
   onDiscard,
+  onRemove,
 }: {
-  imagePreviewUrl: string | null;
-  initials: string;
+  videoPreviewUrl: string | null;
   accept: string;
   disabled: boolean;
   uploading: boolean;
-  hasPendingImage: boolean;
+  hasPendingVideo: boolean;
+  hasExistingVideo: boolean;
+  pendingActionLabel?: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onSelectFile: (file: File | null) => void;
   onDiscard: () => void;
+  onRemove: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 mb-2 border-b border-border pb-6 sm:flex-row sm:items-start">
-      <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-        {imagePreviewUrl ? (
-          <Image
-            src={imagePreviewUrl}
-            alt=""
-            fill
-            className="object-cover"
-            sizes="96px"
-            unoptimized
+    <div className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-start">
+      <div className="flex aspect-video w-full max-w-64 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted sm:w-64">
+        {videoPreviewUrl ? (
+          <video
+            src={videoPreviewUrl}
+            controls
+            preload="metadata"
+            className="size-full object-cover"
           />
         ) : (
-          <div
-            className="flex size-full items-center justify-center bg-primary/15 text-lg font-semibold text-primary"
-            aria-hidden
-          >
-            {initials}
-          </div>
+          <Video className="size-8 text-muted-foreground" aria-hidden />
         )}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
-        <Label className="text-base">Profile photo</Label>
+        <Label className="text-base">Intro video</Label>
         <p className="text-xs text-muted-foreground">
-          Shown in search and on your public profile.
+          Upload an MP4, MOV, or WebM intro up to 200 MB.
         </p>
         <input
           ref={fileInputRef}
           type="file"
           accept={accept}
           className="sr-only"
-          aria-label="Upload profile photo"
+          aria-label="Upload intro video"
           onChange={(event) => onSelectFile(event.target.files?.[0] ?? null)}
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -76,9 +72,9 @@ export function CreatorProfileImageField({
             ) : (
               <Upload className="size-4" aria-hidden />
             )}
-            {uploading ? "Uploading…" : "Upload photo"}
+            {uploading ? "Uploading..." : hasExistingVideo ? "Replace video" : "Upload video"}
           </Button>
-          {hasPendingImage ? (
+          {hasPendingVideo ? (
             <Button
               type="button"
               variant="ghost"
@@ -87,7 +83,19 @@ export function CreatorProfileImageField({
               disabled={disabled}
               onClick={onDiscard}
             >
-              Discard new photo
+              {pendingActionLabel}
+            </Button>
+          ) : hasExistingVideo ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              disabled={disabled}
+              onClick={onRemove}
+            >
+              <Trash2 className="size-4" aria-hidden />
+              Remove video
             </Button>
           ) : null}
         </div>

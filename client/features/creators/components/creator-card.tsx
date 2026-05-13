@@ -7,7 +7,7 @@ import {
   ShoppingBag,
   Play,
   Pause,
-  MoveRight,
+  // MoveRight,
   Truck,
   Wand2,
 } from "lucide-react";
@@ -67,7 +67,7 @@ export const CreatorCard = memo(function CreatorCard({
           "group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
         )}
       >
-        <div className="relative aspect-[10/11] overflow-hidden bg-muted">
+        <div className="relative aspect-10/11 overflow-hidden bg-muted">
           {hasPreviewVideo ? (
             <div
               className="relative size-full cursor-pointer"

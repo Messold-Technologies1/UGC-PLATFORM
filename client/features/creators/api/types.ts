@@ -73,6 +73,7 @@ export type CreatorPublicListItemApi = {
   userId: string;
   name: string;
   profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
@@ -99,6 +100,7 @@ export type CreatorProfileItemApi = {
   phone?: string | null;
   phoneVerified?: boolean;
   profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;

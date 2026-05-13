@@ -3,7 +3,10 @@ import { CreatorFacetDimension } from '@prisma/client';
 import { IsEnum, IsString, Matches } from 'class-validator';
 
 export class CreatorFacetSelectionInputDto {
-  @ApiProperty({ enum: CreatorFacetDimension })
+  @ApiProperty({
+    enum: CreatorFacetDimension,
+    example: CreatorFacetDimension.AI_CONTENT_PERMISSION,
+  })
   @IsEnum(CreatorFacetDimension)
   dimension!: CreatorFacetDimension;
 

@@ -102,6 +102,7 @@ enum CreatorFacetDimension {
   INTEREST
   CATEGORY_EXPERIENCE
   CAN_CREATE_WITH
+  AI_CONTENT_PERMISSION
   LANGUAGE
 }
 
@@ -257,8 +258,8 @@ model CreatorProfile {
   id                  String                      @id @default(uuid()) @db.Uuid
   userId              String                      @unique @db.Uuid
   displayName         String
-  profileImageKey     String?
-  profileImageUrl     String?
+  introVideoKey       String?
+  introVideoUrl       String?
   city                String?
   countryName         String?
   stateName           String?

@@ -125,13 +125,13 @@ export class CreateCreatorProfileDto {
   displayName!: string;
 
   @ApiPropertyOptional({
-    example: 'creator-profile-temp/<userId>/<uuid>.jpg',
+    example: 'creator-profile-intro-temp/<userId>/<uuid>.mp4',
     description:
-      'Temporary S3 object key returned by profile-image presign endpoint before profile creation (optional).',
+      'Temporary S3 key from POST /creators/profile/uploads/presign-intro-video before create; finalized after profile creation.',
   })
   @IsOptional()
   @IsString()
-  profileImageKey?: string;
+  introVideoKey?: string;
 
   @ApiPropertyOptional({ example: 'India' })
   @IsOptional()
@@ -204,7 +204,11 @@ export class CreateCreatorProfileDto {
   @IsBoolean()
   onLocationAvailable?: boolean;
 
-  @ApiPropertyOptional({ type: [CreatorFacetSelectionInputDto] })
+  @ApiPropertyOptional({
+    type: [CreatorFacetSelectionInputDto],
+    description:
+      'Non-language facet selections (catalog slugs per dimension). Use profileLanguages for LANGUAGE. Dimensions include CONTENT_FORMAT, APPEARANCE, AI_CONTENT_PERMISSION, etc.',
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

@@ -48,13 +48,13 @@ export class UpdateCreatorProfileDto {
   phone?: string;
 
   @ApiPropertyOptional({
-    example: 'creator-profile/<userId>/<uuid>.jpg',
+    example: 'creator-profile/<profileId>/intro/<uuid>.mp4',
     description:
-      'S3 object key after uploading via presigned URL (optional).',
+      'Intro video S3 key under creator-profile/<id>/intro/ from presign, or empty string to remove.',
   })
   @IsOptional()
   @IsString()
-  profileImageKey?: string;
+  introVideoKey?: string;
 
   @ApiPropertyOptional({ example: 'India' })
   @IsOptional()
@@ -124,7 +124,11 @@ export class UpdateCreatorProfileDto {
   @IsBoolean()
   onLocationAvailable?: boolean;
 
-  @ApiPropertyOptional({ type: [CreatorFacetSelectionInputDto] })
+  @ApiPropertyOptional({
+    type: [CreatorFacetSelectionInputDto],
+    description:
+      'When provided, replaces non-language facet selections. Use profileLanguages for LANGUAGE.',
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

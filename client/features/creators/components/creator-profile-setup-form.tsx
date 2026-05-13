@@ -90,6 +90,7 @@ const facetSections: Array<{
   { dimension: "CATEGORY_EXPERIENCE", label: "Category experience" },
   { dimension: "OCCUPATION", label: "Occupation" },
   { dimension: "CAN_CREATE_WITH", label: "Can create with" },
+  { dimension: "AI_CONTENT_PERMISSION", label: "AI content permission" },
 ];
 
 const genderOptions: Array<{ value: CreatorGender; label: string }> = [

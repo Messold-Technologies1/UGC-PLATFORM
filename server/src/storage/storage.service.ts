@@ -45,15 +45,17 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
     ct === 'audio/wav';
 
   if (
-    kind === 'creator_profile_image' ||
+    kind === 'creator_intro_video' ||
+    kind === 'creator_portfolio_video'
+  ) {
+    if (!isVideo) throw new Error('Unsupported video content type');
+    return;
+  }
+  if (
     kind === 'creator_portfolio_thumbnail' ||
     kind === 'brand_logo'
   ) {
     if (!isImage) throw new Error('Unsupported image content type');
-    return;
-  }
-  if (kind === 'creator_portfolio_video') {
-    if (!isVideo) throw new Error('Unsupported video content type');
     return;
   }
   if (kind === 'order_delivery_asset') {
@@ -115,12 +117,12 @@ export class StorageService {
     }
     const id = randomUUID();
 
-    if (input.kind === 'creator_profile_image') {
+    if (input.kind === 'creator_intro_video') {
       const creatorId = input.creatorProfileId;
       if (creatorId) {
-        return `creator-profile/${creatorId}/${id}.${ext}`;
+        return `creator-profile/${creatorId}/intro/${id}.${ext}`;
       }
-      return this.buildTempCreatorProfileImageKey(input.userId, ext);
+      return `creator-profile-intro-temp/${input.userId}/${id}.${ext}`;
     }
 
     if (input.kind === 'brand_logo') {
@@ -158,19 +160,8 @@ export class StorageService {
     return `creator-portfolio/${creatorId}/thumbnails/${id}.${ext}`;
   }
 
-  buildTempCreatorProfileImageKey(userId: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
-    if (!ext) {
-      throw new Error('Unsupported content type');
-    }
-    return `creator-profile-temp/${userId}/${randomUUID()}.${ext}`;
-  }
-
-  isTempCreatorProfileImageKeyForUser(userId: string, key: string): boolean {
-    return key.startsWith(`creator-profile-temp/${userId}/`);
+  isTempCreatorIntroVideoKeyForUser(userId: string, key: string): boolean {
+    return key.startsWith(`creator-profile-intro-temp/${userId}/`);
   }
 
   buildTempBrandLogoKey(userId: string, extOrContentType: string): string {
@@ -203,16 +194,16 @@ export class StorageService {
     return key.startsWith(`brand-pronunciation-temp/${userId}/`);
   }
 
-  async finalizeCreatorProfileImageKey(input: {
+  async finalizeCreatorIntroVideoKey(input: {
     tempKey: string;
     creatorProfileId: string;
     deleteTemp?: boolean;
   }): Promise<string> {
     const fileName = input.tempKey.split('/').pop();
     if (!fileName?.includes('.')) {
-      throw new Error('Invalid temporary profile image key');
+      throw new Error('Invalid temporary creator intro video key');
     }
-    const finalKey = `creator-profile/${input.creatorProfileId}/${fileName}`;
+    const finalKey = `creator-profile/${input.creatorProfileId}/intro/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

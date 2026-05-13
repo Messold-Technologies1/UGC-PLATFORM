@@ -107,12 +107,12 @@ Uploads use a **presigned URL** flow:
 2. Upload file directly to S3 using returned `uploadUrl` + `headers`
 3. Submit `...Key` in the create/update API so the server stores the key and computes the CDN URL
 
-### Profile image
+### Creator intro video (profile)
 
-- `POST /api/creators/profile/uploads/presign` (auth) → presign profile image upload
+- `POST /api/creators/profile/uploads/presign-intro-video` (auth) → presign intro video (`video/mp4`, `video/quicktime`, `video/webm`)
 - Upload to returned `uploadUrl` with returned headers
-- `POST /api/creators/profile` accepts temporary `profileImageKey` and finalizes it to `creator-profile/<creatorId>/...`
-- `PATCH /api/creators/:id` accepts finalized `profileImageKey` for existing profile updates
+- `POST /api/creators/profile` accepts optional temporary `introVideoKey` (before profile exists: `creator-profile-intro-temp/...`); server finalizes to `creator-profile/<creatorId>/intro/...`
+- `PATCH /api/creators/:id` accepts finalized `introVideoKey` under `creator-profile/<id>/intro/...`, or empty string to clear
 
 ### Creator portfolio videos
 

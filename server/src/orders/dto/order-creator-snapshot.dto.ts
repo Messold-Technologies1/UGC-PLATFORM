@@ -8,9 +8,10 @@ export class OrderCreatorSnapshotDto {
   displayName!: string;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/creator-profile/...jpg',
+    example: 'https://cdn.example.com/creator-profile/.../intro/....mp4',
+    description: 'Creator intro video URL at time of order (optional).',
   })
-  profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
 
   @ApiPropertyOptional({ example: 'Bengaluru' })
   city?: string | null;

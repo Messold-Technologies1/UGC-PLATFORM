@@ -24,6 +24,7 @@ export type CreatorListApiFilters = {
   interest?: string[];
   categoryExperience?: string[];
   canCreateWith?: string[];
+  aiContentPermission?: string[];
   language?: string[];
   categories?: string[];
   personaTags?: string[];
@@ -84,6 +85,7 @@ export function serializeCreatorListApiParams(
     ["interest", filters.interest],
     ["categoryExperience", filters.categoryExperience],
     ["canCreateWith", filters.canCreateWith],
+    ["aiContentPermission", filters.aiContentPermission],
     ["language", filters.language],
   ];
   for (const [key, values] of facetArrayParams) {

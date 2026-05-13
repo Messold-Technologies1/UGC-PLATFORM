@@ -19,6 +19,9 @@ export interface Creator {
 
   categories: string[];
   industryLabel?: string;
+  languages: string[];
+  deliveryDays: number;
+  basicEditing?: boolean;
 }
 
 export interface CreatorProfile extends Creator {

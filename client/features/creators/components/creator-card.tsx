@@ -8,6 +8,8 @@ import {
   Play,
   Pause,
   MoveRight,
+  Truck,
+  Wand2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,10 +64,10 @@ export const CreatorCard = memo(function CreatorCard({
     return (
       <article
         className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+          "group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
         )}
       >
-        <div className="relative aspect-4/5 overflow-hidden bg-muted">
+        <div className="relative aspect-[10/11] overflow-hidden bg-muted">
           {hasPreviewVideo ? (
             <div
               className="relative size-full cursor-pointer"
@@ -92,7 +94,7 @@ export const CreatorCard = memo(function CreatorCard({
                     : "opacity-100",
                 )}
               >
-                <div className="flex size-14 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/60">
+                <div className="flex size-14 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/50">
                   {isPlaying ? (
                     <Pause className="size-6 fill-white" />
                   ) : (
@@ -111,71 +113,87 @@ export const CreatorCard = memo(function CreatorCard({
               priority
             />
           )}
-          {/* <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[9px] font-bold tracking-wider text-white backdrop-blur-md">
-            <div className="size-1.5 rounded-full bg-green-500" />
-            AVAILABLE
-          </div> */}
+          <div className="absolute bottom-3 left-3 rounded-sm bg-black/60 px-2.5 py-1 text-sm font-bold text-white backdrop-blur-sm">
+            ₹{creator.startingPrice.toLocaleString("en-IN")}
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col p-3">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="line-clamp-1 text-sm font-bold text-foreground">
-              {creator.name}
-            </h3>
-            <div className="flex shrink-0 items-center gap-1">
-              <Star className="size-3.5 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-semibold text-foreground">
-                {creator.rating}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                ({creator.reviewCount})
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-1 flex flex-col gap-1.5 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <MapPin className="size-3.5 shrink-0" />
-              <span className="line-clamp-1">{locationLabel}</span>
-            </div>
-            <div className="flex items-center gap-2 text-blue-400">
-              <ShoppingBag className="size-3.5 shrink-0" />
-              <span className="font-medium">
-                {creator.ordersCompleted} orders completed
-              </span>
-            </div>
+          <h3 className="text-base font-bold text-foreground tracking-tight">
+            {creator.name}
+          </h3>
+          
+          <div className="mt-0.5 flex items-center text-xs text-muted-foreground">
+            <span>{locationLabel}</span>
+            {creator.languages && creator.languages.length > 0 && (
+              <>
+                <span className="mx-1.5">•</span>
+                <span>{creator.languages.join(", ")}</span>
+              </>
+            )}
           </div>
 
           <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {browseTags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="rounded-full bg-muted/50 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
-              >
-                {tag}
-              </Badge>
-            ))}
+            {browseTags.map((tag, i) => {
+              const lowerTag = tag.toLowerCase();
+              let specificClass = "";
+              if (lowerTag.includes("beauty")) specificClass = "bg-[#fce7f3] text-[#be185d]";
+              else if (lowerTag.includes("casual") || lowerTag.includes("talk to camera")) specificClass = "bg-[#e0f2fe] text-[#0369a1]";
+              else if (lowerTag.includes("product demo") || lowerTag.includes("unboxing")) specificClass = "bg-[#ede9fe] text-[#5b21b6]";
+              else if (lowerTag.includes("fitness")) specificClass = "bg-[#ffedd5] text-[#c2410c]";
+              else if (lowerTag.includes("ad ready") || lowerTag.includes("skincare")) specificClass = "bg-[#dcfce7] text-[#15803d]";
+              else if (lowerTag.includes("aesthetic")) specificClass = "bg-[#ccfbf1] text-[#0f766e]";
+              else if (lowerTag.includes("tech")) specificClass = "bg-[#f3e8ff] text-[#7e22ce]";
+              else {
+                const colors = [
+                  "bg-fuchsia-100 text-fuchsia-700",
+                  "bg-blue-100 text-blue-700",
+                  "bg-indigo-100 text-indigo-700",
+                  "bg-orange-100 text-orange-700",
+                  "bg-emerald-100 text-emerald-700",
+                  "bg-teal-100 text-teal-700",
+                  "bg-purple-100 text-purple-700",
+                ];
+                specificClass = colors[i % colors.length]!;
+              }
+
+              return (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium border-none", specificClass)}
+                >
+                  {tag}
+                </Badge>
+              );
+            })}
           </div>
 
-          <div className="mt-auto flex items-center justify-between pt-3">
-            <div className="flex flex-col">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                Starting from
-              </span>
-              <span className="text-base font-bold text-foreground">
-                ₹{creator.startingPrice.toLocaleString("en-IN")}
+          <div className="mt-3.5 flex flex-col gap-2.5 text-[13px] text-muted-foreground font-medium">
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="size-4 shrink-0 text-muted-foreground/70" />
+              <span>{creator.ordersCompleted} completed orders</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Truck className="size-4 shrink-0 text-muted-foreground/70" />
+              <span>Delivery in {creator.deliveryDays || 5} days</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Wand2 className={cn("size-4 shrink-0", creator.basicEditing ? "text-muted-foreground/70" : "text-muted-foreground/40")} />
+              <span className={!creator.basicEditing ? "text-muted-foreground/70" : ""}>
+                {creator.basicEditing ? "Basic editing included" : "Basic editing not included"}
               </span>
             </div>
+          </div>
+
+          <div className="mt-auto w-full pt-6 flex justify-center">
             <Button
               asChild
-              size="sm"
               variant="outline"
-              className="h-7 rounded-full pl-3 pr-2 text-xs font-medium border-border/50 hover:bg-muted"
+              className="w-full text-sm font-semibold rounded-md border-border/60 bg-[#111] text-white hover:bg-muted"
             >
-              <Link href={profileUrl} className="flex items-center gap-1">
-                Profile
-                <MoveRight className="size-3.5" />
+              <Link href={profileUrl}>
+                View Profile
               </Link>
             </Button>
           </div>

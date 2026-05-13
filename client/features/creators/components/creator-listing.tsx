@@ -10,10 +10,18 @@ import {
   useState,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, Search, SlidersHorizontal, Users } from "lucide-react";
-import { VirtuosoGrid } from "react-virtuoso";
+import { Search, SlidersHorizontal, Users, ChevronDown } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 // import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
@@ -33,11 +41,11 @@ import {
 } from "../lib/browse-listing-url";
 import { deriveCreatorFilterOptions } from "../lib/derive-filter-options";
 import {
-  useInfiniteCreatorsListQuery,
+  useCreatorsListQuery,
   type CreatorsListResult,
 } from "../hooks/use-creators-list-query";
 
-const BROWSE_LIST_LIMIT = 50;
+const BROWSE_LIST_LIMIT = 4;
 const BRAND_CREATOR_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform?usp=header";
 
@@ -56,7 +64,18 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.industry === b.industry &&
     a.portfolioTag === b.portfolioTag &&
     stringArraysEqual(a.personaTags, b.personaTags) &&
-    stringArraysEqual(a.restrictions, b.restrictions)
+    stringArraysEqual(a.restrictions, b.restrictions) &&
+    stringArraysEqual(a.contentFormat, b.contentFormat) &&
+    stringArraysEqual(a.appearance, b.appearance) &&
+    stringArraysEqual(a.contentStyle, b.contentStyle) &&
+    stringArraysEqual(a.capability, b.capability) &&
+    stringArraysEqual(a.lifeStyle, b.lifeStyle) &&
+    stringArraysEqual(a.occupation, b.occupation) &&
+    stringArraysEqual(a.interest, b.interest) &&
+    stringArraysEqual(a.categoryExperience, b.categoryExperience) &&
+    stringArraysEqual(a.canCreateWith, b.canCreateWith) &&
+    stringArraysEqual(a.language, b.language) &&
+    a.ageGroup === b.ageGroup
   );
 }
 
@@ -117,6 +136,7 @@ export function CreatorListing({
   );
 
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
+  const [page, setPage] = useState<number>(() => parsedInitial.page);
   const [showFilters, setShowFilters] = useState(true);
 
   const [scrollParent, setScrollParent] = useState<HTMLElement | undefined>();
@@ -130,15 +150,15 @@ export function CreatorListing({
     }
   }, []);
 
-  const listingRef = useRef({ filters });
+  const listingRef = useRef({ filters, page });
 
   useEffect(() => {
-    listingRef.current = { filters };
-  }, [filters]);
+    listingRef.current = { filters, page };
+  }, [filters, page]);
 
   const syncUrlImmediate = useCallback(
-    (nextFilters: Filters) => {
-      const qs = serializeBrowseListingParams(nextFilters, "");
+    (nextFilters: Filters, nextPage: number) => {
+      const qs = serializeBrowseListingParams(nextFilters, "", nextPage);
       if (qs === searchParamsKey) return;
       router.replace(qs ? `?${qs}` : "?", { scroll: false });
     },
@@ -146,8 +166,8 @@ export function CreatorListing({
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: currentFilters } = listingRef.current;
-    syncUrlImmediate(currentFilters);
+    const { filters: currentFilters, page: currentPage } = listingRef.current;
+    syncUrlImmediate(currentFilters, currentPage);
   }, 500);
 
   useEffect(() => {
@@ -158,14 +178,14 @@ export function CreatorListing({
       setFilters((previous) =>
         filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
       );
+      setPage(parsed.page);
     });
-    if (parsed.search) {
-      syncUrlImmediate(parsed.filters);
-    }
-  }, [searchParamsKey, syncUrlImmediate]);
+    // syncUrlImmediate gets called internally by components handling states, skipping here to prevent loops unless needed
+  }, [searchParamsKey]);
 
   const apiFilters = useMemo(
     () => ({
+      page,
       limit: BROWSE_LIST_LIMIT,
       city: filters.city || undefined,
       categories: filters.categories,
@@ -177,8 +197,19 @@ export function CreatorListing({
       maxPrice: filters.maxPrice || undefined,
       personaTags: filters.personaTags,
       restrictions: filters.restrictions,
+      contentFormat: filters.contentFormat.length ? filters.contentFormat : undefined,
+      appearance: filters.appearance.length ? filters.appearance : undefined,
+      contentStyle: filters.contentStyle.length ? filters.contentStyle : undefined,
+      capability: filters.capability.length ? filters.capability : undefined,
+      lifeStyle: filters.lifeStyle.length ? filters.lifeStyle : undefined,
+      occupation: filters.occupation.length ? filters.occupation : undefined,
+      interest: filters.interest.length ? filters.interest : undefined,
+      categoryExperience: filters.categoryExperience.length ? filters.categoryExperience : undefined,
+      canCreateWith: filters.canCreateWith.length ? filters.canCreateWith : undefined,
+      language: filters.language.length ? filters.language : undefined,
+      ageGroup: filters.ageGroup || undefined,
     }),
-    [filters],
+    [filters, page],
   );
 
   const {
@@ -188,24 +219,18 @@ export function CreatorListing({
     error,
     refetch,
     isFetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteCreatorsListQuery({
+  } = useCreatorsListQuery({
     filters: apiFilters,
     initialData:
       initialData &&
-      initialData.page === 1 &&
+      initialData.page === page &&
       initialData.limit === BROWSE_LIST_LIMIT &&
       filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
         ? initialData
         : undefined,
   });
 
-  const creators = useMemo(
-    () => data?.pages.flatMap((page) => page.creators) ?? [],
-    [data?.pages],
-  );
+  const creators = data?.creators ?? [];
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),
     [creators],
@@ -228,33 +253,83 @@ export function CreatorListing({
         Boolean(filters.portfolioTag),
         filters.personaTags.length > 0,
         filters.restrictions.length > 0,
+        filters.contentFormat.length > 0,
+        filters.appearance.length > 0,
+        filters.contentStyle.length > 0,
+        filters.capability.length > 0,
+        filters.lifeStyle.length > 0,
+        filters.occupation.length > 0,
+        filters.interest.length > 0,
+        filters.categoryExperience.length > 0,
+        filters.canCreateWith.length > 0,
+        filters.language.length > 0,
+        Boolean(filters.ageGroup),
       ].filter(Boolean).length,
     [filters],
   );
 
+  const activeTags = useMemo(() => {
+    const tags: { id: string; label: string; type: keyof Filters; value?: string }[] = [];
+    if (filters.city) tags.push({ id: `city-${filters.city}`, label: filters.city, type: "city" });
+    if (filters.gender) tags.push({ id: `gender-${filters.gender}`, label: filters.gender, type: "gender" });
+    if (filters.ageGroup) tags.push({ id: `age-${filters.ageGroup}`, label: filters.ageGroup.replace("AGE_", "").replace("_", "–").replace("PLUS", "+"), type: "ageGroup" });
+    filters.categories.forEach(c => tags.push({ id: `cat-${c}`, label: c, type: "categories", value: c }));
+    filters.personaTags.forEach(p => tags.push({ id: `persona-${p}`, label: p, type: "personaTags", value: p }));
+    filters.contentFormat.forEach(v => tags.push({ id: `cf-${v}`, label: v, type: "contentFormat", value: v }));
+    filters.appearance.forEach(v => tags.push({ id: `ap-${v}`, label: v, type: "appearance", value: v }));
+    filters.contentStyle.forEach(v => tags.push({ id: `cs-${v}`, label: v, type: "contentStyle", value: v }));
+    filters.capability.forEach(v => tags.push({ id: `cap-${v}`, label: v, type: "capability", value: v }));
+    filters.lifeStyle.forEach(v => tags.push({ id: `ls-${v}`, label: v, type: "lifeStyle", value: v }));
+    filters.occupation.forEach(v => tags.push({ id: `occ-${v}`, label: v, type: "occupation", value: v }));
+    filters.interest.forEach(v => tags.push({ id: `int-${v}`, label: v, type: "interest", value: v }));
+    filters.categoryExperience.forEach(v => tags.push({ id: `ce-${v}`, label: v, type: "categoryExperience", value: v }));
+    filters.canCreateWith.forEach(v => tags.push({ id: `ccw-${v}`, label: v, type: "canCreateWith", value: v }));
+    filters.language.forEach(v => tags.push({ id: `lang-${v}`, label: v, type: "language", value: v }));
+    return tags;
+  }, [filters]);
+
   const handleFiltersChange = useCallback(
     (next: Filters) => {
       listingRef.current.filters = next;
+      listingRef.current.page = 1;
       setFilters(next);
+      setPage(1);
       debouncedPushUrl();
     },
     [debouncedPushUrl],
   );
 
+  const handlePageChange = useCallback((nextPage: number) => {
+    listingRef.current.page = nextPage;
+    setPage(nextPage);
+    debouncedPushUrl();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [debouncedPushUrl]);
+
+  const handleRemoveTag = useCallback((tag: { id: string; label: string; type: keyof Filters; value?: string }) => {
+    handleFiltersChange({
+      ...filters,
+      [tag.type]:
+        Array.isArray(filters[tag.type])
+          ? (filters[tag.type] as string[]).filter(v => v !== tag.value)
+          : typeof filters[tag.type] === "boolean"
+            ? false
+            : "",
+    });
+  }, [filters, handleFiltersChange]);
+
   const handleResetFilters = useCallback(() => {
     listingRef.current.filters = DEFAULT_FILTERS;
+    listingRef.current.page = 1;
     setFilters(DEFAULT_FILTERS);
-    syncUrlImmediate(DEFAULT_FILTERS);
+    setPage(1);
+    syncUrlImmediate(DEFAULT_FILTERS, 1);
   }, [syncUrlImmediate]);
 
   const handleCloseFilters = useCallback(() => setShowFilters(false), []);
 
-  const handleEndReached = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
-    void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
-
-  const displayedCount = data?.pages[0]?.total ?? 0;
+  const displayedCount = data?.total ?? 0;
+  const totalPages = Math.ceil(displayedCount / BROWSE_LIST_LIMIT);
   const desktopFilterRailStyle = {
     "--creators-filter-top": "6.5rem",
     "--creators-filter-gap": "1.5rem",
@@ -288,144 +363,154 @@ export function CreatorListing({
   }
 
   return (
-    <div className="w-full min-w-0">
-      {/* <header className="mb-10 md:mb-12">
-        <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
-          Browse Creators
-        </h1>
-        <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
-          Find and hire talented UGC creators to bring your brand story to life.
-        </p>
-      </header> */}
+    <div className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8 -mt-6">
+      {/* Sidebar */}
+      <div className="hidden lg:block w-full max-w-[260px] shrink-0 lg:sticky lg:top-[5rem]">
+        <CreatorFilters
+          filters={filters}
+          onChange={handleFiltersChange}
+          categoryOptions={categoryOptions}
+        />
+      </div>
 
-      <div className="sticky top-0 z-30 mb-10">
-        <div className="flex flex-col gap-4 p-4 py-3 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
-          <div className="flex w-full shrink-0 flex-col gap-4 sm:flex-row sm:items-center md:w-auto">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                size="sm"
-                className="gap-2 rounded-full px-5 py-2.5 text-sm font-medium"
-                onClick={() => setShowFilters(!showFilters)}
-                aria-expanded={showFilters}
-              >
-                <SlidersHorizontal className="size-3.5" />
-                All filters
-                {activeFilterCount > 0 && (
-                  <span className="ml-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </Button>
+      {/* Main Content Area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Header Title */}
+        {/* <div className="mb-6">
+          <h1 className="text-[28px] font-bold text-[#111] tracking-tight">
+            Find the right creator for your brand
+          </h1>
+          <p className="mt-1 text-[15px] text-[#6B7280]">
+            Browse creators by style, language, content type, location and more.
+          </p>
+        </div> */}
 
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-
-            <div className="hidden h-8 w-px shrink-0 bg-border md:block" />
-
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
-              <p className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {displayedCount.toLocaleString()} creators found
-              </p>
-              {isFetching && !isFetchingNextPage ? (
-                <p className="text-xs text-muted-foreground">Updating…</p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="group relative min-w-0 w-full flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
+        {/* Search & Request Help Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="relative w-full max-w-2xl">
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
             <Input
-              placeholder="Search creators, niches, or locations…"
+              placeholder="Search niche, style, language, city or keyword"
               value=""
               disabled
               aria-label="Creator search is currently unavailable"
-              className="h-10 rounded-2xl py-2.5 pl-11 pr-4 text-sm"
+              className="h-[46px] rounded-lg border-gray-200 py-2.5 pl-11 pr-12 text-[14px] shadow-sm bg-white disabled:opacity-100 disabled:bg-white placeholder:text-[#888] placeholder:font-normal text-gray-900"
             />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
+              <SlidersHorizontal className="size-[18px] text-gray-400" />
+            </div>
           </div>
-
-          <a
-            href={BRAND_CREATOR_FORM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
-          >
-            Can&apos;t find the right fit? 
-            <ExternalLink className="size-4" aria-hidden />
-          </a>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "mt-6 flex min-h-[min(22rem,50vh)] flex-col lg:min-h-112",
-          showFilters
-            ? "gap-8 lg:flex-row lg:items-start"
-            : "lg:flex-row lg:items-start",
-        )}
-      >
-        <div
-          className={cn(
-            "shrink-0 overflow-hidden transition-[width,max-height,opacity] duration-300 ease-out lg:overflow-visible",
-            showFilters
-              ? "max-h-[min(72vh,40rem)] w-full opacity-100 lg:h-fit lg:sticky lg:top-(--creators-filter-top) lg:max-h-none lg:w-80 lg:min-w-80 lg:max-w-80 lg:self-start"
-              : "pointer-events-none max-h-0 w-full opacity-0 lg:max-h-none lg:w-0 lg:min-w-0",
-          )}
-          aria-hidden={!showFilters}
-          style={desktopFilterRailStyle}
-        >
-          <div className="h-auto">
-            <CreatorFilters
-              filters={filters}
-              onChange={handleFiltersChange}
-              onClose={handleCloseFilters}
-              categoryOptions={categoryOptions}
-            />
+          <div className="flex items-center gap-4 shrink-0">
+            <span className="text-[13px] text-[#6B7280] font-medium hidden sm:inline-block">
+              Can&apos;t find the right fit?
+            </span>
+            <a
+              href={BRAND_CREATOR_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-[28px] items-center justify-center rounded-lg border border-primary px-2 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10"
+            >
+              Request Help
+            </a>
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* Active Tags & Sort Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeTags.map(tag => (
+              <div key={tag.id} className="flex items-center gap-2 rounded-md bg-[#F3EEFF] px-2.5 py-1 text-[13px] font-medium text-[#111]">
+                {tag.label}
+                <button type="button" onClick={() => handleRemoveTag(tag)} className="text-[#111] hover:text-gray-600 transition-colors">
+                  <svg className="size-[10px] stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                </button>
+              </div>
+            ))}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="ml-1 flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-1 text-[13px] font-medium text-primary transition-colors hover:bg-gray-50"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-4 shrink-0">
+            <span className="text-[13px] font-semibold text-[#6B7280]">
+              {displayedCount.toLocaleString()} creators found
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-medium text-[#111]">Sort by: Recommended</span>
+              <ChevronDown className="size-4 text-[#111]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Grid Area */}
+        <div className="pb-2">
           {creators.length > 0 ? (
-            <>
-              <VirtuosoGrid
-                useWindowScroll={!scrollParent}
-                customScrollParent={scrollParent}
-                data={creators}
-                endReached={handleEndReached}
-                listClassName={cn(
-                  "grid w-full gap-x-5 gap-y-6",
-                  showFilters
-                    ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4"
-                    : "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5",
+            <div className="flex flex-col gap-4">
+              <div
+                className={cn(
+                  "grid w-full gap-x-5 gap-y-4",
+                  "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
+                  isFetching && "opacity-50 pointer-events-none transition-opacity"
                 )}
-                itemClassName="min-w-0 h-full"
-                components={{
-                  Footer: () => {
-                    if (!isFetchingNextPage) return null;
-                    return (
-                      <div className="col-span-full flex justify-center py-8 text-xs font-medium text-muted-foreground">
-                        Loading more creators…
-                      </div>
-                    );
-                  },
-                }}
-                itemContent={(_index, creator) => (
+              >
+                {creators.map((creator) => (
                   <CreatorCard
+                    key={creator.id}
                     creator={creator}
                     variant="listing"
                     appearance="browse"
                   />
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              <div className="pt-2 pb-4">
+                {totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={(e) => { e.preventDefault(); if (page > 1) handlePageChange(page - 1); }} 
+                          disabled={page <= 1}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }).map((_, i) => {
+                        const p = i + 1;
+                        if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+                          return (
+                            <PaginationItem key={p}>
+                              <PaginationLink 
+                                href="#" 
+                                onClick={(e) => { e.preventDefault(); handlePageChange(p); }}
+                                isActive={page === p}
+                              >
+                                {p}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                        if (p === page - 2 || p === page + 2) {
+                          return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                        }
+                        return null;
+                      })}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={(e) => { e.preventDefault(); if (page < totalPages) handlePageChange(page + 1); }} 
+                          disabled={page >= totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 )}
-              />
-            </>
+              </div>
+            </div>
           ) : (
             <EmptyBrowseState filters={filters} />
           )}

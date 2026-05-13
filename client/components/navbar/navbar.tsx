@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore} from "react";
 import { useTheme } from "next-themes";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
   Menu, X, User, Moon, Sun,
-  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, type LucideIcon
+  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, MessageSquare, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -94,15 +94,10 @@ interface NavItem {
 
 const roleConfigs: Record<string, NavItem[]> = {
   brand: [
-    { href: "/brand/creators", label: "Browse Creators", icon: Users },
-    {
-      label: "Activity",
-      icon: Activity,
-      children: [
-        { href: "/brand/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing creator partnerships and orders." },
-        { href: "/brand/briefs", label: "Briefs", icon: FileText, description: "View and manage your active campaign briefs." },
-      ]
-    },
+    { href: "/brand/creators", label: "Creators", icon: Users },
+    { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
+    { href: "/brand/messages", label: "Messages", icon: MessageSquare },
+    { href: "/brand/briefs", label: "Briefs", icon: FileText },
   ],
   creator: [
     {
@@ -162,15 +157,15 @@ export function Navbar() {
       variants={{
         visible: { 
           y: 0,
-          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1, delay: 0.45 }
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 }
         },
         hidden: { 
           y: "-150%",
-          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1, delay: 0.15 }
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 }
         }
       }}
       animate={hidden ? "hidden" : "visible"}
-      className="sticky top-6 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
+      className="sticky top-1 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
     >
       <div className={cn(
         "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",

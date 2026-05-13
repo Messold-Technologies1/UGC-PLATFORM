@@ -64,6 +64,8 @@ export type CreatorPortfolioVideoPreviewApi = {
 export type CreatorPublicListPackageApi = {
   name: string;
   priceAmount: string;
+  deliveryDays: number;
+  basicEditing: boolean;
 };
 
 export type CreatorPublicListItemApi = {

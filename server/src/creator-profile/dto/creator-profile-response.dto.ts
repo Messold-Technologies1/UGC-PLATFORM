@@ -157,9 +157,10 @@ export class CreatorProfileResponseDto {
   phoneVerified?: boolean;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/creator-profile/<userId>/<uuid>.jpg',
+    example: 'https://cdn.example.com/creator-profile/<id>/intro/<uuid>.mp4',
+    description: 'CDN URL for the creator intro video (optional).',
   })
-  profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
 
   @ApiPropertyOptional({ example: 'India' })
   countryName?: string | null;

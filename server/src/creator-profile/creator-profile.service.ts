@@ -21,7 +21,7 @@ import { CreatorPackageService } from '../creator-package/creator-package.servic
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { StorageService } from '../storage/storage.service';
-import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
+import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
@@ -96,9 +96,9 @@ export class CreatorProfileService {
     private readonly storage: StorageService,
   ) {}
 
-  async presignProfileImageUpload(
+  async presignProfileIntroVideoUpload(
     userId: string,
-    dto: PresignProfileImageUploadDto,
+    dto: PresignProfileIntroVideoUploadDto,
   ) {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { userId },
@@ -106,7 +106,7 @@ export class CreatorProfileService {
     });
 
     const key = this.storage.buildObjectKey({
-      kind: 'creator_profile_image',
+      kind: 'creator_intro_video',
       userId,
       creatorProfileId: profile?.id,
       contentType: dto.contentType,
@@ -119,19 +119,16 @@ export class CreatorProfileService {
     });
   }
 
-  private assertProfileImageKeyOwner(
-    creatorProfileId: string,
-    key: string,
-  ): void {
-    const prefix = `creator-profile/${creatorProfileId}/`;
+  private assertIntroVideoKeyOwner(creatorProfileId: string, key: string): void {
+    const prefix = `creator-profile/${creatorProfileId}/intro/`;
     if (!key.startsWith(prefix)) {
-      throw new BadRequestException('Invalid profileImageKey');
+      throw new BadRequestException('Invalid introVideoKey');
     }
   }
 
-  private assertTempProfileImageKeyOwner(userId: string, key: string): void {
-    if (!this.storage.isTempCreatorProfileImageKeyForUser(userId, key)) {
-      throw new BadRequestException('Invalid profileImageKey');
+  private assertTempIntroVideoKeyOwner(userId: string, key: string): void {
+    if (!this.storage.isTempCreatorIntroVideoKeyForUser(userId, key)) {
+      throw new BadRequestException('Invalid introVideoKey');
     }
   }
 
@@ -188,7 +185,7 @@ export class CreatorProfileService {
       displayName: mapped.displayName,
       phone: mapped.user?.phone ?? null,
       phoneVerified: mapped.user?.phoneVerified ?? false,
-      profileImageUrl: mapped.profileImageUrl ?? null,
+      introVideoUrl: mapped.introVideoUrl ?? null,
       countryName: mapped.countryName ?? null,
       stateName: mapped.stateName ?? null,
       city: mapped.city ?? null,
@@ -563,9 +560,9 @@ export class CreatorProfileService {
   ): Promise<CreatorProfileResponseDto> {
     await this.assertPhoneVerifiedForCreator(userId);
 
-    const profileImageKey = dto.profileImageKey?.trim();
-    if (profileImageKey) {
-      this.assertTempProfileImageKeyOwner(userId, profileImageKey);
+    const introVideoKey = dto.introVideoKey?.trim();
+    if (introVideoKey) {
+      this.assertTempIntroVideoKeyOwner(userId, introVideoKey);
     }
 
     const facetInputs = dto.facetSelections ?? [];
@@ -688,18 +685,18 @@ export class CreatorProfileService {
       { timeout: 30_000, maxWait: 10_000 },
     );
 
-    if (profileImageKey) {
-      const finalProfileImageKey =
-        await this.storage.finalizeCreatorProfileImageKey({
-          tempKey: profileImageKey,
+    if (introVideoKey) {
+      const finalIntroVideoKey =
+        await this.storage.finalizeCreatorIntroVideoKey({
+          tempKey: introVideoKey,
           creatorProfileId,
           deleteTemp: true,
         });
       await this.prisma.creatorProfile.update({
         where: { id: creatorProfileId },
         data: {
-          profileImageKey: finalProfileImageKey,
-          profileImageUrl: this.storage.buildCdnUrl(finalProfileImageKey),
+          introVideoKey: finalIntroVideoKey,
+          introVideoUrl: this.storage.buildCdnUrl(finalIntroVideoKey),
         },
       });
     }
@@ -803,7 +800,7 @@ export class CreatorProfileService {
       id: profile.id,
       userId: profile.userId,
       name: profile.displayName,
-      profileImageUrl: profile.profileImageUrl ?? null,
+      introVideoUrl: profile.introVideoUrl ?? null,
       city: profile.city ?? null,
       countryName: profile.countryName ?? null,
       stateName: profile.stateName ?? null,
@@ -1052,17 +1049,17 @@ export class CreatorProfileService {
           await this.syncUserPhoneIfChanged(tx, profile.userId, dto.phone);
         }
 
-        let nextProfileImageKey: string | null | undefined = undefined;
-        let nextProfileImageUrl: string | null | undefined = undefined;
-        if (dto.profileImageKey !== undefined) {
-          const trimmed = dto.profileImageKey?.trim();
+        let nextIntroVideoKey: string | null | undefined = undefined;
+        let nextIntroVideoUrl: string | null | undefined = undefined;
+        if (dto.introVideoKey !== undefined) {
+          const trimmed = dto.introVideoKey?.trim();
           if (trimmed) {
-            this.assertProfileImageKeyOwner(creatorProfileId, trimmed);
-            nextProfileImageKey = trimmed;
-            nextProfileImageUrl = this.storage.buildCdnUrl(trimmed);
+            this.assertIntroVideoKeyOwner(creatorProfileId, trimmed);
+            nextIntroVideoKey = trimmed;
+            nextIntroVideoUrl = this.storage.buildCdnUrl(trimmed);
           } else {
-            nextProfileImageKey = null;
-            nextProfileImageUrl = null;
+            nextIntroVideoKey = null;
+            nextIntroVideoUrl = null;
           }
         }
 
@@ -1111,9 +1108,9 @@ export class CreatorProfileService {
         if (dto.onLocationAvailable !== undefined) {
           data.onLocationAvailable = dto.onLocationAvailable;
         }
-        if (nextProfileImageKey !== undefined) {
-          data.profileImageKey = nextProfileImageKey;
-          data.profileImageUrl = nextProfileImageUrl;
+        if (nextIntroVideoKey !== undefined) {
+          data.introVideoKey = nextIntroVideoKey;
+          data.introVideoUrl = nextIntroVideoUrl;
         }
 
         if (Object.keys(data).length > 0) {

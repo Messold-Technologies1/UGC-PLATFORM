@@ -20,6 +20,7 @@ export type CreatorFacetDimension =
   | "INTEREST"
   | "CATEGORY_EXPERIENCE"
   | "CAN_CREATE_WITH"
+  | "AI_CONTENT_PERMISSION"
   | "LANGUAGE";
 
 export interface CreatorProfileLanguageResponseDto {

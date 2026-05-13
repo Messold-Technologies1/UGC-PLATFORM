@@ -248,6 +248,12 @@ export function buildListCreatorsWhere(
   );
   if (availClause) clauses.push(availClause);
 
+  const aiContentClause = facetWhere(
+    CreatorFacetDimension.AI_CONTENT_PERMISSION,
+    query.aiContentPermission,
+  );
+  if (aiContentClause) clauses.push(aiContentClause);
+
   const langClause = languageFacetWhere(query.language);
   if (langClause) clauses.push(langClause);
 

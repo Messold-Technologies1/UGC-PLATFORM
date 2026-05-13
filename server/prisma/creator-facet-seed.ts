@@ -152,6 +152,16 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     label,
     sortOrder: i,
   })),
+  ...[
+    ['ai_subtitles', 'AI subtitles'],
+    ['ai_voice_cleanup', 'AI voice cleanup'],
+    ['ai_script_hook_variations', 'AI script/hook variations'],
+  ].map(([slug, label], i) => ({
+    dimension: CreatorFacetDimension.AI_CONTENT_PERMISSION,
+    slug,
+    label,
+    sortOrder: i,
+  })),
 ];
 
 export async function seedCreatorFacetOptions(prisma: PrismaClient): Promise<void> {

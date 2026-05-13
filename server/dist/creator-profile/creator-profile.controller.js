@@ -19,7 +19,7 @@ const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
 const _creatorspubliclistresponsedto = require("./dto/creators-public-list-response.dto");
 const _creatorprofileresponsedto = require("./dto/creator-profile-response.dto");
 const _creatorprofileservice = require("./creator-profile.service");
-const _presignprofileimageuploaddto = require("./dto/presign-profile-image-upload.dto");
+const _presignprofileintrovideouploaddto = require("./dto/presign-profile-intro-video-upload.dto");
 const _creatorsuggestionitemdto = require("./dto/creator-suggestion-item.dto");
 const _creatorfacetoptionsresponsedto = require("./dto/creator-facet-options-response.dto");
 const _creatorlanguageoptionsresponsedto = require("./dto/creator-language-options-response.dto");
@@ -46,8 +46,8 @@ let CreatorProfileController = class CreatorProfileController {
     async createProfile(dto, req) {
         return this.creatorProfileService.createCreatorProfile(req.user.id, dto);
     }
-    async presignProfileImageUpload(dto, req) {
-        return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
+    async presignProfileIntroVideoUpload(dto, req) {
+        return this.creatorProfileService.presignProfileIntroVideoUpload(req.user.id, dto);
     }
     async listCreators(query) {
         return this.creatorProfileService.listCreators(query);
@@ -116,24 +116,25 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "createProfile", null);
 _ts_decorate([
-    (0, _common.Post)('profile/uploads/presign'),
+    (0, _common.Post)('profile/uploads/presign-intro-video'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
     (0, _common.HttpCode)(_common.HttpStatus.CREATED),
     (0, _swagger.ApiOperation)({
-        summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image'
+        summary: 'Presigned URL for creator intro video upload',
+        description: 'Before profile exists: temp key under creator-profile-intro-temp/. After profile exists: key under creator-profile/<id>/intro/. Send returned key as introVideoKey on create or patch.'
     }),
     (0, _swagger.ApiCreatedResponse)({
-        type: _presignprofileimageuploaddto.PresignUploadResponseDto
+        type: _presignprofileintrovideouploaddto.PresignUploadResponseDto
     }),
     _ts_param(0, (0, _common.Body)()),
     _ts_param(1, (0, _common.Req)()),
     _ts_metadata("design:type", Function),
     _ts_metadata("design:paramtypes", [
-        typeof _presignprofileimageuploaddto.PresignProfileImageUploadDto === "undefined" ? Object : _presignprofileimageuploaddto.PresignProfileImageUploadDto,
+        typeof _presignprofileintrovideouploaddto.PresignProfileIntroVideoUploadDto === "undefined" ? Object : _presignprofileintrovideouploaddto.PresignProfileIntroVideoUploadDto,
         Object
     ]),
     _ts_metadata("design:returntype", Promise)
-], CreatorProfileController.prototype, "presignProfileImageUpload", null);
+], CreatorProfileController.prototype, "presignProfileIntroVideoUpload", null);
 _ts_decorate([
     (0, _common.Get)(),
     (0, _swagger.ApiOperation)({

@@ -229,6 +229,16 @@ export class ListCreatorsQueryDto {
 
   @ApiPropertyOptional({
     type: [String],
+    description: 'AI content permission facet slugs; OR within list.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  aiContentPermission?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
     description: 'Language facet slugs; OR within list.',
   })
   @IsOptional()

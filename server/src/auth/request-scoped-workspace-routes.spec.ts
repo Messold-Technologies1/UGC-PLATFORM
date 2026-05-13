@@ -89,10 +89,10 @@ describe('Request-scoped workspace routes', () => {
     ]);
     expect(requiredWorkspaceFor(controller, 'createProfile')).toBeUndefined();
     expect(
-      requiredWorkspaceFor(controller, 'presignProfileImageUpload'),
+      requiredWorkspaceFor(controller, 'presignProfileIntroVideoUpload'),
     ).toBeUndefined();
     expect(guardsFor(controller, 'createProfile')).toEqual([JwtAuthGuard]);
-    expect(guardsFor(controller, 'presignProfileImageUpload')).toEqual([
+    expect(guardsFor(controller, 'presignProfileIntroVideoUpload')).toEqual([
       JwtAuthGuard,
     ]);
   });

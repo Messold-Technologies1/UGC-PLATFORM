@@ -78,9 +78,10 @@ export class CreatorPublicListItemDto {
   name!: string;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/creator-profile/<userId>/<uuid>.jpg',
+    example: 'https://cdn.example.com/creator-profile/<id>/intro/<uuid>.mp4',
+    description: 'Public intro video URL for discovery cards (optional).',
   })
-  profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
 
   @ApiPropertyOptional({ example: 'Bengaluru' })
   city?: string | null;

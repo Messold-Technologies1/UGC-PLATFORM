@@ -967,7 +967,7 @@ export class OrdersService {
           select: {
             id: true,
             displayName: true,
-            profileImageUrl: true,
+            introVideoUrl: true,
             city: true,
           },
         },
@@ -982,7 +982,7 @@ export class OrdersService {
       creator: {
         id: creator.id,
         displayName: creator.displayName,
-        profileImageUrl: creator.profileImageUrl ?? null,
+        introVideoUrl: creator.introVideoUrl ?? null,
         city: creator.city ?? null,
       },
     };
@@ -1128,7 +1128,7 @@ export class OrdersService {
           select: {
             id: true,
             displayName: true,
-            profileImageUrl: true,
+            introVideoUrl: true,
             city: true,
           },
         },
@@ -1145,7 +1145,7 @@ export class OrdersService {
       creator: {
         id: creator.id,
         displayName: creator.displayName,
-        profileImageUrl: creator.profileImageUrl ?? null,
+        introVideoUrl: creator.introVideoUrl ?? null,
         city: creator.city ?? null,
       },
       brand: toOrderBrandSnapshotDto(brand),
@@ -1193,7 +1193,7 @@ export class OrdersService {
             select: {
               id: true,
               displayName: true,
-              profileImageUrl: true,
+              introVideoUrl: true,
               city: true,
             },
           },
@@ -1208,7 +1208,7 @@ export class OrdersService {
         creator: {
           id: creator.id,
           displayName: creator.displayName,
-          profileImageUrl: creator.profileImageUrl ?? null,
+          introVideoUrl: creator.introVideoUrl ?? null,
           city: creator.city ?? null,
         },
       };
@@ -1304,7 +1304,7 @@ export class OrdersService {
             select: {
               id: true,
               displayName: true,
-              profileImageUrl: true,
+              introVideoUrl: true,
               city: true,
             },
           },
@@ -1322,7 +1322,7 @@ export class OrdersService {
         creator: {
           id: creator.id,
           displayName: creator.displayName,
-          profileImageUrl: creator.profileImageUrl ?? null,
+          introVideoUrl: creator.introVideoUrl ?? null,
           city: creator.city ?? null,
         },
         brand: toOrderBrandSnapshotDto(brand),

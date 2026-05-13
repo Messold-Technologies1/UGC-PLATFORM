@@ -32,9 +32,9 @@ import { CreatorsPublicListResponseDto } from './dto/creators-public-list-respon
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorProfileService } from './creator-profile.service';
 import {
-  PresignProfileImageUploadDto,
+  PresignProfileIntroVideoUploadDto,
   PresignUploadResponseDto,
-} from './dto/presign-profile-image-upload.dto';
+} from './dto/presign-profile-intro-video-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
@@ -68,19 +68,21 @@ export class CreatorProfileController {
     return this.creatorProfileService.createCreatorProfile(req.user.id, dto);
   }
 
-  @Post('profile/uploads/presign')
+  @Post('profile/uploads/presign-intro-video')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create a presigned URL for uploading creator profile image. Creator uploading their own Image',
+    summary: 'Presigned URL for creator intro video upload',
+    description:
+      'Before profile exists: temp key under creator-profile-intro-temp/. After profile exists: key under creator-profile/<id>/intro/. Send returned key as introVideoKey on create or patch.',
   })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
-  async presignProfileImageUpload(
-    @Body() dto: PresignProfileImageUploadDto,
+  async presignProfileIntroVideoUpload(
+    @Body() dto: PresignProfileIntroVideoUploadDto,
     @Req()
     req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
-    return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
+    return this.creatorProfileService.presignProfileIntroVideoUpload(req.user.id, dto);
   }
 
   @Get()

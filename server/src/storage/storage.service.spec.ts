@@ -41,36 +41,36 @@ describe('StorageService', () => {
     );
   });
 
-  it('buildObjectKey creates a creator profile image key', () => {
+  it('buildObjectKey creates a creator intro video key (existing profile)', () => {
     const storage = new StorageService(config as any);
     const key = storage.buildObjectKey({
-      kind: 'creator_profile_image',
+      kind: 'creator_intro_video',
       userId: 'u1',
       creatorProfileId: 'c1',
-      contentType: 'image/jpeg',
+      contentType: 'video/mp4',
     });
-    expect(key.startsWith('creator-profile/c1/')).toBe(true);
-    expect(key.endsWith('.jpg')).toBe(true);
+    expect(key.startsWith('creator-profile/c1/intro/')).toBe(true);
+    expect(key.endsWith('.mp4')).toBe(true);
   });
 
-  it('buildObjectKey creates a temporary creator profile image key', () => {
+  it('buildObjectKey creates a temporary creator intro video key', () => {
     const storage = new StorageService(config as any);
     const key = storage.buildObjectKey({
-      kind: 'creator_profile_image',
+      kind: 'creator_intro_video',
       userId: 'u1',
-      contentType: 'image/jpeg',
+      contentType: 'video/mp4',
     });
-    expect(key.startsWith('creator-profile-temp/u1/')).toBe(true);
-    expect(key.endsWith('.jpg')).toBe(true);
+    expect(key.startsWith('creator-profile-intro-temp/u1/')).toBe(true);
+    expect(key.endsWith('.mp4')).toBe(true);
   });
 
-  it('finalizes temporary profile image key', async () => {
+  it('finalizes temporary creator intro video key', async () => {
     const storage = new StorageService(config as any);
-    const finalKey = await storage.finalizeCreatorProfileImageKey({
-      tempKey: 'creator-profile-temp/u1/a.jpg',
+    const finalKey = await storage.finalizeCreatorIntroVideoKey({
+      tempKey: 'creator-profile-intro-temp/u1/a.mp4',
       creatorProfileId: 'c1',
     });
-    expect(finalKey).toBe('creator-profile/c1/a.jpg');
+    expect(finalKey).toBe('creator-profile/c1/intro/a.mp4');
     expect(sendMock).toHaveBeenCalledTimes(2);
   });
 
@@ -95,12 +95,12 @@ describe('StorageService', () => {
   it('creates a presigned PUT upload result', async () => {
     const storage = new StorageService(config as any);
     const res = await storage.createPresignedPutUpload({
-      key: 'creator-profile/c1/a.jpg',
-      contentType: 'image/jpeg',
+      key: 'creator-profile/c1/intro/a.mp4',
+      contentType: 'video/mp4',
       contentLength: 10,
     });
     expect(res.uploadUrl).toBe('https://signed.example.com/upload');
-    expect(res.headers['Content-Type']).toBe('image/jpeg');
-    expect(res.cdnUrl).toBe('https://cdn.example.com/creator-profile/c1/a.jpg');
+    expect(res.headers['Content-Type']).toBe('video/mp4');
+    expect(res.cdnUrl).toBe('https://cdn.example.com/creator-profile/c1/intro/a.mp4');
   });
 });

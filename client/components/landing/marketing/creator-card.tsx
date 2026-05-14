@@ -26,7 +26,7 @@ export function CreatorCard({
 }: CreatorCardProps) {
   return (
     <article className="border-foreground/90 bg-card shadow-pop group hover:shadow-hard relative overflow-hidden rounded-3xl border-2 transition-all duration-300 hover:-translate-y-1">
-      <div className="bg-muted relative aspect-[3/4] overflow-hidden">
+      <div className="bg-muted relative aspect-3/4 overflow-hidden">
         <Image
           src={image}
           alt={`${name}, ${niches.join(", ")} creator`}

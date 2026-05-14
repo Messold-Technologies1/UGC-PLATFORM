@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
+import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
+import type { CreateBriefPayload } from "@/features/briefs/api/types";
 
 const briefFormSchema = z.object({
   brandName: z.string().trim().min(1, "Brand name is required"),
@@ -38,7 +40,7 @@ interface BriefFormProps {
   readOnly?: boolean;
 }
 
-function toBriefPayload(values: BriefFormValues): Record<string, unknown> {
+function toBriefPayload(values: BriefFormValues): CreateBriefPayload {
   const referenceLinks = values.links
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -46,12 +48,14 @@ function toBriefPayload(values: BriefFormValues): Record<string, unknown> {
 
   return {
     brandName: values.brandName.trim(),
-    productService: values.productService.trim(),
-    industry: values.industry.trim() || null,
-    instructions: values.instructions.trim(),
-    onLocationFilming: values.onLocationFilming,
+    productName: values.productService.trim(),
+    industry: values.industry.trim() || undefined,
+    productDescription: values.instructions.trim(),
+    shootLocationKind: values.onLocationFilming
+      ? "BRAND_SELECTED_LOCATION"
+      : "CREATOR_DECIDES",
     referenceLinks,
-    notes: values.notes.trim() || null,
+    finalNotes: values.notes.trim() || undefined,
   };
 }
 
@@ -75,22 +79,27 @@ export function BriefForm({
       type BriefPayload = {
         brandName?: string;
         productService?: string;
+        productName?: string | null;
         industry?: string | null;
         instructions?: string;
+        productDescription?: string | null;
         onLocationFilming?: boolean;
+        shootLocationKind?: string | null;
         referenceLinks?: string[];
         notes?: string | null;
+        finalNotes?: string | null;
       };
 
       const brf = briefData.brief as BriefPayload;
       return {
         brandName: brf.brandName || "",
-        productService: brf.productService || "",
+        productService: brf.productService || brf.productName || "",
         industry: brf.industry || "",
-        instructions: brf.instructions || "",
-        onLocationFilming: !!brf.onLocationFilming,
+        instructions: brf.instructions || brf.productDescription || "",
+        onLocationFilming:
+          brf.onLocationFilming ?? brf.shootLocationKind === "BRAND_SELECTED_LOCATION",
         links: brf.referenceLinks ? brf.referenceLinks.join("\n") : "",
-        notes: brf.notes || "",
+        notes: brf.notes || brf.finalNotes || "",
       };
     }
     return {
@@ -108,6 +117,7 @@ export function BriefForm({
     resolver: zodResolver(briefFormSchema),
     values: defaultValues,
   });
+  const createBriefMutation = useCreateBriefMutation();
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
       form.reset();
@@ -120,11 +130,17 @@ export function BriefForm({
     control: form.control,
     name: "onLocationFilming",
   });
+  const isSubmitting =
+    createBriefMutation.isPending || submitBriefMutation.isPending;
 
   function handleSubmit(values: BriefFormValues) {
-    submitBriefMutation.mutate({
-      orderId,
-      brief: toBriefPayload(values),
+    createBriefMutation.mutate(toBriefPayload(values), {
+      onSuccess: ({ id }) => {
+        submitBriefMutation.mutate({
+          orderId,
+          briefId: id,
+        });
+      },
     });
   }
 
@@ -165,7 +181,7 @@ export function BriefForm({
         <Input
           id="brandName"
           placeholder="e.g. Acme Co."
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
           aria-invalid={form.formState.errors.brandName ? true : undefined}
           className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("brandName")}
@@ -187,7 +203,7 @@ export function BriefForm({
         <Input
           id="productService"
           placeholder="What should the content feature?"
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
           aria-invalid={form.formState.errors.productService ? true : undefined}
           className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("productService")}
@@ -209,7 +225,7 @@ export function BriefForm({
         <Input
           id="industry"
           placeholder="e.g. beauty, SaaS, fitness"
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
           className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("industry")}
         />
@@ -225,7 +241,7 @@ export function BriefForm({
         <Textarea
           id="instructions"
           placeholder="Tone, talking points, do's and don'ts, CTA..."
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
           aria-invalid={form.formState.errors.instructions ? true : undefined}
           className="min-h-25 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("instructions")}
@@ -253,7 +269,7 @@ export function BriefForm({
               shouldDirty: true,
             })
           }
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
         />
       </div>
 
@@ -267,7 +283,7 @@ export function BriefForm({
         <Textarea
           id="links"
           placeholder="One URL per line — mood boards, past ads, product pages..."
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
           className="min-h-20 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("links")}
         />
@@ -283,7 +299,7 @@ export function BriefForm({
         <Textarea
           id="notes"
           placeholder="Anything else the creator should know"
-          disabled={readOnly || submitBriefMutation.isPending}
+          disabled={readOnly || isSubmitting}
           className="min-h-20 resize-y bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 p-3 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
           {...form.register("notes")}
         />
@@ -294,9 +310,9 @@ export function BriefForm({
           <Button
             type="submit"
             className="w-full sm:flex-1"
-            disabled={submitBriefMutation.isPending}
+            disabled={isSubmitting}
           >
-            {submitBriefMutation.isPending ? (
+            {isSubmitting ? (
               <>
                 <Spinner className="size-4" aria-hidden />
                 Submitting...
@@ -311,7 +327,7 @@ export function BriefForm({
               variant="ghost"
               className="w-full sm:w-auto"
               onClick={onCancel}
-              disabled={submitBriefMutation.isPending}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>

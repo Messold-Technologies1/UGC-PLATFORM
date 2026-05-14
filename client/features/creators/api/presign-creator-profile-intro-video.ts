@@ -1,13 +1,12 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
-export type PresignProfileImageUploadPayload = {
+export type PresignProfileIntroVideoUploadPayload = {
   contentType: string;
   contentLength?: number;
 };
 
-
-export type PresignProfileImageUploadResponse = {
+export type PresignProfileIntroVideoUploadResponse = {
   key: string;
   uploadUrl: string;
   headers: Record<string, string>;
@@ -15,20 +14,19 @@ export type PresignProfileImageUploadResponse = {
   cdnUrl: string;
 };
 
-export async function presignCreatorProfileImageUpload(
-  payload: PresignProfileImageUploadPayload,
-): Promise<PresignProfileImageUploadResponse> {
-  const { data } = await api.post<PresignProfileImageUploadResponse>(
-    ENDPOINTS.CREATORS.PROFILE_IMAGE_PRESIGN,
+export async function presignCreatorProfileIntroVideoUpload(
+  payload: PresignProfileIntroVideoUploadPayload,
+): Promise<PresignProfileIntroVideoUploadResponse> {
+  const { data } = await api.post<PresignProfileIntroVideoUploadResponse>(
+    ENDPOINTS.CREATORS.PROFILE_INTRO_VIDEO_PRESIGN,
     payload,
   );
   return data;
 }
 
-
-export async function putFileToPresignedUrl(
+export async function putIntroVideoToPresignedUrl(
   file: File,
-  presign: PresignProfileImageUploadResponse,
+  presign: PresignProfileIntroVideoUploadResponse,
 ): Promise<void> {
   const res = await fetch(presign.uploadUrl, {
     method: "PUT",

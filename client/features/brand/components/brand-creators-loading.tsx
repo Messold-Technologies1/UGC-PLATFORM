@@ -29,6 +29,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Beauty",
       categories: ["Beauty", "Lifestyle"],
       industryLabel: "Skincare",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-2",
@@ -49,6 +51,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Technology",
       categories: ["Technology", "SaaS"],
       industryLabel: "Apps",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-3",
@@ -69,6 +73,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Fashion",
       categories: ["Fashion", "Lifestyle"],
       industryLabel: "Apparel",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-4",
@@ -89,6 +95,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Food",
       categories: ["Food", "Hospitality"],
       industryLabel: "Dining",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-5",
@@ -109,6 +117,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Health",
       categories: ["Health", "Wellness"],
       industryLabel: "Wellness",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-6",
@@ -129,6 +139,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Fitness",
       categories: ["Fitness", "Lifestyle"],
       industryLabel: "Fitness",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-7",
@@ -149,6 +161,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Home",
       categories: ["Home", "Decor"],
       industryLabel: "Home Decor",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
     {
       id: "fixture-creator-8",
@@ -169,6 +183,8 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
       category: "Travel",
       categories: ["Travel", "Lifestyle"],
       industryLabel: "Travel",
+      languages: ["English", "Hindi"],
+      deliveryDays: 3,
     },
   ],
   total: 148,
@@ -177,63 +193,65 @@ const BRAND_CREATORS_FIXTURE_DATA: CreatorsListResult = {
 };
 
 function BrandCreatorsFixtureView() {
-  return (
-    <div className="w-full min-w-0">
-      <header className="space-y-6">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="font-headline font-extrabold text-5xl tracking-tight mb-2">
-              Browse Creators
-            </h1>
-            {/* <p className="mt-2 max-w-4xl text-base text-muted-foreground md:text-lg xl:max-w-none">
-          Find and hire talented UGC creators to bring your brand story to life.
-        </p> */}
-          </div>
-        </div>
-      </header>
-
-      <div className="sticky top-0 z-30 mb-10">
-        <div className="flex flex-col gap-4 p-4 py-3 backdrop-blur-sm md:flex-row md:items-center md:gap-6">
-          <div className="flex w-full shrink-0 flex-col gap-4 sm:flex-row sm:items-center md:w-auto">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 rounded-full px-5 py-2.5 text-sm font-medium"
-              >
-                <SlidersHorizontal className="size-3.5" />
-                All filters
-                <span className="ml-0.5 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  3
-                </span>
-              </Button>
-            </div>
-
-            <div className="hidden h-8 w-px shrink-0 bg-border md:block" />
-
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
-              <p className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {BRAND_CREATORS_FIXTURE_DATA.total.toLocaleString()} creators
-                found
-              </p>
-            </div>
-          </div>
-
-          <div className="group relative min-w-0 w-full flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors" />
-            <Input
-              placeholder="Search creators, niches, or locations…"
-              defaultValue=""
-              className="h-10 rounded-2xl py-2.5 pl-11 pr-4 text-sm"
-              readOnly
-            />
-          </div>
-        </div>
+    return (
+    <div className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8">
+      {/* Sidebar Skeleton */}
+      <div className="hidden lg:block w-full max-w-[260px] shrink-0 lg:sticky lg:top-[6.5rem]">
+        <div className="h-[600px] w-full rounded-lg bg-gray-100/50 animate-pulse" />
       </div>
 
-      <div className="mt-6 flex min-h-[min(22rem,50vh)] flex-col lg:min-h-112 lg:flex-row lg:items-start">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="grid w-full gap-x-6 gap-y-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      {/* Main Content Area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Header Title */}
+        <div className="mb-6">
+          <h1 className="text-[28px] font-bold text-[#111] tracking-tight">
+            Find the right creator for your brand
+          </h1>
+          <p className="mt-1 text-[15px] text-[#6B7280]">
+            Browse creators by style, language, content type, location and more.
+          </p>
+        </div>
+
+        {/* Search & Request Help Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="relative w-full max-w-xl">
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search niche, style, language, city or keyword"
+              defaultValue=""
+              readOnly
+              className="h-[46px] rounded-lg border-gray-200 py-2.5 pl-11 pr-12 text-[14px] shadow-sm text-gray-900 bg-white"
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
+              <SlidersHorizontal className="size-[18px] text-gray-400" />
+            </div>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <span className="text-[13px] text-[#6B7280] font-medium hidden sm:inline-block">
+              Can't find the right fit?
+            </span>
+            <div className="inline-flex h-[42px] items-center justify-center rounded-lg border border-[#8B5CF6] px-5 text-[14px] font-semibold text-[#8B5CF6]">
+              Request Help
+            </div>
+          </div>
+        </div>
+
+        {/* Active Tags & Sort Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="h-[32px] w-[200px] rounded-lg bg-gray-100/50 animate-pulse" />
+          </div>
+          
+          <div className="flex items-center gap-4 shrink-0">
+            <span className="text-[13px] font-semibold text-[#6B7280]">
+              {BRAND_CREATORS_FIXTURE_DATA.total.toLocaleString()} creators found
+            </span>
+          </div>
+        </div>
+
+        {/* Grid Area */}
+        <div className="min-h-[min(22rem,50vh)]">
+          <div className="grid w-full gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
             {BRAND_CREATORS_FIXTURE_DATA.creators.map((creator) => (
               <div key={creator.id} className="min-w-0 h-full">
                 <CreatorCard

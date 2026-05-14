@@ -64,6 +64,8 @@ export type CreatorPortfolioVideoPreviewApi = {
 export type CreatorPublicListPackageApi = {
   name: string;
   priceAmount: string;
+  deliveryDays: number;
+  basicEditing: boolean;
 };
 
 export type CreatorPublicListItemApi = {
@@ -71,6 +73,7 @@ export type CreatorPublicListItemApi = {
   userId: string;
   name: string;
   profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
@@ -97,6 +100,7 @@ export type CreatorProfileItemApi = {
   phone?: string | null;
   phoneVerified?: boolean;
   profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;

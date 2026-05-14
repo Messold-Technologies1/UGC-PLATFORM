@@ -28,6 +28,8 @@ export function PublicAppProviders({
   return <>{children}</>;
 }
 
+import { NotificationProvider } from "@/providers/notification-provider";
+
 export function AuthenticatedAppProviders({
   children,
 }: {
@@ -35,7 +37,9 @@ export function AuthenticatedAppProviders({
 }) {
   return (
     <AuthProvider>
-      <RealtimeProvider>{children}</RealtimeProvider>
+      <NotificationProvider>
+        <RealtimeProvider>{children}</RealtimeProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

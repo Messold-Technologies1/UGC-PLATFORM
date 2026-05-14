@@ -15,6 +15,23 @@ export interface OrderBriefSubmittedEvent {
   briefSubmittedAt: string;
 }
 
+export interface OrderBriefAcceptedEvent {
+  orderId: string;
+  briefAcceptedAt: string;
+}
+
+export interface OrderProductShippedEvent {
+  orderId: string;
+  courierName: string;
+  trackingId?: string | null;
+  dispatchedAt: string;
+}
+
+export interface OrderProductReceivedEvent {
+  orderId: string;
+  productReceivedAt: string;
+}
+
 export interface OrderChatMessage {
   id: string;
   orderId: string;
@@ -39,6 +56,9 @@ export interface OrderChatReadUpdatedEvent {
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
+  "order.brief_accepted": (e: OrderBriefAcceptedEvent) => void;
+  "order.product_shipped": (e: OrderProductShippedEvent) => void;
+  "order.product_received": (e: OrderProductReceivedEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

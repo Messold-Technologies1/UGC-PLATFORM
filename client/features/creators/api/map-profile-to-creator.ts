@@ -79,14 +79,12 @@ function minPackagePrice(
 }
 
 function buildTags(profile: ListingProfileApi): string[] {
-  const fromLang = getProfileLanguages(profile);
   const fromCategories = getProfileCategories(profile);
   const fromPersona = getProfilePersonaTags(profile);
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
   const seen = new Set<string>();
   const out: string[] = [];
   for (const t of [
-    ...fromLang,
     ...fromCategories,
     ...fromPersona,
     ...trimStringArray(firstPortfolioVideo?.tags),
@@ -114,7 +112,9 @@ export function mapProfileToListingCreator(
       ? thumb
       : "/globe.svg";
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
-  const previewVideoUrl = trimString(firstPortfolioVideo?.videoUrl) || null;
+  const introVideoUrl = trimString(profile.introVideoUrl);
+  const previewVideoUrl =
+    introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
     trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
   const industryLabel = trimString(firstPortfolioVideo?.industryLabel) || undefined;
@@ -140,6 +140,9 @@ export function mapProfileToListingCreator(
     category,
     categories,
     industryLabel,
+    languages: getProfileLanguages(profile),
+    deliveryDays: (profile.packages?.[0] as { deliveryDays?: number } | undefined)?.deliveryDays ?? 5,
+    basicEditing: (profile.packages?.[0] as { basicEditing?: boolean } | undefined)?.basicEditing ?? true,
   };
 }
 

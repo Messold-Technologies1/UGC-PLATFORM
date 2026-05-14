@@ -13,7 +13,7 @@ import type { CreatorProfileItemApi } from "./types";
 export type UpdateCreatorProfilePayload = {
   displayName?: string;
   phone?: string;
-  profileImageKey?: string;
+  introVideoKey?: string;
   countryName?: string;
   stateName?: string;
   city?: string;

@@ -88,7 +88,7 @@ export function AudienceCard({
             <li key={b.title} className="flex gap-2.5">
               <span
                 className={cn(
-                  "mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full",
+                  "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
                   toneCheckBg[tone],
                 )}
               >
@@ -176,8 +176,8 @@ function FloatingChip({
 export function BrandsVisual() {
   return (
     <div className="relative h-full min-h-[480px] w-full overflow-hidden rounded-[28px] bg-grape/25 p-8 lg:h-full lg:rounded-[36px]">
-      <div className="shadow-hard bg-foreground absolute left-1/2 top-10 w-[55%] -translate-x-1/2 rotate-[-3deg] rounded-[28px] border-2 border-foreground p-2 aspect-[9/16]">
-        <div className="relative h-full w-full overflow-hidden rounded-[22px] bg-gradient-to-br from-pink/70 via-grape/40 to-sky/60">
+      <div className="shadow-hard bg-foreground absolute left-1/2 top-10 w-[55%] -translate-x-1/2 -rotate-3 rounded-[28px] border-2 border-foreground p-2 aspect-9/16">
+        <div className="relative h-full w-full overflow-hidden rounded-[22px] bg-linear-to-br from-pink/70 via-grape/40 to-sky/60">
           <div className="bg-grain absolute inset-0 opacity-30" />
           <div className="bg-background/90 absolute bottom-3 left-3 right-3 rounded-xl p-2.5 backdrop-blur">
             <p className="text-[10px] font-bold">Glow Serum demo · 0:18</p>
@@ -188,7 +188,7 @@ export function BrandsVisual() {
         </div>
       </div>
 
-      <div className="bg-card shadow-pop absolute top-6 left-4 w-44 rotate-[-6deg] rounded-2xl border border-foreground/10 p-3">
+      <div className="bg-card shadow-pop absolute top-6 left-4 w-44 -rotate-6 rounded-2xl border border-foreground/10 p-3">
         <p className="text-[10px] font-semibold text-foreground/60">
           CTR boost
         </p>
@@ -203,19 +203,19 @@ export function BrandsVisual() {
         </svg>
       </div>
 
-      <FloatingChip tone="lime" className="top-8 right-4 rotate-[6deg]">
+      <FloatingChip tone="lime" className="top-8 right-4 rotate-6">
         ✦ Ad-ready UGC
       </FloatingChip>
       <FloatingChip tone="white" className="top-44 right-2 rotate-[-4deg]">
         Niche-fit creator
       </FloatingChip>
-      <FloatingChip tone="dark" className="bottom-24 left-4 rotate-[-3deg]">
+      <FloatingChip tone="dark" className="bottom-24 left-4 -rotate-3">
         + More fresh creatives
       </FloatingChip>
       <FloatingChip tone="pink" className="bottom-6 right-6 rotate-[4deg]">
         Protected payment
       </FloatingChip>
-      <FloatingChip tone="white" className="bottom-10 left-10 rotate-[-6deg]">
+      <FloatingChip tone="white" className="bottom-10 left-10 -rotate-6">
         + Lower creator cost
       </FloatingChip>
     </div>
@@ -227,7 +227,7 @@ export function CreatorsVisual() {
     <div className="relative h-full min-h-[480px] w-full overflow-hidden rounded-[28px] bg-lime/30 p-8 lg:h-full lg:rounded-[36px]">
       <div className="bg-card shadow-pop absolute left-6 top-8 w-56 rotate-[-4deg] rounded-2xl border border-foreground/10 p-4">
         <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-pink to-grape" />
+          <div className="h-11 w-11 rounded-full bg-linear-to-br from-pink to-grape" />
           <div>
             <p className="font-heading text-sm font-bold">Aanya K.</p>
             <p className="text-[11px] text-foreground/60">Skincare · Beauty</p>
@@ -260,7 +260,7 @@ export function CreatorsVisual() {
         </div>
       </div>
 
-      <div className="bg-card shadow-pop absolute bottom-20 left-10 w-48 rotate-[3deg] rounded-2xl border border-foreground/10 p-3">
+      <div className="bg-card shadow-pop absolute bottom-20 left-10 w-48 rotate-3 rounded-2xl border border-foreground/10 p-3">
         <p className="text-[10px] font-semibold text-foreground/60">
           Payment secured
         </p>
@@ -274,7 +274,7 @@ export function CreatorsVisual() {
       <FloatingChip tone="white" className="top-2 left-12 rotate-[8deg]">
         Portfolio viewed · 24
       </FloatingChip>
-      <FloatingChip tone="sky" className="bottom-32 right-2 rotate-[6deg]">
+      <FloatingChip tone="sky" className="bottom-32 right-2 rotate-6">
         ✦ New collab request
       </FloatingChip>
     </div>
@@ -322,7 +322,7 @@ export function AgenciesVisual() {
         </svg>
       </div>
 
-      <div className="shadow-hard bg-foreground absolute bottom-20 left-6 w-56 rotate-[-3deg] rounded-2xl p-3.5 text-background">
+      <div className="shadow-hard bg-foreground absolute bottom-20 left-6 w-56 -rotate-3 rounded-2xl p-3.5 text-background">
         <p className="text-[10px] font-semibold opacity-70">Creator roster</p>
         <div className="mt-2 flex -space-x-2">
           {["bg-pink", "bg-lime", "bg-sky", "bg-grape", "bg-pink"].map(

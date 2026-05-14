@@ -43,6 +43,7 @@ import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
 import { CreatorPayoutDetailsMaskedDto } from './dto/creator-payout-details-masked.dto';
+import { SuggestedCreatorsResponseDto } from './dto/suggested-creators-response.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -129,19 +130,17 @@ export class CreatorProfileController {
 
   @Get('suggestions/categories')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'List creator category suggestions' })
+  @ApiOperation({
+    summary: 'List category experience facet options (catalog)',
+    description:
+      'Returns CreatorFacetOption rows for dimension CATEGORY_EXPERIENCE (same slugs as facetSelections).',
+  })
   @ApiOkResponse({ type: () => [CreatorSuggestionItemDto] })
   async listCategorySuggestions(): Promise<CreatorSuggestionItemDto[]> {
     return this.creatorProfileService.listCategorySuggestions();
   }
 
-  @Get('suggestions/persona-tags')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'List creator persona tag suggestions' })
-  @ApiOkResponse({ type: () => [CreatorSuggestionItemDto] })
-  async listPersonaTagSuggestions(): Promise<CreatorSuggestionItemDto[]> {
-    return this.creatorProfileService.listPersonaTagSuggestions();
-  }
+
 
   @Get('suggestions/restrictions')
   @UseGuards(JwtAuthGuard)
@@ -197,6 +196,19 @@ export class CreatorProfileController {
     return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
   }
 
+  @Get(':id/suggested')
+  @ApiOperation({
+    summary: 'Suggested creators for a profile page (same content category)',
+    description:
+      'Public discovery helper for brand (or guest) creator profile pages: returns up to five other approved creators sharing at least one CONTENT_CATEGORY facet with the anchor. Only available when the anchor creator is approved (404 otherwise). No authentication required.',
+  })
+  @ApiOkResponse({ type: () => SuggestedCreatorsResponseDto })
+  async listSuggestedCreators(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SuggestedCreatorsResponseDto> {
+    return this.creatorProfileService.listSuggestedCreators(id);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
@@ -218,7 +230,7 @@ export class CreatorProfileController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
-      'Update creator profile (replace languages/categories/persona/restrictions/packages/addOns if provided)',
+      'Update creator profile (replace languages/facets/persona/restrictions/packages/addOns if provided)',
   })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async updateCreator(

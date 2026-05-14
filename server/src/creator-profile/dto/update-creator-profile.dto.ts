@@ -159,15 +159,9 @@ export class UpdateCreatorProfileDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description: 'Legacy free-text categories (read in responses; optional replace).',
+    description:
+      'Accepted for API compatibility; ignored when updating (persona tags were removed).',
   })
-  @IsOptional()
-  @IsArray()
-  @ArrayUnique()
-  @IsString({ each: true })
-  categories?: string[];
-
-  @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
   @ArrayUnique()

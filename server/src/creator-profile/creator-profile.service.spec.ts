@@ -44,12 +44,6 @@ interface TxMock {
   creatorFacetOption: {
     findUnique: TxAsyncMock;
   };
-  creatorCategory: {
-    createMany: TxAsyncMock;
-  };
-  creatorPersonaTag: {
-    createMany: TxAsyncMock;
-  };
   creatorRestriction: {
     createMany: TxAsyncMock;
   };
@@ -95,12 +89,6 @@ describe('CreatorProfileService', () => {
     creatorFacetOption: {
       findUnique: createTxAsyncMock(),
     },
-    creatorCategory: {
-      createMany: createTxAsyncMock(),
-    },
-    creatorPersonaTag: {
-      createMany: createTxAsyncMock(),
-    },
     creatorRestriction: {
       createMany: createTxAsyncMock(),
     },
@@ -143,8 +131,6 @@ describe('CreatorProfileService', () => {
       findUnique: prismaUserFindUnique,
     },
     creatorLanguage: txMock.creatorProfileLanguage,
-    creatorCategory: txMock.creatorCategory,
-    creatorPersonaTag: txMock.creatorPersonaTag,
     creatorRestriction: txMock.creatorRestriction,
     creatorAddOn: txMock.creatorAddOn,
     role: txMock.role,
@@ -184,8 +170,6 @@ describe('CreatorProfileService', () => {
     txMock.creatorProfileLanguage.deleteMany.mockReset();
     txMock.creatorProfileLanguage.createMany.mockReset();
     txMock.creatorFacetOption.findUnique.mockReset();
-    txMock.creatorCategory.createMany.mockReset();
-    txMock.creatorPersonaTag.createMany.mockReset();
     txMock.creatorRestriction.createMany.mockReset();
     txMock.creatorAddOn.createMany.mockReset();
     txMock.creatorAddOn.deleteMany.mockReset();
@@ -268,7 +252,6 @@ describe('CreatorProfileService', () => {
         onLocationAvailable: false,
         facetSelections: [],
         profileLanguages: [],
-        categories: [],
         personaTags: [],
         restrictions: [],
         packages: [
@@ -348,7 +331,6 @@ describe('CreatorProfileService', () => {
         onLocationAvailable: false,
         facetSelections: [],
         profileLanguages: [],
-        categories: [],
         personaTags: [],
         restrictions: [],
         packages: [],
@@ -390,7 +372,6 @@ describe('CreatorProfileService', () => {
       collaborationCount: 0,
       facetSelections: [],
       profileLanguages: [],
-      categories: [],
       personaTags: [],
       restrictions: [],
       packages: [],
@@ -444,7 +425,6 @@ describe('CreatorProfileService', () => {
       onLocationAvailable: false,
       facetSelections: [],
       profileLanguages: [],
-      categories: [],
       personaTags: [],
       restrictions: [],
       packages: [],

@@ -36,14 +36,6 @@ export class CreatorFacetSelectionResponseDto {
   label!: string;
 }
 
-export class CreatorCategoryResponseDto {
-  @ApiProperty({ example: 'uuid' })
-  id!: string;
-
-  @ApiProperty({ example: 'UGC Video' })
-  category!: string;
-}
-
 export class CreatorPersonaTagResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -227,11 +219,6 @@ export class CreatorProfileResponseDto {
   @ApiProperty({ type: () => [CreatorFacetSelectionResponseDto] })
   facetSelections!: CreatorFacetSelectionResponseDto[];
 
-  @ApiProperty({ type: () => [CreatorCategoryResponseDto] })
-  categories!: CreatorCategoryResponseDto[];
-
-  @ApiProperty({ type: () => [CreatorPersonaTagResponseDto] })
-  personaTags!: CreatorPersonaTagResponseDto[];
 
   @ApiProperty({ type: () => [CreatorRestrictionResponseDto] })
   restrictions!: CreatorRestrictionResponseDto[];

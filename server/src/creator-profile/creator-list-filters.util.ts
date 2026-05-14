@@ -48,15 +48,14 @@ function languageFacetWhere(
 }
 
 /**
- * Match category / persona tag / restriction text the way users type it:
+ * Match restriction text the way users type it:
  * - Case-insensitive substring (`contains`) so "UGC videos" matches stored "UGC Video".
  * - Space-separated tokens must all appear on the same row (AND); each token tries a
  *   singular variant when it ends with "s" so "videos" also matches "video".
  */
-function buildProfileStringFieldRowMatchInner(
-  field: 'tag' | 'category' | 'restriction',
+function buildRestrictionRowMatch(
   raw: string,
-): Record<string, unknown> | undefined {
+): Prisma.CreatorRestrictionWhereInput | undefined {
   const trimmed = raw.trim();
   if (!trimmed) {
     return undefined;
@@ -69,42 +68,15 @@ function buildProfileStringFieldRowMatchInner(
       variants.push(token.slice(0, -1));
     }
     const orBranches = variants.map((v) => ({
-      [field]: { contains: v, mode: 'insensitive' as const },
+      restriction: { contains: v, mode: 'insensitive' as const },
     }));
     return orBranches.length === 1 ? orBranches[0] : { OR: orBranches };
   });
 
   if (perToken.length === 1) {
-    return perToken[0] as Record<string, unknown>;
+    return perToken[0] as Prisma.CreatorRestrictionWhereInput;
   }
   return { AND: perToken };
-}
-
-export function buildProfileStringFieldRowMatch(
-  field: 'tag',
-  raw: string,
-): Prisma.CreatorPersonaTagWhereInput | undefined;
-export function buildProfileStringFieldRowMatch(
-  field: 'category',
-  raw: string,
-): Prisma.CreatorCategoryWhereInput | undefined;
-export function buildProfileStringFieldRowMatch(
-  field: 'restriction',
-  raw: string,
-): Prisma.CreatorRestrictionWhereInput | undefined;
-export function buildProfileStringFieldRowMatch(
-  field: 'tag' | 'category' | 'restriction',
-  raw: string,
-):
-  | Prisma.CreatorPersonaTagWhereInput
-  | Prisma.CreatorCategoryWhereInput
-  | Prisma.CreatorRestrictionWhereInput
-  | undefined {
-  return buildProfileStringFieldRowMatchInner(field, raw) as
-    | Prisma.CreatorPersonaTagWhereInput
-    | Prisma.CreatorCategoryWhereInput
-    | Prisma.CreatorRestrictionWhereInput
-    | undefined;
 }
 
 /**
@@ -230,11 +202,11 @@ export function buildListCreatorsWhere(
   );
   if (occupationClause) clauses.push(occupationClause);
 
-  const interestClause = facetWhere(
-    CreatorFacetDimension.INTEREST,
-    query.interest,
+  const contentCategoryClause = facetWhere(
+    CreatorFacetDimension.CONTENT_CATEGORY,
+    query.contentCategory,
   );
-  if (interestClause) clauses.push(interestClause);
+  if (contentCategoryClause) clauses.push(contentCategoryClause);
 
   const catExpClause = facetWhere(
     CreatorFacetDimension.CATEGORY_EXPERIENCE,
@@ -263,37 +235,9 @@ export function buildListCreatorsWhere(
     });
   }
 
-  const personaTags = query.personaTags?.filter(Boolean);
-  const personaBranches = personaTags
-    ?.map((v) => buildProfileStringFieldRowMatch('tag', v))
-    .filter((b): b is NonNullable<typeof b> => b != null);
-  if (personaBranches?.length) {
-    clauses.push({
-      personaTags: {
-        some: {
-          OR: personaBranches,
-        },
-      },
-    });
-  }
-
-  const categories = query.categories?.filter(Boolean);
-  const categoryBranches = categories
-    ?.map((v) => buildProfileStringFieldRowMatch('category', v))
-    .filter((b): b is NonNullable<typeof b> => b != null);
-  if (categoryBranches?.length) {
-    clauses.push({
-      categories: {
-        some: {
-          OR: categoryBranches,
-        },
-      },
-    });
-  }
-
   const restrictions = query.restrictions?.filter(Boolean);
   const restrictionBranches = restrictions
-    ?.map((v) => buildProfileStringFieldRowMatch('restriction', v))
+    ?.map((v) => buildRestrictionRowMatch(v))
     .filter((b): b is NonNullable<typeof b> => b != null);
   if (restrictionBranches?.length) {
     clauses.push({
@@ -371,8 +315,6 @@ export function buildCreatorListRelationsInclude(
   return {
     facetSelections: { include: { option: { select: facetOptionSelect } } },
     profileLanguages: { include: { option: { select: facetOptionSelect } } },
-    categories: { select: { category: true } },
-    personaTags: { select: { tag: true } },
     restrictions: { select: { restriction: true } },
     packages: {
       select: { name: true, priceAmount: true, deliveryDays: true, deliverables: true },

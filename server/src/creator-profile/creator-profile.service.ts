@@ -39,13 +39,15 @@ import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
+import type {
+  SuggestedCreatorListItemDto,
+  SuggestedCreatorsResponseDto,
+} from './dto/suggested-creators-response.dto';
 
 const creatorProfileWithRelationsInclude = {
   user: { select: { phone: true, phoneVerified: true } },
   facetSelections: { include: { option: true } },
   profileLanguages: { include: { option: true } },
-  categories: true,
-  personaTags: true,
   restrictions: true,
   packages: true,
   addOns: true,
@@ -214,14 +216,7 @@ export class CreatorProfileService {
         slug: row.option?.slug ?? '',
         label: row.option?.label ?? '',
       })),
-      categories: (mapped.categories ?? []).map((c) => ({
-        id: c.id,
-        category: c.category,
-      })),
-      personaTags: (mapped.personaTags ?? []).map((t) => ({
-        id: t.id,
-        tag: t.tag,
-      })),
+    
       restrictions: (mapped.restrictions ?? []).map((r) => ({
         id: r.id,
         restriction: r.restriction,
@@ -749,6 +744,134 @@ export class CreatorProfileService {
     };
   }
 
+  async listSuggestedCreators(
+    anchorCreatorId: string,
+  ): Promise<SuggestedCreatorsResponseDto> {
+    const anchor = await this.prisma.creatorProfile.findUnique({
+      where: { id: anchorCreatorId },
+      include: {
+        creatorApproval: { select: { status: true } },
+        facetSelections: {
+          where: {
+            option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+          },
+          include: {
+            option: { select: { slug: true } },
+          },
+        },
+      },
+    });
+
+    if (!anchor) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    const approvalStatus = anchor.creatorApproval?.status;
+    if (approvalStatus !== ApprovalStatus.APPROVED) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    const categorySlugs = (anchor.facetSelections ?? [])
+      .map((row: { option?: { slug?: string } | null }) => row.option?.slug)
+      .filter((s: unknown): s is string => typeof s === 'string' && s.length > 0);
+
+    if (categorySlugs.length === 0) {
+      return { items: [] };
+    }
+
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: {
+        AND: [
+          { id: { not: anchorCreatorId } },
+          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          {
+            facetSelections: {
+              some: {
+                option: {
+                  dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+                  slug: { in: categorySlugs },
+                },
+              },
+            },
+          },
+        ],
+      },
+      take: 5,
+      orderBy: [{ collaborationCount: 'desc' }, { updatedAt: 'desc' }],
+      include: {
+        packages: {
+          select: { priceAmount: true },
+          take: 1,
+        },
+        facetSelections: {
+          where: {
+            option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+          },
+          include: {
+            option: { select: { slug: true, label: true } },
+          },
+        },
+        portfolioVideos: {
+          where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+          select: {
+            id: true,
+            creatorId: true,
+            videoUrl: true,
+            thumbnailUrl: true,
+          },
+        },
+      },
+    });
+
+    return {
+      items: rows.map((p) => this.mapSuggestedCreatorListItemDto(p)),
+    };
+  }
+
+  private mapSuggestedCreatorListItemDto(profile: any): SuggestedCreatorListItemDto {
+    const pkg = Array.isArray(profile.packages) ? profile.packages[0] : null;
+    const rawPrice = pkg?.priceAmount;
+    let priceAmount: string | null = null;
+    if (rawPrice !== undefined && rawPrice !== null) {
+      priceAmount =
+        typeof rawPrice?.toString === 'function'
+          ? rawPrice.toString()
+          : String(rawPrice);
+    }
+
+    const contentCategories = Array.isArray(profile.facetSelections)
+      ? profile.facetSelections
+          .map((row: any) => ({
+            slug: String(row?.option?.slug ?? ''),
+            label: String(row?.option?.label ?? ''),
+          }))
+          .filter((x: { slug: string }) => x.slug)
+      : [];
+
+    const v = Array.isArray(profile.portfolioVideos)
+      ? profile.portfolioVideos[0]
+      : null;
+    const firstPortfolioVideo = v
+      ? {
+          id: v.id,
+          creatorId: v.creatorId,
+          videoUrl: v.videoUrl,
+          thumbnailUrl: v.thumbnailUrl ?? null,
+        }
+      : null;
+
+    return {
+      id: profile.id,
+      creatorName: String(profile.displayName ?? ''),
+      contentCategories,
+      priceAmount,
+      city: profile.city ?? null,
+      firstPortfolioVideo,
+    };
+  }
+
   private mapCreatorPublicListItemDto(
     profile: any,
   ): CreatorPublicListItemDto {
@@ -813,16 +936,6 @@ export class CreatorProfileService {
       languages: profileLanguages.map((l) => l.label),
       profileLanguages,
       facetSelections,
-      categories: Array.isArray(profile.categories)
-        ? profile.categories
-            .map((c: any) => c?.category)
-            .filter((v: unknown): v is string => typeof v === 'string')
-        : [],
-      personaTags: Array.isArray(profile.personaTags)
-        ? profile.personaTags
-            .map((t: any) => t?.tag)
-            .filter((v: unknown): v is string => typeof v === 'string')
-        : [],
       restrictions: Array.isArray(profile.restrictions)
         ? profile.restrictions
             .map((r: any) => r?.restriction)
@@ -1144,38 +1257,6 @@ export class CreatorProfileService {
           );
         }
 
-        if (dto.categories) {
-          const normalized = this.normalizeUniqueStrings(dto.categories);
-          await (tx as any).creatorCategory.deleteMany({
-            where: { creatorId: creatorProfileId },
-          });
-          if (normalized.length > 0) {
-            await (tx as any).creatorCategory.createMany({
-              data: normalized.map((category) => ({
-                creatorId: creatorProfileId,
-                category,
-              })),
-              skipDuplicates: true,
-            });
-          }
-        }
-
-        if (dto.personaTags) {
-          const normalized = this.normalizeUniqueStrings(dto.personaTags);
-          await (tx as any).creatorPersonaTag.deleteMany({
-            where: { creatorId: creatorProfileId },
-          });
-          if (normalized.length > 0) {
-            await (tx as any).creatorPersonaTag.createMany({
-              data: normalized.map((tag) => ({
-                creatorId: creatorProfileId,
-                tag,
-              })),
-              skipDuplicates: true,
-            });
-          }
-        }
-
         if (dto.restrictions) {
           const normalized = this.normalizeUniqueStrings(dto.restrictions);
           await (tx as any).creatorRestriction.deleteMany({
@@ -1325,28 +1406,15 @@ export class CreatorProfileService {
   }
 
   async listCategorySuggestions(): Promise<CreatorSuggestionItemDto[]> {
-    const suggestions = (await (
-      this.prisma as any
-    ).creatorCategorySuggestion.findMany({
-      take: 100,
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true },
-    })) as CreatorSuggestionItemDto[];
-
-    return suggestions;
+    const rows = await this.prisma.creatorFacetOption.findMany({
+      where: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true },
+    });
+    return rows.map((r) => ({ id: r.id, name: r.label }));
   }
 
-  async listPersonaTagSuggestions(): Promise<CreatorSuggestionItemDto[]> {
-    const suggestions = (await (
-      this.prisma as any
-    ).creatorPersonaTagSuggestion.findMany({
-      take: 100,
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true },
-    })) as CreatorSuggestionItemDto[];
-
-    return suggestions;
-  }
+ 
 
   async listRestrictionSuggestions(): Promise<CreatorSuggestionItemDto[]> {
     const suggestions = (await (

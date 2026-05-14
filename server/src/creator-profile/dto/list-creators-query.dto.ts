@@ -206,14 +206,22 @@ export class ListCreatorsQueryDto {
   @IsString({ each: true })
   occupation?: string[];
 
-  @ApiPropertyOptional({ type: [String] })
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Content category facet slugs (CreatorFacetDimension.CONTENT_CATEGORY); OR within list, AND with other dimensions.',
+  })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
   @IsString({ each: true })
-  interest?: string[];
+  contentCategory?: string[];
 
-  @ApiPropertyOptional({ type: [String] })
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Category experience facet slugs (CreatorFacetDimension.CATEGORY_EXPERIENCE); OR within list.',
+  })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
@@ -255,28 +263,6 @@ export class ListCreatorsQueryDto {
   @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   onLocationAvailable?: boolean;
-
-  @ApiPropertyOptional({
-    example: ['minimal', 'aesthetic'],
-    description:
-      'Repeat param or comma-separated. Creator must have any of these persona tags (OR).',
-  })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @IsString({ each: true })
-  personaTags?: string[];
-
-  @ApiPropertyOptional({
-    example: ['UGC Video'],
-    description:
-      'Repeat param or comma-separated. Creator must have any of these categories (OR).',
-  })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @IsString({ each: true })
-  categories?: string[];
 
   @ApiPropertyOptional({
     example: ['does not accept alcohol'],

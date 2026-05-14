@@ -207,7 +207,7 @@ export class CreateCreatorProfileDto {
   @ApiPropertyOptional({
     type: [CreatorFacetSelectionInputDto],
     description:
-      'Non-language facet selections (catalog slugs per dimension). Use profileLanguages for LANGUAGE. Dimensions include CONTENT_FORMAT, APPEARANCE, AI_CONTENT_PERMISSION, etc.',
+      'Non-language facet selections (catalog slugs per dimension). Use profileLanguages for LANGUAGE. Dimensions include CONTENT_FORMAT, CONTENT_CATEGORY, APPEARANCE, AI_CONTENT_PERMISSION, etc.',
   })
   @IsOptional()
   @IsArray()

@@ -21,7 +21,7 @@ export type CreatorListApiFilters = {
   capability?: string[];
   lifeStyle?: string[];
   occupation?: string[];
-  interest?: string[];
+  contentCategory?: string[];
   categoryExperience?: string[];
   canCreateWith?: string[];
   aiContentPermission?: string[];
@@ -82,7 +82,7 @@ export function serializeCreatorListApiParams(
     ["capability", filters.capability],
     ["lifeStyle", filters.lifeStyle],
     ["occupation", filters.occupation],
-    ["interest", filters.interest],
+    ["contentCategory", filters.contentCategory],
     ["categoryExperience", filters.categoryExperience],
     ["canCreateWith", filters.canCreateWith],
     ["aiContentPermission", filters.aiContentPermission],

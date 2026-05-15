@@ -32,6 +32,8 @@ import { OpenDisputeDto } from './dto/open-dispute.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
+import { AcceptBriefResponseDto } from './dto/accept-brief-response.dto';
+import { MarkProductReceivedResponseDto } from './dto/mark-product-received-response.dto';
 import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import { BrandOrderDetailsResponseDto } from './dto/brand-order-details-response.dto';
 import { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
@@ -182,7 +184,6 @@ export class OrdersController {
   @Post(':id/brief/accept')
   @RequiredWorkspace('CREATOR')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:
       'Creator accepts the brand-submitted brief (order moves to BRIEF_ACCEPTED; required before delivery uploads)',
@@ -192,12 +193,12 @@ export class OrdersController {
     description: 'Order ID (UUID)',
     format: 'uuid',
   })
-  @ApiNoContentResponse({ description: 'Brief accepted' })
+  @ApiOkResponse({ type: AcceptBriefResponseDto })
   async acceptBrief(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.ordersService.acceptBrief({
+  ): Promise<AcceptBriefResponseDto> {
+    return this.ordersService.acceptBrief({
       creatorUserId: req.user.id,
       orderId: id,
     });
@@ -257,7 +258,6 @@ export class OrdersController {
   @Post(':id/product-received')
   @RequiredWorkspace('CREATOR')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:
       'Creator confirms physical product received (PRODUCT_RECEIVED; required before first delivery when shipment applies)',
@@ -267,12 +267,12 @@ export class OrdersController {
     description: 'Order ID (UUID)',
     format: 'uuid',
   })
-  @ApiNoContentResponse({ description: 'Receipt confirmed' })
+  @ApiOkResponse({ type: MarkProductReceivedResponseDto })
   async markProductReceived(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.ordersService.markProductReceived({
+  ): Promise<MarkProductReceivedResponseDto> {
+    return this.ordersService.markProductReceived({
       creatorUserId: req.user.id,
       orderId: id,
     });

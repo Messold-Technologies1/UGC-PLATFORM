@@ -53,11 +53,23 @@ export interface OrderChatReadUpdatedEvent {
   lastReadAt?: string | null;
 }
 
+export interface OrderBriefAcceptedEvent {
+  orderId: string;
+  briefAcceptedAt: string;
+  /** ISO string for non-physical orders; null when product receipt triggers the deadline */
+  deliveryDeadlineAt: string | null;
+}
+
+export interface OrderProductReceivedEvent {
+  orderId: string;
+  productReceivedAt: string;
+  deliveryDeadlineAt: string;
+}
+
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
   "order.brief_accepted": (e: OrderBriefAcceptedEvent) => void;
-  "order.product_shipped": (e: OrderProductShippedEvent) => void;
   "order.product_received": (e: OrderProductReceivedEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;

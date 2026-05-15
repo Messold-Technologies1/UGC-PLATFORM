@@ -16,6 +16,8 @@ import {
   FileEdit,
   Sparkles,
   Video,
+  X,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -401,6 +403,10 @@ function CreateBriefPageContent() {
     control: form.control,
     name: "brandPronunciationAudioUrl",
   });
+  const watchReferenceLinks = useWatch({
+    control: form.control,
+    name: "referenceLinks",
+  });
   const watchContentTypes =
     useWatch({
       control: form.control,
@@ -456,6 +462,37 @@ function CreateBriefPageContent() {
 
   const [selectedScriptOption, setSelectedScriptOption] = useState<string>("");
   const [showBanner, setShowBanner] = useState<boolean>(isFromOrder);
+  const [newLink, setNewLink] = useState("");
+
+  const handleAddLink = () => {
+    const trimmedLink = newLink.trim();
+    if (!trimmedLink) return;
+
+    const { success } = z.url().safeParse(trimmedLink);
+    if (!success) {
+      toast.error("Please enter a valid URL");
+      return;
+    }
+
+    const current = toReferenceLinks(form.getValues("referenceLinks"));
+    if (!current.includes(trimmedLink)) {
+      form.setValue(
+        "referenceLinks",
+        [...current, trimmedLink].join("\n"),
+        { shouldDirty: true, shouldValidate: true },
+      );
+    }
+    setNewLink("");
+  };
+
+  const handleRemoveLink = (linkToRemove: string) => {
+    const current = toReferenceLinks(form.getValues("referenceLinks"));
+    const updated = current.filter((l) => l !== linkToRemove);
+    form.setValue("referenceLinks", updated.join("\n"), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -564,10 +601,10 @@ function CreateBriefPageContent() {
                   The more details you share, the better the content will be.
                 </p>
               </div>
-              <p className="text-xs text-muted-foreground whitespace-nowrap">
+              {/* <p className="text-xs text-muted-foreground whitespace-nowrap">
                 All fields marked <span className="text-destructive">*</span>{" "}
                 are required
-              </p>
+              </p> */}
             </div>
 
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -1026,7 +1063,7 @@ function CreateBriefPageContent() {
                   </h2>
                 </div>
                 <CardContent className="space-y-6 px-6 sm:px-8 py-6">
-                  <p className="text-sm text-muted-foreground">
+                  {/* <p className="text-sm text-muted-foreground">
                     Add links or upload examples you like (Instagram, TikTok,
                     YouTube, Drive, etc.)
                   </p>
@@ -1040,25 +1077,63 @@ function CreateBriefPageContent() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Supports: JPG, PNG, MP4, MOV (Max 500MB)
                     </p>
-                  </div>
-                  <div className="space-y-2 min-w-0">
+                  </div> */}
+                  <div className="space-y-3 min-w-0">
                     <Label
-                      htmlFor="referenceLinks"
+                      htmlFor="newReferenceLink"
                       className="text-xs font-semibold text-foreground/80"
                     >
-                      Reference Links{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (one per line)
-                      </span>
+                      Add Reference Links{" "}
+                      {/* <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span> */}
                     </Label>
-                    <Textarea
-                      id="referenceLinks"
-                      placeholder={
-                        "https://www.instagram.com/reel/C3...\nhttps://drive.google.com/file/d/1a2..."
-                      }
-                      className="min-h-[80px] resize-y rounded-lg bg-white"
-                      {...form.register("referenceLinks")}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="newReferenceLink"
+                        placeholder="https://www.instagram.com/reel/C3..."
+                        className="rounded-lg bg-white"
+                        value={newLink}
+                        onChange={(e) => setNewLink(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddLink();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleAddLink}
+                        className="shrink-0"
+                      >
+                        <Plus className="size-4 mr-1" /> Add
+                      </Button>
+                    </div>
+                    {toReferenceLinks(watchReferenceLinks).length > 0 && (
+                      <div className="flex flex-col gap-2 mt-2">
+                        {toReferenceLinks(watchReferenceLinks).map((link, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between px-3 py-2 bg-muted/50 rounded-lg border border-border/50 text-sm"
+                          >
+                            <span className="truncate mr-4 text-muted-foreground">
+                              {link}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-6 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleRemoveLink(link)}
+                            >
+                              <X className="size-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {form.formState.errors.referenceLinks && (
                       <p className="text-[11px] text-destructive mt-1">
                         {form.formState.errors.referenceLinks.message}

@@ -77,10 +77,12 @@ export class OrderRealtimeNotifier {
     });
   }
 
-  /** Notify the brand that the client (creator) has accepted the brief (no brief payload). */
+  /** Notify the brand that the creator has accepted the brief. */
   async emitOrderBriefAccepted(params: {
     orderId: string;
     briefAcceptedAt: Date;
+    /** Set for non-physical orders; null when a physical product still needs to be received first. */
+    deliveryDeadlineAt: Date | null;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -94,6 +96,7 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
+      deliveryDeadlineAt: params.deliveryDeadlineAt?.toISOString() ?? null,
     });
   }
 
@@ -121,10 +124,11 @@ export class OrderRealtimeNotifier {
     });
   }
 
- /** Creator received physical product; notify brand. */
+  /** Creator received physical product; notify brand. Includes the now-set delivery deadline. */
   async emitOrderProductReceived(params: {
     orderId: string;
     productReceivedAt: Date;
+    deliveryDeadlineAt: Date;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -138,6 +142,7 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.product_received', {
       orderId: params.orderId,
       productReceivedAt: params.productReceivedAt.toISOString(),
+      deliveryDeadlineAt: params.deliveryDeadlineAt.toISOString(),
     });
   }
 }

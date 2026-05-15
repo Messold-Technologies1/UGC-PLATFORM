@@ -13,6 +13,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateBriefDto {
@@ -85,15 +86,35 @@ export class CreateBriefDto {
   @IsEnum(BriefDurationBucket)
   durationBucket?: BriefDurationBucket;
 
-  @ApiPropertyOptional({ enum: BriefContentType })
+  @ApiPropertyOptional({ enum: BriefContentType, isArray: true })
   @IsOptional()
-  @IsEnum(BriefContentType)
-  contentType?: BriefContentType;
+  @IsArray()
+  @ArrayMaxSize(32)
+  @IsEnum(BriefContentType, { each: true })
+  contentType?: BriefContentType[];
 
-  @ApiPropertyOptional({ enum: BriefToneStyle })
+  @ApiPropertyOptional({ enum: BriefToneStyle, isArray: true })
   @IsOptional()
-  @IsEnum(BriefToneStyle)
-  toneStyle?: BriefToneStyle;
+  @IsArray()
+  @ArrayMaxSize(32)
+  @IsEnum(BriefToneStyle, { each: true })
+  toneStyle?: BriefToneStyle[];
+
+  @ApiPropertyOptional({
+    description: 'Key messaging or points the creator should include in the piece',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10_000)
+  keyNoteToInclude?: string;
+
+  @ApiPropertyOptional({
+    description: 'Call-to-action line or instruction for the end of the video',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10_000)
+  ctaNote?: string;
 
   @ApiPropertyOptional({
     description: 'Reference video/asset links (Instagram / Drive / Youtube)',

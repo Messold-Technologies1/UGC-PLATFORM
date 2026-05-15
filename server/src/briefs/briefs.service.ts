@@ -1,5 +1,12 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BriefContentType,
+  BriefDurationBucket,
+  BriefShootLocationKind,
+  BriefToneStyle,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import type { CreateBriefDto } from './dto/create-brief.dto';
 import type { BriefDto } from './dto/brief.dto';
 
@@ -11,6 +18,17 @@ function mapReferenceLinks(value: unknown): string[] {
 @Injectable()
 export class BriefsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  getBriefFieldOptions(): BriefFieldOptionsResponseDto {
+    return {
+      shootLocationKinds: Object.values(
+        BriefShootLocationKind,
+      ) as BriefShootLocationKind[],
+      durationBuckets: Object.values(BriefDurationBucket) as BriefDurationBucket[],
+      contentTypes: Object.values(BriefContentType) as BriefContentType[],
+      toneStyles: Object.values(BriefToneStyle) as BriefToneStyle[],
+    };
+  }
 
   async createBrief(params: {
     brandUserId: string;
@@ -39,8 +57,12 @@ export class BriefsService {
         shootLocationKind: params.dto.shootLocationKind,
         shootLocationAddress: params.dto.shootLocationAddress,
         durationBucket: params.dto.durationBucket,
-        contentType: params.dto.contentType,
-        toneStyle: params.dto.toneStyle,
+        ...(params.dto.contentType !== undefined
+          ? { contentType: params.dto.contentType }
+          : {}),
+        ...(params.dto.toneStyle !== undefined ? { toneStyle: params.dto.toneStyle } : {}),
+        keyNoteToInclude: params.dto.keyNoteToInclude,
+        ctaNote: params.dto.ctaNote,
         referenceLinks: (params.dto.referenceLinks ?? []) as any,
         finalNotes: params.dto.finalNotes,
       },
@@ -77,8 +99,10 @@ export class BriefsService {
       shootLocationKind: b.shootLocationKind ?? null,
       shootLocationAddress: b.shootLocationAddress ?? null,
       durationBucket: b.durationBucket ?? null,
-      contentType: b.contentType ?? null,
-      toneStyle: b.toneStyle ?? null,
+      contentType: b.contentType,
+      toneStyle: b.toneStyle,
+      keyNoteToInclude: b.keyNoteToInclude ?? null,
+      ctaNote: b.ctaNote ?? null,
       referenceLinks: mapReferenceLinks(b.referenceLinks),
       finalNotes: b.finalNotes ?? null,
       createdAt: b.createdAt,
@@ -115,8 +139,10 @@ export class BriefsService {
       shootLocationKind: brief.shootLocationKind ?? null,
       shootLocationAddress: brief.shootLocationAddress ?? null,
       durationBucket: brief.durationBucket ?? null,
-      contentType: brief.contentType ?? null,
-      toneStyle: brief.toneStyle ?? null,
+      contentType: brief.contentType,
+      toneStyle: brief.toneStyle,
+      keyNoteToInclude: brief.keyNoteToInclude ?? null,
+      ctaNote: brief.ctaNote ?? null,
       referenceLinks: mapReferenceLinks(brief.referenceLinks),
       finalNotes: brief.finalNotes ?? null,
       createdAt: brief.createdAt,

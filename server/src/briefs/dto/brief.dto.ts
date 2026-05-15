@@ -53,11 +53,17 @@ export class BriefDto {
   @ApiPropertyOptional({ enum: BriefDurationBucket })
   durationBucket?: BriefDurationBucket | null;
 
-  @ApiPropertyOptional({ enum: BriefContentType })
-  contentType?: BriefContentType | null;
+  @ApiProperty({ enum: BriefContentType, isArray: true })
+  contentType!: BriefContentType[];
 
-  @ApiPropertyOptional({ enum: BriefToneStyle })
-  toneStyle?: BriefToneStyle | null;
+  @ApiProperty({ enum: BriefToneStyle, isArray: true })
+  toneStyle!: BriefToneStyle[];
+
+  @ApiPropertyOptional()
+  keyNoteToInclude?: string | null;
+
+  @ApiPropertyOptional()
+  ctaNote?: string | null;
 
   @ApiProperty({ type: [String] })
   referenceLinks!: string[];

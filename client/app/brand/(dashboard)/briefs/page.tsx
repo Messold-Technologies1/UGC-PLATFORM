@@ -10,17 +10,30 @@ import {
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
 
-function formatEnumLabel(value: string | null | undefined) {
+function formatEnumLabel(value: string | string[] | null | undefined) {
   if (!value) return "N/A";
-  return value
-    .split("_")
-    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-    .join(" ");
+  const values = Array.isArray(value) ? value : [value];
+  if (values.length === 0) return "N/A";
+
+  return values
+    .map((item) =>
+      item
+        .split("_")
+        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+        .join(" "),
+    )
+    .join(", ");
 }
 
 function formatDate(value: string) {
@@ -46,7 +59,10 @@ export default function BriefsPage() {
             Manage your saved campaign briefs to reuse across orders.
           </p>
         </div>
-        <Button asChild className="rounded-xl font-bold shadow-sm transition-all hover:opacity-90">
+        <Button
+          asChild
+          className="rounded-xl font-bold shadow-sm transition-all hover:opacity-90"
+        >
           <Link href="/brand/briefs/create">
             <Plus className="mr-2 h-4 w-4" />
             Create Brief
@@ -98,10 +114,16 @@ export default function BriefsPage() {
               <CardHeader className="border-b border-border/10 bg-muted/20 p-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <Badge variant="outline" className="mb-2 bg-background font-semibold text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className="mb-2 bg-background font-semibold text-[10px]"
+                    >
                       {formatEnumLabel(brief.contentType)}
                     </Badge>
-                    <Link href={`/brand/briefs/${brief.id}`} className="outline-none">
+                    <Link
+                      href={`/brand/briefs/${brief.id}`}
+                      className="outline-none"
+                    >
                       <CardTitle className="text-lg font-extrabold tracking-tight">
                         {brief.productName || "Untitled Project"}
                       </CardTitle>
@@ -116,7 +138,9 @@ export default function BriefsPage() {
                 <div className="space-y-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Video className="size-4 opacity-70" />
-                    <span>Duration: {formatEnumLabel(brief.durationBucket)}</span>
+                    <span>
+                      Duration: {formatEnumLabel(brief.durationBucket)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="size-4 opacity-70" />
@@ -132,7 +156,12 @@ export default function BriefsPage() {
                     <Calendar className="size-3.5" />
                     <span>{formatDate(brief.createdAt)}</span>
                   </div>
-                  <Button asChild variant="ghost" size="sm" className="font-semibold text-primary">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="font-semibold text-primary"
+                  >
                     <Link href={`/brand/briefs/${brief.id}`}>View</Link>
                   </Button>
                 </div>

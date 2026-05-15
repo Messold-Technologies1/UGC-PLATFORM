@@ -28,6 +28,13 @@ export type BriefToneStyle =
   | "TRENDY"
   | "CREATOR_DECIDES";
 
+export type BriefFieldOptionsResponse = {
+  shootLocationKinds: BriefShootLocationKind[];
+  durationBuckets: BriefDurationBucket[];
+  contentTypes: BriefContentType[];
+  toneStyles: BriefToneStyle[];
+};
+
 export type Brief = {
   id: string;
   brandName?: string | null;
@@ -43,8 +50,10 @@ export type Brief = {
   shootLocationKind?: BriefShootLocationKind | null;
   shootLocationAddress?: string | null;
   durationBucket?: BriefDurationBucket | null;
-  contentType?: BriefContentType | null;
-  toneStyle?: BriefToneStyle | null;
+  contentType: BriefContentType[];
+  toneStyle: BriefToneStyle[];
+  keyNoteToInclude?: string | null;
+  ctaNote?: string | null;
   referenceLinks: string[];
   finalNotes?: string | null;
   createdAt: string;
@@ -69,8 +78,10 @@ export type CreateBriefPayload = {
   shootLocationKind?: BriefShootLocationKind;
   shootLocationAddress?: string;
   durationBucket?: BriefDurationBucket;
-  contentType?: BriefContentType;
-  toneStyle?: BriefToneStyle;
+  contentType?: BriefContentType[];
+  toneStyle?: BriefToneStyle[];
+  keyNoteToInclude?: string;
+  ctaNote?: string;
   referenceLinks?: string[];
   finalNotes?: string;
 };

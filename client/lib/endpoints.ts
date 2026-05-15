@@ -35,6 +35,7 @@ export const ENDPOINTS = {
   },
   BRIEFS: {
     LIST: "/api/briefs",
+    FIELD_OPTIONS: "/api/briefs/field-options",
     DETAIL: (id: string) => `/api/briefs/${encodeURIComponent(id)}`,
   },
   ORDERS: {

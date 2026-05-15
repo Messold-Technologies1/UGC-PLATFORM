@@ -42,12 +42,19 @@ import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 
-function formatEnumLabel(value: string | null | undefined) {
+function formatEnumLabel(value: string | string[] | null | undefined) {
   if (!value) return "N/A";
-  return value
-    .split("_")
-    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-    .join(" ");
+  const values = Array.isArray(value) ? value : [value];
+  if (values.length === 0) return "N/A";
+
+  return values
+    .map((item) =>
+      item
+        .split("_")
+        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+        .join(" "),
+    )
+    .join(", ");
 }
 
 function formatDate(value: string | null | undefined) {
@@ -183,7 +190,6 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
-              {/* Brand Info Card */}
               <Card className="lg:col-span-3">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-xl">
@@ -234,7 +240,6 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </CardContent>
               </Card>
 
-              {/* Product Card */}
               <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-xl">
@@ -309,6 +314,24 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Key points
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                    {brief.keyNoteToInclude || "N/A"}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Call to action
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                    {brief.ctaNote || "N/A"}
+                  </p>
+                </div>
+
                 <div className="space-y-3">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                     Reference links
@@ -371,7 +394,6 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
 
           {isFromOrder && (
             <div className="hidden lg:flex items-start ml-auto">
-              {/* Vertical separator */}
               <div className="flex items-start justify-center pt-10 px-6">
                 <Separator
                   orientation="vertical"
@@ -379,7 +401,6 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 />
               </div>
 
-              {/* Existing briefs panel — sticky on the right */}
               <div className="w-[340px] shrink-0">
                 <div className="sticky top-8 space-y-5">
                   <div>
@@ -453,7 +474,6 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
         </div>
       </div>
 
-      {/* Confirmation dialog for brief submission */}
       <Dialog
         open={isConfirmOpen}
         onOpenChange={(open) => {

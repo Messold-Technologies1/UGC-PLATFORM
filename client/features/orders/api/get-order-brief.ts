@@ -19,8 +19,10 @@ export interface OrderBriefPayload {
   shootLocationKind?: string | null;
   shootLocationAddress?: string | null;
   durationBucket?: string | null;
-  contentType?: string | null;
-  toneStyle?: string | null;
+  contentType?: string[] | null;
+  toneStyle?: string[] | null;
+  keyNoteToInclude?: string | null;
+  ctaNote?: string | null;
   referenceLinks: string[];
   finalNotes?: string | null;
   createdAt: string;

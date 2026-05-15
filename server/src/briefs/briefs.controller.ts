@@ -22,6 +22,7 @@ import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { BriefsService } from './briefs.service';
+import { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import { CreateBriefDto } from './dto/create-brief.dto';
 import { CreateBriefResponseDto } from './dto/create-brief-response.dto';
 import { ListBriefsResponseDto } from './dto/list-briefs-response.dto';
@@ -32,6 +33,18 @@ import { BriefDto } from './dto/brief.dto';
 @Controller('briefs')
 export class BriefsController {
   constructor(private readonly briefsService: BriefsService) {}
+
+  @Get('field-options')
+  @ApiOperation({
+    summary:
+      'List allowed values for brief shoot location, duration bucket, content type, and tone style',
+    description:
+      'Static catalog aligned with Prisma enums (for pickers). Does not require authentication.',
+  })
+  @ApiOkResponse({ type: BriefFieldOptionsResponseDto })
+  getBriefFieldOptions(): BriefFieldOptionsResponseDto {
+    return this.briefsService.getBriefFieldOptions();
+  }
 
   @Get()
   @RequiredWorkspace('BRAND')

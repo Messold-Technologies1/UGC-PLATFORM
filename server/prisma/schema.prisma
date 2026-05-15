@@ -479,8 +479,11 @@ model Brief {
   shootLocationAddress String?
 
   durationBucket BriefDurationBucket? @default(NOT_SURE)
-  contentType    BriefContentType?    @default(CREATOR_DECIDES)
-  toneStyle      BriefToneStyle?      @default(CREATOR_DECIDES)
+  contentType    BriefContentType[]   @default([CREATOR_DECIDES])
+  toneStyle      BriefToneStyle[]     @default([CREATOR_DECIDES])
+
+  keyNoteToInclude String?
+  ctaNote          String?
 
   /// Links (Instagram / Drive / Youtube)
   referenceLinks Json @default("[]")

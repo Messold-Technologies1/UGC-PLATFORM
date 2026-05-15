@@ -1361,6 +1361,8 @@ export class OrdersService {
             durationBucket: true,
             contentType: true,
             toneStyle: true,
+            keyNoteToInclude: true,
+            ctaNote: true,
             referenceLinks: true,
             finalNotes: true,
             createdAt: true,
@@ -1406,8 +1408,10 @@ export class OrdersService {
           shootLocationKind: order.briefRef.shootLocationKind ?? null,
           shootLocationAddress: order.briefRef.shootLocationAddress ?? null,
           durationBucket: order.briefRef.durationBucket ?? null,
-          contentType: order.briefRef.contentType ?? null,
-          toneStyle: order.briefRef.toneStyle ?? null,
+          contentType: order.briefRef.contentType,
+          toneStyle: order.briefRef.toneStyle,
+          keyNoteToInclude: order.briefRef.keyNoteToInclude ?? null,
+          ctaNote: order.briefRef.ctaNote ?? null,
           referenceLinks: Array.isArray(order.briefRef.referenceLinks)
             ? order.briefRef.referenceLinks
             : [],

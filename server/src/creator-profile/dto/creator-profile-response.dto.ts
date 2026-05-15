@@ -193,6 +193,15 @@ export class CreatorProfileResponseDto {
   @ApiProperty()
   collaborationCount!: number;
 
+  @ApiPropertyOptional({
+    example: '4.75',
+    description: 'Average rating from completed order reviews (string decimal)',
+  })
+  avgRating?: string | null;
+
+  @ApiProperty({ example: 12, description: 'Number of brand reviews received' })
+  reviewCount!: number;
+
   @ApiPropertyOptional({ example: 15 })
   travelRadius?: number | null;
 

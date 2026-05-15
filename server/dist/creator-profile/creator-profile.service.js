@@ -66,6 +66,12 @@ const creatorProfileWithRelationsInclude = {
             },
             createdAt: true
         }
+    },
+    stats: {
+        select: {
+            avgRating: true,
+            reviewCount: true
+        }
     }
 };
 function mapJsonDeliverables(value) {
@@ -181,7 +187,9 @@ let CreatorProfileService = class CreatorProfileService {
                     priceAmount: a.priceAmount && typeof a.priceAmount.toString === 'function' ? a.priceAmount.toString() : a.priceAmount ? String(a.priceAmount) : '0',
                     description: a.description ?? null
                 })),
-            firstPortfolioVideo
+            firstPortfolioVideo,
+            avgRating: mapped.stats?.avgRating?.toString() ?? null,
+            reviewCount: mapped.stats?.reviewCount ?? 0
         };
     }
     async isAdminUser(userId) {
@@ -839,7 +847,9 @@ let CreatorProfileService = class CreatorProfileService {
                     basicEditing: basicEditing
                 };
             }) : [],
-            portfolioVideos
+            portfolioVideos,
+            avgRating: profile.stats?.avgRating?.toString() ?? null,
+            reviewCount: profile.stats?.reviewCount ?? 0
         };
     }
     async getCreatorById(viewerUserId, id) {

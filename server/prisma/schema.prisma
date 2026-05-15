@@ -285,9 +285,10 @@ model CreatorProfile {
   packages         CreatorPackage[]
   addOns           CreatorAddOn[]
   portfolioVideos  CreatorPortfolioVideo[]
-  receivedOrders   Order[]                        @relation("OrderCreator")
-  orderDeliveries  OrderDelivery[]
-  payoutDetails    CreatorPayoutDetails?
+  receivedOrders      Order[]                        @relation("OrderCreator")
+  orderDeliveries     OrderDelivery[]
+  payoutDetails       CreatorPayoutDetails?
+  ratingReviews       CreatorRatingReview[]
 
   @@index([city])
   @@index([countryName])
@@ -412,6 +413,7 @@ model Order {
   deliveries     OrderDelivery[]
   chatMessages   OrderChatMessage[]
   chatReadStates OrderChatReadState[]
+  ratingReview   CreatorRatingReview?
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
@@ -682,6 +684,7 @@ model BrandProfile {
   orders          Order[]
   briefs          Brief[]
   brandCategories BrandProfileBrandCategory[]
+  ratingReviews   CreatorRatingReview[]
 }
 
 model BrandProfileBrandCategory {
@@ -703,12 +706,32 @@ model CreatorStats {
   cancelledOrders    Int      @default(0)
   disputesCount      Int      @default(0)
   avgRating          Decimal? @db.Decimal(3, 2)
+  reviewCount        Int      @default(0)
   responseTimeAvg    Int? // in minutes
   onTimeDeliveryRate Decimal? @db.Decimal(5, 2)
   acceptanceRate     Decimal? @db.Decimal(5, 2)
   updatedAt          DateTime @updatedAt
 
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+}
+
+/// Brand rating + review for a creator on a completed order (one row per order).
+model CreatorRatingReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @unique @db.Uuid
+  brandId   String   @db.Uuid
+  creatorId String   @db.Uuid
+  rating    Int
+  review    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brand   BrandProfile   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, createdAt])
+  @@index([brandId, createdAt])
 }
 
 model CreatorFeature {

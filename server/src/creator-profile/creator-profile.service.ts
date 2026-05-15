@@ -66,6 +66,7 @@ const creatorProfileWithRelationsInclude = {
       createdAt: true,
     },
   },
+  stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
 
 /**
@@ -242,6 +243,8 @@ export class CreatorProfileService {
         description: a.description ?? null,
       })),
       firstPortfolioVideo,
+      avgRating: mapped.stats?.avgRating?.toString() ?? null,
+      reviewCount: mapped.stats?.reviewCount ?? 0,
     };
   }
 
@@ -961,6 +964,8 @@ export class CreatorProfileService {
           })
         : [],
       portfolioVideos,
+      avgRating: profile.stats?.avgRating?.toString() ?? null,
+      reviewCount: profile.stats?.reviewCount ?? 0,
     };
   }
 

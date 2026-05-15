@@ -7,9 +7,17 @@ import { OrdersService } from './orders.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageModule } from '../storage/storage.module';
 import { OrderChatModule } from '../order-chat/order-chat.module';
+import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
 
 @Module({
-  imports: [AuthModule, RazorpayModule, RealtimeModule, StorageModule, OrderChatModule],
+  imports: [
+    AuthModule,
+    RazorpayModule,
+    RealtimeModule,
+    StorageModule,
+    OrderChatModule,
+    CreatorReviewsModule,
+  ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

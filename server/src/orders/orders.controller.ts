@@ -43,6 +43,10 @@ import {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
+import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
+import { CreateCreatorRatingReviewDto } from '../creator-reviews/dto/create-creator-rating-review.dto';
+import { CreateCreatorRatingReviewResponseDto } from '../creator-reviews/dto/create-creator-rating-review-response.dto';
+import { CreatorRatingReviewDto } from '../creator-reviews/dto/creator-rating-review.dto';
 import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 
@@ -50,7 +54,10 @@ import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 @ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly creatorReviewsService: CreatorReviewsService,
+  ) {}
 
   @Get('brand')
   @RequiredWorkspace('BRAND')
@@ -347,6 +354,45 @@ export class OrdersController {
     await this.ordersService.requestRevision({
       orderId: id,
       brandUserId: req.user.id,
+    });
+  }
+
+  @Post(':id/rating-review')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Brand rates and reviews the creator (allowed when order is ACCEPTED, CREATOR_PAYMENT_DONE, or REJECTED)',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CreateCreatorRatingReviewResponseDto })
+  async createOrderRatingReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateCreatorRatingReviewDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreateCreatorRatingReviewResponseDto> {
+    return this.creatorReviewsService.createForOrder({
+      brandUserId: req.user.id,
+      orderId: id,
+      dto,
+    });
+  }
+
+  @Get(':id/rating-review')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get rating/review for an order (brand or creator on that order)',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiOkResponse({ type: CreatorRatingReviewDto })
+  async getOrderRatingReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorRatingReviewDto | null> {
+    return this.creatorReviewsService.getForOrder({
+      orderId: id,
+      viewerUserId: req.user.id,
     });
   }
 

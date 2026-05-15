@@ -643,10 +643,7 @@ let CreatorProfileService = class CreatorProfileService {
             limit
         };
     }
-    /**
-   * Brand-facing discovery: same visibility as the public creator list for the anchor
-   * (approved only). Does not require a viewer id or role.
-   */ async listSuggestedCreators(anchorCreatorId) {
+    async listSuggestedCreators(anchorCreatorId) {
         const anchor = await this.prisma.creatorProfile.findUnique({
             where: {
                 id: anchorCreatorId

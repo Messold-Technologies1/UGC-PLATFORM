@@ -126,6 +126,31 @@ export type CreatorProfileItemApi = {
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
 };
 
+export type SuggestedCreatorContentCategoryApi = {
+  slug: string;
+  label: string;
+};
+
+export type SuggestedCreatorPortfolioVideoApi = {
+  id: string;
+  creatorId: string;
+  videoUrl: string;
+  thumbnailUrl?: string | null;
+};
+
+export type SuggestedCreatorListItemApi = {
+  id: string;
+  creatorName: string;
+  contentCategories: SuggestedCreatorContentCategoryApi[];
+  priceAmount?: string | null;
+  city?: string | null;
+  firstPortfolioVideo?: SuggestedCreatorPortfolioVideoApi | null;
+};
+
+export type SuggestedCreatorsResponse = {
+  items: SuggestedCreatorListItemApi[];
+};
+
 export type CreatorsListResponse = {
   items: CreatorPublicListItemApi[];
   total: number;

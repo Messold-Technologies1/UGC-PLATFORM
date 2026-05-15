@@ -1,8 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {  ArrowRight, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Lock,
+  UploadCloud,
+  Smartphone,
+  MessageSquare,
+  Megaphone,
+  Box,
+  BookOpen,
+  FileText,
+  FileEdit,
+  Sparkles,
+} from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,16 +24,8 @@ import * as z from "zod";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-// import { Badge } from "@/components/ui/badge";
-
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,9 +39,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
+import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
 import {
@@ -49,6 +55,11 @@ import type {
   BriefToneStyle,
   CreateBriefPayload,
 } from "@/features/briefs/api/types";
+
+import { OrderProgressSteps } from "@/features/briefs/components/order-progress-steps";
+import { PaymentSuccessBanner } from "@/features/briefs/components/payment-success-banner";
+import { OrderSummaryCard } from "@/features/briefs/components/order-summary-card";
+import { WhatsNextTimeline } from "@/features/briefs/components/whats-next-timeline";
 
 const shootLocationKinds = [
   "CREATOR_OWN_SETUP",
@@ -176,23 +187,33 @@ function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
   };
 }
 
-// function formatEnumLabel(value: string | null | undefined) {
-//   if (!value) return "N/A";
-//   return value
-//     .split("_")
-//     .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-//     .join(" ");
-// }
+const TONE_OPTIONS: { label: string; apiValue?: BriefToneStyle }[] = [
+  { label: "Casual", apiValue: "CASUAL" },
+  { label: "Premium", apiValue: "PREMIUM" },
+  { label: "Fun / Energetic", apiValue: "FUNNY" },
+  { label: "Emotional", apiValue: "EMOTIONAL" },
+  { label: "Trendy", apiValue: "TRENDY" },
+  { label: "Aesthetic" },
+  { label: "Minimal" },
+  { label: "Creator decides", apiValue: "CREATOR_DECIDES" },
+];
 
-export default function CreateBriefPage() {
+function CreateBriefPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const isFromOrder = !!orderId;
 
-  const { data: listBriefsData, isLoading: isLoadingBriefs } =
-    useListBriefsQuery();
-  const existingBriefs = listBriefsData?.items ?? [];
+  // Fetch order details when redirected from payment
+  const {
+    data: orderDetailsData,
+    isLoading: isOrderLoading,
+  } = useGetBrandOrderDetailsQuery(orderId ?? "", {
+    enabled: isFromOrder,
+  });
+  const orderData = orderDetailsData?.order;
+  const creatorData = orderDetailsData?.creator;
+  const creatorName = creatorData?.displayName;
 
   const form = useForm<CreateBriefValues>({
     resolver: zodResolver(createBriefSchema),
@@ -234,7 +255,7 @@ export default function CreateBriefPage() {
   const createBriefMutation = useCreateBriefMutation({
     onSuccess: (result) => {
       if (isFromOrder) {
-        // Don't redirect — keep the user here so they can submit the brief
+        // Don't redirect, keep the user here so they can submit the brief
         setSavedBriefId(result.id);
         return;
       }
@@ -251,10 +272,7 @@ export default function CreateBriefPage() {
 
   const handleSubmitBrief = () => {
     if (!orderId || !savedBriefId) return;
-    submitBriefMutation.mutate({
-      orderId,
-      briefId: savedBriefId,
-    });
+    submitBriefMutation.mutate({ orderId, briefId: savedBriefId });
   };
 
   const watchShootLocation = useWatch({
@@ -311,610 +329,674 @@ export default function CreateBriefPage() {
   const isSubmitting = createBriefMutation.isPending;
   const isSubmittingBrief = submitBriefMutation.isPending;
   const isUploadPending = uploadPronunciationMutation.isPending;
-  const pronunciationUrlRegister = form.register("brandPronunciationAudioUrl");
+
+  // Static States for new UI
+  const [selectedVideoIncludes, setSelectedVideoIncludes] = useState<string[]>(["Product Demo"]);
+  const [selectedTone, setSelectedTone] = useState<string>("Casual");
+  const [selectedScriptOption, setSelectedScriptOption] = useState<string>("Creator writes script");
+  const [showBanner, setShowBanner] = useState<boolean>(isFromOrder);
+
+  const toggleVideoInclude = (val: string) => {
+    setSelectedVideoIncludes((prev) =>
+      prev.includes(val) ? prev.filter((i) => i !== val) : [...prev, val]
+    );
+  };
+
+  const videoIncludesOptions = [
+    { label: "Product Demo", icon: <Lock className="size-5 mb-2 text-primary" /> },
+    { label: "Talking to Camera", icon: <Smartphone className="size-5 mb-2 text-muted-foreground" /> },
+    { label: "Testimonial / Review", icon: <MessageSquare className="size-5 mb-2 text-muted-foreground" /> },
+    { label: "UGC Ad", icon: <Megaphone className="size-5 mb-2 text-muted-foreground" /> },
+    { label: "Unboxing", icon: <Box className="size-5 mb-2 text-muted-foreground" /> },
+    { label: "How-to / Tutorial", icon: <BookOpen className="size-5 mb-2 text-muted-foreground" /> },
+  ];
+
+  const toneOptions = TONE_OPTIONS;
+
+  const scriptOptions = [
+    { id: "I will provide the script", title: "I will provide the script", desc: "I already have a script", icon: <FileText className="size-5 text-muted-foreground" /> },
+    { id: "Creator writes script", title: "Creator writes script", desc: "Creator will write script for you", extra: "+ \u20b9500", icon: <FileEdit className="size-5 text-primary" />, highlighted: true },
+    { id: "AI helps generate script", title: "AI helps generate script", desc: "Get AI-generated script suggestions", extra: "+ \u20b9300", badge: "BETA", icon: <Sparkles className="size-5 text-emerald-500" />, greenIcon: true },
+  ];
+
 
   return (
-    <div
-      className={cn(
-        "mx-auto p-6 md:p-10",
-        isFromOrder ? "max-w-[1400px]" : "max-w-4xl",
-      )}
-    >
-      <div className={cn(isFromOrder && "flex gap-0 lg:items-start")}>
-        <div className="flex-1 min-w-0">
-          {/* <div className="mb-10 flex items-center gap-4">
-            <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          className="rounded-full bg-background border border-border/40 shadow-sm transition-transform hover:-translate-x-1"
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-            <div>
-              <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-                Create Campaign Brief
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Provide detailed instructions to ensure the creator perfectly
-                captures your brand&apos;s vision.
+    <div className="min-h-screen bg-white">
+      <OrderProgressSteps currentStep={1} />
+      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8">
+        {showBanner && (
+          <PaymentSuccessBanner
+            orderId={orderId}
+            creatorName={creatorName}
+            onDismiss={() => setShowBanner(false)}
+          />
+        )}
+
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_360px]">
+          {/* Main Form Area */}
+          <div className="space-y-8 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
+                  Tell {creatorName ?? "the creator"} what you need
+                </h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  The more details you share, the better the content will be.
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground whitespace-nowrap">
+                All fields marked <span className="text-destructive">*</span> are required
               </p>
             </div>
-          </div> */}
 
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Card className="rounded-2xl border-border/40 bg-card shadow-sm">
-              <CardHeader className="bg-muted/10 px-8 py-6 border-b border-border/10">
-                <CardTitle className="text-xl">Brand Details</CardTitle>
-                <CardDescription>
-                  Basic information about your brand and industry.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 px-8 py-8">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="brandName"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Brand Name
-                    </Label>
-                    <Input
-                      id="brandName"
-                      placeholder="e.g. Acme Co."
-                      className="rounded-lg bg-background"
-                      {...form.register("brandName")}
-                    />
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* 1. Product Details */}
+              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Lock className="size-4" />
                   </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="industry"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Industry
-                    </Label>
-                    <Input
-                      id="industry"
-                      placeholder="e.g. Beauty, SaaS, Fitness"
-                      className="rounded-lg bg-background"
-                      {...form.register("industry")}
-                    />
-                  </div>
+                  <h2 className="text-lg font-bold">Product Details</h2>
                 </div>
+                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="brandName" className="text-xs font-semibold text-foreground/80">
+                        Brand Name <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="brandName"
+                        placeholder="GlowUp Skincare"
+                        className="rounded-lg bg-white"
+                        {...form.register("brandName")}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="productName" className="text-xs font-semibold text-foreground/80">
+                        Product Name <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="productName"
+                        placeholder="Vitamin C Face Serum"
+                        className="rounded-lg bg-white"
+                        {...form.register("productName")}
+                      />
+                    </div>
+                  </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="brandLogoUrl"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Brand Logo URL
-                    </Label>
-                    <Input
-                      id="brandLogoUrl"
-                      placeholder="https://..."
-                      className="rounded-lg bg-background"
-                      {...form.register("brandLogoUrl")}
-                    />
-                    {form.formState.errors.brandLogoUrl && (
-                      <p className="text-[11px] text-destructive">
-                        {form.formState.errors.brandLogoUrl.message}
-                      </p>
-                    )}
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="industry" className="text-xs font-semibold text-foreground/80">
+                        Industry <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        id="industry"
+                        placeholder="e.g. Skincare, Fashion, Tech"
+                        className="rounded-lg bg-white"
+                        {...form.register("industry")}
+                      />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="brandLogoUrl" className="text-xs font-semibold text-foreground/80">
+                        Brand Logo URL <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        id="brandLogoUrl"
+                        placeholder="https://example.com/logo.png"
+                        className="rounded-lg bg-white"
+                        {...form.register("brandLogoUrl")}
+                      />
+                      {form.formState.errors.brandLogoUrl && (
+                        <p className="text-[11px] text-destructive mt-1">
+                          {form.formState.errors.brandLogoUrl.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="brandPronunciationAudioUrl"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Pronunciation Audio URL
-                    </Label>
-                    <Input
-                      id="brandPronunciationAudioUrl"
-                      placeholder="https://..."
-                      className="rounded-lg bg-background"
-                      {...pronunciationUrlRegister}
-                      onChange={(event) => {
-                        void pronunciationUrlRegister.onChange(event);
-                        form.setValue("brandPronunciationAudioKey", "", {
-                          shouldDirty: true,
-                        });
-                      }}
-                    />
-                    {form.formState.errors.brandPronunciationAudioUrl && (
-                      <p className="text-[11px] text-destructive">
-                        {
-                          form.formState.errors.brandPronunciationAudioUrl
-                            .message
-                        }
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <BrandPronunciationAudioField
-                  disabled={isSubmitting}
-                  uploading={isUploadPending}
-                  audioUrl={watchPronunciationAudioUrl || null}
-                  hasRecording={Boolean(watchPronunciationAudioUrl)}
-                  onRecordingReady={(blob) =>
-                    uploadPronunciationMutation.mutate(blob)
-                  }
-                  onRemove={() => {
-                    form.setValue("brandPronunciationAudioKey", "", {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                    form.setValue("brandPronunciationAudioUrl", "", {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
-                />
-              </CardContent>
-            </Card>
 
-            <Card className="rounded-2xl border-border/40 bg-card shadow-sm">
-              <CardHeader className="bg-muted/10 px-8 py-6 border-b border-border/10">
-                <CardTitle className="text-xl">Product Details</CardTitle>
-                <CardDescription>
-                  What is the creator making content about?
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 px-8 py-8">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="productName"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Product / Service Name
-                    </Label>
-                    <Input
-                      id="productName"
-                      placeholder="e.g. Glow Serum 50ml"
-                      className="rounded-lg bg-background"
-                      {...form.register("productName")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="productPageUrl"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Product Page URL
+                  <div className="space-y-2 min-w-0">
+                    <Label htmlFor="productPageUrl" className="text-xs font-semibold text-foreground/80">
+                      Product URL <span className="text-muted-foreground font-normal">(optional)</span>
                     </Label>
                     <Input
                       id="productPageUrl"
-                      placeholder="https://..."
-                      className="rounded-lg bg-background"
+                      placeholder="https://glowupskincare.com/vitamin-c-serum"
+                      className="rounded-lg bg-white"
                       {...form.register("productPageUrl")}
                     />
-                    {form.formState.errors.productPageUrl && (
-                      <p className="text-[11px] text-destructive">
+                     {form.formState.errors.productPageUrl && (
+                      <p className="text-[11px] text-destructive mt-1">
                         {form.formState.errors.productPageUrl.message}
                       </p>
                     )}
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="productDescription"
-                    className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                  >
-                    Product Description & Key Benefits
-                  </Label>
-                  <Textarea
-                    id="productDescription"
-                    placeholder="Describe the product and list 2-3 key benefits you want highlighted..."
-                    className="min-h-[100px] resize-y rounded-lg bg-background"
-                    {...form.register("productDescription")}
-                  />
-                </div>
-
-                <Separator className="bg-border/40" />
-
-                <div className="flex flex-row items-center justify-between rounded-xl border border-border/40 bg-muted/20 p-4">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-bold text-foreground">
-                      Ship Physical Product
+                  <div className="space-y-2 min-w-0">
+                    <Label htmlFor="productDescription" className="text-xs font-semibold text-foreground/80">
+                      Product Description <span className="text-destructive">*</span>
                     </Label>
-                    <p className="text-[11px] text-muted-foreground">
-                      Will you mail/courier a physical item to the creator for
-                      the shoot?
-                    </p>
-                  </div>
-                  <Switch
-                    checked={watchWillShip}
-                    onCheckedChange={(val) =>
-                      form.setValue("willShipPhysicalProductToCreator", val, {
-                        shouldValidate: true,
-                      })
-                    }
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-border/40 bg-card shadow-sm">
-              <CardHeader className="bg-muted/10 px-8 py-6 border-b border-border/10">
-                <CardTitle className="text-xl">Creative Guidelines</CardTitle>
-                <CardDescription>
-                  Define the format, tone, and setting for the content.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 px-8 py-8">
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="durationBucket"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Video Duration
-                    </Label>
-                    <Select
-                      onValueChange={(val) =>
-                        form.setValue(
-                          "durationBucket",
-                          val as BriefDurationBucket,
-                          {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          },
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        id="durationBucket"
-                        className="rounded-lg bg-background"
-                      >
-                        <SelectValue placeholder="Select duration" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SEC_0_15">0 - 15 Seconds</SelectItem>
-                        <SelectItem value="SEC_15_30">
-                          15 - 30 Seconds
-                        </SelectItem>
-                        <SelectItem value="SEC_30_45">
-                          30 - 45 Seconds
-                        </SelectItem>
-                        <SelectItem value="SEC_45_60">
-                          45 - 60 Seconds
-                        </SelectItem>
-                        <SelectItem value="SEC_60_100">
-                          60 - 100 Seconds
-                        </SelectItem>
-                        <SelectItem value="NOT_SURE">
-                          Not sure / Creator decides
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Textarea
+                      id="productDescription"
+                      placeholder="A powerful Vitamin C serum that brightens skin, reduces dark spots and gives a healthy glow. Suitable for all skin types."
+                      className="min-h-[100px] resize-y rounded-lg bg-white"
+                      {...form.register("productDescription")}
+                    />
+                    <div className="flex justify-end">
+                      <span className="text-[10px] text-muted-foreground">118/500</span>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="contentType"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Content Type
-                    </Label>
-                    <Select
-                      onValueChange={(val) =>
-                        form.setValue("contentType", val as BriefContentType, {
+                  <div className="space-y-2 min-w-0">
+                     <Label className="text-xs font-semibold text-foreground/80">
+                        Brand Pronunciation Audio <span className="text-muted-foreground font-normal">(optional)</span>
+                     </Label>
+                     <div className="max-w-md">
+                       <BrandPronunciationAudioField
+                          disabled={isSubmitting}
+                          uploading={isUploadPending}
+                          audioUrl={watchPronunciationAudioUrl || null}
+                          hasRecording={Boolean(watchPronunciationAudioUrl)}
+                          onRecordingReady={(blob) =>
+                            uploadPronunciationMutation.mutate(blob)
+                          }
+                          onRemove={() => {
+                            form.setValue("brandPronunciationAudioKey", "", {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                            form.setValue("brandPronunciationAudioUrl", "", {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          }}
+                        />
+                      </div>
+                  </div>
+
+                  <Separator className="my-2" />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="willShipPhysicalProductToCreator" className="text-xs font-semibold text-foreground/80">
+                        Will you ship a physical product to the creator?
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">Enable if you&apos;ll send the product for the video</p>
+                    </div>
+                    <Switch
+                      id="willShipPhysicalProductToCreator"
+                      checked={watchWillShip ?? false}
+                      onCheckedChange={(checked) =>
+                        form.setValue("willShipPhysicalProductToCreator", checked, {
                           shouldDirty: true,
                           shouldValidate: true,
                         })
                       }
-                    >
-                      <SelectTrigger
-                        id="contentType"
-                        className="rounded-lg bg-background"
-                      >
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="TALKING_VIDEO">
-                          Talking Video
-                        </SelectItem>
-                        <SelectItem value="PRODUCT_DEMO">
-                          Product Demo
-                        </SelectItem>
-                        <SelectItem value="TESTIMONIAL">Testimonial</SelectItem>
-                        <SelectItem value="AESTHETIC_REEL">
-                          Aesthetic Reel
-                        </SelectItem>
-                        <SelectItem value="UGC_AD">UGC Ad</SelectItem>
-                        <SelectItem value="CREATOR_DECIDES">
-                          Creator Decides
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
+                </CardContent>
+              </Card>
 
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="toneStyle"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Tone & Style
-                    </Label>
-                    <Select
-                      onValueChange={(val) =>
-                        form.setValue("toneStyle", val as BriefToneStyle, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        })
-                      }
-                    >
-                      <SelectTrigger
-                        id="toneStyle"
-                        className="rounded-lg bg-background"
-                      >
-                        <SelectValue placeholder="Select tone" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="FUNNY">Funny & Humorous</SelectItem>
-                        <SelectItem value="EMOTIONAL">
-                          Emotional & Heartfelt
-                        </SelectItem>
-                        <SelectItem value="PREMIUM">
-                          Premium & Cinematic
-                        </SelectItem>
-                        <SelectItem value="CASUAL">
-                          Casual & Authentic
-                        </SelectItem>
-                        <SelectItem value="TRENDY">
-                          Trendy & Fast-paced
-                        </SelectItem>
-                        <SelectItem value="CREATOR_DECIDES">
-                          Creator Decides
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+              {/* 2. What should the video include? */}
+              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                    2.
                   </div>
+                  <h2 className="text-lg font-bold">What should the video include?</h2>
                 </div>
+                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+                  <p className="text-sm text-muted-foreground">Select all that apply</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {videoIncludesOptions.map((opt) => {
+                      const isSelected = selectedVideoIncludes.includes(opt.label);
+                      return (
+                        <div
+                          key={opt.label}
+                          onClick={() => toggleVideoInclude(opt.label)}
+                          className={cn(
+                            "relative flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all text-center",
+                            isSelected ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:border-border/80 text-foreground"
+                          )}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 flex size-4 items-center justify-center rounded bg-primary text-white">
+                              <Check className="size-3" />
+                            </div>
+                          )}
+                          {!isSelected && (
+                            <div className="absolute top-2 right-2 size-4 rounded border border-border/60" />
+                          )}
+                          {opt.icon}
+                          <span className="text-xs font-semibold mt-1">{opt.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
 
-                <Separator className="bg-border/40" />
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="shootLocationKind"
-                      className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                    >
-                      Shoot Location
-                    </Label>
-                    <Select
-                      onValueChange={(val) =>
-                        form.setValue(
-                          "shootLocationKind",
-                          val as BriefShootLocationKind,
-                          {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          },
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        id="shootLocationKind"
-                        className="rounded-lg bg-background md:max-w-xs"
+                  <div className="grid gap-6 md:grid-cols-2 pt-2">
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="durationBucket" className="text-xs font-semibold text-foreground/80">
+                        Video Length
+                      </Label>
+                      <Select
+                        onValueChange={(val) =>
+                          form.setValue(
+                            "durationBucket",
+                            val as BriefDurationBucket,
+                            {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            },
+                          )
+                        }
                       >
-                        <SelectValue placeholder="Select location preference" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CREATOR_OWN_SETUP">
-                          Creator&apos;s Own Setup / Home
-                        </SelectItem>
-                        <SelectItem value="OUTDOOR_PUBLIC_LOCATION">
-                          Outdoor / Public Location
-                        </SelectItem>
-                        <SelectItem value="BRAND_SELECTED_LOCATION">
-                          Brand Selected Location (e.g. your store)
-                        </SelectItem>
-                        <SelectItem value="CREATOR_DECIDES">
-                          Creator Decides
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                        <SelectTrigger
+                          id="durationBucket"
+                          className="rounded-lg bg-white"
+                        >
+                          <SelectValue placeholder="Up to 60 seconds (Included)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SEC_0_15">0 - 15 Seconds</SelectItem>
+                          <SelectItem value="SEC_15_30">
+                            15 - 30 Seconds
+                          </SelectItem>
+                          <SelectItem value="SEC_30_45">
+                            30 - 45 Seconds
+                          </SelectItem>
+                          <SelectItem value="SEC_45_60">
+                            45 - 60 Seconds
+                          </SelectItem>
+                          <SelectItem value="SEC_60_100">
+                            60 - 100 Seconds
+                          </SelectItem>
+                          <SelectItem value="NOT_SURE">
+                            Not sure / Creator decides
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* <div className="space-y-2 min-w-0">
+                      <Label className="text-xs font-semibold text-foreground/80">
+                        Primary Platform
+                      </Label>
+                      <Select defaultValue="instagram">
+                        <SelectTrigger className="rounded-lg bg-white">
+                           <SelectValue>
+                              <div className="flex items-center gap-2">
+                                 <div className="size-4 rounded-full bg-linear-to-tr from-yellow-400 via-pink-500 to-purple-500" />
+                                 <span>Instagram Reels</span>
+                              </div>
+                           </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="instagram">
+                             <div className="flex items-center gap-2">
+                                <div className="size-4 rounded-full bg-linear-to-tr from-yellow-400 via-pink-500 to-purple-500" />
+                                <span>Instagram Reels</span>
+                             </div>
+                          </SelectItem>
+                          <SelectItem value="tiktok">TikTok</SelectItem>
+                          <SelectItem value="youtube">YouTube Shorts</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div> */}
+                  </div>
+
+                  <Separator className="my-2" />
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="contentType" className="text-xs font-semibold text-foreground/80">
+                        Content Type
+                      </Label>
+                      <Select
+                        onValueChange={(val) =>
+                          form.setValue(
+                            "contentType",
+                            val as BriefContentType,
+                            { shouldDirty: true, shouldValidate: true },
+                          )
+                        }
+                      >
+                        <SelectTrigger id="contentType" className="rounded-lg bg-white">
+                          <SelectValue placeholder="Select content type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PRODUCT_DEMO">Product Demo</SelectItem>
+                          <SelectItem value="TALKING_VIDEO">Talking Video</SelectItem>
+                          <SelectItem value="TESTIMONIAL">Testimonial</SelectItem>
+                          <SelectItem value="AESTHETIC_REEL">Aesthetic Reel</SelectItem>
+                          <SelectItem value="UGC_AD">UGC Ad</SelectItem>
+                          <SelectItem value="CREATOR_DECIDES">Creator Decides</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="shootLocationKind" className="text-xs font-semibold text-foreground/80">
+                        Shoot Location
+                      </Label>
+                      <Select
+                        onValueChange={(val) =>
+                          form.setValue(
+                            "shootLocationKind",
+                            val as BriefShootLocationKind,
+                            { shouldDirty: true, shouldValidate: true },
+                          )
+                        }
+                      >
+                        <SelectTrigger id="shootLocationKind" className="rounded-lg bg-white">
+                          <SelectValue placeholder="Select shoot location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CREATOR_OWN_SETUP">Creator&apos;s Own Setup</SelectItem>
+                          <SelectItem value="OUTDOOR_PUBLIC_LOCATION">Outdoor / Public Location</SelectItem>
+                          <SelectItem value="BRAND_SELECTED_LOCATION">Brand Selected Location</SelectItem>
+                          <SelectItem value="CREATOR_DECIDES">Creator Decides</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {watchShootLocation === "BRAND_SELECTED_LOCATION" && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                      <Label
-                        htmlFor="shootLocationAddress"
-                        className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                      >
-                        Location Address
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="shootLocationAddress" className="text-xs font-semibold text-foreground/80">
+                        Location Address <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="shootLocationAddress"
-                        placeholder="Provide the exact address or instructions..."
-                        className="rounded-lg bg-background"
+                        placeholder="Enter the shoot location address"
+                        className="rounded-lg bg-white"
                         {...form.register("shootLocationAddress")}
                       />
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* 3. Content Style & Tone */}
+              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                    3.
+                  </div>
+                  <h2 className="text-lg font-bold">Content Style & Tone</h2>
                 </div>
-              </CardContent>
-            </Card>
+                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+                  <p className="text-sm text-muted-foreground">Choose the style that best matches your brand</p>
+                  
+                  <div className="flex flex-wrap gap-2 sm:gap-3">
+                    {toneOptions.map(tone => (
+                      <div
+                        key={tone.label}
+                        onClick={() => {
+                          setSelectedTone(tone.label);
+                          if (tone.apiValue) {
+                            form.setValue("toneStyle", tone.apiValue, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          }
+                        }}
+                        className={cn(
+                          "px-4 py-2 rounded-full border text-sm font-medium cursor-pointer transition-colors",
+                          selectedTone === tone.label ? "border-primary bg-white text-primary" : "border-border/40 bg-white text-foreground hover:bg-muted/30"
+                        )}
+                      >
+                        {tone.label}
+                      </div>
+                    ))}
+                  </div>
 
-            <Card className="rounded-2xl border-border/40 bg-card shadow-sm">
-              <CardHeader className="bg-muted/10 px-8 py-6 border-b border-border/10">
-                <CardTitle className="text-xl">
-                  References & Additional Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 px-8 py-8">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="referenceLinks"
-                    className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                  >
-                    Reference Links
-                  </Label>
-                  <Textarea
-                    id="referenceLinks"
-                    placeholder="One URL per line — mood boards, past ads, competitor references..."
-                    className="min-h-[100px] resize-y rounded-lg bg-background"
-                    {...form.register("referenceLinks")}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Add links to Instagram, TikTok, Google Drive, or YouTube.
-                  </p>
-                  {form.formState.errors.referenceLinks && (
-                    <p className="text-[11px] text-destructive">
-                      {form.formState.errors.referenceLinks.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="finalNotes"
-                    className="text-xs font-bold uppercase tracking-wider text-foreground/80"
-                  >
-                    Final Notes & Instructions
-                  </Label>
-                  <Textarea
-                    id="finalNotes"
-                    placeholder="Anything else the creator should know? Required phrases, do's and don'ts, CTA..."
-                    className="min-h-[120px] resize-y rounded-lg bg-background"
-                    {...form.register("finalNotes")}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col gap-4 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => router.back()}
-                disabled={isSubmitting || isSubmittingBrief}
-                className="rounded-xl font-semibold"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting || isUploadPending || isSubmittingBrief}
-                className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Spinner className="mr-2 size-4" aria-hidden />
-                    Saving Brief...
-                  </>
-                ) : isUploadPending ? (
-                  <>
-                    <Spinner className="mr-2 size-4" aria-hidden />
-                    Uploading Audio...
-                  </>
-                ) : (
-                  <>
-                    {/* <Check className="mr-2 size-4" /> */}
-                    {savedBriefId ? "Update & Save Brief" : "Save Brief"}
-                  </>
-                )}
-              </Button>
-              {isFromOrder && savedBriefId && (
-                <Button
-                  type="button"
-                  disabled={isSubmittingBrief || isSubmitting}
-                  onClick={handleSubmitBrief}
-                  className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {isSubmittingBrief ? (
-                    <>
-                      <Spinner className="mr-2 size-4" aria-hidden />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 size-4" />
-                      Submit Brief
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {isFromOrder && (
-          <div className="hidden lg:flex items-start ml-auto">
-            {/* Vertical separator — ~4-inch height, pinned right */}
-            <div className="flex items-start justify-center pt-10 px-6">
-              <Separator orientation="vertical" className="h-64 bg-border/50" />
-            </div>
-
-            {/* Existing briefs panel — sticky on the right */}
-            <div className="w-[340px] shrink-0">
-              <div className="sticky top-8 space-y-5">
-                <div>
-                  <h3 className="text-lg font-bold">Existing Briefs</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Reference your previous campaign briefs.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
-                  {isLoadingBriefs ? (
-                    <div className="flex justify-center p-8">
-                      <Spinner className="size-6" />
+                  <div className="space-y-2 pt-2 min-w-0">
+                    <Label className="text-xs font-semibold text-foreground/80">
+                      Key points to include in the video <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      placeholder="- Brightens dull skin\n- Reduces dark spots\n- Lightweight & non-sticky\n- Suitable for all skin types\n- Use daily for best results"
+                      className="min-h-[120px] resize-y rounded-lg bg-white"
+                      defaultValue={"- Brightens dull skin\n- Reduces dark spots\n- Lightweight & non-sticky\n- Suitable for all skin types\n- Use daily for best results"}
+                    />
+                    <div className="flex justify-end">
+                      <span className="text-[10px] text-muted-foreground">142/500</span>
                     </div>
-                  ) : existingBriefs.length === 0 ? (
-                    <div className=" p-6 text-center text-sm text-muted-foreground">
-                      No existing briefs found.
+                  </div>
+
+                  <div className="space-y-2 min-w-0">
+                    <Label className="text-xs font-semibold text-foreground/80">
+                      Call to Action (CTA) <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      placeholder="Shop now and glow every day âœ¨"
+                      defaultValue="Shop now and glow every day âœ¨"
+                      className="rounded-lg bg-white"
+                    />
+                     <div className="flex justify-end">
+                      <span className="text-[10px] text-muted-foreground">28/80</span>
                     </div>
-                  ) : (
-                    <div className="flex flex-col divide-y divide-border/40 rounded-xl border border-border/40 bg-card overflow-hidden">
-                      {existingBriefs.map((brief) => (
-                        <div
-                          key={brief.id}
-                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 group"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold truncate">
-                                {brief.brandName || "Untitled Brief"}
-                              </span>
-                              {/* {brief.contentType && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 text-[10px] uppercase"
-                                >
-                                  {formatEnumLabel(brief.contentType)}
-                                </Badge>
-                              )} */}
-                            </div>
-                            {brief.productName && (
-                              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                {brief.productName}
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="shrink-0 size-8 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
-                            onClick={() => router.push(`/brand/briefs/${brief.id}${orderId ? `?orderId=${orderId}` : ""}`)}
-                            aria-label={`View brief ${brief.brandName || brief.id}`}
-                          >
-                            <ArrowRight className="size-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 4. References & Inspiration */}
+              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                    4.
+                  </div>
+                  <h2 className="text-lg font-bold">References & Inspiration <span className="text-muted-foreground font-normal text-sm">(optional)</span></h2>
                 </div>
+                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+                  <p className="text-sm text-muted-foreground">Add links or upload examples you like (Instagram, TikTok, YouTube, Drive, etc.)</p>
+                  
+                  {/* File upload area â€“ static placeholder, no API field yet */}
+                  <div className="border-2 border-dashed border-border/60 rounded-xl p-8 sm:p-10 flex flex-col items-center justify-center text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
+                     <UploadCloud className="size-8 text-muted-foreground mb-3" />
+                     <p className="text-sm font-medium">Drag & drop files here or <span className="text-primary font-bold">browse</span></p>
+                     <p className="text-xs text-muted-foreground mt-1">Supports: JPG, PNG, MP4, MOV (Max 500MB)</p>
+                  </div>
+
+                  {/* Reference links â€“ wired to API */}
+                  <div className="space-y-2 min-w-0">
+                    <Label htmlFor="referenceLinks" className="text-xs font-semibold text-foreground/80">
+                      Reference Links <span className="text-muted-foreground font-normal">(one per line)</span>
+                    </Label>
+                    <Textarea
+                      id="referenceLinks"
+                      placeholder={"https://www.instagram.com/reel/C3...\nhttps://drive.google.com/file/d/1a2..."}
+                      className="min-h-[80px] resize-y rounded-lg bg-white"
+                      {...form.register("referenceLinks")}
+                    />
+                    {form.formState.errors.referenceLinks && (
+                      <p className="text-[11px] text-destructive mt-1">
+                        {form.formState.errors.referenceLinks.message}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 5. Script */}
+              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                    5.
+                  </div>
+                  <h2 className="text-lg font-bold">Script</h2>
+                </div>
+                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+                  <p className="text-sm text-muted-foreground">How would you like the script for this video?</p>
+                  
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {scriptOptions.map(opt => (
+                       <div 
+                         key={opt.id}
+                         onClick={() => setSelectedScriptOption(opt.id)}
+                         className={cn(
+                           "p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between min-h-[120px]",
+                           selectedScriptOption === opt.id 
+                             ? (opt.greenIcon ? "border-emerald-500 bg-emerald-50/30" : "border-primary bg-primary/5") 
+                             : "border-border/40 hover:border-border/80 bg-white"
+                         )}
+                       >
+                         <div>
+                           <div className="flex items-start justify-between mb-2">
+                             {opt.icon}
+                             {opt.badge && (
+                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                 {opt.badge}
+                               </span>
+                             )}
+                           </div>
+                           <h3 className={cn("font-bold text-sm", selectedScriptOption === opt.id && opt.highlighted ? "text-primary" : selectedScriptOption === opt.id && opt.greenIcon ? "text-emerald-700" : "")}>
+                             {opt.title}
+                           </h3>
+                           <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
+                         </div>
+                         {opt.extra && (
+                           <div className={cn("text-xs font-bold mt-3", selectedScriptOption === opt.id && opt.highlighted ? "text-primary" : selectedScriptOption === opt.id && opt.greenIcon ? "text-emerald-700" : "")}>
+                             {opt.extra}
+                           </div>
+                         )}
+                       </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 6. Any do's and don'ts? */}
+              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                    6.
+                  </div>
+                  <h2 className="text-lg font-bold">Any do&apos;s and don&apos;ts?</h2>
+                </div>
+                <CardContent className="space-y-4 px-6 sm:px-8 py-6">
+                  <p className="text-sm text-muted-foreground">Tell the creator anything specific to keep in mind.</p>
+                  
+                  <div className="min-w-0">
+                    <Textarea
+                       placeholder="Do not mention other brands. Avoid medical claims."
+                       className="min-h-[100px] resize-y rounded-lg bg-white"
+                       {...form.register("finalNotes")}
+                    />
+                    <div className="flex justify-end mt-1">
+                       <span className="text-[10px] text-muted-foreground">57/300</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Form Footer */}
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between pt-4 gap-4">
+                 <Button
+                   type="button"
+                   variant="outline"
+                   className="rounded-xl font-bold bg-white text-foreground"
+                 >
+                   <FileText className="mr-2 size-4" /> Save as draft
+                 </Button>
+
+                 <div className="flex items-center gap-4 justify-end">
+                   <Button
+                     type="button"
+                     variant="ghost"
+                     onClick={() => router.back()}
+                     disabled={isSubmitting || isSubmittingBrief}
+                     className="rounded-xl font-semibold"
+                   >
+                     <ArrowLeft className="mr-2 size-4" /> Back
+                   </Button>
+
+                   {/* Save Brief Button */}
+                   <Button
+                      type="submit"
+                      disabled={isSubmitting || isUploadPending || isSubmittingBrief}
+                      className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90 h-11 bg-primary text-primary-foreground"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Spinner className="mr-2 size-4" aria-hidden />
+                          Saving Brief...
+                        </>
+                      ) : isUploadPending ? (
+                        <>
+                          <Spinner className="mr-2 size-4" aria-hidden />
+                          Uploading Audio...
+                        </>
+                      ) : (
+                        <>
+                          {savedBriefId ? "Update Brief" : "Save Brief"}
+                          {!isSubmitting && !isUploadPending && <ArrowRight className="ml-2 size-4" />}
+                        </>
+                      )}
+                    </Button>
+                 </div>
               </div>
+
+              {/* Submit Brief to Creator â€” visible only after brief is saved */}
+              {savedBriefId && isFromOrder && (
+                <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-sm text-emerald-900">Brief saved! Ready to send?</h3>
+                    <p className="text-xs text-emerald-800/70 mt-0.5">
+                      Submit the brief to {creatorName ?? "the creator"} so they can start working.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSubmitBrief}
+                    disabled={isSubmittingBrief}
+                    className="rounded-xl font-bold px-8 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0"
+                  >
+                    {isSubmittingBrief ? (
+                      <>
+                        <Spinner className="mr-2 size-4" aria-hidden />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        Submit Brief to Creator
+                        <ArrowRight className="ml-2 size-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex sm:justify-end">
+                <p className="text-xs text-muted-foreground mt-2">You can edit the brief later if needed</p>
+              </div>
+            </form>
+          </div>
+
+          {/* Right Sidebar Area */}
+          <div className="w-full lg:w-[360px]">
+            <div className="sticky top-8 space-y-6">
+               <OrderSummaryCard
+                 orderData={orderData}
+                 creatorData={creatorData}
+                 isLoading={isFromOrder && isOrderLoading}
+               />
+               <WhatsNextTimeline creatorName={creatorName} />
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
+
+/** Default export wraps with Suspense for useSearchParams(). */
+export default function CreateBriefPage() {
+  return (
+    <Suspense>
+      <CreateBriefPageContent />
+    </Suspense>
+  );
+}
+

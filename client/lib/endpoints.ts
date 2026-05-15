@@ -121,3 +121,7 @@ export function creatorPortfolioPublicVideosPath(creatorId: string): string {
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;
 }
+
+export function suggestedCreatorsPath(id: string): string {
+  return `/api/creators/${encodeURIComponent(id)}/suggested`;
+}

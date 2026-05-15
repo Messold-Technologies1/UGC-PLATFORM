@@ -140,9 +140,9 @@ export function useRazorpayCheckout({
     ? Math.round(checkoutSession.amountPaise / 100)
     : localTotal;
 
-  const redirectToOrderDetails = useCallback(
+  const redirectToBriefCreation = useCallback(
     (orderId: string) => {
-      const href = `/brand/orders/${encodeURIComponent(orderId)}`;
+      const href = `/brand/briefs/create?orderId=${encodeURIComponent(orderId)}`;
       router.replace(href);
       router.refresh();
     },
@@ -210,9 +210,9 @@ export function useRazorpayCheckout({
             brandOrderDetailsQueryOptions(session.orderId),
           );
           toast.success("Payment successful", {
-            description: "Redirecting to your order...",
+            description: "Redirecting to brief creation...",
           });
-          redirectToOrderDetails(session.orderId);
+          redirectToBriefCreation(session.orderId);
         },
         modal: {
           ondismiss: () => {
@@ -242,7 +242,7 @@ export function useRazorpayCheckout({
     [
       creator.id,
       queryClient,
-      redirectToOrderDetails,
+      redirectToBriefCreation,
       selectedPackage?.id,
       selectedPackage?.label,
       user?.email,

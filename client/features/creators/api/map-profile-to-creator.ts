@@ -35,14 +35,18 @@ function getProfileLanguages(profile: ListingProfileApi): string[] {
 
 function getProfileCategories(profile: ListingProfileApi): string[] {
   if (isCreatorProfileItemApi(profile)) {
-    return trimStringArray((profile.categories ?? []).map((item) => item?.category));
+    return trimStringArray(
+      (profile.categories ?? []).map((item) => item?.category),
+    );
   }
   return trimStringArray(profile.categories);
 }
 
 function getProfilePersonaTags(profile: ListingProfileApi): string[] {
   if (isCreatorProfileItemApi(profile)) {
-    return trimStringArray((profile.personaTags ?? []).map((item) => item?.tag));
+    return trimStringArray(
+      (profile.personaTags ?? []).map((item) => item?.tag),
+    );
   }
   return trimStringArray(profile.personaTags);
 }
@@ -54,7 +58,9 @@ function getFirstPortfolioVideo(profile: ListingProfileApi) {
 }
 
 function getTravelRadius(profile: ListingProfileApi): number | null {
-  return isCreatorProfileItemApi(profile) ? (profile.travelRadius ?? null) : null;
+  return isCreatorProfileItemApi(profile)
+    ? (profile.travelRadius ?? null)
+    : null;
 }
 
 function normalizeGender(
@@ -117,7 +123,8 @@ export function mapProfileToListingCreator(
     introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
     trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
-  const industryLabel = trimString(firstPortfolioVideo?.industryLabel) || undefined;
+  const industryLabel =
+    trimString(firstPortfolioVideo?.industryLabel) || undefined;
 
   return {
     id: profile.id,
@@ -129,6 +136,7 @@ export function mapProfileToListingCreator(
     ordersCompleted: 0,
     thumbnail,
     previewVideoUrl,
+    introVideoUrl: introVideoUrl || null,
     previewVideoThumbnail,
     tags: buildTags(profile),
     available: true,
@@ -141,8 +149,18 @@ export function mapProfileToListingCreator(
     categories,
     industryLabel,
     languages: getProfileLanguages(profile),
-    deliveryDays: (profile.packages?.[0] as { deliveryDays?: number } | undefined)?.deliveryDays ?? 5,
-    basicEditing: (profile.packages?.[0] as { basicEditing?: boolean } | undefined)?.basicEditing ?? true,
+    deliveryDays:
+      (profile.packages?.[0] as { deliveryDays?: number } | undefined)
+        ?.deliveryDays ?? 5,
+    basicEditing: (() => {
+      const firstPkg = profile.packages?.[0] as any;
+      if (!firstPkg) return true;
+      if (typeof firstPkg.basicEditing === "boolean") return firstPkg.basicEditing;
+      if (Array.isArray(firstPkg.deliverables)) {
+        return firstPkg.deliverables.includes("Basic editing");
+      }
+      return true;
+    })(),
   };
 }
 
@@ -194,6 +212,7 @@ export function mapProfileItemToCreatorProfile(
       profile.travelRadius != null && !Number.isNaN(profile.travelRadius)
         ? profile.travelRadius
         : null,
+    facetSelections: profile.facetSelections ?? [],
     packages: mapApiPackages(profile.packages),
     addOns: mapApiAddOns(profile.addOns),
     reviews: [],

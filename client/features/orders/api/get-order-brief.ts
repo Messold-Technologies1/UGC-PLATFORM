@@ -4,6 +4,10 @@ import { ENDPOINTS } from "@/lib/endpoints";
 export interface OrderBriefResponse {
   orderId: string;
   briefSubmittedAt?: string | null;
+  briefAcceptedAt?: string | null;
+  deliveryDaysSnapshot: number;
+  requiresPhysicalProductShipment: boolean;
+  deliveryDeadlineAt?: string | null;
   brief: Record<string, unknown> | null;
 }
 

@@ -14,6 +14,8 @@ import type { BrandOrdersListResponseDto } from './dto/brand-orders-list-respons
 import type { BrandOrderListItemDto } from './dto/brand-order-list-item.dto';
 import type { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import type { CreatorOrderListItemDto } from './dto/creator-order-list-item.dto';
+import type { AcceptBriefResponseDto } from './dto/accept-brief-response.dto';
+import type { MarkProductReceivedResponseDto } from './dto/mark-product-received-response.dto';
 import type { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import type { OrderListSummaryDto } from './dto/order-list-summary.dto';
 import type { AdminOrderDetailsResponseDto } from './dto/admin-order-details-response.dto';
@@ -125,6 +127,16 @@ function parseDispatchDateUtcYmd(ymd: string): Date {
     throw new BadRequestException('Invalid dispatchDate');
   }
   return dt;
+}
+
+/** deliveryDaysSnapshot + 2 calendar-day grace from the moment work can start */
+function computeDeliveryDeadlineAt(
+  startAt: Date,
+  deliveryDaysSnapshot: number,
+): Date {
+  const deadline = new Date(startAt);
+  deadline.setDate(deadline.getDate() + deliveryDaysSnapshot + 2);
+  return deadline;
 }
 
 function canCreatorUploadOrSubmitDelivery(order: {
@@ -356,7 +368,6 @@ export class OrdersService {
         id: true,
         brandId: true,
         status: true,
-        deliveryDaysSnapshot: true,
         briefSubmittedAt: true,
       },
     });
@@ -369,9 +380,6 @@ export class OrdersService {
     if (order.briefSubmittedAt) return; // idempotent
 
     const now = new Date();
-    const deadline = new Date(now);
-    // deliveryDays + 2 grace (platform-defined buffer)
-    deadline.setDate(deadline.getDate() + order.deliveryDaysSnapshot + 2);
 
     const brief = await this.prisma.brief.findFirst({
       where: { id: params.briefId, brandId: brand.id },
@@ -387,7 +395,6 @@ export class OrdersService {
         status: 'BRIEF_SUBMITTED',
         briefId: params.briefId,
         briefSubmittedAt: now,
-        deliveryDeadlineAt: deadline,
         requiresPhysicalProductShipment: brief.willShipPhysicalProductToCreator,
       },
     });
@@ -401,7 +408,7 @@ export class OrdersService {
   async acceptBrief(params: {
     creatorUserId: string;
     orderId: string;
-  }): Promise<void> {
+  }): Promise<AcceptBriefResponseDto> {
     const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
@@ -415,13 +422,28 @@ export class OrdersService {
         creatorId: true,
         status: true,
         briefSubmittedAt: true,
+        briefAcceptedAt: true,
+        deliveryDaysSnapshot: true,
+        requiresPhysicalProductShipment: true,
+        deliveryDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.creatorId !== creator.id)
       throw new ForbiddenException('Not your order');
 
-    if (String(order.status) === 'BRIEF_ACCEPTED') return;
+    if (String(order.status) === 'BRIEF_ACCEPTED') {
+      if (!order.briefAcceptedAt) {
+        throw new BadRequestException('Brief acceptance timestamp missing');
+      }
+      return {
+        orderId: order.id,
+        status: 'BRIEF_ACCEPTED',
+        briefAcceptedAt: order.briefAcceptedAt,
+        requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+        deliveryDeadlineAt: order.deliveryDeadlineAt,
+      };
+    }
 
     if (String(order.status) !== 'BRIEF_SUBMITTED') {
       throw new BadRequestException('Order is not awaiting brief acceptance');
@@ -431,18 +453,39 @@ export class OrdersService {
     }
 
     const now = new Date();
-    await this.prisma.order.update({
+    const deliveryDeadlineAt = order.requiresPhysicalProductShipment
+      ? null
+      : computeDeliveryDeadlineAt(now, order.deliveryDaysSnapshot);
+
+    const updated = await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: now,
+        ...(deliveryDeadlineAt !== null ? { deliveryDeadlineAt } : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        briefAcceptedAt: true,
+        requiresPhysicalProductShipment: true,
+        deliveryDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderBriefAccepted({
       orderId: order.id,
       briefAcceptedAt: now,
+      deliveryDeadlineAt,
     });
+
+    return {
+      orderId: updated.id,
+      status: updated.status,
+      briefAcceptedAt: updated.briefAcceptedAt!,
+      requiresPhysicalProductShipment: updated.requiresPhysicalProductShipment,
+      deliveryDeadlineAt: updated.deliveryDeadlineAt,
+    };
   }
 
   async markProductShipped(params: {
@@ -509,7 +552,7 @@ export class OrdersService {
   async markProductReceived(params: {
     creatorUserId: string;
     orderId: string;
-  }): Promise<void> {
+  }): Promise<MarkProductReceivedResponseDto> {
     const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
@@ -523,6 +566,9 @@ export class OrdersService {
         creatorId: true,
         status: true,
         requiresPhysicalProductShipment: true,
+        deliveryDaysSnapshot: true,
+        productReceivedAt: true,
+        deliveryDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -533,7 +579,17 @@ export class OrdersService {
         'This order does not use the physical shipment workflow',
       );
     }
-    if (String(order.status) === 'PRODUCT_RECEIVED') return;
+    if (String(order.status) === 'PRODUCT_RECEIVED') {
+      if (!order.productReceivedAt || !order.deliveryDeadlineAt) {
+        throw new BadRequestException('Product receipt timestamps missing');
+      }
+      return {
+        orderId: order.id,
+        status: 'PRODUCT_RECEIVED',
+        productReceivedAt: order.productReceivedAt,
+        deliveryDeadlineAt: order.deliveryDeadlineAt,
+      };
+    }
     if (String(order.status) !== 'PRODUCT_SHIPPED') {
       throw new BadRequestException(
         'Order must be PRODUCT_SHIPPED before confirming receipt',
@@ -541,18 +597,38 @@ export class OrdersService {
     }
 
     const now = new Date();
-    await this.prisma.order.update({
+    const deliveryDeadlineAt = computeDeliveryDeadlineAt(
+      now,
+      order.deliveryDaysSnapshot,
+    );
+
+    const updated = await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'PRODUCT_RECEIVED',
         productReceivedAt: now,
+        deliveryDeadlineAt,
+      },
+      select: {
+        id: true,
+        status: true,
+        productReceivedAt: true,
+        deliveryDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderProductReceived({
       orderId: order.id,
       productReceivedAt: now,
+      deliveryDeadlineAt,
     });
+
+    return {
+      orderId: updated.id,
+      status: updated.status,
+      productReceivedAt: updated.productReceivedAt!,
+      deliveryDeadlineAt: updated.deliveryDeadlineAt!,
+    };
   }
 
   async presignDeliveryUploads(params: {
@@ -1343,6 +1419,9 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        deliveryDaysSnapshot: true,
+        requiresPhysicalProductShipment: true,
+        deliveryDeadlineAt: true,
         briefRef: {
           select: {
             id: true,
@@ -1425,6 +1504,9 @@ export class OrdersService {
       orderId: order.id,
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
+      deliveryDaysSnapshot: order.deliveryDaysSnapshot,
+      requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+      deliveryDeadlineAt: order.deliveryDeadlineAt,
       brief,
     };
   }

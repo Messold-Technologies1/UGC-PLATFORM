@@ -21,6 +21,7 @@ export interface OrderListSummary {
   paidAt?: string | null;
   briefSubmittedAt?: string | null;
   hasBrief: boolean;
+  briefId?: string;
   deliveryDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;

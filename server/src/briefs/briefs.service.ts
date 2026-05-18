@@ -23,6 +23,25 @@ function mapReferenceLinks(value: unknown): string[] {
   return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
 }
 
+function mapScript(value: unknown): Record<string, unknown> | unknown[] | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'object') {
+    return value as Record<string, unknown> | unknown[];
+  }
+  return null;
+}
+
+function normalizeScriptInput(
+  value: Record<string, unknown> | unknown[] | undefined,
+): Record<string, unknown> | unknown[] | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'object') {
+    throw new BadRequestException('script must be a JSON object or array');
+  }
+  return value;
+}
+
 function mapBriefRow(b: {
   id: string;
   brandName: string | null;
@@ -45,6 +64,7 @@ function mapBriefRow(b: {
   keyNoteToInclude: string | null;
   ctaNote: string | null;
   referenceLinks: unknown;
+  script: unknown;
   finalNotes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +91,7 @@ function mapBriefRow(b: {
     keyNoteToInclude: b.keyNoteToInclude ?? null,
     ctaNote: b.ctaNote ?? null,
     referenceLinks: mapReferenceLinks(b.referenceLinks),
+    script: mapScript(b.script),
     finalNotes: b.finalNotes ?? null,
     createdAt: b.createdAt,
     updatedAt: b.updatedAt,
@@ -143,6 +164,8 @@ export class BriefsService {
     }
     this.assertTempBriefProductImageKeyOwner(params.brandUserId, productImageKey);
 
+    const script = normalizeScriptInput(params.dto.script);
+
     const created = await this.prisma.brief.create({
       data: {
         brandId: brand.id,
@@ -167,6 +190,7 @@ export class BriefsService {
         keyNoteToInclude: params.dto.keyNoteToInclude,
         ctaNote: params.dto.ctaNote,
         referenceLinks: (params.dto.referenceLinks ?? []) as any,
+        ...(script !== undefined ? { script: script as any } : {}),
         finalNotes: params.dto.finalNotes,
       },
       select: { id: true },

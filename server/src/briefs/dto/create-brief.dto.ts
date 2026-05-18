@@ -134,6 +134,16 @@ export class CreateBriefDto {
   @IsUrl({}, { each: true })
   referenceLinks?: string[];
 
+  @ApiPropertyOptional({
+    description:
+      'Campaign script as JSON (object or array), e.g. scenes, lines, or structured brief copy.',
+    type: 'object',
+    additionalProperties: true,
+    example: { scenes: [{ title: 'Hook', lines: ['Try this product…'] }] },
+  })
+  @IsOptional()
+  script?: Record<string, unknown> | unknown[];
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

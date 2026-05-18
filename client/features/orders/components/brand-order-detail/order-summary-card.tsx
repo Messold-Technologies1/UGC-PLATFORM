@@ -133,15 +133,15 @@ export function OrderSummaryCard({
                   {formatMoney(addOnsTotal, order.currency)}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-3">
+              {/* <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground whitespace-nowrap flex items-center gap-1">
                   Platform Fee
                   <Info className="size-3 text-muted-foreground/50" />
                 </span>
-                {/* <span className="font-medium text-foreground tabular-nums">
+                <span className="font-medium text-foreground tabular-nums">
                   {formatMoney(platformFee, order.currency)}
-                </span> */}
-              </div>
+                </span>
+              </div> */}
             </div>
 
             <div

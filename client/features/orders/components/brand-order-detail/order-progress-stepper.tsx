@@ -11,6 +11,7 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import type { OrderDetailsPublic } from "../../api/types";
 
 interface OrderProgressStepperProps {
@@ -22,6 +23,7 @@ interface StepDefinition {
   icon: React.ElementType;
   dateKey: keyof OrderDetailsPublic | null;
   statusMatch: string[];
+  getHref?: (orderId: string) => string;
 }
 
 const STEPS: StepDefinition[] = [
@@ -48,6 +50,7 @@ const STEPS: StepDefinition[] = [
     icon: Package,
     dateKey: "dispatchedAt",
     statusMatch: ["BRIEF_ACCEPTED"],
+    getHref: (orderId) => `/brand/orders/${orderId}/shipping`,
   },
   {
     label: "In Progress",
@@ -111,25 +114,8 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
             ? (order[step.dateKey] as string | null | undefined)
             : null;
 
-          return (
-            <div
-              key={step.label}
-              className="flex-1 flex flex-col items-center relative"
-            >
-              {index > 0 && (
-                <div
-                  className="absolute top-5 right-1/2 w-full h-0.5 -translate-y-1/2"
-                  style={{ zIndex: 0 }}
-                >
-                  <div
-                    className={cn(
-                      "h-full w-full",
-                      isCompleted || isActive ? "bg-primary" : "bg-border",
-                    )}
-                  />
-                </div>
-              )}
-
+          const StepContent = () => (
+            <>
               <div
                 className={cn(
                   "relative z-10 flex size-10 items-center justify-center rounded-full border-2 transition-colors",
@@ -171,6 +157,40 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
               ) : isPending ? (
                 <span className="mt-1 h-3" />
               ) : null}
+            </>
+          );
+
+          return (
+            <div
+              key={step.label}
+              className="flex-1 flex flex-col items-center relative"
+            >
+              {index > 0 && (
+                <div
+                  className="absolute top-5 right-1/2 w-full h-0.5 -translate-y-1/2"
+                  style={{ zIndex: 0 }}
+                >
+                  <div
+                    className={cn(
+                      "h-full w-full",
+                      isCompleted || isActive ? "bg-primary" : "bg-border",
+                    )}
+                  />
+                </div>
+              )}
+
+              {step.getHref ? (
+                <Link
+                  href={step.getHref(order.id)}
+                  className="flex flex-col items-center"
+                >
+                  <StepContent />
+                </Link>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <StepContent />
+                </div>
+              )}
             </div>
           );
         })}

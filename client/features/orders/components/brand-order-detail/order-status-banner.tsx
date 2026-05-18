@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { AlertCircle, Clock, Info, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import type { OrderDetailsPublic } from "../../api/types";
 import type { OrderCreatorSnapshot } from "../../api/types";
 
@@ -175,6 +177,15 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
           </span>
         </div>
       )}
+
+      {order.status === "BRIEF_ACCEPTED" && (
+        <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
+          <Link href={`/brand/orders/${order.id}/shipping`}>
+            Add Shipping Details
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }
+

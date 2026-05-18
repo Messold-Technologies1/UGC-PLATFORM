@@ -7,7 +7,7 @@ import {
   ArrowRight,
   Check,
   Lock,
-  UploadCloud,
+  // UploadCloud,
   Smartphone,
   MessageSquare,
   Megaphone,

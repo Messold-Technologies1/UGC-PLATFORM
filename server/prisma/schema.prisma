@@ -477,6 +477,8 @@ model Brief {
   productName        String?
   productDescription String?
   productPageUrl     String?
+  productImageKey    String?
+  productImageUrl    String?
 
   /// Logistics: brand will mail / courier a physical item to the creator for the shoot
   willShipPhysicalProductToCreator Boolean @default(false)

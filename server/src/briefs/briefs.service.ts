@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   BriefContentType,
   BriefDurationBucket,
@@ -6,18 +11,110 @@ import {
   BriefToneStyle,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import type { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import type { CreateBriefDto } from './dto/create-brief.dto';
 import type { BriefDto } from './dto/brief.dto';
+import type { PresignBriefProductImageUploadDto } from './dto/presign-brief-product-image-upload.dto';
+import type { PresignBriefProductImageUploadResponseDto } from './dto/presign-brief-product-image-upload.dto';
 
 function mapReferenceLinks(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
 }
 
+function mapBriefRow(b: {
+  id: string;
+  brandName: string | null;
+  brandPronunciationAudioKey: string | null;
+  brandPronunciationAudioUrl: string | null;
+  industry: string | null;
+  brandLogoKey: string | null;
+  brandLogoUrl: string | null;
+  productName: string | null;
+  productDescription: string | null;
+  productPageUrl: string | null;
+  productImageKey: string | null;
+  productImageUrl: string | null;
+  willShipPhysicalProductToCreator: boolean;
+  shootLocationKind: BriefShootLocationKind | null;
+  shootLocationAddress: string | null;
+  durationBucket: BriefDurationBucket | null;
+  contentType: BriefContentType[];
+  toneStyle: BriefToneStyle[];
+  keyNoteToInclude: string | null;
+  ctaNote: string | null;
+  referenceLinks: unknown;
+  finalNotes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): BriefDto {
+  return {
+    id: b.id,
+    brandName: b.brandName ?? null,
+    brandPronunciationAudioKey: b.brandPronunciationAudioKey ?? null,
+    brandPronunciationAudioUrl: b.brandPronunciationAudioUrl ?? null,
+    industry: b.industry ?? null,
+    brandLogoKey: b.brandLogoKey ?? null,
+    brandLogoUrl: b.brandLogoUrl ?? null,
+    productName: b.productName ?? null,
+    productDescription: b.productDescription ?? null,
+    productPageUrl: b.productPageUrl ?? null,
+    productImageKey: b.productImageKey ?? null,
+    productImageUrl: b.productImageUrl ?? null,
+    willShipPhysicalProductToCreator: b.willShipPhysicalProductToCreator,
+    shootLocationKind: b.shootLocationKind ?? null,
+    shootLocationAddress: b.shootLocationAddress ?? null,
+    durationBucket: b.durationBucket ?? null,
+    contentType: b.contentType,
+    toneStyle: b.toneStyle,
+    keyNoteToInclude: b.keyNoteToInclude ?? null,
+    ctaNote: b.ctaNote ?? null,
+    referenceLinks: mapReferenceLinks(b.referenceLinks),
+    finalNotes: b.finalNotes ?? null,
+    createdAt: b.createdAt,
+    updatedAt: b.updatedAt,
+  };
+}
+
 @Injectable()
 export class BriefsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
+
+  private assertTempBriefProductImageKeyOwner(
+    brandUserId: string,
+    key: string,
+  ): void {
+    if (!this.storage.isTempBriefProductImageKeyForUser(brandUserId, key)) {
+      throw new BadRequestException('Invalid productImageKey');
+    }
+  }
+
+  async presignProductImageUpload(
+    brandUserId: string,
+    dto: PresignBriefProductImageUploadDto,
+  ): Promise<PresignBriefProductImageUploadResponseDto> {
+    const brand = await this.prisma.brandProfile.findUnique({
+      where: { userId: brandUserId },
+      select: { id: true },
+    });
+    if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const key = this.storage.buildObjectKey({
+      kind: 'brief_product_image',
+      userId: brandUserId,
+      contentType: dto.contentType,
+    });
+
+    return this.storage.createPresignedPutUpload({
+      key,
+      contentType: dto.contentType,
+      contentLength: dto.contentLength,
+    });
+  }
 
   getBriefFieldOptions(): BriefFieldOptionsResponseDto {
     return {
@@ -39,6 +136,12 @@ export class BriefsService {
       select: { id: true },
     });
     if (!brand) throw new NotFoundException('Brand profile not found');
+
+    const productImageKey = params.dto.productImageKey.trim();
+    if (!productImageKey) {
+      throw new BadRequestException('productImageKey is required');
+    }
+    this.assertTempBriefProductImageKeyOwner(params.brandUserId, productImageKey);
 
     const created = await this.prisma.brief.create({
       data: {
@@ -69,6 +172,20 @@ export class BriefsService {
       select: { id: true },
     });
 
+    const finalProductImageKey = await this.storage.finalizeBriefProductImageKey({
+      tempKey: productImageKey,
+      briefId: created.id,
+      deleteTemp: true,
+    });
+
+    await this.prisma.brief.update({
+      where: { id: created.id },
+      data: {
+        productImageKey: finalProductImageKey,
+        productImageUrl: this.storage.buildCdnUrl(finalProductImageKey),
+      },
+    });
+
     return { id: created.id };
   }
 
@@ -84,30 +201,7 @@ export class BriefsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return rows.map((b) => ({
-      id: b.id,
-      brandName: b.brandName ?? null,
-      brandPronunciationAudioKey: b.brandPronunciationAudioKey ?? null,
-      brandPronunciationAudioUrl: b.brandPronunciationAudioUrl ?? null,
-      industry: b.industry ?? null,
-      brandLogoKey: b.brandLogoKey ?? null,
-      brandLogoUrl: b.brandLogoUrl ?? null,
-      productName: b.productName ?? null,
-      productDescription: b.productDescription ?? null,
-      productPageUrl: b.productPageUrl ?? null,
-      willShipPhysicalProductToCreator: b.willShipPhysicalProductToCreator,
-      shootLocationKind: b.shootLocationKind ?? null,
-      shootLocationAddress: b.shootLocationAddress ?? null,
-      durationBucket: b.durationBucket ?? null,
-      contentType: b.contentType,
-      toneStyle: b.toneStyle,
-      keyNoteToInclude: b.keyNoteToInclude ?? null,
-      ctaNote: b.ctaNote ?? null,
-      referenceLinks: mapReferenceLinks(b.referenceLinks),
-      finalNotes: b.finalNotes ?? null,
-      createdAt: b.createdAt,
-      updatedAt: b.updatedAt,
-    }));
+    return rows.map((b) => mapBriefRow(b));
   }
 
   async getBriefForBrand(params: {
@@ -124,30 +218,6 @@ export class BriefsService {
     if (!brief) throw new NotFoundException('Brief not found');
     if (brief.brandId !== brand.id) throw new ForbiddenException('Not your brief');
 
-    return {
-      id: brief.id,
-      brandName: brief.brandName ?? null,
-      brandPronunciationAudioKey: brief.brandPronunciationAudioKey ?? null,
-      brandPronunciationAudioUrl: brief.brandPronunciationAudioUrl ?? null,
-      industry: brief.industry ?? null,
-      brandLogoKey: brief.brandLogoKey ?? null,
-      brandLogoUrl: brief.brandLogoUrl ?? null,
-      productName: brief.productName ?? null,
-      productDescription: brief.productDescription ?? null,
-      productPageUrl: brief.productPageUrl ?? null,
-      willShipPhysicalProductToCreator: brief.willShipPhysicalProductToCreator,
-      shootLocationKind: brief.shootLocationKind ?? null,
-      shootLocationAddress: brief.shootLocationAddress ?? null,
-      durationBucket: brief.durationBucket ?? null,
-      contentType: brief.contentType,
-      toneStyle: brief.toneStyle,
-      keyNoteToInclude: brief.keyNoteToInclude ?? null,
-      ctaNote: brief.ctaNote ?? null,
-      referenceLinks: mapReferenceLinks(brief.referenceLinks),
-      finalNotes: brief.finalNotes ?? null,
-      createdAt: brief.createdAt,
-      updatedAt: brief.updatedAt,
-    };
+    return mapBriefRow(brief);
   }
 }
-

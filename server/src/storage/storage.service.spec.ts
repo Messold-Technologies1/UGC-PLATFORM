@@ -92,6 +92,28 @@ describe('StorageService', () => {
     expect(key.endsWith('.webm')).toBe(true);
   });
 
+  it('buildObjectKey creates a temporary brief product image key', () => {
+    const storage = new StorageService(config as any);
+    const key = storage.buildObjectKey({
+      kind: 'brief_product_image',
+      userId: 'u1',
+      contentType: 'image/png',
+    });
+    expect(key.startsWith('brief-product-temp/u1/')).toBe(true);
+    expect(key.endsWith('.png')).toBe(true);
+  });
+
+  it('finalizes temporary brief product image key', async () => {
+    sendMock.mockClear();
+    const storage = new StorageService(config as any);
+    const finalKey = await storage.finalizeBriefProductImageKey({
+      tempKey: 'brief-product-temp/u1/a.png',
+      briefId: 'b1',
+    });
+    expect(finalKey).toBe('brief-product/b1/a.png');
+    expect(sendMock).toHaveBeenCalledTimes(2);
+  });
+
   it('creates a presigned PUT upload result', async () => {
     const storage = new StorageService(config as any);
     const res = await storage.createPresignedPutUpload({

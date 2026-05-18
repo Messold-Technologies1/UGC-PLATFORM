@@ -182,10 +182,35 @@ export class CreatorProfileResponseDto {
   shippingAddress?: string | null;
 
   @ApiPropertyOptional({
+    example: 'creator@example.com',
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  contactEmail?: string | null;
+
+  @ApiPropertyOptional({
     description:
       'Omitted when the viewer is not the profile owner or an admin.',
   })
   instagramUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  youtubeUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  tiktokUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  snapchatUrl?: string | null;
 
   @ApiPropertyOptional({ enum: CreatorContentVolumeBucket })
   contentVolume?: CreatorContentVolumeBucket | null;

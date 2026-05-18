@@ -267,7 +267,12 @@ model CreatorProfile {
   gender              CreatorGender?
   dateOfBirth         DateTime?                   @db.Date
   shippingAddress     String?
+  /// Primary contact email for orders and platform communication.
+  contactEmail        String?
   instagramUrl        String?
+  youtubeUrl          String?
+  tiktokUrl           String?
+  snapchatUrl         String?
   contentVolume       CreatorContentVolumeBucket?
   collaborationCount  Int                         @default(0)
   travelRadius        Int?

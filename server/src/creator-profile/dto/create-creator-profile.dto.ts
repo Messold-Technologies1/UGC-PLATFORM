@@ -10,6 +10,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEmail,
   IsEnum,
   IsInt,
   IsOptional,
@@ -173,11 +174,34 @@ export class CreateCreatorProfileDto {
   @MaxLength(2000)
   shippingAddress?: string;
 
+  @ApiProperty({ example: 'creator@example.com' })
+  @IsEmail()
+  @MaxLength(320)
+  contactEmail!: string;
+
   @ApiPropertyOptional({ example: 'https://instagram.com/jane' })
   @IsOptional()
   @IsUrl({ require_protocol: true })
   @MaxLength(500)
   instagramUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://youtube.com/@jane' })
+  @IsOptional()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(500)
+  youtubeUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://tiktok.com/@jane' })
+  @IsOptional()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(500)
+  tiktokUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://snapchat.com/add/jane' })
+  @IsOptional()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(500)
+  snapchatUrl?: string;
 
   @ApiPropertyOptional({
     enum: CreatorContentVolumeBucket,

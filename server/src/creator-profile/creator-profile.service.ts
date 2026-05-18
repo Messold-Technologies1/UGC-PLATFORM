@@ -66,6 +66,7 @@ const creatorProfileWithRelationsInclude = {
       createdAt: true,
     },
   },
+  stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
 
 /**
@@ -197,7 +198,11 @@ export class CreatorProfileService {
       age,
       ageGroup,
       shippingAddress: mapped.shippingAddress ?? null,
+      contactEmail: mapped.contactEmail ?? null,
       instagramUrl: mapped.instagramUrl ?? null,
+      youtubeUrl: mapped.youtubeUrl ?? null,
+      tiktokUrl: mapped.tiktokUrl ?? null,
+      snapchatUrl: mapped.snapchatUrl ?? null,
       contentVolume: mapped.contentVolume ?? null,
       collaborationCount: mapped.collaborationCount ?? 0,
       travelRadius: mapped.travelRadius ?? null,
@@ -242,6 +247,8 @@ export class CreatorProfileService {
         description: a.description ?? null,
       })),
       firstPortfolioVideo,
+      avgRating: mapped.stats?.avgRating?.toString() ?? null,
+      reviewCount: mapped.stats?.reviewCount ?? 0,
     };
   }
 
@@ -259,7 +266,11 @@ export class CreatorProfileService {
     const {
       phone: _phone,
       phoneVerified: _phoneVerified,
+      contactEmail: _contactEmail,
       instagramUrl: _instagramUrl,
+      youtubeUrl: _youtubeUrl,
+      tiktokUrl: _tiktokUrl,
+      snapchatUrl: _snapchatUrl,
       ...rest
     } = dto;
     return rest as CreatorProfileResponseDto;
@@ -611,7 +622,11 @@ export class CreatorProfileService {
               ? dateOfBirth
               : null,
             shippingAddress: dto.shippingAddress?.trim() || null,
+            contactEmail: dto.contactEmail.trim(),
             instagramUrl: dto.instagramUrl?.trim() || null,
+            youtubeUrl: dto.youtubeUrl?.trim() || null,
+            tiktokUrl: dto.tiktokUrl?.trim() || null,
+            snapchatUrl: dto.snapchatUrl?.trim() || null,
             contentVolume: dto.contentVolume ?? null,
             collaborationCount: dto.collaborationCount ?? 0,
             travelRadius: dto.travelRadius ?? null,
@@ -961,6 +976,8 @@ export class CreatorProfileService {
           })
         : [],
       portfolioVideos,
+      avgRating: profile.stats?.avgRating?.toString() ?? null,
+      reviewCount: profile.stats?.reviewCount ?? 0,
     };
   }
 
@@ -1206,8 +1223,24 @@ export class CreatorProfileService {
         if (dto.shippingAddress !== undefined) {
           data.shippingAddress = dto.shippingAddress?.trim() || null;
         }
+        if (dto.contactEmail !== undefined) {
+          const v = dto.contactEmail.trim();
+          if (!v) {
+            throw new BadRequestException('contactEmail cannot be empty');
+          }
+          data.contactEmail = v;
+        }
         if (dto.instagramUrl !== undefined) {
           data.instagramUrl = dto.instagramUrl?.trim() || null;
+        }
+        if (dto.youtubeUrl !== undefined) {
+          data.youtubeUrl = dto.youtubeUrl?.trim() || null;
+        }
+        if (dto.tiktokUrl !== undefined) {
+          data.tiktokUrl = dto.tiktokUrl?.trim() || null;
+        }
+        if (dto.snapchatUrl !== undefined) {
+          data.snapchatUrl = dto.snapchatUrl?.trim() || null;
         }
         if (dto.contentVolume !== undefined) {
           data.contentVolume = dto.contentVolume;

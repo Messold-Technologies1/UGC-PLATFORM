@@ -5,9 +5,10 @@ import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { CreatorPackageModule } from '../creator-package/creator-package.module';
 import { AuthModule } from '../auth/auth.module';
+import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
 
 @Module({
-  imports: [CreatorPackageModule, AuthModule],
+  imports: [CreatorPackageModule, AuthModule, CreatorReviewsModule],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [CreatorProfileService, CreatorPayoutDetailsService],
 })

@@ -53,7 +53,8 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
   }
   if (
     kind === 'creator_portfolio_thumbnail' ||
-    kind === 'brand_logo'
+    kind === 'brand_logo' ||
+    kind === 'brief_product_image'
   ) {
     if (!isImage) throw new Error('Unsupported image content type');
     return;
@@ -106,6 +107,7 @@ export class StorageService {
     userId: string;
     creatorProfileId?: string;
     brandProfileId?: string;
+    briefId?: string;
     orderId?: string;
     revisionNumber?: number;
     contentType: string;
@@ -139,6 +141,14 @@ export class StorageService {
         return `brand-pronunciation/${brandId}/${id}.${ext}`;
       }
       return this.buildTempBrandPronunciationAudioKey(input.userId, ext);
+    }
+
+    if (input.kind === 'brief_product_image') {
+      const briefId = input.briefId;
+      if (briefId) {
+        return `brief-product/${briefId}/${id}.${ext}`;
+      }
+      return this.buildTempBriefProductImageKey(input.userId, ext);
     }
 
     if (input.kind === 'order_delivery_asset') {
@@ -194,6 +204,21 @@ export class StorageService {
     return key.startsWith(`brand-pronunciation-temp/${userId}/`);
   }
 
+  buildTempBriefProductImageKey(userId: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `brief-product-temp/${userId}/${randomUUID()}.${ext}`;
+  }
+
+  isTempBriefProductImageKeyForUser(userId: string, key: string): boolean {
+    return key.startsWith(`brief-product-temp/${userId}/`);
+  }
+
   async finalizeCreatorIntroVideoKey(input: {
     tempKey: string;
     creatorProfileId: string;
@@ -235,6 +260,37 @@ export class StorageService {
       throw new Error('Invalid temporary brand logo key');
     }
     const finalKey = `brand-logo/${input.brandProfileId}/${fileName}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.tempKey}`,
+      }),
+    );
+
+    if (input.deleteTemp ?? true) {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: input.tempKey,
+        }),
+      );
+    }
+
+    return finalKey;
+  }
+
+  async finalizeBriefProductImageKey(input: {
+    tempKey: string;
+    briefId: string;
+    deleteTemp?: boolean;
+  }): Promise<string> {
+    const fileName = input.tempKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid temporary brief product image key');
+    }
+    const finalKey = `brief-product/${input.briefId}/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

@@ -37,6 +37,16 @@ export class BriefDto {
   @ApiPropertyOptional()
   productPageUrl?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'brief-product/<briefId>/<uuid>.png',
+  })
+  productImageKey?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/brief-product/<briefId>/<uuid>.png',
+  })
+  productImageUrl?: string | null;
+
   @ApiProperty({
     description:
       'Whether the brand will physically ship a product to the creator for this campaign',

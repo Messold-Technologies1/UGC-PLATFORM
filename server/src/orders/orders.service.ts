@@ -383,10 +383,19 @@ export class OrdersService {
 
     const brief = await this.prisma.brief.findFirst({
       where: { id: params.briefId, brandId: brand.id },
-      select: { id: true, willShipPhysicalProductToCreator: true },
+      select: {
+        id: true,
+        willShipPhysicalProductToCreator: true,
+        productImageKey: true,
+      },
     });
     if (!brief) {
       throw new NotFoundException('Brief not found for this brand');
+    }
+    if (!brief.productImageKey?.trim()) {
+      throw new BadRequestException(
+        'Brief must include a product image before it can be submitted to an order',
+      );
     }
 
     await this.prisma.order.update({
@@ -1434,6 +1443,8 @@ export class OrdersService {
             productName: true,
             productDescription: true,
             productPageUrl: true,
+            productImageKey: true,
+            productImageUrl: true,
             willShipPhysicalProductToCreator: true,
             shootLocationKind: true,
             shootLocationAddress: true,
@@ -1482,6 +1493,12 @@ export class OrdersService {
           productName: order.briefRef.productName ?? null,
           productDescription: order.briefRef.productDescription ?? null,
           productPageUrl: order.briefRef.productPageUrl ?? null,
+          productImage: order.briefRef.productImageKey
+            ? {
+                key: order.briefRef.productImageKey,
+                url: order.briefRef.productImageUrl ?? null,
+              }
+            : null,
           willShipPhysicalProductToCreator:
             order.briefRef.willShipPhysicalProductToCreator,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,

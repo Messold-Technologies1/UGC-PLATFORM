@@ -29,6 +29,9 @@ const _creatorpayoutdetailsservice = require("./creator-payout-details.service")
 const _upsertcreatorpayoutdetailsdto = require("./dto/upsert-creator-payout-details.dto");
 const _creatorpayoutdetailsmaskeddto = require("./dto/creator-payout-details-masked.dto");
 const _suggestedcreatorsresponsedto = require("./dto/suggested-creators-response.dto");
+const _creatorreviewsservice = require("../creator-reviews/creator-reviews.service");
+const _listcreatorratingreviewsquerydto = require("../creator-reviews/dto/list-creator-rating-reviews-query.dto");
+const _listcreatorratingreviewsresponsedto = require("../creator-reviews/dto/list-creator-rating-reviews-response.dto");
 function _ts_decorate(decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -77,6 +80,12 @@ let CreatorProfileController = class CreatorProfileController {
     async patchMyPayoutDetails(dto, req) {
         return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
     }
+    async listCreatorRatingReviews(id, query) {
+        return this.creatorReviewsService.listForCreator({
+            creatorId: id,
+            query
+        });
+    }
     async listSuggestedCreators(id) {
         return this.creatorProfileService.listSuggestedCreators(id);
     }
@@ -92,9 +101,10 @@ let CreatorProfileController = class CreatorProfileController {
     async deleteCreator(id, req) {
         await this.creatorProfileService.deleteCreatorProfile(req.user.id, id);
     }
-    constructor(creatorProfileService, creatorPayoutDetailsService){
+    constructor(creatorProfileService, creatorPayoutDetailsService, creatorReviewsService){
         this.creatorProfileService = creatorProfileService;
         this.creatorPayoutDetailsService = creatorPayoutDetailsService;
+        this.creatorReviewsService = creatorReviewsService;
     }
 };
 _ts_decorate([
@@ -275,6 +285,23 @@ _ts_decorate([
     _ts_metadata("design:returntype", Promise)
 ], CreatorProfileController.prototype, "patchMyPayoutDetails", null);
 _ts_decorate([
+    (0, _common.Get)(':id/rating-reviews'),
+    (0, _swagger.ApiOperation)({
+        summary: 'List brand ratings and reviews for a creator (paginated)'
+    }),
+    (0, _swagger.ApiOkResponse)({
+        type: _listcreatorratingreviewsresponsedto.ListCreatorRatingReviewsResponseDto
+    }),
+    _ts_param(0, (0, _common.Param)('id', _common.ParseUUIDPipe)),
+    _ts_param(1, (0, _common.Query)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        String,
+        typeof _listcreatorratingreviewsquerydto.ListCreatorRatingReviewsQueryDto === "undefined" ? Object : _listcreatorratingreviewsquerydto.ListCreatorRatingReviewsQueryDto
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], CreatorProfileController.prototype, "listCreatorRatingReviews", null);
+_ts_decorate([
     (0, _common.Get)(':id/suggested'),
     (0, _swagger.ApiOperation)({
         summary: 'Suggested creators for a profile page (same content category)',
@@ -378,7 +405,8 @@ CreatorProfileController = _ts_decorate([
     _ts_metadata("design:type", Function),
     _ts_metadata("design:paramtypes", [
         typeof _creatorprofileservice.CreatorProfileService === "undefined" ? Object : _creatorprofileservice.CreatorProfileService,
-        typeof _creatorpayoutdetailsservice.CreatorPayoutDetailsService === "undefined" ? Object : _creatorpayoutdetailsservice.CreatorPayoutDetailsService
+        typeof _creatorpayoutdetailsservice.CreatorPayoutDetailsService === "undefined" ? Object : _creatorpayoutdetailsservice.CreatorPayoutDetailsService,
+        typeof _creatorreviewsservice.CreatorReviewsService === "undefined" ? Object : _creatorreviewsservice.CreatorReviewsService
     ])
 ], CreatorProfileController);
 

@@ -218,7 +218,10 @@ describe('CreatorProfileService', () => {
     txMock.role.findUnique.mockResolvedValueOnce({ id: 'role-creator' });
     txMock.creatorProfile.findUnique.mockResolvedValueOnce({ id: 'profile-1' });
 
-    const dto: CreateCreatorProfileDto = { displayName: 'Jane' };
+    const dto: CreateCreatorProfileDto = {
+      displayName: 'Jane',
+      contactEmail: 'jane@example.com',
+    };
 
     await expect(
       service.createCreatorProfile(creatorId, dto),
@@ -245,7 +248,11 @@ describe('CreatorProfileService', () => {
         gender: null,
         dateOfBirth: null,
         shippingAddress: null,
+        contactEmail: 'jane@example.com',
         instagramUrl: null,
+        youtubeUrl: null,
+        tiktokUrl: null,
+        snapchatUrl: null,
         contentVolume: null,
         collaborationCount: 0,
         travelRadius: null,
@@ -274,6 +281,7 @@ describe('CreatorProfileService', () => {
 
     const dto: CreateCreatorProfileDto = {
       displayName: 'Jane',
+      contactEmail: 'jane@example.com',
       addOns: [
         {
           slug: 'on_location_shoot',
@@ -324,7 +332,11 @@ describe('CreatorProfileService', () => {
         gender: null,
         dateOfBirth: null,
         shippingAddress: null,
+        contactEmail: 'alex@example.com',
         instagramUrl: null,
+        youtubeUrl: null,
+        tiktokUrl: null,
+        snapchatUrl: null,
         contentVolume: null,
         collaborationCount: 0,
         travelRadius: null,
@@ -342,7 +354,10 @@ describe('CreatorProfileService', () => {
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
 
-    await service.createCreatorProfile(creatorId, { displayName: 'Alex' });
+    await service.createCreatorProfile(creatorId, {
+      displayName: 'Alex',
+      contactEmail: 'alex@example.com',
+    });
 
     expect(txMock.creatorAddOn.createMany).not.toHaveBeenCalled();
   });
@@ -367,7 +382,11 @@ describe('CreatorProfileService', () => {
       stateName: null,
       dateOfBirth: null,
       shippingAddress: null,
+      contactEmail: 'jane@example.com',
       instagramUrl: null,
+      youtubeUrl: null,
+      tiktokUrl: null,
+      snapchatUrl: null,
       contentVolume: null,
       collaborationCount: 0,
       facetSelections: [],
@@ -418,7 +437,11 @@ describe('CreatorProfileService', () => {
       gender: null,
       dateOfBirth: null,
       shippingAddress: null,
+      contactEmail: 'jane@example.com',
       instagramUrl: 'https://instagram.com/jane',
+      youtubeUrl: 'https://youtube.com/@jane',
+      tiktokUrl: null,
+      snapchatUrl: null,
       contentVolume: null,
       collaborationCount: 0,
       travelRadius: null,
@@ -463,7 +486,9 @@ describe('CreatorProfileService', () => {
       expect(result.id).toBe('profile-1');
       expect(result.phone).toBe('+919876543210');
       expect(result.phoneVerified).toBe(true);
+      expect(result.contactEmail).toBe('jane@example.com');
       expect(result.instagramUrl).toBe('https://instagram.com/jane');
+      expect(result.youtubeUrl).toBe('https://youtube.com/@jane');
     });
 
     it('returns profile when APPROVED for any viewer', async () => {
@@ -480,7 +505,11 @@ describe('CreatorProfileService', () => {
       expect(result.id).toBe('profile-1');
       expect(result).not.toHaveProperty('phone');
       expect(result).not.toHaveProperty('phoneVerified');
+      expect(result).not.toHaveProperty('contactEmail');
       expect(result).not.toHaveProperty('instagramUrl');
+      expect(result).not.toHaveProperty('youtubeUrl');
+      expect(result).not.toHaveProperty('tiktokUrl');
+      expect(result).not.toHaveProperty('snapchatUrl');
     });
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import Image from "next/image";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   Video,
   X,
   Plus,
+  ImageIcon,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -51,6 +54,10 @@ import {
   presignBrandPronunciationUpload,
   putBlobToPresignedUrl,
 } from "@/features/brands/api/presign-brand-pronunciation-upload";
+import {
+  presignBriefProductImageUpload,
+  putProductImageToPresignedUrl,
+} from "@/features/briefs/api/presign-brief-product-image-upload";
 import type {
   BriefContentType,
   BriefDurationBucket,
@@ -106,6 +113,13 @@ const fallbackBriefFieldOptions: BriefFieldOptionsResponse = {
   contentTypes: [...contentTypes],
   toneStyles: [...toneStyles],
 };
+
+const productImageAccept = "image/jpeg,image/png,image/webp";
+const supportedProductImageTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 const contentTypeLabels: Record<BriefContentType, string> = {
   TALKING_VIDEO: "Talking Video",
@@ -188,6 +202,8 @@ const createBriefSchema = z
       .trim()
       .min(1, "Product description is required"),
     productPageUrl: optionalUrl("Product page URL"),
+    productImageKey: z.string().trim().min(1, "Product image is required"),
+    productImageUrl: optionalUrl("Product image URL"),
     willShipPhysicalProductToCreator: z.boolean().optional(),
     shootLocationKind: z.enum(shootLocationKinds).optional(),
     shootLocationAddress: z.string().trim().optional(),
@@ -251,6 +267,8 @@ const createBriefDefaultValues: CreateBriefValues = {
   productName: "",
   productDescription: "",
   productPageUrl: "",
+  productImageKey: "",
+  productImageUrl: "",
   willShipPhysicalProductToCreator: false,
   shootLocationAddress: "",
   contentType: [],
@@ -289,6 +307,7 @@ function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
     productName: optionalString(values.productName),
     productDescription: optionalString(values.productDescription),
     productPageUrl: optionalString(values.productPageUrl),
+    productImageKey: values.productImageKey.trim(),
     willShipPhysicalProductToCreator:
       values.willShipPhysicalProductToCreator ?? false,
     shootLocationKind: values.shootLocationKind as
@@ -317,6 +336,7 @@ function CreateBriefPageContent() {
   const orderId = searchParams.get("orderId");
   const isFromOrder = !!orderId;
   const draftStorageKey = `brief-create-draft:${orderId ?? "standalone"}`;
+  const productImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: orderDetailsData, isLoading: isOrderLoading } =
     useGetBrandOrderDetailsQuery(orderId ?? "", {
@@ -363,6 +383,31 @@ function CreateBriefPageContent() {
       toast.error("Could not upload pronunciation audio. Try again.");
     },
   });
+  const uploadProductImageMutation = useMutation({
+    mutationKey: ["briefs", "product-image-upload"],
+    mutationFn: async (file: File) => {
+      const presign = await presignBriefProductImageUpload({
+        contentType: file.type,
+        contentLength: file.size,
+      });
+      await putProductImageToPresignedUrl(file, presign);
+      return presign;
+    },
+    onSuccess: (presign) => {
+      form.setValue("productImageKey", presign.key, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue("productImageUrl", presign.cdnUrl, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      toast.success("Product image added");
+    },
+    onError: () => {
+      toast.error("Could not upload product image. Try again.");
+    },
+  });
   const [savedBriefId, setSavedBriefId] = useState<string | null>(null);
 
   const createBriefMutation = useCreateBriefMutation({
@@ -402,6 +447,10 @@ function CreateBriefPageContent() {
   const watchPronunciationAudioUrl = useWatch({
     control: form.control,
     name: "brandPronunciationAudioUrl",
+  });
+  const watchProductImageUrl = useWatch({
+    control: form.control,
+    name: "productImageUrl",
   });
   const watchReferenceLinks = useWatch({
     control: form.control,
@@ -456,9 +505,37 @@ function CreateBriefPageContent() {
     createBriefMutation.mutate(toCreateBriefPayload(data));
   };
 
+  const handleProductImageSelect = (file: File | null) => {
+    if (!file) return;
+
+    if (!supportedProductImageTypes.has(file.type)) {
+      toast.error("Upload a JPG, PNG, or WebP product image.");
+      return;
+    }
+
+    uploadProductImageMutation.mutate(file);
+  };
+
+  const handleRemoveProductImage = () => {
+    form.setValue("productImageKey", "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue("productImageUrl", "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    if (productImageInputRef.current) {
+      productImageInputRef.current.value = "";
+    }
+  };
+
   const isSubmitting = createBriefMutation.isPending;
   const isSubmittingBrief = submitBriefMutation.isPending;
-  const isUploadPending = uploadPronunciationMutation.isPending;
+  const isPronunciationUploadPending = uploadPronunciationMutation.isPending;
+  const isProductImageUploadPending = uploadProductImageMutation.isPending;
+  const isUploadPending =
+    isPronunciationUploadPending || isProductImageUploadPending;
 
   const [selectedScriptOption, setSelectedScriptOption] = useState<string>("");
   const [showBanner, setShowBanner] = useState<boolean>(isFromOrder);
@@ -722,6 +799,102 @@ function CreateBriefPageContent() {
                     )}
                   </div>
 
+                  <div className="space-y-3 min-w-0">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-foreground/80">
+                          Product Image{" "}
+                          <span className="text-destructive">*</span>
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          JPG, PNG, or WebP image creators can reference.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={productImageInputRef}
+                          type="file"
+                          accept={productImageAccept}
+                          className="hidden"
+                          disabled={isSubmitting || isProductImageUploadPending}
+                          onChange={(event) => {
+                            handleProductImageSelect(
+                              event.target.files?.[0] ?? null,
+                            );
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="shrink-0"
+                          disabled={isSubmitting || isProductImageUploadPending}
+                          onClick={() => productImageInputRef.current?.click()}
+                        >
+                          {isProductImageUploadPending ? (
+                            <Spinner className="mr-2 size-4" aria-hidden />
+                          ) : (
+                            <Upload className="mr-2 size-4" aria-hidden />
+                          )}
+                          {isProductImageUploadPending
+                            ? "Uploading..."
+                            : watchProductImageUrl
+                              ? "Replace"
+                              : "Upload"}
+                        </Button>
+                        {watchProductImageUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="shrink-0"
+                            disabled={isSubmitting || isProductImageUploadPending}
+                            onClick={handleRemoveProductImage}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 rounded-xl border border-border/40 bg-muted/10 p-3">
+                      <div className="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-white">
+                        {watchProductImageUrl ? (
+                          <Image
+                            src={watchProductImageUrl}
+                            alt="Product image preview"
+                            fill
+                            className="object-cover"
+                            sizes="96px"
+                          />
+                        ) : (
+                          <ImageIcon className="size-6 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground">
+                          {isProductImageUploadPending
+                            ? "Uploading product image..."
+                            : watchProductImageUrl
+                              ? "Image uploaded for this brief"
+                              : "No product image uploaded yet"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          The image is finalized when you save the brief.
+                        </p>
+                      </div>
+                    </div>
+                    {form.formState.errors.productImageKey && (
+                      <p className="text-[11px] text-destructive mt-1">
+                        {form.formState.errors.productImageKey.message}
+                      </p>
+                    )}
+                    {form.formState.errors.productImageUrl && (
+                      <p className="text-[11px] text-destructive mt-1">
+                        {form.formState.errors.productImageUrl.message}
+                      </p>
+                    )}
+                  </div>
+
                   <div className="space-y-2 min-w-0">
                     <Label
                       htmlFor="productDescription"
@@ -758,7 +931,7 @@ function CreateBriefPageContent() {
                     <div className="max-w-md">
                       <BrandPronunciationAudioField
                         disabled={isSubmitting}
-                        uploading={isUploadPending}
+                        uploading={isPronunciationUploadPending}
                         audioUrl={watchPronunciationAudioUrl || null}
                         hasRecording={Boolean(watchPronunciationAudioUrl)}
                         onRecordingReady={(blob) =>
@@ -1270,7 +1443,12 @@ function CreateBriefPageContent() {
                         <Spinner className="mr-2 size-4" aria-hidden />
                         Saving Brief...
                       </>
-                    ) : isUploadPending ? (
+                    ) : isProductImageUploadPending ? (
+                      <>
+                        <Spinner className="mr-2 size-4" aria-hidden />
+                        Uploading Image...
+                      </>
+                    ) : isPronunciationUploadPending ? (
                       <>
                         <Spinner className="mr-2 size-4" aria-hidden />
                         Uploading Audio...

@@ -216,7 +216,7 @@ export function PhoneVerificationField({
 
   return (
     <div className="grid gap-2">
-      <Label htmlFor={`${idPrefix}-phone`}>Mobile</Label>
+      {/* <Label htmlFor={`${idPrefix}-phone`}>Mobile</Label> */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           id={`${idPrefix}-phone`}

@@ -111,7 +111,11 @@ export type CreatorProfileItemApi = {
   ageGroup?: string | null;
   ageRange?: string | null;
   shippingAddress?: string | null;
+  contactEmail?: string | null;
   instagramUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  snapchatUrl?: string | null;
   contentVolume?: CreatorContentVolumeBucket | string | null;
   collaborationCount?: number;
   travelRadius?: number | null;

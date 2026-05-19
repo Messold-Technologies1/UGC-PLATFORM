@@ -73,6 +73,22 @@ export function CreatorOnboardingStepProfile({ form }: Props) {
 
   return (
     <div className="space-y-5">
+      <CreatorProfileIntroVideoField
+        videoPreviewUrl={form.introVideoPreviewUrl}
+        accept={INTRO_VIDEO_ACCEPT}
+        disabled={form.uploadingIntroVideo || form.pending}
+        uploading={form.uploadingIntroVideo}
+        hasPendingVideo={
+          Boolean(form.pendingIntroVideoKey) || form.introVideoRemoved
+        }
+        hasExistingVideo={Boolean(form.introVideoPreviewUrl)}
+        pendingActionLabel={form.introVideoRemoved ? "Undo remove" : undefined}
+        fileInputRef={form.introVideoInputRef}
+        onSelectFile={(file) => void form.handleIntroVideoSelected(file)}
+        onDiscard={form.restoreInitialIntroVideo}
+        onRemove={form.removeIntroVideo}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-sm font-medium text-gray-700">Gender</Label>
@@ -340,22 +356,6 @@ export function CreatorOnboardingStepProfile({ form }: Props) {
           </div>
         </div>
       </div>
-
-      <CreatorProfileIntroVideoField
-        videoPreviewUrl={form.introVideoPreviewUrl}
-        accept={INTRO_VIDEO_ACCEPT}
-        disabled={form.uploadingIntroVideo || form.pending}
-        uploading={form.uploadingIntroVideo}
-        hasPendingVideo={
-          Boolean(form.pendingIntroVideoKey) || form.introVideoRemoved
-        }
-        hasExistingVideo={Boolean(form.introVideoPreviewUrl)}
-        pendingActionLabel={form.introVideoRemoved ? "Undo remove" : undefined}
-        fileInputRef={form.introVideoInputRef}
-        onSelectFile={(file) => void form.handleIntroVideoSelected(file)}
-        onDiscard={form.restoreInitialIntroVideo}
-        onRemove={form.removeIntroVideo}
-      />
     </div>
   );
 }

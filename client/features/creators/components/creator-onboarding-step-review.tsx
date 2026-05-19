@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { CreatorProfileFormState } from "@/features/creators/hooks/use-creator-profile-form-state";
@@ -199,19 +199,17 @@ export function CreatorOnboardingStepReview({ form, onBack }: Props) {
         {onBack && (
           <Button
             type="button"
-            variant="outline"
-            size="lg"
+            variant="ghost"
             onClick={onBack}
-            className="rounded-xl border-gray-200 px-6 font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+            className="gap-2 text-gray-600"
           >
-            Back
+            <ArrowLeft className="h-4 w-4" /> Back
           </Button>
         )}
         <Button
           type="submit"
-          size="lg"
           disabled={form.pending || form.uploadingIntroVideo}
-          className="flex-1 rounded-xl bg-purple-600 text-base font-semibold text-white shadow-lg shadow-purple-200/50 hover:bg-purple-700 transition-all"
+          className="flex-1 gap-2 rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-200/50 hover:bg-purple-700 transition-all"
           onClick={() => void form.handleSubmit()}
         >
           {form.pending ? (

@@ -56,6 +56,7 @@ export function CreatorOnboardingStepPackages({ form }: Props) {
               className={inputClass}
               disabled={pending}
               value={packageDraft.packageName}
+              placeholder="Standard"
               onChange={(e) =>
                 setPackageDraft({
                   ...packageDraft,
@@ -110,7 +111,7 @@ export function CreatorOnboardingStepPackages({ form }: Props) {
                 disabled={pending}
                 value={packageDraft.priceAmount}
                 inputMode="numeric"
-                placeholder="500"
+                placeholder="00"
                 onChange={(e) =>
                   setPackageDraft({
                     ...packageDraft,

@@ -18,7 +18,7 @@ import { CreatorOnboardingStepReview } from "./creator-onboarding-step-review";
 const STEPS = [
   { key: "basic", label: "Basic Info" },
   { key: "profile", label: "Profile Details" },
-  { key: "packages", label: "Social Links" },
+  { key: "packages", label: "Packages" },
   { key: "review", label: "Review" },
 ] as const;
 
@@ -82,7 +82,7 @@ export function CreatorOnboardingStepperForm(
   }, [currentStep, goTo]);
 
   return (
-    <div className="flex h-fit w-full max-w-3xl flex-col rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden mx-auto mt-8 mb-12">
+    <div className="flex h-fit w-full max-w-2xl flex-col bg-white overflow-hidden mx-auto pt-8 pb-12 px-2">
       <div className="shrink-0 px-6 pt-10 pb-2 lg:px-12">
         <div className="mx-auto max-w-2xl">
           <h1 className="text-2xl font-bold text-gray-900">
@@ -198,8 +198,8 @@ export function CreatorOnboardingStepperForm(
 
           {currentStep < 3 && (
             <div className="mt-8 border-t border-gray-100 pt-6 pb-8">
-              <div className="flex items-center justify-between gap-4">
-                {currentStep > 0 ? (
+              <div className="flex items-center gap-4">
+                {currentStep > 0 && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -208,13 +208,11 @@ export function CreatorOnboardingStepperForm(
                   >
                     <ArrowLeft className="h-4 w-4" /> Back
                   </Button>
-                ) : (
-                  <span />
                 )}
                 <Button
                   type="button"
                   onClick={handleNext}
-                  className="w-full gap-2 rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-200/50 hover:bg-purple-700 transition-all"
+                  className="flex-1 gap-2 rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-200/50 hover:bg-purple-700 transition-all"
                 >
                   Continue <ArrowRight className="h-4 w-4" />
                 </Button>

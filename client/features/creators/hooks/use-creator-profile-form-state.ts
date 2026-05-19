@@ -33,12 +33,7 @@ import {
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update-creator-profile";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
-import type {
-  CreatorFacetDimension,
-  CreatorFacetOption,
-} from "@/features/creators/api/get-creator-facet-options";
-
-/* ── constants ──────────────────────────────────────────────── */
+import type { CreatorFacetDimension } from "@/features/creators/api/get-creator-facet-options";
 
 export const MAX_INTRO_VIDEO_BYTES = 200 * 1024 * 1024;
 export const INTRO_VIDEO_ACCEPT =
@@ -49,7 +44,7 @@ const INTRO_VIDEO_CONTENT_TYPES = new Set([
   "video/webm",
 ]);
 const SELECT_NONE = "__none__";
-const PACKAGE_NAME = "1 Video UGC";
+const PACKAGE_NAME = "";
 const PACKAGE_DELIVERY_DAYS = 5;
 const PACKAGE_VIDEO_LENGTH_SECONDS = 60;
 const PACKAGE_PRICE_STEP = 500;
@@ -101,8 +96,6 @@ export const fluencyOptions: Array<{
   { value: "CONVERSATIONAL", label: "Conversational" },
 ];
 
-/* ── types ───────────────────────────────────────────────────── */
-
 export type SelectedFacets = Partial<
   Record<Exclude<CreatorFacetDimension, "LANGUAGE">, string[]>
 >;
@@ -124,8 +117,6 @@ export type AddOnDraft = {
   priceAmount: string;
   description: string;
 };
-
-/* ── helper functions ────────────────────────────────────────── */
 
 function getInitialCreatorName(user: AuthUser | null): string {
   return user?.name?.trim() || user?.email?.split("@")[0] || "";
@@ -253,8 +244,6 @@ function addOnPriceError(
   return null;
 }
 
-/* ── hook options ────────────────────────────────────────────── */
-
 export type UseCreatorProfileFormStateOptions = {
   variant: "onboarding" | "settings";
   mode: "create" | "update";
@@ -263,8 +252,6 @@ export type UseCreatorProfileFormStateOptions = {
   onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
 };
-
-/* ── hook ────────────────────────────────────────────────────── */
 
 export function useCreatorProfileFormState(
   options: UseCreatorProfileFormStateOptions,
@@ -309,8 +296,6 @@ export function useCreatorProfileFormState(
   useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
-
-  /* ── form state ─────────────────────────────────────────── */
 
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [displayName, setDisplayName] = useState(() =>
@@ -384,8 +369,6 @@ export function useCreatorProfileFormState(
   );
   const [addOnsTouched, setAddOnsTouched] = useState(false);
 
-  /* ── intro video ────────────────────────────────────────── */
-
   const introVideoInputRef = useRef<HTMLInputElement>(null);
   const [introVideoPreviewUrl, setIntroVideoPreviewUrl] = useState<
     string | null
@@ -395,8 +378,6 @@ export function useCreatorProfileFormState(
   >(null);
   const [introVideoRemoved, setIntroVideoRemoved] = useState(false);
   const uploadingIntroVideo = uploadCreatorIntroVideoMutation.isPending;
-
-  /* ── derived ────────────────────────────────────────────── */
 
   const countries = useMemo(() => Country.getAllCountries(), []);
   const states = useMemo(
@@ -464,8 +445,6 @@ export function useCreatorProfileFormState(
   const effectiveAddOnDrafts = addOnsTouched
     ? addOnDrafts
     : hydratedAddOns.drafts;
-
-  /* ── callbacks ──────────────────────────────────────────── */
 
   const handleIntroVideoSelected = useCallback(
     async (file: File | null) => {
@@ -588,8 +567,6 @@ export function useCreatorProfileFormState(
     [addOnsTouched, effectiveAddOnDrafts],
   );
 
-  /* ── builders ───────────────────────────────────────────── */
-
   const buildPackages = useCallback(():
     | CreatorPackageCreatePayload[]
     | null => {
@@ -661,8 +638,6 @@ export function useCreatorProfileFormState(
     }
     return out;
   }, [addOnOptions, effectiveAddOnDrafts, effectiveSelectedAddOnSlugs]);
-
-  /* ── submit ─────────────────────────────────────────────── */
 
   const handleSubmit = useCallback(
     async (event?: React.FormEvent<HTMLFormElement>) => {
@@ -814,8 +789,6 @@ export function useCreatorProfileFormState(
     ],
   );
 
-  /* ── completion ─────────────────────────────────────────── */
-
   const selectedFacetCount = useMemo(
     () =>
       Object.values(selectedFacets).reduce(
@@ -854,20 +827,17 @@ export function useCreatorProfileFormState(
     selectedFacetCount,
   ]);
 
-  /* ── return ─────────────────────────────────────────────── */
-
   return {
-    // auth
     user,
     refreshUser,
-    // mutations
+
     pending,
     uploadingIntroVideo,
     submitCreatorProfileMutation,
-    // queries
+
     facetOptionsQuery,
     addOnOptionsQuery,
-    // form state
+
     phoneVerified,
     setPhoneVerified,
     displayName,

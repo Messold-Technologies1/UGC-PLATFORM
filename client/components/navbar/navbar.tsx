@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore} from "react";
 import { useTheme } from "next-themes";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
   Menu, X, User, Moon, Sun,
-  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, type LucideIcon
+  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, MessageSquare, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
+import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 
@@ -93,15 +94,10 @@ interface NavItem {
 
 const roleConfigs: Record<string, NavItem[]> = {
   brand: [
-    { href: "/brand/creators", label: "Browse Creators", icon: Users },
-    {
-      label: "Activity",
-      icon: Activity,
-      children: [
-        { href: "/brand/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing creator partnerships and orders." },
-        { href: "/brand/briefs", label: "Briefs", icon: FileText, description: "View and manage your active campaign briefs." },
-      ]
-    },
+    { href: "/brand/creators", label: "Creators", icon: Users },
+    { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
+    { href: "/brand/messages", label: "Messages", icon: MessageSquare },
+    { href: "/brand/briefs", label: "Briefs", icon: FileText },
   ],
   creator: [
     {
@@ -109,7 +105,6 @@ const roleConfigs: Record<string, NavItem[]> = {
       icon: Activity,
       children: [
         { href: "/creator/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing brand partnerships and orders." },
-        { href: "/creator/briefs", label: "Briefs", icon: FileText, description: "View your received and active campaign briefs." },
       ]
     },
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
@@ -162,15 +157,15 @@ export function Navbar() {
       variants={{
         visible: { 
           y: 0,
-          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1, delay: 0.45 }
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 }
         },
         hidden: { 
           y: "-150%",
-          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1, delay: 0.15 }
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 }
         }
       }}
       animate={hidden ? "hidden" : "visible"}
-      className="sticky top-6 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
+      className="sticky top-4 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
     >
       <div className={cn(
         "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
@@ -226,18 +221,14 @@ export function Navbar() {
                             <div className="flex-1 flex flex-col justify-start pt-1 pl-2">
                               {/* <div className="text-sm text-muted-foreground mb-4 px-4">By feature</div> */}
                               <div className="grid grid-cols-2 gap-2">
-                                <Link href={item.children[0].href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
-                                  <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{item.children[0].label}</div>
-                                  <div className="text-sm text-muted-foreground leading-relaxed">
-                                    {item.children[0].description}
-                                  </div>
-                                </Link>
-                                <Link href={item.children[1].href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
-                                  <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{item.children[1].label}</div>
-                                  <div className="text-sm text-muted-foreground leading-relaxed">
-                                    {item.children[1].description}
-                                  </div>
-                                </Link>
+                                {item.children.map((child) => (
+                                  <Link key={child.href} href={child.href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
+                                    <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{child.label}</div>
+                                    <div className="text-sm text-muted-foreground leading-relaxed">
+                                      {child.description}
+                                    </div>
+                                  </Link>
+                                ))}
                               </div>
                             </div>
 
@@ -316,7 +307,10 @@ export function Navbar() {
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
-            <NavbarProfileMenu />
+            <>
+              <NotificationDropdown />
+              <NavbarProfileMenu />
+            </>
           ) : (
             <>
               <Button asChild variant="outline" size="sm" className="font-heading">
@@ -429,7 +423,10 @@ export function Navbar() {
           )}
 
           {isAuthenticated ? (
-            <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
+            <div className="flex items-center gap-4 px-3 py-2">
+              <NotificationDropdown />
+              <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
+            </div>
           ) : (
             <>
               <Link

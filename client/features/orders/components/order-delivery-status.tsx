@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
   CloudUpload,
   FileEdit,
+  FileText,
   PlayCircle,
   Plus,
   Upload,
@@ -52,6 +54,58 @@ function getDeliveryFilePreviewType(file: File): CarouselAsset["type"] {
   return "image";
 }
 
+function canCreatorUploadDelivery(order?: OrderDetailsPublic) {
+  if (!order) return true;
+  if (order.acceptedAt) return false;
+
+  if (
+    ["REVISION_REQUESTED", "REVISION_SUBMITTED", "DELIVERED"].includes(
+      order.status,
+    )
+  ) {
+    return true;
+  }
+
+  if (order.requiresPhysicalProductShipment) {
+    return order.status === "PRODUCT_RECEIVED";
+  }
+
+  return order.status === "BRIEF_ACCEPTED";
+}
+
+function getCreatorUploadHint({
+  canUploadDelivery,
+  order,
+}: {
+  canUploadDelivery: boolean;
+  order?: OrderDetailsPublic;
+}) {
+  if (canUploadDelivery) {
+    return "High-resolution MP4, MOV, WebM, JPEG, PNG, or WebP files are supported.";
+  }
+
+  if (order?.status === "BRIEF_SUBMITTED") {
+    return "Review and accept the submitted brief before uploading delivery.";
+  }
+
+  if (order?.status === "BRIEF_SUBMISSION_PENDING") {
+    return "The brand brief must be submitted before delivery uploads open.";
+  }
+
+  if (
+    order?.status === "BRIEF_ACCEPTED" &&
+    order.requiresPhysicalProductShipment
+  ) {
+    return "Waiting for the brand to mark the product as shipped.";
+  }
+
+  if (order?.status === "PRODUCT_SHIPPED") {
+    return "Confirm the product has arrived before uploading delivery.";
+  }
+
+  return "Delivery uploads are not available for this order status.";
+}
+
 export function OrderDeliveryStatus({
   role = "brand",
   order,
@@ -63,11 +117,7 @@ export function OrderDeliveryStatus({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewsRef = useRef<CarouselAsset[]>([]);
-  const canUploadDelivery = order
-    ? ["BRIEF_SUBMITTED", "REVISION_REQUESTED", "DELIVERED", "REVISION_SUBMITTED"].includes(
-        order.status,
-      ) && !order.acceptedAt
-    : true;
+  const canUploadDelivery = canCreatorUploadDelivery(order);
   const isSubmitting = submitDeliveryFlowMutation.isPending;
 
   useEffect(() => {
@@ -314,14 +364,12 @@ export function OrderDeliveryStatus({
     const uploadTitle =
       order?.status === "REVISION_REQUESTED"
         ? "Upload revised delivery"
+        : order?.status === "BRIEF_SUBMITTED"
+          ? "Review the brand brief"
         : ["DELIVERED", "REVISION_SUBMITTED"].includes(order?.status ?? "")
           ? "Replace submitted delivery"
           : "Drag and drop your final cut";
-    const uploadHint = canUploadDelivery
-      ? "High-resolution MP4, MOV, WebM, JPEG, PNG, or WebP files are supported."
-      : order?.status === "BRIEF_SUBMISSION_PENDING"
-        ? "The brand brief must be submitted before delivery uploads open."
-        : "Delivery uploads are not available for this order status.";
+    const uploadHint = getCreatorUploadHint({ canUploadDelivery, order });
 
     return (
       <section className="bg-card rounded-3xl overflow-hidden border shadow-sm relative">
@@ -351,6 +399,29 @@ export function OrderDeliveryStatus({
             className="hidden"
             onChange={handleFileChange}
           />
+
+          {order?.status === "BRIEF_SUBMITTED" ? (
+            <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-background text-primary shadow-sm">
+                  <FileText className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    Brief awaiting acceptance
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Accept the brand brief to unlock delivery uploads.
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="w-full shrink-0 font-bold sm:w-auto">
+                <Link href={`/creator/orders/${order.id}/brief`}>
+                  Review Brief
+                </Link>
+              </Button>
+            </div>
+          ) : null}
 
           {previews.length === 0 ? (
             <div

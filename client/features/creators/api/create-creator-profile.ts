@@ -52,7 +52,8 @@ export type CreatorAddOnCreatePayload = {
 
 export type CreateCreatorProfilePayload = {
   displayName: string;
-  profileImageKey?: string;
+  contactEmail: string;
+  introVideoKey?: string;
   countryName?: string;
   stateName?: string;
   city?: string;
@@ -61,6 +62,9 @@ export type CreateCreatorProfilePayload = {
   dateOfBirth?: string;
   shippingAddress?: string;
   instagramUrl?: string;
+  youtubeUrl?: string;
+  tiktokUrl?: string;
+  snapchatUrl?: string;
   contentVolume?: CreatorContentVolumeBucket;
   collaborationCount?: number;
   travelRadius?: number;

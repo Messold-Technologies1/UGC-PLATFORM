@@ -3,12 +3,12 @@ import { ENDPOINTS } from "@/lib/endpoints";
 
 export type SubmitBriefPayload = {
   orderId: string;
-  brief: Record<string, unknown>;
+  briefId: string;
 };
 
 export async function submitBrief({
   orderId,
-  brief,
+  briefId,
 }: SubmitBriefPayload): Promise<void> {
-  await api.post(ENDPOINTS.ORDERS.SUBMIT_BRIEF(orderId), { brief });
+  await api.post(ENDPOINTS.ORDERS.SUBMIT_BRIEF(orderId), { briefId });
 }

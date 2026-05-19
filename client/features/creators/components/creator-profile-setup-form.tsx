@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 
 import {
   useCallback,
@@ -15,12 +15,7 @@ import { toast } from "sonner";
 import { CalendarIcon, ChevronDownIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +32,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
-import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-image-field";
-import { getInitials } from "@/lib/account-user";
+import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-intro-video-field";
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
 import type {
   CreateCreatorProfilePayload,
@@ -52,7 +46,7 @@ import type {
 } from "@/features/creators/api/create-creator-profile";
 import {
   useSubmitCreatorProfileMutation,
-  useUploadCreatorProfileImageMutation,
+  useUploadCreatorIntroVideoMutation,
 } from "@/features/creators/hooks/use-creator-profile-form-mutation";
 import {
   useCreatorAddOnOptionsQuery,
@@ -68,8 +62,13 @@ import type {
   CreatorFacetOption,
 } from "@/features/creators/api/get-creator-facet-options";
 
-const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
-const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+const MAX_INTRO_VIDEO_BYTES = 200 * 1024 * 1024;
+const INTRO_VIDEO_ACCEPT = "video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm";
+const INTRO_VIDEO_CONTENT_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+]);
 
 const SELECT_NONE = "__none__";
 const PACKAGE_NAME = "1 Video UGC";
@@ -159,16 +158,29 @@ function getInitialCreatorName(user: AuthUser | null): string {
   return user?.name?.trim() || user?.email?.split("@")[0] || "";
 }
 
-function getInitialCreatorImagePreviewUrl(
+function getInitialCreatorIntroVideoPreviewUrl(
   mode: "create" | "update",
   initialProfile?: CreatorProfileItemApi | null,
 ): string | null {
   if (mode !== "update") return null;
 
-  const url = initialProfile?.profileImageUrl?.trim();
+  const url = initialProfile?.introVideoUrl?.trim();
   if (!url) return null;
 
   return url.startsWith("http://") || url.startsWith("https://") ? url : null;
+}
+
+function getIntroVideoContentType(file: File): string | null {
+  const contentType = file.type.toLowerCase();
+  if (INTRO_VIDEO_CONTENT_TYPES.has(contentType)) {
+    return contentType;
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension === "mp4") return "video/mp4";
+  if (extension === "mov") return "video/quicktime";
+  if (extension === "webm") return "video/webm";
+  return null;
 }
 
 function normalizeWholeNumberInput(value: string): string {
@@ -306,8 +318,8 @@ function CreatorProfileSetupFormContent({
   user,
 }: CreatorProfileSetupFormContentProps) {
   const { refreshUser } = useAuth();
-  const uploadCreatorProfileImageMutation =
-    useUploadCreatorProfileImageMutation();
+  const uploadCreatorIntroVideoMutation =
+    useUploadCreatorIntroVideoMutation(mode);
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
@@ -387,14 +399,15 @@ function CreatorProfileSetupFormContent({
   const [addOnDrafts, setAddOnDrafts] = useState<Record<string, AddOnDraft>>({});
   const [addOnsTouched, setAddOnsTouched] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(() =>
-    getInitialCreatorImagePreviewUrl(mode, initialProfile),
-  );
-  const [pendingProfileImageKey, setPendingProfileImageKey] = useState<
+  const introVideoInputRef = useRef<HTMLInputElement>(null);
+  const [introVideoPreviewUrl, setIntroVideoPreviewUrl] = useState<
+    string | null
+  >(() => getInitialCreatorIntroVideoPreviewUrl(mode, initialProfile));
+  const [pendingIntroVideoKey, setPendingIntroVideoKey] = useState<
     string | null
   >(null);
-  const uploadingImage = uploadCreatorProfileImageMutation.isPending;
+  const [introVideoRemoved, setIntroVideoRemoved] = useState(false);
+  const uploadingIntroVideo = uploadCreatorIntroVideoMutation.isPending;
 
   const countries = useMemo(() => Country.getAllCountries(), []);
   const states = useMemo(
@@ -465,53 +478,61 @@ function CreatorProfileSetupFormContent({
     ? addOnDrafts
     : hydratedAddOns.drafts;
 
-  const displayInitials = useCallback(() => {
-    const base =
-      displayName.trim() ||
-      user?.name?.trim() ||
-      user?.email?.split("@")[0] ||
-      "?";
-    return getInitials(base);
-  }, [displayName, user]);
-
-  const handleProfileImageSelected = useCallback(
+  const handleIntroVideoSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
 
-      if (!PROFILE_IMAGE_ACCEPT.split(",").includes(file.type)) {
-        toast.error("Use JPEG, PNG, WebP, or GIF.");
+      const contentType = getIntroVideoContentType(file);
+      if (!contentType) {
+        toast.error("Use MP4, MOV, or WebM video.");
         return;
       }
-      if (file.size > MAX_PROFILE_IMAGE_BYTES) {
-        toast.error("Image must be 8 MB or smaller.");
+      if (file.size > MAX_INTRO_VIDEO_BYTES) {
+        toast.error("Intro video must be 200 MB or smaller.");
         return;
       }
 
-      uploadCreatorProfileImageMutation.mutate(file, {
-        onSuccess: (result) => {
-          if (!result) return;
-          setPendingProfileImageKey(result.key);
-          setImagePreviewUrl(result.cdnUrl);
+      uploadCreatorIntroVideoMutation.mutate(
+        { file, contentType },
+        {
+          onSuccess: (result) => {
+            if (!result) return;
+            setPendingIntroVideoKey(result.key);
+            setIntroVideoPreviewUrl(result.cdnUrl);
+            setIntroVideoRemoved(false);
+          },
+          onSettled: () => {
+            if (introVideoInputRef.current) {
+              introVideoInputRef.current.value = "";
+            }
+          },
         },
-        onSettled: () => {
-          if (fileInputRef.current) fileInputRef.current.value = "";
-        },
-      });
+      );
     },
-    [uploadCreatorProfileImageMutation],
+    [uploadCreatorIntroVideoMutation],
   );
 
-  const clearProfileImage = useCallback(() => {
-    setPendingProfileImageKey(null);
-    if (mode === "update" && initialProfile?.profileImageUrl?.trim()) {
-      const url = initialProfile.profileImageUrl.trim();
-      setImagePreviewUrl(
-        url.startsWith("http://") || url.startsWith("https://") ? url : null,
-      );
-    } else {
-      setImagePreviewUrl(null);
+  const restoreInitialIntroVideo = useCallback(() => {
+    setPendingIntroVideoKey(null);
+    setIntroVideoRemoved(false);
+
+    const url = initialProfile?.introVideoUrl?.trim();
+    setIntroVideoPreviewUrl(
+      mode === "update" &&
+        (url?.startsWith("http://") || url?.startsWith("https://"))
+        ? url
+        : null,
+    );
+  }, [initialProfile?.introVideoUrl, mode]);
+
+  const removeIntroVideo = useCallback(() => {
+    setPendingIntroVideoKey(null);
+    setIntroVideoPreviewUrl(null);
+    setIntroVideoRemoved(mode === "update");
+    if (introVideoInputRef.current) {
+      introVideoInputRef.current.value = "";
     }
-  }, [initialProfile, mode]);
+  }, [mode]);
 
   const toggleFacet = useCallback(
     (dimension: Exclude<CreatorFacetDimension, "LANGUAGE">, slug: string) => {
@@ -650,6 +671,10 @@ function CreatorProfileSetupFormContent({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
+      if (uploadingIntroVideo) {
+        toast.error("Wait for uploads to finish before saving your profile.");
+        return;
+      }
       if (facetOptionsQuery.isLoading || addOnOptionsQuery.isLoading) {
         toast.error("Profile options are still loading.");
         return;
@@ -717,9 +742,11 @@ function CreatorProfileSetupFormContent({
 
       const payload: CreateCreatorProfilePayload | UpdateCreatorProfilePayload = {
         displayName: name,
-        ...(pendingProfileImageKey
-          ? { profileImageKey: pendingProfileImageKey }
-          : {}),
+        ...(pendingIntroVideoKey
+          ? { introVideoKey: pendingIntroVideoKey }
+          : mode === "update" && introVideoRemoved
+            ? { introVideoKey: "" }
+            : {}),
         countryName: countryName || undefined,
         stateName: stateName || undefined,
         city: city.trim() || undefined,
@@ -756,10 +783,11 @@ function CreatorProfileSetupFormContent({
       facetOptionsQuery.isLoading,
       gender,
       instagramUrl,
+      introVideoRemoved,
       languageDrafts,
       mode,
       onLocationAvailable,
-      pendingProfileImageKey,
+      pendingIntroVideoKey,
       phoneVerified,
       profileId,
       selectedFacets,
@@ -767,6 +795,7 @@ function CreatorProfileSetupFormContent({
       stateName,
       submitCreatorProfileMutation,
       travelRadius,
+      uploadingIntroVideo,
     ],
   );
 
@@ -793,7 +822,7 @@ function CreatorProfileSetupFormContent({
   );
   const completionSummary = useMemo(() => {
     const checkpoints = [
-      Boolean(imagePreviewUrl || pendingProfileImageKey),
+      Boolean(introVideoPreviewUrl || pendingIntroVideoKey),
       phoneVerified,
       Boolean(displayName.trim()),
       Boolean(countryName && city.trim()),
@@ -812,10 +841,10 @@ function CreatorProfileSetupFormContent({
     dateOfBirth,
     displayName,
     gender,
-    imagePreviewUrl,
+    introVideoPreviewUrl,
     languageDrafts.length,
     packageDraft.priceAmount,
-    pendingProfileImageKey,
+    pendingIntroVideoKey,
     phoneVerified,
     selectedFacetCount,
   ]);
@@ -876,16 +905,18 @@ function CreatorProfileSetupFormContent({
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <CreatorProfileImageField
-          imagePreviewUrl={imagePreviewUrl}
-        initials={displayInitials()}
-        accept={PROFILE_IMAGE_ACCEPT}
-        disabled={uploadingImage || pending}
-        uploading={uploadingImage}
-        hasPendingImage={Boolean(pendingProfileImageKey)}
-        fileInputRef={fileInputRef}
-        onSelectFile={(file) => void handleProfileImageSelected(file)}
-        onDiscard={clearProfileImage}
+        <CreatorProfileIntroVideoField
+          videoPreviewUrl={introVideoPreviewUrl}
+          accept={INTRO_VIDEO_ACCEPT}
+          disabled={uploadingIntroVideo || pending}
+          uploading={uploadingIntroVideo}
+          hasPendingVideo={Boolean(pendingIntroVideoKey) || introVideoRemoved}
+          hasExistingVideo={Boolean(introVideoPreviewUrl)}
+          pendingActionLabel={introVideoRemoved ? "Undo remove" : undefined}
+          fileInputRef={introVideoInputRef}
+          onSelectFile={(file) => void handleIntroVideoSelected(file)}
+          onDiscard={restoreInitialIntroVideo}
+          onRemove={removeIntroVideo}
         />
       </motion.div>
 
@@ -1130,31 +1161,39 @@ function CreatorProfileSetupFormContent({
 
         {!facetOptionsQuery.isLoading && !facetOptionsQuery.isError ? (
           <motion.section variants={itemVariants} className="space-y-4">
-            <div>
+            {/* <div>
               <p className="text-sm font-medium text-foreground">
                 Profile facets
               </p>
               <p className="text-xs text-muted-foreground">
                 Select the catalog values that best describe your creator work.
               </p>
+            </div> */}
+            <div className="flex flex-col gap-3">
+              {facetSections.map((section) => {
+                const options = facetOptionsByDimension[section.dimension] ?? [];
+                const selected = selectedFacets[section.dimension] ?? [];
+                return (
+                  <FacetSectionDropdown
+                    key={section.dimension}
+                    dimension={section.dimension}
+                    label={section.label}
+                    options={options}
+                    selected={selected}
+                    disabled={pending}
+                    onToggle={(slug) => toggleFacet(section.dimension, slug)}
+                  />
+                );
+              })}
             </div>
-            <div className="relative">
-              <ProfileFacetsDropdown
-                facetSections={facetSections}
-                facetOptionsByDimension={facetOptionsByDimension}
-                selectedFacets={selectedFacets}
-                disabled={pending}
-                onToggleFacet={toggleFacet}
-              />
-            </div>
-            <div>
+            {/* <div>
               <p className="text-sm font-medium text-foreground">
                 Select languages
               </p>
               <p className="text-xs text-muted-foreground">
                 Select the languages you are comfortable creating content in.
               </p>
-            </div>
+            </div> */}
             <LanguageDropdown
               options={facetOptionsByDimension.LANGUAGE ?? []}
               selected={languageDrafts}
@@ -1215,7 +1254,7 @@ function CreatorProfileSetupFormContent({
         className="mt-8 w-full sm:w-auto"
         disabled={
           pending ||
-          uploadingImage ||
+          uploadingIntroVideo ||
           facetOptionsQuery.isLoading ||
           addOnOptionsQuery.isLoading
         }
@@ -1327,28 +1366,30 @@ function CatalogStatus({
   return null;
 }
 
-function ProfileFacetsDropdown({
-  facetSections,
-  facetOptionsByDimension,
-  selectedFacets,
+function FacetSectionDropdown({
+  dimension,
+  label,
+  options,
+  selected,
   disabled,
-  onToggleFacet,
+  onToggle,
 }: {
-  facetSections: Array<{
-    dimension: Exclude<CreatorFacetDimension, "LANGUAGE">;
-    label: string;
-  }>;
-  facetOptionsByDimension: Record<string, CreatorFacetOption[]>;
-  selectedFacets: SelectedFacets;
+  dimension: string;
+  label: string;
+  options: CreatorFacetOption[];
+  selected: string[];
   disabled: boolean;
-  onToggleFacet: (dimension: Exclude<CreatorFacetDimension, "LANGUAGE">, slug: string) => void;
+  onToggle: (slug: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -1360,67 +1401,87 @@ function ProfileFacetsDropdown({
     };
   }, [isOpen]);
 
-  const selectedFacetCount = Object.values(selectedFacets).reduce(
-    (sum, values) => sum + (values?.length ?? 0),
-    0,
-  );
-
   return (
-    <div className="relative" ref={dropdownRef}>
-      <Button
+    <div ref={containerRef}>
+      <button
         type="button"
-        variant="outline"
-        className="w-full justify-between bg-muted/15 border-border/70 text-foreground"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm transition-colors",
+          "border-border/70 bg-muted/15 text-foreground hover:bg-accent/40",
+          disabled && "pointer-events-none opacity-50",
+          isOpen && "border-primary/50 bg-accent/30",
+        )}
       >
-        <span>
-          Select Facets {selectedFacetCount > 0 ? `(${selectedFacetCount})` : ""}
+        <span className="font-medium">
+          {label}
+          {selected.length > 0 && (
+            <motion.span
+              key={selected.length}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary"
+            >
+              {selected.length}
+            </motion.span>
+          )}
         </span>
-        <ChevronDownIcon className={cn("h-4 w-4 opacity-50 transition-transform", isOpen && "rotate-180")} />
-      </Button>
+        <motion.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          <ChevronDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </motion.div>
+      </button>
 
-      {isOpen && (
-        <div className="absolute top-full left-0 z-50 mt-2 w-full rounded-md border border-border/70 bg-popover text-popover-foreground shadow-md max-h-[300px] overflow-y-auto">
-          <Accordion type="multiple" className="w-full">
-            {facetSections.map((section) => {
-              const options = facetOptionsByDimension[section.dimension] ?? [];
-              const selected = selectedFacets[section.dimension] ?? [];
-              
-              return (
-                <AccordionItem key={section.dimension} value={section.dimension} className="border-b border-border/50 last:border-0 px-4">
-                  <AccordionTrigger className="text-sm font-medium py-3 hover:no-underline flex justify-between">
-                    <span>{section.label} {selected.length > 0 ? `(${selected.length})` : ""}</span>
-                    <ChevronDownIcon className="chevron h-4 w-4 shrink-0 transition-transform duration-200" />
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    {options.length ? (
-                      <div className="grid gap-2 sm:grid-cols-2 pt-1 pb-3">
-                        {options.map((option) => (
-                          <label
-                            key={option.slug}
-                            className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
-                          >
-                            <Checkbox
-                              className="mt-0.5"
-                              disabled={disabled}
-                              checked={selected.includes(option.slug)}
-                              onCheckedChange={() => onToggleFacet(section.dimension, option.slug)}
-                            />
-                            <span>{option.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground pb-3">No options configured.</p>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key={`panel-${dimension}`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-1 rounded-lg border border-border/50 bg-popover p-3 shadow-sm">
+              {options.length ? (
+                <motion.div
+                  className="grid gap-1.5 sm:grid-cols-2"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: {},
+                    visible: { transition: { staggerChildren: 0.025 } },
+                  }}
+                >
+                  {options.map((option) => (
+                    <motion.label
+                      key={option.slug}
+                      variants={{
+                        hidden: { opacity: 0, y: 6 },
+                        visible: { opacity: 1, y: 0, transition: { duration: 0.15 } },
+                      }}
+                      className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
+                    >
+                      <Checkbox
+                        className="mt-0.5"
+                        disabled={disabled}
+                        checked={selected.includes(option.slug)}
+                        onCheckedChange={() => onToggle(option.slug)}
+                      />
+                      <span>{option.label}</span>
+                    </motion.label>
+                  ))}
+                </motion.div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No options configured.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

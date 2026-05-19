@@ -1,19 +1,23 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, Share2 } from "lucide-react";
 import { ProfileHeader } from "./profile-header";
-import type { CreatorProfile as CreatorProfileType } from "../types";
+import { TrustStrip } from "./trust-strip";
+import type { CreatorProfile as CreatorProfileType, Review } from "../types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
+import { useCreatorRatingReviewsQuery } from "../hooks/use-creator-rating-reviews-query";
 
-function TabSkeleton() {
+function SectionSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-48 rounded-xl bg-muted" />
+      <div className="h-5 w-32 rounded bg-muted" />
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-56 w-48 shrink-0 rounded-xl bg-muted" />
         ))}
       </div>
     </div>
@@ -22,7 +26,7 @@ function TabSkeleton() {
 
 function SidebarSkeleton() {
   return (
-    <div className="animate-pulse rounded-2xl border border-border bg-card p-6">
+    <div className="animate-pulse rounded-xl border border-border bg-card p-6">
       <div className="h-5 w-32 rounded bg-muted" />
       <div className="mt-4 space-y-3">
         <div className="h-4 w-full rounded bg-muted" />
@@ -35,23 +39,36 @@ function SidebarSkeleton() {
 
 const PortfolioTab = dynamic(
   () => import("./portfolio-tab").then((m) => ({ default: m.PortfolioTab })),
-  { loading: () => <TabSkeleton /> },
+  { loading: () => <SectionSkeleton /> },
 );
-const PackagesTab = dynamic(
-  () => import("./packages-tab").then((m) => ({ default: m.PackagesTab })),
+
+const SidebarPricingCard = dynamic(
+  () =>
+    import("./sidebar-pricing-card").then((m) => ({
+      default: m.SidebarPricingCard,
+    })),
   { loading: () => <SidebarSkeleton /> },
 );
-const AddOnsDropdown = dynamic(
-  () => import("./add-ons-dropdown").then((m) => ({ default: m.AddOnsDropdown })),
-  { loading: () => <SidebarSkeleton /> },
+
+const InfoCardsSection = dynamic(
+  () =>
+    import("./info-cards-section").then((m) => ({
+      default: m.InfoCardsSection,
+    })),
+  { loading: () => <SectionSkeleton /> },
 );
+
+const SimilarCreatorsSection = dynamic(
+  () =>
+    import("./similar-creators-section").then((m) => ({
+      default: m.SimilarCreatorsSection,
+    })),
+  { loading: () => <SectionSkeleton /> },
+);
+
 const ReviewsTab = dynamic(
   () => import("./reviews-tab").then((m) => ({ default: m.ReviewsTab })),
-  { loading: () => <TabSkeleton /> },
-);
-const OrderSummary = dynamic(
-  () => import("./order-summary").then((m) => ({ default: m.OrderSummary })),
-  { loading: () => <SidebarSkeleton /> },
+  { loading: () => <SectionSkeleton /> },
 );
 
 interface CreatorProfileProps {
@@ -59,19 +76,15 @@ interface CreatorProfileProps {
   initialPortfolioVideos?: PortfolioVideoApi[];
 }
 
-const TABS = ["Portfolio", "Reviews"] as const;
-type Tab = (typeof TABS)[number];
-
 export function CreatorProfile({
   creator,
   initialPortfolioVideos,
 }: CreatorProfileProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("Portfolio");
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
-    null,
+    creator.packages[0]?.id ?? null,
   );
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
-console.log("Creator packages", creator.packages);
+
   const selectedPackage = useMemo(
     () => creator.packages.find((p) => p.id === selectedPackageId) ?? null,
     [creator.packages, selectedPackageId],
@@ -80,6 +93,31 @@ console.log("Creator packages", creator.packages);
     () => creator.addOns.filter((addOn) => selectedAddOnIds.includes(addOn.id)),
     [creator.addOns, selectedAddOnIds],
   );
+  const reviewsQuery = useCreatorRatingReviewsQuery(
+    creator.id,
+    { page: 1, limit: 20 },
+  );
+  const reviewSummary = reviewsQuery.data;
+  const reviews = useMemo<Review[]>(
+    () =>
+      (reviewSummary?.items ?? []).map((item) => ({
+        id: item.id,
+        author: item.brand.brandName,
+        brand: item.packageNameSnapshot || "Order review",
+        rating: item.rating,
+        date: new Intl.DateTimeFormat("en-IN", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }).format(new Date(item.createdAt)),
+        comment: item.review?.trim() || "No written review.",
+      })),
+    [reviewSummary?.items],
+  );
+  const overallRating =
+    Number.parseFloat(reviewSummary?.avgRating ?? "") || creator.rating || 0;
+  const totalReviews = reviewSummary?.reviewCount ?? creator.reviewCount;
+
   const { isProcessing, startCheckout } = useRazorpayCheckout({
     creator,
     selectedPackage,
@@ -99,177 +137,78 @@ console.log("Creator packages", creator.packages);
   }, []);
 
   const handleProceedToCheckout = useCallback(() => {
-    if (!selectedPackage) {
-      return;
-    }
-
+    if (!selectedPackage) return;
     void startCheckout();
   }, [selectedPackage, startCheckout]);
 
   return (
     <div className="w-full min-w-0">
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-8">
-          <ProfileHeader creator={creator} />
+      <div className="px-6 sm:px-8 lg:px-10 py-4 flex items-center justify-between">
+        <Link
+          href="/brand/creators"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          Back to creators
+        </Link>
 
-          <div>
-            <div
-              className="flex border-b border-border/40"
-              role="tablist"
-              aria-label="Creator profile sections"
-            >
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  role="tab"
-                  aria-selected={activeTab === tab}
-                  aria-controls={`tabpanel-${tab.toLowerCase()}`}
-                  id={`tab-${tab.toLowerCase()}`}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative px-5 py-3 text-sm font-medium transition-colors ${
-                    activeTab === tab
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab}
-                  {tab === "Reviews" && (
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      ({creator.reviews.length})
-                    </span>
-                  )}
-                  {activeTab === tab && (
-                    <motion.span
-                      layoutId="creator-tab-underline"
-                      className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full"
-                      transition={{
-                        type: "spring",
-                        stiffness: 500,
-                        damping: 40,
-                      }}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Share
+          <Share2 className="size-4" />
+        </button>
+      </div>
 
-            <div
-              className="mt-6"
-              role="tabpanel"
-              id={`tabpanel-${activeTab.toLowerCase()}`}
-              aria-labelledby={`tab-${activeTab.toLowerCase()}`}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  {activeTab === "Portfolio" && (
-                    <PortfolioTab
-                      creatorId={creator.id}
-                      initialVideos={initialPortfolioVideos}
-                    />
-                  )}
-
-                  {activeTab === "Reviews" && (
-                    <ReviewsTab
-                      reviews={creator.reviews}
-                      overallRating={creator.rating}
-                      totalReviews={creator.reviewCount}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+      <div className="px-6 sm:px-8 lg:px-10">
+        <div className="flex flex-col gap-8 lg:flex-row">
+          <div className="min-w-0 flex-1">
+            <ProfileHeader creator={creator} />
           </div>
-        </div>
 
-        <div className="w-full shrink-0 lg:w-80">
-          <div className="sticky top-24 space-y-6">
-            <PackagesTab
-              packages={creator.packages}
-              addOns={creator.addOns}
-              selectedPackageId={selectedPackageId}
-              selectedAddOnIds={selectedAddOnIds}
-              onSelectPackage={handleSelectPackage}
-              onToggleAddOn={handleToggleAddOn}
-              compact={true}
-              hideAddOns={true}
-            />
-
-            <AddOnsDropdown
-              addOns={creator.addOns}
-              selectedAddOnIds={selectedAddOnIds}
-              onToggleAddOn={handleToggleAddOn}
-            />
-
-            <OrderSummary
-              selectedPackage={selectedPackage}
-              addOns={creator.addOns}
-              selectedAddOnIds={selectedAddOnIds}
-              isProcessing={isProcessing}
-              onProceedToCheckout={handleProceedToCheckout}
-            />
-
-            {/* <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Why Book {creator.name.split(" ")[0]}?
-              </h3>
-              <div className="mt-4 space-y-4">
-                <div className="flex gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <svg
-                      className="size-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">Fast Delivery</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Typical turnaround within 72 hours
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <svg
-                      className="size-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">4K Quality</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Shot on professional cinema gear
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div> */}
+          <div className="w-full shrink-0 lg:w-[340px] xl:w-[360px]">
+            <div className="sticky top-24">
+              <SidebarPricingCard
+                packages={creator.packages}
+                addOns={creator.addOns}
+                selectedPackageId={selectedPackageId}
+                selectedAddOnIds={selectedAddOnIds}
+                onSelectPackage={handleSelectPackage}
+                onToggleAddOn={handleToggleAddOn}
+                isProcessing={isProcessing}
+                onProceedToCheckout={handleProceedToCheckout}
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      <div className="px-6 sm:px-8 lg:px-10">
+        <PortfolioTab
+          creatorId={creator.id}
+          initialVideos={initialPortfolioVideos}
+        />
+      </div>
+
+      <div className="px-6 sm:px-8 lg:px-10">
+        <InfoCardsSection creator={creator} />
+      </div>
+
+      <div className="px-6 sm:px-8 lg:px-10">
+        <ReviewsTab
+          reviews={reviews}
+          overallRating={overallRating}
+          totalReviews={totalReviews}
+          isLoading={reviewsQuery.isLoading}
+        />
+      </div>
+
+      <div className="px-6 sm:px-8 lg:px-10">
+        <SimilarCreatorsSection currentCreatorId={creator.id} />
+      </div>
+
+      <TrustStrip />
     </div>
   );
 }

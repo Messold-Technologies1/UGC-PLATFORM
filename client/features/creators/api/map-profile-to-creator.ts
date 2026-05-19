@@ -35,14 +35,18 @@ function getProfileLanguages(profile: ListingProfileApi): string[] {
 
 function getProfileCategories(profile: ListingProfileApi): string[] {
   if (isCreatorProfileItemApi(profile)) {
-    return trimStringArray((profile.categories ?? []).map((item) => item?.category));
+    return trimStringArray(
+      (profile.categories ?? []).map((item) => item?.category),
+    );
   }
   return trimStringArray(profile.categories);
 }
 
 function getProfilePersonaTags(profile: ListingProfileApi): string[] {
   if (isCreatorProfileItemApi(profile)) {
-    return trimStringArray((profile.personaTags ?? []).map((item) => item?.tag));
+    return trimStringArray(
+      (profile.personaTags ?? []).map((item) => item?.tag),
+    );
   }
   return trimStringArray(profile.personaTags);
 }
@@ -54,7 +58,9 @@ function getFirstPortfolioVideo(profile: ListingProfileApi) {
 }
 
 function getTravelRadius(profile: ListingProfileApi): number | null {
-  return isCreatorProfileItemApi(profile) ? (profile.travelRadius ?? null) : null;
+  return isCreatorProfileItemApi(profile)
+    ? (profile.travelRadius ?? null)
+    : null;
 }
 
 function normalizeGender(
@@ -78,15 +84,20 @@ function minPackagePrice(
   return min ?? 0;
 }
 
+function parseRating(value: string | number | null | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (!value) return 0;
+  const rating = Number.parseFloat(value);
+  return Number.isFinite(rating) ? rating : 0;
+}
+
 function buildTags(profile: ListingProfileApi): string[] {
-  const fromLang = getProfileLanguages(profile);
   const fromCategories = getProfileCategories(profile);
   const fromPersona = getProfilePersonaTags(profile);
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
   const seen = new Set<string>();
   const out: string[] = [];
   for (const t of [
-    ...fromLang,
     ...fromCategories,
     ...fromPersona,
     ...trimStringArray(firstPortfolioVideo?.tags),
@@ -114,21 +125,25 @@ export function mapProfileToListingCreator(
       ? thumb
       : "/globe.svg";
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
-  const previewVideoUrl = trimString(firstPortfolioVideo?.videoUrl) || null;
+  const introVideoUrl = trimString(profile.introVideoUrl);
+  const previewVideoUrl =
+    introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
     trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
-  const industryLabel = trimString(firstPortfolioVideo?.industryLabel) || undefined;
+  const industryLabel =
+    trimString(firstPortfolioVideo?.industryLabel) || undefined;
 
   return {
     id: profile.id,
     name: getProfileName(profile),
     location: trimString(profile.city) || "Location not set",
-    rating: 0,
-    reviewCount: 0,
+    rating: parseRating(profile.avgRating),
+    reviewCount: profile.reviewCount ?? 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
-    ordersCompleted: 0,
+    ordersCompleted: profile.collaborationCount ?? 0,
     thumbnail,
     previewVideoUrl,
+    introVideoUrl: introVideoUrl || null,
     previewVideoThumbnail,
     tags: buildTags(profile),
     available: true,
@@ -140,6 +155,24 @@ export function mapProfileToListingCreator(
     category,
     categories,
     industryLabel,
+    languages: getProfileLanguages(profile),
+    deliveryDays:
+      (profile.packages?.[0] as { deliveryDays?: number } | undefined)
+        ?.deliveryDays ?? 5,
+    basicEditing: (() => {
+      const firstPkg = profile.packages?.[0] as
+        | {
+            basicEditing?: boolean;
+            deliverables?: string[];
+          }
+        | undefined;
+      if (!firstPkg) return true;
+      if (typeof firstPkg.basicEditing === "boolean") return firstPkg.basicEditing;
+      if (Array.isArray(firstPkg.deliverables)) {
+        return firstPkg.deliverables.includes("Basic editing");
+      }
+      return true;
+    })(),
   };
 }
 
@@ -191,6 +224,7 @@ export function mapProfileItemToCreatorProfile(
       profile.travelRadius != null && !Number.isNaN(profile.travelRadius)
         ? profile.travelRadius
         : null,
+    facetSelections: profile.facetSelections ?? [],
     packages: mapApiPackages(profile.packages),
     addOns: mapApiAddOns(profile.addOns),
     reviews: [],

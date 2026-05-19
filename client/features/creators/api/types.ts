@@ -64,6 +64,8 @@ export type CreatorPortfolioVideoPreviewApi = {
 export type CreatorPublicListPackageApi = {
   name: string;
   priceAmount: string;
+  deliveryDays: number;
+  basicEditing: boolean;
 };
 
 export type CreatorPublicListItemApi = {
@@ -71,6 +73,7 @@ export type CreatorPublicListItemApi = {
   userId: string;
   name: string;
   profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
@@ -79,6 +82,8 @@ export type CreatorPublicListItemApi = {
   age?: number | null;
   contentVolume?: CreatorContentVolumeBucket | string | null;
   collaborationCount?: number;
+  avgRating?: string | null;
+  reviewCount: number;
   onLocationAvailable: boolean;
   languages: string[];
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
@@ -97,6 +102,7 @@ export type CreatorProfileItemApi = {
   phone?: string | null;
   phoneVerified?: boolean;
   profileImageUrl?: string | null;
+  introVideoUrl?: string | null;
   city?: string | null;
   countryName?: string | null;
   stateName?: string | null;
@@ -107,9 +113,15 @@ export type CreatorProfileItemApi = {
   ageGroup?: string | null;
   ageRange?: string | null;
   shippingAddress?: string | null;
+  contactEmail?: string | null;
   instagramUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  snapchatUrl?: string | null;
   contentVolume?: CreatorContentVolumeBucket | string | null;
   collaborationCount?: number;
+  avgRating?: string | null;
+  reviewCount: number;
   travelRadius?: number | null;
   onLocationAvailable?: boolean;
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
@@ -120,6 +132,31 @@ export type CreatorProfileItemApi = {
   packages: CreatorProfilePackageApi[];
   addOns?: CreatorProfileAddOnApi[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
+};
+
+export type SuggestedCreatorContentCategoryApi = {
+  slug: string;
+  label: string;
+};
+
+export type SuggestedCreatorPortfolioVideoApi = {
+  id: string;
+  creatorId: string;
+  videoUrl: string;
+  thumbnailUrl?: string | null;
+};
+
+export type SuggestedCreatorListItemApi = {
+  id: string;
+  creatorName: string;
+  contentCategories: SuggestedCreatorContentCategoryApi[];
+  priceAmount?: string | null;
+  city?: string | null;
+  firstPortfolioVideo?: SuggestedCreatorPortfolioVideoApi | null;
+};
+
+export type SuggestedCreatorsResponse = {
+  items: SuggestedCreatorListItemApi[];
 };
 
 export type CreatorsListResponse = {
@@ -144,4 +181,30 @@ export type UpsertCreatorPayoutDetailsApi = {
   accountNumber?: string;
   ifsc?: string;
   upiId?: string;
+};
+
+export type CreatorRatingReviewBrandSnapshotApi = {
+  id: string;
+  brandName: string;
+  logoUrl?: string | null;
+};
+
+export type CreatorRatingReviewApi = {
+  id: string;
+  orderId: string;
+  creatorId: string;
+  rating: number;
+  review?: string | null;
+  packageNameSnapshot?: string | null;
+  brand: CreatorRatingReviewBrandSnapshotApi;
+  createdAt: string;
+};
+
+export type ListCreatorRatingReviewsResponse = {
+  items: CreatorRatingReviewApi[];
+  total: number;
+  page: number;
+  limit: number;
+  avgRating?: string | null;
+  reviewCount: number;
 };

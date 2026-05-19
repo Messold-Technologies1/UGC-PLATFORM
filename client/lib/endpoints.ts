@@ -16,12 +16,15 @@ export const ENDPOINTS = {
     PROFILE: "/api/creators/profile",
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",
-    PROFILE_IMAGE_PRESIGN: "/api/creators/profile/uploads/presign",
+    PROFILE_INTRO_VIDEO_PRESIGN:
+      "/api/creators/profile/uploads/presign-intro-video",
     FACET_OPTIONS: "/api/creators/facet-options",
     ADD_ON_OPTIONS: "/api/creators/add-on-options",
     SUGGESTIONS_CATEGORIES: "/api/creators/suggestions/categories",
     SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
     SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
+    RATING_REVIEWS: (id: string) =>
+      `/api/creators/${encodeURIComponent(id)}/rating-reviews`,
   },
   BRANDS: {
     PROFILE: "/api/brands/profile",
@@ -34,6 +37,8 @@ export const ENDPOINTS = {
   },
   BRIEFS: {
     LIST: "/api/briefs",
+    FIELD_OPTIONS: "/api/briefs/field-options",
+    PRODUCT_IMAGE_PRESIGN: "/api/briefs/uploads/presign-product-image",
     DETAIL: (id: string) => `/api/briefs/${encodeURIComponent(id)}`,
   },
   ORDERS: {
@@ -47,6 +52,12 @@ export const ENDPOINTS = {
     CHECKOUT: "/api/orders/checkout",
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
+    ACCEPT_BRIEF: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/brief/accept`,
+    PRODUCT_SHIPMENT: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/product-shipment`,
+    PRODUCT_RECEIVED: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/product-received`,
     CHAT_MESSAGES: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/chat/messages`,
     CHAT_READ: (id: string) =>
@@ -64,6 +75,8 @@ export const ENDPOINTS = {
     ACCEPT: (id: string) => `/api/orders/${encodeURIComponent(id)}/accept`,
     REQUEST_REVISION: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions/request`,
+    RATING_REVIEW: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/rating-review`,
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
@@ -113,4 +126,8 @@ export function creatorPortfolioPublicVideosPath(creatorId: string): string {
 
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;
+}
+
+export function suggestedCreatorsPath(id: string): string {
+  return `/api/creators/${encodeURIComponent(id)}/suggested`;
 }

@@ -1,36 +1,26 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, Plus } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import {
-  usePortfolioIndustrySuggestionsQuery,
-  usePortfolioTagSuggestionsQuery,
-} from "@/features/creator-portfolio/hooks/use-portfolio-suggestion-queries";
-import {
   useCreatorCategorySuggestionsQuery,
-  useCreatorPersonaTagSuggestionsQuery,
+  // useCreatorPersonaTagSuggestionsQuery,
   useCreatorRestrictionSuggestionsQuery,
+  useCreatorFacetOptionsQuery,
 } from "../hooks/use-creator-suggestion-queries";
+import type { CreatorFacetOption } from "../api/get-creator-facet-options";
 
 export const CREATOR_PRICE_MIN = 0;
 export const CREATOR_PRICE_MAX = 10_000;
@@ -39,21 +29,91 @@ const DEFAULT_OPEN_SECTIONS: string[] = [];
 
 const GENDER_OPTIONS = [
   {
-    value: "Male",
+    value: "MALE",
     label: "Male",
     description: "Show creators who identify as male.",
   },
   {
-    value: "Female",
+    value: "FEMALE",
     label: "Female",
     description: "Show creators who identify as female.",
   },
   {
-    value: "Other",
+    value: "NON_BINARY",
+    label: "Non-Binary",
+    description: "Show non-binary creators.",
+  },
+  {
+    value: "PREFER_NOT_TO_SAY",
+    label: "Prefer not to say",
+    description: "Creators who prefer not to disclose gender.",
+  },
+  {
+    value: "OTHER",
     label: "Other",
     description: "Include creators using any other gender label.",
   },
 ] as const;
+
+const AGE_GROUP_OPTIONS = [
+  { value: "", label: "Any age" },
+  { value: "AGE_18_24", label: "18 – 24" },
+  { value: "AGE_25_34", label: "25 – 34" },
+  { value: "AGE_35_44", label: "35 – 44" },
+  { value: "AGE_45_54", label: "45 – 54" },
+  { value: "AGE_55_PLUS", label: "55+" },
+] as const;
+
+const FACET_SECTION_CONFIG: {
+  dimension: string;
+  label: string;
+  filterKey: keyof Pick<
+    Filters,
+    | "contentFormat"
+    | "appearance"
+    | "contentStyle"
+    | "capability"
+    | "lifeStyle"
+    | "occupation"
+    | "interest"
+    | "categoryExperience"
+    | "canCreateWith"
+    | "aiContentPermission"
+    | "language"
+  >;
+}[] = [
+  {
+    dimension: "CONTENT_FORMAT",
+    label: "Content Format",
+    filterKey: "contentFormat",
+  },
+  {
+    dimension: "CONTENT_STYLE",
+    label: "Content Style",
+    filterKey: "contentStyle",
+  },
+  { dimension: "APPEARANCE", label: "Appearance", filterKey: "appearance" },
+  { dimension: "CAPABILITY", label: "Capability", filterKey: "capability" },
+  { dimension: "LIFE_STYLE", label: "Life Style", filterKey: "lifeStyle" },
+  { dimension: "OCCUPATION", label: "Occupation", filterKey: "occupation" },
+  { dimension: "INTEREST", label: "Interest", filterKey: "interest" },
+  {
+    dimension: "CATEGORY_EXPERIENCE",
+    label: "Category Experience",
+    filterKey: "categoryExperience",
+  },
+  {
+    dimension: "CAN_CREATE_WITH",
+    label: "Can Create With",
+    filterKey: "canCreateWith",
+  },
+  {
+    dimension: "AI_CONTENT_PERMISSION",
+    label: "AI Content Permission",
+    filterKey: "aiContentPermission",
+  },
+  { dimension: "LANGUAGE", label: "Language", filterKey: "language" },
+];
 
 export interface Filters {
   city: string;
@@ -64,8 +124,21 @@ export interface Filters {
   onLocationAvailable: boolean;
   industry: string;
   portfolioTag: string;
-  personaTags: string[];
+  // personaTags: string[];
   restrictions: string[];
+  // Facet-based filters (slugs sent to API)
+  contentFormat: string[];
+  appearance: string[];
+  contentStyle: string[];
+  capability: string[];
+  lifeStyle: string[];
+  occupation: string[];
+  interest: string[];
+  categoryExperience: string[];
+  canCreateWith: string[];
+  aiContentPermission: string[];
+  language: string[];
+  ageGroup: string;
 }
 
 export const DEFAULT_FILTERS: Filters = {
@@ -77,14 +150,25 @@ export const DEFAULT_FILTERS: Filters = {
   onLocationAvailable: false,
   industry: "",
   portfolioTag: "",
-  personaTags: [],
+  // personaTags: [],
   restrictions: [],
+  contentFormat: [],
+  appearance: [],
+  contentStyle: [],
+  capability: [],
+  lifeStyle: [],
+  occupation: [],
+  interest: [],
+  categoryExperience: [],
+  canCreateWith: [],
+  aiContentPermission: [],
+  language: [],
+  ageGroup: "",
 };
 
 interface CreatorFiltersProps {
   filters: Filters;
   onChange: (filters: Filters) => void;
-  onClose: () => void;
   categoryOptions: string[];
 }
 
@@ -94,57 +178,73 @@ function normalizeSelectedValues(values: string[]) {
   );
 }
 
-function summarizeSelection(values: string[], emptyLabel: string) {
-  if (values.length === 0) return emptyLabel;
-  if (values.length === 1) return values[0]!;
-  if (values.length === 2) return `${values[0]} and ${values[1]}`;
-  return `${values[0]}, ${values[1]} +${values.length - 2}`;
-}
+type MultiSelectFilterKey =
+  | "categories"
+  // | "personaTags"
+  | "restrictions"
+  | "contentFormat"
+  | "appearance"
+  | "contentStyle"
+  | "capability"
+  | "lifeStyle"
+  | "occupation"
+  | "interest"
+  | "categoryExperience"
+  | "canCreateWith"
+  | "aiContentPermission"
+  | "language";
 
 export const CreatorFilters = memo(function CreatorFilters({
   filters,
   onChange,
-  onClose,
   categoryOptions,
 }: CreatorFiltersProps) {
-  const filtersRef = useRef(filters);
+  const [draftFilters, setDraftFilters] = useState<Filters>(filters);
+
   useEffect(() => {
-    filtersRef.current = filters;
+    setDraftFilters(filters);
   }, [filters]);
 
-  const [prevCity, setPrevCity] = useState(filters.city);
-  const [localCity, setLocalCity] = useState(filters.city);
-  if (filters.city !== prevCity) {
-    setPrevCity(filters.city);
-    setLocalCity(filters.city);
+  const [prevCity, setPrevCity] = useState(draftFilters.city);
+  const [localCity, setLocalCity] = useState(draftFilters.city);
+  if (draftFilters.city !== prevCity) {
+    setPrevCity(draftFilters.city);
+    setLocalCity(draftFilters.city);
   }
 
-  const [prevIndustry, setPrevIndustry] = useState(filters.industry);
-  const [localIndustry, setLocalIndustry] = useState(filters.industry);
-  if (filters.industry !== prevIndustry) {
-    setPrevIndustry(filters.industry);
-    setLocalIndustry(filters.industry);
+  const [prevIndustry, setPrevIndustry] = useState(draftFilters.industry);
+  const [localIndustry, setLocalIndustry] = useState(draftFilters.industry);
+  if (draftFilters.industry !== prevIndustry) {
+    setPrevIndustry(draftFilters.industry);
+    setLocalIndustry(draftFilters.industry);
   }
 
-  const [prevPortfolioTag, setPrevPortfolioTag] = useState(filters.portfolioTag);
-  const [localPortfolioTag, setLocalPortfolioTag] = useState(filters.portfolioTag);
-  if (filters.portfolioTag !== prevPortfolioTag) {
-    setPrevPortfolioTag(filters.portfolioTag);
-    setLocalPortfolioTag(filters.portfolioTag);
+  const [prevPortfolioTag, setPrevPortfolioTag] = useState(
+    draftFilters.portfolioTag,
+  );
+  const [localPortfolioTag, setLocalPortfolioTag] = useState(
+    draftFilters.portfolioTag,
+  );
+  if (draftFilters.portfolioTag !== prevPortfolioTag) {
+    setPrevPortfolioTag(draftFilters.portfolioTag);
+    setLocalPortfolioTag(draftFilters.portfolioTag);
   }
 
-  const [prevMinPrice, setPrevMinPrice] = useState(filters.minPrice);
-  const [prevMaxPrice, setPrevMaxPrice] = useState(filters.maxPrice);
+  const [prevMinPrice, setPrevMinPrice] = useState(draftFilters.minPrice);
+  const [prevMaxPrice, setPrevMaxPrice] = useState(draftFilters.maxPrice);
   const [priceDraft, setPriceDraft] = useState<[number, number]>([
-    filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN,
-    filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX,
+    draftFilters.minPrice ? Number(draftFilters.minPrice) : CREATOR_PRICE_MIN,
+    draftFilters.maxPrice ? Number(draftFilters.maxPrice) : CREATOR_PRICE_MAX,
   ]);
-  if (filters.minPrice !== prevMinPrice || filters.maxPrice !== prevMaxPrice) {
-    setPrevMinPrice(filters.minPrice);
-    setPrevMaxPrice(filters.maxPrice);
+  if (
+    draftFilters.minPrice !== prevMinPrice ||
+    draftFilters.maxPrice !== prevMaxPrice
+  ) {
+    setPrevMinPrice(draftFilters.minPrice);
+    setPrevMaxPrice(draftFilters.maxPrice);
     setPriceDraft([
-      filters.minPrice ? Number(filters.minPrice) : CREATOR_PRICE_MIN,
-      filters.maxPrice ? Number(filters.maxPrice) : CREATOR_PRICE_MAX,
+      draftFilters.minPrice ? Number(draftFilters.minPrice) : CREATOR_PRICE_MIN,
+      draftFilters.maxPrice ? Number(draftFilters.maxPrice) : CREATOR_PRICE_MAX,
     ]);
   }
 
@@ -152,29 +252,35 @@ export const CreatorFilters = memo(function CreatorFilters({
     staleTime: 5 * 60_000,
   });
 
-  const personaSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
-    staleTime: 5 * 60_000,
-  });
+  // const personaSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
+  //   staleTime: 5 * 60_000,
+  // });
 
   const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({
+  const facetOptionsQuery = useCreatorFacetOptionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const portfolioTagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
-    staleTime: 5 * 60_000,
-  });
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(),
+  );
+  const toggleShowMore = useCallback((sectionKey: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionKey)) next.delete(sectionKey);
+      else next.add(sectionKey);
+      return next;
+    });
+  }, []);
 
   const handleChange = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
-      const nextFilters = { ...filtersRef.current, [key]: value };
-      filtersRef.current = nextFilters;
-      onChange(nextFilters);
+      setDraftFilters((prev) => ({ ...prev, [key]: value }));
     },
-    [onChange],
+    [],
   );
 
   const debouncedCityChange = useDebouncedCallback((value: string) => {
@@ -190,94 +296,42 @@ export const CreatorFilters = memo(function CreatorFilters({
   }, 400);
 
   const toggleMultiSelect = useCallback(
-    (key: "categories" | "personaTags" | "restrictions", value: string) => {
-      const currentValues = filtersRef.current[key];
-      const nextValues = currentValues.includes(value)
-        ? currentValues.filter((item) => item !== value)
-        : normalizeSelectedValues([...currentValues, value]);
-      handleChange(key, nextValues);
+    (key: MultiSelectFilterKey, value: string) => {
+      setDraftFilters((prev) => {
+        const currentValues = prev[key];
+        const nextValues = currentValues.includes(value)
+          ? currentValues.filter((item) => item !== value)
+          : normalizeSelectedValues([...currentValues, value]);
+        return { ...prev, [key]: nextValues };
+      });
     },
-    [handleChange],
+    [],
   );
 
-  const handlePriceCommit = useCallback(
-    ([min, max]: number[]) => {
-      const nextFilters = {
-        ...filtersRef.current,
-        minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
-        maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
-      };
-      filtersRef.current = nextFilters;
-      onChange(nextFilters);
-    },
-    [onChange],
-  );
-
-  const categorySummary = useMemo(
-    () => summarizeSelection(filters.categories, "Any category"),
-    [filters.categories],
-  );
-  const personaSummary = useMemo(
-    () => summarizeSelection(filters.personaTags, "Any persona tag"),
-    [filters.personaTags],
-  );
-  const restrictionSummary = useMemo(
-    () => summarizeSelection(filters.restrictions, "Any restriction"),
-    [filters.restrictions],
-  );
-  const locationSummary = useMemo(
-    () => filters.city.trim() || "Any location",
-    [filters.city],
-  );
-  const genderSummary = useMemo(() => {
-    return (
-      GENDER_OPTIONS.find((option) => option.value === filters.gender)?.label ??
-      "Any gender"
-    );
-  }, [filters.gender]);
-  const videoSummary = useMemo(() => {
-    const parts = [filters.industry.trim(), filters.portfolioTag.trim()].filter(
-      Boolean,
-    );
-    if (parts.length === 0) return "Industry and video tag";
-    return parts.join(" • ");
-  }, [filters.industry, filters.portfolioTag]);
-
-  const priceSummary = useMemo(() => {
-    const [min, max] = priceDraft;
-    const hiLabel =
-      max >= CREATOR_PRICE_MAX ? "₹10,000+" : `₹${max.toLocaleString("en-IN")}`;
-    return `₹${min.toLocaleString("en-IN")} - ${hiLabel}`;
-  }, [priceDraft]);
-
-  const priceAction = (
-    <span
-      className={cn(
-        "text-xs font-semibold tabular-nums",
-        filters.minPrice || filters.maxPrice
-          ? "text-foreground"
-          : "text-muted-foreground",
-      )}
-    >
-      {priceSummary}
-    </span>
-  );
+  const handlePriceCommit = useCallback(([min, max]: number[]) => {
+    setDraftFilters((prev) => ({
+      ...prev,
+      minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
+      maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
+    }));
+  }, []);
 
   const categoryNames = useMemo(() => {
     const fromQuery =
-      categorySuggestionsQuery.data?.map((item) => item.name.trim()).filter(Boolean) ??
-      [];
+      categorySuggestionsQuery.data
+        ?.map((item) => item.name.trim())
+        .filter(Boolean) ?? [];
     const fallback = categoryOptions.map((item) => item.trim()).filter(Boolean);
     return normalizeSelectedValues([...fromQuery, ...fallback]);
   }, [categoryOptions, categorySuggestionsQuery.data]);
 
-  const personaNames = useMemo(
-    () =>
-      normalizeSelectedValues(
-        (personaSuggestionsQuery.data ?? []).map((item) => item.name),
-      ),
-    [personaSuggestionsQuery.data],
-  );
+  // const personaNames = useMemo(
+  //   () =>
+  //     normalizeSelectedValues(
+  //       (personaSuggestionsQuery.data ?? []).map((item) => item.name),
+  //     ),
+  //   [personaSuggestionsQuery.data],
+  // );
 
   const restrictionNames = useMemo(
     () =>
@@ -287,167 +341,105 @@ export const CreatorFilters = memo(function CreatorFilters({
     [restrictionSuggestionsQuery.data],
   );
 
-  const industryChipItems = useMemo(
-    () =>
-      (industrySuggestionsQuery.data ?? []).slice(0, 8).map((label) => ({
-        key: label,
-        label,
-      })),
-    [industrySuggestionsQuery.data],
-  );
-
-  const portfolioTagChipItems = useMemo(
-    () =>
-      (portfolioTagSuggestionsQuery.data ?? []).slice(0, 10).map((label) => ({
-        key: label,
-        label,
-      })),
-    [portfolioTagSuggestionsQuery.data],
-  );
+  const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
   return (
-    <aside className="flex h-full min-h-72 w-full max-w-full flex-col overflow-hidden rounded-[28px] border border-border/70 bg-card/95 shadow-[0_18px_54px_-30px_rgba(15,23,42,0.45)] backdrop-blur lg:h-auto lg:min-h-80 lg:max-h-[calc(100svh-var(--creators-filter-top)-var(--creators-filter-gap)-5rem)]">
-      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 bg-muted/20 px-5 py-4">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold tracking-tight text-foreground">
-            Filters
-          </h3>
-          {/* <p className="text-xs leading-relaxed text-muted-foreground">
-            Refine creators using the exact filters supported by the API.
-          </p> */}
-        </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onClose}
-              aria-label="Close filters"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Close filters</TooltipContent>
-        </Tooltip>
+    <aside className="flex h-full w-full max-w-[260px] flex-col overflow-hidden rounded-[10px] border border-gray-200/60 bg-white px-5 pt-5 pb-5 lg:h-[calc(100vh-7rem)] shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+      <div className="flex shrink-0 items-center justify-between pb-3">
+        <h3 className="text-[16px] font-bold tracking-tight text-[#111]">
+          Filters
+        </h3>
+        <button
+          type="button"
+          onClick={() => {
+            setDraftFilters(DEFAULT_FILTERS);
+            onChange(DEFAULT_FILTERS);
+          }}
+          className="text-[13px] font-semibold text-primary hover:text-primary/80 transition-colors"
+        >
+          Clear all
+        </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
-        <div className="space-y-3">
-          <Accordion
-            type="multiple"
-            defaultValue={DEFAULT_OPEN_SECTIONS}
-            className="space-y-3"
-          >
-            <DropdownFilterSection
-              value="video-based"
-              label="Video based"
-              summary={videoSummary}
-              selectedCount={
-                Number(Boolean(filters.industry)) +
-                Number(Boolean(filters.portfolioTag))
-              }
-            >
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-foreground">Industry</p>
-                  <Input
-                    placeholder="Search by portfolio industry"
-                    value={localIndustry}
-                    onChange={(event) => {
-                      setLocalIndustry(event.target.value);
-                      debouncedIndustryChange(event.target.value);
-                    }}
-                    className="h-9 rounded-xl border-border/70 bg-background text-sm"
-                  />
-                  <SuggestionChips
-                    items={industryChipItems}
-                    selectedLabels={filters.industry ? [filters.industry] : []}
-                    onSelect={(label, nextSelected) => {
-                      const nextValue = nextSelected ? label : "";
-                      setLocalIndustry(nextValue);
-                      handleChange("industry", nextValue);
-                    }}
-                  />
-                </div>
-
-                <Separator className="bg-border/70" />
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-foreground">Tags</p>
-                  <Input
-                    placeholder="Search by portfolio tag"
-                    value={localPortfolioTag}
-                    onChange={(event) => {
-                      setLocalPortfolioTag(event.target.value);
-                      debouncedPortfolioTagChange(event.target.value);
-                    }}
-                    className="h-9 rounded-xl border-border/70 bg-background text-sm"
-                  />
-                  <SuggestionChips
-                    items={portfolioTagChipItems}
-                    selectedLabels={
-                      filters.portfolioTag ? [filters.portfolioTag] : []
-                    }
-                    onSelect={(label, nextSelected) => {
-                      const nextValue = nextSelected ? label : "";
-                      setLocalPortfolioTag(nextValue);
-                      handleChange("portfolioTag", nextValue);
-                    }}
-                  />
-                </div>
-              </div>
-            </DropdownFilterSection>
-
-            <DropdownFilterSection
-              value="category"
-              label="Category"
-              summary={categorySummary}
-              selectedCount={filters.categories.length}
-            >
-              <SectionToolbar
-                helperText="Categories use OR matching on the API."
-                onClear={
-                  filters.categories.length > 0
-                    ? () => handleChange("categories", [])
-                    : undefined
-                }
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <Accordion
+          type="multiple"
+          defaultValue={DEFAULT_OPEN_SECTIONS}
+          className="space-y-0"
+        >
+          <DropdownFilterSection value="category" label="Content Category">
+            {categoryNames.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No category suggestions are available right now.
+              </p>
+            ) : (
+              <CheckboxList
+                items={categoryNames}
+                selected={draftFilters.categories}
+                onToggle={(v) => toggleMultiSelect("categories", v)}
+                sectionKey="category"
+                expanded={expandedSections.has("category")}
+                onToggleExpand={() => toggleShowMore("category")}
               />
-              {categoryNames.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No category suggestions are available right now.
-                </p>
-              ) : (
-                <div className="max-h-56 space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {categoryNames.map((category) => (
-                    <CheckboxItem
-                      key={category}
-                      label={category}
-                      checked={filters.categories.includes(category)}
-                      onChange={() => toggleMultiSelect("categories", category)}
-                    />
-                  ))}
-                </div>
-              )}
-            </DropdownFilterSection>
+            )}
+          </DropdownFilterSection>
 
-            <DropdownFilterSection
-              value="location"
-              label="Location"
-              summary={locationSummary}
-              selectedCount={filters.city ? 1 : 0}
-            >
-              <SectionToolbar
-                helperText="City uses case-insensitive substring matching."
-                onClear={
-                  filters.city
-                    ? () => {
-                        setLocalCity("");
-                        handleChange("city", "");
-                      }
-                    : undefined
-                }
+          {/* <DropdownFilterSection value="persona-tags" label="Persona Tags">
+            {personaNames.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No persona tag suggestions are available right now.
+              </p>
+            ) : (
+              <CheckboxList
+                items={personaNames}
+                selected={draftFilters.personaTags}
+                onToggle={(v) => toggleMultiSelect("personaTags", v)}
+                sectionKey="persona-tags"
+                expanded={expandedSections.has("persona-tags")}
+                onToggleExpand={() => toggleShowMore("persona-tags")}
               />
+            )}
+          </DropdownFilterSection> */}
+
+          {FACET_SECTION_CONFIG.map(({ dimension, label, filterKey }) => {
+            const options: CreatorFacetOption[] =
+              (
+                facetOptionsByDimension as
+                  | Record<string, CreatorFacetOption[]>
+                  | undefined
+              )?.[dimension] ?? [];
+
+            return (
+              <DropdownFilterSection
+                key={dimension}
+                value={dimension}
+                label={label}
+              >
+                {options.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {facetOptionsQuery.isPending
+                      ? "Loading options…"
+                      : "No options available."}
+                  </p>
+                ) : (
+                  <CheckboxList
+                    items={options.map((o) => o.slug)}
+                    labels={Object.fromEntries(
+                      options.map((o) => [o.slug, o.label]),
+                    )}
+                    selected={draftFilters[filterKey]}
+                    onToggle={(v) => toggleMultiSelect(filterKey, v)}
+                    sectionKey={dimension}
+                    expanded={expandedSections.has(dimension)}
+                    onToggleExpand={() => toggleShowMore(dimension)}
+                  />
+                )}
+              </DropdownFilterSection>
+            );
+          })}
+
+          <DropdownFilterSection value="location" label="Location">
+            <div className="pb-2">
               <Input
                 placeholder="e.g. Mumbai, Bengaluru, Delhi"
                 value={localCity}
@@ -455,226 +447,207 @@ export const CreatorFilters = memo(function CreatorFilters({
                   setLocalCity(event.target.value);
                   debouncedCityChange(event.target.value);
                 }}
-                className="h-9 rounded-xl border-border/70 bg-background text-sm"
+                className="h-9 rounded-md border-gray-200 bg-white text-[13px] mt-1 shadow-none"
               />
-            </DropdownFilterSection>
-
-            <DropdownFilterSection
-              value="gender"
-              label="Gender"
-              summary={genderSummary}
-              selectedCount={filters.gender ? 1 : 0}
-            >
-              <SectionToolbar helperText="Choose one gender filter or leave it unset." />
-              <div className="space-y-2">
-                {GENDER_OPTIONS.map((option) => (
-                  <ChoiceItem
-                    key={option.value}
-                    label={option.label}
-                    description={option.description}
-                    isActive={filters.gender === option.value}
-                    onClick={() =>
-                      handleChange(
-                        "gender",
-                        filters.gender === option.value ? "" : option.value,
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            </DropdownFilterSection>
-
-            <DropdownFilterSection
-              value="persona-tags"
-              label="Persona tags"
-              summary={personaSummary}
-              selectedCount={filters.personaTags.length}
-            >
-              <SectionToolbar
-                helperText="Matches creators with any selected persona tag."
-                onClear={
-                  filters.personaTags.length > 0
-                    ? () => handleChange("personaTags", [])
-                    : undefined
-                }
-              />
-              {personaNames.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No persona tag suggestions are available right now.
-                </p>
-              ) : (
-                <SuggestionChips
-                  items={personaNames.map((label) => ({ key: label, label }))}
-                  selectedLabels={filters.personaTags}
-                  onSelect={(label) => toggleMultiSelect("personaTags", label)}
-                />
-              )}
-            </DropdownFilterSection>
-
-            <DropdownFilterSection
-              value="restrictions"
-              label="Restrictions"
-              summary={restrictionSummary}
-              selectedCount={filters.restrictions.length}
-            >
-              <SectionToolbar
-                helperText="Matches creators with any selected restriction."
-                onClear={
-                  filters.restrictions.length > 0
-                    ? () => handleChange("restrictions", [])
-                    : undefined
-                }
-              />
-              {restrictionNames.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No restriction suggestions are available right now.
-                </p>
-              ) : (
-                <SuggestionChips
-                  items={restrictionNames.map((label) => ({ key: label, label }))}
-                  selectedLabels={filters.restrictions}
-                  onSelect={(label) => toggleMultiSelect("restrictions", label)}
-                />
-              )}
-            </DropdownFilterSection>
-          </Accordion>
-
-          <Separator className="bg-border/70" />
-
-          <FilterSection label="Price range" action={priceAction}>
-            <div className="space-y-4 pt-1">
-              <div className="mx-auto w-full max-w-xs">
-                <Slider
-                  min={CREATOR_PRICE_MIN}
-                  max={CREATOR_PRICE_MAX}
-                  step={PRICE_STEP}
-                  value={priceDraft}
-                  onValueChange={(value) =>
-                    setPriceDraft([value[0] ?? CREATOR_PRICE_MIN, value[1] ?? CREATOR_PRICE_MAX])
-                  }
-                  onValueCommit={handlePriceCommit}
-                  trackClassName="h-1"
-                  rangeClassName="bg-primary"
-                  thumbClassName="size-3 border-primary/90 bg-background shadow-sm"
-                />
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>₹{CREATOR_PRICE_MIN.toLocaleString("en-IN")}</span>
-                <span>₹10,000+</span>
-              </div>
             </div>
-          </FilterSection>
+          </DropdownFilterSection>
 
-          <FilterSection label="On-location availability">
-            <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/35 px-3.5 py-3">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium leading-none text-foreground">
-                  {filters.onLocationAvailable ? "Enabled" : "Disabled"}
-                </p>
-                <p className="text-[11px] leading-tight text-muted-foreground">
-                  Only creators marked available for on-location work
-                </p>
-              </div>
+          <DropdownFilterSection value="restrictions" label="Restrictions">
+            <div className="space-y-1">
+              {restrictionNames.map((label) => (
+                <CheckboxItem
+                  key={label}
+                  label={label}
+                  checked={draftFilters.restrictions.includes(label)}
+                  onChange={() => toggleMultiSelect("restrictions", label)}
+                />
+              ))}
+            </div>
+          </DropdownFilterSection>
+
+          <DropdownFilterSection value="availability" label="Availability">
+            <div className="flex items-center justify-between py-1">
+              <span className="text-[13px] font-medium text-[#374151]">
+                On-Location
+              </span>
               <Switch
-                checked={filters.onLocationAvailable}
+                checked={draftFilters.onLocationAvailable}
                 onCheckedChange={(checked) =>
                   handleChange("onLocationAvailable", checked)
                 }
               />
             </div>
-          </FilterSection>
-        </div>
+          </DropdownFilterSection>
+
+          <DropdownFilterSection value="price-range" label="Price Range">
+            <div className="px-1 py-2">
+              <Slider
+                min={CREATOR_PRICE_MIN}
+                max={CREATOR_PRICE_MAX}
+                step={PRICE_STEP}
+                value={priceDraft}
+                onValueChange={(value) =>
+                  setPriceDraft([
+                    value[0] ?? CREATOR_PRICE_MIN,
+                    value[1] ?? CREATOR_PRICE_MAX,
+                  ])
+                }
+                onValueCommit={handlePriceCommit}
+                trackClassName="h-1 bg-gray-100"
+                rangeClassName="bg-primary"
+                thumbClassName="size-4 border-2 border-white bg-primary shadow-sm"
+              />
+              <div className="flex items-center justify-between text-[11px] font-medium text-[#6B7280] mt-3">
+                <span>₹{CREATOR_PRICE_MIN.toLocaleString("en-IN")}</span>
+                <span>₹10,000+</span>
+              </div>
+            </div>
+          </DropdownFilterSection>
+
+          <DropdownFilterSection value="gender" label="Gender">
+            <div className="space-y-1">
+              {GENDER_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex items-center gap-3 py-1 cursor-pointer hover:opacity-80"
+                >
+                  <div
+                    className={cn(
+                      "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      draftFilters.gender === option.value
+                        ? "border-primary bg-primary"
+                        : "border-gray-300 bg-white",
+                    )}
+                  >
+                    {draftFilters.gender === option.value && (
+                      <div className="size-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <input
+                    type="radio"
+                    className="hidden"
+                    checked={draftFilters.gender === option.value}
+                    onChange={() =>
+                      handleChange(
+                        "gender",
+                        draftFilters.gender === option.value
+                          ? ""
+                          : option.value,
+                      )
+                    }
+                  />
+                  <span className="text-[13px] font-medium text-[#374151]">
+                    {option.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </DropdownFilterSection>
+
+          <DropdownFilterSection value="age-group" label="Age Group">
+            <div className="pb-2">
+              <select
+                value={draftFilters.ageGroup}
+                onChange={(e) => handleChange("ageGroup", e.target.value)}
+                className="w-full h-9 rounded-md border border-gray-200 bg-white text-[13px] px-3 mt-1 shadow-none focus:outline-none focus:ring-1 focus:ring-primary text-[#374151]"
+              >
+                {AGE_GROUP_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </DropdownFilterSection>
+
+          <DropdownFilterSection value="video" label="Video">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                  Industry
+                </p>
+                <Input
+                  placeholder="Search industry"
+                  value={localIndustry}
+                  onChange={(event) => {
+                    setLocalIndustry(event.target.value);
+                    debouncedIndustryChange(event.target.value);
+                  }}
+                  className="h-9 rounded-md border-gray-200 bg-white text-[13px] shadow-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                  Portfolio Tag
+                </p>
+                <Input
+                  placeholder="Search tag"
+                  value={localPortfolioTag}
+                  onChange={(event) => {
+                    setLocalPortfolioTag(event.target.value);
+                    debouncedPortfolioTagChange(event.target.value);
+                  }}
+                  className="h-9 rounded-md border-gray-200 bg-white text-[13px] shadow-none"
+                />
+              </div>
+            </div>
+          </DropdownFilterSection>
+        </Accordion>
+      </div>
+
+      <div className="pt-5 mt-2 border-t border-gray-100 space-y-3 shrink-0">
+        <Button
+          className="w-full bg-[#111] text-white hover:bg-black/90 font-semibold h-11 rounded-[8px] shadow-none"
+          onClick={() => onChange(draftFilters)}
+        >
+          Apply Filters
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full font-semibold border-gray-200 text-[#374151] hover:bg-gray-50 h-11 rounded-[8px] shadow-none"
+          onClick={() => {}}
+        >
+          <svg
+            className="mr-2 size-[18px] text-[#4B5563]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Save Search
+        </Button>
       </div>
     </aside>
-  );
-});
-
-const FilterSection = memo(function FilterSection({
-  label,
-  action,
-  children,
-}: {
-  label: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-          {label}
-        </p>
-        {action}
-      </div>
-      {children}
-    </section>
   );
 });
 
 const DropdownFilterSection = memo(function DropdownFilterSection({
   value,
   label,
-  summary,
-  selectedCount,
   children,
 }: {
   value: string;
   label: string;
-  summary: string;
-  selectedCount: number;
   children: React.ReactNode;
 }) {
   return (
     <AccordionItem
       value={value}
-      className="overflow-hidden rounded-2xl border border-border/70 bg-background/90 shadow-sm"
+      className="border-b border-gray-200 last:border-0"
     >
-      <AccordionTrigger className="px-4 py-3.5 hover:no-underline">
-        <span className="min-w-0 flex-1 block text-left">
-          <span className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground block">{label}</span>
-            {selectedCount > 0 ? (
-              <Badge
-                variant="secondary"
-                className="rounded-full px-2 py-0 text-[10px]"
-              >
-                {selectedCount}
-              </Badge>
-            ) : null}
-          </span>
-          <span className="mt-1 line-clamp-1 text-xs text-muted-foreground block text-left">
-            {summary}
-          </span>
-        </span>
-        <ChevronDown className="chevron size-4 text-muted-foreground transition-transform duration-200" />
+      <AccordionTrigger className="px-0 py-[14px] hover:no-underline">
+        <span className="text-[14px] font-bold text-[#111]">{label}</span>
+        <ChevronDown className="chevron size-4 text-[#6B7280] transition-transform duration-200" />
       </AccordionTrigger>
-      <AccordionContent className="border-t border-border/70 px-4 pb-4 pt-3">
-        {children}
-      </AccordionContent>
+      <AccordionContent className="px-0 pb-4 pt-0">{children}</AccordionContent>
     </AccordionItem>
-  );
-});
-
-const SectionToolbar = memo(function SectionToolbar({
-  helperText,
-  onClear,
-}: {
-  helperText: string;
-  onClear?: () => void;
-}) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <p className="text-xs text-muted-foreground">{helperText}</p>
-      {onClear ? (
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Clear
-        </button>
-      ) : null}
-    </div>
   );
 });
 
@@ -688,86 +661,83 @@ const CheckboxItem = memo(function CheckboxItem({
   onChange: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onChange}
-      className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors",
-        checked
-          ? "border-primary/45 bg-primary/10 shadow-sm"
-          : "border-border/70 bg-background hover:bg-muted/45",
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <span
-          className={cn(
-            "flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-            checked
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-muted-foreground/35 bg-background",
-          )}
-        >
-          {checked ? (
-            <svg className="size-3" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M2.5 6L5 8.5L9.5 4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : null}
-        </span>
-        <span className="truncate text-sm font-medium text-foreground">
-          {label}
-        </span>
+    <label className="flex items-center gap-3 py-1.5 cursor-pointer hover:opacity-70">
+      <div
+        className={cn(
+          "flex size-4 shrink-0 items-center justify-center rounded-[3px] border transition-colors",
+          checked
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-gray-300 bg-white",
+        )}
+      >
+        {checked && (
+          <svg className="size-3" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M2.5 6L5 8.5L9.5 4"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </div>
-      {checked ? (
-        <span className="text-[11px] font-medium text-primary">Selected</span>
-      ) : null}
-    </button>
+      <input
+        type="checkbox"
+        className="hidden"
+        checked={checked}
+        onChange={onChange}
+      />
+      <span className="text-[13.5px] font-medium text-[#374151]">{label}</span>
+    </label>
   );
 });
 
-const ChoiceItem = memo(function ChoiceItem({
-  label,
-  description,
-  isActive,
-  onClick,
+const CheckboxList = memo(function CheckboxList({
+  items,
+  labels,
+  selected,
+  onToggle,
+  // sectionKey,
+  expanded,
+  onToggleExpand,
+  initialCount = 5,
 }: {
-  label: string;
-  description: string;
-  isActive: boolean;
-  onClick: () => void;
+  items: string[];
+  labels?: Record<string, string>;
+  selected: string[];
+  onToggle: (value: string) => void;
+  sectionKey: string;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  initialCount?: number;
 }) {
+  const visibleItems = expanded ? items : items.slice(0, initialCount);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-start justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors",
-        isActive
-          ? "border-primary/45 bg-primary/10 shadow-sm"
-          : "border-border/70 bg-background hover:bg-muted/45",
+    <div className="space-y-1">
+      {visibleItems.map((item) => (
+        <CheckboxItem
+          key={item}
+          label={labels?.[item] ?? item}
+          checked={selected.includes(item)}
+          onChange={() => onToggle(item)}
+        />
+      ))}
+      {items.length > initialCount && (
+        <button
+          onClick={onToggleExpand}
+          className="text-[13px] font-semibold text-primary hover:text-primary/80 mt-2 flex items-center gap-1.5"
+        >
+          <Plus
+            className={cn(
+              "size-3.5 stroke-3 transition-transform",
+              expanded && "rotate-45",
+            )}
+          />
+          {expanded ? "Show less" : "Show more"}
+        </button>
       )}
-    >
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      <span
-        className={cn(
-          "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground",
-        )}
-      >
-        {isActive ? "Active" : "Select"}
-      </span>
-    </button>
+    </div>
   );
 });

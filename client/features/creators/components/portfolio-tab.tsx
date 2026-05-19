@@ -1,15 +1,17 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { motion, type Variants } from "framer-motion";
-import { Play } from "lucide-react";
+import { ChevronRight, Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 
-const gridVariants: Variants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -40,6 +42,226 @@ function errorMessage(err: unknown): string {
   return "Something went wrong";
 }
 
+function formatDuration(seconds: number): string {
+  if (!seconds || !isFinite(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function getTagColor(tag: string, index: number): string {
+  const lower = tag.toLowerCase();
+  if (lower.includes("beauty")) return "bg-[#fce7f3] text-[#be185d]";
+  if (lower.includes("skincare") || lower.includes("ad ready"))
+    return "bg-[#dcfce7] text-[#15803d]";
+  if (lower.includes("product demo") || lower.includes("unboxing"))
+    return "bg-[#ede9fe] text-[#5b21b6]";
+  if (lower.includes("casual") || lower.includes("talk to camera"))
+    return "bg-[#e0f2fe] text-[#0369a1]";
+  if (lower.includes("ugc")) return "bg-[#dcfce7] text-[#15803d]";
+  if (lower.includes("testimonial")) return "bg-[#ccfbf1] text-[#0f766e]";
+  if (lower.includes("lifestyle")) return "bg-[#e0f2fe] text-[#0369a1]";
+  if (lower.includes("fitness")) return "bg-[#ffedd5] text-[#c2410c]";
+  if (lower.includes("aesthetic")) return "bg-[#ccfbf1] text-[#0f766e]";
+  if (lower.includes("tech")) return "bg-[#f3e8ff] text-[#7e22ce]";
+
+  const fallback = [
+    "bg-fuchsia-100 text-fuchsia-700",
+    "bg-blue-100 text-blue-700",
+    "bg-indigo-100 text-indigo-700",
+    "bg-orange-100 text-orange-700",
+    "bg-emerald-100 text-emerald-700",
+    "bg-teal-100 text-teal-700",
+    "bg-purple-100 text-purple-700",
+  ];
+  return fallback[index % fallback.length]!;
+}
+
+interface VideoCardProps {
+  video: PortfolioVideoApi;
+  index: number;
+}
+
+const VideoCard = memo(function VideoCard({ video, index }: VideoCardProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const tags = video.tags?.length
+    ? video.tags.slice(0, 2)
+    : [video.industryLabel ?? "Portfolio"];
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const handleTogglePlay = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = videoRef.current;
+      if (!el) return;
+      if (isPlaying) {
+        el.pause();
+      } else {
+        el.play().catch(() => {});
+      }
+    },
+    [isPlaying],
+  );
+
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setIsMuted(el.muted);
+  }, []);
+
+  const handleSeek = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = videoRef.current;
+      if (!el || !duration) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(
+        0,
+        Math.min(1, (e.clientX - rect.left) / rect.width),
+      );
+      el.currentTime = ratio * duration;
+    },
+    [duration],
+  );
+
+  const handleLoadedMetadata = useCallback(() => {
+    const el = videoRef.current;
+    if (el && isFinite(el.duration)) {
+      setDuration(el.duration);
+    }
+  }, []);
+
+  const handleTimeUpdate = useCallback(() => {
+    const el = videoRef.current;
+    if (el) setCurrentTime(el.currentTime);
+  }, []);
+
+  return (
+    <motion.div
+      variants={cardVariants}
+      className="group relative shrink-0 w-[200px] sm:w-[210px]"
+    >
+      <div className="relative aspect-9/16 w-full overflow-hidden rounded-md bg-muted cursor-pointer">
+        <video
+          ref={videoRef}
+          className="size-full object-cover"
+          src={video.videoUrl}
+          poster={video.thumbnailUrl ?? undefined}
+          preload="metadata"
+          playsInline
+          muted
+          loop
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onLoadedMetadata={handleLoadedMetadata}
+          onTimeUpdate={handleTimeUpdate}
+          onClick={handleTogglePlay}
+        />
+
+        <div
+          className={cn(
+            "absolute inset-0 flex items-center justify-center z-10 transition-opacity",
+            isPlaying ? "opacity-0 pointer-events-none" : "opacity-100",
+          )}
+          onClick={handleTogglePlay}
+        >
+          <div className="flex size-11 items-center justify-center rounded-full bg-white/80 shadow-md backdrop-blur-sm">
+            <Play className="ml-0.5 size-5 fill-gray-700 text-gray-700" />
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-2.5 pb-2.5 pt-10 transition-opacity duration-200",
+            "bg-linear-to-t from-black/70 via-black/30 to-transparent",
+            isPlaying
+              ? "opacity-0 group-hover:opacity-100"
+              : "opacity-0 group-hover:opacity-100",
+          )}
+        >
+          <div
+            className="h-1 w-full cursor-pointer overflow-hidden rounded-full bg-white/30"
+            onClick={handleSeek}
+            role="slider"
+            aria-label="Video progress"
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            tabIndex={0}
+          >
+            <div
+              className="h-full rounded-full bg-white transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleTogglePlay}
+                className="flex items-center justify-center text-white hover:text-white/80 transition-colors"
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                {isPlaying ? (
+                  <Pause className="size-3.5 fill-white" />
+                ) : (
+                  <Play className="ml-px size-3.5 fill-white" />
+                )}
+              </button>
+              <span className="text-[10px] font-medium text-white/90 tabular-nums">
+                {formatDuration(currentTime)} / {formatDuration(duration)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              className="flex items-center justify-center text-white hover:text-white/80 transition-colors"
+              aria-label={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? (
+                <VolumeX className="size-3.5" />
+              ) : (
+                <Volume2 className="size-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "absolute bottom-2.5 left-2.5 right-2.5 flex flex-wrap gap-1.5 z-10 transition-opacity",
+            "group-hover:opacity-0",
+          )}
+        >
+          {tags.map((tag, tagIndex) => (
+            <Badge
+              key={`${tag}-${tagIndex}`}
+              variant="secondary"
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[10px] font-semibold border-none shadow-sm",
+                getTagColor(tag, index * 2 + tagIndex),
+              )}
+            >
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
 interface PortfolioTabProps {
   creatorId: string;
   initialVideos?: PortfolioVideoApi[];
@@ -49,10 +271,15 @@ export const PortfolioTab = memo(function PortfolioTab({
   creatorId,
   initialVideos,
 }: PortfolioTabProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const query = usePublicPortfolioVideosQuery(creatorId, {
     placeholderData: initialVideos,
     staleTime: 5 * 60_000,
   });
+
+  const scrollRight = () => {
+    scrollRef.current?.scrollBy({ left: 300, behavior: "smooth" });
+  };
 
   if (query.isPending) {
     return (
@@ -95,124 +322,44 @@ export const PortfolioTab = memo(function PortfolioTab({
   }
 
   return (
-    <motion.div
-      className="grid grid-cols-1 md:grid-cols-12 gap-6"
-      variants={gridVariants}
-      initial="hidden"
-      animate="show"
-    >
-      {videos.map((v, index) => {
-        const isFirst = index === 0;
-        const title = v.description?.trim() || "Portfolio video";
-        const createdLabel = new Date(v.createdAt).toLocaleDateString(
-          undefined,
-          {
-            year: "numeric",
-            month: "short",
-          },
-        );
-        const badge = v.industryLabel?.trim() || v.tags?.[0] || "Portfolio";
+    <section className="mt-1">
+      <div className="flex items-center gap-4">
+        <h2 className="text-xl font-bold text-foreground">Portfolio</h2>
+        <span className="rounded-full bg-muted px-3 py-0.5 text-xs font-medium text-muted-foreground">
+          {videos.length} Videos
+        </span>
+        <button
+          type="button"
+          className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary transition-colors"
+        >
+          View all
+        </button>
+      </div>
 
-        const tags = [
-          ...(v.language?.trim() ? [v.language.trim()] : []),
-          ...(v.industryLabel?.trim() ? [v.industryLabel.trim()] : []),
-          ...(v.tags?.[0]?.trim() ? [v.tags[0].trim()] : []),
-          createdLabel,
-        ].slice(0, 4);
+      <div className="relative mt-4">
+        <motion.div
+          ref={scrollRef}
+          className="flex gap-4 overflow-x-auto pb-4 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
+          {videos.map((v, index) => (
+            <VideoCard key={v.id} video={v} index={index} />
+          ))}
+        </motion.div>
 
-        if (isFirst) {
-          return (
-            <motion.a
-              key={v.id}
-              href={v.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              variants={cardVariants}
-              className="md:col-span-7 group relative rounded-3xl overflow-hidden bg-muted h-[320px] sm:h-[360px] md:h-[380px]"
-            >
-              <video
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70"
-                src={v.videoUrl}
-                poster={v.thumbnailUrl ?? undefined}
-                preload="metadata"
-                muted
-                playsInline
-                loop
-                onMouseOver={(e) =>
-                  (e.target as HTMLVideoElement).play().catch(() => {})
-                }
-                onMouseOut={(e) => (e.target as HTMLVideoElement).pause()}
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
-              
-              <div className="absolute top-6 left-6 flex gap-2">
-                <span className="px-3 py-1 rounded-full bg-primary/20 text-primary-foreground text-[10px] font-black uppercase tracking-tighter backdrop-blur-md">
-                  {badge}
-                </span>
-              </div>
-
-              <div className="absolute bottom-8 left-8 space-y-4 pr-8">
-                <h3 className="text-3xl font-extrabold text-white tracking-tighter drop-shadow-md">
-                  {title}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="text-[10px] font-bold text-white/70 uppercase bg-white/10 backdrop-blur-sm px-2 py-1 rounded"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="w-20 h-20 bg-primary/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-primary/30">
-                  <Play className="size-8 text-white ml-1 fill-white" />
-                </div>
-              </div>
-            </motion.a>
-          );
-        }
-
-        const isSecond = index === 1;
-
-        return (
-          <motion.a
-            key={v.id}
-            href={v.videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            variants={cardVariants}
-            className={`group relative rounded-3xl overflow-hidden bg-muted ${isSecond ? "md:col-span-5 h-[320px] sm:h-[360px] md:h-[380px]" : "md:col-span-6 xl:col-span-4 aspect-3/4"}`}
+        {videos.length > 4 && (
+          <button
+            type="button"
+            onClick={scrollRight}
+            className="absolute -right-3 top-[40%] -translate-y-1/2 flex size-10 items-center justify-center rounded-full border border-border bg-card shadow-lg hover:bg-muted transition-colors z-20"
+            aria-label="Scroll right"
           >
-            <video
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
-              src={v.videoUrl}
-              poster={v.thumbnailUrl ?? undefined}
-              preload="metadata"
-              muted
-              playsInline
-              loop
-              onMouseOver={(e) =>
-                (e.target as HTMLVideoElement).play().catch(() => {})
-              }
-              onMouseOut={(e) => (e.target as HTMLVideoElement).pause()}
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent flex items-end p-6 pointer-events-none">
-              <p className="font-bold text-white drop-shadow-md line-clamp-2">
-                {title}
-              </p>
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30">
-                <Play className="size-6 text-white ml-1 fill-white" />
-              </div>
-            </div>
-          </motion.a>
-        );
-      })}
-    </motion.div>
+            <ChevronRight className="size-5" />
+          </button>
+        )}
+      </div>
+    </section>
   );
 });

@@ -16,10 +16,10 @@ import {
   type UpdateCreatorProfilePayload,
 } from "../api/update-creator-profile";
 import {
-  presignCreatorProfileImageUpload,
-  putFileToPresignedUrl,
-  type PresignProfileImageUploadResponse,
-} from "../api/presign-creator-profile-image";
+  presignCreatorProfileIntroVideoUpload,
+  putIntroVideoToPresignedUrl,
+  type PresignProfileIntroVideoUploadResponse,
+} from "../api/presign-creator-profile-intro-video";
 
 type CreatorProfileMode = "create" | "update";
 
@@ -33,17 +33,23 @@ type SubmitCreatorProfileResult =
   | { status: "updated" }
   | { status: "already-exists" };
 
-export function useUploadCreatorProfileImageMutation() {
+export function useUploadCreatorIntroVideoMutation(mode: CreatorProfileMode) {
   return useMutation({
-    mutationKey: ["creators", "profile", "image-upload"],
+    mutationKey: ["creators", "profile", "intro-video-upload", mode],
     mutationFn: async (
-      file: File,
-    ): Promise<PresignProfileImageUploadResponse | null> => {
-      const presign = await presignCreatorProfileImageUpload({
-        contentType: file.type,
+      {
+        file,
+        contentType,
+      }: {
+        file: File;
+        contentType: string;
+      },
+    ): Promise<PresignProfileIntroVideoUploadResponse | null> => {
+      const presign = await presignCreatorProfileIntroVideoUpload({
+        contentType,
         contentLength: file.size,
       });
-      await putFileToPresignedUrl(file, presign);
+      await putIntroVideoToPresignedUrl(file, presign);
       return presign;
     },
     onSuccess: (result) => {
@@ -51,10 +57,19 @@ export function useUploadCreatorProfileImageMutation() {
         return;
       }
 
-      toast.success("Photo uploaded — save your profile to apply.");
+      toast.success(
+        mode === "update"
+          ? "Intro video uploaded — save your profile to apply."
+          : "Intro video uploaded — create your profile to apply.",
+      );
     },
-    onError: () => {
-      toast.error("Could not upload image. Try again.");
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 403) {
+        toast.error("You do not have access to upload an intro video.");
+        return;
+      }
+
+      toast.error("Could not upload intro video. Try again.");
     },
   });
 }

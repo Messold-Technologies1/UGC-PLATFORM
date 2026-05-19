@@ -1,13 +1,12 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
-export type PresignProfileImageUploadPayload = {
+export type PresignBriefProductImageUploadPayload = {
   contentType: string;
   contentLength?: number;
 };
 
-
-export type PresignProfileImageUploadResponse = {
+export type PresignBriefProductImageUploadResponse = {
   key: string;
   uploadUrl: string;
   headers: Record<string, string>;
@@ -15,20 +14,19 @@ export type PresignProfileImageUploadResponse = {
   cdnUrl: string;
 };
 
-export async function presignCreatorProfileImageUpload(
-  payload: PresignProfileImageUploadPayload,
-): Promise<PresignProfileImageUploadResponse> {
-  const { data } = await api.post<PresignProfileImageUploadResponse>(
-    ENDPOINTS.CREATORS.PROFILE_IMAGE_PRESIGN,
+export async function presignBriefProductImageUpload(
+  payload: PresignBriefProductImageUploadPayload,
+): Promise<PresignBriefProductImageUploadResponse> {
+  const { data } = await api.post<PresignBriefProductImageUploadResponse>(
+    ENDPOINTS.BRIEFS.PRODUCT_IMAGE_PRESIGN,
     payload,
   );
   return data;
 }
 
-
-export async function putFileToPresignedUrl(
+export async function putProductImageToPresignedUrl(
   file: File,
-  presign: PresignProfileImageUploadResponse,
+  presign: PresignBriefProductImageUploadResponse,
 ): Promise<void> {
   const res = await fetch(presign.uploadUrl, {
     method: "PUT",

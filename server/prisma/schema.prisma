@@ -497,6 +497,9 @@ model Brief {
   /// Links (Instagram / Drive / Youtube)
   referenceLinks Json @default("[]")
 
+  /// Campaign script (arbitrary JSON object or array).
+  script Json?
+
   finalNotes String?
 
   createdAt DateTime @default(now())

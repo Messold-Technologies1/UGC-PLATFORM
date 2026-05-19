@@ -82,6 +82,8 @@ export type CreatorPublicListItemApi = {
   age?: number | null;
   contentVolume?: CreatorContentVolumeBucket | string | null;
   collaborationCount?: number;
+  avgRating?: string | null;
+  reviewCount: number;
   onLocationAvailable: boolean;
   languages: string[];
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
@@ -118,6 +120,8 @@ export type CreatorProfileItemApi = {
   snapchatUrl?: string | null;
   contentVolume?: CreatorContentVolumeBucket | string | null;
   collaborationCount?: number;
+  avgRating?: string | null;
+  reviewCount: number;
   travelRadius?: number | null;
   onLocationAvailable?: boolean;
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
@@ -177,4 +181,30 @@ export type UpsertCreatorPayoutDetailsApi = {
   accountNumber?: string;
   ifsc?: string;
   upiId?: string;
+};
+
+export type CreatorRatingReviewBrandSnapshotApi = {
+  id: string;
+  brandName: string;
+  logoUrl?: string | null;
+};
+
+export type CreatorRatingReviewApi = {
+  id: string;
+  orderId: string;
+  creatorId: string;
+  rating: number;
+  review?: string | null;
+  packageNameSnapshot?: string | null;
+  brand: CreatorRatingReviewBrandSnapshotApi;
+  createdAt: string;
+};
+
+export type ListCreatorRatingReviewsResponse = {
+  items: CreatorRatingReviewApi[];
+  total: number;
+  page: number;
+  limit: number;
+  avgRating?: string | null;
+  reviewCount: number;
 };

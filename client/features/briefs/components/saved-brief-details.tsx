@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
+import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 
 function formatEnumLabel(value: string | string[] | null | undefined) {
@@ -147,6 +148,8 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
       </div>
     );
   }
+
+  const scriptSummary = formatBriefScript(brief.script);
 
   return (
     <>
@@ -356,6 +359,20 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                       No references added.
                     </p>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Script
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {scriptSummary?.label || "N/A"}
+                  </p>
+                  {scriptSummary?.text ? (
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                      {scriptSummary.text}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2">

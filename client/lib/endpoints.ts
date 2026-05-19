@@ -23,6 +23,8 @@ export const ENDPOINTS = {
     SUGGESTIONS_CATEGORIES: "/api/creators/suggestions/categories",
     SUGGESTIONS_PERSONA_TAGS: "/api/creators/suggestions/persona-tags",
     SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
+    RATING_REVIEWS: (id: string) =>
+      `/api/creators/${encodeURIComponent(id)}/rating-reviews`,
   },
   BRANDS: {
     PROFILE: "/api/brands/profile",
@@ -73,6 +75,8 @@ export const ENDPOINTS = {
     ACCEPT: (id: string) => `/api/orders/${encodeURIComponent(id)}/accept`,
     REQUEST_REVISION: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions/request`,
+    RATING_REVIEW: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/rating-review`,
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",

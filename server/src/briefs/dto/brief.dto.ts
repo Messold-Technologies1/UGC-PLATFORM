@@ -78,6 +78,13 @@ export class BriefDto {
   @ApiProperty({ type: [String] })
   referenceLinks!: string[];
 
+  @ApiPropertyOptional({
+    description: 'Campaign script (JSON object or array).',
+    type: 'object',
+    additionalProperties: true,
+  })
+  script?: Record<string, unknown> | unknown[] | null;
+
   @ApiPropertyOptional()
   finalNotes?: string | null;
 

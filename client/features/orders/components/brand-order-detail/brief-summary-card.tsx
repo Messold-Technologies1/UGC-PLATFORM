@@ -6,11 +6,11 @@ import {
   FileText,
   Image as ImageIcon,
   Link2,
-  Package,
   Truck,
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import type { OrderBriefPayload } from "../../api/get-order-brief";
 import type { OrderDetailsPublic } from "../../api/types";
 
@@ -110,6 +110,7 @@ export function BriefSummaryCard({
   const willShipProduct =
     brief?.willShipPhysicalProductToCreator ??
     order.requiresPhysicalProductShipment;
+  const scriptSummary = formatBriefScript(brief?.script);
 
   function handleViewFullBrief() {
     if (briefId) {
@@ -163,17 +164,17 @@ export function BriefSummaryCard({
           icon={FileText}
           iconColor="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
           label="Script"
-          value={
-            brief?.keyNoteToInclude
-              ? "Creator will write the script"
-              : "Key points provided"
-          }
+          value={scriptSummary?.label ?? "Not specified"}
         >
-          {brief?.keyNoteToInclude && (
+          {scriptSummary?.text ? (
+            <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2">
+              {scriptSummary.text}
+            </p>
+          ) : brief?.keyNoteToInclude ? (
             <p className="text-[12px] text-muted-foreground mt-0.5">
               Key points provided
             </p>
-          )}
+          ) : null}
         </BriefField>
 
         <BriefField

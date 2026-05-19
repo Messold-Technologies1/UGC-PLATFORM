@@ -90,7 +90,7 @@ export function BrandOrderShippingView({
   }
 
   const { order, creator } = data;
-  const briefId = orderBriefData?.brief?.id ?? null;
+  const briefId = order.briefId ?? orderBriefData?.brief?.id ?? null;
 
   return (
     <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">

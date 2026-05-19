@@ -203,10 +203,10 @@ export const ProfileHeader = memo(function ProfileHeader({
             </div>
             <div>
               <p className="text-lg font-bold leading-tight text-foreground">
-                {creator.rating > 0 ? creator.rating.toFixed(1) : "5.0"}
+                {creator.rating > 0 ? creator.rating.toFixed(1) : "New"}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                ({creator.reviewCount > 0 ? creator.reviewCount : 8} Reviews)
+                ({creator.reviewCount} Reviews)
               </p>
             </div>
           </div>

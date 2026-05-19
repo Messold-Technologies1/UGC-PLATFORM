@@ -7,13 +7,24 @@ interface ReviewsTabProps {
   reviews: Review[];
   overallRating: number;
   totalReviews: number;
+  isLoading?: boolean;
 }
 
 export const ReviewsTab = memo(function ReviewsTab({
   reviews,
   overallRating,
   totalReviews,
+  isLoading = false,
 }: ReviewsTabProps) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-28 animate-pulse rounded-xl border border-border bg-card" />
+        <div className="h-32 animate-pulse rounded-xl border border-border bg-card" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
@@ -55,6 +66,11 @@ export const ReviewsTab = memo(function ReviewsTab({
       </div>
 
       <div className="space-y-4">
+        {reviews.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
+            No reviews yet.
+          </div>
+        ) : null}
         {reviews.map((review) => (
           <div
             key={review.id}

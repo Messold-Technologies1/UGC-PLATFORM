@@ -6,9 +6,10 @@ import dynamic from "next/dynamic";
 import { ArrowLeft, Share2 } from "lucide-react";
 import { ProfileHeader } from "./profile-header";
 import { TrustStrip } from "./trust-strip";
-import type { CreatorProfile as CreatorProfileType } from "../types";
+import type { CreatorProfile as CreatorProfileType, Review } from "../types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
+import { useCreatorRatingReviewsQuery } from "../hooks/use-creator-rating-reviews-query";
 
 function SectionSkeleton() {
   return (
@@ -65,6 +66,11 @@ const SimilarCreatorsSection = dynamic(
   { loading: () => <SectionSkeleton /> },
 );
 
+const ReviewsTab = dynamic(
+  () => import("./reviews-tab").then((m) => ({ default: m.ReviewsTab })),
+  { loading: () => <SectionSkeleton /> },
+);
+
 interface CreatorProfileProps {
   creator: CreatorProfileType;
   initialPortfolioVideos?: PortfolioVideoApi[];
@@ -87,6 +93,30 @@ export function CreatorProfile({
     () => creator.addOns.filter((addOn) => selectedAddOnIds.includes(addOn.id)),
     [creator.addOns, selectedAddOnIds],
   );
+  const reviewsQuery = useCreatorRatingReviewsQuery(
+    creator.id,
+    { page: 1, limit: 20 },
+  );
+  const reviewSummary = reviewsQuery.data;
+  const reviews = useMemo<Review[]>(
+    () =>
+      (reviewSummary?.items ?? []).map((item) => ({
+        id: item.id,
+        author: item.brand.brandName,
+        brand: item.packageNameSnapshot || "Order review",
+        rating: item.rating,
+        date: new Intl.DateTimeFormat("en-IN", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }).format(new Date(item.createdAt)),
+        comment: item.review?.trim() || "No written review.",
+      })),
+    [reviewSummary?.items],
+  );
+  const overallRating =
+    Number.parseFloat(reviewSummary?.avgRating ?? "") || creator.rating || 0;
+  const totalReviews = reviewSummary?.reviewCount ?? creator.reviewCount;
 
   const { isProcessing, startCheckout } = useRazorpayCheckout({
     creator,
@@ -163,6 +193,15 @@ export function CreatorProfile({
 
       <div className="px-6 sm:px-8 lg:px-10">
         <InfoCardsSection creator={creator} />
+      </div>
+
+      <div className="px-6 sm:px-8 lg:px-10">
+        <ReviewsTab
+          reviews={reviews}
+          overallRating={overallRating}
+          totalReviews={totalReviews}
+          isLoading={reviewsQuery.isLoading}
+        />
       </div>
 
       <div className="px-6 sm:px-8 lg:px-10">

@@ -50,6 +50,13 @@ export class OrderDetailsPublicDto {
   @ApiProperty({ example: true })
   hasBrief!: boolean;
 
+  @ApiPropertyOptional({
+    example: 'uuid',
+    description:
+      'Saved brief id when hasBrief is true; use GET /briefs/:id (brand) or GET /orders/:id/brief.',
+  })
+  briefId?: string;
+
   @ApiPropertyOptional()
   deliveryDeadlineAt?: Date | null;
 

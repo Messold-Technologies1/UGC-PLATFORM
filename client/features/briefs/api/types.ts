@@ -28,6 +28,8 @@ export type BriefToneStyle =
   | "TRENDY"
   | "CREATOR_DECIDES";
 
+export type BriefScript = Record<string, unknown> | unknown[];
+
 export type BriefFieldOptionsResponse = {
   shootLocationKinds: BriefShootLocationKind[];
   durationBuckets: BriefDurationBucket[];
@@ -57,6 +59,7 @@ export type Brief = {
   keyNoteToInclude?: string | null;
   ctaNote?: string | null;
   referenceLinks: string[];
+  script?: BriefScript | null;
   finalNotes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -86,6 +89,7 @@ export type CreateBriefPayload = {
   keyNoteToInclude?: string;
   ctaNote?: string;
   referenceLinks?: string[];
+  script?: BriefScript;
   finalNotes?: string;
 };
 

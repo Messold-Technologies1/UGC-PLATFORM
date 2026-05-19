@@ -73,6 +73,11 @@ function toBriefPayload(values: BriefFormValues): CreateBriefPayload {
       ? "BRAND_SELECTED_LOCATION"
       : "CREATOR_DECIDES",
     referenceLinks,
+    script: {
+      mode: "BRAND_PROVIDED",
+      label: "Brand-provided instructions",
+      text: values.instructions.trim(),
+    },
     finalNotes: values.notes.trim() || undefined,
   };
 }

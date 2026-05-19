@@ -84,6 +84,13 @@ function minPackagePrice(
   return min ?? 0;
 }
 
+function parseRating(value: string | number | null | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (!value) return 0;
+  const rating = Number.parseFloat(value);
+  return Number.isFinite(rating) ? rating : 0;
+}
+
 function buildTags(profile: ListingProfileApi): string[] {
   const fromCategories = getProfileCategories(profile);
   const fromPersona = getProfilePersonaTags(profile);
@@ -130,10 +137,10 @@ export function mapProfileToListingCreator(
     id: profile.id,
     name: getProfileName(profile),
     location: trimString(profile.city) || "Location not set",
-    rating: 0,
-    reviewCount: 0,
+    rating: parseRating(profile.avgRating),
+    reviewCount: profile.reviewCount ?? 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
-    ordersCompleted: 0,
+    ordersCompleted: profile.collaborationCount ?? 0,
     thumbnail,
     previewVideoUrl,
     introVideoUrl: introVideoUrl || null,
@@ -153,7 +160,12 @@ export function mapProfileToListingCreator(
       (profile.packages?.[0] as { deliveryDays?: number } | undefined)
         ?.deliveryDays ?? 5,
     basicEditing: (() => {
-      const firstPkg = profile.packages?.[0] as any;
+      const firstPkg = profile.packages?.[0] as
+        | {
+            basicEditing?: boolean;
+            deliverables?: string[];
+          }
+        | undefined;
       if (!firstPkg) return true;
       if (typeof firstPkg.basicEditing === "boolean") return firstPkg.basicEditing;
       if (Array.isArray(firstPkg.deliverables)) {

@@ -24,6 +24,7 @@ export interface OrderBriefPayload {
   keyNoteToInclude?: string | null;
   ctaNote?: string | null;
   referenceLinks: string[];
+  script?: Record<string, unknown> | unknown[] | null;
   finalNotes?: string | null;
   createdAt: string;
   updatedAt: string;

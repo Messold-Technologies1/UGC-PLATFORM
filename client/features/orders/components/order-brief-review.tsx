@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { Spinner } from "@/components/ui/spinner";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "@/features/orders/hooks/use-accept-brief-mutation";
@@ -139,6 +140,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
 
   const brandLogoUrl = brief.brandLogo?.url;
   const pronunciationAudioUrl = brief.brandPronunciationAudio?.url;
+  const scriptSummary = formatBriefScript(brief.script);
 
   return (
     <div className="space-y-8">
@@ -307,6 +309,20 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                 No references added.
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Script
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              {scriptSummary?.label || "N/A"}
+            </p>
+            {scriptSummary?.text ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                {scriptSummary.text}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

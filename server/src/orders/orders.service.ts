@@ -890,6 +890,7 @@ export class OrdersService {
     currency: string;
     deliveryDaysSnapshot: number;
     paidAt: Date | null;
+    briefId: string | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
@@ -897,6 +898,7 @@ export class OrdersService {
     createdAt: Date;
     updatedAt: Date;
   }): OrderListSummaryDto {
+    const hasBrief = order.briefSubmittedAt != null;
     return {
       id: order.id,
       status: order.status,
@@ -908,7 +910,8 @@ export class OrdersService {
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
-      hasBrief: order.briefSubmittedAt != null,
+      hasBrief,
+      ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -928,6 +931,7 @@ export class OrdersService {
     addOnsTotalSnapshot: Prisma.Decimal | null;
     expectedAmountPaise: number;
     paidAt: Date | null;
+    briefId: string | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
@@ -960,6 +964,8 @@ export class OrdersService {
       }))
       .filter((a) => a.id && a.name);
 
+    const hasBrief = order.briefSubmittedAt != null;
+
     return {
       id: order.id,
       status: order.status,
@@ -975,7 +981,8 @@ export class OrdersService {
       trackingId: order.trackingId ?? null,
       dispatchedAt: order.dispatchedAt ?? null,
       productReceivedAt: order.productReceivedAt ?? null,
-      hasBrief: order.briefSubmittedAt != null,
+      hasBrief,
+      ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -1033,6 +1040,7 @@ export class OrdersService {
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
         paidAt: true,
+        briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
@@ -1099,6 +1107,7 @@ export class OrdersService {
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
         paidAt: true,
+        briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
@@ -1191,6 +1200,7 @@ export class OrdersService {
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
         paidAt: true,
+        briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
@@ -1268,6 +1278,7 @@ export class OrdersService {
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
+          briefId: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
@@ -1333,6 +1344,7 @@ export class OrdersService {
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
+          briefId: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
@@ -1379,6 +1391,7 @@ export class OrdersService {
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
+          briefId: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
@@ -1454,6 +1467,7 @@ export class OrdersService {
             keyNoteToInclude: true,
             ctaNote: true,
             referenceLinks: true,
+            script: true,
             finalNotes: true,
             createdAt: true,
             updatedAt: true,
@@ -1511,6 +1525,12 @@ export class OrdersService {
           referenceLinks: Array.isArray(order.briefRef.referenceLinks)
             ? order.briefRef.referenceLinks
             : [],
+          script:
+            order.briefRef.script !== null &&
+            order.briefRef.script !== undefined &&
+            typeof order.briefRef.script === 'object'
+              ? order.briefRef.script
+              : null,
           finalNotes: order.briefRef.finalNotes ?? null,
           createdAt: order.briefRef.createdAt,
           updatedAt: order.briefRef.updatedAt,

@@ -164,6 +164,14 @@ const contentTypeIcons: Record<BriefContentType, LucideIcon> = {
   CREATOR_DECIDES: Video,
 };
 
+const scriptOptionValues = [
+  "BRAND_PROVIDED",
+  "CREATOR_WRITES",
+  "AI_ASSISTED",
+] as const;
+
+type ScriptOptionValue = (typeof scriptOptionValues)[number];
+
 function humanizeEnumValue(value: string) {
   return value
     .split("_")
@@ -241,6 +249,12 @@ const createBriefSchema = z
           });
         }
       }),
+    scriptOption: z.enum(scriptOptionValues),
+    scriptText: z
+      .string()
+      .trim()
+      .max(10_000, "Script must be 10,000 characters or fewer")
+      .optional(),
     finalNotes: z.string().trim().optional(),
   })
   .superRefine((values, ctx) => {
@@ -276,6 +290,8 @@ const createBriefDefaultValues: CreateBriefValues = {
   keyNoteToInclude: "",
   ctaNote: "",
   referenceLinks: "",
+  scriptOption: "CREATOR_WRITES",
+  scriptText: "",
   finalNotes: "",
 };
 
@@ -293,6 +309,7 @@ function toReferenceLinks(value: string | undefined) {
 
 function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
   const referenceLinks = toReferenceLinks(values.referenceLinks);
+  const scriptText = optionalString(values.scriptText);
 
   return {
     brandName: optionalString(values.brandName),
@@ -326,8 +343,25 @@ function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
     keyNoteToInclude: optionalString(values.keyNoteToInclude),
     ctaNote: optionalString(values.ctaNote),
     referenceLinks: referenceLinks.length > 0 ? referenceLinks : undefined,
+    script: {
+      mode: values.scriptOption,
+      label: getScriptOptionLabel(values.scriptOption),
+      ...(scriptText ? { text: scriptText } : {}),
+    },
     finalNotes: optionalString(values.finalNotes),
   };
+}
+
+function getScriptOptionLabel(value: ScriptOptionValue) {
+  switch (value) {
+    case "BRAND_PROVIDED":
+      return "I will provide the script";
+    case "AI_ASSISTED":
+      return "AI helps generate script";
+    case "CREATOR_WRITES":
+    default:
+      return "Creator writes script";
+  }
 }
 
 function CreateBriefPageContent() {
@@ -466,6 +500,10 @@ function CreateBriefPageContent() {
       control: form.control,
       name: "toneStyle",
     }) ?? [];
+  const selectedScriptOption = useWatch({
+    control: form.control,
+    name: "scriptOption",
+  });
 
   useEffect(() => {
     if (brandProfileState?.kind !== "ready") {
@@ -537,7 +575,6 @@ function CreateBriefPageContent() {
   const isUploadPending =
     isPronunciationUploadPending || isProductImageUploadPending;
 
-  const [selectedScriptOption, setSelectedScriptOption] = useState<string>("");
   const [showBanner, setShowBanner] = useState<boolean>(isFromOrder);
   const [newLink, setNewLink] = useState("");
 
@@ -633,20 +670,20 @@ function CreateBriefPageContent() {
 
   const scriptOptions = [
     {
-      id: "I will provide the script",
+      id: "BRAND_PROVIDED" as const,
       title: "I will provide the script",
       desc: "I already have a script",
       icon: <FileText className="size-5 text-muted-foreground" />,
     },
     {
-      id: "Creator writes script",
+      id: "CREATOR_WRITES" as const,
       title: "Creator writes script",
       desc: "Creator will write script for you",
       icon: <FileEdit className="size-5 text-primary" />,
       highlighted: true,
     },
     {
-      id: "AI helps generate script",
+      id: "AI_ASSISTED" as const,
       title: "AI helps generate script",
       desc: "Get AI-generated script suggestions",
       badge: "BETA",
@@ -1332,7 +1369,12 @@ function CreateBriefPageContent() {
                     {scriptOptions.map((opt) => (
                       <div
                         key={opt.id}
-                        onClick={() => setSelectedScriptOption(opt.id)}
+                        onClick={() =>
+                          form.setValue("scriptOption", opt.id, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                        }
                         className={cn(
                           "p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between min-h-[120px]",
                           selectedScriptOption === opt.id
@@ -1371,6 +1413,27 @@ function CreateBriefPageContent() {
                       </div>
                     ))}
                   </div>
+                  {selectedScriptOption === "BRAND_PROVIDED" && (
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="scriptText"
+                        className="text-xs font-semibold text-foreground/80"
+                      >
+                        Script
+                      </Label>
+                      <Textarea
+                        id="scriptText"
+                        placeholder="Paste the script, scene notes, or talking points the creator should follow."
+                        className="min-h-[140px] resize-y rounded-lg bg-white"
+                        {...form.register("scriptText")}
+                      />
+                      {form.formState.errors.scriptText && (
+                        <p className="text-[11px] text-destructive">
+                          {form.formState.errors.scriptText.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">

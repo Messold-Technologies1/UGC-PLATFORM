@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useOpenBrandDisputeMutation } from "@/features/orders/hooks/use-open-brand-dispute-mutation";
 import { useGetBrandOrderDetailsQuery } from "../hooks/use-get-brand-order-details-query";
+import { OrderRatingReviewCard } from "./order-rating-review-card";
 import {
   BriefSummaryCard,
   CreatorAcceptanceCard,
@@ -120,7 +121,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   }
 
   const { order, creator } = data;
-  const briefId = orderBriefData?.brief?.id ?? null;
+  const briefId = order.briefId ?? orderBriefData?.brief?.id ?? null;
   const brief = orderBriefData?.brief ?? null;
 
   const canOpenDispute = ![
@@ -166,6 +167,8 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
             <CreatorAcceptanceCard creator={creator} order={order} />
 
             <OrderDetailsCard order={order} />
+
+            <OrderRatingReviewCard order={order} role="brand" />
 
             <NeedHelpCard />
 

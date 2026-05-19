@@ -23,6 +23,7 @@ interface StatusConfig {
 function getStatusConfig(
   status: string,
   creatorName: string,
+  requiresPhysicalProductShipment?: boolean,
 ): StatusConfig {
   switch (status) {
     case "BRIEF_SUBMISSION_PENDING":
@@ -42,10 +43,19 @@ function getStatusConfig(
         variant: "info",
       };
     case "BRIEF_ACCEPTED":
+      if (requiresPhysicalProductShipment) {
+        return {
+          icon: Info,
+          title: "Brief accepted — awaiting shipment",
+          description: `${creatorName} has accepted your brief. Ship your product to begin the production process.`,
+          showTimer: false,
+          variant: "info",
+        };
+      }
       return {
         icon: Info,
-        title: "Brief accepted — awaiting shipment",
-        description: `${creatorName} has accepted your brief. Ship your product to begin the production process.`,
+        title: "Brief accepted — In progress",
+        description: `${creatorName} has accepted your brief and is working on your content.`,
         showTimer: false,
         variant: "info",
       };
@@ -136,7 +146,11 @@ import { useAcceptanceCountdown } from "../../hooks/use-acceptance-countdown";
 
 export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
   const creatorName = creator?.displayName ?? "Creator";
-  const config = getStatusConfig(order.status, creatorName);
+  const config = getStatusConfig(
+    order.status,
+    creatorName,
+    order.requiresPhysicalProductShipment,
+  );
   const Icon = config.icon;
   const { hours, minutes, seconds } = useAcceptanceCountdown(
     order.briefSubmittedAt,
@@ -178,7 +192,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
         </div>
       )}
 
-      {order.status === "BRIEF_ACCEPTED" && (
+      {order.status === "BRIEF_ACCEPTED" && order.requiresPhysicalProductShipment && (
         <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
           <Link href={`/brand/orders/${order.id}/shipping`}>
             Add Shipping Details

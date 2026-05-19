@@ -24,6 +24,7 @@ interface StepDefinition {
   dateKey: keyof OrderDetailsPublic | null;
   statusMatch: string[];
   getHref?: (orderId: string) => string;
+  isSkipped?: boolean;
 }
 
 const STEPS: StepDefinition[] = [
@@ -72,15 +73,15 @@ const STEPS: StepDefinition[] = [
   },
 ];
 
-function getActiveStepIndex(status: string): number {
-  for (let i = 0; i < STEPS.length; i++) {
-    if (STEPS[i].statusMatch.includes(status)) {
+function getActiveStepIndex(status: string, steps: StepDefinition[]): number {
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i].statusMatch.includes(status)) {
       return i;
     }
   }
   if (status === "PENDING_PAYMENT") return 0;
   if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(status))
-    return STEPS.length;
+    return steps.length;
   return 0;
 }
 
@@ -99,15 +100,40 @@ function formatStepDate(value?: string | null) {
 }
 
 export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
-  const activeIndex = getActiveStepIndex(order.status);
+  const steps = STEPS.map((step) => {
+    if (
+      step.label === "Awaiting\nShipment" &&
+      !order.requiresPhysicalProductShipment
+    ) {
+      return {
+        ...step,
+        statusMatch: [],
+        isSkipped: true,
+      };
+    }
+    if (
+      step.label === "In Progress" &&
+      !order.requiresPhysicalProductShipment
+    ) {
+      return {
+        ...step,
+        statusMatch: [...step.statusMatch, "BRIEF_ACCEPTED"],
+      };
+    }
+    return step;
+  });
+  
+  const activeIndex = getActiveStepIndex(order.status, steps);
 
   return (
     <div className="rounded-2xl border bg-card p-6 md:p-8 overflow-x-auto">
       <div className="flex items-start justify-between min-w-[700px]">
-        {STEPS.map((step, index) => {
-          const isCompleted = index < activeIndex;
-          const isActive = index === activeIndex;
-          const isPending = index > activeIndex;
+        {steps.map((step, index) => {
+          const isSkipped = step.isSkipped;
+          const isPassed = index <= activeIndex;
+          const isCompleted = index < activeIndex && !isSkipped;
+          const isActive = index === activeIndex && !isSkipped;
+          const isPending = index > activeIndex || isSkipped;
           const Icon = step.icon;
 
           const dateValue = step.dateKey
@@ -119,15 +145,19 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
               <div
                 className={cn(
                   "relative z-10 flex size-10 items-center justify-center rounded-full border-2 transition-colors",
-                  isCompleted
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : isActive
-                      ? "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
-                      : "border-border bg-muted text-muted-foreground",
+                  isSkipped
+                    ? "border-border bg-muted/50 text-muted-foreground opacity-40"
+                    : isCompleted
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : isActive
+                        ? "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
+                        : "border-border bg-muted text-muted-foreground",
                 )}
               >
                 {isCompleted ? (
                   <Check className="size-5" strokeWidth={2.5} />
+                ) : isSkipped ? (
+                  <Icon className="size-4 opacity-50" />
                 ) : (
                   <Icon className="size-4" />
                 )}
@@ -136,11 +166,13 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
               <p
                 className={cn(
                   "mt-2 text-center text-xs font-medium whitespace-pre-line leading-tight",
-                  isCompleted
-                    ? "text-foreground"
-                    : isActive
-                      ? "text-foreground font-semibold"
-                      : "text-muted-foreground",
+                  isSkipped
+                    ? "text-muted-foreground opacity-50 line-through decoration-muted-foreground/30"
+                    : isCompleted
+                      ? "text-foreground"
+                      : isActive
+                        ? "text-foreground font-semibold"
+                        : "text-muted-foreground",
                 )}
               >
                 {step.label}
@@ -153,6 +185,10 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
               ) : isActive ? (
                 <span className="mt-1.5 text-[10px] font-semibold text-primary">
                   Current step
+                </span>
+              ) : isSkipped ? (
+                <span className="mt-1.5 text-[10px] font-medium text-muted-foreground opacity-60">
+                  Not Required
                 </span>
               ) : isPending ? (
                 <span className="mt-1 h-3" />
@@ -173,16 +209,16 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
                   <div
                     className={cn(
                       "h-full w-full",
-                      isCompleted || isActive ? "bg-primary" : "bg-border",
+                      isPassed ? "bg-primary" : "bg-border",
                     )}
                   />
                 </div>
               )}
 
-              {step.getHref ? (
+              {step.getHref && (isActive || isCompleted) ? (
                 <Link
                   href={step.getHref(order.id)}
-                  className="flex flex-col items-center"
+                  className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer"
                 >
                   <StepContent />
                 </Link>

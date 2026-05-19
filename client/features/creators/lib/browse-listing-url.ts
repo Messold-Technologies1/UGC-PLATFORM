@@ -52,7 +52,7 @@ export function parseBrowseListingParams(
       industry: sp.get("industry")?.trim() ?? DEFAULT_FILTERS.industry,
       portfolioTag:
         sp.get("portfolioTag")?.trim() ?? DEFAULT_FILTERS.portfolioTag,
-      personaTags: parseMultiValue(sp, "personaTags"),
+      // personaTags: parseMultiValue(sp, "personaTags"),
       restrictions: parseMultiValue(sp, "restrictions"),
       // Facet-based filters
       contentFormat: parseMultiValue(sp, "contentFormat"),
@@ -74,7 +74,7 @@ export function parseBrowseListingParams(
 /** All multi-value filter keys that get serialized with `append` */
 const MULTI_VALUE_KEYS = [
   "categories",
-  "personaTags",
+  // "personaTags",
   "restrictions",
   "contentFormat",
   "appearance",

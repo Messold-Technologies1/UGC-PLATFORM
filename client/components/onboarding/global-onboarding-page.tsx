@@ -30,6 +30,7 @@ export type GlobalOnboardingPageProps = {
   onClose: () => void;
 
   onBrandDismiss?: () => void;
+  onCreatorBack?: () => void;
   onProfileCreated?: () => void | Promise<void>;
   className?: string;
 };

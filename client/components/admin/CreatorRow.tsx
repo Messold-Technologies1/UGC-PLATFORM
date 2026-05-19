@@ -42,7 +42,7 @@ export default function CreatorRow({
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.displayName)}&background=random`;
   };
 
-  const niche = creator.categories?.[0]?.category || "Creator";
+  const niche = creator.facetSelections?.find(f => f.dimension === "CONTENT_CATEGORY")?.label || "Creator";
   const portfolioVideos = creator.firstPortfolioVideo
     ? [
         creator.firstPortfolioVideo.thumbnailUrl ||

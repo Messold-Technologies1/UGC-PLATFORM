@@ -70,6 +70,7 @@ export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
   "order.brief_accepted": (e: OrderBriefAcceptedEvent) => void;
+  "order.product_shipped": (e: OrderProductShippedEvent) => void;
   "order.product_received": (e: OrderProductReceivedEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;

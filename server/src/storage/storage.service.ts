@@ -31,6 +31,26 @@ function extFromContentType(contentType: string): string | null {
   return null;
 }
 
+const MIME_BY_EXT: Record<string, string> = {
+  webm: 'audio/webm',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+};
+
+function resolveMimeTypeFromObjectKey(key: string): string | null {
+  const fileName = key.split('/').pop();
+  const ext = fileName?.includes('.') ? fileName.split('.').pop()?.toLowerCase() : null;
+  if (!ext) return null;
+  return MIME_BY_EXT[ext] ?? null;
+}
+
 function validateContentType(kind: StorageUploadKind, contentType: string): void {
   const ct = contentType.toLowerCase().split(';')[0]?.trim();
   const isImage =
@@ -53,7 +73,8 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
   }
   if (
     kind === 'creator_portfolio_thumbnail' ||
-    kind === 'brand_logo'
+    kind === 'brand_logo' ||
+    kind === 'brief_product_image'
   ) {
     if (!isImage) throw new Error('Unsupported image content type');
     return;
@@ -62,7 +83,7 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
     if (!isImage && !isVideo) throw new Error('Unsupported delivery content type');
     return;
   }
-  if (kind === 'brand_pronunciation_audio') {
+  if (kind === 'brand_pronunciation_audio' || kind === 'order_chat_voice_message') {
     if (!isAudio) throw new Error('Unsupported audio content type');
     return;
   }
@@ -106,6 +127,7 @@ export class StorageService {
     userId: string;
     creatorProfileId?: string;
     brandProfileId?: string;
+    briefId?: string;
     orderId?: string;
     revisionNumber?: number;
     contentType: string;
@@ -125,6 +147,12 @@ export class StorageService {
       return `creator-profile-intro-temp/${input.userId}/${id}.${ext}`;
     }
 
+    if (input.kind === 'order_chat_voice_message') {
+      const orderId = input.orderId;
+      if (!orderId) throw new Error('orderId is required');
+      return `order-chat-voice/${orderId}/${input.userId}/${id}.${ext}`;
+    }
+
     if (input.kind === 'brand_logo') {
       const brandId = input.brandProfileId;
       if (brandId) {
@@ -139,6 +167,14 @@ export class StorageService {
         return `brand-pronunciation/${brandId}/${id}.${ext}`;
       }
       return this.buildTempBrandPronunciationAudioKey(input.userId, ext);
+    }
+
+    if (input.kind === 'brief_product_image') {
+      const briefId = input.briefId;
+      if (briefId) {
+        return `brief-product/${briefId}/${id}.${ext}`;
+      }
+      return this.buildTempBriefProductImageKey(input.userId, ext);
     }
 
     if (input.kind === 'order_delivery_asset') {
@@ -194,6 +230,29 @@ export class StorageService {
     return key.startsWith(`brand-pronunciation-temp/${userId}/`);
   }
 
+  isOrderChatVoiceKeyForUser(orderId: string, userId: string, key: string): boolean {
+    return key.startsWith(`order-chat-voice/${orderId}/${userId}/`);
+  }
+
+  mimeTypeFromObjectKey(key: string): string | null {
+    return resolveMimeTypeFromObjectKey(key);
+  }
+
+  buildTempBriefProductImageKey(userId: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `brief-product-temp/${userId}/${randomUUID()}.${ext}`;
+  }
+
+  isTempBriefProductImageKeyForUser(userId: string, key: string): boolean {
+    return key.startsWith(`brief-product-temp/${userId}/`);
+  }
+
   async finalizeCreatorIntroVideoKey(input: {
     tempKey: string;
     creatorProfileId: string;
@@ -235,6 +294,37 @@ export class StorageService {
       throw new Error('Invalid temporary brand logo key');
     }
     const finalKey = `brand-logo/${input.brandProfileId}/${fileName}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.tempKey}`,
+      }),
+    );
+
+    if (input.deleteTemp ?? true) {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: input.tempKey,
+        }),
+      );
+    }
+
+    return finalKey;
+  }
+
+  async finalizeBriefProductImageKey(input: {
+    tempKey: string;
+    briefId: string;
+    deleteTemp?: boolean;
+  }): Promise<string> {
+    const fileName = input.tempKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid temporary brief product image key');
+    }
+    const finalKey = `brief-product/${input.briefId}/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

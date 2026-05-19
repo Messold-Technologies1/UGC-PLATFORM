@@ -28,6 +28,15 @@ export type BriefToneStyle =
   | "TRENDY"
   | "CREATOR_DECIDES";
 
+export type BriefScript = Record<string, unknown> | unknown[];
+
+export type BriefFieldOptionsResponse = {
+  shootLocationKinds: BriefShootLocationKind[];
+  durationBuckets: BriefDurationBucket[];
+  contentTypes: BriefContentType[];
+  toneStyles: BriefToneStyle[];
+};
+
 export type Brief = {
   id: string;
   brandName?: string | null;
@@ -39,13 +48,18 @@ export type Brief = {
   productName?: string | null;
   productDescription?: string | null;
   productPageUrl?: string | null;
+  productImageKey?: string | null;
+  productImageUrl?: string | null;
   willShipPhysicalProductToCreator: boolean;
   shootLocationKind?: BriefShootLocationKind | null;
   shootLocationAddress?: string | null;
   durationBucket?: BriefDurationBucket | null;
-  contentType?: BriefContentType | null;
-  toneStyle?: BriefToneStyle | null;
+  contentType: BriefContentType[];
+  toneStyle: BriefToneStyle[];
+  keyNoteToInclude?: string | null;
+  ctaNote?: string | null;
   referenceLinks: string[];
+  script?: BriefScript | null;
   finalNotes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -65,13 +79,17 @@ export type CreateBriefPayload = {
   productName?: string;
   productDescription?: string;
   productPageUrl?: string;
+  productImageKey: string;
   willShipPhysicalProductToCreator?: boolean;
   shootLocationKind?: BriefShootLocationKind;
   shootLocationAddress?: string;
   durationBucket?: BriefDurationBucket;
-  contentType?: BriefContentType;
-  toneStyle?: BriefToneStyle;
+  contentType?: BriefContentType[];
+  toneStyle?: BriefToneStyle[];
+  keyNoteToInclude?: string;
+  ctaNote?: string;
   referenceLinks?: string[];
+  script?: BriefScript;
   finalNotes?: string;
 };
 

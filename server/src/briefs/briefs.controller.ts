@@ -22,16 +22,33 @@ import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { BriefsService } from './briefs.service';
+import { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import { CreateBriefDto } from './dto/create-brief.dto';
 import { CreateBriefResponseDto } from './dto/create-brief-response.dto';
 import { ListBriefsResponseDto } from './dto/list-briefs-response.dto';
 import { BriefDto } from './dto/brief.dto';
+import {
+  PresignBriefProductImageUploadDto,
+  PresignBriefProductImageUploadResponseDto,
+} from './dto/presign-brief-product-image-upload.dto';
 
 @ApiTags('Briefs')
 @ApiBearerAuth()
 @Controller('briefs')
 export class BriefsController {
   constructor(private readonly briefsService: BriefsService) {}
+
+  @Get('field-options')
+  @ApiOperation({
+    summary:
+      'List allowed values for brief shoot location, duration bucket, content type, and tone style',
+    description:
+      'Static catalog aligned with Prisma enums (for pickers). Does not require authentication.',
+  })
+  @ApiOkResponse({ type: BriefFieldOptionsResponseDto })
+  getBriefFieldOptions(): BriefFieldOptionsResponseDto {
+    return this.briefsService.getBriefFieldOptions();
+  }
 
   @Get()
   @RequiredWorkspace('BRAND')
@@ -45,6 +62,23 @@ export class BriefsController {
       brandUserId: req.user.id,
     });
     return { items };
+  }
+
+  @Post('uploads/presign-product-image')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Create a presigned URL for uploading a brief product image',
+    description:
+      'Upload to S3 with PUT, then pass the returned key as productImageKey when creating a brief.',
+  })
+  @ApiOkResponse({ type: PresignBriefProductImageUploadResponseDto })
+  async presignProductImageUpload(
+    @Body() dto: PresignBriefProductImageUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PresignBriefProductImageUploadResponseDto> {
+    return this.briefsService.presignProductImageUpload(req.user.id, dto);
   }
 
   @Get(':id')

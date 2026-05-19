@@ -87,7 +87,7 @@ export function OrderHeader({
   const counterpartyImageUrl =
     role === "brand" ? creator?.profileImageUrl : brand?.logoUrl;
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
-  const briefId = orderBriefData?.brief?.id;
+  const briefId = order?.briefId ?? orderBriefData?.brief?.id;
   const canManageBrief =
     role === "brand" &&
     (order ? order.status === "BRIEF_SUBMISSION_PENDING" && !order.hasBrief : true);

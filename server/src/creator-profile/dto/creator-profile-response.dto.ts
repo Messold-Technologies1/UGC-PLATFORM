@@ -182,16 +182,50 @@ export class CreatorProfileResponseDto {
   shippingAddress?: string | null;
 
   @ApiPropertyOptional({
+    example: 'creator@example.com',
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  contactEmail?: string | null;
+
+  @ApiPropertyOptional({
     description:
       'Omitted when the viewer is not the profile owner or an admin.',
   })
   instagramUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  youtubeUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  tiktokUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  snapchatUrl?: string | null;
 
   @ApiPropertyOptional({ enum: CreatorContentVolumeBucket })
   contentVolume?: CreatorContentVolumeBucket | null;
 
   @ApiProperty()
   collaborationCount!: number;
+
+  @ApiPropertyOptional({
+    example: '4.75',
+    description: 'Average rating from completed order reviews (string decimal)',
+  })
+  avgRating?: string | null;
+
+  @ApiProperty({ example: 12, description: 'Number of brand reviews received' })
+  reviewCount!: number;
 
   @ApiPropertyOptional({ example: 15 })
   travelRadius?: number | null;

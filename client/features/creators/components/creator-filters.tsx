@@ -16,7 +16,7 @@ import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import {
   useCreatorCategorySuggestionsQuery,
-  useCreatorPersonaTagSuggestionsQuery,
+  // useCreatorPersonaTagSuggestionsQuery,
   useCreatorRestrictionSuggestionsQuery,
   useCreatorFacetOptionsQuery,
 } from "../hooks/use-creator-suggestion-queries";
@@ -64,7 +64,6 @@ const AGE_GROUP_OPTIONS = [
   { value: "AGE_55_PLUS", label: "55+" },
 ] as const;
 
-
 const FACET_SECTION_CONFIG: {
   dimension: string;
   label: string;
@@ -83,16 +82,36 @@ const FACET_SECTION_CONFIG: {
     | "language"
   >;
 }[] = [
-  { dimension: "CONTENT_FORMAT", label: "Content Format", filterKey: "contentFormat" },
-  { dimension: "CONTENT_STYLE", label: "Content Style", filterKey: "contentStyle" },
+  {
+    dimension: "CONTENT_FORMAT",
+    label: "Content Format",
+    filterKey: "contentFormat",
+  },
+  {
+    dimension: "CONTENT_STYLE",
+    label: "Content Style",
+    filterKey: "contentStyle",
+  },
   { dimension: "APPEARANCE", label: "Appearance", filterKey: "appearance" },
   { dimension: "CAPABILITY", label: "Capability", filterKey: "capability" },
   { dimension: "LIFE_STYLE", label: "Life Style", filterKey: "lifeStyle" },
   { dimension: "OCCUPATION", label: "Occupation", filterKey: "occupation" },
   { dimension: "INTEREST", label: "Interest", filterKey: "interest" },
-  { dimension: "CATEGORY_EXPERIENCE", label: "Category Experience", filterKey: "categoryExperience" },
-  { dimension: "CAN_CREATE_WITH", label: "Can Create With", filterKey: "canCreateWith" },
-  { dimension: "AI_CONTENT_PERMISSION", label: "AI Content Permission", filterKey: "aiContentPermission" },
+  {
+    dimension: "CATEGORY_EXPERIENCE",
+    label: "Category Experience",
+    filterKey: "categoryExperience",
+  },
+  {
+    dimension: "CAN_CREATE_WITH",
+    label: "Can Create With",
+    filterKey: "canCreateWith",
+  },
+  {
+    dimension: "AI_CONTENT_PERMISSION",
+    label: "AI Content Permission",
+    filterKey: "aiContentPermission",
+  },
   { dimension: "LANGUAGE", label: "Language", filterKey: "language" },
 ];
 
@@ -105,7 +124,7 @@ export interface Filters {
   onLocationAvailable: boolean;
   industry: string;
   portfolioTag: string;
-  personaTags: string[];
+  // personaTags: string[];
   restrictions: string[];
   // Facet-based filters (slugs sent to API)
   contentFormat: string[];
@@ -131,7 +150,7 @@ export const DEFAULT_FILTERS: Filters = {
   onLocationAvailable: false,
   industry: "",
   portfolioTag: "",
-  personaTags: [],
+  // personaTags: [],
   restrictions: [],
   contentFormat: [],
   appearance: [],
@@ -159,10 +178,9 @@ function normalizeSelectedValues(values: string[]) {
   );
 }
 
-
 type MultiSelectFilterKey =
   | "categories"
-  | "personaTags"
+  // | "personaTags"
   | "restrictions"
   | "contentFormat"
   | "appearance"
@@ -176,7 +194,6 @@ type MultiSelectFilterKey =
   | "aiContentPermission"
   | "language";
 
-
 export const CreatorFilters = memo(function CreatorFilters({
   filters,
   onChange,
@@ -188,7 +205,6 @@ export const CreatorFilters = memo(function CreatorFilters({
     setDraftFilters(filters);
   }, [filters]);
 
-  
   const [prevCity, setPrevCity] = useState(draftFilters.city);
   const [localCity, setLocalCity] = useState(draftFilters.city);
   if (draftFilters.city !== prevCity) {
@@ -203,21 +219,27 @@ export const CreatorFilters = memo(function CreatorFilters({
     setLocalIndustry(draftFilters.industry);
   }
 
-  const [prevPortfolioTag, setPrevPortfolioTag] = useState(draftFilters.portfolioTag);
-  const [localPortfolioTag, setLocalPortfolioTag] = useState(draftFilters.portfolioTag);
+  const [prevPortfolioTag, setPrevPortfolioTag] = useState(
+    draftFilters.portfolioTag,
+  );
+  const [localPortfolioTag, setLocalPortfolioTag] = useState(
+    draftFilters.portfolioTag,
+  );
   if (draftFilters.portfolioTag !== prevPortfolioTag) {
     setPrevPortfolioTag(draftFilters.portfolioTag);
     setLocalPortfolioTag(draftFilters.portfolioTag);
   }
 
-  
   const [prevMinPrice, setPrevMinPrice] = useState(draftFilters.minPrice);
   const [prevMaxPrice, setPrevMaxPrice] = useState(draftFilters.maxPrice);
   const [priceDraft, setPriceDraft] = useState<[number, number]>([
     draftFilters.minPrice ? Number(draftFilters.minPrice) : CREATOR_PRICE_MIN,
     draftFilters.maxPrice ? Number(draftFilters.maxPrice) : CREATOR_PRICE_MAX,
   ]);
-  if (draftFilters.minPrice !== prevMinPrice || draftFilters.maxPrice !== prevMaxPrice) {
+  if (
+    draftFilters.minPrice !== prevMinPrice ||
+    draftFilters.maxPrice !== prevMaxPrice
+  ) {
     setPrevMinPrice(draftFilters.minPrice);
     setPrevMaxPrice(draftFilters.maxPrice);
     setPriceDraft([
@@ -226,14 +248,13 @@ export const CreatorFilters = memo(function CreatorFilters({
     ]);
   }
 
-  
   const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
-  const personaSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
-    staleTime: 5 * 60_000,
-  });
+  // const personaSuggestionsQuery = useCreatorPersonaTagSuggestionsQuery({
+  //   staleTime: 5 * 60_000,
+  // });
 
   const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
     staleTime: 5 * 60_000,
@@ -243,8 +264,9 @@ export const CreatorFilters = memo(function CreatorFilters({
     staleTime: 5 * 60_000,
   });
 
-  
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(),
+  );
   const toggleShowMore = useCallback((sectionKey: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -254,7 +276,6 @@ export const CreatorFilters = memo(function CreatorFilters({
     });
   }, []);
 
-  
   const handleChange = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
       setDraftFilters((prev) => ({ ...prev, [key]: value }));
@@ -287,33 +308,30 @@ export const CreatorFilters = memo(function CreatorFilters({
     [],
   );
 
-  const handlePriceCommit = useCallback(
-    ([min, max]: number[]) => {
-      setDraftFilters((prev) => ({
-        ...prev,
-        minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
-        maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
-      }));
-    },
-    [],
-  );
+  const handlePriceCommit = useCallback(([min, max]: number[]) => {
+    setDraftFilters((prev) => ({
+      ...prev,
+      minPrice: min <= CREATOR_PRICE_MIN ? "" : String(min),
+      maxPrice: max >= CREATOR_PRICE_MAX ? "" : String(max),
+    }));
+  }, []);
 
-  
   const categoryNames = useMemo(() => {
     const fromQuery =
-      categorySuggestionsQuery.data?.map((item) => item.name.trim()).filter(Boolean) ??
-      [];
+      categorySuggestionsQuery.data
+        ?.map((item) => item.name.trim())
+        .filter(Boolean) ?? [];
     const fallback = categoryOptions.map((item) => item.trim()).filter(Boolean);
     return normalizeSelectedValues([...fromQuery, ...fallback]);
   }, [categoryOptions, categorySuggestionsQuery.data]);
 
-  const personaNames = useMemo(
-    () =>
-      normalizeSelectedValues(
-        (personaSuggestionsQuery.data ?? []).map((item) => item.name),
-      ),
-    [personaSuggestionsQuery.data],
-  );
+  // const personaNames = useMemo(
+  //   () =>
+  //     normalizeSelectedValues(
+  //       (personaSuggestionsQuery.data ?? []).map((item) => item.name),
+  //     ),
+  //   [personaSuggestionsQuery.data],
+  // );
 
   const restrictionNames = useMemo(
     () =>
@@ -323,7 +341,6 @@ export const CreatorFilters = memo(function CreatorFilters({
     [restrictionSuggestionsQuery.data],
   );
 
-  
   const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
   return (
@@ -350,7 +367,6 @@ export const CreatorFilters = memo(function CreatorFilters({
           defaultValue={DEFAULT_OPEN_SECTIONS}
           className="space-y-0"
         >
-          
           <DropdownFilterSection value="category" label="Content Category">
             {categoryNames.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -368,8 +384,7 @@ export const CreatorFilters = memo(function CreatorFilters({
             )}
           </DropdownFilterSection>
 
-          
-          <DropdownFilterSection value="persona-tags" label="Persona Tags">
+          {/* <DropdownFilterSection value="persona-tags" label="Persona Tags">
             {personaNames.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 No persona tag suggestions are available right now.
@@ -384,12 +399,15 @@ export const CreatorFilters = memo(function CreatorFilters({
                 onToggleExpand={() => toggleShowMore("persona-tags")}
               />
             )}
-          </DropdownFilterSection>
+          </DropdownFilterSection> */}
 
-          
           {FACET_SECTION_CONFIG.map(({ dimension, label, filterKey }) => {
             const options: CreatorFacetOption[] =
-              (facetOptionsByDimension as Record<string, CreatorFacetOption[]> | undefined)?.[dimension] ?? [];
+              (
+                facetOptionsByDimension as
+                  | Record<string, CreatorFacetOption[]>
+                  | undefined
+              )?.[dimension] ?? [];
 
             return (
               <DropdownFilterSection
@@ -406,7 +424,9 @@ export const CreatorFilters = memo(function CreatorFilters({
                 ) : (
                   <CheckboxList
                     items={options.map((o) => o.slug)}
-                    labels={Object.fromEntries(options.map((o) => [o.slug, o.label]))}
+                    labels={Object.fromEntries(
+                      options.map((o) => [o.slug, o.label]),
+                    )}
                     selected={draftFilters[filterKey]}
                     onToggle={(v) => toggleMultiSelect(filterKey, v)}
                     sectionKey={dimension}
@@ -418,7 +438,6 @@ export const CreatorFilters = memo(function CreatorFilters({
             );
           })}
 
-          
           <DropdownFilterSection value="location" label="Location">
             <div className="pb-2">
               <Input
@@ -433,7 +452,6 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          
           <DropdownFilterSection value="restrictions" label="Restrictions">
             <div className="space-y-1">
               {restrictionNames.map((label) => (
@@ -447,10 +465,11 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          
           <DropdownFilterSection value="availability" label="Availability">
             <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] font-medium text-[#374151]">On-Location</span>
+              <span className="text-[13px] font-medium text-[#374151]">
+                On-Location
+              </span>
               <Switch
                 checked={draftFilters.onLocationAvailable}
                 onCheckedChange={(checked) =>
@@ -460,7 +479,6 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          
           <DropdownFilterSection value="price-range" label="Price Range">
             <div className="px-1 py-2">
               <Slider
@@ -469,7 +487,10 @@ export const CreatorFilters = memo(function CreatorFilters({
                 step={PRICE_STEP}
                 value={priceDraft}
                 onValueChange={(value) =>
-                  setPriceDraft([value[0] ?? CREATOR_PRICE_MIN, value[1] ?? CREATOR_PRICE_MAX])
+                  setPriceDraft([
+                    value[0] ?? CREATOR_PRICE_MIN,
+                    value[1] ?? CREATOR_PRICE_MAX,
+                  ])
                 }
                 onValueCommit={handlePriceCommit}
                 trackClassName="h-1 bg-gray-100"
@@ -483,22 +504,46 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          
           <DropdownFilterSection value="gender" label="Gender">
             <div className="space-y-1">
               {GENDER_OPTIONS.map((option) => (
-                <label key={option.value} className="flex items-center gap-3 py-1 cursor-pointer hover:opacity-80">
-                  <div className={cn("flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors", draftFilters.gender === option.value ? "border-primary bg-primary" : "border-gray-300 bg-white")}>
-                    {draftFilters.gender === option.value && <div className="size-1.5 rounded-full bg-white" />}
+                <label
+                  key={option.value}
+                  className="flex items-center gap-3 py-1 cursor-pointer hover:opacity-80"
+                >
+                  <div
+                    className={cn(
+                      "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      draftFilters.gender === option.value
+                        ? "border-primary bg-primary"
+                        : "border-gray-300 bg-white",
+                    )}
+                  >
+                    {draftFilters.gender === option.value && (
+                      <div className="size-1.5 rounded-full bg-white" />
+                    )}
                   </div>
-                  <input type="radio" className="hidden" checked={draftFilters.gender === option.value} onChange={() => handleChange("gender", draftFilters.gender === option.value ? "" : option.value)} />
-                  <span className="text-[13px] font-medium text-[#374151]">{option.label}</span>
+                  <input
+                    type="radio"
+                    className="hidden"
+                    checked={draftFilters.gender === option.value}
+                    onChange={() =>
+                      handleChange(
+                        "gender",
+                        draftFilters.gender === option.value
+                          ? ""
+                          : option.value,
+                      )
+                    }
+                  />
+                  <span className="text-[13px] font-medium text-[#374151]">
+                    {option.label}
+                  </span>
                 </label>
               ))}
             </div>
           </DropdownFilterSection>
 
-          
           <DropdownFilterSection value="age-group" label="Age Group">
             <div className="pb-2">
               <select
@@ -515,11 +560,12 @@ export const CreatorFilters = memo(function CreatorFilters({
             </div>
           </DropdownFilterSection>
 
-          
           <DropdownFilterSection value="video" label="Video">
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">Industry</p>
+                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                  Industry
+                </p>
                 <Input
                   placeholder="Search industry"
                   value={localIndustry}
@@ -532,7 +578,9 @@ export const CreatorFilters = memo(function CreatorFilters({
               </div>
 
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">Portfolio Tag</p>
+                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                  Portfolio Tag
+                </p>
                 <Input
                   placeholder="Search tag"
                   value={localPortfolioTag}
@@ -549,11 +597,26 @@ export const CreatorFilters = memo(function CreatorFilters({
       </div>
 
       <div className="pt-5 mt-2 border-t border-gray-100 space-y-3 shrink-0">
-        <Button className="w-full bg-[#111] text-white hover:bg-black/90 font-semibold h-11 rounded-[8px] shadow-none" onClick={() => onChange(draftFilters)}>
+        <Button
+          className="w-full bg-[#111] text-white hover:bg-black/90 font-semibold h-11 rounded-[8px] shadow-none"
+          onClick={() => onChange(draftFilters)}
+        >
           Apply Filters
         </Button>
-        <Button variant="outline" className="w-full font-semibold border-gray-200 text-[#374151] hover:bg-gray-50 h-11 rounded-[8px] shadow-none" onClick={() => {}}>
-          <svg className="mr-2 size-[18px] text-[#4B5563]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <Button
+          variant="outline"
+          className="w-full font-semibold border-gray-200 text-[#374151] hover:bg-gray-50 h-11 rounded-[8px] shadow-none"
+          onClick={() => {}}
+        >
+          <svg
+            className="mr-2 size-[18px] text-[#4B5563]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -564,8 +627,6 @@ export const CreatorFilters = memo(function CreatorFilters({
     </aside>
   );
 });
-
-
 
 const DropdownFilterSection = memo(function DropdownFilterSection({
   value,
@@ -585,9 +646,7 @@ const DropdownFilterSection = memo(function DropdownFilterSection({
         <span className="text-[14px] font-bold text-[#111]">{label}</span>
         <ChevronDown className="chevron size-4 text-[#6B7280] transition-transform duration-200" />
       </AccordionTrigger>
-      <AccordionContent className="px-0 pb-4 pt-0">
-        {children}
-      </AccordionContent>
+      <AccordionContent className="px-0 pb-4 pt-0">{children}</AccordionContent>
     </AccordionItem>
   );
 });
@@ -629,13 +688,10 @@ const CheckboxItem = memo(function CheckboxItem({
         checked={checked}
         onChange={onChange}
       />
-      <span className="text-[13.5px] font-medium text-[#374151]">
-        {label}
-      </span>
+      <span className="text-[13.5px] font-medium text-[#374151]">{label}</span>
     </label>
   );
 });
-
 
 const CheckboxList = memo(function CheckboxList({
   items,
@@ -673,7 +729,12 @@ const CheckboxList = memo(function CheckboxList({
           onClick={onToggleExpand}
           className="text-[13px] font-semibold text-primary hover:text-primary/80 mt-2 flex items-center gap-1.5"
         >
-          <Plus className={cn("size-3.5 stroke-3 transition-transform", expanded && "rotate-45")} />
+          <Plus
+            className={cn(
+              "size-3.5 stroke-3 transition-transform",
+              expanded && "rotate-45",
+            )}
+          />
           {expanded ? "Show less" : "Show more"}
         </button>
       )}

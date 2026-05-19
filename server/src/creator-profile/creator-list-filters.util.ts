@@ -325,5 +325,6 @@ export function buildCreatorListRelationsInclude(
       take: 1,
       select: portfolioSelect,
     },
+    stats: { select: { avgRating: true, reviewCount: true } },
   };
 }

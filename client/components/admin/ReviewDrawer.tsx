@@ -154,14 +154,14 @@ export default function ReviewDrawer({
                     Creator Details
                   </h3>
                   <div className="space-y-3">
-                    {creator.categories && creator.categories.length > 0 && (
+                    {creator.facetSelections && creator.facetSelections.filter(f => f.dimension === "CONTENT_CATEGORY").length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {creator.categories.map((c) => (
+                        {creator.facetSelections.filter(f => f.dimension === "CONTENT_CATEGORY").map((c) => (
                           <span
                             key={c.id}
                             className="text-[10px] font-bold px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-md uppercase tracking-wider"
                           >
-                            {c.category}
+                            {c.label}
                           </span>
                         ))}
                       </div>

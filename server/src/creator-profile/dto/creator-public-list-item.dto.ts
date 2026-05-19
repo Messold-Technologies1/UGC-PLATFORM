@@ -107,6 +107,15 @@ export class CreatorPublicListItemDto {
   @ApiProperty()
   collaborationCount!: number;
 
+  @ApiPropertyOptional({
+    example: '4.75',
+    description: 'Average rating from completed order reviews (string decimal)',
+  })
+  avgRating?: string | null;
+
+  @ApiProperty({ example: 12, description: 'Number of brand reviews received' })
+  reviewCount!: number;
+
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
 

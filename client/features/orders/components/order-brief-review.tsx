@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { Spinner } from "@/components/ui/spinner";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "@/features/orders/hooks/use-accept-brief-mutation";
@@ -24,12 +25,19 @@ interface OrderBriefReviewProps {
   orderId: string;
 }
 
-function formatEnumLabel(value?: string | null) {
+function formatEnumLabel(value?: string | string[] | null) {
   if (!value) return "N/A";
-  return value
-    .split("_")
-    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-    .join(" ");
+  const values = Array.isArray(value) ? value : [value];
+  if (values.length === 0) return "N/A";
+
+  return values
+    .map((item) =>
+      item
+        .split("_")
+        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+        .join(" "),
+    )
+    .join(", ");
 }
 
 function formatDate(value?: string | null) {
@@ -41,13 +49,7 @@ function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="space-y-1">
       <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -138,6 +140,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
 
   const brandLogoUrl = brief.brandLogo?.url;
   const pronunciationAudioUrl = brief.brandPronunciationAudio?.url;
+  const scriptSummary = formatBriefScript(brief.script);
 
   return (
     <div className="space-y-8">
@@ -158,11 +161,12 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
             </h1>
             <p className="text-sm text-muted-foreground">
               Submitted {formatDate(data.briefSubmittedAt)}
-              {isAccepted ? ` - Accepted ${formatDate(data.briefAcceptedAt)}` : ""}
+              {isAccepted
+                ? ` - Accepted ${formatDate(data.briefAcceptedAt)}`
+                : ""}
             </p>
           </div>
         </div>
-
       </div>
 
       <section className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -196,7 +200,11 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                 <Volume2 className="size-3" />
                 Brand pronunciation
               </p>
-              <audio controls src={pronunciationAudioUrl} className="h-10 w-full max-w-md">
+              <audio
+                controls
+                src={pronunciationAudioUrl}
+                className="h-10 w-full max-w-md"
+              >
                 Your browser does not support the audio element.
               </audio>
             </div>
@@ -234,7 +242,10 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
             <h2 className="text-xl font-bold">Creative</h2>
           </div>
           <div className="space-y-5">
-            <DetailRow label="Duration" value={formatEnumLabel(brief.durationBucket)} />
+            <DetailRow
+              label="Duration"
+              value={formatEnumLabel(brief.durationBucket)}
+            />
             <DetailRow label="Tone" value={formatEnumLabel(brief.toneStyle)} />
             <DetailRow
               label="Location"
@@ -256,6 +267,24 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
           <h2 className="text-xl font-bold">References and Notes</h2>
         </div>
         <div className="space-y-6">
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Key points
+            </p>
+            <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+              {brief.keyNoteToInclude || "N/A"}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Call to action
+            </p>
+            <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+              {brief.ctaNote || "N/A"}
+            </p>
+          </div>
+
           <div className="space-y-3">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Reference links
@@ -276,8 +305,24 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No references added.</p>
+              <p className="text-sm text-muted-foreground">
+                No references added.
+              </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Script
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              {scriptSummary?.label || "N/A"}
+            </p>
+            {scriptSummary?.text ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                {scriptSummary.text}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -304,9 +349,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                 Accepting...
               </>
             ) : (
-              <>
-                Accept Brief
-              </>
+              <>Accept Brief</>
             )}
           </Button>
         </div>

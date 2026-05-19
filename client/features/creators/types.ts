@@ -8,6 +8,7 @@ export interface Creator {
   ordersCompleted: number;
   thumbnail: string;
   previewVideoUrl?: string | null;
+  introVideoUrl?: string | null;
   previewVideoThumbnail?: string | null;
   tags: string[];
   available: boolean;
@@ -33,6 +34,12 @@ export interface CreatorProfile extends Creator {
   restrictions: string[];
 
   travelRadiusKm: number | null;
+
+  facetSelections: {
+    dimension: string;
+    slug: string;
+    label: string;
+  }[];
 
   packages: Package[];
   addOns: AddOn[];

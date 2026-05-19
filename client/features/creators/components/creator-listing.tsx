@@ -62,7 +62,7 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.onLocationAvailable === b.onLocationAvailable &&
     a.industry === b.industry &&
     a.portfolioTag === b.portfolioTag &&
-    stringArraysEqual(a.personaTags, b.personaTags) &&
+    // stringArraysEqual(a.personaTags, b.personaTags) &&
     stringArraysEqual(a.restrictions, b.restrictions) &&
     stringArraysEqual(a.contentFormat, b.contentFormat) &&
     stringArraysEqual(a.appearance, b.appearance) &&
@@ -138,7 +138,6 @@ export function CreatorListing({
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
   const [page, setPage] = useState<number>(() => parsedInitial.page);
 
-
   const listingRef = useRef({ filters, page });
 
   useEffect(() => {
@@ -169,7 +168,6 @@ export function CreatorListing({
       );
       setPage(parsed.page);
     });
-    
   }, [searchParamsKey]);
 
   const apiFilters = useMemo(
@@ -184,41 +182,45 @@ export function CreatorListing({
       onLocationAvailable: filters.onLocationAvailable || undefined,
       minPrice: filters.minPrice || undefined,
       maxPrice: filters.maxPrice || undefined,
-      personaTags: filters.personaTags,
+      // personaTags: filters.personaTags,
       restrictions: filters.restrictions,
-      contentFormat: filters.contentFormat.length ? filters.contentFormat : undefined,
+      contentFormat: filters.contentFormat.length
+        ? filters.contentFormat
+        : undefined,
       appearance: filters.appearance.length ? filters.appearance : undefined,
-      contentStyle: filters.contentStyle.length ? filters.contentStyle : undefined,
+      contentStyle: filters.contentStyle.length
+        ? filters.contentStyle
+        : undefined,
       capability: filters.capability.length ? filters.capability : undefined,
       lifeStyle: filters.lifeStyle.length ? filters.lifeStyle : undefined,
       occupation: filters.occupation.length ? filters.occupation : undefined,
       interest: filters.interest.length ? filters.interest : undefined,
-      categoryExperience: filters.categoryExperience.length ? filters.categoryExperience : undefined,
-      canCreateWith: filters.canCreateWith.length ? filters.canCreateWith : undefined,
-      aiContentPermission: filters.aiContentPermission.length ? filters.aiContentPermission : undefined,
+      categoryExperience: filters.categoryExperience.length
+        ? filters.categoryExperience
+        : undefined,
+      canCreateWith: filters.canCreateWith.length
+        ? filters.canCreateWith
+        : undefined,
+      aiContentPermission: filters.aiContentPermission.length
+        ? filters.aiContentPermission
+        : undefined,
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
     [filters, page],
   );
 
-  const {
-    data,
-    isPending,
-    isError,
-    error,
-    refetch,
-    isFetching,
-  } = useCreatorsListQuery({
-    filters: apiFilters,
-    initialData:
-      initialData &&
-      initialData.page === page &&
-      initialData.limit === BROWSE_LIST_LIMIT &&
-      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
-        ? initialData
-        : undefined,
-  });
+  const { data, isPending, isError, error, refetch, isFetching } =
+    useCreatorsListQuery({
+      filters: apiFilters,
+      initialData:
+        initialData &&
+        initialData.page === page &&
+        initialData.limit === BROWSE_LIST_LIMIT &&
+        filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+          ? initialData
+          : undefined,
+    });
 
   const creators = useMemo(() => data?.creators ?? [], [data?.creators]);
   const { categoryOptions } = useMemo(
@@ -231,26 +233,81 @@ export function CreatorListing({
     [filters],
   );
 
-
-
   const activeTags = useMemo(() => {
-    const tags: { id: string; label: string; type: keyof Filters; value?: string }[] = [];
-    if (filters.city) tags.push({ id: `city-${filters.city}`, label: filters.city, type: "city" });
-    if (filters.gender) tags.push({ id: `gender-${filters.gender}`, label: filters.gender, type: "gender" });
-    if (filters.ageGroup) tags.push({ id: `age-${filters.ageGroup}`, label: filters.ageGroup.replace("AGE_", "").replace("_", "–").replace("PLUS", "+"), type: "ageGroup" });
-    filters.categories.forEach(c => tags.push({ id: `cat-${c}`, label: c, type: "categories", value: c }));
-    filters.personaTags.forEach(p => tags.push({ id: `persona-${p}`, label: p, type: "personaTags", value: p }));
-    filters.contentFormat.forEach(v => tags.push({ id: `cf-${v}`, label: v, type: "contentFormat", value: v }));
-    filters.appearance.forEach(v => tags.push({ id: `ap-${v}`, label: v, type: "appearance", value: v }));
-    filters.contentStyle.forEach(v => tags.push({ id: `cs-${v}`, label: v, type: "contentStyle", value: v }));
-    filters.capability.forEach(v => tags.push({ id: `cap-${v}`, label: v, type: "capability", value: v }));
-    filters.lifeStyle.forEach(v => tags.push({ id: `ls-${v}`, label: v, type: "lifeStyle", value: v }));
-    filters.occupation.forEach(v => tags.push({ id: `occ-${v}`, label: v, type: "occupation", value: v }));
-    filters.interest.forEach(v => tags.push({ id: `int-${v}`, label: v, type: "interest", value: v }));
-    filters.categoryExperience.forEach(v => tags.push({ id: `ce-${v}`, label: v, type: "categoryExperience", value: v }));
-    filters.canCreateWith.forEach(v => tags.push({ id: `ccw-${v}`, label: v, type: "canCreateWith", value: v }));
-    filters.aiContentPermission.forEach(v => tags.push({ id: `acp-${v}`, label: v, type: "aiContentPermission", value: v }));
-    filters.language.forEach(v => tags.push({ id: `lang-${v}`, label: v, type: "language", value: v }));
+    const tags: {
+      id: string;
+      label: string;
+      type: keyof Filters;
+      value?: string;
+    }[] = [];
+    if (filters.city)
+      tags.push({
+        id: `city-${filters.city}`,
+        label: filters.city,
+        type: "city",
+      });
+    if (filters.gender)
+      tags.push({
+        id: `gender-${filters.gender}`,
+        label: filters.gender,
+        type: "gender",
+      });
+    if (filters.ageGroup)
+      tags.push({
+        id: `age-${filters.ageGroup}`,
+        label: filters.ageGroup
+          .replace("AGE_", "")
+          .replace("_", "–")
+          .replace("PLUS", "+"),
+        type: "ageGroup",
+      });
+    filters.categories.forEach((c) =>
+      tags.push({ id: `cat-${c}`, label: c, type: "categories", value: c }),
+    );
+    // filters.personaTags.forEach(p => tags.push({ id: `persona-${p}`, label: p, type: "personaTags", value: p }));
+    filters.contentFormat.forEach((v) =>
+      tags.push({ id: `cf-${v}`, label: v, type: "contentFormat", value: v }),
+    );
+    filters.appearance.forEach((v) =>
+      tags.push({ id: `ap-${v}`, label: v, type: "appearance", value: v }),
+    );
+    filters.contentStyle.forEach((v) =>
+      tags.push({ id: `cs-${v}`, label: v, type: "contentStyle", value: v }),
+    );
+    filters.capability.forEach((v) =>
+      tags.push({ id: `cap-${v}`, label: v, type: "capability", value: v }),
+    );
+    filters.lifeStyle.forEach((v) =>
+      tags.push({ id: `ls-${v}`, label: v, type: "lifeStyle", value: v }),
+    );
+    filters.occupation.forEach((v) =>
+      tags.push({ id: `occ-${v}`, label: v, type: "occupation", value: v }),
+    );
+    filters.interest.forEach((v) =>
+      tags.push({ id: `int-${v}`, label: v, type: "interest", value: v }),
+    );
+    filters.categoryExperience.forEach((v) =>
+      tags.push({
+        id: `ce-${v}`,
+        label: v,
+        type: "categoryExperience",
+        value: v,
+      }),
+    );
+    filters.canCreateWith.forEach((v) =>
+      tags.push({ id: `ccw-${v}`, label: v, type: "canCreateWith", value: v }),
+    );
+    filters.aiContentPermission.forEach((v) =>
+      tags.push({
+        id: `acp-${v}`,
+        label: v,
+        type: "aiContentPermission",
+        value: v,
+      }),
+    );
+    filters.language.forEach((v) =>
+      tags.push({ id: `lang-${v}`, label: v, type: "language", value: v }),
+    );
     return tags;
   }, [filters]);
 
@@ -265,24 +322,34 @@ export function CreatorListing({
     [debouncedPushUrl],
   );
 
-  const handlePageChange = useCallback((nextPage: number) => {
-    listingRef.current.page = nextPage;
-    setPage(nextPage);
-    debouncedPushUrl();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [debouncedPushUrl]);
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      listingRef.current.page = nextPage;
+      setPage(nextPage);
+      debouncedPushUrl();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [debouncedPushUrl],
+  );
 
-  const handleRemoveTag = useCallback((tag: { id: string; label: string; type: keyof Filters; value?: string }) => {
-    handleFiltersChange({
-      ...filters,
-      [tag.type]:
-        Array.isArray(filters[tag.type])
-          ? (filters[tag.type] as string[]).filter(v => v !== tag.value)
+  const handleRemoveTag = useCallback(
+    (tag: {
+      id: string;
+      label: string;
+      type: keyof Filters;
+      value?: string;
+    }) => {
+      handleFiltersChange({
+        ...filters,
+        [tag.type]: Array.isArray(filters[tag.type])
+          ? (filters[tag.type] as string[]).filter((v) => v !== tag.value)
           : typeof filters[tag.type] === "boolean"
             ? false
             : "",
-    });
-  }, [filters, handleFiltersChange]);
+      });
+    },
+    [filters, handleFiltersChange],
+  );
 
   const handleResetFilters = useCallback(() => {
     listingRef.current.filters = DEFAULT_FILTERS;
@@ -324,7 +391,6 @@ export function CreatorListing({
 
   return (
     <div className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8 -mt-6">
-      {/* Sidebar */}
       <div className="hidden lg:block w-full max-w-[260px] shrink-0 lg:sticky lg:top-20">
         <CreatorFilters
           filters={filters}
@@ -333,9 +399,7 @@ export function CreatorListing({
         />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Header Title */}
         {/* <div className="mb-6">
           <h1 className="text-[28px] font-bold text-[#111] tracking-tight">
             Find the right creator for your brand
@@ -345,7 +409,6 @@ export function CreatorListing({
           </p>
         </div> */}
 
-        {/* Search & Request Help Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div className="relative w-full max-w-2xl">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
@@ -375,14 +438,29 @@ export function CreatorListing({
           </div>
         </div>
 
-        {/* Active Tags & Sort Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2 flex-wrap">
-            {activeTags.map(tag => (
-              <div key={tag.id} className="flex items-center gap-2 rounded-md bg-[#F3EEFF] px-2.5 py-1 text-[13px] font-medium text-[#111]">
+            {activeTags.map((tag) => (
+              <div
+                key={tag.id}
+                className="flex items-center gap-2 rounded-md bg-[#F3EEFF] px-2.5 py-1 text-[13px] font-medium text-[#111]"
+              >
                 {tag.label}
-                <button type="button" onClick={() => handleRemoveTag(tag)} className="text-[#111] hover:text-gray-600 transition-colors">
-                  <svg className="size-[10px] stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  className="text-[#111] hover:text-gray-600 transition-colors"
+                >
+                  <svg
+                    className="size-[10px] stroke-[2.5]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                  </svg>
                 </button>
               </div>
             ))}
@@ -396,19 +474,20 @@ export function CreatorListing({
               </button>
             )}
           </div>
-          
+
           <div className="flex items-center gap-4 shrink-0">
             <span className="text-[13px] font-semibold text-[#6B7280]">
               {displayedCount.toLocaleString()} creators found
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-medium text-[#111]">Sort by: Recommended</span>
+              <span className="text-[13px] font-medium text-[#111]">
+                Sort by: Recommended
+              </span>
               <ChevronDown className="size-4 text-[#111]" />
             </div>
           </div>
         </div>
 
-        {/* Grid Area */}
         <div className="pb-2">
           {creators.length > 0 ? (
             <div className="flex flex-col gap-4">
@@ -416,7 +495,8 @@ export function CreatorListing({
                 className={cn(
                   "grid w-full gap-x-5 gap-y-4",
                   "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
-                  isFetching && "opacity-50 pointer-events-none transition-opacity"
+                  isFetching &&
+                    "opacity-50 pointer-events-none transition-opacity",
                 )}
               >
                 {creators.map((creator) => (
@@ -428,26 +508,36 @@ export function CreatorListing({
                   />
                 ))}
               </div>
-              
+
               {/* Pagination */}
               <div className="pt-2 pb-4">
                 {totalPages > 1 && (
                   <Pagination>
                     <PaginationContent>
                       <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={(e) => { e.preventDefault(); if (page > 1) handlePageChange(page - 1); }} 
+                        <PaginationPrevious
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (page > 1) handlePageChange(page - 1);
+                          }}
                           disabled={page <= 1}
                         />
                       </PaginationItem>
                       {Array.from({ length: totalPages }).map((_, i) => {
                         const p = i + 1;
-                        if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+                        if (
+                          p === 1 ||
+                          p === totalPages ||
+                          (p >= page - 1 && p <= page + 1)
+                        ) {
                           return (
                             <PaginationItem key={p}>
-                              <PaginationLink 
-                                href="#" 
-                                onClick={(e) => { e.preventDefault(); handlePageChange(p); }}
+                              <PaginationLink
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handlePageChange(p);
+                                }}
                                 isActive={page === p}
                               >
                                 {p}
@@ -456,13 +546,20 @@ export function CreatorListing({
                           );
                         }
                         if (p === page - 2 || p === page + 2) {
-                          return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                          return (
+                            <PaginationItem key={p}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
                         }
                         return null;
                       })}
                       <PaginationItem>
-                        <PaginationNext 
-                          onClick={(e) => { e.preventDefault(); if (page < totalPages) handlePageChange(page + 1); }} 
+                        <PaginationNext
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (page < totalPages) handlePageChange(page + 1);
+                          }}
                           disabled={page >= totalPages}
                         />
                       </PaginationItem>

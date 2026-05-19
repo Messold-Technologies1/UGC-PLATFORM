@@ -19,9 +19,12 @@ export interface OrderBriefPayload {
   shootLocationKind?: string | null;
   shootLocationAddress?: string | null;
   durationBucket?: string | null;
-  contentType?: string | null;
-  toneStyle?: string | null;
+  contentType?: string[] | null;
+  toneStyle?: string[] | null;
+  keyNoteToInclude?: string | null;
+  ctaNote?: string | null;
   referenceLinks: string[];
+  script?: Record<string, unknown> | unknown[] | null;
   finalNotes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -31,6 +34,9 @@ export interface OrderBriefResponse {
   orderId: string;
   briefSubmittedAt?: string | null;
   briefAcceptedAt?: string | null;
+  deliveryDaysSnapshot: number;
+  requiresPhysicalProductShipment: boolean;
+  deliveryDeadlineAt?: string | null;
   brief: OrderBriefPayload | null;
 }
 

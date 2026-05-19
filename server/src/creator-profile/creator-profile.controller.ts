@@ -44,6 +44,9 @@ import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
 import { CreatorPayoutDetailsMaskedDto } from './dto/creator-payout-details-masked.dto';
 import { SuggestedCreatorsResponseDto } from './dto/suggested-creators-response.dto';
+import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
+import { ListCreatorRatingReviewsQueryDto } from '../creator-reviews/dto/list-creator-rating-reviews-query.dto';
+import { ListCreatorRatingReviewsResponseDto } from '../creator-reviews/dto/list-creator-rating-reviews-response.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -52,6 +55,7 @@ export class CreatorProfileController {
   constructor(
     private readonly creatorProfileService: CreatorProfileService,
     private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
+    private readonly creatorReviewsService: CreatorReviewsService,
   ) {}
 
   @Post('profile')
@@ -194,6 +198,21 @@ export class CreatorProfileController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {
     return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
+  }
+
+  @Get(':id/rating-reviews')
+  @ApiOperation({
+    summary: 'List brand ratings and reviews for a creator (paginated)',
+  })
+  @ApiOkResponse({ type: ListCreatorRatingReviewsResponseDto })
+  async listCreatorRatingReviews(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ListCreatorRatingReviewsQueryDto,
+  ): Promise<ListCreatorRatingReviewsResponseDto> {
+    return this.creatorReviewsService.listForCreator({
+      creatorId: id,
+      query,
+    });
   }
 
   @Get(':id/suggested')

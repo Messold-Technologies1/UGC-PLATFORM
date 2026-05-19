@@ -14,6 +14,8 @@ import type { BrandOrdersListResponseDto } from './dto/brand-orders-list-respons
 import type { BrandOrderListItemDto } from './dto/brand-order-list-item.dto';
 import type { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import type { CreatorOrderListItemDto } from './dto/creator-order-list-item.dto';
+import type { AcceptBriefResponseDto } from './dto/accept-brief-response.dto';
+import type { MarkProductReceivedResponseDto } from './dto/mark-product-received-response.dto';
 import type { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import type { OrderListSummaryDto } from './dto/order-list-summary.dto';
 import type { AdminOrderDetailsResponseDto } from './dto/admin-order-details-response.dto';
@@ -125,6 +127,16 @@ function parseDispatchDateUtcYmd(ymd: string): Date {
     throw new BadRequestException('Invalid dispatchDate');
   }
   return dt;
+}
+
+/** deliveryDaysSnapshot + 2 calendar-day grace from the moment work can start */
+function computeDeliveryDeadlineAt(
+  startAt: Date,
+  deliveryDaysSnapshot: number,
+): Date {
+  const deadline = new Date(startAt);
+  deadline.setDate(deadline.getDate() + deliveryDaysSnapshot + 2);
+  return deadline;
 }
 
 function canCreatorUploadOrSubmitDelivery(order: {
@@ -356,7 +368,6 @@ export class OrdersService {
         id: true,
         brandId: true,
         status: true,
-        deliveryDaysSnapshot: true,
         briefSubmittedAt: true,
       },
     });
@@ -369,16 +380,22 @@ export class OrdersService {
     if (order.briefSubmittedAt) return; // idempotent
 
     const now = new Date();
-    const deadline = new Date(now);
-    // deliveryDays + 2 grace (platform-defined buffer)
-    deadline.setDate(deadline.getDate() + order.deliveryDaysSnapshot + 2);
 
     const brief = await this.prisma.brief.findFirst({
       where: { id: params.briefId, brandId: brand.id },
-      select: { id: true, willShipPhysicalProductToCreator: true },
+      select: {
+        id: true,
+        willShipPhysicalProductToCreator: true,
+        productImageKey: true,
+      },
     });
     if (!brief) {
       throw new NotFoundException('Brief not found for this brand');
+    }
+    if (!brief.productImageKey?.trim()) {
+      throw new BadRequestException(
+        'Brief must include a product image before it can be submitted to an order',
+      );
     }
 
     await this.prisma.order.update({
@@ -387,7 +404,6 @@ export class OrdersService {
         status: 'BRIEF_SUBMITTED',
         briefId: params.briefId,
         briefSubmittedAt: now,
-        deliveryDeadlineAt: deadline,
         requiresPhysicalProductShipment: brief.willShipPhysicalProductToCreator,
       },
     });
@@ -401,7 +417,7 @@ export class OrdersService {
   async acceptBrief(params: {
     creatorUserId: string;
     orderId: string;
-  }): Promise<void> {
+  }): Promise<AcceptBriefResponseDto> {
     const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
@@ -415,13 +431,28 @@ export class OrdersService {
         creatorId: true,
         status: true,
         briefSubmittedAt: true,
+        briefAcceptedAt: true,
+        deliveryDaysSnapshot: true,
+        requiresPhysicalProductShipment: true,
+        deliveryDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.creatorId !== creator.id)
       throw new ForbiddenException('Not your order');
 
-    if (String(order.status) === 'BRIEF_ACCEPTED') return;
+    if (String(order.status) === 'BRIEF_ACCEPTED') {
+      if (!order.briefAcceptedAt) {
+        throw new BadRequestException('Brief acceptance timestamp missing');
+      }
+      return {
+        orderId: order.id,
+        status: 'BRIEF_ACCEPTED',
+        briefAcceptedAt: order.briefAcceptedAt,
+        requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+        deliveryDeadlineAt: order.deliveryDeadlineAt,
+      };
+    }
 
     if (String(order.status) !== 'BRIEF_SUBMITTED') {
       throw new BadRequestException('Order is not awaiting brief acceptance');
@@ -431,18 +462,39 @@ export class OrdersService {
     }
 
     const now = new Date();
-    await this.prisma.order.update({
+    const deliveryDeadlineAt = order.requiresPhysicalProductShipment
+      ? null
+      : computeDeliveryDeadlineAt(now, order.deliveryDaysSnapshot);
+
+    const updated = await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: now,
+        ...(deliveryDeadlineAt !== null ? { deliveryDeadlineAt } : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        briefAcceptedAt: true,
+        requiresPhysicalProductShipment: true,
+        deliveryDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderBriefAccepted({
       orderId: order.id,
       briefAcceptedAt: now,
+      deliveryDeadlineAt,
     });
+
+    return {
+      orderId: updated.id,
+      status: updated.status,
+      briefAcceptedAt: updated.briefAcceptedAt!,
+      requiresPhysicalProductShipment: updated.requiresPhysicalProductShipment,
+      deliveryDeadlineAt: updated.deliveryDeadlineAt,
+    };
   }
 
   async markProductShipped(params: {
@@ -509,7 +561,7 @@ export class OrdersService {
   async markProductReceived(params: {
     creatorUserId: string;
     orderId: string;
-  }): Promise<void> {
+  }): Promise<MarkProductReceivedResponseDto> {
     const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
@@ -523,6 +575,9 @@ export class OrdersService {
         creatorId: true,
         status: true,
         requiresPhysicalProductShipment: true,
+        deliveryDaysSnapshot: true,
+        productReceivedAt: true,
+        deliveryDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -533,7 +588,17 @@ export class OrdersService {
         'This order does not use the physical shipment workflow',
       );
     }
-    if (String(order.status) === 'PRODUCT_RECEIVED') return;
+    if (String(order.status) === 'PRODUCT_RECEIVED') {
+      if (!order.productReceivedAt || !order.deliveryDeadlineAt) {
+        throw new BadRequestException('Product receipt timestamps missing');
+      }
+      return {
+        orderId: order.id,
+        status: 'PRODUCT_RECEIVED',
+        productReceivedAt: order.productReceivedAt,
+        deliveryDeadlineAt: order.deliveryDeadlineAt,
+      };
+    }
     if (String(order.status) !== 'PRODUCT_SHIPPED') {
       throw new BadRequestException(
         'Order must be PRODUCT_SHIPPED before confirming receipt',
@@ -541,18 +606,38 @@ export class OrdersService {
     }
 
     const now = new Date();
-    await this.prisma.order.update({
+    const deliveryDeadlineAt = computeDeliveryDeadlineAt(
+      now,
+      order.deliveryDaysSnapshot,
+    );
+
+    const updated = await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'PRODUCT_RECEIVED',
         productReceivedAt: now,
+        deliveryDeadlineAt,
+      },
+      select: {
+        id: true,
+        status: true,
+        productReceivedAt: true,
+        deliveryDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderProductReceived({
       orderId: order.id,
       productReceivedAt: now,
+      deliveryDeadlineAt,
     });
+
+    return {
+      orderId: updated.id,
+      status: updated.status,
+      productReceivedAt: updated.productReceivedAt!,
+      deliveryDeadlineAt: updated.deliveryDeadlineAt!,
+    };
   }
 
   async presignDeliveryUploads(params: {
@@ -805,6 +890,7 @@ export class OrdersService {
     currency: string;
     deliveryDaysSnapshot: number;
     paidAt: Date | null;
+    briefId: string | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
@@ -812,6 +898,7 @@ export class OrdersService {
     createdAt: Date;
     updatedAt: Date;
   }): OrderListSummaryDto {
+    const hasBrief = order.briefSubmittedAt != null;
     return {
       id: order.id,
       status: order.status,
@@ -823,7 +910,8 @@ export class OrdersService {
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
-      hasBrief: order.briefSubmittedAt != null,
+      hasBrief,
+      ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -843,6 +931,7 @@ export class OrdersService {
     addOnsTotalSnapshot: Prisma.Decimal | null;
     expectedAmountPaise: number;
     paidAt: Date | null;
+    briefId: string | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
@@ -875,6 +964,8 @@ export class OrdersService {
       }))
       .filter((a) => a.id && a.name);
 
+    const hasBrief = order.briefSubmittedAt != null;
+
     return {
       id: order.id,
       status: order.status,
@@ -890,7 +981,8 @@ export class OrdersService {
       trackingId: order.trackingId ?? null,
       dispatchedAt: order.dispatchedAt ?? null,
       productReceivedAt: order.productReceivedAt ?? null,
-      hasBrief: order.briefSubmittedAt != null,
+      hasBrief,
+      ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
       deliveryDeadlineAt: order.deliveryDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -948,6 +1040,7 @@ export class OrdersService {
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
         paidAt: true,
+        briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
@@ -1014,6 +1107,7 @@ export class OrdersService {
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
         paidAt: true,
+        briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
@@ -1106,6 +1200,7 @@ export class OrdersService {
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
         paidAt: true,
+        briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
@@ -1183,6 +1278,7 @@ export class OrdersService {
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
+          briefId: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
@@ -1248,6 +1344,7 @@ export class OrdersService {
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
+          briefId: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
@@ -1294,6 +1391,7 @@ export class OrdersService {
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
+          briefId: true,
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
@@ -1343,6 +1441,9 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        deliveryDaysSnapshot: true,
+        requiresPhysicalProductShipment: true,
+        deliveryDeadlineAt: true,
         briefRef: {
           select: {
             id: true,
@@ -1355,13 +1456,18 @@ export class OrdersService {
             productName: true,
             productDescription: true,
             productPageUrl: true,
+            productImageKey: true,
+            productImageUrl: true,
             willShipPhysicalProductToCreator: true,
             shootLocationKind: true,
             shootLocationAddress: true,
             durationBucket: true,
             contentType: true,
             toneStyle: true,
+            keyNoteToInclude: true,
+            ctaNote: true,
             referenceLinks: true,
+            script: true,
             finalNotes: true,
             createdAt: true,
             updatedAt: true,
@@ -1401,16 +1507,30 @@ export class OrdersService {
           productName: order.briefRef.productName ?? null,
           productDescription: order.briefRef.productDescription ?? null,
           productPageUrl: order.briefRef.productPageUrl ?? null,
+          productImage: order.briefRef.productImageKey
+            ? {
+                key: order.briefRef.productImageKey,
+                url: order.briefRef.productImageUrl ?? null,
+              }
+            : null,
           willShipPhysicalProductToCreator:
             order.briefRef.willShipPhysicalProductToCreator,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,
           shootLocationAddress: order.briefRef.shootLocationAddress ?? null,
           durationBucket: order.briefRef.durationBucket ?? null,
-          contentType: order.briefRef.contentType ?? null,
-          toneStyle: order.briefRef.toneStyle ?? null,
+          contentType: order.briefRef.contentType,
+          toneStyle: order.briefRef.toneStyle,
+          keyNoteToInclude: order.briefRef.keyNoteToInclude ?? null,
+          ctaNote: order.briefRef.ctaNote ?? null,
           referenceLinks: Array.isArray(order.briefRef.referenceLinks)
             ? order.briefRef.referenceLinks
             : [],
+          script:
+            order.briefRef.script !== null &&
+            order.briefRef.script !== undefined &&
+            typeof order.briefRef.script === 'object'
+              ? order.briefRef.script
+              : null,
           finalNotes: order.briefRef.finalNotes ?? null,
           createdAt: order.briefRef.createdAt,
           updatedAt: order.briefRef.updatedAt,
@@ -1421,6 +1541,9 @@ export class OrdersService {
       orderId: order.id,
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
+      deliveryDaysSnapshot: order.deliveryDaysSnapshot,
+      requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
+      deliveryDeadlineAt: order.deliveryDeadlineAt,
       brief,
     };
   }

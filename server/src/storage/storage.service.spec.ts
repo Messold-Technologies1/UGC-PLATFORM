@@ -92,6 +92,68 @@ describe('StorageService', () => {
     expect(key.endsWith('.webm')).toBe(true);
   });
 
+  it('buildObjectKey creates a temporary brief product image key', () => {
+    const storage = new StorageService(config as any);
+    const key = storage.buildObjectKey({
+      kind: 'brief_product_image',
+      userId: 'u1',
+      contentType: 'image/png',
+    });
+    expect(key.startsWith('brief-product-temp/u1/')).toBe(true);
+    expect(key.endsWith('.png')).toBe(true);
+  });
+
+  it('finalizes temporary brief product image key', async () => {
+    sendMock.mockClear();
+    const storage = new StorageService(config as any);
+    const finalKey = await storage.finalizeBriefProductImageKey({
+      tempKey: 'brief-product-temp/u1/a.png',
+      briefId: 'b1',
+    });
+    expect(finalKey).toBe('brief-product/b1/a.png');
+    expect(sendMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('buildObjectKey creates an order chat voice message key', () => {
+    const storage = new StorageService(config as any);
+    const key = storage.buildObjectKey({
+      kind: 'order_chat_voice_message',
+      userId: 'u1',
+      orderId: 'o1',
+      contentType: 'audio/webm',
+    });
+    expect(key.startsWith('order-chat-voice/o1/u1/')).toBe(true);
+    expect(key.endsWith('.webm')).toBe(true);
+  });
+
+  it('isOrderChatVoiceKeyForUser validates ownership', () => {
+    const storage = new StorageService(config as any);
+    expect(
+      storage.isOrderChatVoiceKeyForUser(
+        'o1',
+        'u1',
+        'order-chat-voice/o1/u1/abc.webm',
+      ),
+    ).toBe(true);
+    expect(
+      storage.isOrderChatVoiceKeyForUser(
+        'o2',
+        'u1',
+        'order-chat-voice/o1/u1/abc.webm',
+      ),
+    ).toBe(false);
+  });
+
+  it('mimeTypeFromObjectKey resolves audio extensions', () => {
+    const storage = new StorageService(config as any);
+    expect(storage.mimeTypeFromObjectKey('order-chat-voice/o1/u1/a.webm')).toBe(
+      'audio/webm',
+    );
+    expect(storage.mimeTypeFromObjectKey('order-chat-voice/o1/u1/a.m4a')).toBe(
+      'audio/mp4',
+    );
+  });
+
   it('creates a presigned PUT upload result', async () => {
     const storage = new StorageService(config as any);
     const res = await storage.createPresignedPutUpload({

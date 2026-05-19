@@ -37,6 +37,16 @@ export class BriefDto {
   @ApiPropertyOptional()
   productPageUrl?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'brief-product/<briefId>/<uuid>.png',
+  })
+  productImageKey?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/brief-product/<briefId>/<uuid>.png',
+  })
+  productImageUrl?: string | null;
+
   @ApiProperty({
     description:
       'Whether the brand will physically ship a product to the creator for this campaign',
@@ -53,14 +63,27 @@ export class BriefDto {
   @ApiPropertyOptional({ enum: BriefDurationBucket })
   durationBucket?: BriefDurationBucket | null;
 
-  @ApiPropertyOptional({ enum: BriefContentType })
-  contentType?: BriefContentType | null;
+  @ApiProperty({ enum: BriefContentType, isArray: true })
+  contentType!: BriefContentType[];
 
-  @ApiPropertyOptional({ enum: BriefToneStyle })
-  toneStyle?: BriefToneStyle | null;
+  @ApiProperty({ enum: BriefToneStyle, isArray: true })
+  toneStyle!: BriefToneStyle[];
+
+  @ApiPropertyOptional()
+  keyNoteToInclude?: string | null;
+
+  @ApiPropertyOptional()
+  ctaNote?: string | null;
 
   @ApiProperty({ type: [String] })
   referenceLinks!: string[];
+
+  @ApiPropertyOptional({
+    description: 'Campaign script (JSON object or array).',
+    type: 'object',
+    additionalProperties: true,
+  })
+  script?: Record<string, unknown> | unknown[] | null;
 
   @ApiPropertyOptional()
   finalNotes?: string | null;

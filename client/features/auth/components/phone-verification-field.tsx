@@ -216,23 +216,30 @@ export function PhoneVerificationField({
 
   return (
     <div className="grid gap-2">
-      <Label htmlFor={`${idPrefix}-phone`}>Mobile</Label>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
-          id={`${idPrefix}-phone`}
-          placeholder="+919876543210"
-          autoComplete="tel"
-          inputMode="tel"
-          disabled={disabled || phoneOtpPending}
-          aria-invalid={phoneError ? true : undefined}
-          className="min-w-0 sm:flex-1"
-          value={phoneInput}
-          onChange={(event) => {
-            setPhoneInput(event.target.value);
-            setVerifiedPhone(null);
-            setPhoneError(null);
-          }}
-        />
+        <div className="relative flex min-w-0 items-center sm:flex-1">
+          <span className="absolute left-3 text-sm text-muted-foreground">
+            +91
+          </span>
+          <Input
+            id={`${idPrefix}-phone`}
+            placeholder="9876543210"
+            autoComplete="tel-national"
+            inputMode="tel"
+            disabled={disabled || phoneOtpPending}
+            aria-invalid={phoneError ? true : undefined}
+            className="w-full pl-10"
+            value={phoneInput.startsWith("+91") ? phoneInput.slice(3) : phoneInput}
+            onChange={(event) => {
+              let val = event.target.value;
+              if (val.startsWith("+91")) val = val.slice(3);
+              const digits = val.replace(/\D/g, "");
+              setPhoneInput(digits ? `+91${digits}` : "");
+              setVerifiedPhone(null);
+              setPhoneError(null);
+            }}
+          />
+        </div>
         <Button
           type="button"
           variant="outline"

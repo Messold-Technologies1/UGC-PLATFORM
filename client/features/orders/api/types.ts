@@ -27,6 +27,7 @@ export interface OrderListSummary {
   trackingId?: string | null;
   dispatchedAt?: string | null;
   productReceivedAt?: string | null;
+  briefId?: string;
   deliveryDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -50,4 +51,21 @@ export interface OrderDetailsPublic extends OrderListSummary {
   creatorPaidAt?: string | null;
   revisionCount: number;
   refundedAt?: string | null;
+}
+
+export interface CreatorRatingReviewBrandSnapshot {
+  id: string;
+  brandName: string;
+  logoUrl?: string | null;
+}
+
+export interface CreatorRatingReview {
+  id: string;
+  orderId: string;
+  creatorId: string;
+  rating: number;
+  review?: string | null;
+  packageNameSnapshot?: string | null;
+  brand: CreatorRatingReviewBrandSnapshot;
+  createdAt: string;
 }

@@ -8,6 +8,7 @@ import { OrderChatWidget } from "@/features/orders/components/order-chat-widget"
 import { OrderDeliveryStatus } from "@/features/orders/components/order-delivery-status";
 import { OrderFinancialSummary } from "@/features/orders/components/order-financial-summary";
 import { OrderHeader } from "@/features/orders/components/order-header";
+import { OrderRatingReviewCard } from "@/features/orders/components/order-rating-review-card";
 import { OrderShippingInfo } from "@/features/orders/components/order-shipping-info";
 import { useGetCreatorOrderDetailsQuery } from "../hooks/use-get-creator-order-details-query";
 
@@ -93,6 +94,7 @@ export function CreatorOrderDetailsView({
 
         <aside className="flex flex-col gap-8 lg:col-span-4">
           <OrderChatWidget orderId={orderId} role="creator" brand={data.brand} />
+          <OrderRatingReviewCard order={data.order} role="creator" />
           <OrderFinancialSummary order={data.order} />
         </aside>
       </div>

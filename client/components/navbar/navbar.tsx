@@ -165,7 +165,7 @@ export function Navbar() {
         }
       }}
       animate={hidden ? "hidden" : "visible"}
-      className="sticky top-1 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
+      className="sticky top-4 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
     >
       <div className={cn(
         "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",

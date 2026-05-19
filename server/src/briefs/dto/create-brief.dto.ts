@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   BriefContentType,
   BriefDurationBucket,
@@ -13,6 +13,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateBriefDto {
@@ -61,6 +62,14 @@ export class CreateBriefDto {
   @IsUrl()
   productPageUrl?: string;
 
+  @ApiProperty({
+    example: 'brief-product-temp/<userId>/<uuid>.png',
+    description:
+      'Temporary S3 object key from POST /briefs/uploads/presign-product-image; finalized when the brief is created.',
+  })
+  @IsString()
+  productImageKey!: string;
+
   @ApiPropertyOptional({
     description:
       'Set true if the brand will physically ship a product to the creator for the shoot',
@@ -85,15 +94,35 @@ export class CreateBriefDto {
   @IsEnum(BriefDurationBucket)
   durationBucket?: BriefDurationBucket;
 
-  @ApiPropertyOptional({ enum: BriefContentType })
+  @ApiPropertyOptional({ enum: BriefContentType, isArray: true })
   @IsOptional()
-  @IsEnum(BriefContentType)
-  contentType?: BriefContentType;
+  @IsArray()
+  @ArrayMaxSize(32)
+  @IsEnum(BriefContentType, { each: true })
+  contentType?: BriefContentType[];
 
-  @ApiPropertyOptional({ enum: BriefToneStyle })
+  @ApiPropertyOptional({ enum: BriefToneStyle, isArray: true })
   @IsOptional()
-  @IsEnum(BriefToneStyle)
-  toneStyle?: BriefToneStyle;
+  @IsArray()
+  @ArrayMaxSize(32)
+  @IsEnum(BriefToneStyle, { each: true })
+  toneStyle?: BriefToneStyle[];
+
+  @ApiPropertyOptional({
+    description: 'Key messaging or points the creator should include in the piece',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10_000)
+  keyNoteToInclude?: string;
+
+  @ApiPropertyOptional({
+    description: 'Call-to-action line or instruction for the end of the video',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10_000)
+  ctaNote?: string;
 
   @ApiPropertyOptional({
     description: 'Reference video/asset links (Instagram / Drive / Youtube)',
@@ -104,6 +133,16 @@ export class CreateBriefDto {
   @ArrayMaxSize(50)
   @IsUrl({}, { each: true })
   referenceLinks?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Campaign script as JSON (object or array), e.g. scenes, lines, or structured brief copy.',
+    type: 'object',
+    additionalProperties: true,
+    example: { scenes: [{ title: 'Hook', lines: ['Try this product…'] }] },
+  })
+  @IsOptional()
+  script?: Record<string, unknown> | unknown[];
 
   @ApiPropertyOptional()
   @IsOptional()

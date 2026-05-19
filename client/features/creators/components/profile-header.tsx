@@ -1,7 +1,17 @@
-import { memo, useMemo, useState } from "react";
-import Image from "next/image";
-import { MapPin, CheckCircle2 } from "lucide-react";
+"use client";
+
+import { memo, useMemo, useRef, useState } from "react";
+import {
+  Play,
+  Clock,
+  Star,
+  Users,
+  Baby,
+  PawPrint,
+  CheckCircle2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { CreatorProfile } from "../types";
 
 interface ProfileHeaderProps {
@@ -16,6 +26,19 @@ export const ProfileHeader = memo(function ProfileHeader({
   creator,
 }: ProfileHeaderProps) {
   const [isBioExpanded, setIsBioExpanded] = useState(false);
+  const [showControls, setShowControls] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      void video.play();
+    } else {
+      video.pause();
+    }
+  };
 
   const initials = useMemo(
     () =>
@@ -28,170 +51,223 @@ export const ProfileHeader = memo(function ProfileHeader({
         .toUpperCase() || "?",
     [creator.name],
   );
+  const displayTags = creator.tags.slice(0, 5);
+
+  const features = [
+    `Delivery in ${creator.deliveryDays} days`,
+    creator.basicEditing !== false ? "Basic editing included" : null,
+    creator.storeVisit ? "On-location available" : null,
+    creator.travelAvailable ? "Can travel for shoots" : null,
+    "Fast response creator",
+  ].filter(Boolean) as string[];
 
   return (
-    <div className="rounded-3xl border-0 bg-background p-5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)]
-    dark:shadow-[0_8px_24px_-8px_rgba(255,255,255,0.08)]">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch sm:min-h-[300px] lg:min-h-[320px] lg:gap-8">
-        <div className="relative shrink-0 flex flex-col w-full sm:w-56 lg:w-64 items-center">
-          <div
-            className="relative flex flex-1 min-h-[240px] sm:min-h-0 sm:h-full lg:min-h-0 w-full overflow-hidden rounded-2xl bg-muted"
-            role="img"
-            aria-label={creator.name}
-          >
-            {isRemoteImage(creator.thumbnail) ? (
-              <Image
-                src={creator.thumbnail}
-                alt={creator.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, 250px"
+    <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+      <div className="relative w-full shrink-0 lg:w-[320px] xl:w-[340px]">
+        <div 
+          className="relative aspect-3/4 w-full overflow-hidden rounded-lg bg-black"
+          onMouseEnter={() => setShowControls(true)}
+          onMouseLeave={() => setShowControls(false)}
+          onTouchStart={() => setShowControls(true)}
+        >
+          {creator.introVideoUrl ? (
+            <>
+              <div className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-md bg-black/70 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm pointer-events-none">
+                <Play className="size-2.5 fill-white" />
+                Intro Video
+              </div>
+
+              <video
+                ref={videoRef}
+                className="size-full object-cover"
+                src={creator.introVideoUrl}
+                poster={
+                  isRemoteImage(creator.thumbnail)
+                    ? creator.thumbnail
+                    : undefined
+                }
+                preload="metadata"
+                playsInline
+                controls={showControls}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => setIsPlaying(false)}
               />
-            ) : (
-              <span className="flex size-full items-center justify-center text-4xl font-bold text-foreground">
-                {initials}
-              </span>
+
+              {!isPlaying && (
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-black/20"
+                  aria-label="Play video"
+                >
+                  <div className="flex size-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform hover:scale-110">
+                    <Play className="size-6 fill-black text-black ml-1" />
+                  </div>
+                </button>
+              )}
+            </>
+          ) : (
+            <span className="flex size-full items-center justify-center text-5xl font-bold text-white">
+              {initials}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          {creator.name}
+        </h1>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+          <span>{creator.location}</span>
+          {creator.languages.length > 0 && (
+            <>
+              <span>•</span>
+              <span>{creator.languages.join(", ")}</span>
+            </>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {displayTags.map((tag, i) => {
+            const lowerTag = tag.toLowerCase();
+            let specificClass = "";
+            if (lowerTag.includes("beauty")) specificClass = "bg-[#fce7f3] text-[#be185d]";
+            else if (lowerTag.includes("casual") || lowerTag.includes("talk to camera")) specificClass = "bg-[#e0f2fe] text-[#0369a1]";
+            else if (lowerTag.includes("product demo") || lowerTag.includes("unboxing")) specificClass = "bg-[#ede9fe] text-[#5b21b6]";
+            else if (lowerTag.includes("fitness")) specificClass = "bg-[#ffedd5] text-[#c2410c]";
+            else if (lowerTag.includes("ad ready") || lowerTag.includes("skincare")) specificClass = "bg-[#dcfce7] text-[#15803d]";
+            else if (lowerTag.includes("aesthetic")) specificClass = "bg-[#ccfbf1] text-[#0f766e]";
+            else if (lowerTag.includes("tech")) specificClass = "bg-[#f3e8ff] text-[#7e22ce]";
+            else if (lowerTag.includes("lifestyle")) specificClass = "bg-[#e0f2fe] text-[#0369a1]";
+            else if (lowerTag.includes("ugc")) specificClass = "bg-[#dcfce7] text-[#15803d]";
+            else {
+              const colors = [
+                "bg-fuchsia-100 text-fuchsia-700",
+                "bg-blue-100 text-blue-700",
+                "bg-indigo-100 text-indigo-700",
+                "bg-orange-100 text-orange-700",
+                "bg-emerald-100 text-emerald-700",
+                "bg-teal-100 text-teal-700",
+                "bg-purple-100 text-purple-700",
+              ];
+              specificClass = colors[i % colors.length]!;
+            }
+
+            return (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className={cn("rounded-md px-3 py-1 text-xs font-medium border-none", specificClass)}
+              >
+                {tag}
+              </Badge>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-full bg-muted">
+              <CheckCircle2 className="size-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-tight text-foreground">
+                {creator.ordersCompleted}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Completed Orders
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-full bg-muted">
+              <Clock className="size-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-tight text-foreground">
+                95%
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                On-time Delivery
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-full bg-muted">
+              <Star className="size-4 text-amber-400 fill-amber-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-tight text-foreground">
+                {creator.rating > 0 ? creator.rating.toFixed(1) : "New"}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                ({creator.reviewCount} Reviews)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 inline-flex flex-col rounded-xl border border-border p-3.5">
+          <p className="text-xs font-semibold text-foreground mb-2.5">
+            Can create with
+          </p>
+          <div className="flex items-center gap-5">
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <Users className="size-5 text-muted-foreground" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">Partner</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <Baby className="size-5 text-muted-foreground" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">Child</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <PawPrint className="size-5 text-muted-foreground" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">Pets</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {features.map((feature) => (
+            <div
+              key={feature}
+              className="flex items-center gap-2 text-sm text-foreground"
+            >
+              <CheckCircle2 className="size-4 shrink-0 text-primary" />
+              {feature}
+            </div>
+          ))}
+        </div>
+
+        {creator.bio && (
+          <div className="mt-5">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {isBioExpanded || creator.bio.length <= 150
+                ? creator.bio
+                : `${creator.bio.slice(0, 150).trim()}...`}
+            </p>
+            {creator.bio.length > 150 && (
+              <button
+                type="button"
+                onClick={() => setIsBioExpanded(!isBioExpanded)}
+                className="mt-1 text-sm font-semibold text-primary hover:underline"
+              >
+                {isBioExpanded ? "Show less" : "Read more ↓"}
+              </button>
             )}
           </div>
-          {/* {creator.available && (
-             <div className="absolute -bottom-3 z-10 rounded-full bg-card text-foreground px-3 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm border border-border flex items-center gap-1.5 whitespace-nowrap">
-               <div className="size-1.5 rounded-full bg-emerald-500" /> AVAILABLE
-             </div>
-          )} */}
-        </div>
-
-        <div className="min-w-0 flex-1 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div className="min-w-0 lg:max-w-[50%] xl:max-w-[60%]">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                {creator.name}
-              </h1>
-              <div className="flex size-6 items-center justify-center rounded-full bg-blue-500 text-white">
-                <CheckCircle2 className="size-4" strokeWidth={3} />
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="size-4 shrink-0" />
-              {creator.location}
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-6 sm:gap-10">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                  Gender
-                </span>
-                <span className="text-lg font-bold capitalize">
-                  {creator.gender}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                  Travel
-                </span>
-                <span className="text-[15px] font-bold">
-                  {creator.travelRadiusKm && creator.travelRadiusKm > 0
-                    ? `Up to ${creator.travelRadiusKm} km`
-                    : "Not available"}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                  On-Location
-                </span>
-                <div className="flex items-center gap-1.5 h-[28px]">
-                  {creator.storeVisit ? (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                    >
-                      Yes
-                    </Badge>
-                  ) : (
-                    <span className="text-lg font-bold">No</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                  Starting From
-                </span>
-                <span className="text-xl font-bold text-primary">
-                  ₹{creator.startingPrice.toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3">
-              {creator.categories.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {creator.categories.map((tag) => (
-                    <Badge
-                      key={tag}
-                      className="bg-primary/10 text-primary hover:bg-primary/20 border-0 rounded-full px-4 py-0.5 text-xs"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              {creator.languages.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {creator.languages.map((tag) => (
-                    <Badge
-                      key={`lang-${tag}`}
-                      variant="outline"
-                      className="border-muted-foreground/30 text-muted-foreground rounded-full px-4 py-0.5 text-xs"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="hidden lg:flex flex-1 flex-col justify-center gap-5 border-l border-border/50 pl-6 lg:pl-8 overflow-hidden">
-            {creator.bio ? (
-              <div>
-                <h3 className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1.5">
-                  About
-                </h3>
-                <p className="text-[13px] text-foreground/80 leading-relaxed">
-                  {isBioExpanded || creator.bio.length <= 140
-                    ? creator.bio
-                    : `${creator.bio.slice(0, 140).trim()} `}
-                  {creator.bio.length > 140 && (
-                    <button
-                      onClick={() => setIsBioExpanded(!isBioExpanded)}
-                      className="font-semibold text-primary hover:underline focus:outline-none"
-                    >
-                      {isBioExpanded ? " Show less" : "Read more"}
-                    </button>
-                  )}
-                </p>
-              </div>
-            ) : null}
-
-            {creator.personaTags && creator.personaTags.length > 0 ? (
-              <div>
-                <h3 className="text-[10px] uppercase font-bold tracking-wider text-primary/80 mb-2">
-                  Vibe & Persona
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {creator.personaTags.slice(0, 5).map((tag) => (
-                    <Badge
-                      key={tag}
-                      className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 px-2.5 py-0.5 text-[10px] font-semibold"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

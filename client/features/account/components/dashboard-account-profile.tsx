@@ -223,7 +223,7 @@ export function DashboardAccountProfile({
             </div>
           ) : null}
 
-          {profile.categories.length ? (
+          {profile.categories?.length ? (
             <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-3">
               <h4 className="text-xs font-medium text-muted-foreground">
                 Categories
@@ -277,7 +277,7 @@ export function DashboardAccountProfile({
             </div>
           ) : null}
 
-          {profile.packages.length ? (
+          {profile.packages?.length ? (
             <div className="rounded-xl border border-border/70 bg-background/40 p-4 xl:col-span-6">
               <h4 className="text-xs font-medium text-muted-foreground">
                 Packages

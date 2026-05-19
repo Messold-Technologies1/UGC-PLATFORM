@@ -12,6 +12,7 @@ import type { CreatorProfileItemApi } from "./types";
 
 export type UpdateCreatorProfilePayload = {
   displayName?: string;
+  contactEmail?: string;
   phone?: string;
   introVideoKey?: string;
   countryName?: string;
@@ -22,6 +23,9 @@ export type UpdateCreatorProfilePayload = {
   dateOfBirth?: string;
   shippingAddress?: string;
   instagramUrl?: string;
+  youtubeUrl?: string;
+  tiktokUrl?: string;
+  snapchatUrl?: string;
   contentVolume?: CreatorContentVolumeBucket;
   collaborationCount?: number;
   travelRadius?: number;

@@ -32,6 +32,8 @@ import { OpenDisputeDto } from './dto/open-dispute.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
+import { AcceptBriefResponseDto } from './dto/accept-brief-response.dto';
+import { MarkProductReceivedResponseDto } from './dto/mark-product-received-response.dto';
 import { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import { BrandOrderDetailsResponseDto } from './dto/brand-order-details-response.dto';
 import { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
@@ -41,6 +43,10 @@ import {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
+import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
+import { CreateCreatorRatingReviewDto } from '../creator-reviews/dto/create-creator-rating-review.dto';
+import { CreateCreatorRatingReviewResponseDto } from '../creator-reviews/dto/create-creator-rating-review-response.dto';
+import { CreatorRatingReviewDto } from '../creator-reviews/dto/creator-rating-review.dto';
 import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 
@@ -48,7 +54,10 @@ import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 @ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly creatorReviewsService: CreatorReviewsService,
+  ) {}
 
   @Get('brand')
   @RequiredWorkspace('BRAND')
@@ -182,7 +191,6 @@ export class OrdersController {
   @Post(':id/brief/accept')
   @RequiredWorkspace('CREATOR')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:
       'Creator accepts the brand-submitted brief (order moves to BRIEF_ACCEPTED; required before delivery uploads)',
@@ -192,12 +200,12 @@ export class OrdersController {
     description: 'Order ID (UUID)',
     format: 'uuid',
   })
-  @ApiNoContentResponse({ description: 'Brief accepted' })
+  @ApiOkResponse({ type: AcceptBriefResponseDto })
   async acceptBrief(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.ordersService.acceptBrief({
+  ): Promise<AcceptBriefResponseDto> {
+    return this.ordersService.acceptBrief({
       creatorUserId: req.user.id,
       orderId: id,
     });
@@ -257,7 +265,6 @@ export class OrdersController {
   @Post(':id/product-received')
   @RequiredWorkspace('CREATOR')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:
       'Creator confirms physical product received (PRODUCT_RECEIVED; required before first delivery when shipment applies)',
@@ -267,12 +274,12 @@ export class OrdersController {
     description: 'Order ID (UUID)',
     format: 'uuid',
   })
-  @ApiNoContentResponse({ description: 'Receipt confirmed' })
+  @ApiOkResponse({ type: MarkProductReceivedResponseDto })
   async markProductReceived(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.ordersService.markProductReceived({
+  ): Promise<MarkProductReceivedResponseDto> {
+    return this.ordersService.markProductReceived({
       creatorUserId: req.user.id,
       orderId: id,
     });
@@ -347,6 +354,45 @@ export class OrdersController {
     await this.ordersService.requestRevision({
       orderId: id,
       brandUserId: req.user.id,
+    });
+  }
+
+  @Post(':id/rating-review')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Brand rates and reviews the creator (allowed when order is ACCEPTED, CREATOR_PAYMENT_DONE, or REJECTED)',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CreateCreatorRatingReviewResponseDto })
+  async createOrderRatingReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateCreatorRatingReviewDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreateCreatorRatingReviewResponseDto> {
+    return this.creatorReviewsService.createForOrder({
+      brandUserId: req.user.id,
+      orderId: id,
+      dto,
+    });
+  }
+
+  @Get(':id/rating-review')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get rating/review for an order (brand or creator on that order)',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiOkResponse({ type: CreatorRatingReviewDto })
+  async getOrderRatingReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorRatingReviewDto | null> {
+    return this.creatorReviewsService.getForOrder({
+      orderId: id,
+      viewerUserId: req.user.id,
     });
   }
 

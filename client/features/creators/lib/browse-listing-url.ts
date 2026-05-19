@@ -32,12 +32,9 @@ function parseBoolean(
 
 export function parseBrowseListingParams(
   sp: Pick<URLSearchParams, "get" | "getAll">,
-): { filters: Filters; search: string; page: number } {
-  const pageStr = sp.get("page");
-  const page = pageStr ? parseInt(pageStr, 10) : 1;
+): { filters: Filters; search: string } {
   return {
     search: sp.get("q") ?? "",
-    page: isNaN(page) || page < 1 ? 1 : page,
     filters: {
       city: sp.get("city")?.trim() ?? DEFAULT_FILTERS.city,
       categories: parseMultiValue(sp, "categories"),
@@ -92,13 +89,8 @@ const MULTI_VALUE_KEYS = [
 export function serializeBrowseListingParams(
   filters: Filters,
   search: string,
-  page: number = 1,
 ): string {
   const params = new URLSearchParams();
-
-  if (page > 1) {
-    params.set("page", page.toString());
-  }
 
   const query = search.trim();
   if (query) params.set("q", query);

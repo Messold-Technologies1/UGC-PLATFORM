@@ -252,7 +252,7 @@ function ReviewRow({
   return (
     <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:gap-4">
       <p className="w-40 shrink-0 text-sm font-medium text-gray-500">{label}</p>
-      <div className="text-sm text-gray-900 break-words">{value}</div>
+      <div className="text-sm text-gray-900 wrap-break-word">{value}</div>
     </div>
   );
 }

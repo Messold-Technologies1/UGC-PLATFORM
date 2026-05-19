@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
@@ -52,7 +52,6 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const loginMutation = useLoginMutation();
@@ -87,8 +86,8 @@ export function AuthForm({ mode }: AuthFormProps) {
           const target = resolveImmediatePostAuthPath(result.user, callback);
           beginClientNavigation();
           // Use a hard navigation so the next request definitely includes the
-          // freshly-set HttpOnly cookies (avoids occasional redirect loops in prod).
-          window.location.assign(target);
+          // freshly-set HttpOnly cookies, while replacing /login in history.
+          window.location.replace(target);
         },
         onError: (error) => {
           if (isAxiosError(error) && error.response) {
@@ -99,7 +98,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         },
       });
     },
-    [loginMutation, queryClient, router, searchParams],
+    [loginMutation, queryClient, searchParams],
   );
 
   const handleSignup = useCallback(
@@ -119,7 +118,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             const callback = searchParams.get("callbackUrl");
             const target = resolveImmediatePostAuthPath(result.user, callback);
             beginClientNavigation();
-            window.location.assign(target);
+            window.location.replace(target);
           },
           onError: (error) => {
             if (isAxiosError(error) && error.response) {
@@ -131,12 +130,12 @@ export function AuthForm({ mode }: AuthFormProps) {
         },
       );
     },
-    [registerMutation, queryClient, router, searchParams],
+    [registerMutation, queryClient, searchParams],
   );
 
   const handleGoogleLogin = useCallback(() => {
     setGoogleLoading(true);
-    window.location.href = ENDPOINTS.AUTH.GOOGLE;
+    window.location.replace(ENDPOINTS.AUTH.GOOGLE);
   }, []);
 
   return (

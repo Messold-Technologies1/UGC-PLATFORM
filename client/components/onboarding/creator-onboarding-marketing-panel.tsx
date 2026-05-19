@@ -100,8 +100,8 @@ export function CreatorOnboardingMarketingPanel() {
       </div>
 
       {/* ── Creator hero image ── */}
-      <div className="relative mt-3 overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 via-purple-50 to-orange-50">
-        <div className="flex aspect-[5/2] items-center justify-center">
+      <div className="relative mt-3 overflow-hidden rounded-xl bg-linear-to-br from-purple-100 via-purple-50 to-orange-50">
+        <div className="flex aspect-5/2 items-center justify-center">
           <div className="text-center">
             <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-purple-100/80">
               <svg

@@ -32,6 +32,7 @@ import type {
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
@@ -159,10 +160,22 @@ export class OrdersService {
     private readonly razorpay: RazorpayService,
     private readonly orderRealtime: OrderRealtimeNotifier,
     private readonly storage: StorageService,
+    private readonly brandAccess: BrandAccessService,
   ) {}
 
+  private async resolveBrandActor(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+  }) {
+    return this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId ?? null,
+    });
+  }
+
   async createCheckout(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     creatorId: string;
     packageId: string;
     addOnIds?: string[];
@@ -176,12 +189,10 @@ export class OrdersService {
     addOnsAmountPaise: number;
     addOnsCount: number;
   }> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) {
-      throw new NotFoundException('Brand profile not found');
-    }
 
     const pkg = await this.prisma.creatorPackage.findFirst({
       where: { id: params.packageId, creatorId: params.creatorId },
@@ -352,15 +363,15 @@ export class OrdersService {
   }
 
   async submitBrief(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     orderId: string;
     briefId: string;
   }): Promise<void> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -498,17 +509,17 @@ export class OrdersService {
   }
 
   async markProductShipped(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     orderId: string;
     courierName: string;
     trackingId?: string | null;
     dispatchDateYmd: string;
   }): Promise<void> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -832,12 +843,15 @@ export class OrdersService {
     };
   }
 
-  async requestRevision(params: { orderId: string; brandUserId: string }): Promise<void> {
-    const brand: any = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+  async requestRevision(params: {
+    orderId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
+  }): Promise<void> {
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order: any = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -1016,13 +1030,13 @@ export class OrdersService {
 
   async getOrderDetailsForBrand(params: {
     orderId: string;
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
   }): Promise<BrandOrderDetailsResponseDto> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order: any = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -1140,13 +1154,13 @@ export class OrdersService {
 
   async listDeliveriesForBrand(params: {
     orderId: string;
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
   }): Promise<OrderDeliveriesResponseDto> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -1248,15 +1262,15 @@ export class OrdersService {
   }
 
   async listOrdersForBrand(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     page?: number;
     limit?: number;
   }): Promise<BrandOrdersListResponseDto> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
@@ -1473,14 +1487,21 @@ export class OrdersService {
             updatedAt: true,
           },
         },
-        brand: { select: { userId: true } },
+        brand: {
+          select: {
+            userId: true,
+            agency: { select: { ownerUserId: true } },
+          },
+        },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
 
+    const brandActorUserId =
+      order.brand.userId ?? order.brand.agency?.ownerUserId ?? null;
     const isParticipant =
-      order.brand.userId === params.viewerUserId ||
+      brandActorUserId === params.viewerUserId ||
       order.creator.userId === params.viewerUserId;
     const isAdmin = await this.isAdminUser(params.viewerUserId);
     if (!isParticipant && !isAdmin) {
@@ -1549,14 +1570,14 @@ export class OrdersService {
   }
 
   async acceptDelivery(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     orderId: string;
   }): Promise<void> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -1581,6 +1602,7 @@ export class OrdersService {
     orderId: string;
     openedBy: 'BRAND' | 'CREATOR';
     openerUserId: string;
+    brandProfileId?: string | null;
     reason: string;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
@@ -1602,11 +1624,10 @@ export class OrdersService {
     }
 
     if (params.openedBy === 'BRAND') {
-      const brand = await this.prisma.brandProfile.findUnique({
-        where: { userId: params.openerUserId },
-        select: { id: true },
+      const { brand } = await this.resolveBrandActor({
+        actorUserId: params.openerUserId,
+        brandProfileId: params.brandProfileId,
       });
-      if (!brand) throw new NotFoundException('Brand profile not found');
       if (order.brandId !== brand.id)
         throw new ForbiddenException('Not your order');
     } else {

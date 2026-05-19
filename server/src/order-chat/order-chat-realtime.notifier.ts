@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatGateway } from './chat.gateway';
 
@@ -21,6 +22,7 @@ export class OrderChatRealtimeNotifier {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: ChatGateway,
+    private readonly brandAccess: BrandAccessService,
   ) {}
 
   private async getParticipants(orderId: string): Promise<{
@@ -30,12 +32,15 @@ export class OrderChatRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
-        brand: { select: { userId: true } },
+        brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new Error('Order not found');
-    return { brandUserId: order.brand.userId, creatorUserId: order.creator.userId };
+    const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
+      order.brand.id,
+    );
+    return { brandUserId, creatorUserId: order.creator.userId };
   }
 
   async emitChatMessage(params: {

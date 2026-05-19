@@ -19,6 +19,12 @@ export function canSwitchToWorkspace(
   user: AuthUser,
   role: WorkspaceMenuRole,
 ): boolean {
+  if (role === "BRAND") {
+    return (
+      (user.roles.includes("BRAND") || user.roles.includes("AGENCY")) &&
+      canUseWorkspaceRole(user, "BRAND")
+    );
+  }
   return user.roles.includes(role) && canUseWorkspaceRole(user, role);
 }
 
@@ -30,6 +36,7 @@ export function canSetUpWorkspace(
     return (
       !canSwitchToWorkspace(user, role) &&
       !user.hasBrandProfile &&
+      !user.hasAgencyProfile &&
       !user.brandAccessRevoked
     );
   }

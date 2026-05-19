@@ -1,9 +1,15 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
+import api, { persistAuthMeSnapshot } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
-export type WorkspaceRole = "CREATOR" | "BRAND" | "ADMIN";
+export type WorkspaceRole = "CREATOR" | "BRAND" | "ADMIN" | "AGENCY";
+
+export type AccessibleBrandSummary = {
+  id: string;
+  brandName: string;
+  logoUrl: string | null;
+};
 
 export type AuthUser = {
   id: string;
@@ -13,7 +19,10 @@ export type AuthUser = {
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
+  hasAgencyProfile: boolean;
   brandAccessRevoked: boolean;
+  activeBrandProfileId: string | null;
+  accessibleBrands: AccessibleBrandSummary[];
 };
 
 export type MeResponse = {
@@ -25,8 +34,11 @@ export const authMeQueryKey = ["auth", "me"] as const;
 export async function fetchAuthMe(): Promise<AuthUser | null> {
   try {
     const { data } = await api.get<MeResponse>(ENDPOINTS.AUTH.ME);
-    return data.user ?? null;
+    const user = data.user ?? null;
+    persistAuthMeSnapshot(user);
+    return user;
   } catch {
+    persistAuthMeSnapshot(null);
     return null;
   }
 }

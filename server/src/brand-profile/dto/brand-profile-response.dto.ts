@@ -5,8 +5,19 @@ export class BrandProfileResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'uuid' })
-  userId!: string;
+  @ApiPropertyOptional({
+    example: 'uuid',
+    nullable: true,
+    description: 'Set for standalone brand accounts; null for agency-managed brands.',
+  })
+  userId!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'uuid',
+    nullable: true,
+    description: 'Owning agency when this brand is agency-managed.',
+  })
+  agencyId!: string | null;
 
   @ApiProperty({ example: 'brand@example.com' })
   email!: string;

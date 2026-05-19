@@ -1,6 +1,34 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { toast } from "sonner";
+import {
+  ACTIVE_BRAND_HEADER,
+  readStoredActiveBrandId,
+  resolveClientActiveBrandId,
+  writeStoredActiveBrandId,
+} from "@/features/brand/lib/active-brand";
+import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { ENDPOINTS } from "@/lib/endpoints";
+
+const AUTH_ME_SNAPSHOT_KEY = "ugc:auth-me-snapshot";
+const AUTH_USER_ID_KEY = "ugc:current-user-id";
+
+export function persistAuthMeSnapshot(user: AuthUser | null): void {
+  try {
+    if (!user) {
+      sessionStorage.removeItem(AUTH_ME_SNAPSHOT_KEY);
+      sessionStorage.removeItem(AUTH_USER_ID_KEY);
+      return;
+    }
+    sessionStorage.setItem(AUTH_ME_SNAPSHOT_KEY, JSON.stringify(user));
+    sessionStorage.setItem(AUTH_USER_ID_KEY, user.id);
+    const active = resolveClientActiveBrandId(user);
+    if (active) {
+      writeStoredActiveBrandId(user.id, active);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 const api = axios.create({
   withCredentials: true,
@@ -58,6 +86,26 @@ function refreshSession() {
 }
 
 if (typeof window !== "undefined") {
+  api.interceptors.request.use((config) => {
+    try {
+      const userId = sessionStorage.getItem(AUTH_USER_ID_KEY);
+      let brandId: string | null = null;
+      const meRaw = sessionStorage.getItem(AUTH_ME_SNAPSHOT_KEY);
+      if (meRaw) {
+        brandId = resolveClientActiveBrandId(JSON.parse(meRaw) as AuthUser);
+      } else if (userId) {
+        brandId = readStoredActiveBrandId(userId);
+      }
+      if (brandId) {
+        config.headers = config.headers ?? {};
+        config.headers[ACTIVE_BRAND_HEADER] = brandId;
+      }
+    } catch {
+      // ignore
+    }
+    return config;
+  });
+
   api.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {

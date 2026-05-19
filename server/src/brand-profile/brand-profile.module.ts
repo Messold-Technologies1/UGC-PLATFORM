@@ -8,6 +8,7 @@ import { BrandProfileService } from './brand-profile.service';
   imports: [AuthModule],
   controllers: [BrandProfileController, AdminBrandController],
   providers: [BrandProfileService],
+  exports: [BrandProfileService],
 })
 export class BrandProfileModule {}
 

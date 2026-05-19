@@ -5,7 +5,7 @@ import { seedCreatorAddOnOptions } from './creator-addon-options-seed';
 
 const prisma = new PrismaClient();
 const db = prisma as any;
-const roleNames = ['ADMIN', 'CREATOR', 'BRAND'] as const;
+const roleNames = ['ADMIN', 'CREATOR', 'BRAND', 'AGENCY'] as const;
 type RoleName = (typeof roleNames)[number];
 
 const permissionsByRole: Record<RoleName, string[]> = {
@@ -23,6 +23,13 @@ const permissionsByRole: Record<RoleName, string[]> = {
     'DELIVER_CONTENT',
   ],
   BRAND: [
+    'SEARCH_CREATORS',
+    'CREATE_ORDER',
+    'REQUEST_REVISION',
+    'APPROVE_DELIVERY',
+  ],
+  AGENCY: [
+    'MANAGE_AGENCY_BRANDS',
     'SEARCH_CREATORS',
     'CREATE_ORDER',
     'REQUEST_REVISION',

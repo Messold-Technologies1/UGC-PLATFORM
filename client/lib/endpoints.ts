@@ -35,6 +35,14 @@ export const ENDPOINTS = {
     PROFILE_BRAND_CATEGORY_OPTIONS:
       "/api/brands/profile/brand-category-options",
   },
+  AGENCY: {
+    PROFILE: "/api/agency/profile",
+    PROFILE_ME: "/api/agency/profile/me",
+    PROFILE_LOGO_PRESIGN: "/api/agency/profile/uploads/presign",
+    CONTACT_PHONE_SEND_OTP: "/api/agency/profile/contact-phone/send-otp",
+    BRANDS: "/api/agency/brands",
+    BRANDS_SWITCH: "/api/agency/brands/switch",
+  },
   BRIEFS: {
     LIST: "/api/briefs",
     FIELD_OPTIONS: "/api/briefs/field-options",

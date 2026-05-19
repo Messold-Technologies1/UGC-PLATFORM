@@ -11,15 +11,15 @@ export class MeUserDto {
   @ApiPropertyOptional({ nullable: true })
   name!: string | null;
 
-  @ApiProperty({ enum: ['CREATOR', 'BRAND', 'ADMIN'], isArray: true })
-  roles!: ('CREATOR' | 'BRAND' | 'ADMIN')[];
+  @ApiProperty({ enum: ['CREATOR', 'BRAND', 'ADMIN', 'AGENCY'], isArray: true })
+  roles!: ('CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY')[];
 
   @ApiPropertyOptional({
-    enum: ['CREATOR', 'BRAND', 'ADMIN'],
+    enum: ['CREATOR', 'BRAND', 'ADMIN', 'AGENCY'],
     nullable: true,
     description: 'Default workspace role preference (cross-session default)',
   })
-  primaryRole!: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
+  primaryRole!: 'CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY' | null;
 
   @ApiProperty()
   hasCreatorProfile!: boolean;
@@ -27,9 +27,37 @@ export class MeUserDto {
   @ApiProperty()
   hasBrandProfile!: boolean;
 
+  @ApiProperty()
+  hasAgencyProfile!: boolean;
+
   @ApiProperty({
     description:
       'Whether admin has permanently removed this user’s brand access',
   })
   brandAccessRevoked!: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Last active brand for agency owners (server-validated).',
+  })
+  activeBrandProfileId!: string | null;
+
+  @ApiProperty({
+    description:
+      'Brands the user can act as (standalone brand profile and/or agency-managed brands).',
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        brandName: { type: 'string' },
+        logoUrl: { type: 'string', nullable: true },
+      },
+    },
+  })
+  accessibleBrands!: Array<{
+    id: string;
+    brandName: string;
+    logoUrl: string | null;
+  }>;
 }

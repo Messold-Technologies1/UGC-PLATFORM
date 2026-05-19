@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BrandCategory, RoleName } from '@prisma/client';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
@@ -29,6 +30,7 @@ export class BrandProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly brandAccess: BrandAccessService,
   ) {}
 
   private assertTempBrandLogoKeyOwner(userId: string, key: string): void {
@@ -54,8 +56,12 @@ export class BrandProfileService {
 
     return {
       id: profile.id,
-      userId: profile.userId,
-      email: profile.user?.email ?? profile.email,
+      userId: profile.userId ?? null,
+      agencyId: profile.agencyId ?? null,
+      email:
+        profile.user?.email ??
+        profile.contactEmail ??
+        '',
       contactFullName: profile.contactFullName ?? null,
       contactEmail: profile.contactEmail ?? null,
       contactPhone: profile.contactPhone ?? null,
@@ -225,6 +231,87 @@ export class BrandProfileService {
       return created.id;
     });
 
+    return this.finalizeBrandProfileAssetsAndLoad({
+      brandProfileId,
+      actorUserId: userId,
+      logoKey,
+      pronunciationAudioKey,
+    });
+  }
+
+  async createBrandProfileForAgency(params: {
+    agencyId: string;
+    actorUserId: string;
+    dto: CreateBrandProfileDto;
+  }): Promise<BrandProfileResponseDto> {
+    const logoKey = params.dto.logoKey?.trim();
+    if (logoKey) {
+      this.assertTempBrandLogoKeyOwner(params.actorUserId, logoKey);
+    }
+
+    const pronunciationAudioKey = params.dto.brandPronunciationAudioKey?.trim();
+    if (pronunciationAudioKey) {
+      this.assertTempBrandPronunciationAudioKeyOwner(
+        params.actorUserId,
+        pronunciationAudioKey,
+      );
+    }
+
+    const selectedCategories = [...new Set(params.dto.categories ?? [])];
+    const includesOther = selectedCategories.includes(BrandCategory.OTHER);
+    const otherCategoryLabel = includesOther
+      ? (params.dto.otherCategoryLabel ?? '').trim()
+      : '';
+    if (includesOther && !otherCategoryLabel) {
+      throw new BadRequestException(
+        'otherCategoryLabel is required for OTHER category',
+      );
+    }
+
+    const brandProfileId = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.brandProfile.create({
+        data: {
+          agencyId: params.agencyId,
+          brandName: params.dto.brandName.trim(),
+          contactFullName: params.dto.contactFullName.trim(),
+          contactEmail: params.dto.contactEmail.trim(),
+          contactPhone: params.dto.contactPhone.trim(),
+          website: params.dto.website?.trim() || null,
+          instagramUrl: params.dto.instagramUrl?.trim() || null,
+          productType: params.dto.productType ?? null,
+          otherCategoryLabel: includesOther ? otherCategoryLabel : null,
+        } as any,
+        select: { id: true },
+      });
+
+      if (selectedCategories.length) {
+        await tx.brandProfileBrandCategory.createMany({
+          data: selectedCategories.map((category) => ({
+            brandProfileId: created.id,
+            category,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return created.id;
+    });
+
+    return this.finalizeBrandProfileAssetsAndLoad({
+      brandProfileId,
+      actorUserId: params.actorUserId,
+      logoKey,
+      pronunciationAudioKey,
+    });
+  }
+
+  private async finalizeBrandProfileAssetsAndLoad(params: {
+    brandProfileId: string;
+    actorUserId: string;
+    logoKey?: string;
+    pronunciationAudioKey?: string;
+  }): Promise<BrandProfileResponseDto> {
+    const { brandProfileId, logoKey, pronunciationAudioKey } = params;
     const assetData: Record<string, string> = {};
     if (logoKey) {
       const finalLogoKey = await this.storage.finalizeBrandLogoKey({
@@ -257,6 +344,7 @@ export class BrandProfileService {
       select: {
         id: true,
         userId: true,
+        agencyId: true,
         contactFullName: true,
         contactEmail: true,
         contactPhone: true,
@@ -443,14 +531,20 @@ export class BrandProfileService {
     }
   }
 
-  async getBrandProfileForCurrentUser(
-    userId: string,
-  ): Promise<BrandProfileResponseDto> {
+  async getBrandProfileForActor(params: {
+    actorUserId: string;
+    brandProfileId?: string;
+  }): Promise<BrandProfileResponseDto> {
+    const ctx = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId ?? null,
+    });
     const profile = await this.prisma.brandProfile.findUnique({
-      where: { userId },
+      where: { id: ctx.brandProfileId },
       select: {
         id: true,
         userId: true,
+        agencyId: true,
         contactFullName: true,
         contactEmail: true,
         contactPhone: true,
@@ -469,20 +563,24 @@ export class BrandProfileService {
         brandCategories: { select: { category: true } },
       } as any,
     });
-
     if (!profile) {
       throw new NotFoundException('Brand profile not found');
     }
-
     return this.mapBrandProfile(profile);
   }
 
-  async updateBrandProfileForCurrentUser(
-    userId: string,
-    dto: UpdateBrandProfileDto,
-  ): Promise<BrandProfileResponseDto> {
+  async updateBrandProfileForActor(params: {
+    actorUserId: string;
+    dto: UpdateBrandProfileDto;
+    brandProfileId?: string;
+  }): Promise<BrandProfileResponseDto> {
+    const ctx = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId ?? null,
+    });
+    const userId = params.actorUserId;
     const existing: any = await this.prisma.brandProfile.findUnique({
-      where: { userId },
+      where: { id: ctx.brandProfileId },
       select: {
         id: true,
         logoKey: true,
@@ -621,13 +719,16 @@ export class BrandProfileService {
     const hasCategoryUpdates = dto.categories !== undefined;
 
     if (!hasScalarUpdates && !hasCategoryUpdates) {
-      return this.getBrandProfileForCurrentUser(userId);
+      return this.getBrandProfileForActor({
+        actorUserId: userId,
+        brandProfileId: ctx.brandProfileId,
+      });
     }
 
     await this.prisma.$transaction(async (tx) => {
       if (hasScalarUpdates) {
         await tx.brandProfile.update({
-          where: { userId },
+          where: { id: ctx.brandProfileId },
           data: data as any,
         });
       }
@@ -650,13 +751,13 @@ export class BrandProfileService {
             );
           }
           await tx.brandProfile.update({
-            where: { userId },
+            where: { id: ctx.brandProfileId },
             data: { otherCategoryLabel: trimmed } as any,
           });
         } else {
           // If OTHER is not selected, clear any stored custom label.
           await tx.brandProfile.update({
-            where: { userId },
+            where: { id: ctx.brandProfileId },
             data: { otherCategoryLabel: null } as any,
           });
         }
@@ -684,6 +785,9 @@ export class BrandProfileService {
       }
     }
 
-    return this.getBrandProfileForCurrentUser(userId);
+    return this.getBrandProfileForActor({
+      actorUserId: userId,
+      brandProfileId: ctx.brandProfileId,
+    });
   }
 }

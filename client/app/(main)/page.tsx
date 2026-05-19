@@ -8,15 +8,18 @@ import {
 export const dynamic = "force-dynamic";
 function canUseWorkspaceRole(
   brandAccessRevoked: boolean | undefined,
-  role: "CREATOR" | "BRAND" | "ADMIN" | null | undefined,
+  role: "CREATOR" | "BRAND" | "ADMIN" | "AGENCY" | null | undefined,
 ) {
   if (!role) return false;
+  if (role === "AGENCY") return true;
   return role !== "BRAND" || !brandAccessRevoked;
 }
 
-function workspacePath(role: "CREATOR" | "BRAND" | "ADMIN" | null | undefined) {
+function workspacePath(
+  role: "CREATOR" | "BRAND" | "ADMIN" | "AGENCY" | null | undefined,
+) {
   if (role === "ADMIN") return "/admin";
-  if (role === "BRAND") return "/brand/creators";
+  if (role === "BRAND" || role === "AGENCY") return "/brand/creators";
   if (role === "CREATOR") return "/creator/orders";
   return null;
 }

@@ -63,13 +63,21 @@ export class WorkspacePermissionGuard implements CanActivate {
       }
     }
 
-    if (!roles.has(requiredWorkspace)) {
+    const hasWorkspace =
+      roles.has(requiredWorkspace) ||
+      (requiredWorkspace === 'BRAND' && roles.has(RoleName.AGENCY));
+
+    if (!hasWorkspace) {
       throw new ForbiddenException(
         `${requiredWorkspace} workspace access required`,
       );
     }
 
-    if (requiredWorkspace === 'BRAND' && user.brandAccessRevokedAt) {
+    if (
+      (requiredWorkspace === 'BRAND' || requiredWorkspace === 'AGENCY') &&
+      roles.has(RoleName.BRAND) &&
+      user.brandAccessRevokedAt
+    ) {
       throw new ForbiddenException(
         'Brand workspace access has been removed by an admin',
       );

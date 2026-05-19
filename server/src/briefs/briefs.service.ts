@@ -10,6 +10,7 @@ import {
   BriefShootLocationKind,
   BriefToneStyle,
 } from '@prisma/client';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
@@ -103,6 +104,7 @@ export class BriefsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly brandAccess: BrandAccessService,
   ) {}
 
   private assertTempBriefProductImageKeyOwner(
@@ -115,25 +117,27 @@ export class BriefsService {
   }
 
   async presignProductImageUpload(
-    brandUserId: string,
-    dto: PresignBriefProductImageUploadDto,
+    params: {
+      actorUserId: string;
+      brandProfileId?: string | null;
+      dto: PresignBriefProductImageUploadDto;
+    },
   ): Promise<PresignBriefProductImageUploadResponseDto> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: brandUserId },
-      select: { id: true },
+    await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const key = this.storage.buildObjectKey({
       kind: 'brief_product_image',
-      userId: brandUserId,
-      contentType: dto.contentType,
+      userId: params.actorUserId,
+      contentType: params.dto.contentType,
     });
 
     return this.storage.createPresignedPutUpload({
       key,
-      contentType: dto.contentType,
-      contentLength: dto.contentLength,
+      contentType: params.dto.contentType,
+      contentLength: params.dto.contentLength,
     });
   }
 
@@ -149,20 +153,23 @@ export class BriefsService {
   }
 
   async createBrief(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     dto: CreateBriefDto;
   }): Promise<{ id: string }> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const productImageKey = params.dto.productImageKey.trim();
     if (!productImageKey) {
       throw new BadRequestException('productImageKey is required');
     }
-    this.assertTempBriefProductImageKeyOwner(params.brandUserId, productImageKey);
+    this.assertTempBriefProductImageKeyOwner(
+      params.actorUserId,
+      productImageKey,
+    );
 
     const script = normalizeScriptInput(params.dto.script);
 
@@ -213,12 +220,14 @@ export class BriefsService {
     return { id: created.id };
   }
 
-  async listBriefsForBrand(params: { brandUserId: string }): Promise<BriefDto[]> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+  async listBriefsForBrand(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+  }): Promise<BriefDto[]> {
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const rows = await this.prisma.brief.findMany({
       where: { brandId: brand.id },
@@ -229,14 +238,14 @@ export class BriefsService {
   }
 
   async getBriefForBrand(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     briefId: string;
   }): Promise<BriefDto> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const brief = await this.prisma.brief.findUnique({ where: { id: params.briefId } });
     if (!brief) throw new NotFoundException('Brief not found');

@@ -31,6 +31,26 @@ function extFromContentType(contentType: string): string | null {
   return null;
 }
 
+const MIME_BY_EXT: Record<string, string> = {
+  webm: 'audio/webm',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+};
+
+function resolveMimeTypeFromObjectKey(key: string): string | null {
+  const fileName = key.split('/').pop();
+  const ext = fileName?.includes('.') ? fileName.split('.').pop()?.toLowerCase() : null;
+  if (!ext) return null;
+  return MIME_BY_EXT[ext] ?? null;
+}
+
 function validateContentType(kind: StorageUploadKind, contentType: string): void {
   const ct = contentType.toLowerCase().split(';')[0]?.trim();
   const isImage =
@@ -63,7 +83,7 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
     if (!isImage && !isVideo) throw new Error('Unsupported delivery content type');
     return;
   }
-  if (kind === 'brand_pronunciation_audio') {
+  if (kind === 'brand_pronunciation_audio' || kind === 'order_chat_voice_message') {
     if (!isAudio) throw new Error('Unsupported audio content type');
     return;
   }
@@ -125,6 +145,12 @@ export class StorageService {
         return `creator-profile/${creatorId}/intro/${id}.${ext}`;
       }
       return `creator-profile-intro-temp/${input.userId}/${id}.${ext}`;
+    }
+
+    if (input.kind === 'order_chat_voice_message') {
+      const orderId = input.orderId;
+      if (!orderId) throw new Error('orderId is required');
+      return `order-chat-voice/${orderId}/${input.userId}/${id}.${ext}`;
     }
 
     if (input.kind === 'brand_logo') {
@@ -202,6 +228,14 @@ export class StorageService {
 
   isTempBrandPronunciationAudioKeyForUser(userId: string, key: string): boolean {
     return key.startsWith(`brand-pronunciation-temp/${userId}/`);
+  }
+
+  isOrderChatVoiceKeyForUser(orderId: string, userId: string, key: string): boolean {
+    return key.startsWith(`order-chat-voice/${orderId}/${userId}/`);
+  }
+
+  mimeTypeFromObjectKey(key: string): string | null {
+    return resolveMimeTypeFromObjectKey(key);
   }
 
   buildTempBriefProductImageKey(userId: string, extOrContentType: string): string {

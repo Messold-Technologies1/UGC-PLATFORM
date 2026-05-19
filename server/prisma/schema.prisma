@@ -511,11 +511,20 @@ model Brief {
   @@index([brandId, createdAt])
 }
 
+enum OrderChatMessageType {
+  TEXT
+  VOICE
+}
+
 model OrderChatMessage {
   id              String   @id @default(uuid()) @db.Uuid
   orderId         String   @db.Uuid
   senderUserId    String   @db.Uuid
-  text            String
+  type            OrderChatMessageType @default(TEXT)
+  text            String?
+  audioKey        String?
+  audioDurationMs Int?
+  audioMimeType   String?
   clientMessageId String?
   createdAt       DateTime @default(now())
 

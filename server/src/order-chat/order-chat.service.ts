@@ -4,7 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { OrderChatMessageType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { PresignedUploadResult } from '../storage/storage.types';
+import { StorageService } from '../storage/storage.service';
+import {
+  FormattedOrderChatMessage,
+  OrderChatMessageRow,
+  toRealtimeChatMessagePayload,
+} from './order-chat-message.mapper';
 import { OrderChatRealtimeNotifier } from './order-chat-realtime.notifier';
 
 type OrderChatParticipants = {
@@ -12,12 +20,51 @@ type OrderChatParticipants = {
   creatorUserId: string;
 };
 
+const MESSAGE_SELECT = {
+  id: true,
+  orderId: true,
+  senderUserId: true,
+  type: true,
+  text: true,
+  audioKey: true,
+  audioDurationMs: true,
+  audioMimeType: true,
+  clientMessageId: true,
+  createdAt: true,
+} as const;
+
 @Injectable()
 export class OrderChatService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
     private readonly realtime: OrderChatRealtimeNotifier,
   ) {}
+
+  private formatMessage(row: OrderChatMessageRow): FormattedOrderChatMessage {
+    return {
+      id: row.id,
+      orderId: row.orderId,
+      senderUserId: row.senderUserId,
+      type: row.type,
+      text: row.type === OrderChatMessageType.TEXT ? row.text : null,
+      audioUrl: row.audioKey ? this.storage.buildCdnUrl(row.audioKey) : null,
+      audioDurationMs: row.audioDurationMs,
+      audioMimeType: row.audioMimeType,
+      clientMessageId: row.clientMessageId,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private async emitFormattedMessage(
+    orderId: string,
+    message: FormattedOrderChatMessage,
+  ): Promise<void> {
+    await this.realtime.emitChatMessage({
+      orderId,
+      message: toRealtimeChatMessagePayload(message),
+    });
+  }
 
   private async getOrderParticipants(orderId: string): Promise<OrderChatParticipants> {
     const order = await this.prisma.order.findUnique({
@@ -54,14 +101,7 @@ export class OrderChatService {
     cursor?: string;
     after?: string;
   }): Promise<{
-    items: Array<{
-      id: string;
-      orderId: string;
-      senderUserId: string;
-      text: string;
-      clientMessageId: string | null;
-      createdAt: Date;
-    }>;
+    items: FormattedOrderChatMessage[];
     nextCursor?: string;
   }> {
     await this.assertOrderChatAccess({
@@ -80,16 +120,12 @@ export class OrderChatService {
         where: { orderId: params.orderId, createdAt: { gt: after } },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         take,
-        select: {
-          id: true,
-          orderId: true,
-          senderUserId: true,
-          text: true,
-          clientMessageId: true,
-          createdAt: true,
-        },
+        select: MESSAGE_SELECT,
       });
-      return { items: rows, nextCursor: rows.at(-1)?.id };
+      return {
+        items: rows.map((row) => this.formatMessage(row)),
+        nextCursor: rows.at(-1)?.id,
+      };
     }
 
     const rows = await this.prisma.orderChatMessage.findMany({
@@ -99,21 +135,17 @@ export class OrderChatService {
       ...(params.cursor
         ? { cursor: { id: params.cursor }, skip: 1 }
         : undefined),
-      select: {
-        id: true,
-        orderId: true,
-        senderUserId: true,
-        text: true,
-        clientMessageId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
 
     const hasMore = rows.length > take;
-    const items = hasMore ? rows.slice(0, take) : rows;
-    const nextCursor = hasMore ? items.at(-1)?.id : undefined;
+    const page = hasMore ? rows.slice(0, take) : rows;
+    const nextCursor = hasMore ? page.at(-1)?.id : undefined;
 
-    return { items, nextCursor };
+    return {
+      items: page.map((row) => this.formatMessage(row)),
+      nextCursor,
+    };
   }
 
   async listMessagesForAdmin(params: {
@@ -121,17 +153,10 @@ export class OrderChatService {
     limit: number;
     cursor?: string;
   }): Promise<{
-    items: Array<{
-      id: string;
-      orderId: string;
-      senderUserId: string;
-      text: string;
-      clientMessageId: string | null;
-      createdAt: Date;
-    }>;
+    items: FormattedOrderChatMessage[];
     nextCursor?: string;
   }> {
-    await this.getOrderParticipants(params.orderId); // validates order exists
+    await this.getOrderParticipants(params.orderId);
 
     const take = Math.min(Math.max(params.limit, 1), 50);
     const rows = await this.prisma.orderChatMessage.findMany({
@@ -139,21 +164,47 @@ export class OrderChatService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: take + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : undefined),
-      select: {
-        id: true,
-        orderId: true,
-        senderUserId: true,
-        text: true,
-        clientMessageId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
 
     const hasMore = rows.length > take;
-    const items = hasMore ? rows.slice(0, take) : rows;
-    const nextCursor = hasMore ? items.at(-1)?.id : undefined;
+    const page = hasMore ? rows.slice(0, take) : rows;
+    const nextCursor = hasMore ? page.at(-1)?.id : undefined;
 
-    return { items, nextCursor };
+    return {
+      items: page.map((row) => this.formatMessage(row)),
+      nextCursor,
+    };
+  }
+
+  async presignVoiceUpload(params: {
+    orderId: string;
+    senderUserId: string;
+    contentType: string;
+    contentLength?: number;
+  }): Promise<PresignedUploadResult> {
+    await this.assertOrderChatAccess({
+      orderId: params.orderId,
+      viewerUserId: params.senderUserId,
+    });
+
+    let key: string;
+    try {
+      key = this.storage.buildObjectKey({
+        kind: 'order_chat_voice_message',
+        userId: params.senderUserId,
+        orderId: params.orderId,
+        contentType: params.contentType,
+      });
+    } catch {
+      throw new BadRequestException('Unsupported audio content type');
+    }
+
+    return this.storage.createPresignedPutUpload({
+      key,
+      contentType: params.contentType,
+      contentLength: params.contentLength,
+    });
   }
 
   async sendMessage(params: {
@@ -161,14 +212,7 @@ export class OrderChatService {
     senderUserId: string;
     text: string;
     clientMessageId?: string;
-  }): Promise<{
-    id: string;
-    orderId: string;
-    senderUserId: string;
-    text: string;
-    clientMessageId: string | null;
-    createdAt: Date;
-  }> {
+  }): Promise<FormattedOrderChatMessage> {
     await this.assertOrderChatAccess({
       orderId: params.orderId,
       viewerUserId: params.senderUserId,
@@ -178,60 +222,105 @@ export class OrderChatService {
     if (!text) throw new BadRequestException('Message text is required');
     if (text.length > 5000) throw new BadRequestException('Message too long');
 
-    const created = await (async () => {
-      try {
-        return await this.prisma.orderChatMessage.create({
-          data: {
-            orderId: params.orderId,
-            senderUserId: params.senderUserId,
-            text,
-            clientMessageId: params.clientMessageId ?? null,
-          },
-          select: {
-            id: true,
-            orderId: true,
-            senderUserId: true,
-            text: true,
-            clientMessageId: true,
-            createdAt: true,
-          },
-        });
-      } catch (err: any) {
-        if (params.clientMessageId && err?.code === 'P2002') {
-          const existing = await this.prisma.orderChatMessage.findFirst({
-            where: {
-              orderId: params.orderId,
-              senderUserId: params.senderUserId,
-              clientMessageId: params.clientMessageId,
-            },
-            select: {
-              id: true,
-              orderId: true,
-              senderUserId: true,
-              text: true,
-              clientMessageId: true,
-              createdAt: true,
-            },
-          });
-          if (existing) return existing;
-        }
-        throw err;
-      }
-    })();
-
-    await this.realtime.emitChatMessage({
+    const created = await this.createMessageWithIdempotency({
       orderId: params.orderId,
-      message: {
-        id: created.id,
-        orderId: created.orderId,
-        senderUserId: created.senderUserId,
-        text: created.text,
-        clientMessageId: created.clientMessageId,
-        createdAt: created.createdAt.toISOString(),
+      senderUserId: params.senderUserId,
+      clientMessageId: params.clientMessageId,
+      data: {
+        orderId: params.orderId,
+        senderUserId: params.senderUserId,
+        type: OrderChatMessageType.TEXT,
+        text,
+        clientMessageId: params.clientMessageId ?? null,
       },
     });
 
-    return created;
+    const formatted = this.formatMessage(created);
+    await this.emitFormattedMessage(params.orderId, formatted);
+    return formatted;
+  }
+
+  async sendVoiceMessage(params: {
+    orderId: string;
+    senderUserId: string;
+    audioKey: string;
+    audioDurationMs: number;
+    clientMessageId?: string;
+  }): Promise<FormattedOrderChatMessage> {
+    await this.assertOrderChatAccess({
+      orderId: params.orderId,
+      viewerUserId: params.senderUserId,
+    });
+
+    if (
+      !this.storage.isOrderChatVoiceKeyForUser(
+        params.orderId,
+        params.senderUserId,
+        params.audioKey,
+      )
+    ) {
+      throw new BadRequestException('Invalid audioKey');
+    }
+
+    const audioMimeType =
+      this.storage.mimeTypeFromObjectKey(params.audioKey) ??
+      'application/octet-stream';
+
+    const created = await this.createMessageWithIdempotency({
+      orderId: params.orderId,
+      senderUserId: params.senderUserId,
+      clientMessageId: params.clientMessageId,
+      data: {
+        orderId: params.orderId,
+        senderUserId: params.senderUserId,
+        type: OrderChatMessageType.VOICE,
+        text: null,
+        audioKey: params.audioKey,
+        audioDurationMs: params.audioDurationMs,
+        audioMimeType,
+        clientMessageId: params.clientMessageId ?? null,
+      },
+    });
+
+    const formatted = this.formatMessage(created);
+    await this.emitFormattedMessage(params.orderId, formatted);
+    return formatted;
+  }
+
+  private async createMessageWithIdempotency(params: {
+    orderId: string;
+    senderUserId: string;
+    clientMessageId?: string;
+    data: {
+      orderId: string;
+      senderUserId: string;
+      type: OrderChatMessageType;
+      text: string | null;
+      audioKey?: string | null;
+      audioDurationMs?: number | null;
+      audioMimeType?: string | null;
+      clientMessageId: string | null;
+    };
+  }): Promise<OrderChatMessageRow> {
+    try {
+      return await this.prisma.orderChatMessage.create({
+        data: params.data,
+        select: MESSAGE_SELECT,
+      });
+    } catch (err: unknown) {
+      if (params.clientMessageId && (err as { code?: string })?.code === 'P2002') {
+        const existing = await this.prisma.orderChatMessage.findFirst({
+          where: {
+            orderId: params.orderId,
+            senderUserId: params.senderUserId,
+            clientMessageId: params.clientMessageId,
+          },
+          select: MESSAGE_SELECT,
+        });
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
   async markRead(params: {
@@ -357,4 +446,3 @@ export class OrderChatService {
     };
   }
 }
-

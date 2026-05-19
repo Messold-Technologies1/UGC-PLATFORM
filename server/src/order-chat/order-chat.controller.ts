@@ -2,14 +2,18 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OrderChatService } from './order-chat.service';
+import { PresignUploadResponseDto } from '../brand-profile/dto/presign-brand-logo-upload.dto';
 import { ListOrderChatMessagesQueryDto } from './dto/list-order-chat-messages-query.dto';
-import { OrderChatMessagesResponseDto } from './dto/order-chat-messages-response.dto';
-import { SendOrderChatMessageDto } from './dto/send-order-chat-message.dto';
-import { OrderChatMessageDto } from './dto/order-chat-message.dto';
 import { MarkOrderChatReadDto } from './dto/mark-order-chat-read.dto';
-import { OrderChatStateDto } from './dto/order-chat-state.dto';
+import { OrderChatMessageDto } from './dto/order-chat-message.dto';
+import { OrderChatMessagesResponseDto } from './dto/order-chat-messages-response.dto';
 import { OrderChatReadReceiptDto } from './dto/order-chat-read-receipt.dto';
+import { OrderChatStateDto } from './dto/order-chat-state.dto';
+import { PresignOrderChatVoiceUploadDto } from './dto/presign-order-chat-voice-upload.dto';
+import { SendOrderChatMessageDto } from './dto/send-order-chat-message.dto';
+import { SendOrderChatVoiceMessageDto } from './dto/send-order-chat-voice-message.dto';
+import { toOrderChatMessageDto } from './order-chat-message.mapper';
+import { OrderChatService } from './order-chat.service';
 
 @ApiTags('Order Chat')
 @ApiBearerAuth()
@@ -35,41 +39,65 @@ export class OrderChatController {
     });
 
     return {
-      items: items.map((m) => ({
-        id: m.id,
-        orderId: m.orderId,
-        senderUserId: m.senderUserId,
-        text: m.text,
-        clientMessageId: m.clientMessageId,
-        createdAt: m.createdAt.toISOString(),
-      })),
+      items: items.map(toOrderChatMessageDto),
       nextCursor,
     };
   }
 
+  @Post(':id/chat/messages/presign-voice')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Create presigned S3 upload URL for an order chat voice message',
+  })
+  @ApiOkResponse({ type: PresignUploadResponseDto })
+  async presignVoiceUpload(
+    @Param('id', ParseUUIDPipe) orderId: string,
+    @Body() dto: PresignOrderChatVoiceUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PresignUploadResponseDto> {
+    return this.chat.presignVoiceUpload({
+      orderId,
+      senderUserId: req.user.id,
+      contentType: dto.contentType,
+      contentLength: dto.contentLength,
+    });
+  }
+
+  @Post(':id/chat/messages/voice')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Send a voice message in an order chat (order participant only)' })
+  @ApiCreatedResponse({ type: OrderChatMessageDto })
+  async sendVoiceMessage(
+    @Param('id', ParseUUIDPipe) orderId: string,
+    @Body() dto: SendOrderChatVoiceMessageDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<OrderChatMessageDto> {
+    const message = await this.chat.sendVoiceMessage({
+      orderId,
+      senderUserId: req.user.id,
+      audioKey: dto.audioKey,
+      audioDurationMs: dto.audioDurationMs,
+      clientMessageId: dto.clientMessageId,
+    });
+    return toOrderChatMessageDto(message);
+  }
+
   @Post(':id/chat/messages')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Send a message in an order chat (order participant only)' })
+  @ApiOperation({ summary: 'Send a text message in an order chat (order participant only)' })
   @ApiCreatedResponse({ type: OrderChatMessageDto })
   async sendMessage(
     @Param('id', ParseUUIDPipe) orderId: string,
     @Body() dto: SendOrderChatMessageDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<OrderChatMessageDto> {
-    const m = await this.chat.sendMessage({
+    const message = await this.chat.sendMessage({
       orderId,
       senderUserId: req.user.id,
       text: dto.text,
       clientMessageId: dto.clientMessageId,
     });
-    return {
-      id: m.id,
-      orderId: m.orderId,
-      senderUserId: m.senderUserId,
-      text: m.text,
-      clientMessageId: m.clientMessageId,
-      createdAt: m.createdAt.toISOString(),
-    };
+    return toOrderChatMessageDto(message);
   }
 
   @Post(':id/chat/read')
@@ -113,4 +141,3 @@ export class OrderChatController {
     };
   }
 }
-

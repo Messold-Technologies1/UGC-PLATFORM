@@ -5,7 +5,8 @@ export type StorageUploadKind =
   | 'brand_logo'
   | 'brand_pronunciation_audio'
   | 'brief_product_image'
-  | 'order_delivery_asset';
+  | 'order_delivery_asset'
+  | 'order_chat_voice_message';
 
 export interface PresignedUploadResult {
   key: string;

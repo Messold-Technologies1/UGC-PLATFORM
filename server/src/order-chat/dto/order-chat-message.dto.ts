@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { OrderChatMessageType } from '@prisma/client';
 
 export class OrderChatMessageDto {
   @ApiProperty()
@@ -10,8 +11,24 @@ export class OrderChatMessageDto {
   @ApiProperty()
   senderUserId!: string;
 
-  @ApiProperty()
-  text!: string;
+  @ApiProperty({ enum: OrderChatMessageType })
+  type!: OrderChatMessageType;
+
+  @ApiPropertyOptional({
+    description: 'Present for TEXT messages; null for VOICE-only messages.',
+  })
+  text?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'CDN URL for VOICE messages; null for TEXT-only messages.',
+  })
+  audioUrl?: string | null;
+
+  @ApiPropertyOptional({ description: 'Duration in ms for VOICE messages.' })
+  audioDurationMs?: number | null;
+
+  @ApiPropertyOptional({ description: 'MIME type for VOICE messages.' })
+  audioMimeType?: string | null;
 
   @ApiPropertyOptional()
   clientMessageId?: string | null;
@@ -19,4 +36,3 @@ export class OrderChatMessageDto {
   @ApiProperty()
   createdAt!: string;
 }
-

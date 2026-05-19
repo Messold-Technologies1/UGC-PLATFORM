@@ -1,6 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import { OrderChatMessageType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatGateway } from './chat.gateway';
+
+export type OrderChatRealtimeMessagePayload = {
+  id: string;
+  orderId: string;
+  senderUserId: string;
+  type: OrderChatMessageType;
+  text: string | null;
+  audioUrl: string | null;
+  audioDurationMs: number | null;
+  audioMimeType: string | null;
+  clientMessageId: string | null;
+  createdAt: string;
+};
 
 @Injectable()
 export class OrderChatRealtimeNotifier {
@@ -26,14 +40,7 @@ export class OrderChatRealtimeNotifier {
 
   async emitChatMessage(params: {
     orderId: string;
-    message: {
-      id: string;
-      orderId: string;
-      senderUserId: string;
-      text: string;
-      clientMessageId: string | null;
-      createdAt: string;
-    };
+    message: OrderChatRealtimeMessagePayload;
   }): Promise<void> {
     const { brandUserId, creatorUserId } = await this.getParticipants(params.orderId);
     this.gateway.server.to(`user:${brandUserId}`).emit('chat.message', params);
@@ -55,4 +62,3 @@ export class OrderChatRealtimeNotifier {
     }
   }
 }
-

@@ -31,6 +31,7 @@ import { OrderChatService } from '../order-chat/order-chat.service';
 import { ListOrderChatMessagesQueryDto } from '../order-chat/dto/list-order-chat-messages-query.dto';
 import { OrderChatMessagesResponseDto } from '../order-chat/dto/order-chat-messages-response.dto';
 import { OrderChatStateDto } from '../order-chat/dto/order-chat-state.dto';
+import { toOrderChatMessageDto } from '../order-chat/order-chat-message.mapper';
 
 @ApiTags('Admin Orders')
 @ApiBearerAuth()
@@ -138,14 +139,7 @@ export class AdminOrdersController {
       cursor: query.cursor,
     });
     return {
-      items: items.map((m) => ({
-        id: m.id,
-        orderId: m.orderId,
-        senderUserId: m.senderUserId,
-        text: m.text,
-        clientMessageId: m.clientMessageId,
-        createdAt: m.createdAt.toISOString(),
-      })),
+      items: items.map(toOrderChatMessageDto),
       nextCursor,
     };
   }

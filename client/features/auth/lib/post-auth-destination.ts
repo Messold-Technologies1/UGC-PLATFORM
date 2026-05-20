@@ -1,4 +1,5 @@
 import type { AuthUser, WorkspaceRole } from "../hooks/use-me-query";
+import { canUseWorkspaceRole } from "./workspace-defaulting";
 
 export type PostAuthRole = "creator" | "brand" | "admin";
 
@@ -8,12 +9,8 @@ const ADMIN_FALLBACK = "/admin";
 
 function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
   if (r === "ADMIN") return "admin";
-  return r === "CREATOR" ? "creator" : "brand";
-}
-
-function canUseWorkspaceRole(user: AuthUser, role: WorkspaceRole | null): boolean {
-  if (!role) return false;
-  return role !== "BRAND" || !user.brandAccessRevoked;
+  if (r === "CREATOR") return "creator";
+  return "brand";
 }
 
 function firstAllowedWorkspaceRole(

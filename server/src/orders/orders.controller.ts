@@ -49,6 +49,7 @@ import { CreateCreatorRatingReviewResponseDto } from '../creator-reviews/dto/cre
 import { CreatorRatingReviewDto } from '../creator-reviews/dto/creator-rating-review.dto';
 import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
+import { brandActorParams } from '../brand-access/brand-actor-params.util';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -72,7 +73,7 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<BrandOrdersListResponseDto> {
     return this.ordersService.listOrdersForBrand({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       page: query.page,
       limit: query.limit,
     });
@@ -92,7 +93,7 @@ export class OrdersController {
   ): Promise<BrandOrderDetailsResponseDto> {
     return this.ordersService.getOrderDetailsForBrand({
       orderId: id,
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
     });
   }
 
@@ -110,7 +111,7 @@ export class OrdersController {
   ): Promise<OrderDeliveriesResponseDto> {
     return this.ordersService.listDeliveriesForBrand({
       orderId: id,
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
     });
   }
 
@@ -181,7 +182,7 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CheckoutResponseDto> {
     return this.ordersService.createCheckout({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       creatorId: dto.creatorId,
       packageId: dto.packageId,
       addOnIds: dto.addOnIds,
@@ -228,7 +229,7 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     await this.ordersService.submitBrief({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       orderId: id,
       briefId: dto.briefId,
     });
@@ -254,7 +255,7 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     await this.ordersService.markProductShipped({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       orderId: id,
       courierName: dto.courierName,
       trackingId: dto.trackingId,
@@ -353,7 +354,7 @@ export class OrdersController {
   ): Promise<void> {
     await this.ordersService.requestRevision({
       orderId: id,
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
     });
   }
 
@@ -373,7 +374,7 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreateCreatorRatingReviewResponseDto> {
     return this.creatorReviewsService.createForOrder({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       orderId: id,
       dto,
     });
@@ -412,7 +413,7 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     await this.ordersService.acceptDelivery({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       orderId: id,
     });
   }
@@ -437,6 +438,7 @@ export class OrdersController {
       orderId: id,
       openedBy: 'BRAND',
       openerUserId: req.user.id,
+      ...brandActorParams(req),
       reason: dto.reason,
     });
   }

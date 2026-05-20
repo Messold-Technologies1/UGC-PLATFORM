@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCreatorRatingReviewDto } from './dto/create-creator-rating-review.dto';
 import type { CreateCreatorRatingReviewResponseDto } from './dto/create-creator-rating-review-response.dto';
@@ -50,18 +51,21 @@ function mapReview(row: {
 
 @Injectable()
 export class CreatorReviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly brandAccess: BrandAccessService,
+  ) {}
 
   async createForOrder(params: {
-    brandUserId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
     orderId: string;
     dto: CreateCreatorRatingReviewDto;
   }): Promise<CreateCreatorRatingReviewResponseDto> {
-    const brand = await this.prisma.brandProfile.findUnique({
-      where: { userId: params.brandUserId },
-      select: { id: true },
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
     });
-    if (!brand) throw new NotFoundException('Brand profile not found');
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -163,13 +167,21 @@ export class CreatorReviewsService {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
-        brand: { select: { userId: true } },
+        brand: {
+          select: {
+            id: true,
+            userId: true,
+            agency: { select: { ownerUserId: true } },
+          },
+        },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const isBrand = order.brand.userId === params.viewerUserId;
+    const brandActorUserId =
+      order.brand.userId ?? order.brand.agency?.ownerUserId ?? null;
+    const isBrand = brandActorUserId === params.viewerUserId;
     const isCreator = order.creator.userId === params.viewerUserId;
     if (!isBrand && !isCreator) {
       throw new ForbiddenException('Not allowed to view this review');

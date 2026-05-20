@@ -31,6 +31,7 @@ import {
   PresignBriefProductImageUploadDto,
   PresignBriefProductImageUploadResponseDto,
 } from './dto/presign-brief-product-image-upload.dto';
+import { brandActorParams } from '../brand-access/brand-actor-params.util';
 
 @ApiTags('Briefs')
 @ApiBearerAuth()
@@ -59,7 +60,7 @@ export class BriefsController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<ListBriefsResponseDto> {
     const items = await this.briefsService.listBriefsForBrand({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
     });
     return { items };
   }
@@ -78,7 +79,10 @@ export class BriefsController {
     @Body() dto: PresignBriefProductImageUploadDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<PresignBriefProductImageUploadResponseDto> {
-    return this.briefsService.presignProductImageUpload(req.user.id, dto);
+    return this.briefsService.presignProductImageUpload({
+      ...brandActorParams(req),
+      dto,
+    });
   }
 
   @Get(':id')
@@ -91,7 +95,7 @@ export class BriefsController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<BriefDto> {
     return this.briefsService.getBriefForBrand({
-      brandUserId: req.user.id,
+      ...brandActorParams(req),
       briefId: id,
     });
   }
@@ -106,7 +110,7 @@ export class BriefsController {
     @Body() dto: CreateBriefDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreateBriefResponseDto> {
-    return this.briefsService.createBrief({ brandUserId: req.user.id, dto });
+    return this.briefsService.createBrief({ ...brandActorParams(req), dto });
   }
 }
 

@@ -21,12 +21,13 @@ export type GoWorkspaceOptions = {
 const LAST_PATH_STORAGE_PREFIX = "ugc:last-workspace-path:";
 
 function pathPrefixForWorkspaceRole(role: WorkspaceRole): string {
-  return role === "CREATOR" ? "/creator" : "/brand";
+  if (role === "CREATOR") return "/creator";
+  return "/brand";
 }
 
 function workspaceRoleFromPath(
   pathname: string,
-): Extract<WorkspaceRole, "CREATOR" | "BRAND"> | null {
+): Extract<WorkspaceRole, "CREATOR" | "BRAND" | "AGENCY"> | null {
   if (pathname === "/brand" || pathname.startsWith("/brand/")) return "BRAND";
   if (pathname === "/creator" || pathname.startsWith("/creator/")) {
     return "CREATOR";
@@ -150,9 +151,14 @@ export function useWorkspaceNavigation() {
       return;
     }
 
+    const hasWorkspaceRole =
+      role === "BRAND"
+        ? current?.roles.includes("BRAND") || current?.roles.includes("AGENCY")
+        : current?.roles.includes(role);
+
     if (
       current &&
-      (!current.roles.includes(role) || !canUseWorkspaceRole(current, role))
+      (!hasWorkspaceRole || !canUseWorkspaceRole(current, role))
     ) {
       toast.error(`Could not continue as ${role.toLowerCase()}.`);
       return;

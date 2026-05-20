@@ -18,6 +18,8 @@ import { JobsModule } from './jobs/jobs.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { OrderChatModule } from './order-chat/order-chat.module';
 import { BriefsModule } from './briefs/briefs.module';
+import { BrandAccessModule } from './brand-access/brand-access.module';
+import { AgencyModule } from './agency/agency.module';
 
 @Module({
   imports: [
@@ -33,12 +35,14 @@ import { BriefsModule } from './briefs/briefs.module';
       },
     ]),
     PrismaModule,
+    BrandAccessModule,
     StorageModule,
     HealthModule,
     AuthModule,
     CreatorProfileModule,
     CreatorPortfolioModule,
     BrandProfileModule,
+    AgencyModule,
     OrdersModule,
     BriefsModule,
     OrderChatModule,

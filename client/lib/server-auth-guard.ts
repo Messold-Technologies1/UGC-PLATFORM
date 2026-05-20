@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
-type ServerWorkspaceRole = "CREATOR" | "BRAND" | "ADMIN";
+type ServerWorkspaceRole = "CREATOR" | "BRAND" | "ADMIN" | "AGENCY";
 
 export type ServerAuthUser = {
   id: string;
@@ -121,10 +121,17 @@ function canAccessWorkspaceRole(
   user: ServerAuthUser,
   role: ServerWorkspaceRole,
 ): boolean {
-  const hasRole = user.roles?.includes(role) ?? false;
-  if (!hasRole) return false;
+  if (role === "BRAND") {
+    const hasBrandAccess =
+      (user.roles?.includes("BRAND") || user.roles?.includes("AGENCY")) ?? false;
+    if (!hasBrandAccess) return false;
+    if (user.roles?.includes("BRAND") && user.brandAccessRevoked) {
+      return false;
+    }
+    return true;
+  }
 
-  return role !== "BRAND" || !user.brandAccessRevoked;
+  return user.roles?.includes(role) ?? false;
 }
 
 function fallbackWorkspacePath(user: ServerAuthUser): string {

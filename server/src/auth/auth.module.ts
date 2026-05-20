@@ -28,6 +28,12 @@ import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
   ],
   controllers: [AuthController, AuthPhoneController],
   providers: [AuthService, PhoneVerificationService, AdminGuard, WorkspacePermissionGuard],
-  exports: [AuthService, JwtModule, AdminGuard, WorkspacePermissionGuard],
+  exports: [
+    AuthService,
+    JwtModule,
+    AdminGuard,
+    WorkspacePermissionGuard,
+    PhoneVerificationService,
+  ],
 })
 export class AuthModule {}

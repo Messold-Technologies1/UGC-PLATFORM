@@ -32,18 +32,24 @@ describe('OrderChatService', () => {
     emitReadUpdated: jest.fn(),
   };
 
+  const brandAccess = {
+    resolveBrandActorUserIdForProfile: jest.fn(),
+  };
+
   let service: OrderChatService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.order.findUnique.mockResolvedValue({
-      brand: { userId: brandUserId },
+      brand: { id: 'brand-profile-1' },
       creator: { userId: creatorUserId },
     });
+    brandAccess.resolveBrandActorUserIdForProfile.mockResolvedValue(brandUserId);
     service = new OrderChatService(
       prisma as any,
       storage as any,
       realtime as any,
+      brandAccess as any,
     );
   });
 

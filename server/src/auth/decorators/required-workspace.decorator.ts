@@ -1,6 +1,6 @@
 import { SetMetadata } from '@nestjs/common';
 
-export type WorkspaceRole = 'CREATOR' | 'BRAND';
+export type WorkspaceRole = 'CREATOR' | 'BRAND' | 'AGENCY';
 
 export const REQUIRED_WORKSPACE_KEY = 'requiredWorkspace';
 

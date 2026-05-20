@@ -23,15 +23,24 @@ export interface AuthTokens {
   expiresIn: string;
 }
 
+export type MeBrandSummary = {
+  id: string;
+  brandName: string;
+  logoUrl: string | null;
+};
+
 export type MeUser = {
   id: string;
   email: string;
   name: string | null;
-  roles: ('CREATOR' | 'BRAND' | 'ADMIN')[];
-  primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null;
+  roles: ('CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY')[];
+  primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY' | null;
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
+  hasAgencyProfile: boolean;
   brandAccessRevoked: boolean;
+  activeBrandProfileId: string | null;
+  accessibleBrands: MeBrandSummary[];
 };
 
 export interface AuthResult {
@@ -58,8 +67,31 @@ type MeLookupUser = {
   primaryRole: { name: RoleName | null } | null;
   userRoles: Array<{ role: { name: RoleName | null } }>;
   creatorProfile: { id: string } | null;
-  brandProfile: { id: string } | null;
+  brandProfile: { id: string; brandName: string; logoUrl: string | null } | null;
+  ownedAgency: {
+    id: string;
+    lastActiveBrandProfileId: string | null;
+    brands: MeBrandSummary[];
+  } | null;
 };
+
+const ME_WORKSPACE_ROLES = [
+  'CREATOR',
+  'BRAND',
+  'ADMIN',
+  'AGENCY',
+] as const;
+
+type MeWorkspaceRole = (typeof ME_WORKSPACE_ROLES)[number];
+
+function isMeWorkspaceRole(name: RoleName | null | undefined): name is MeWorkspaceRole {
+  return (
+    name === 'CREATOR' ||
+    name === 'BRAND' ||
+    name === 'ADMIN' ||
+    name === 'AGENCY'
+  );
+}
 
 @Injectable()
 export class AuthService {
@@ -461,28 +493,67 @@ export class AuthService {
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         creatorProfile: { select: { id: true } },
-        brandProfile: { select: { id: true } },
+        brandProfile: {
+          select: { id: true, brandName: true, logoUrl: true },
+        },
+        ownedAgency: {
+          select: {
+            id: true,
+            lastActiveBrandProfileId: true,
+            brands: {
+              select: { id: true, brandName: true, logoUrl: true },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
       },
     })) as MeLookupUser | null;
     if (!user || user.status !== 'ACTIVE') return null;
 
-    const roleSet = new Set<'CREATOR' | 'BRAND' | 'ADMIN'>();
+    const roleSet = new Set<MeWorkspaceRole>();
     for (const ur of user.userRoles) {
       const n = ur.role.name;
-      if (n === 'CREATOR' || n === 'BRAND' || n === 'ADMIN') {
+      if (isMeWorkspaceRole(n)) {
         roleSet.add(n);
       }
     }
     const pr = user.primaryRole?.name;
-    if (pr === 'CREATOR' || pr === 'BRAND' || pr === 'ADMIN') {
+    if (isMeWorkspaceRole(pr)) {
       roleSet.add(pr);
     }
     const roles = Array.from(roleSet);
 
-    let primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | null =
-      pr === 'CREATOR' || pr === 'BRAND' || pr === 'ADMIN' ? pr : null;
+    let primaryRole: MeWorkspaceRole | null = isMeWorkspaceRole(pr) ? pr : null;
     if (primaryRole === null && roles.length > 0) {
       primaryRole = roles[0];
+    }
+
+    const accessibleBrands: MeBrandSummary[] = [];
+    if (user.brandProfile) {
+      accessibleBrands.push({
+        id: user.brandProfile.id,
+        brandName: user.brandProfile.brandName,
+        logoUrl: user.brandProfile.logoUrl,
+      });
+    }
+    if (user.ownedAgency?.brands?.length) {
+      for (const b of user.ownedAgency.brands) {
+        if (!accessibleBrands.some((x) => x.id === b.id)) {
+          accessibleBrands.push(b);
+        }
+      }
+    }
+
+    let activeBrandProfileId: string | null =
+      user.ownedAgency?.lastActiveBrandProfileId ?? null;
+    if (
+      activeBrandProfileId &&
+      !accessibleBrands.some((b) => b.id === activeBrandProfileId)
+    ) {
+      activeBrandProfileId = null;
+    }
+    if (!activeBrandProfileId && accessibleBrands.length === 1) {
+      activeBrandProfileId = accessibleBrands[0]!.id;
     }
 
     return {
@@ -494,6 +565,9 @@ export class AuthService {
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,
+      hasAgencyProfile: !!user.ownedAgency,
+      activeBrandProfileId,
+      accessibleBrands,
     };
   }
 }

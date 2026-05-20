@@ -74,6 +74,7 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
   if (
     kind === 'creator_portfolio_thumbnail' ||
     kind === 'brand_logo' ||
+    kind === 'agency_logo' ||
     kind === 'brief_product_image'
   ) {
     if (!isImage) throw new Error('Unsupported image content type');
@@ -127,6 +128,7 @@ export class StorageService {
     userId: string;
     creatorProfileId?: string;
     brandProfileId?: string;
+    agencyId?: string;
     briefId?: string;
     orderId?: string;
     revisionNumber?: number;
@@ -159,6 +161,14 @@ export class StorageService {
         return `brand-logo/${brandId}/${id}.${ext}`;
       }
       return this.buildTempBrandLogoKey(input.userId, ext);
+    }
+
+    if (input.kind === 'agency_logo') {
+      const agencyId = input.agencyId;
+      if (agencyId) {
+        return `agency-logo/${agencyId}/${id}.${ext}`;
+      }
+      return this.buildTempAgencyLogoKey(input.userId, ext);
     }
 
     if (input.kind === 'brand_pronunciation_audio') {
@@ -213,6 +223,21 @@ export class StorageService {
 
   isTempBrandLogoKeyForUser(userId: string, key: string): boolean {
     return key.startsWith(`brand-logo-temp/${userId}/`);
+  }
+
+  buildTempAgencyLogoKey(userId: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `agency-logo-temp/${userId}/${randomUUID()}.${ext}`;
+  }
+
+  isTempAgencyLogoKeyForUser(userId: string, key: string): boolean {
+    return key.startsWith(`agency-logo-temp/${userId}/`);
   }
 
   buildTempBrandPronunciationAudioKey(userId: string, extOrContentType: string): string {
@@ -294,6 +319,37 @@ export class StorageService {
       throw new Error('Invalid temporary brand logo key');
     }
     const finalKey = `brand-logo/${input.brandProfileId}/${fileName}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.tempKey}`,
+      }),
+    );
+
+    if (input.deleteTemp ?? true) {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: input.tempKey,
+        }),
+      );
+    }
+
+    return finalKey;
+  }
+
+  async finalizeAgencyLogoKey(input: {
+    tempKey: string;
+    agencyId: string;
+    deleteTemp?: boolean;
+  }): Promise<string> {
+    const fileName = input.tempKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid temporary agency logo key');
+    }
+    const finalKey = `agency-logo/${input.agencyId}/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

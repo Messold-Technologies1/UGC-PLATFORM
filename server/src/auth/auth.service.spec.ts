@@ -51,7 +51,12 @@ describe('AuthService', () => {
       primaryRole: { name: RoleName.BRAND },
       userRoles: [{ role: { name: RoleName.CREATOR } }],
       creatorProfile: { id: 'creator-profile-1' },
-      brandProfile: { id: 'brand-profile-1' },
+      brandProfile: {
+        id: 'brand-profile-1',
+        brandName: 'Acme',
+        logoUrl: null,
+      },
+      ownedAgency: null,
     });
 
     const result = await service.getMeForClient('user-1');
@@ -63,7 +68,9 @@ describe('AuthService', () => {
       primaryRole: 'BRAND',
       hasCreatorProfile: true,
       hasBrandProfile: true,
+      hasAgencyProfile: false,
       brandAccessRevoked: false,
+      activeBrandProfileId: 'brand-profile-1',
     });
     expect(result?.roles).toEqual(expect.arrayContaining(['BRAND', 'CREATOR']));
   });
@@ -79,6 +86,7 @@ describe('AuthService', () => {
       userRoles: [{ role: { name: RoleName.CREATOR } }],
       creatorProfile: { id: 'creator-profile-1' },
       brandProfile: null,
+      ownedAgency: null,
     });
 
     const result = await service.getMeForClient('user-1');
@@ -88,6 +96,9 @@ describe('AuthService', () => {
       roles: ['CREATOR'],
       hasCreatorProfile: true,
       hasBrandProfile: false,
+      hasAgencyProfile: false,
+      activeBrandProfileId: null,
+      accessibleBrands: [],
     });
   });
 });

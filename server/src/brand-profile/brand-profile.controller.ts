@@ -28,6 +28,7 @@ import {
 } from './dto/presign-brand-logo-upload.dto';
 import { PresignBrandPronunciationUploadDto } from './dto/presign-brand-pronunciation-upload.dto';
 import { BrandProfileResponseDto } from './dto/brand-profile-response.dto';
+import { readBrandProfileIdFromRequest } from '../brand-access/brand-context.util';
 import { BrandProfileService } from './brand-profile.service';
 import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
 
@@ -103,7 +104,10 @@ export class BrandProfileController {
   async getMyBrandProfile(
     @Req() req: Request & { user: { id: string } },
   ): Promise<BrandProfileResponseDto> {
-    return this.brandProfileService.getBrandProfileForCurrentUser(req.user.id);
+    return this.brandProfileService.getBrandProfileForActor({
+      actorUserId: req.user.id,
+      brandProfileId: readBrandProfileIdFromRequest(req),
+    });
   }
 
   @Patch('profile')
@@ -116,9 +120,10 @@ export class BrandProfileController {
     @Body() dto: UpdateBrandProfileDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<BrandProfileResponseDto> {
-    return this.brandProfileService.updateBrandProfileForCurrentUser(
-      req.user.id,
+    return this.brandProfileService.updateBrandProfileForActor({
+      actorUserId: req.user.id,
       dto,
-    );
+      brandProfileId: readBrandProfileIdFromRequest(req),
+    });
   }
 }

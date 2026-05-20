@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsGateway } from './payments.gateway';
 
@@ -15,7 +16,12 @@ export class OrderRealtimeNotifier {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: PaymentsGateway,
+    private readonly brandAccess: BrandAccessService,
   ) {}
+
+  private async resolveBrandUserId(brandProfileId: string): Promise<string> {
+    return this.brandAccess.resolveBrandActorUserIdForProfile(brandProfileId);
+  }
 
   /**
    * Push payment/refund lifecycle updates to connected users (Socket.IO rooms `user:<userId>`).
@@ -29,7 +35,7 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
-        brand: { select: { userId: true } },
+        brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
     });
@@ -44,7 +50,7 @@ export class OrderRealtimeNotifier {
       ...params.meta,
     };
 
-    const brandUserId = order.brand.userId;
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
     const creatorUserId = order.creator.userId;
 
     this.gateway.server.to(`user:${brandUserId}`).emit('order.payment', payload);
@@ -86,13 +92,13 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { userId: true } } },
+      select: { brand: { select: { id: true } } },
     });
     if (!order) {
       this.logger.warn(`emitOrderBriefAccepted: order not found ${params.orderId}`);
       return;
     }
-    const brandUserId = order.brand.userId;
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
@@ -132,13 +138,13 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { userId: true } } },
+      select: { brand: { select: { id: true } } },
     });
     if (!order) {
       this.logger.warn(`emitOrderProductReceived: order not found ${params.orderId}`);
       return;
     }
-    const brandUserId = order.brand.userId;
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
     this.gateway.server.to(`user:${brandUserId}`).emit('order.product_received', {
       orderId: params.orderId,
       productReceivedAt: params.productReceivedAt.toISOString(),

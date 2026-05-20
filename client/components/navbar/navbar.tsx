@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
+import { BrandSwitcher } from "@/features/brand/components/brand-switcher";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 
@@ -308,6 +309,10 @@ export function Navbar() {
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
             <>
+              {(pathname === "/brand" ||
+                pathname.startsWith("/brand/")) && (
+                <BrandSwitcher />
+              )}
               <NotificationDropdown />
               <NavbarProfileMenu />
             </>

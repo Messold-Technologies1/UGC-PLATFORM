@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PresignedUploadResult } from '../storage/storage.types';
 import { StorageService } from '../storage/storage.service';
@@ -39,6 +40,7 @@ export class OrderChatService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly realtime: OrderChatRealtimeNotifier,
+    private readonly brandAccess: BrandAccessService,
   ) {}
 
   private formatMessage(row: OrderChatMessageRow): FormattedOrderChatMessage {
@@ -70,12 +72,15 @@ export class OrderChatService {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
-        brand: { select: { userId: true } },
+        brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    return { brandUserId: order.brand.userId, creatorUserId: order.creator.userId };
+    const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
+      order.brand.id,
+    );
+    return { brandUserId, creatorUserId: order.creator.userId };
   }
 
   async getOrderChatParticipantsForAdmin(orderId: string): Promise<OrderChatParticipants> {

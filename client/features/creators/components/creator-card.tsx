@@ -64,7 +64,7 @@ export const CreatorCard = memo(function CreatorCard({
     return (
       <article
         className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-lg border border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
+          "group relative flex h-full flex-col overflow-hidden rounded-lg border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
         )}
       >
         <div className="relative aspect-10/11 overflow-hidden bg-muted">

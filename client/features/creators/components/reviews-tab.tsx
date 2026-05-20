@@ -66,11 +66,6 @@ export const ReviewsTab = memo(function ReviewsTab({
       </div>
 
       <div className="space-y-4">
-        {reviews.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
-            No reviews yet.
-          </div>
-        ) : null}
         {reviews.map((review) => (
           <div
             key={review.id}

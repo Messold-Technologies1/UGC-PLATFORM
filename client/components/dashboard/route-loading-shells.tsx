@@ -13,28 +13,39 @@ export function DashboardPageHeaderSkeleton() {
 export function CreatorsBrowserLoadingShell() {
   return (
     <div
-      className="space-y-10 pb-10"
+      className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8 -mt-6"
       aria-busy="true"
       aria-label="Loading creators"
     >
-      <header className="space-y-3">
-        <Skeleton className="h-12 w-full max-w-md md:h-14" />
-        <Skeleton className="h-5 w-full max-w-2xl md:h-6" />
-      </header>
-      <div className="rounded-2xl border border-border bg-muted/40 p-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <Skeleton className="h-10 w-36 rounded-full" />
-            <Skeleton className="hidden h-8 w-px md:block" />
-            <Skeleton className="h-4 w-28" />
-          </div>
-          <Skeleton className="h-10 w-full flex-1 rounded-full md:min-w-0" />
-        </div>
+      <div className="hidden lg:block w-full max-w-[260px] shrink-0 lg:sticky lg:top-20">
+        <Skeleton className="h-[600px] w-full rounded-lg" />
       </div>
-      <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <CreatorCardSkeleton key={i} appearance="browse" />
-        ))}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <Skeleton className="h-[46px] w-full max-w-2xl rounded-lg" />
+          <div className="flex items-center gap-4 shrink-0">
+             <Skeleton className="h-5 w-32 hidden sm:block" />
+             <Skeleton className="h-7 w-24 rounded-lg" />
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <Skeleton className="h-8 w-48 rounded-md" />
+          <div className="flex items-center gap-4 shrink-0">
+             <Skeleton className="h-5 w-32" />
+          </div>
+        </div>
+
+        <div className="min-h-[min(22rem,50vh)]">
+          <div className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="min-w-0 h-full">
+                <CreatorCardSkeleton appearance="browse" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

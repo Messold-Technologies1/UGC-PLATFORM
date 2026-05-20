@@ -303,7 +303,7 @@ export function Navbar() {
             </div>
           )}
         <div className="hidden items-center gap-2 md:flex shrink-0">
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
           {isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
@@ -332,7 +332,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-1 md:hidden">
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

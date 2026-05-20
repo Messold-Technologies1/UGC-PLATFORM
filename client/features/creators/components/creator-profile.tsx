@@ -195,7 +195,7 @@ export function CreatorProfile({
         <InfoCardsSection creator={creator} />
       </div>
 
-      <div className="px-6 sm:px-8 lg:px-10">
+      <div className="px-6  mt-6 sm:px-8 lg:px-10">
         <ReviewsTab
           reviews={reviews}
           overallRating={overallRating}

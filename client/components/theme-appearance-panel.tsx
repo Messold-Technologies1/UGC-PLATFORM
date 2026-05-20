@@ -37,7 +37,7 @@ export function ThemeAppearancePanel({ className }: { className?: string }) {
         Appearance
       </p>
 
-      <div className="grid grid-cols-2 gap-1 px-1 pb-2">
+      {/* <div className="grid grid-cols-2 gap-1 px-1 pb-2">
         {[
           { value: "light", label: "Light", icon: Sun },
           { value: "dark", label: "Dark", icon: Moon },
@@ -60,7 +60,7 @@ export function ThemeAppearancePanel({ className }: { className?: string }) {
             </button>
           );
         })}
-      </div>
+      </div> */}
 
       <div className="px-1 pb-1">
         <Accordion type="single" collapsible>

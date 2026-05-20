@@ -1,16 +1,22 @@
 import React from "react";
-import Image from "next/image";
-import { CreatorProfileResponseDto } from "@/features/admin/types";
+import { PendingCreatorApprovalListItemDto } from "@/features/admin/types";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { RejectDialog } from "./RejectDialog";
+
+function formatLocation(creator: PendingCreatorApprovalListItemDto): string {
+  const parts = [creator.city, creator.stateName, creator.countryName].filter(
+    Boolean,
+  );
+  return parts.length > 0 ? parts.join(", ") : "—";
+}
 
 export default function CreatorRow({
   creator,
   delay,
   onReview,
 }: {
-  creator: CreatorProfileResponseDto;
+  creator: PendingCreatorApprovalListItemDto;
   delay: number;
   onReview: () => void;
 }) {
@@ -37,18 +43,9 @@ export default function CreatorRow({
 
   const isWorking = isApproving || isRejecting;
 
-  const getImageUrl = () => {
-    if (creator.profileImageUrl) return creator.profileImageUrl;
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.displayName)}&background=random`;
-  };
-
-  const niche = creator.facetSelections?.find(f => f.dimension === "CONTENT_CATEGORY")?.label || "Creator";
-  const portfolioVideos = creator.firstPortfolioVideo
-    ? [
-        creator.firstPortfolioVideo.thumbnailUrl ||
-          creator.firstPortfolioVideo.videoUrl,
-      ]
-    : [];
+  const categories = creator.contentCategories ?? [];
+  const primaryCategory = categories[0]?.label ?? "Creator";
+  const portfolioCount = creator.portfolioVideos?.length ?? 0;
 
   return (
     <div
@@ -56,86 +53,55 @@ export default function CreatorRow({
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-center space-x-6">
-
-        <div className="relative">
-          <div className="absolute -inset-1 bg-linear-to-tr from-primary to-secondary rounded-full opacity-0 group-hover/item:opacity-100 blur transition-opacity duration-500"></div>
-          <Image
-            alt="Creator Profile"
-            width={56}
-            height={56}
-            className="relative w-14 h-14 rounded-full object-cover border-2 border-border"
-            src={getImageUrl()}
-            unoptimized
-          />
+        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-border bg-primary/10 font-headline text-lg font-bold text-primary">
+          {creator.displayName.charAt(0).toUpperCase()}
         </div>
         <div>
           <h3 className="font-headline font-bold text-lg mb-0.5">
             {creator.displayName}
           </h3>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider">
-              {niche}
+              {primaryCategory}
             </span>
+            {categories.length > 1 && (
+              <span className="text-[9px] text-muted-foreground font-bold">
+                +{categories.length - 1}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex items-center space-x-10">
-        <div className="hidden xl:block min-w-[120px]">
+        <div className="hidden xl:block min-w-[140px]">
           <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
-            Reach
+            Location
           </p>
-          <p className="font-bold text-base">
-            N/A{" "}
-            <span className="text-xs font-normal text-muted-foreground">
-              Followers
-            </span>
+          <p className="font-bold text-sm truncate max-w-[180px]">
+            {formatLocation(creator)}
           </p>
         </div>
 
-        <div className="hidden xl:block">
+        <div className="hidden lg:block min-w-[100px]">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
+            Age
+          </p>
+          <p className="font-bold text-base">
+            {creator.age != null ? creator.age : "—"}
+          </p>
+        </div>
+
+        <div className="hidden xl:block min-w-[120px]">
           <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
             Portfolio
           </p>
-          <div className="flex -space-x-2">
-            {portfolioVideos.map((mediaUrl: string, idx: number) => {
-              const isVideo =
-                mediaUrl.toLowerCase().includes(".mp4") ||
-                mediaUrl.toLowerCase().includes(".webm") ||
-                mediaUrl.toLowerCase().includes(".mov");
-              return (
-                <div
-                  key={idx}
-                  className="relative w-8 h-8 rounded-lg bg-card border border-border/30 overflow-hidden"
-                >
-                  {isVideo ? (
-                    <video
-                      src={mediaUrl}
-                      className="w-full h-full object-cover"
-                      muted
-                      playsInline
-                    />
-                  ) : (
-                    <Image
-                      alt="Asset"
-                      src={mediaUrl}
-                      fill
-                      className="w-full h-full object-cover"
-                      unoptimized
-                    />
-                  )}
-                </div>
-              );
-            })}
-            {portfolioVideos.length === 0 && (
-              <div className="w-8 h-8 rounded-lg bg-card border border-border/30 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                -
-              </div>
-            )}
-            <div className="w-8 h-8 rounded-lg bg-card border border-border/30 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-              +
-            </div>
-          </div>
+          <p className="font-bold text-base">
+            {portfolioCount}{" "}
+            <span className="text-xs font-normal text-muted-foreground">
+              {portfolioCount === 1 ? "video" : "videos"}
+            </span>
+          </p>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -156,7 +122,9 @@ export default function CreatorRow({
               title="Reject"
             >
               {isRejecting ? (
-                <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                <span className="material-symbols-outlined text-lg animate-spin">
+                  progress_activity
+                </span>
               ) : (
                 <span className="material-symbols-outlined text-lg">close</span>
               )}
@@ -168,7 +136,9 @@ export default function CreatorRow({
               title="Approve"
             >
               {isApproving ? (
-                <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                <span className="material-symbols-outlined text-lg animate-spin">
+                  progress_activity
+                </span>
               ) : (
                 <span
                   className="material-symbols-outlined text-lg"
@@ -181,12 +151,12 @@ export default function CreatorRow({
           </div>
         </div>
       </div>
-      
-      <RejectDialog 
-        isOpen={isRejectOpen} 
-        onClose={() => setIsRejectOpen(false)} 
-        onConfirm={handleConfirmReject} 
-        isWorking={isWorking} 
+
+      <RejectDialog
+        isOpen={isRejectOpen}
+        onClose={() => setIsRejectOpen(false)}
+        onConfirm={handleConfirmReject}
+        isWorking={isWorking}
       />
     </div>
   );

@@ -11,22 +11,18 @@ import {
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
-  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Throttle } from '@nestjs/throttler';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
-import { SendPhoneOtpDto } from '../auth/dto/send-phone-otp.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
 import { BrandProfileResponseDto } from '../brand-profile/dto/brand-profile-response.dto';
 import { PresignUploadResponseDto } from '../brand-profile/dto/presign-brand-logo-upload.dto';
 import { AgencyService } from './agency.service';
-import { CreateAgencyProfileDto } from './dto/create-agency-profile.dto';
 import { AgencyProfileResponseDto } from './dto/agency-profile-response.dto';
 import { AgencyBrandSummaryDto } from './dto/agency-brand-summary.dto';
 import { SwitchAgencyBrandDto } from './dto/switch-agency-brand.dto';
@@ -49,34 +45,6 @@ export class AgencyController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
     return this.agencyService.presignAgencyLogoUpload(req.user.id, dto);
-  }
-
-  @Post('profile/contact-phone/send-otp')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({
-    summary:
-      'Send SMS OTP to verify optional agency contact phone before profile creation',
-  })
-  @ApiNoContentResponse({ description: 'OTP sent' })
-  async sendContactPhoneOtp(
-    @Body() dto: SendPhoneOtpDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.agencyService.sendContactPhoneOtp(req.user.id, dto.phone);
-  }
-
-  @Post('profile')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create agency profile for the authenticated user' })
-  @ApiCreatedResponse({ type: AgencyProfileResponseDto })
-  async createAgencyProfile(
-    @Body() dto: CreateAgencyProfileDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<AgencyProfileResponseDto> {
-    return this.agencyService.createAgencyProfile(req.user.id, dto);
   }
 
   @Get('profile/me')

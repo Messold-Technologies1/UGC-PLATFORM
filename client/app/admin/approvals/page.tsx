@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import ReviewDrawer from "@/components/admin/ReviewDrawer";
 import CreatorRow from "@/components/admin/CreatorRow";
-import { CreatorProfileResponseDto } from "@/features/admin/types";
+import { PendingCreatorApprovalListItemDto } from "@/features/admin/types";
 import { usePendingApprovalsQuery } from "@/features/admin/hooks/use-pending-approvals-query";
 import {
   Pagination,
@@ -27,11 +27,11 @@ export default function AdminDashboardPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(6);
   const [selectedCreator, setSelectedCreator] =
-    useState<CreatorProfileResponseDto | null>(null);
+    useState<PendingCreatorApprovalListItemDto | null>(null);
 
   const { data, isLoading } = usePendingApprovalsQuery({ page, limit });
 
-  const openDrawer = (creator: CreatorProfileResponseDto) =>
+  const openDrawer = (creator: PendingCreatorApprovalListItemDto) =>
     setSelectedCreator(creator);
   const closeDrawer = () => setSelectedCreator(null);
 

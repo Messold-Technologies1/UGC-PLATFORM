@@ -74,6 +74,39 @@ export interface CreatorPortfolioVideoPreviewResponseDto {
   createdAt: string;
 }
 
+/** Admin pending queue: signup fields only (GET /admin/creators/pending-approvals). */
+export interface PendingCreatorContentCategoryDto {
+  slug: string;
+  label: string;
+}
+
+export interface PendingCreatorApprovalListItemDto {
+  id: string;
+  userId: string;
+  displayName: string;
+  phone?: string | null;
+  phoneVerified: boolean;
+  contactEmail?: string | null;
+  city?: string | null;
+  stateName?: string | null;
+  countryName?: string | null;
+  bio?: string | null;
+  gender?: string | null;
+  age?: number | null;
+  instagramUrl?: string | null;
+  contentCategories: PendingCreatorContentCategoryDto[];
+  portfolioVideos: CreatorPortfolioVideoPreviewResponseDto[];
+  approvalStatus: ApprovalStatus;
+  submittedAt: string;
+}
+
+export interface PendingCreatorsListResponseDto {
+  items: PendingCreatorApprovalListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface CreatorProfileResponseDto {
   id: string;
   userId: string;
@@ -108,6 +141,39 @@ export interface CreatorProfileResponseDto {
 
 export interface CreatorsListResponseDto {
   items: CreatorProfileResponseDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/** Admin pending-approval queue (signup fields only). */
+export interface PendingCreatorContentCategoryDto {
+  slug: string;
+  label: string;
+}
+
+export interface PendingCreatorApprovalListItemDto {
+  id: string;
+  userId: string;
+  displayName: string;
+  phone?: string | null;
+  phoneVerified: boolean;
+  contactEmail?: string | null;
+  city?: string | null;
+  stateName?: string | null;
+  countryName?: string | null;
+  bio?: string | null;
+  gender?: string | null;
+  age?: number | null;
+  instagramUrl?: string | null;
+  contentCategories: PendingCreatorContentCategoryDto[];
+  portfolioVideos: CreatorPortfolioVideoPreviewResponseDto[];
+  approvalStatus: ApprovalStatus;
+  submittedAt: string;
+}
+
+export interface PendingCreatorsListResponseDto {
+  items: PendingCreatorApprovalListItemDto[];
   total: number;
   page: number;
   limit: number;

@@ -13,7 +13,6 @@ const _swagger = require("@nestjs/swagger");
 const _requiredworkspacedecorator = require("../auth/decorators/required-workspace.decorator");
 const _jwtauthguard = require("../auth/guards/jwt-auth.guard");
 const _workspacepermissionguard = require("../auth/guards/workspace-permission.guard");
-const _createcreatorprofiledto = require("./dto/create-creator-profile.dto");
 const _listcreatorsquerydto = require("./dto/list-creators-query.dto");
 const _updatecreatorprofiledto = require("./dto/update-creator-profile.dto");
 const _creatorspubliclistresponsedto = require("./dto/creators-public-list-response.dto");
@@ -47,9 +46,6 @@ function _ts_param(paramIndex, decorator) {
     };
 }
 let CreatorProfileController = class CreatorProfileController {
-    async createProfile(dto, req) {
-        return this.creatorProfileService.createCreatorProfile(req.user.id, dto);
-    }
     async presignProfileIntroVideoUpload(dto, req) {
         return this.creatorProfileService.presignProfileIntroVideoUpload(req.user.id, dto);
     }
@@ -107,25 +103,6 @@ let CreatorProfileController = class CreatorProfileController {
         this.creatorReviewsService = creatorReviewsService;
     }
 };
-_ts_decorate([
-    (0, _common.Post)('profile'),
-    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
-    (0, _common.HttpCode)(_common.HttpStatus.CREATED),
-    (0, _swagger.ApiOperation)({
-        summary: 'Create creator profile for the authenticated user'
-    }),
-    (0, _swagger.ApiCreatedResponse)({
-        type: _creatorprofileresponsedto.CreatorProfileResponseDto
-    }),
-    _ts_param(0, (0, _common.Body)()),
-    _ts_param(1, (0, _common.Req)()),
-    _ts_metadata("design:type", Function),
-    _ts_metadata("design:paramtypes", [
-        typeof _createcreatorprofiledto.CreateCreatorProfileDto === "undefined" ? Object : _createcreatorprofiledto.CreateCreatorProfileDto,
-        Object
-    ]),
-    _ts_metadata("design:returntype", Promise)
-], CreatorProfileController.prototype, "createProfile", null);
 _ts_decorate([
     (0, _common.Post)('profile/uploads/presign-intro-video'),
     (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),

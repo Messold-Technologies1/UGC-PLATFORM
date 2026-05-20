@@ -7,6 +7,9 @@ import type { AuthService, MeUser } from './auth.service';
 describe('AuthController', () => {
   const authService = {
     register: jest.fn(),
+    registerCreator: jest.fn(),
+    registerBrand: jest.fn(),
+    registerAgency: jest.fn(),
     registerAdmin: jest.fn(),
     login: jest.fn(),
     getGoogleAuthUrl: jest.fn(),
@@ -35,6 +38,9 @@ describe('AuthController', () => {
     hasCreatorProfile: true,
     hasBrandProfile: false,
     brandAccessRevoked: false,
+    hasAgencyProfile: false,
+    activeBrandProfileId: null,
+    accessibleBrands: [],
   };
 
   function createResponseMock() {
@@ -67,6 +73,7 @@ describe('AuthController', () => {
     const res = createResponseMock();
 
     const result = await controller.register(
+      undefined,
       {
         email: user.email,
         name: user.name ?? undefined,

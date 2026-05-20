@@ -2,13 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  HttpException,
-  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { RoleName } from '@prisma/client';
-import { PhoneVerificationService } from '../auth/phone-verification.service';
 import { BrandProfileService } from '../brand-profile/brand-profile.service';
 import {
   PresignUploadResponseDto,
@@ -17,7 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
 import type { BrandProfileResponseDto } from '../brand-profile/dto/brand-profile-response.dto';
-import type { CreateAgencyProfileDto } from './dto/create-agency-profile.dto';
+import type { CreateAgencyAtSignupInput } from './dto/create-agency-at-signup.input';
 import type { AgencyProfileResponseDto } from './dto/agency-profile-response.dto';
 import type { AgencyBrandSummaryDto } from './dto/agency-brand-summary.dto';
 import type { SwitchAgencyBrandResponseDto } from './dto/switch-agency-brand-response.dto';
@@ -46,7 +43,6 @@ export class AgencyService {
     private readonly prisma: PrismaService,
     private readonly brandProfileService: BrandProfileService,
     private readonly storage: StorageService,
-    private readonly phoneVerification: PhoneVerificationService,
   ) {}
 
   private mapAgency(agency: AgencyRow): AgencyProfileResponseDto {
@@ -68,10 +64,90 @@ export class AgencyService {
     };
   }
 
-  private assertTempAgencyLogoKeyOwner(userId: string, key: string): void {
-    if (!this.storage.isTempAgencyLogoKeyForUser(userId, key)) {
-      throw new BadRequestException('Invalid logoKey');
+  /**
+   * Creates agency row + AGENCY role inside an existing transaction (signup only).
+   */
+  async runCreateAgencyInTransaction(
+    tx: any,
+    ownerUserId: string,
+    input: CreateAgencyAtSignupInput,
+  ): Promise<{
+    id: string;
+    ownerUserId: string;
+    name: string;
+    logoKey: string | null;
+    logoUrl: string | null;
+    website: string | null;
+    contactFullName: string;
+    contactEmail: string;
+    contactPhone: string | null;
+    contactPhoneVerified: boolean;
+    lastActiveBrandProfileId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    const existing = await tx.agency.findUnique({
+      where: { ownerUserId },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('Agency profile already exists');
     }
+
+    const contactFullName = input.contactFullName.trim();
+    const contactEmail = input.contactEmail.trim().toLowerCase();
+    const contactPhone = input.contactPhone?.trim() || null;
+    const website = input.website?.trim() || null;
+
+    const agencyRole = await tx.role.findUnique({
+      where: { name: RoleName.AGENCY },
+      select: { id: true },
+    });
+    if (!agencyRole) {
+      throw new NotFoundException('AGENCY role not configured');
+    }
+
+    const created = await tx.agency.create({
+      data: {
+        ownerUserId,
+        name: input.name.trim(),
+        contactFullName,
+        contactEmail,
+        contactPhone,
+        contactPhoneVerified: input.contactPhoneVerified,
+        website,
+      },
+      select: {
+        id: true,
+        ownerUserId: true,
+        name: true,
+        logoKey: true,
+        logoUrl: true,
+        website: true,
+        contactFullName: true,
+        contactEmail: true,
+        contactPhone: true,
+        contactPhoneVerified: true,
+        lastActiveBrandProfileId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    await tx.userRole.upsert({
+      where: {
+        userId_roleId: { userId: ownerUserId, roleId: agencyRole.id },
+      },
+      create: { userId: ownerUserId, roleId: agencyRole.id },
+      update: {},
+    });
+
+    await tx.user.update({
+      where: { id: ownerUserId },
+      data: { primaryRoleId: agencyRole.id },
+    });
+
+    return created;
   }
 
   async assertContactPhoneAvailable(
@@ -91,40 +167,6 @@ export class AgencyService {
     }
   }
 
-  async sendContactPhoneOtp(ownerUserId: string, phone: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: ownerUserId },
-      select: { ownedAgency: { select: { id: true } } },
-    });
-    if (user?.ownedAgency) {
-      throw new ConflictException('Agency profile already exists');
-    }
-
-    await this.assertContactPhoneAvailable(phone);
-    await this.phoneVerification.sendVerificationCode(phone);
-  }
-
-  private async verifyContactPhoneOtp(
-    phone: string,
-    code: string,
-  ): Promise<void> {
-    const status = await this.phoneVerification.verifyCode(phone, code);
-    if (status === 'approved') return;
-
-    if (status === 'max_attempts_reached') {
-      throw new HttpException(
-        {
-          status,
-          contactPhoneVerified: false,
-          message: 'Too many attempts. Please resend OTP.',
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    throw new BadRequestException('Invalid or expired verification code.');
-  }
-
   async presignAgencyLogoUpload(
     userId: string,
     dto: PresignAgencyLogoUploadDto,
@@ -140,136 +182,6 @@ export class AgencyService {
       contentType: dto.contentType,
       contentLength: dto.contentLength,
     });
-  }
-
-  async createAgencyProfile(
-    ownerUserId: string,
-    dto: CreateAgencyProfileDto,
-  ): Promise<AgencyProfileResponseDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: ownerUserId },
-      select: { deletedAt: true, ownedAgency: { select: { id: true } } },
-    });
-    if (!user || user.deletedAt) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.ownedAgency) {
-      throw new ConflictException('Agency profile already exists');
-    }
-
-    const contactFullName = dto.contactFullName.trim();
-    const contactEmail = dto.contactEmail.trim().toLowerCase();
-    const contactPhone = dto.contactPhone?.trim() || null;
-    const website = dto.website?.trim() || null;
-    const logoKey = dto.logoKey?.trim();
-
-    if (logoKey) {
-      this.assertTempAgencyLogoKeyOwner(ownerUserId, logoKey);
-    }
-
-    let contactPhoneVerified = false;
-    if (contactPhone) {
-      const otpCode = dto.contactPhoneOtpCode?.trim();
-      if (!otpCode) {
-        throw new BadRequestException(
-          'contactPhoneOtpCode is required when contactPhone is provided',
-        );
-      }
-      await this.assertContactPhoneAvailable(contactPhone);
-      await this.verifyContactPhoneOtp(contactPhone, otpCode);
-      contactPhoneVerified = true;
-    }
-
-    const agency = await this.prisma.$transaction(async (tx) => {
-      const agencyRole = await tx.role.findUnique({
-        where: { name: RoleName.AGENCY },
-        select: { id: true },
-      });
-      if (!agencyRole) {
-        throw new NotFoundException('AGENCY role not configured');
-      }
-
-      const created = await tx.agency.create({
-        data: {
-          ownerUserId,
-          name: dto.name.trim(),
-          contactFullName,
-          contactEmail,
-          contactPhone,
-          contactPhoneVerified,
-          website,
-        },
-        select: {
-          id: true,
-          ownerUserId: true,
-          name: true,
-          logoKey: true,
-          logoUrl: true,
-          website: true,
-          contactFullName: true,
-          contactEmail: true,
-          contactPhone: true,
-          contactPhoneVerified: true,
-          lastActiveBrandProfileId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-
-      await tx.userRole.upsert({
-        where: {
-          userId_roleId: { userId: ownerUserId, roleId: agencyRole.id },
-        },
-        create: { userId: ownerUserId, roleId: agencyRole.id },
-        update: {},
-      });
-
-      const currentUser = await tx.user.findUnique({
-        where: { id: ownerUserId },
-        select: { primaryRoleId: true },
-      });
-      if (!currentUser?.primaryRoleId) {
-        await tx.user.update({
-          where: { id: ownerUserId },
-          data: { primaryRoleId: agencyRole.id },
-        });
-      }
-
-      return created;
-    });
-
-    if (logoKey) {
-      const finalLogoKey = await this.storage.finalizeAgencyLogoKey({
-        tempKey: logoKey,
-        agencyId: agency.id,
-        deleteTemp: true,
-      });
-      const updated = await this.prisma.agency.update({
-        where: { id: agency.id },
-        data: {
-          logoKey: finalLogoKey,
-          logoUrl: this.storage.buildCdnUrl(finalLogoKey),
-        },
-        select: {
-          id: true,
-          ownerUserId: true,
-          name: true,
-          logoKey: true,
-          logoUrl: true,
-          website: true,
-          contactFullName: true,
-          contactEmail: true,
-          contactPhone: true,
-          contactPhoneVerified: true,
-          lastActiveBrandProfileId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-      return this.mapAgency({ ...updated, brands: [] });
-    }
-
-    return this.mapAgency({ ...agency, brands: [] });
   }
 
   async getAgencyProfileForOwner(

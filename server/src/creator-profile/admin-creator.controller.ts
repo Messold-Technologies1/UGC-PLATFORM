@@ -21,7 +21,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
-import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
+import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
 import {
   PendingApprovalsQueryDto,
   RejectCreatorProfileDto,
@@ -44,10 +44,10 @@ export class AdminCreatorController {
   @ApiOperation({
     summary: 'List creator profiles awaiting approval (oldest first)',
   })
-  @ApiOkResponse({ type: CreatorsListResponseDto })
+  @ApiOkResponse({ type: PendingCreatorsListResponseDto })
   async listPendingApprovals(
     @Query() query: PendingApprovalsQueryDto,
-  ): Promise<CreatorsListResponseDto> {
+  ): Promise<PendingCreatorsListResponseDto> {
     return this.creatorProfileService.listPendingCreatorApprovals(query);
   }
 

@@ -4,14 +4,18 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthController } from './auth.controller';
 import { AuthPhoneController } from './auth-phone.controller';
+import { AuthSignupController } from './auth-signup.controller';
 import { AuthService } from './auth.service';
-import { PhoneVerificationService } from './phone-verification.service';
+import { SignupModule } from './signup.module';
+import { StorageModule } from '../storage/storage.module';
 import { AdminGuard } from './guards/admin.guard';
 import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
 
 @Module({
   imports: [
     PrismaModule,
+    SignupModule,
+    StorageModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
@@ -26,14 +30,13 @@ import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, AuthPhoneController],
-  providers: [AuthService, PhoneVerificationService, AdminGuard, WorkspacePermissionGuard],
+  controllers: [AuthController, AuthPhoneController, AuthSignupController],
+  providers: [AuthService, AdminGuard, WorkspacePermissionGuard],
   exports: [
     AuthService,
     JwtModule,
     AdminGuard,
     WorkspacePermissionGuard,
-    PhoneVerificationService,
   ],
 })
 export class AuthModule {}

@@ -20,7 +20,6 @@ import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
-import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
 import { UpdateBrandProfileDto } from './dto/update-brand-profile.dto';
 import {
   PresignBrandLogoUploadDto,
@@ -78,20 +77,6 @@ export class BrandProfileController {
       req.user.id,
       dto,
     );
-  }
-
-  @Post('profile')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Create brand profile for the authenticated user',
-  })
-  @ApiCreatedResponse({ type: BrandProfileResponseDto })
-  async createBrandProfile(
-    @Body() dto: CreateBrandProfileDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<BrandProfileResponseDto> {
-    return this.brandProfileService.createBrandProfile(req.user.id, dto);
   }
 
   @Get('profile/me')

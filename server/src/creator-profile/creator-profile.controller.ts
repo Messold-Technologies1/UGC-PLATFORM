@@ -25,7 +25,6 @@ import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
-import { CreateCreatorProfileDto } from './dto/create-creator-profile.dto';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
@@ -57,21 +56,6 @@ export class CreatorProfileController {
     private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
     private readonly creatorReviewsService: CreatorReviewsService,
   ) {}
-
-  @Post('profile')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Create creator profile for the authenticated user',
-  })
-  @ApiCreatedResponse({ type: CreatorProfileResponseDto })
-  async createProfile(
-    @Body() dto: CreateCreatorProfileDto,
-    @Req()
-    req: Request & { user: { id: string } },
-  ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.createCreatorProfile(req.user.id, dto);
-  }
 
   @Post('profile/uploads/presign-intro-video')
   @UseGuards(JwtAuthGuard)

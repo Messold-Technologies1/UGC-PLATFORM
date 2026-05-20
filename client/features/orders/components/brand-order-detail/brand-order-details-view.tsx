@@ -1,6 +1,6 @@
 "use client";
 
-// import { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, /* AlertTriangle, */ ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,22 +18,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 // import { Spinner } from "@/components/ui/spinner";
 // import { Textarea } from "@/components/ui/textarea";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
-// import { useOpenBrandDisputeMutation } from "@/features/orders/hooks/use-open-brand-dispute-mutation";
-import { useGetBrandOrderDetailsQuery } from "../hooks/use-get-brand-order-details-query";
-import { OrderRatingReviewCard } from "./order-rating-review-card";
-import {
-  BriefSummaryCard,
-  CreatorAcceptanceCard,
-  CreatorProfileCard,
-  NeedHelpCard,
-  OrderActivityTimeline,
-  OrderDetailsCard,
-  OrderPageHeader,
-  OrderProgressStepper,
-  OrderStatusBanner,
-  OrderSummaryCard,
-  TipsCard,
-} from "./brand-order-detail";
+import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
+import { OrderRatingReviewCard } from "../order-rating-review-card";
+import { BriefSummaryCard } from "./brief-summary-card";
+import { CreatorAcceptanceCard } from "./creator-acceptance-card";
+import { CreatorProfileCard } from "./creator-profile-card";
+import { OrderActivityTimeline } from "./order-activity-timeline";
+import { OrderDetailsCard } from "./order-details-card";
+import { OrderPageHeader } from "./order-page-header";
+import { OrderProgressStepper } from "./order-progress-stepper";
+import { OrderStatusBanner } from "./order-status-banner";
+import { OrderSummaryCard } from "./order-summary-card";
+import { NeedHelpCard, TipsCard } from "./support-tips-card";
+import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
+import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-details-card";
+import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
+import { NeedUpdateCard } from "./need-update-card";
+import { QuickActionsCard } from "./quick-actions-card";
+import { OrderChatWidget } from "../order-chat-widget";
 
 interface BrandOrderDetailsViewProps {
   orderId: string;
@@ -76,7 +78,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
     useGetBrandOrderDetailsQuery(orderId);
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
 
-  // const [isDisputeDrawerOpen, setIsDisputeDrawerOpen] = useState(false);
+  const [previewState, setPreviewState] = useState<string | null>(null);
   // const [disputeReason, setDisputeReason] = useState("");
   // const openBrandDisputeMutation = useOpenBrandDisputeMutation({
   //   onSuccess: () => {
@@ -94,7 +96,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   if (isError || !data) {
     return (
       <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8">
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-8">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-8">
           <div className="flex items-start gap-4">
             <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
               <AlertCircle className="w-5 h-5" />
@@ -137,13 +139,77 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   //     orderId,
   //     reason: trimmedDisputeReason,
   //   });
-  // }
+  const inProgressStatuses = ["PRODUCT_SHIPPED", "PRODUCT_RECEIVED"];
+  if (!order.requiresPhysicalProductShipment) {
+    inProgressStatuses.push("BRIEF_ACCEPTED");
+  }
+  const isActuallyInProgress = inProgressStatuses.includes(order.status);
+
+  const showInProgressUI =
+    previewState === "In Progress" ||
+    (isActuallyInProgress && previewState === null);
+
+  if (showInProgressUI) {
+    return (
+      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+        <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
+        
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          <div className="flex flex-col gap-5 lg:col-span-8">
+            <OrderProgressStepper 
+              order={order} 
+              onStepClick={(label) => setPreviewState(label)} 
+              previewState={previewState} 
+            />
+
+            <InprogressNotificationBanner creatorName={creator?.displayName || "Creator"} />
+
+            <InprogressOrderDetailsCard
+              order={order}
+              brief={brief}
+              briefId={briefId}
+              orderId={orderId}
+            />
+
+            {order.requiresPhysicalProductShipment && (
+              <InprogressShippingCard
+                courierPartner={(order as any).shippingCourier ?? "Delhivery"}
+                trackingId={(order as any).shippingTrackingId ?? "1234567890123"}
+                shippedAt={order.dispatchedAt ?? "2025-05-12T16:30:00Z"}
+              />
+            )}
+
+            <NeedUpdateCard />
+          </div>
+
+          <aside className="flex flex-col gap-5 lg:col-span-4">
+            <CreatorProfileCard creator={creator} order={order} />
+
+            <div className="rounded-lg border bg-card shadow-sm overflow-hidden flex flex-col h-[500px]">
+              <OrderChatWidget
+                orderId={orderId}
+                role="brand"
+                creator={creator}
+                className="flex-1 border-none shadow-none rounded-none"
+              />
+            </div>
+
+            <QuickActionsCard />
+          </aside>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
       <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
 
-      <OrderProgressStepper order={order} />
+      <OrderProgressStepper 
+        order={order} 
+        onStepClick={(label) => setPreviewState(label)} 
+        previewState={previewState} 
+      />
 
       <OrderStatusBanner order={order} creator={creator} />
 

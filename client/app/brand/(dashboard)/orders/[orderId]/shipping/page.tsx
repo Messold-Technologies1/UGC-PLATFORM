@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BrandOrderShippingView } from "@/features/orders/components/brand-order-shipping-view";
+import { BrandOrderShippingView } from "@/features/orders/components/brand-order-detail";
 
 export const metadata: Metadata = {
   title: "Order Shipping | Brand Dashboard",

@@ -170,6 +170,7 @@ interface CreatorFiltersProps {
   filters: Filters;
   onChange: (filters: Filters) => void;
   categoryOptions: string[];
+  className?: string;
 }
 
 function normalizeSelectedValues(values: string[]) {
@@ -198,6 +199,7 @@ export const CreatorFilters = memo(function CreatorFilters({
   filters,
   onChange,
   categoryOptions,
+  className,
 }: CreatorFiltersProps) {
   const [draftFilters, setDraftFilters] = useState<Filters>(filters);
 
@@ -344,7 +346,7 @@ export const CreatorFilters = memo(function CreatorFilters({
   const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
   return (
-    <aside className="flex h-full w-full max-w-[260px] flex-col overflow-hidden rounded-[10px] border border-gray-200/60 bg-white px-5 pt-5 pb-5 lg:h-[calc(100vh-7rem)] shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+    <aside className={cn("flex h-full w-full max-w-[260px] flex-col overflow-hidden rounded-[10px] border border-gray-200/60 bg-white px-5 pt-5 pb-5 lg:h-[calc(100vh-7rem)] shadow-[0_2px_8px_rgba(0,0,0,0.02)]", className)}>
       <div className="flex shrink-0 items-center justify-between pb-3">
         <h3 className="text-[16px] font-bold tracking-tight text-[#111]">
           Filters

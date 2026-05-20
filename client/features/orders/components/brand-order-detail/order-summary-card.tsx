@@ -42,7 +42,7 @@ export function OrderSummaryCard({
   }
 
   return (
-    <div className="rounded-2xl border bg-card shadow-sm">
+    <div className="rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <h3 className="text-lg font-bold text-foreground">Order Summary</h3>
         <Button

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 export function NeedHelpCard() {
   return (
-    <div className="rounded-2xl border bg-card p-6 shadow-sm text-center">
+    <div className="rounded-lg border bg-card p-6 shadow-sm text-center">
       <div className="flex justify-center mb-3">
         <div className="flex size-10 items-center justify-center rounded-full bg-muted">
           <Headphones className="size-5 text-muted-foreground" />

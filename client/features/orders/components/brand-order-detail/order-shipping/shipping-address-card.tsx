@@ -18,7 +18,7 @@ export function ShippingAddressCard({ creatorName }: ShippingAddressCardProps) {
   };
 
   return (
-    <div className="rounded-2xl border bg-card shadow-sm">
+    <div className="rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <h3 className="text-lg font-bold text-foreground">Shipping Address</h3>
         <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 pointer-events-none rounded-full px-2.5 py-0.5 text-[10px] font-semibold">

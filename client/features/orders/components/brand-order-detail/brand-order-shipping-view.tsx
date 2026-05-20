@@ -5,18 +5,16 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
-import { useGetBrandOrderDetailsQuery } from "../hooks/use-get-brand-order-details-query";
-import {
-  OrderPageHeader,
-  OrderProgressStepper,
-  CreatorProfileCard,
-  OrderSummaryCard,
-  NeedHelpCard,
-  ShippingDetailsCard,
-  ShippingTimelineCard,
-  ShippingAddressCard,
-  PaymentSecuredBanner,
-} from "./brand-order-detail";
+import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
+import { OrderPageHeader } from "./order-page-header";
+import { OrderProgressStepper } from "./order-progress-stepper";
+import { CreatorProfileCard } from "./creator-profile-card";
+import { OrderSummaryCard } from "./order-summary-card";
+import { NeedHelpCard } from "./support-tips-card";
+import { ShippingDetailsCard } from "./order-shipping/shipping-details-card";
+import { ShippingTimelineCard } from "./order-shipping/shipping-timeline-card";
+import { ShippingAddressCard } from "./order-shipping/shipping-address-card";
+import { PaymentSecuredBanner } from "./payment-secured-banner";
 
 interface BrandOrderShippingViewProps {
   orderId: string;

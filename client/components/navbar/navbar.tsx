@@ -170,7 +170,7 @@ export function Navbar() {
     >
       <div className={cn(
         "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
-        mobileOpen ? "rounded-2xl" : "rounded-full",
+        mobileOpen ? "rounded-2xl" : "rounded-[24px] md:rounded-full",
       )}>
         <div className="relative flex h-12 w-full items-center justify-between overflow-visible px-4 sm:px-6">
           <div className="flex shrink-0 items-center gap-6 overflow-visible lg:gap-8">
@@ -337,7 +337,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-1 md:hidden">
-          {/* <ThemeToggle /> */}
+          {isAuthenticated && <NotificationDropdown />}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -365,14 +365,13 @@ export function Navbar() {
         role="navigation"
         aria-label="Mobile navigation"
         className={cn(
-          "overflow-hidden border-t border-border/60 transition-all duration-200 md:hidden",
-          mobileOpen
-            ? "max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto"
-            : "max-h-0 border-t-0",
+          "grid transition-[grid-template-rows] duration-300 md:hidden",
+          mobileOpen ? "grid-rows-[1fr] border-t border-border/60" : "grid-rows-[0fr] border-t-0"
         )}
       >
-        <div className="flex flex-col gap-1 px-4 py-3">
-          {navItems.length > 0 && (
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-1 px-4 py-3 max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto">
+            {navItems.length > 0 && (
             <>
               {navItems.map((item) => {
                 const isActive = isNavItemActive(pathname || "", item);
@@ -428,8 +427,7 @@ export function Navbar() {
           )}
 
           {isAuthenticated ? (
-            <div className="flex items-center gap-4 px-3 py-2">
-              <NotificationDropdown />
+            <div className="px-3 py-2">
               <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
             </div>
           ) : (
@@ -454,6 +452,7 @@ export function Navbar() {
             </>
           )}
         </div>
+      </div>
       </div>
       </div>
     </motion.header>

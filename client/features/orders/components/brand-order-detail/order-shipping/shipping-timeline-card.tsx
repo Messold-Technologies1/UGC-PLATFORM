@@ -43,7 +43,7 @@ export function ShippingTimelineCard() {
   ];
 
   return (
-    <div className="rounded-2xl border bg-card p-6 shadow-sm">
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
       <h3 className="text-lg font-bold text-foreground mb-6">
         Shipping Timeline
       </h3>

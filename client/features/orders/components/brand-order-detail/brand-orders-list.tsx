@@ -22,10 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useGetBrandOrdersQuery } from "../hooks/use-get-brand-orders-query";
+import { useGetBrandOrdersQuery } from "../../hooks/use-get-brand-orders-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_COLORS, STATUS_LABELS } from "../constants";
+import { STATUS_COLORS, STATUS_LABELS } from "../../constants";
 
 export function BrandOrdersList() {
   const [page, setPage] = useState(1);

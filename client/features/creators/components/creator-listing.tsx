@@ -16,7 +16,12 @@ import { VirtuosoGrid } from "react-virtuoso";
 import { Card } from "@/components/ui/card";
 // import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTrigger,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
@@ -434,18 +439,44 @@ export function CreatorListing({
         </div> */}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div className="relative w-full max-w-2xl">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search niche, style, language, city or keyword"
-              value=""
-              disabled
-              aria-label="Creator search is currently unavailable"
-              className="h-[46px] rounded-lg border-gray-200 py-2.5 pl-11 pr-12 text-[14px] shadow-sm bg-white disabled:opacity-100 disabled:bg-white placeholder:text-[#888] placeholder:font-normal text-gray-900"
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
-              <SlidersHorizontal className="size-[18px] text-gray-400" />
+          <div className="relative w-full flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search niche, style, language, city or keyword"
+                value=""
+                disabled
+                aria-label="Creator search is currently unavailable"
+                className="h-[46px] rounded-lg border-gray-200 py-2.5 pl-11 pr-12 text-[14px] shadow-sm bg-white disabled:opacity-100 disabled:bg-white placeholder:text-[#888] placeholder:font-normal text-gray-900"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center lg:hidden">
+                <SlidersHorizontal className="size-[18px] text-gray-400 opacity-0 pointer-events-none" />
+              </div>
             </div>
+
+            <Drawer>
+              <DrawerTrigger asChild>
+                <button
+                  type="button"
+                  className="lg:hidden flex shrink-0 items-center justify-center h-[46px] rounded-lg border border-gray-200 bg-white px-4 shadow-sm hover:bg-gray-50 transition-colors"
+                  aria-label="Open filters"
+                >
+                  <SlidersHorizontal className="size-[18px] text-gray-700" />
+                  <span className="ml-2 text-[14px] font-medium text-gray-700 hidden xs:inline-block">Filters</span>
+                </button>
+              </DrawerTrigger>
+              <DrawerContent className="h-[85vh] bg-[#F9FAFB] rounded-t-[14px] flex flex-col overflow-hidden">
+                <DrawerTitle className="sr-only">Filters</DrawerTitle>
+                <div className="flex-1 min-h-0 bg-[#F9FAFB]">
+                  <CreatorFilters
+                    filters={filters}
+                    onChange={handleFiltersChange}
+                    categoryOptions={categoryOptions}
+                    className="border-0 shadow-none h-full max-w-none rounded-none pt-5 px-5 bg-transparent lg:h-auto"
+                  />
+                </div>
+              </DrawerContent>
+            </Drawer>
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <span className="text-[13px] text-[#6B7280] font-medium hidden sm:inline-block">
@@ -499,15 +530,15 @@ export function CreatorListing({
             )}
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-4 shrink-0 pt-2 sm:pt-0">
             <span className="text-[13px] font-semibold text-[#6B7280]">
               {displayedCount.toLocaleString()} creators found
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-medium text-[#111]">
+              <span className="text-[13px] font-medium text-[#111] whitespace-nowrap">
                 Sort by: Recommended
               </span>
-              <ChevronDown className="size-4 text-[#111]" />
+              <ChevronDown className="size-4 text-[#111] shrink-0" />
             </div>
           </div>
         </div>

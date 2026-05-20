@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMarkProductShippedMutation } from "../../hooks/use-mark-product-shipped-mutation";
+import { useMarkProductShippedMutation } from "../../../hooks/use-mark-product-shipped-mutation";
 
 const shippingSchema = z.object({
   courierName: z.string().min(1, "Courier partner is required"),
@@ -57,7 +57,7 @@ export function ShippingDetailsCard({
   };
 
   return (
-    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border/50">
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -186,7 +186,7 @@ export function ShippingDetailsCard({
             </div>
           </div>
 
-          <div className="rounded-xl bg-primary/5 border border-primary/10 p-4">
+          <div className="rounded-lg bg-primary/5 border border-primary/10 p-4">
             <div className="flex items-start gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
                 <Info className="size-4" />

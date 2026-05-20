@@ -118,8 +118,8 @@ export const CreatorCard = memo(function CreatorCard({
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col p-3">
-          <h3 className="text-base font-bold text-foreground tracking-tight">
+        <div className="flex flex-1 flex-col p-4 sm:p-3">
+          <h3 className="text-[15px] sm:text-base font-bold text-foreground tracking-tight">
             {creator.name}
           </h3>
           

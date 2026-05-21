@@ -21,6 +21,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
+import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
 import {
   PendingApprovalsQueryDto,
@@ -75,6 +76,25 @@ export class AdminCreatorController {
       req.user.id,
       id,
       dto.rejectionReason,
+    );
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Update a creator profile as admin (same body as PATCH /creators/:id for the profile owner)',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async updateCreator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCreatorProfileDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.updateCreatorProfile(
+      req.user.id,
+      id,
+      dto,
     );
   }
 

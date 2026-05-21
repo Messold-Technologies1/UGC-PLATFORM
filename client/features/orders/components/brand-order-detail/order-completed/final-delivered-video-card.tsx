@@ -11,7 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetBrandOrderDeliveriesQuery } from "../../../hooks/use-get-brand-order-deliveries-query";
 import type { OrderDeliveryAsset } from "../../../api/get-brand-order-deliveries";
-import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface FinalDeliveredVideoCardProps {
@@ -53,8 +56,6 @@ function downloadAsset(url: string, filename: string) {
   document.body.removeChild(a);
 }
 
-
-
 function AdditionalFileCard({ asset }: { asset: OrderDeliveryAsset }) {
   const filename = filenameFromKey(asset.key);
 
@@ -65,11 +66,15 @@ function AdditionalFileCard({ asset }: { asset: OrderDeliveryAsset }) {
           <ImageIcon className="size-4" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{filename}</p>
+          <p className="text-sm font-semibold text-foreground truncate">
+            {filename}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-4 shrink-0 pl-4">
-        <span className="text-xs font-medium text-muted-foreground tabular-nums">2.4 MB</span>
+        <span className="text-xs font-medium text-muted-foreground tabular-nums">
+          2.4 MB
+        </span>
         <button
           type="button"
           onClick={() => downloadAsset(asset.url, filename)}
@@ -104,7 +109,10 @@ function FinalDeliveredVideoSkeleton() {
   );
 }
 
-export function FinalDeliveredVideoCard({ orderId, order }: FinalDeliveredVideoCardProps) {
+export function FinalDeliveredVideoCard({
+  orderId,
+  order,
+}: FinalDeliveredVideoCardProps) {
   const { data, isLoading, isError } = useGetBrandOrderDeliveriesQuery(orderId);
 
   if (isLoading) {
@@ -136,17 +144,24 @@ export function FinalDeliveredVideoCard({ orderId, order }: FinalDeliveredVideoC
   }
 
   const isEmpty = !latestDelivery || allAssets.length === 0;
-  const primaryFilename = primaryVideo ? filenameFromKey(primaryVideo.key) : "Pending Delivery...";
-  
-  const deliveredDateStr = isEmpty ? "Not delivered yet" : formatDateTime(latestDelivery?.createdAt);
-  const approvedDateStr = order.acceptedAt ? formatDateTime(order.acceptedAt) : "Pending Approval";
+  const primaryFilename = primaryVideo
+    ? filenameFromKey(primaryVideo.key)
+    : "Pending Delivery...";
+
+  const deliveredDateStr = isEmpty
+    ? "Not delivered yet"
+    : formatDateTime(latestDelivery?.createdAt);
+  const approvedDateStr = order.acceptedAt
+    ? formatDateTime(order.acceptedAt)
+    : "Pending Approval";
 
   return (
     <div className="rounded-xl border bg-card p-6 shadow-sm flex flex-col h-full">
-      <h3 className="text-base font-bold text-foreground mb-6">Final Delivered Video</h3>
+      <h3 className="text-base font-bold text-foreground mb-6">
+        Final Delivered Video
+      </h3>
 
       <div className="flex flex-col sm:flex-row gap-6">
-        {/* Media Carousel */}
         <div className="shrink-0 w-full sm:w-[280px]">
           {isEmpty || carouselAssets.length === 0 ? (
             <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-muted/50 border border-border/50 flex flex-col items-center justify-center text-muted-foreground/50">
@@ -158,19 +173,23 @@ export function FinalDeliveredVideoCard({ orderId, order }: FinalDeliveredVideoC
           )}
         </div>
 
-        {/* File details */}
         <div className="flex-1 min-w-0 flex flex-col py-1">
           <div>
-            <h4 className={`text-base font-bold truncate ${isEmpty ? "text-muted-foreground/60" : "text-foreground"}`}>
+            <h4
+              className={`text-base font-bold truncate ${isEmpty ? "text-muted-foreground/60" : "text-foreground"}`}
+            >
               {primaryFilename}
             </h4>
-            
+
             <div className="space-y-1.5 mt-3 text-sm">
               <p className="text-muted-foreground font-medium">
                 {isEmpty ? "-- • -- • --" : "1080p • 60 sec • 86.4 MB"}
               </p>
               <p className="text-muted-foreground">
-                Delivered on <span className="font-medium text-foreground">{deliveredDateStr}</span>
+                Delivered on{" "}
+                <span className="font-medium text-foreground">
+                  {deliveredDateStr}
+                </span>
               </p>
               <p className="text-emerald-600 dark:text-emerald-500 font-semibold">
                 Approved on {approvedDateStr}
@@ -178,13 +197,14 @@ export function FinalDeliveredVideoCard({ orderId, order }: FinalDeliveredVideoC
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex items-center gap-3 mt-auto pt-6">
             <Button
               variant="outline"
               size="sm"
               className="rounded-lg font-semibold text-xs px-4 h-9"
-              onClick={() => primaryVideo && downloadAsset(primaryVideo.url, primaryFilename)}
+              onClick={() =>
+                primaryVideo && downloadAsset(primaryVideo.url, primaryFilename)
+              }
               disabled={isEmpty}
             >
               <Download className="size-3.5 mr-2" />
@@ -203,7 +223,6 @@ export function FinalDeliveredVideoCard({ orderId, order }: FinalDeliveredVideoC
         </div>
       </div>
 
-      {/* Additional files */}
       {imageAssets.length > 0 && (
         <div className="mt-8 pt-6 border-t border-border/60">
           <h4 className="text-sm font-bold text-foreground mb-4">

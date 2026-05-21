@@ -23,7 +23,6 @@ export function ChatPreviewCard({ creator, orderId }: ChatPreviewCardProps) {
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h3 className="text-lg font-bold text-foreground">
@@ -37,14 +36,13 @@ export function ChatPreviewCard({ creator, orderId }: ChatPreviewCardProps) {
           </div>
         </div>
         <Link
-          href={`/brand/orders/${orderId}/messages`} // generic message path, or we can just use # for now
+          href={`/brand/orders/${orderId}/messages`}
           className="text-xs font-bold text-primary hover:underline"
         >
           View all messages
         </Link>
       </div>
 
-      {/* Message preview */}
       <div className="flex items-start gap-3 mt-auto">
         <Avatar className="size-8 border border-border/50 shrink-0">
           <AvatarImage
@@ -57,7 +55,9 @@ export function ChatPreviewCard({ creator, orderId }: ChatPreviewCardProps) {
         </Avatar>
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-bold text-foreground">{creatorName.split(" ")[0]}</h4>
+          <h4 className="text-sm font-bold text-foreground">
+            {creatorName.split(" ")[0]}
+          </h4>
           <p className="text-sm text-muted-foreground mt-1 leading-snug">
             Please let me know if you need any changes. Happy to help!
           </p>

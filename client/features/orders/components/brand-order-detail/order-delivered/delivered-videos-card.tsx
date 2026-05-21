@@ -13,23 +13,20 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetBrandOrderDeliveriesQuery } from "../../../hooks/use-get-brand-order-deliveries-query";
 import type { OrderDeliveryAsset } from "../../../api/get-brand-order-deliveries";
-import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 
 interface DeliveredVideosCardProps {
   orderId: string;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-/** Extract a human-readable filename from the S3-style key. */
 function filenameFromKey(key: string): string {
   const segments = key.split("/");
   return segments[segments.length - 1] ?? key;
 }
 
-/** Format an ISO date string to a readable delivery date. */
 function formatDeliveryDate(value?: string | null): string {
   if (!value) return "";
   const d = new Date(value);
@@ -44,12 +41,10 @@ function formatDeliveryDate(value?: string | null): string {
   })}`;
 }
 
-/** Open a URL in a new tab. */
 function openInNewTab(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-/** Trigger a download for a given URL. */
 function downloadAsset(url: string, filename: string) {
   const a = document.createElement("a");
   a.href = url;
@@ -61,17 +56,7 @@ function downloadAsset(url: string, filename: string) {
   document.body.removeChild(a);
 }
 
-/* ------------------------------------------------------------------ */
-/*  Sub-components                                                     */
-/* ------------------------------------------------------------------ */
-
-
-
-function AdditionalFileRow({
-  asset,
-}: {
-  asset: OrderDeliveryAsset;
-}) {
+function AdditionalFileRow({ asset }: { asset: OrderDeliveryAsset }) {
   const filename = filenameFromKey(asset.key);
 
   return (
@@ -91,10 +76,6 @@ function AdditionalFileRow({
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Loading skeleton                                                   */
-/* ------------------------------------------------------------------ */
 
 function DeliveredVideosSkeleton() {
   return (
@@ -119,13 +100,8 @@ function DeliveredVideosSkeleton() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Main component                                                     */
-/* ------------------------------------------------------------------ */
-
 export function DeliveredVideosCard({ orderId }: DeliveredVideosCardProps) {
-  const { data, isLoading, isError } =
-    useGetBrandOrderDeliveriesQuery(orderId);
+  const { data, isLoading, isError } = useGetBrandOrderDeliveriesQuery(orderId);
 
   if (isLoading) {
     return <DeliveredVideosSkeleton />;
@@ -164,7 +140,6 @@ export function DeliveredVideosCard({ orderId }: DeliveredVideosCardProps) {
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-lg font-bold text-foreground">Delivered Videos</h3>
         <Badge
@@ -175,10 +150,8 @@ export function DeliveredVideosCard({ orderId }: DeliveredVideosCardProps) {
         </Badge>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col justify-center">
         <div className="flex flex-col sm:flex-row gap-5">
-          {/* Media Carousel */}
           <div className="shrink-0 w-full sm:w-[280px]">
             {isEmpty || carouselAssets.length === 0 ? (
               <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-muted/50 border border-border/50 flex flex-col items-center justify-center text-muted-foreground/50">
@@ -190,60 +163,64 @@ export function DeliveredVideosCard({ orderId }: DeliveredVideosCardProps) {
             )}
           </div>
 
-          {/* File details */}
           <div className="flex-1 min-w-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileVideo className={`size-4 shrink-0 ${isEmpty ? "text-muted-foreground/40" : "text-muted-foreground"}`} />
-              <h4 className={`text-sm font-bold truncate ${isEmpty ? "text-muted-foreground/60" : "text-foreground"}`}>
-                {primaryFilename}
-              </h4>
+            <div>
+              <div className="flex items-center gap-2">
+                <FileVideo
+                  className={`size-4 shrink-0 ${isEmpty ? "text-muted-foreground/40" : "text-muted-foreground"}`}
+                />
+                <h4
+                  className={`text-sm font-bold truncate ${isEmpty ? "text-muted-foreground/60" : "text-foreground"}`}
+                >
+                  {primaryFilename}
+                </h4>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEmpty ? "-- • -- • --" : "1080p • 60 sec • 86.4 MB"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isEmpty
+                  ? "Not delivered yet"
+                  : formatDeliveryDate(latestDelivery?.createdAt)}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isEmpty ? "-- • -- • --" : "1080p • 60 sec • 86.4 MB"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isEmpty ? "Not delivered yet" : formatDeliveryDate(latestDelivery?.createdAt)}
-            </p>
-          </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2.5 mt-4">
-            <Button
-              size="sm"
-              className="rounded-lg font-semibold text-xs px-4 h-9"
-              onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
-              disabled={isEmpty}
-            >
-              <Eye className="size-3.5 mr-1.5" />
-              Preview
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg font-semibold text-xs px-4 h-9"
-              onClick={() =>
-                primaryVideo && downloadAsset(primaryVideo.url, primaryFilename)
-              }
-              disabled={isEmpty}
-            >
-              <Download className="size-3.5 mr-1.5" />
-              Download
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-9 rounded-lg text-muted-foreground"
-              disabled={isEmpty}
-            >
-              <MoreVertical className="size-4" />
-            </Button>
+            <div className="flex items-center gap-2.5 mt-4">
+              <Button
+                size="sm"
+                className="rounded-lg font-semibold text-xs px-4 h-9"
+                onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
+                disabled={isEmpty}
+              >
+                <Eye className="size-3.5 mr-1.5" />
+                Preview
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg font-semibold text-xs px-4 h-9"
+                onClick={() =>
+                  primaryVideo &&
+                  downloadAsset(primaryVideo.url, primaryFilename)
+                }
+                disabled={isEmpty}
+              >
+                <Download className="size-3.5 mr-1.5" />
+                Download
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9 rounded-lg text-muted-foreground"
+                disabled={isEmpty}
+              >
+                <MoreVertical className="size-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-      {/* Additional files */}
       {imageAssets.length > 0 && (
         <div className="mt-6 pt-5 border-t border-border/60">
           <h4 className="text-sm font-bold text-foreground mb-3">

@@ -34,18 +34,10 @@ import { useAcceptOrderDeliveryMutation } from "../../../hooks/use-accept-order-
 import { useRequestOrderRevisionMutation } from "../../../hooks/use-request-order-revision-mutation";
 import type { OrderDetailsPublic } from "../../../api/types";
 
-/* ------------------------------------------------------------------ */
-/*  Props                                                              */
-/* ------------------------------------------------------------------ */
-
 interface YourActionRequiredCardProps {
   order: OrderDetailsPublic;
   orderId: string;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
 
 function computeDaysLeft(deliveredAt?: string | null): number | null {
   if (!deliveredAt) return null;
@@ -57,10 +49,6 @@ function computeDaysLeft(deliveredAt?: string | null): number | null {
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 }
 
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
 const DRAWER_CONTENT_CLASSES =
   "data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-112.5 data-[vaul-drawer-direction=right]:rounded-none h-full border-l border-border/30 bg-background shadow-2xl flex flex-col p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]";
 
@@ -70,22 +58,16 @@ const DRAWER_HEADER_CLASSES =
 const DRAWER_FOOTER_CLASSES =
   "sticky bottom-0 flex flex-col gap-3 border-t border-border/20 bg-background/95 px-8 py-6 backdrop-blur-sm";
 
-/* ------------------------------------------------------------------ */
-/*  Main component                                                     */
-/* ------------------------------------------------------------------ */
-
 export function YourActionRequiredCard({
   order,
   orderId,
 }: YourActionRequiredCardProps) {
-  /* ---- State ---- */
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRevisionDrawerOpen, setIsRevisionDrawerOpen] = useState(false);
   const [isIssueDrawerOpen, setIsIssueDrawerOpen] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [issueReason, setIssueReason] = useState("");
 
-  /* ---- Mutations ---- */
   const acceptMutation = useAcceptOrderDeliveryMutation({
     onSuccess: () => setIsApproveDialogOpen(false),
   });
@@ -96,7 +78,6 @@ export function YourActionRequiredCard({
     },
   });
 
-  /* ---- Derived state ---- */
   const canReviewDelivery =
     order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
   const isAccepted = ["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(
@@ -113,7 +94,6 @@ export function YourActionRequiredCard({
   const trimmedRevisionNote = revisionNote.trim();
   const trimmedIssueReason = issueReason.trim();
 
-  /* ---- Handlers ---- */
   function handleApproveDelivery() {
     if (!canReviewDelivery || isAcceptPending) return;
     acceptMutation.mutate({ orderId });
@@ -124,7 +104,6 @@ export function YourActionRequiredCard({
     revisionMutation.mutate({ orderId });
   }
 
-  /* ---- If already accepted, show completion state ---- */
   if (isAccepted) {
     return (
       <div className="rounded-lg border bg-card p-6 shadow-sm">
@@ -146,7 +125,6 @@ export function YourActionRequiredCard({
   return (
     <>
       <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
-        {/* Header */}
         <div>
           <h3 className="text-lg font-bold text-foreground">
             Your Action Required
@@ -155,7 +133,6 @@ export function YourActionRequiredCard({
             Please review the content and take action within
           </p>
 
-          {/* Timer */}
           {daysLeft !== null && (
             <div className="flex items-center gap-2 mt-3">
               <Clock className="size-4 text-destructive shrink-0" />
@@ -167,7 +144,6 @@ export function YourActionRequiredCard({
         </div>
 
         <div className="mt-auto pt-5">
-          {/* Primary actions */}
           <div className="flex flex-col gap-3">
             <Button
               className="w-full font-semibold h-11 rounded-xl shadow-sm"
@@ -189,7 +165,6 @@ export function YourActionRequiredCard({
             </Button>
           </div>
 
-          {/* Separator */}
           <div className="flex items-center gap-3 mt-5">
             <div className="flex-1 h-px bg-border/60" />
             <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -198,7 +173,6 @@ export function YourActionRequiredCard({
             <div className="flex-1 h-px bg-border/60" />
           </div>
 
-          {/* Raise issue */}
           <Button
             variant="outline"
             className="w-full mt-4 font-semibold h-11 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
@@ -210,9 +184,6 @@ export function YourActionRequiredCard({
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/*  Approve Dialog                                               */}
-      {/* ============================================================ */}
       <Dialog
         open={isApproveDialogOpen}
         onOpenChange={(open) => {
@@ -259,9 +230,6 @@ export function YourActionRequiredCard({
         </DialogContent>
       </Dialog>
 
-      {/* ============================================================ */}
-      {/*  Request Revision Drawer (right)                              */}
-      {/* ============================================================ */}
       <Drawer
         open={isRevisionDrawerOpen}
         onOpenChange={(open) => {
@@ -283,7 +251,6 @@ export function YourActionRequiredCard({
 
           <div className="flex-1 overflow-y-auto px-8 py-6 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             <div className="space-y-6">
-              {/* Revision count */}
               <div className="flex items-center gap-2.5">
                 <Badge
                   variant="outline"
@@ -294,7 +261,6 @@ export function YourActionRequiredCard({
                 </Badge>
               </div>
 
-              {/* Textarea */}
               <div className="space-y-2">
                 <label
                   htmlFor="revisionNote"
@@ -353,9 +319,6 @@ export function YourActionRequiredCard({
         </DrawerContent>
       </Drawer>
 
-      {/* ============================================================ */}
-      {/*  Raise an Issue Drawer (right)                                */}
-      {/* ============================================================ */}
       <Drawer
         open={isIssueDrawerOpen}
         onOpenChange={(open) => {

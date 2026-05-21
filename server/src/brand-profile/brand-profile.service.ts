@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -46,6 +45,140 @@ export class BrandProfileService {
     if (!this.storage.isTempBrandPronunciationAudioKeyForUser(userId, key)) {
       throw new BadRequestException('Invalid brandPronunciationAudioKey');
     }
+  }
+
+  private assertBrandLogoKeyForContext(
+    userId: string,
+    key: string,
+    signupEmail?: string,
+  ): void {
+    if (signupEmail) {
+      if (!this.storage.isTempBrandLogoKeyForSignup(signupEmail, key)) {
+        throw new BadRequestException('Invalid logoKey');
+      }
+      return;
+    }
+    this.assertTempBrandLogoKeyOwner(userId, key);
+  }
+
+  private assertBrandPronunciationKeyForContext(
+    userId: string,
+    key: string,
+    signupEmail?: string,
+  ): void {
+    if (signupEmail) {
+      if (!this.storage.isTempBrandPronunciationAudioKeyForSignup(signupEmail, key)) {
+        throw new BadRequestException('Invalid brandPronunciationAudioKey');
+      }
+      return;
+    }
+    this.assertTempBrandPronunciationAudioKeyOwner(userId, key);
+  }
+
+  /**
+   * Creates a user-owned brand profile inside an existing interactive transaction
+   * (e.g. combined with user signup). Caller runs finalizeBrandProfileAssetsAndLoad after commit.
+   */
+  async runCreateOwnedBrandProfileInTransaction(
+    tx: any,
+    userId: string,
+    dto: CreateBrandProfileDto,
+    opts?: { signupEmail?: string; forcePrimaryBrandRole?: boolean },
+  ): Promise<string> {
+    const logoKey = dto.logoKey?.trim();
+    if (logoKey) {
+      this.assertBrandLogoKeyForContext(userId, logoKey, opts?.signupEmail);
+    }
+
+    const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
+    if (pronunciationAudioKey) {
+      this.assertBrandPronunciationKeyForContext(
+        userId,
+        pronunciationAudioKey,
+        opts?.signupEmail,
+      );
+    }
+
+    const selectedCategories = [...new Set(dto.categories ?? [])];
+    const includesOther = selectedCategories.includes(BrandCategory.OTHER);
+    const otherCategoryLabel = includesOther
+      ? (dto.otherCategoryLabel ?? '').trim()
+      : '';
+    if (includesOther && !otherCategoryLabel) {
+      throw new BadRequestException('otherCategoryLabel is required for OTHER category');
+    }
+
+    const brandRole = await tx.role.findUnique({
+      where: { name: RoleName.BRAND },
+      select: { id: true },
+    });
+    if (!brandRole) {
+      throw new NotFoundException('BRAND role not configured');
+    }
+
+    const currentUser: any = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        primaryRoleId: true,
+        creatorProfile: { select: { id: true } },
+      } as any,
+    });
+    if (!currentUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const existing = await tx.brandProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('Brand profile already exists');
+    }
+
+    const created = await tx.brandProfile.create({
+      data: {
+        userId,
+        brandName: dto.brandName.trim(),
+        contactFullName: dto.contactFullName.trim(),
+        contactEmail: dto.contactEmail.trim(),
+        contactPhone: dto.contactPhone.trim(),
+        website: dto.website?.trim() || null,
+        instagramUrl: dto.instagramUrl?.trim() || null,
+        productType: dto.productType ?? null,
+        otherCategoryLabel: includesOther ? otherCategoryLabel : null,
+      } as any,
+      select: { id: true },
+    });
+
+    if (selectedCategories.length) {
+      await tx.brandProfileBrandCategory.createMany({
+        data: selectedCategories.map((category) => ({
+          brandProfileId: created.id,
+          category,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    await tx.userRole.upsert({
+      where: { userId_roleId: { userId, roleId: brandRole.id } },
+      create: { userId, roleId: brandRole.id },
+      update: {},
+    });
+
+    if (opts?.forcePrimaryBrandRole) {
+      await tx.user.update({
+        where: { id: userId },
+        data: { primaryRoleId: brandRole.id } as any,
+      });
+    } else if (!currentUser.primaryRoleId && !currentUser.creatorProfile) {
+      await tx.user.update({
+        where: { id: userId },
+        data: { primaryRoleId: brandRole.id } as any,
+      });
+    }
+
+    return created.id;
   }
 
   // Keep this mapping loosely typed because Prisma client types can lag behind
@@ -115,127 +248,6 @@ export class BrandProfileService {
       key,
       contentType: dto.contentType,
       contentLength: dto.contentLength,
-    });
-  }
-
-  async createBrandProfile(
-    userId: string,
-    dto: CreateBrandProfileDto,
-  ): Promise<BrandProfileResponseDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        deletedAt: true,
-        brandAccessRevokedAt: true,
-      } as any,
-    });
-
-    if (!user || user.deletedAt) {
-      throw new NotFoundException('User not found');
-    }
-
-    if ((user as any).brandAccessRevokedAt) {
-      throw new ForbiddenException(
-        'Brand profile creation has been disabled for this account',
-      );
-    }
-
-    const logoKey = dto.logoKey?.trim();
-    if (logoKey) {
-      this.assertTempBrandLogoKeyOwner(userId, logoKey);
-    }
-
-    const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
-    if (pronunciationAudioKey) {
-      this.assertTempBrandPronunciationAudioKeyOwner(
-        userId,
-        pronunciationAudioKey,
-      );
-    }
-
-    const selectedCategories = [...new Set(dto.categories ?? [])];
-    const includesOther = selectedCategories.includes(BrandCategory.OTHER);
-    const otherCategoryLabel = includesOther
-      ? (dto.otherCategoryLabel ?? '').trim()
-      : '';
-    if (includesOther && !otherCategoryLabel) {
-      throw new BadRequestException('otherCategoryLabel is required for OTHER category');
-    }
-
-    const brandProfileId = await this.prisma.$transaction(async (tx) => {
-      const brandRole = await tx.role.findUnique({
-        where: { name: RoleName.BRAND },
-        select: { id: true },
-      });
-      if (!brandRole) {
-        throw new NotFoundException('BRAND role not configured');
-      }
-
-      const currentUser: any = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          primaryRoleId: true,
-          creatorProfile: { select: { id: true } },
-        } as any,
-      });
-      if (!currentUser) {
-        throw new NotFoundException('User not found');
-      }
-
-      const existing = await tx.brandProfile.findUnique({
-        where: { userId },
-        select: { id: true },
-      });
-      if (existing) {
-        throw new ConflictException('Brand profile already exists');
-      }
-
-      const created = await tx.brandProfile.create({
-        data: {
-          userId,
-          brandName: dto.brandName.trim(),
-          contactFullName: dto.contactFullName.trim(),
-          contactEmail: dto.contactEmail.trim(),
-          contactPhone: dto.contactPhone.trim(),
-          website: dto.website?.trim() || null,
-          instagramUrl: dto.instagramUrl?.trim() || null,
-          productType: dto.productType ?? null,
-          otherCategoryLabel: includesOther ? otherCategoryLabel : null,
-        } as any,
-        select: { id: true },
-      });
-
-      if (selectedCategories.length) {
-        await tx.brandProfileBrandCategory.createMany({
-          data: selectedCategories.map((category) => ({
-            brandProfileId: created.id,
-            category,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      await tx.userRole.upsert({
-        where: { userId_roleId: { userId, roleId: brandRole.id } },
-        create: { userId, roleId: brandRole.id },
-        update: {},
-      });
-
-      if (!currentUser.primaryRoleId && !currentUser.creatorProfile) {
-        await tx.user.update({
-          where: { id: userId },
-          data: { primaryRoleId: brandRole.id } as any,
-        });
-      }
-
-      return created.id;
-    });
-
-    return this.finalizeBrandProfileAssetsAndLoad({
-      brandProfileId,
-      actorUserId: userId,
-      logoKey,
-      pronunciationAudioKey,
     });
   }
 
@@ -369,6 +381,16 @@ export class BrandProfileService {
     }
 
     return this.mapBrandProfile(profile);
+  }
+
+  /** Public wrapper for auth signup orchestration after commit. */
+  async finalizeOwnedBrandProfileAssets(params: {
+    brandProfileId: string;
+    actorUserId: string;
+    logoKey?: string;
+    pronunciationAudioKey?: string;
+  }): Promise<BrandProfileResponseDto> {
+    return this.finalizeBrandProfileAssetsAndLoad(params);
   }
 
   async listBrands(query: ListBrandsQueryDto): Promise<BrandsListResponseDto> {
@@ -574,6 +596,7 @@ export class BrandProfileService {
     dto: UpdateBrandProfileDto;
     brandProfileId?: string;
   }): Promise<BrandProfileResponseDto> {
+    const dto = params.dto;
     const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId ?? null,

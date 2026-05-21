@@ -50,25 +50,27 @@ describe('Request-scoped workspace routes', () => {
     ]);
   });
 
-  it('leaves brand onboarding routes authenticated-only so profile creation can grant the role', () => {
+  it('leaves brand presign routes authenticated-only (no workspace guard)', () => {
     const controller = BrandProfileController.prototype as unknown as Record<
       string,
       unknown
     >;
 
     expect(
-      requiredWorkspaceFor(controller, 'createBrandProfile'),
-    ).toBeUndefined();
-    expect(
       requiredWorkspaceFor(controller, 'presignBrandLogoUpload'),
     ).toBeUndefined();
-    expect(guardsFor(controller, 'createBrandProfile')).toEqual([JwtAuthGuard]);
+    expect(
+      requiredWorkspaceFor(controller, 'presignBrandPronunciationUpload'),
+    ).toBeUndefined();
     expect(guardsFor(controller, 'presignBrandLogoUpload')).toEqual([
+      JwtAuthGuard,
+    ]);
+    expect(guardsFor(controller, 'presignBrandPronunciationUpload')).toEqual([
       JwtAuthGuard,
     ]);
   });
 
-  it('protects creator workspace routes but keeps onboarding create/presign routes authenticated-only', () => {
+  it('protects creator workspace routes but keeps intro presign authenticated-only', () => {
     const controller = CreatorProfileController.prototype as unknown as Record<
       string,
       unknown
@@ -87,11 +89,9 @@ describe('Request-scoped workspace routes', () => {
       JwtAuthGuard,
       WorkspacePermissionGuard,
     ]);
-    expect(requiredWorkspaceFor(controller, 'createProfile')).toBeUndefined();
     expect(
       requiredWorkspaceFor(controller, 'presignProfileIntroVideoUpload'),
     ).toBeUndefined();
-    expect(guardsFor(controller, 'createProfile')).toEqual([JwtAuthGuard]);
     expect(guardsFor(controller, 'presignProfileIntroVideoUpload')).toEqual([
       JwtAuthGuard,
     ]);

@@ -24,6 +24,12 @@ describe('AuthService', () => {
     get: jest.fn((_: string, defaultValue?: string) => defaultValue),
   };
 
+  const signupRegistration = {
+    registerCreatorUser: jest.fn(),
+    registerBrandUser: jest.fn(),
+    registerAgencyUser: jest.fn(),
+  };
+
   let service: AuthService;
 
   beforeEach(() => {
@@ -38,6 +44,7 @@ describe('AuthService', () => {
       prisma as unknown as PrismaService,
       jwt as unknown as JwtService,
       config as unknown as ConfigService,
+      signupRegistration as any,
     );
   });
 

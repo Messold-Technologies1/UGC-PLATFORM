@@ -1,6 +1,6 @@
 import {
-  BadRequestException,
   ConflictException,
+  BadRequestException,  
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,6 +12,10 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
+import type { RegisterCreatorDto } from './dto/register-creator.dto';
+import type { RegisterBrandDto } from './dto/register-brand.dto';
+import type { RegisterAgencyDto } from './dto/register-agency.dto';
+import { SignupRegistrationService } from './signup-registration.service';
 
 const SALT_ROUNDS = 10;
 const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
@@ -99,6 +103,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly signupRegistration: SignupRegistrationService,
   ) {}
 
   private hashRefreshToken(token: string): string {
@@ -192,6 +197,43 @@ export class AuthService {
         name: user.name,
       },
     };
+  }
+
+  private async authResultAfterSignup(
+    userId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<AuthResult> {
+    const { accessToken, refreshToken, expiresIn } =
+      await this.createSessionAndTokens(userId, meta);
+    const me = await this.getMeForClient(userId);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return { user: me, accessToken, refreshToken, expiresIn };
+  }
+
+  async registerCreator(
+    dto: RegisterCreatorDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<AuthResult> {
+    const userId = await this.signupRegistration.registerCreatorUser(dto);
+    return this.authResultAfterSignup(userId, meta);
+  }
+
+  async registerBrand(
+    dto: RegisterBrandDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<AuthResult> {
+    const userId = await this.signupRegistration.registerBrandUser(dto);
+    return this.authResultAfterSignup(userId, meta);
+  }
+
+  async registerAgency(
+    dto: RegisterAgencyDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<AuthResult> {
+    const userId = await this.signupRegistration.registerAgencyUser(dto);
+    return this.authResultAfterSignup(userId, meta);
   }
 
   async login(

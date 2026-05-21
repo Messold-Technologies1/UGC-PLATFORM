@@ -74,6 +74,41 @@ const creatorProfileWithRelationsInclude = {
         }
     }
 };
+/** Lighter include for admin pending-approval queue (signup fields only). */ const pendingCreatorApprovalInclude = {
+    user: {
+        select: {
+            phone: true,
+            phoneVerified: true
+        }
+    },
+    facetSelections: {
+        include: {
+            option: true
+        }
+    },
+    creatorApproval: true,
+    portfolioVideos: {
+        where: {
+            visibilityStatus: _client.PortfolioVisibilityStatus.PUBLIC
+        },
+        orderBy: {
+            createdAt: 'asc'
+        },
+        take: 20,
+        select: {
+            id: true,
+            creatorId: true,
+            videoUrl: true,
+            thumbnailUrl: true,
+            tags: {
+                select: {
+                    tag: true
+                }
+            },
+            createdAt: true
+        }
+    }
+};
 function mapJsonDeliverables(value) {
     if (!Array.isArray(value)) return [];
     return value.filter((item)=>typeof item === 'string');
@@ -483,149 +518,76 @@ let CreatorProfileService = class CreatorProfileService {
             options
         };
     }
-    async createCreatorProfile(userId, dto) {
-        await this.assertPhoneVerifiedForCreator(userId);
-        const introVideoKey = dto.introVideoKey?.trim();
-        if (introVideoKey) {
-            this.assertTempIntroVideoKeyOwner(userId, introVideoKey);
+    /**
+   * Creates creator profile + CREATOR role inside an existing transaction (signup only).
+   * Other profile fields are filled later via updateCreatorProfile.
+   */ async createCreatorProfileInTransaction(tx, userId, input) {
+        const creatorRole = await tx.role.findUnique({
+            where: {
+                name: _client.RoleName.CREATOR
+            },
+            select: {
+                id: true
+            }
+        });
+        if (!creatorRole) {
+            throw new _common.NotFoundException('CREATOR role not configured');
         }
-        const facetInputs = dto.facetSelections ?? [];
-        const langInputs = dto.profileLanguages ?? [];
-        const creatorProfileId = await this.prisma.$transaction(async (tx)=>{
-            const creatorRole = await tx.role.findUnique({
-                where: {
-                    name: _client.RoleName.CREATOR
-                },
-                select: {
-                    id: true
-                }
-            });
-            if (!creatorRole) {
-                throw new _common.NotFoundException('CREATOR role not configured');
+        const existing = await tx.creatorProfile.findUnique({
+            where: {
+                userId
             }
-            const currentUser = await tx.user.findUnique({
-                where: {
-                    id: userId
-                },
-                select: {
-                    primaryRoleId: true
+        });
+        if (existing) {
+            throw new _common.ConflictException('Creator profile already exists');
+        }
+        await this.syncUserDisplayName(tx, userId, input.displayName);
+        const dateOfBirth = new Date(input.dateOfBirth);
+        const facetInputs = input.categorySlugs.map((slug)=>({
+                dimension: _client.CreatorFacetDimension.CONTENT_CATEGORY,
+                slug
+            }));
+        const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
+        const creatorProfile = await tx.creatorProfile.create({
+            data: {
+                userId,
+                displayName: input.displayName.trim(),
+                city: input.city.trim(),
+                countryName: input.countryName.trim(),
+                stateName: input.stateName.trim(),
+                bio: input.bio?.trim() || null,
+                gender: input.gender,
+                dateOfBirth: !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
+                contactEmail: input.contactEmail.trim(),
+                instagramUrl: input.instagramUrl?.trim() || null,
+                creatorApproval: {
+                    create: {}
                 }
-            });
-            if (!currentUser) {
-                throw new _common.NotFoundException('User not found');
             }
-            const existing = await tx.creatorProfile.findUnique({
-                where: {
-                    userId
-                }
-            });
-            if (existing) {
-                throw new _common.ConflictException('Creator profile already exists');
-            }
-            await this.syncUserDisplayName(tx, userId, dto.displayName);
-            const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined;
-            const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
-            const langRows = await this.resolveLanguageRows(tx, langInputs);
-            const creatorProfile = await tx.creatorProfile.create({
-                data: {
-                    userId,
-                    displayName: dto.displayName.trim(),
-                    city: dto.city?.trim() || null,
-                    countryName: dto.countryName?.trim() || null,
-                    stateName: dto.stateName?.trim() || null,
-                    bio: dto.bio?.trim() || null,
-                    gender: dto.gender ?? null,
-                    dateOfBirth: dateOfBirth && !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
-                    shippingAddress: dto.shippingAddress?.trim() || null,
-                    contactEmail: dto.contactEmail.trim(),
-                    instagramUrl: dto.instagramUrl?.trim() || null,
-                    youtubeUrl: dto.youtubeUrl?.trim() || null,
-                    tiktokUrl: dto.tiktokUrl?.trim() || null,
-                    snapchatUrl: dto.snapchatUrl?.trim() || null,
-                    contentVolume: dto.contentVolume ?? null,
-                    collaborationCount: dto.collaborationCount ?? 0,
-                    travelRadius: dto.travelRadius ?? null,
-                    onLocationAvailable: dto.onLocationAvailable ?? false,
-                    creatorApproval: {
-                        create: {}
-                    }
-                }
-            });
-            await this.replaceFacetSelections(tx, creatorProfile.id, facetIds);
-            await this.replaceProfileLanguages(tx, creatorProfile.id, langRows);
-            const ops = [];
-            ops.push(tx.userRole.upsert({
-                where: {
-                    userId_roleId: {
-                        userId,
-                        roleId: creatorRole.id
-                    }
-                },
-                create: {
+        });
+        await this.replaceFacetSelections(tx, creatorProfile.id, facetIds);
+        await tx.userRole.upsert({
+            where: {
+                userId_roleId: {
                     userId,
                     roleId: creatorRole.id
-                },
-                update: {}
-            }));
-            if (!currentUser.primaryRoleId) {
-                ops.push(tx.user.update({
-                    where: {
-                        id: userId
-                    },
-                    data: {
-                        primaryRoleId: creatorRole.id
-                    }
-                }));
-            }
-            if (dto.packages?.length) {
-                ops.push(this.creatorPackageService.createPackages(tx, creatorProfile.id, dto.packages));
-            }
-            if (dto.addOns?.length) {
-                ops.push((async ()=>{
-                    const normalizedAddOns = await this.normalizeCreatorAddOns(tx, dto.addOns);
-                    await tx.creatorAddOn.createMany({
-                        data: normalizedAddOns.map((addOn)=>({
-                                creatorId: creatorProfile.id,
-                                name: addOn.name,
-                                priceAmount: addOn.priceAmount,
-                                description: addOn.description
-                            }))
-                    });
-                })());
-            }
-            await Promise.all(ops);
-            return creatorProfile.id;
-        }, {
-            timeout: 30_000,
-            maxWait: 10_000
-        });
-        if (introVideoKey) {
-            const finalIntroVideoKey = await this.storage.finalizeCreatorIntroVideoKey({
-                tempKey: introVideoKey,
-                creatorProfileId,
-                deleteTemp: true
-            });
-            await this.prisma.creatorProfile.update({
-                where: {
-                    id: creatorProfileId
-                },
-                data: {
-                    introVideoKey: finalIntroVideoKey,
-                    introVideoUrl: this.storage.buildCdnUrl(finalIntroVideoKey)
                 }
-            });
-        }
-        // Fetch after commit to keep the transaction fast and avoid interactive tx timeouts.
-        const profile = await this.prisma.creatorProfile.findUnique({
-            where: {
-                id: creatorProfileId
             },
-            include: creatorProfileWithRelationsInclude
+            create: {
+                userId,
+                roleId: creatorRole.id
+            },
+            update: {}
         });
-        if (!profile) {
-            throw new Error('Creator profile creation failed');
-        }
-        return this.mapCreatorProfileResponseDto(profile);
+        await tx.user.update({
+            where: {
+                id: userId
+            },
+            data: {
+                primaryRoleId: creatorRole.id
+            }
+        });
+        return creatorProfile.id;
     }
     async listCreators(query) {
         const page = query.page ?? 1;
@@ -884,6 +846,41 @@ let CreatorProfileService = class CreatorProfileService {
         }
         return this.redactCreatorContactForViewer(dto);
     }
+    mapPendingCreatorApprovalListItem(profile) {
+        const dob = profile.dateOfBirth ? new Date(profile.dateOfBirth) : null;
+        const age = dob && !Number.isNaN(dob.getTime()) ? (0, _creatorageutil.computeAgeYears)(dob) : null;
+        const contentCategories = (profile.facetSelections ?? []).filter((row)=>row.option?.dimension === _client.CreatorFacetDimension.CONTENT_CATEGORY).map((row)=>({
+                slug: row.option?.slug ?? '',
+                label: row.option?.label ?? ''
+            })).filter((c)=>c.slug.length > 0);
+        const portfolioVideos = (profile.portfolioVideos ?? []).map((v)=>({
+                id: v.id,
+                creatorId: v.creatorId,
+                videoUrl: v.videoUrl,
+                thumbnailUrl: v.thumbnailUrl ?? null,
+                tags: (v.tags ?? []).map((t)=>t.tag).filter(Boolean),
+                createdAt: v.createdAt
+            }));
+        return {
+            id: profile.id,
+            userId: profile.userId,
+            displayName: profile.displayName,
+            phone: profile.user?.phone ?? null,
+            phoneVerified: profile.user?.phoneVerified ?? false,
+            contactEmail: profile.contactEmail ?? null,
+            city: profile.city ?? null,
+            stateName: profile.stateName ?? null,
+            countryName: profile.countryName ?? null,
+            bio: profile.bio ?? null,
+            gender: profile.gender ?? null,
+            age,
+            instagramUrl: profile.instagramUrl ?? null,
+            contentCategories,
+            portfolioVideos,
+            approvalStatus: profile.creatorApproval?.status ?? _client.ApprovalStatus.PENDING,
+            submittedAt: profile.createdAt
+        };
+    }
     async listPendingCreatorApprovals(query) {
         const page = query.page ?? 1;
         const limit = Math.min(query.limit ?? 20, 50);
@@ -904,11 +901,11 @@ let CreatorProfileService = class CreatorProfileService {
                 orderBy: {
                     createdAt: 'asc'
                 },
-                include: creatorProfileWithRelationsInclude
+                include: pendingCreatorApprovalInclude
             })
         ]);
         return {
-            items: items.map((p)=>this.mapCreatorProfileResponseDto(p)),
+            items: items.map((p)=>this.mapPendingCreatorApprovalListItem(p)),
             total,
             page,
             limit

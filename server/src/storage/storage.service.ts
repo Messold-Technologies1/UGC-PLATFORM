@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -121,6 +121,81 @@ export class StorageService {
   buildCdnUrl(key: string): string {
     const safeKey = key.startsWith('/') ? key.slice(1) : key;
     return `${this.cdnBaseUrl}/${safeKey}`;
+  }
+
+  /** Lowercase trimmed email → stable folder segment for pre-account uploads. */
+  signupEmailSegment(email: string): string {
+    const normalized = email.trim().toLowerCase();
+    return createHash('sha256').update(normalized).digest('hex');
+  }
+
+  buildTempCreatorPortfolioVideoKeyForSignup(
+    email: string,
+    contentType: string,
+  ): string {
+    validateContentType('creator_portfolio_video', contentType);
+    const ext = extFromContentType(contentType);
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    const seg = this.signupEmailSegment(email);
+    return `creator-portfolio-signup-temp/${seg}/${randomUUID()}.${ext}`;
+  }
+
+  isTempCreatorPortfolioVideoKeyForSignup(email: string, key: string): boolean {
+    const seg = this.signupEmailSegment(email);
+    return key.startsWith(`creator-portfolio-signup-temp/${seg}/`);
+  }
+
+  buildTempBrandLogoKeyForSignup(email: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `brand-logo-signup-temp/${this.signupEmailSegment(email)}/${randomUUID()}.${ext}`;
+  }
+
+  isTempBrandLogoKeyForSignup(email: string, key: string): boolean {
+    const seg = this.signupEmailSegment(email);
+    return key.startsWith(`brand-logo-signup-temp/${seg}/`);
+  }
+
+  buildTempBrandPronunciationAudioKeyForSignup(
+    email: string,
+    extOrContentType: string,
+  ): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `brand-pronunciation-signup-temp/${this.signupEmailSegment(email)}/${randomUUID()}.${ext}`;
+  }
+
+  isTempBrandPronunciationAudioKeyForSignup(email: string, key: string): boolean {
+    const seg = this.signupEmailSegment(email);
+    return key.startsWith(`brand-pronunciation-signup-temp/${seg}/`);
+  }
+
+  buildTempAgencyLogoKeyForSignup(email: string, extOrContentType: string): string {
+    const ext =
+      extOrContentType.includes('/')
+        ? extFromContentType(extOrContentType)
+        : extOrContentType.toLowerCase();
+    if (!ext) {
+      throw new Error('Unsupported content type');
+    }
+    return `agency-logo-signup-temp/${this.signupEmailSegment(email)}/${randomUUID()}.${ext}`;
+  }
+
+  isTempAgencyLogoKeyForSignup(email: string, key: string): boolean {
+    const seg = this.signupEmailSegment(email);
+    return key.startsWith(`agency-logo-signup-temp/${seg}/`);
   }
 
   buildObjectKey(input: {
@@ -288,6 +363,37 @@ export class StorageService {
       throw new Error('Invalid temporary creator intro video key');
     }
     const finalKey = `creator-profile/${input.creatorProfileId}/intro/${fileName}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.tempKey}`,
+      }),
+    );
+
+    if (input.deleteTemp ?? true) {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: input.tempKey,
+        }),
+      );
+    }
+
+    return finalKey;
+  }
+
+  async finalizeCreatorPortfolioVideoFromTempKey(input: {
+    tempKey: string;
+    creatorProfileId: string;
+    deleteTemp?: boolean;
+  }): Promise<string> {
+    const fileName = input.tempKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid temporary creator portfolio video key');
+    }
+    const finalKey = `creator-portfolio/${input.creatorProfileId}/videos/${fileName}`;
 
     await this.s3.send(
       new CopyObjectCommand({

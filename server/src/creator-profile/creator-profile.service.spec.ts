@@ -3,10 +3,9 @@ import { ApprovalStatus, Prisma } from '@prisma/client';
 import { CREATOR_ADDON_OPTION_SEED_ROWS } from '../../prisma/creator-addon-options-seed';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  CreateCreatorProfileDto,
-  CreatorPackageCreateDto,
-} from './dto/create-creator-profile.dto';
+import { CreatorPackageCreateDto } from './dto/create-creator-profile.dto';
+import type { CreateCreatorProfileAtSignupInput } from './dto/create-creator-profile-at-signup.input';
+import { CreatorFacetDimension } from '@prisma/client';
 import { CreatorProfileService } from './creator-profile.service';
 import { StorageService } from '../storage/storage.service';
 
@@ -123,6 +122,8 @@ describe('CreatorProfileService', () => {
     ),
     creatorProfile: {
       findUnique: txMock.creatorProfile.findUnique,
+      count: jest.fn(),
+      findMany: jest.fn(),
     },
     creatorFacetOption: {
       findMany: jest.fn(),
@@ -207,6 +208,15 @@ describe('CreatorProfileService', () => {
       buildCdnUrl: jest.fn((key: string) => `https://cdn.example.com/${key}`),
     };
 
+    prismaMock.$transaction.mockImplementation(
+      (arg: unknown): Promise<unknown> => {
+        if (typeof arg === 'function') {
+          return Promise.resolve(arg(txMock));
+        }
+        return Promise.resolve(arg);
+      },
+    );
+
     service = new CreatorProfileService(
       prismaMock as unknown as PrismaService,
       creatorPackageService as unknown as CreatorPackageService,
@@ -214,152 +224,75 @@ describe('CreatorProfileService', () => {
     );
   });
 
-  it('throws ConflictException if profile already exists', async () => {
+  const signupInput = (): CreateCreatorProfileAtSignupInput => ({
+    displayName: 'Jane',
+    contactEmail: 'jane@example.com',
+    dateOfBirth: '1998-01-01',
+    gender: 'FEMALE',
+    city: 'Bengaluru',
+    stateName: 'Karnataka',
+    countryName: 'India',
+    categorySlugs: ['beauty'],
+  });
+
+  it('throws ConflictException if profile already exists on signup tx', async () => {
     txMock.role.findUnique.mockResolvedValueOnce({ id: 'role-creator' });
     txMock.creatorProfile.findUnique.mockResolvedValueOnce({ id: 'profile-1' });
 
-    const dto: CreateCreatorProfileDto = {
-      displayName: 'Jane',
-      contactEmail: 'jane@example.com',
-    };
-
     await expect(
-      service.createCreatorProfile(creatorId, dto),
+      service.createCreatorProfileInTransaction(
+        txMock as unknown as Parameters<
+          CreatorProfileService['createCreatorProfileInTransaction']
+        >[0],
+        creatorId,
+        signupInput(),
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(txMock.creatorProfile.create).not.toHaveBeenCalled();
   });
 
-  it('creates profile, facet rows, packages, and add-ons', async () => {
+  it('creates signup profile, CONTENT_CATEGORY facets, and CREATOR role', async () => {
     const profileId = 'profile-1';
     const role = { id: 'role-creator' };
 
-    txMock.creatorProfile.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValue({
-        id: profileId,
-        userId: creatorId,
-        displayName: 'Jane',
-        introVideoUrl: null,
-        countryName: null,
-        stateName: null,
-        city: null,
-        bio: null,
-        gender: null,
-        dateOfBirth: null,
-        shippingAddress: null,
-        contactEmail: 'jane@example.com',
-        instagramUrl: null,
-        youtubeUrl: null,
-        tiktokUrl: null,
-        snapchatUrl: null,
-        contentVolume: null,
-        collaborationCount: 0,
-        travelRadius: null,
-        onLocationAvailable: false,
-        facetSelections: [],
-        profileLanguages: [],
-        personaTags: [],
-        restrictions: [],
-        packages: [
-          {
-            id: 'pkg-1',
-            name: 'Basic',
-            deliverables: ['1 Video'],
-            priceAmount: new Prisma.Decimal('199.99'),
-            deliveryDays: 3,
-            maxRevisions: 2,
-          },
-        ],
-        addOns: [],
-        creatorApproval: { status: ApprovalStatus.PENDING, rejectionReason: null },
-        portfolioVideos: [],
-      });
-
+    txMock.creatorProfile.findUnique.mockResolvedValueOnce(null);
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
-
-    const dto: CreateCreatorProfileDto = {
-      displayName: 'Jane',
-      contactEmail: 'jane@example.com',
-      addOns: [
-        {
-          slug: 'on_location_shoot',
-          priceAmount: '500',
-        },
-      ],
-      packages: [
-        {
-          name: 'Basic',
-          deliverables: ['1 Video'],
-          priceAmount: '199.99',
-          deliveryDays: 3,
-          maxRevisions: 2,
-        },
-      ],
-    };
-
-    const result = await service.createCreatorProfile(creatorId, dto);
-
-    expect(result.id).toBe(profileId);
-    expect(txMock.creatorProfileFacetSelection.deleteMany).toHaveBeenCalled();
-    expect(txMock.creatorProfileLanguage.deleteMany).toHaveBeenCalled();
-    expect(creatorPackageService.createPackages).toHaveBeenCalled();
-    expect(txMock.creatorAddOn.createMany).toHaveBeenCalled();
-    const createManyArg = txMock.creatorAddOn.createMany.mock.calls[0]?.[0] as {
-      data: { name: string }[];
-    };
-    const addOnRows = createManyArg.data;
-    expect(addOnRows).toHaveLength(1);
-    expect(addOnRows.map((r) => r.name)).toEqual(['On-location Shoot']);
-  });
-
-  it('does not persist add-ons when addOns omitted on create', async () => {
-    const profileId = 'profile-2';
-    const role = { id: 'role-creator' };
-
-    txMock.creatorProfile.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValue({
-        id: profileId,
-        userId: creatorId,
-        displayName: 'Alex',
-        introVideoUrl: null,
-        countryName: null,
-        stateName: null,
-        city: null,
-        bio: null,
-        gender: null,
-        dateOfBirth: null,
-        shippingAddress: null,
-        contactEmail: 'alex@example.com',
-        instagramUrl: null,
-        youtubeUrl: null,
-        tiktokUrl: null,
-        snapchatUrl: null,
-        contentVolume: null,
-        collaborationCount: 0,
-        travelRadius: null,
-        onLocationAvailable: false,
-        facetSelections: [],
-        profileLanguages: [],
-        personaTags: [],
-        restrictions: [],
-        packages: [],
-        addOns: [],
-        creatorApproval: { status: ApprovalStatus.PENDING, rejectionReason: null },
-        portfolioVideos: [],
-      });
-
-    txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
-    txMock.role.findUnique.mockResolvedValueOnce(role);
-
-    await service.createCreatorProfile(creatorId, {
-      displayName: 'Alex',
-      contactEmail: 'alex@example.com',
+    txMock.creatorFacetOption.findUnique.mockResolvedValueOnce({
+      id: 'facet-beauty',
     });
 
+    const id = await service.createCreatorProfileInTransaction(
+      txMock as unknown as Parameters<
+        CreatorProfileService['createCreatorProfileInTransaction']
+      >[0],
+      creatorId,
+      signupInput(),
+    );
+
+    expect(id).toBe(profileId);
+    expect(txMock.creatorProfileFacetSelection.deleteMany).toHaveBeenCalled();
+    expect(txMock.creatorProfileFacetSelection.createMany).toHaveBeenCalled();
+    expect(txMock.creatorProfileLanguage.deleteMany).not.toHaveBeenCalled();
+    expect(creatorPackageService.createPackages).not.toHaveBeenCalled();
     expect(txMock.creatorAddOn.createMany).not.toHaveBeenCalled();
+    expect(txMock.userRole.upsert).toHaveBeenCalled();
+    expect(txMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { primaryRoleId: role.id },
+      }),
+    );
+    expect(txMock.creatorFacetOption.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          dimension_slug: {
+            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+            slug: 'beauty',
+          },
+        },
+      }),
+    );
   });
 
   it('addOrUpdateAddOns replaces add-ons with the provided catalog slugs', async () => {
@@ -511,5 +444,71 @@ describe('CreatorProfileService', () => {
       expect(result).not.toHaveProperty('tiktokUrl');
       expect(result).not.toHaveProperty('snapchatUrl');
     });
+  });
+
+  it('listPendingCreatorApprovals returns signup fields without packages or languages', async () => {
+    const submitted = new Date('2026-01-15T10:00:00.000Z');
+    const pendingRow = {
+      id: 'profile-1',
+      userId: 'user-1',
+      displayName: 'Jane',
+      createdAt: submitted,
+      contactEmail: 'jane@example.com',
+      city: 'Bengaluru',
+      stateName: 'Karnataka',
+      countryName: 'India',
+      bio: 'Short bio',
+      gender: 'FEMALE',
+      dateOfBirth: new Date('1998-01-01'),
+      instagramUrl: 'https://instagram.com/jane',
+      user: { phone: '+919876543210', phoneVerified: true },
+      facetSelections: [
+        {
+          option: {
+            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+            slug: 'beauty',
+            label: 'Beauty',
+          },
+        },
+      ],
+      portfolioVideos: [
+        {
+          id: 'vid-1',
+          creatorId: 'profile-1',
+          videoUrl: 'https://cdn.example.com/v.mp4',
+          thumbnailUrl: null,
+          tags: [],
+          createdAt: submitted,
+        },
+      ],
+      creatorApproval: { status: ApprovalStatus.PENDING },
+    };
+
+    prismaMock.creatorProfile.count.mockResolvedValueOnce(1);
+    prismaMock.creatorProfile.findMany.mockResolvedValueOnce([pendingRow]);
+    prismaMock.$transaction.mockImplementationOnce((arg: unknown) =>
+      Array.isArray(arg) ? Promise.all(arg as Promise<unknown>[]) : Promise.resolve(arg),
+    );
+
+    const result = await service.listPendingCreatorApprovals({
+      page: 1,
+      limit: 10,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]).toMatchObject({
+      id: 'profile-1',
+      displayName: 'Jane',
+      phone: '+919876543210',
+      phoneVerified: true,
+      contactEmail: 'jane@example.com',
+      city: 'Bengaluru',
+      contentCategories: [{ slug: 'beauty', label: 'Beauty' }],
+      approvalStatus: ApprovalStatus.PENDING,
+      submittedAt: submitted,
+    });
+    expect(result.items[0].portfolioVideos).toHaveLength(1);
+    expect(result.items[0]).not.toHaveProperty('packages');
+    expect(result.items[0]).not.toHaveProperty('profileLanguages');
   });
 });

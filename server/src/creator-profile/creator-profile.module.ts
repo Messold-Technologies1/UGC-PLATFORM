@@ -1,15 +1,20 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CreatorProfileController } from './creator-profile.controller';
 import { AdminCreatorController } from './admin-creator.controller';
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { CreatorPackageModule } from '../creator-package/creator-package.module';
-import { AuthModule } from '../auth/auth.module';
+import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
 
 @Module({
-  imports: [CreatorPackageModule, AuthModule, CreatorReviewsModule],
+  imports: [
+    CreatorPackageModule,
+    forwardRef(() => AuthGuardsModule),
+    CreatorReviewsModule,
+  ],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [CreatorProfileService, CreatorPayoutDetailsService],
+  exports: [CreatorProfileService],
 })
 export class CreatorProfileModule {}

@@ -35,7 +35,16 @@ import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-
 import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
 import { NeedUpdateCard } from "./need-update-card";
 import { QuickActionsCard } from "./quick-actions-card";
-import { OrderChatWidget } from "../order-chat-widget";
+import { ChatPreviewCard } from "./chat-preview-card";
+import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
+import { DeliveredNotificationBanner } from "./order-delivered/delivered-notification-banner";
+import { DeliveredVideosCard } from "./order-delivered/delivered-videos-card";
+import { YourActionRequiredCard } from "./order-delivered/your-action-required-card";
+import { CompletedNotificationBanner } from "./order-completed/completed-notification-banner";
+import { CompletedPaymentSummaryCard } from "./order-completed/completed-payment-summary-card";
+import { FinalDeliveredVideoCard } from "./order-completed/final-delivered-video-card";
+import { ShareExperienceCard } from "./order-completed/share-experience-card";
+import { SupportBanner } from "./order-completed/support-banner";
 
 interface BrandOrderDetailsViewProps {
   orderId: string;
@@ -149,21 +158,137 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
     previewState === "In Progress" ||
     (isActuallyInProgress && previewState === null);
 
+  // Delivered state detection
+  const deliveredStatuses = ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"];
+  const isActuallyDelivered = deliveredStatuses.includes(order.status);
+  const showDeliveredUI =
+    previewState === "Delivered" ||
+    (isActuallyDelivered && previewState === null);
+
+  // Completed state detection
+  const completedStatuses = ["ACCEPTED", "CREATOR_PAYMENT_DONE"];
+  const isActuallyCompleted = completedStatuses.includes(order.status);
+  const showCompletedUI = 
+    previewState === "Completed" || 
+    (isActuallyCompleted && previewState === null);
+
+  // Build a package description from deliverables
+  const packageDescription = order.deliverablesSnapshot.length > 0
+    ? `${order.deliverablesSnapshot.length} UGC Video (Up to 60 sec)`
+    : order.packageNameSnapshot;
+
+  if (showCompletedUI) {
+    return (
+      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+        <OrderPageHeader
+          orderId={orderId}
+          paidAt={order.paidAt}
+          completedAt={order.acceptedAt || order.createdAt}
+          status={order.status === "ACCEPTED" || order.status === "CREATOR_PAYMENT_DONE" ? order.status : "ACCEPTED"}
+          packageDescription={packageDescription}
+          showBriefDownload
+          showInvoice
+        />
+
+        <OrderProgressStepper
+          order={order}
+          onStepClick={(label) => setPreviewState(label)}
+          previewState={previewState}
+        />
+
+        <CompletedNotificationBanner />
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
+          <div className="flex flex-col gap-5 lg:col-span-8 h-full">
+            <FinalDeliveredVideoCard orderId={orderId} order={order} />
+          </div>
+          <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
+            <CompletedPaymentSummaryCard order={order} />
+          </aside>
+        </div>
+
+        <InprogressOrderDetailsCard
+          order={order}
+          brief={brief}
+          briefId={briefId}
+          orderId={orderId}
+        />
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <CreatorProfileCard creator={creator} order={order} />
+          <ShareExperienceCard order={order} creatorName={creator?.displayName} />
+          <QuickActionsCard />
+        </div>
+
+        <SupportBanner />
+      </div>
+    );
+  }
+
+  if (showDeliveredUI) {
+    return (
+      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+        <OrderPageHeader
+          orderId={orderId}
+          paidAt={order.paidAt}
+          status={order.status}
+          packageDescription={packageDescription}
+          showBriefDownload
+          showInvoice
+        />
+
+        <OrderProgressStepper
+          order={order}
+          onStepClick={(label) => setPreviewState(label)}
+          previewState={previewState}
+        />
+
+        <DeliveredNotificationBanner
+          creatorName={creator?.displayName || "Creator"}
+        />
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
+          <div className="flex flex-col gap-5 lg:col-span-8 h-full">
+            <DeliveredVideosCard orderId={orderId} />
+          </div>
+
+          <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
+            <YourActionRequiredCard order={order} orderId={orderId} />
+          </aside>
+        </div>
+
+        <InprogressOrderDetailsCard
+          order={order}
+          brief={brief}
+          briefId={briefId}
+          orderId={orderId}
+        />
+
+        {/* Bottom 3-column section: Creator, Chat, Quick Actions */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <CreatorProfileCard creator={creator} order={order} />
+          <ChatPreviewCard creator={creator} orderId={orderId} />
+          <QuickActionsCard />
+        </div>
+      </div>
+    );
+  }
+
   if (showInProgressUI) {
     return (
       <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
         <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
         
+        <OrderProgressStepper 
+          order={order} 
+          onStepClick={(label) => setPreviewState(label)} 
+          previewState={previewState} 
+        />
+
+        <InprogressNotificationBanner creatorName={creator?.displayName || "Creator"} />
+
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
-            <OrderProgressStepper 
-              order={order} 
-              onStepClick={(label) => setPreviewState(label)} 
-              previewState={previewState} 
-            />
-
-            <InprogressNotificationBanner creatorName={creator?.displayName || "Creator"} />
-
             <InprogressOrderDetailsCard
               order={order}
               brief={brief}
@@ -184,16 +309,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
             <CreatorProfileCard creator={creator} order={order} />
-
-            <div className="rounded-lg border bg-card shadow-sm overflow-hidden flex flex-col h-[500px]">
-              <OrderChatWidget
-                orderId={orderId}
-                role="brand"
-                creator={creator}
-                className="flex-1 border-none shadow-none rounded-none"
-              />
-            </div>
-
+            <OrderChatWidget orderId={orderId} role="brand" creator={creator} />
             <QuickActionsCard />
           </aside>
         </div>

@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isAxiosError } from "axios";
 import {
   Eye,
   EyeOff,
@@ -19,13 +22,14 @@ import {
   Home,
   Heart,
   X,
-  Link as LinkIcon,
   ChevronDown,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -35,8 +39,26 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
+import {
+  presignCreatorPortfolioVideo,
+  putFileToPresignedUrl,
+  registerCreator,
+  sendSignupPhoneOtp,
+} from "@/features/auth/api/creator-signup";
+import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
+import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
-import { PhoneVerificationField } from "./phone-verification-field";
+
+const PHONE_OTP_RESEND_SECONDS = 60;
+const PHONE_E164_REGEX = /^\+\d{8,15}$/;
+const OTP_CODE_REGEX = /^\d{4,10}$/;
+const MAX_PORTFOLIO_VIDEO_BYTES = 200 * 1024 * 1024;
+const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+] as const;
 
 const creatorSignupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
@@ -51,17 +73,12 @@ const creatorSignupSchema = z.object({
   state: z.string().min(1, "State is required"),
   country: z.string().min(1, "Country is required"),
   phone: z.string().min(1, "Phone is required"),
-  phoneVerified: z.boolean().refine((val) => val === true, {
-    message: "Please verify your phone number",
-  }),
+  phoneOtpCode: z
+    .string()
+    .regex(OTP_CODE_REGEX, "Enter the verification code from the SMS"),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   bio: z.string().min(10, "Please write a short bio").max(5000),
   instagramUrl: z
-    .string()
-    .url("Must be a valid URL")
-    .optional()
-    .or(z.literal("")),
-  portfolioVideoLink: z
     .string()
     .url("Must be a valid URL")
     .optional()
@@ -84,11 +101,84 @@ const CATEGORIES = [
   { slug: "health", label: "Health / Wellness", icon: Heart },
 ];
 
+function readApiErrorMessage(error: unknown): string | undefined {
+  if (!isAxiosError(error)) return undefined;
+
+  const data = error.response?.data;
+  if (typeof data === "string") return data;
+
+  const message = (data as { message?: unknown } | undefined)?.message;
+  if (typeof message === "string") return message;
+  if (Array.isArray(message)) {
+    return message.find((item): item is string => typeof item === "string");
+  }
+
+  return undefined;
+}
+
+function creatorSignupErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    if (error.response?.status === 429) {
+      return "Too many attempts. Please wait before trying again.";
+    }
+    if (error.response?.status === 503) {
+      return "This service is temporarily unavailable.";
+    }
+  }
+
+  return readApiErrorMessage(error) ?? fallback;
+}
+
+function normalizePhoneForSignup(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (!trimmed.startsWith("+")) return trimmed;
+  return `+${trimmed.replace(/\D/g, "")}`;
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function validatePortfolioVideoFile(file: File): string | null {
+  if (
+    !ACCEPTED_PORTFOLIO_VIDEO_TYPES.includes(
+      file.type as (typeof ACCEPTED_PORTFOLIO_VIDEO_TYPES)[number],
+    )
+  ) {
+    return "Upload an MP4, MOV, or WebM video.";
+  }
+  if (file.size > MAX_PORTFOLIO_VIDEO_BYTES) {
+    return "Portfolio video must be 200 MB or smaller.";
+  }
+  return null;
+}
+
 export function CreatorRegisterForm() {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
-  const [videoUploadType, setVideoUploadType] = useState<"upload" | "drive">(
-    "upload",
+  const [phoneInput, setPhoneInput] = useState("");
+  const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [otpResendAvailableAt, setOtpResendAvailableAt] = useState<
+    number | null
+  >(null);
+  const [otpClockTick, setOtpClockTick] = useState(0);
+  const [portfolioVideoFile, setPortfolioVideoFile] = useState<File | null>(
+    null,
   );
+  const [portfolioVideoTempKey, setPortfolioVideoTempKey] = useState<
+    string | null
+  >(null);
+  const [portfolioVideoError, setPortfolioVideoError] = useState<string | null>(
+    null,
+  );
+  const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
+    "idle" | "uploading" | "uploaded"
+  >("idle");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CreatorSignupData>({
     resolver: zodResolver(creatorSignupSchema),
@@ -101,18 +191,191 @@ export function CreatorRegisterForm() {
       email: "",
       bio: "",
       instagramUrl: "",
-      portfolioVideoLink: "",
       categories: [],
       password: "",
       termsAccepted: false,
       phone: "",
-      phoneVerified: false,
+      phoneOtpCode: "",
     },
   });
 
-  const onSubmit = (data: CreatorSignupData) => {
-    console.log("Form data:", data);
-    // API integration goes here
+  const normalizedPhone = normalizePhoneForSignup(phoneInput);
+  const activeOtpPhone = otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
+  const resendSecondsRemaining = otpResendAvailableAt
+    ? Math.max(
+        0,
+        Math.ceil(
+          (otpResendAvailableAt -
+            (otpClockTick ||
+              otpResendAvailableAt - PHONE_OTP_RESEND_SECONDS * 1000)) /
+            1000,
+        ),
+      )
+    : 0;
+
+  const sendSignupPhoneOtpMutation = useMutation({
+    mutationKey: ["auth", "signup", "phone", "send-otp"],
+    mutationFn: sendSignupPhoneOtp,
+    onSuccess: (_result, variables) => {
+      const now = Date.now();
+      setOtpSentToPhone(variables.phone);
+      setPhoneError(null);
+      setOtpClockTick(now);
+      setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
+      form.setValue("phone", variables.phone, { shouldValidate: true });
+      form.setValue("phoneOtpCode", "", { shouldValidate: true });
+      toast.success("Verification code sent");
+    },
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 429) {
+        const now = Date.now();
+        setOtpClockTick(now);
+        setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
+      }
+      const message = creatorSignupErrorMessage(
+        error,
+        "Could not send verification code. Check the number and try again.",
+      );
+      setPhoneError(message);
+      toast.error(message);
+    },
+  });
+
+  const registerCreatorMutation = useMutation({
+    mutationKey: ["auth", "register", "creator"],
+    mutationFn: registerCreator,
+    onSuccess: (result) => {
+      toast.success("Creator profile created");
+      queryClient.setQueryData(authMeQueryKey, result.user);
+      const callback = searchParams.get("callbackUrl");
+      const target = resolveImmediatePostAuthPath(result.user, callback);
+      beginClientNavigation();
+      window.location.replace(target);
+    },
+    onError: (error) => {
+      toast.error(
+        creatorSignupErrorMessage(
+          error,
+          "Could not create creator profile. Please try again.",
+        ),
+      );
+    },
+  });
+
+  const pendingSubmit =
+    registerCreatorMutation.isPending || portfolioVideoStatus === "uploading";
+  const pendingAny = pendingSubmit || sendSignupPhoneOtpMutation.isPending;
+
+  useEffect(() => {
+    if (!otpResendAvailableAt) return;
+
+    const intervalId = window.setInterval(
+      () => setOtpClockTick(Date.now()),
+      1000,
+    );
+    return () => window.clearInterval(intervalId);
+  }, [otpResendAvailableAt]);
+
+  const handleSendPhoneOtp = useCallback(() => {
+    const phone = normalizePhoneForSignup(phoneInput);
+    if (!PHONE_E164_REGEX.test(phone)) {
+      const message = "Enter a mobile number in E.164 format, like +919876543210.";
+      setPhoneError(message);
+      toast.error(message);
+      return;
+    }
+
+    setPhoneInput(phone);
+    setPhoneError(null);
+    form.setValue("phone", phone, { shouldValidate: true });
+    form.setValue("phoneOtpCode", "", { shouldValidate: true });
+    sendSignupPhoneOtpMutation.mutate({ phone });
+  }, [form, phoneInput, sendSignupPhoneOtpMutation]);
+
+  const handlePortfolioVideoFile = useCallback((file: File | null) => {
+    if (!file) return;
+
+    const error = validatePortfolioVideoFile(file);
+    if (error) {
+      setPortfolioVideoFile(null);
+      setPortfolioVideoTempKey(null);
+      setPortfolioVideoStatus("idle");
+      setPortfolioVideoError(error);
+      toast.error(error);
+      return;
+    }
+
+    setPortfolioVideoFile(file);
+    setPortfolioVideoTempKey(null);
+    setPortfolioVideoStatus("idle");
+    setPortfolioVideoError(null);
+  }, []);
+
+  const uploadPortfolioVideo = useCallback(
+    async (email: string): Promise<string> => {
+      if (portfolioVideoTempKey) return portfolioVideoTempKey;
+      if (!portfolioVideoFile) {
+        throw new Error("Upload a portfolio video before creating your profile.");
+      }
+
+      setPortfolioVideoStatus("uploading");
+      setPortfolioVideoError(null);
+      const presign = await presignCreatorPortfolioVideo({
+        email,
+        contentType: portfolioVideoFile.type,
+        contentLength: portfolioVideoFile.size,
+      });
+      await putFileToPresignedUrl(portfolioVideoFile, presign);
+      setPortfolioVideoTempKey(presign.key);
+      setPortfolioVideoStatus("uploaded");
+      return presign.key;
+    },
+    [portfolioVideoFile, portfolioVideoTempKey],
+  );
+
+  const onSubmit = async (data: CreatorSignupData) => {
+    if (!activeOtpPhone || data.phone !== activeOtpPhone) {
+      const message = "Send a verification code for this mobile number.";
+      setPhoneError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (!portfolioVideoFile && !portfolioVideoTempKey) {
+      const message = "Upload a portfolio video before creating your profile.";
+      setPortfolioVideoError(message);
+      toast.error(message);
+      return;
+    }
+
+    try {
+      const email = data.email.trim().toLowerCase();
+      const portfolioVideoKey = await uploadPortfolioVideo(email);
+      registerCreatorMutation.mutate({
+        email,
+        password: data.password,
+        name: data.name.trim(),
+        phone: data.phone.trim(),
+        phoneOtpCode: data.phoneOtpCode.trim(),
+        age: data.age,
+        gender: data.gender,
+        city: data.city.trim(),
+        state: data.state.trim(),
+        country: data.country.trim(),
+        bio: normalizeOptionalText(data.bio),
+        instagramUrl: normalizeOptionalText(data.instagramUrl),
+        categorySlugs: data.categories,
+        portfolioSignupVideoTempKeys: [portfolioVideoKey],
+      });
+    } catch (error) {
+      setPortfolioVideoStatus("idle");
+      const message = creatorSignupErrorMessage(
+        error,
+        "Could not upload portfolio video. Please try again.",
+      );
+      setPortfolioVideoError(message);
+      toast.error(message);
+    }
   };
 
   const selectedCategories = form.watch("categories");
@@ -130,28 +393,12 @@ export function CreatorRegisterForm() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [categoriesOpen]);
 
-  const handleVerifiedChange = useCallback(
-    (verified: boolean) => {
-      form.setValue("phoneVerified", verified, {
-        shouldValidate: true,
-      });
-    },
-    [form],
-  );
-
-  const handleVerified = useCallback(() => {
-    const phoneInput = (
-      document.getElementById("creator-signup-phone") as HTMLInputElement
-    )?.value;
-    form.setValue("phone", `+91${phoneInput}`);
-  }, [form]);
-
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       className="flex h-full flex-col bg-[#fdfcfb] dark:bg-slate-950"
     >
-      {/* Sticky Header */}
+    
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] py-4 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
@@ -175,7 +422,7 @@ export function CreatorRegisterForm() {
 
       <div className="flex-1 overflow-y-auto px-6 py-8 md:px-8">
         <div className="space-y-6">
-          {/* Section 1: About You */}
+         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -261,7 +508,7 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-          {/* Section 2: Contact & Verification */}
+         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -280,14 +527,103 @@ export function CreatorRegisterForm() {
                 >
                   Phone number <span className="text-red-500">*</span>
                 </Label>
-                <PhoneVerificationField
-                  idPrefix="creator-signup"
-                  onVerifiedChange={handleVerifiedChange}
-                  onVerified={handleVerified}
-                />
-                {form.formState.errors.phoneVerified && (
+                <div className="grid gap-2">
+                  <div className="flex items-center h-10 rounded-lg border border-slate-200 bg-white overflow-hidden dark:bg-slate-950 dark:border-slate-800 focus-within:ring-2 focus-within:ring-slate-950 focus-within:ring-offset-2 dark:focus-within:ring-slate-300 w-full">
+                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-sm font-medium text-[#8b8489]">
+                      +91
+                    </div>
+                    <Input
+                      id="creator-signup-phone"
+                      placeholder="9876543210"
+                      autoComplete="tel-national"
+                      inputMode="tel"
+                      disabled={pendingAny}
+                      aria-invalid={phoneError ? true : undefined}
+                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                      value={
+                        phoneInput.startsWith("+91")
+                          ? phoneInput.slice(3)
+                          : phoneInput
+                      }
+                      onChange={(event) => {
+                        let val = event.target.value;
+                        if (val.startsWith("+91")) val = val.slice(3);
+                        const digits = val.replace(/\D/g, "");
+                        const next = digits ? `+91${digits}` : "";
+                        setPhoneInput(next);
+                        setOtpSentToPhone(null);
+                        setPhoneError(null);
+                        form.setValue("phone", next, {
+                          shouldValidate: true,
+                        });
+                        form.setValue("phoneOtpCode", "", {
+                          shouldValidate: true,
+                        });
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleSendPhoneOtp}
+                      disabled={
+                        pendingAny ||
+                        !PHONE_E164_REGEX.test(normalizedPhone) ||
+                        (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
+                      }
+                      className="h-full rounded-none border-l border-slate-200 !bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] px-4 text-xs font-semibold dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300"
+                    >
+                      {sendSignupPhoneOtpMutation.isPending
+                        ? "Sending..."
+                        : resendSecondsRemaining > 0 && activeOtpPhone
+                          ? `${resendSecondsRemaining}s`
+                          : "Send OTP"}
+                    </Button>
+                  </div>
+                  {phoneError ? (
+                    <p className="text-xs text-red-500">{phoneError}</p>
+                  ) : null}
+                  {activeOtpPhone ? (
+                    <div className="grid gap-2 rounded-lg border border-slate-200 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-900/40">
+                      <Label
+                        htmlFor="creator-signup-phone-otp"
+                        className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                      >
+                        Verification code <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="creator-signup-phone-otp"
+                        placeholder="123456"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={10}
+                        disabled={pendingAny}
+                        aria-invalid={
+                          form.formState.errors.phoneOtpCode ? true : undefined
+                        }
+                        value={form.watch("phoneOtpCode")}
+                        onChange={(event) => {
+                          form.setValue(
+                            "phoneOtpCode",
+                            event.target.value.replace(/\D/g, "").slice(0, 10),
+                            { shouldValidate: true },
+                          );
+                        }}
+                      />
+                      <p className="text-xs text-slate-500">
+                        Enter the code sent to {activeOtpPhone}. It will be
+                        verified when you create your profile.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+                {form.formState.errors.phone && (
                   <p className="text-xs text-red-500">
-                    {form.formState.errors.phoneVerified.message}
+                    {form.formState.errors.phone.message}
+                  </p>
+                )}
+                {form.formState.errors.phoneOtpCode && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.phoneOtpCode.message}
                   </p>
                 )}
               </div>
@@ -333,7 +669,7 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-          {/* Section 3: About Your Content */}
+        
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -370,7 +706,7 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-          {/* Section 4: Portfolio */}
+         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -413,87 +749,104 @@ export function CreatorRegisterForm() {
                     Portfolio video <span className="text-red-500">*</span>
                   </Label>
                   <p className="mt-1 text-xs text-slate-500">
-                    Upload directly or share a Drive / Dropbox link.
+                    Upload a portfolio reel directly.
                   </p>
                 </div>
 
                 <div className="flex gap-2 rounded-lg bg-slate-100 p-1 w-fit dark:bg-slate-900">
                   <button
                     type="button"
-                    onClick={() => setVideoUploadType("upload")}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors",
-                      videoUploadType === "upload"
-                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                        : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-                    )}
+                    disabled={pendingAny}
+                    className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm transition-colors disabled:opacity-60 dark:bg-slate-800 dark:text-white"
                   >
                     <Upload className="size-3.5" />
                     Upload file
                   </button>
                   <button
                     type="button"
-                    onClick={() => setVideoUploadType("drive")}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors",
-                      videoUploadType === "drive"
-                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                        : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-                    )}
+                    disabled
+                    title="Drive link uploads are coming soon"
+                    className="flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold text-slate-400 opacity-60 dark:text-slate-500"
                   >
                     <svg
                       className="size-3.5"
                       viewBox="0 0 24 24"
                       fill="currentColor"
+                      aria-hidden="true"
                     >
-                      <path d="M12.01 2.25L2.61 18.52h6.14l6.33-10.96-3.07-5.31zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56zm-15.53-2.02l3.07-5.31 9.4 16.28h-6.14l-6.33-10.97z" />
+                      <path d="M12.01 2.25 2.61 18.52h6.14l6.33-10.96-3.07-5.31Zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56Zm-15.53-2.02 3.07-5.31 9.4 16.28h-6.14l-6.33-10.97Z" />
                     </svg>
                     Drive link
                   </button>
                 </div>
 
-                {videoUploadType === "upload" ? (
-                  <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 bg-[#fdfcfb] px-6 py-4 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50">
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500 dark:bg-red-500/20">
+                <div
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (pendingAny) return;
+                    handlePortfolioVideoFile(event.dataTransfer.files[0] ?? null);
+                  }}
+                  className={cn(
+                    "flex items-center gap-4 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-6 py-4 transition-colors dark:bg-slate-900/50",
+                    portfolioVideoError
+                      ? "border-red-300"
+                      : "border-slate-200 hover:bg-slate-50 dark:border-slate-800",
+                  )}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ACCEPTED_PORTFOLIO_VIDEO_TYPES.join(",")}
+                    className="hidden"
+                    disabled={pendingAny}
+                    onChange={(event) => {
+                      handlePortfolioVideoFile(event.target.files?.[0] ?? null);
+                      event.target.value = "";
+                    }}
+                  />
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500 dark:bg-red-500/20">
+                    {portfolioVideoStatus === "uploading" ? (
+                      <Spinner className="size-5" aria-hidden />
+                    ) : (
                       <Video className="size-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        Drop your reel here, or{" "}
-                        <button
-                          type="button"
-                          className="text-red-500 underline decoration-red-500 underline-offset-2 hover:text-red-600"
-                        >
-                          browse
-                        </button>
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        MP4, MOV up to 200 MB · 9:16 vertical preferred
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                      <LinkIcon className="size-4" />
-                    </div>
-                    <Input
-                      placeholder="https://drive.google.com/..."
-                      className="h-10 pl-10 rounded-lg bg-white dark:bg-slate-950"
-                      {...form.register("portfolioVideoLink")}
-                    />
-                    {form.formState.errors.portfolioVideoLink && (
-                      <p className="mt-1.5 text-xs text-red-500">
-                        {form.formState.errors.portfolioVideoLink.message}
-                      </p>
                     )}
                   </div>
-                )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">
+                      {portfolioVideoFile
+                        ? portfolioVideoFile.name
+                        : "Drop your reel here, or"}{" "}
+                      <button
+                        type="button"
+                        disabled={pendingAny}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-red-500 underline decoration-red-500 underline-offset-2 hover:text-red-600 disabled:pointer-events-none disabled:opacity-60"
+                      >
+                        browse
+                      </button>
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {portfolioVideoStatus === "uploading"
+                        ? "Uploading portfolio video..."
+                        : portfolioVideoStatus === "uploaded"
+                          ? "Portfolio video uploaded."
+                          : "MP4, MOV, or WebM up to 200 MB. 9:16 vertical preferred."}
+                    </p>
+                    {portfolioVideoError ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {portfolioVideoError}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Section 5: Categories */}
+         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -623,7 +976,7 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-          {/* Section 6: Secure Your Account */}
+         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -676,7 +1029,7 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      {/* Footer */}
+      
       <div className="sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] py-5 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start space-x-3">
           <Checkbox
@@ -721,9 +1074,19 @@ export function CreatorRegisterForm() {
         <div className="flex items-center gap-6">
           <Button
             type="submit"
+            disabled={
+              pendingSubmit || (!portfolioVideoFile && !portfolioVideoTempKey)
+            }
             className="h-11 flex-1 rounded-full bg-[#F2F2F2] text-[15px] font-bold text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           >
-            Create my creator profile &rarr;
+            {pendingSubmit ? (
+              <>
+                <Spinner className="size-4" aria-hidden />
+                Creating profile...
+              </>
+            ) : (
+              <>Create my creator profile &rarr;</>
+            )}
           </Button>
 
           <div className="text-right text-[11px] text-[#8B8489] leading-tight">

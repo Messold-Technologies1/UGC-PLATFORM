@@ -155,6 +155,15 @@ function validatePortfolioVideoFile(file: File): string | null {
   return null;
 }
 
+function formatBytes(bytes: number, decimals = 1) {
+  if (!+bytes) return "0 Bytes";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 export function CreatorRegisterForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -200,7 +209,8 @@ export function CreatorRegisterForm() {
   });
 
   const normalizedPhone = normalizePhoneForSignup(phoneInput);
-  const activeOtpPhone = otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
+  const activeOtpPhone =
+    otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
   const resendSecondsRemaining = otpResendAvailableAt
     ? Math.max(
         0,
@@ -279,7 +289,8 @@ export function CreatorRegisterForm() {
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForSignup(phoneInput);
     if (!PHONE_E164_REGEX.test(phone)) {
-      const message = "Enter a mobile number in E.164 format, like +919876543210.";
+      const message =
+        "Enter a mobile number in E.164 format, like +919876543210.";
       setPhoneError(message);
       toast.error(message);
       return;
@@ -315,7 +326,9 @@ export function CreatorRegisterForm() {
     async (email: string): Promise<string> => {
       if (portfolioVideoTempKey) return portfolioVideoTempKey;
       if (!portfolioVideoFile) {
-        throw new Error("Upload a portfolio video before creating your profile.");
+        throw new Error(
+          "Upload a portfolio video before creating your profile.",
+        );
       }
 
       setPortfolioVideoStatus("uploading");
@@ -385,7 +398,10 @@ export function CreatorRegisterForm() {
   useEffect(() => {
     if (!categoriesOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (categoriesRef.current && !categoriesRef.current.contains(e.target as Node)) {
+      if (
+        categoriesRef.current &&
+        !categoriesRef.current.contains(e.target as Node)
+      ) {
         setCategoriesOpen(false);
       }
     };
@@ -398,7 +414,6 @@ export function CreatorRegisterForm() {
       onSubmit={form.handleSubmit(onSubmit)}
       className="flex h-full flex-col bg-[#fdfcfb] dark:bg-slate-950"
     >
-    
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] py-4 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
@@ -422,7 +437,6 @@ export function CreatorRegisterForm() {
 
       <div className="flex-1 overflow-y-auto px-6 py-8 md:px-8">
         <div className="space-y-6">
-         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -443,8 +457,8 @@ export function CreatorRegisterForm() {
                 </Label>
                 <Input
                   id="name"
-                  placeholder="Aanya Kapoor"
-                  className="h-10 rounded-lg bg-white dark:bg-slate-950"
+                  placeholder="Jane Doe"
+                  className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
                   {...form.register("name")}
                 />
                 {form.formState.errors.name && (
@@ -465,8 +479,8 @@ export function CreatorRegisterForm() {
                   <Input
                     id="age"
                     type="number"
-                    placeholder="22"
-                    className="h-10 rounded-lg bg-white dark:bg-slate-950"
+                    placeholder="e.g. 24"
+                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
                     {...form.register("age", { valueAsNumber: true })}
                   />
                   {form.formState.errors.age && (
@@ -488,7 +502,7 @@ export function CreatorRegisterForm() {
                   >
                     <SelectTrigger
                       id="gender"
-                      className="h-10 rounded-lg bg-white dark:bg-slate-950"
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
                     >
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -508,7 +522,6 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -527,9 +540,16 @@ export function CreatorRegisterForm() {
                 >
                   Phone number <span className="text-red-500">*</span>
                 </Label>
-                <div className="grid gap-2">
-                  <div className="flex items-center h-10 rounded-lg border border-slate-200 bg-white overflow-hidden dark:bg-slate-950 dark:border-slate-800 focus-within:ring-2 focus-within:ring-slate-950 focus-within:ring-offset-2 dark:focus-within:ring-slate-300 w-full">
-                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-sm font-medium text-[#8b8489]">
+                <div className="grid gap-3">
+                  <div
+                    className={cn(
+                      "flex items-stretch h-[42px] rounded-[11px] border bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 dark:bg-slate-950 dark:border-slate-800",
+                      activeOtpPhone
+                        ? "border-[#ef3e51] ring-[3px] ring-[#ffebed] dark:border-red-500 dark:ring-red-500/20"
+                        : "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800",
+                    )}
+                  >
+                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
                       +91
                     </div>
                     <Input
@@ -539,7 +559,7 @@ export function CreatorRegisterForm() {
                       inputMode="tel"
                       disabled={pendingAny}
                       aria-invalid={phoneError ? true : undefined}
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium"
                       value={
                         phoneInput.startsWith("+91")
                           ? phoneInput.slice(3)
@@ -570,49 +590,101 @@ export function CreatorRegisterForm() {
                         !PHONE_E164_REGEX.test(normalizedPhone) ||
                         (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
                       }
-                      className="h-full rounded-none border-l border-slate-200 !bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] px-4 text-xs font-semibold dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300"
+                      className={cn(
+                        "h-full rounded-none px-6 text-[14px] font-bold transition-colors",
+                        activeOtpPhone
+                          ? "bg-[#1a1819] hover:bg-[#2a2829] text-white dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-80"
+                          : "!bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] border-l border-slate-200 dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300",
+                      )}
                     >
                       {sendSignupPhoneOtpMutation.isPending
                         ? "Sending..."
                         : resendSecondsRemaining > 0 && activeOtpPhone
-                          ? `${resendSecondsRemaining}s`
-                          : "Send OTP"}
+                          ? `Resend ${resendSecondsRemaining}s`
+                          : activeOtpPhone
+                            ? "Resend"
+                            : "Send OTP"}
                     </Button>
                   </div>
                   {phoneError ? (
                     <p className="text-xs text-red-500">{phoneError}</p>
                   ) : null}
                   {activeOtpPhone ? (
-                    <div className="grid gap-2 rounded-lg border border-slate-200 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-900/40">
-                      <Label
-                        htmlFor="creator-signup-phone-otp"
-                        className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                      >
-                        Verification code <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="creator-signup-phone-otp"
-                        placeholder="123456"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        maxLength={10}
-                        disabled={pendingAny}
-                        aria-invalid={
-                          form.formState.errors.phoneOtpCode ? true : undefined
-                        }
-                        value={form.watch("phoneOtpCode")}
-                        onChange={(event) => {
-                          form.setValue(
-                            "phoneOtpCode",
-                            event.target.value.replace(/\D/g, "").slice(0, 10),
-                            { shouldValidate: true },
-                          );
+                    <div className="mt-[10px] flex items-center justify-between gap-[10px] rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-[12px] py-[10px] dark:border-red-500/20 dark:bg-red-500/10">
+                      <div className="flex items-center gap-5">
+                        <Label
+                          htmlFor="creator-signup-phone-otp"
+                          className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
+                        >
+                          Enter OTP
+                        </Label>
+                        <div className="relative flex items-center gap-2 group">
+                          <style>{`
+                            @keyframes otp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+                          `}</style>
+                          <Input
+                            id="creator-signup-phone-otp"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            disabled={pendingAny}
+                            className="absolute inset-0 z-10 w-full h-full bg-transparent text-transparent caret-transparent border-0 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 cursor-text p-0 m-0 opacity-0"
+                            value={form.watch("phoneOtpCode")}
+                            onChange={(e) => {
+                              form.setValue(
+                                "phoneOtpCode",
+                                e.target.value.replace(/\D/g, "").slice(0, 6),
+                                { shouldValidate: true },
+                              );
+                            }}
+                          />
+                          {Array.from({ length: 6 }).map((_, i) => {
+                            const code = form.watch("phoneOtpCode") || "";
+                            const char = code[i];
+                            const isActive = code.length === i;
+                            return (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "relative flex size-[42px] items-center justify-center rounded-xl border bg-white text-[20px] font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors dark:bg-slate-900",
+                                  char
+                                    ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
+                                    : "border-slate-200 text-transparent dark:border-slate-800",
+                                )}
+                              >
+                                {char || ""}
+                                {isActive && (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-focus-within:opacity-100">
+                                    <div
+                                      className="w-[1.5px] h-5 bg-slate-900 dark:bg-white"
+                                      style={{
+                                        animation:
+                                          "otp-blink 1s step-end infinite",
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-[13px] font-bold text-[#ef3e51] hover:text-[#d93849]"
+                        onClick={() => {
+                          if (form.getValues("phoneOtpCode").length === 6) {
+                            toast.success("OTP verified format.");
+                          } else {
+                            form.setError("phoneOtpCode", {
+                              message: "Enter 6-digit OTP",
+                            });
+                          }
                         }}
-                      />
-                      <p className="text-xs text-slate-500">
-                        Enter the code sent to {activeOtpPhone}. It will be
-                        verified when you create your profile.
-                      </p>
+                      >
+                        Verify
+                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -635,7 +707,7 @@ export function CreatorRegisterForm() {
                 >
                   Email <span className="text-red-500">*</span>
                 </Label>
-                <div className="flex items-center h-10 rounded-lg border border-slate-200 bg-white overflow-hidden dark:bg-slate-950 dark:border-slate-800 focus-within:ring-2 focus-within:ring-slate-950 focus-within:ring-offset-2 dark:focus-within:ring-slate-300">
+                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
                   <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -669,7 +741,6 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-        
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -695,7 +766,7 @@ export function CreatorRegisterForm() {
               <Textarea
                 id="bio"
                 placeholder="Skincare-first creator with a soft, studio-lit style. I craft glow-up demos and ritual reels for D2C beauty brands."
-                className="min-h-[80px] resize-y rounded-lg bg-white p-3 text-sm dark:bg-slate-950"
+                className="min-h-[80px] resize-y rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white p-3 text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
                 {...form.register("bio")}
               />
               {form.formState.errors.bio && (
@@ -706,7 +777,6 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -725,7 +795,7 @@ export function CreatorRegisterForm() {
                 >
                   Instagram handle <span className="text-red-500">*</span>
                 </Label>
-                <div className="flex items-center h-10 rounded-lg border border-slate-200 bg-white overflow-hidden dark:bg-slate-950 dark:border-slate-800 focus-within:ring-2 focus-within:ring-slate-950 focus-within:ring-offset-2 dark:focus-within:ring-slate-300">
+                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
                   <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
                     <Instagram className="size-4" />
                   </div>
@@ -787,13 +857,16 @@ export function CreatorRegisterForm() {
                   onDrop={(event) => {
                     event.preventDefault();
                     if (pendingAny) return;
-                    handlePortfolioVideoFile(event.dataTransfer.files[0] ?? null);
+                    handlePortfolioVideoFile(
+                      event.dataTransfer.files[0] ?? null,
+                    );
                   }}
+                  onClick={() => fileInputRef.current?.click()}
                   className={cn(
-                    "flex items-center gap-4 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-6 py-4 transition-colors dark:bg-slate-900/50",
+                    "flex items-center gap-4 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-6 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer",
                     portfolioVideoError
                       ? "border-red-300"
-                      : "border-slate-200 hover:bg-slate-50 dark:border-slate-800",
+                      : "border-slate-200 hover:bg-slate-50 hover:border-[#ef3e51] dark:border-slate-800 dark:hover:border-[#ef3e51]",
                   )}
                 >
                   <input
@@ -807,33 +880,18 @@ export function CreatorRegisterForm() {
                       event.target.value = "";
                     }}
                   />
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500 dark:bg-red-500/20">
-                    {portfolioVideoStatus === "uploading" ? (
-                      <Spinner className="size-5" aria-hidden />
-                    ) : (
-                      <Video className="size-5" />
-                    )}
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffebed] text-[#ef3e51] dark:bg-red-500/20">
+                    <Video className="size-5" />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">
-                      {portfolioVideoFile
-                        ? portfolioVideoFile.name
-                        : "Drop your reel here, or"}{" "}
-                      <button
-                        type="button"
-                        disabled={pendingAny}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="text-red-500 underline decoration-red-500 underline-offset-2 hover:text-red-600 disabled:pointer-events-none disabled:opacity-60"
-                      >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-bold text-slate-900 dark:text-white">
+                      Drop your reel here, or{" "}
+                      <span className="text-[#ef3e51] hover:text-[#d93849] underline decoration-[#ef3e51] underline-offset-2">
                         browse
-                      </button>
+                      </span>
                     </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {portfolioVideoStatus === "uploading"
-                        ? "Uploading portfolio video..."
-                        : portfolioVideoStatus === "uploaded"
-                          ? "Portfolio video uploaded."
-                          : "MP4, MOV, or WebM up to 200 MB. 9:16 vertical preferred."}
+                    <p className="mt-0.5 text-[13px] text-slate-500">
+                      MP4, MOV up to 200 MB &middot; 9:16 vertical preferred
                     </p>
                     {portfolioVideoError ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -842,11 +900,48 @@ export function CreatorRegisterForm() {
                     ) : null}
                   </div>
                 </div>
+
+                {portfolioVideoFile && (
+                  <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 mt-3">
+                    <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ef3e51] to-[#8b5cf6] text-white">
+                      {portfolioVideoStatus === "uploading" ? (
+                        <Spinner className="size-6 text-white" aria-hidden />
+                      ) : (
+                        <Video className="size-6" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[16px] font-bold text-slate-900 truncate dark:text-white">
+                        {portfolioVideoFile.name}
+                      </p>
+                      <p className="text-[13px] text-slate-500 mt-0.5">
+                        {formatBytes(portfolioVideoFile.size)} &middot;{" "}
+                        {portfolioVideoFile.type || "video"}
+                        {portfolioVideoStatus === "uploading" &&
+                          " (Uploading...)"}
+                        {portfolioVideoStatus === "uploaded" && " (Uploaded)"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pendingAny}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPortfolioVideoFile(null);
+                        setPortfolioVideoTempKey(null);
+                        setPortfolioVideoStatus("idle");
+                        setPortfolioVideoError(null);
+                      }}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 ml-2"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -861,16 +956,15 @@ export function CreatorRegisterForm() {
             </div>
 
             <div className="space-y-1">
-
               <div ref={categoriesRef}>
                 <button
                   type="button"
                   onClick={() => setCategoriesOpen(!categoriesOpen)}
                   className={cn(
-                    "flex w-full items-center justify-between h-auto min-h-10 rounded-lg border bg-white px-3 py-2 text-sm dark:bg-slate-950",
+                    "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 dark:bg-slate-950",
                     selectedCategories.length === 0
-                      ? "border-slate-200 text-slate-500"
-                      : "border-red-400 text-slate-900 dark:text-slate-50 dark:border-red-500",
+                      ? "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] text-slate-500 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                      : "border-red-400 text-slate-900 dark:text-slate-50 dark:border-red-500 focus-visible:ring-2 focus-visible:ring-red-100 dark:focus-visible:ring-red-900",
                   )}
                 >
                   <div className="flex flex-wrap gap-2 items-center">
@@ -908,7 +1002,12 @@ export function CreatorRegisterForm() {
                         })
                       : "Select your categories..."}
                   </div>
-                  <ChevronDown className={cn("ml-2 size-4 shrink-0 opacity-50 transition-transform", categoriesOpen && "rotate-180")} />
+                  <ChevronDown
+                    className={cn(
+                      "ml-2 size-4 shrink-0 opacity-50 transition-transform",
+                      categoriesOpen && "rotate-180",
+                    )}
+                  />
                 </button>
                 {categoriesOpen && (
                   <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800">
@@ -976,7 +1075,6 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-         
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
@@ -1004,7 +1102,7 @@ export function CreatorRegisterForm() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••••"
-                  className="h-10 pr-10 rounded-lg bg-white dark:bg-slate-950"
+                  className="h-[42px] pr-10 rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
                   {...form.register("password")}
                 />
                 <button
@@ -1029,7 +1127,6 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      
       <div className="sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] py-5 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start space-x-3">
           <Checkbox

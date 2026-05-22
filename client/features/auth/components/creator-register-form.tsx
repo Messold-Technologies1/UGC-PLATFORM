@@ -1187,7 +1187,7 @@ export function CreatorRegisterForm() {
           <div className="text-right text-[11px] text-[#8B8489] leading-tight">
             Hiring instead? <br />
             <Link
-              href="/signup/brand"
+              href="/register/brand"
               className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
             >
               Sign up as a brand

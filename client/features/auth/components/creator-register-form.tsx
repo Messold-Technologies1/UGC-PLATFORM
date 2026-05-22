@@ -542,12 +542,7 @@ export function CreatorRegisterForm() {
                 </Label>
                 <div className="grid gap-3">
                   <div
-                    className={cn(
-                      "flex items-stretch h-[42px] rounded-[11px] border bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 dark:bg-slate-950 dark:border-slate-800",
-                      activeOtpPhone
-                        ? "border-[#ef3e51] ring-[3px] ring-[#ffebed] dark:border-red-500 dark:ring-red-500/20"
-                        : "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800",
-                    )}
+                    className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800"
                   >
                     <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
                       +91
@@ -559,7 +554,7 @@ export function CreatorRegisterForm() {
                       inputMode="tel"
                       disabled={pendingAny}
                       aria-invalid={phoneError ? true : undefined}
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium"
+                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                       value={
                         phoneInput.startsWith("+91")
                           ? phoneInput.slice(3)
@@ -591,10 +586,10 @@ export function CreatorRegisterForm() {
                         (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
                       }
                       className={cn(
-                        "h-full rounded-none px-6 text-[14px] font-bold transition-colors",
+                        "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
                         activeOtpPhone
-                          ? "bg-[#1a1819] hover:bg-[#2a2829] text-white dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-80"
-                          : "!bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] border-l border-slate-200 dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300",
+                          ? "bg-transparent text-[#ef3e51] hover:bg-slate-50 hover:text-[#d93849] dark:hover:bg-slate-800 disabled:text-slate-400 disabled:bg-transparent"
+                          : "bg-[#f4f1f1] text-[#8b8489] hover:bg-[#e8e5e5] dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-300 disabled:opacity-70"
                       )}
                     >
                       {sendSignupPhoneOtpMutation.isPending

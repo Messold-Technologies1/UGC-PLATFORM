@@ -100,10 +100,7 @@ export function postAuthDestinationForRole(
 }
 
 export function postAuthContinuePath(callbackUrl: string | null): string {
-  const params = new URLSearchParams();
-  if (callbackUrl) params.set("callbackUrl", callbackUrl);
-  const q = params.toString();
-  return q ? `/auth/continue?${q}` : "/auth/continue";
+  return "/";
 }
 
 export function withDashboardOnboarding(

@@ -93,12 +93,12 @@ const creatorSignupSchema = z.object({
 type CreatorSignupData = z.infer<typeof creatorSignupSchema>;
 
 const CATEGORIES = [
-  { slug: "fitness", label: "Fitness / Gym", icon: Activity },
-  { slug: "food", label: "Food / Cooking", icon: Utensils },
+  { slug: "fitness_gym", label: "Fitness / Gym", icon: Activity },
+  { slug: "food_cooking", label: "Food / Cooking", icon: Utensils },
   { slug: "travel", label: "Travel", icon: Plane },
-  { slug: "technology", label: "Technology / Gadgets", icon: Smartphone },
-  { slug: "lifestyle", label: "Home / Lifestyle", icon: Home },
-  { slug: "health", label: "Health / Wellness", icon: Heart },
+  { slug: "technology_gadgets", label: "Technology / Gadgets", icon: Smartphone },
+  { slug: "home_lifestyle", label: "Home / Lifestyle", icon: Home },
+  { slug: "health_wellness", label: "Health / Wellness", icon: Heart },
 ];
 
 function readApiErrorMessage(error: unknown): string | undefined {
@@ -521,6 +521,66 @@ export function CreatorRegisterForm() {
                   )}
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="city"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    City <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    placeholder="e.g. Mumbai"
+                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                    {...form.register("city")}
+                  />
+                  {form.formState.errors.city && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.city.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="state"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    State <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="state"
+                    placeholder="e.g. Maharashtra"
+                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                    {...form.register("state")}
+                  />
+                  {form.formState.errors.state && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.state.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label
+                  htmlFor="country"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Country <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="country"
+                  placeholder="e.g. India"
+                  className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                  {...form.register("country")}
+                />
+                {form.formState.errors.country && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.country.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -668,21 +728,6 @@ export function CreatorRegisterForm() {
                           })}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="text-[13px] font-bold text-[#ef3e51] hover:text-[#d93849]"
-                        onClick={() => {
-                          if (form.getValues("phoneOtpCode").length === 6) {
-                            toast.success("OTP verified format.");
-                          } else {
-                            form.setError("phoneOtpCode", {
-                              message: "Enter 6-digit OTP",
-                            });
-                          }
-                        }}
-                      >
-                        Verify
-                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -825,6 +870,7 @@ export function CreatorRegisterForm() {
                   <button
                     type="button"
                     disabled={pendingAny}
+                    onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm transition-colors disabled:opacity-60 dark:bg-slate-800 dark:text-white"
                   >
                     <Upload className="size-3.5" />
@@ -955,11 +1001,19 @@ export function CreatorRegisterForm() {
 
             <div className="space-y-1">
               <div ref={categoriesRef}>
-                <button
-                  type="button"
+                <div
+                  role="combobox"
+                  aria-expanded={categoriesOpen}
+                  tabIndex={0}
                   onClick={() => setCategoriesOpen(!categoriesOpen)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setCategoriesOpen(!categoriesOpen);
+                    }
+                  }}
                   className={cn(
-                    "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 dark:bg-slate-950",
+                    "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 dark:bg-slate-950 cursor-pointer outline-none",
                     selectedCategories.length === 0
                       ? "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] text-slate-500 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
                       : "border-red-400 text-slate-900 dark:text-slate-50 dark:border-red-500 focus-visible:ring-2 focus-visible:ring-red-100 dark:focus-visible:ring-red-900",
@@ -1006,7 +1060,7 @@ export function CreatorRegisterForm() {
                       categoriesOpen && "rotate-180",
                     )}
                   />
-                </button>
+                </div>
                 {categoriesOpen && (
                   <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
                     {CATEGORIES.map((category) => {

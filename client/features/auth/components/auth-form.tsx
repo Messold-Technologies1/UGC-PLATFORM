@@ -155,13 +155,13 @@ export function AuthForm({ mode }: AuthFormProps) {
           }}
           className="mt-8 w-full"
         >
-          <TabsList className="w-full grid grid-cols-2 h-11 mb-6">
+          <TabsList className="w-full grid grid-cols-1 h-11 mb-6">
             <TabsTrigger value="login" className="text-sm">
               Log in
             </TabsTrigger>
-            <TabsTrigger value="signup" className="text-sm">
+            {/* <TabsTrigger value="signup" className="text-sm">
               Sign up
-            </TabsTrigger>
+            </TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="login" className="mt-0">
@@ -216,7 +216,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               </Button>
             </form>
 
-            <Divider />
+            {/* <Divider />
 
             <div className="space-y-3">
               <Button
@@ -233,7 +233,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 )}
                 Continue with Google
               </Button>
-            </div>
+            </div> */}
           </TabsContent>
 
           <TabsContent value="signup" className="mt-0">
@@ -311,7 +311,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               </Button>
             </form>
 
-            <Divider />
+            {/* <Divider />
 
             <div className="space-y-3">
               <Button
@@ -328,7 +328,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 )}
                 Continue with Google
               </Button>
-            </div>
+            </div> */}
           </TabsContent>
         </Tabs>
 

@@ -174,6 +174,7 @@ export class SignupRegistrationService {
           );
         return { userId: user.id, brandProfileId: id };
       },
+      { timeout: 30_000, maxWait: 10_000 },
     );
 
     await this.brandProfileService.finalizeOwnedBrandProfileAssets({
@@ -240,7 +241,7 @@ export class SignupRegistrationService {
         },
       );
       return { userId: user.id, agencyId: agency.id };
-    });
+    }, { timeout: 30_000, maxWait: 10_000 });
 
     if (logoKey) {
       const finalLogoKey = await this.storage.finalizeAgencyLogoKey({

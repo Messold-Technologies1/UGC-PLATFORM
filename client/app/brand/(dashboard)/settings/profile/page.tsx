@@ -66,16 +66,12 @@ export default function BrandSettingsProfilePage() {
     <div className="space-y-8">
       <PageHeader
         title="Profile"
-        description={
-          hasExistingProfile
-            ? "Update your company details and logo."
-            : "Add your company details and logo."
-        }
+        description="Update your company details and logo."
       />
 
       <BrandProfileSetupForm
         variant="settings"
-        mode={hasExistingProfile ? "update" : "create"}
+        mode="update"
         initialProfile={initialProfile}
         onSuccess={() => {}}
       />

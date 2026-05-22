@@ -35,7 +35,6 @@ import { PhoneVerificationField } from "@/features/auth/components/phone-verific
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-intro-video-field";
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
 import type {
-  CreateCreatorProfilePayload,
   CreatorAddOnCreatePayload,
   CreatorContentVolumeBucket,
   CreatorFacetSelectionPayload,
@@ -121,7 +120,7 @@ const fluencyOptions: Array<{ value: CreatorLanguageFluency; label: string }> =
 
 export type CreatorProfileSetupFormProps = {
   variant: "onboarding" | "settings";
-  mode: "create" | "update";
+  mode: "update";
   profileId?: string;
   initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void | Promise<void>;
@@ -159,11 +158,8 @@ function getInitialCreatorName(user: AuthUser | null): string {
 }
 
 function getInitialCreatorIntroVideoPreviewUrl(
-  mode: "create" | "update",
   initialProfile?: CreatorProfileItemApi | null,
 ): string | null {
-  if (mode !== "update") return null;
-
   const url = initialProfile?.introVideoUrl?.trim();
   if (!url) return null;
 
@@ -289,10 +285,7 @@ export function CreatorProfileSetupForm({
   onPendingChange,
 }: CreatorProfileSetupFormProps) {
   const { user } = useAuth();
-  const formKey =
-    mode === "update"
-      ? `update:${initialProfile?.id ?? profileId ?? "profile"}`
-      : `create:${user?.id ?? "anonymous"}`;
+  const formKey = `update:${initialProfile?.id ?? profileId ?? "profile"}`;
 
   return (
     <CreatorProfileSetupFormContent
@@ -350,9 +343,7 @@ function CreatorProfileSetupFormContent({
 
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [displayName, setDisplayName] = useState(() =>
-    mode === "update"
-      ? (initialProfile?.displayName ?? "")
-      : getInitialCreatorName(user),
+    initialProfile?.displayName ?? getInitialCreatorName(user)
   );
   const [countryCode, setCountryCode] = useState(initialCountry?.isoCode ?? "");
   const [stateCode, setStateCode] = useState(initialState?.isoCode ?? "");
@@ -400,9 +391,9 @@ function CreatorProfileSetupFormContent({
   const [addOnsTouched, setAddOnsTouched] = useState(false);
 
   const introVideoInputRef = useRef<HTMLInputElement>(null);
-  const [introVideoPreviewUrl, setIntroVideoPreviewUrl] = useState<
-    string | null
-  >(() => getInitialCreatorIntroVideoPreviewUrl(mode, initialProfile));
+  const [introVideoPreviewUrl, setIntroVideoPreviewUrl] = useState<string | null>(
+    () => getInitialCreatorIntroVideoPreviewUrl(initialProfile)
+  );
   const [pendingIntroVideoKey, setPendingIntroVideoKey] = useState<
     string | null
   >(null);
@@ -437,7 +428,7 @@ function CreatorProfileSetupFormContent({
     [addOnOptionsQuery.data?.options],
   );
   const hydratedAddOns = useMemo(() => {
-    if (mode !== "update" || !addOnOptions.length) {
+    if (!addOnOptions.length) {
       return {
         selectedSlugs: [] as string[],
         drafts: {} as Record<string, AddOnDraft>,
@@ -470,7 +461,7 @@ function CreatorProfileSetupFormContent({
       drafts: nextDrafts,
       unmatchedNames: unmatched,
     };
-  }, [addOnOptions, initialProfile?.addOns, mode]);
+  }, [addOnOptions, initialProfile?.addOns]);
   const effectiveSelectedAddOnSlugs = addOnsTouched
     ? selectedAddOnSlugs
     : hydratedAddOns.selectedSlugs;
@@ -518,21 +509,20 @@ function CreatorProfileSetupFormContent({
 
     const url = initialProfile?.introVideoUrl?.trim();
     setIntroVideoPreviewUrl(
-      mode === "update" &&
-        (url?.startsWith("http://") || url?.startsWith("https://"))
+      url?.startsWith("http://") || url?.startsWith("https://")
         ? url
         : null,
     );
-  }, [initialProfile?.introVideoUrl, mode]);
+  }, [initialProfile?.introVideoUrl]);
 
   const removeIntroVideo = useCallback(() => {
     setPendingIntroVideoKey(null);
     setIntroVideoPreviewUrl(null);
-    setIntroVideoRemoved(mode === "update");
+    setIntroVideoRemoved(true);
     if (introVideoInputRef.current) {
       introVideoInputRef.current.value = "";
     }
-  }, [mode]);
+  }, []);
 
   const toggleFacet = useCallback(
     (dimension: Exclude<CreatorFacetDimension, "LANGUAGE">, slug: string) => {
@@ -740,11 +730,11 @@ function CreatorProfileSetupFormContent({
           fluency: row.fluency,
         }));
 
-      const payload: CreateCreatorProfilePayload | UpdateCreatorProfilePayload = {
+      const payload: UpdateCreatorProfilePayload = {
         displayName: name,
         ...(pendingIntroVideoKey
           ? { introVideoKey: pendingIntroVideoKey }
-          : mode === "update" && introVideoRemoved
+          : introVideoRemoved
             ? { introVideoKey: "" }
             : {}),
         countryName: countryName || undefined,
@@ -785,7 +775,6 @@ function CreatorProfileSetupFormContent({
       instagramUrl,
       introVideoRemoved,
       languageDrafts,
-      mode,
       onLocationAvailable,
       pendingIntroVideoKey,
       phoneVerified,

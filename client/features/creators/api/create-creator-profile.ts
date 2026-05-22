@@ -1,7 +1,3 @@
-import { isAxiosError } from "axios";
-import api from "@/lib/api";
-import { ENDPOINTS } from "@/lib/endpoints";
-import type { CreatorProfileItemApi } from "./types";
 import type { CreatorFacetDimension } from "./get-creator-facet-options";
 
 export type CreatorGender =
@@ -75,26 +71,3 @@ export type CreateCreatorProfilePayload = {
   addOns?: CreatorAddOnCreatePayload[];
 };
 
-export async function createCreatorProfile(
-  payload: CreateCreatorProfilePayload,
-): Promise<CreatorProfileItemApi> {
-  const { data } = await api.post<CreatorProfileItemApi>(
-    ENDPOINTS.CREATORS.PROFILE,
-    payload,
-  );
-  return data;
-}
-
-export async function ensureCreatorProfile(
-  payload: CreateCreatorProfilePayload,
-): Promise<{ created: boolean; profile?: CreatorProfileItemApi }> {
-  try {
-    const profile = await createCreatorProfile(payload);
-    return { created: true, profile };
-  } catch (err) {
-    if (isAxiosError(err) && err.response?.status === 409) {
-      return { created: false };
-    }
-    throw err;
-  }
-}

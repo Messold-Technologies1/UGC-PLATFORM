@@ -7,10 +7,7 @@ import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { creatorProfileMeQueryKey } from "../api/fetch-creator-profile-me";
-import {
-  createCreatorProfile,
-  type CreateCreatorProfilePayload,
-} from "../api/create-creator-profile";
+
 import {
   updateCreatorProfile,
   type UpdateCreatorProfilePayload,
@@ -24,14 +21,12 @@ import {
 type CreatorProfileMode = "create" | "update";
 
 type SubmitCreatorProfileVariables = {
-  payload: CreateCreatorProfilePayload | UpdateCreatorProfilePayload;
+  payload: UpdateCreatorProfilePayload;
 };
 
 type SubmitCreatorProfileResult =
   | { status: "skipped" }
-  | { status: "created" }
-  | { status: "updated" }
-  | { status: "already-exists" };
+  | { status: "updated" };
 
 export function useUploadCreatorIntroVideoMutation(mode: CreatorProfileMode) {
   return useMutation({
@@ -103,17 +98,8 @@ export function useSubmitCreatorProfileMutation({
         await updateCreatorProfile(profileId, payload as UpdateCreatorProfilePayload);
         return { status: "updated" };
       }
-
-      try {
-        await createCreatorProfile(payload as CreateCreatorProfilePayload);
-        return { status: "created" };
-      } catch (error) {
-        if (isAxiosError(error) && error.response?.status === 409) {
-          return { status: "already-exists" };
-        }
-
-        throw error;
-      }
+      
+      throw new Error("Create mode is no longer supported.");
     },
     onSuccess: async (result) => {
       if (result.status === "skipped") {
@@ -125,24 +111,13 @@ export function useSubmitCreatorProfileMutation({
       if (result.status === "updated") {
         toast.success("Profile updated");
         await onSuccess?.();
-        return;
-      }
-
-      if (result.status === "already-exists") {
-        toast.message("Profile already exists", {
-          description: "Continuing to your workspace.",
-        });
-      } else {
-        toast.success("Creator profile created");
       }
 
       await onSuccess?.();
     },
     onError: () => {
       toast.error(
-        mode === "update"
-          ? "Could not update profile"
-          : "Could not create profile",
+        "Could not update profile",
         {
           description: "Check your connection and try again.",
         },

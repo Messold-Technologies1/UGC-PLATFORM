@@ -32,17 +32,13 @@ import {
   presignBrandSignupPronunciation,
   putBlobToPresignedUrl,
   registerBrand,
-  sendSignupPhoneOtp,
 } from "@/features/auth/api/brand-signup";
-import { verifyPhoneOtp } from "@/features/auth/api/phone-otp";
 import { authMeQueryKey, type AuthUser } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 
-const PHONE_OTP_RESEND_SECONDS = 60;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
-const OTP_CODE_REGEX = /^\d{4,10}$/;
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -59,9 +55,6 @@ const brandSignupSchema = z
       .email("Enter a valid email address")
       .min(1, "Contact email is required"),
     contactPhone: z.string().min(1, "Phone is required"),
-    phoneOtpCode: z
-      .string()
-      .regex(OTP_CODE_REGEX, "Enter the verification code from the SMS"),
     brandName: z.string().min(1, "Brand name is required"),
     website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
     instagramUrl: z
@@ -108,7 +101,7 @@ const BRAND_CATEGORIES = [
   { slug: "OTHER", label: "Other" },
 ];
 
-type SubmitStatus = "idle" | "uploading" | "registering" | "verifying";
+type SubmitStatus = "idle" | "uploading" | "registering";
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -153,6 +146,15 @@ function normalizeOptionalText(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function formatBytes(bytes: number, decimals = 1) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+}
+
 function validateLogoFile(file: File): string | null {
   if (
     !ACCEPTED_LOGO_TYPES.includes(
@@ -171,12 +173,7 @@ export function BrandRegisterForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [phoneInput, setPhoneInput] = useState("");
-  const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [otpResendAvailableAt, setOtpResendAvailableAt] = useState<
-    number | null
-  >(null);
-  const [otpClockTick, setOtpClockTick] = useState(0);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoTempKey, setLogoTempKey] = useState<string | null>(null);
@@ -199,7 +196,6 @@ export function BrandRegisterForm() {
       contactFullName: "",
       contactEmail: "",
       contactPhone: "",
-      phoneOtpCode: "",
       brandName: "",
       website: "",
       instagramUrl: "",
@@ -210,60 +206,9 @@ export function BrandRegisterForm() {
   });
 
   const normalizedPhone = normalizePhoneForSignup(phoneInput);
-  const activeOtpPhone =
-    otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
-  const resendSecondsRemaining = otpResendAvailableAt
-    ? Math.max(
-        0,
-        Math.ceil(
-          (otpResendAvailableAt -
-            (otpClockTick ||
-              otpResendAvailableAt - PHONE_OTP_RESEND_SECONDS * 1000)) /
-            1000,
-        ),
-      )
-    : 0;
-
-  const sendSignupPhoneOtpMutation = useMutation({
-    mutationKey: ["auth", "signup", "brand", "phone", "send-otp"],
-    mutationFn: sendSignupPhoneOtp,
-    onSuccess: (_result, variables) => {
-      const now = Date.now();
-      setOtpSentToPhone(variables.phone);
-      setPhoneError(null);
-      setOtpClockTick(now);
-      setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
-      form.setValue("contactPhone", variables.phone, { shouldValidate: true });
-      form.setValue("phoneOtpCode", "");
-      form.clearErrors("phoneOtpCode");
-      toast.success("Verification code sent");
-    },
-    onError: (error) => {
-      if (isAxiosError(error) && error.response?.status === 429) {
-        const now = Date.now();
-        setOtpClockTick(now);
-        setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
-      }
-      const message = brandSignupErrorMessage(
-        error,
-        "Could not send verification code. Check the number and try again.",
-      );
-      setPhoneError(message);
-      toast.error(message);
-    },
-  });
 
   const pendingSubmit = submitStatus !== "idle";
-  const pendingAny = pendingSubmit || sendSignupPhoneOtpMutation.isPending;
-
-  useEffect(() => {
-    if (!otpResendAvailableAt) return;
-    const intervalId = window.setInterval(
-      () => setOtpClockTick(Date.now()),
-      1000,
-    );
-    return () => window.clearInterval(intervalId);
-  }, [otpResendAvailableAt]);
+  const pendingAny = pendingSubmit;
 
   useEffect(() => {
     return () => {
@@ -272,24 +217,6 @@ export function BrandRegisterForm() {
       }
     };
   }, [pronunciationAudioPreviewUrl]);
-
-  const handleSendPhoneOtp = useCallback(() => {
-    const phone = normalizePhoneForSignup(phoneInput);
-    if (!PHONE_E164_REGEX.test(phone)) {
-      const message =
-        "Enter a mobile number in E.164 format, like +919876543210.";
-      setPhoneError(message);
-      toast.error(message);
-      return;
-    }
-
-    setPhoneInput(phone);
-    setPhoneError(null);
-    form.setValue("contactPhone", phone, { shouldValidate: true });
-    form.setValue("phoneOtpCode", "");
-    form.clearErrors("phoneOtpCode");
-    sendSignupPhoneOtpMutation.mutate({ phone });
-  }, [form, phoneInput, sendSignupPhoneOtpMutation]);
 
   const handleLogoFile = useCallback((file: File | null) => {
     if (!file) return;
@@ -364,25 +291,11 @@ export function BrandRegisterForm() {
   );
 
   const onSubmit = async (data: BrandSignupData) => {
-    if (!activeOtpPhone || data.contactPhone !== activeOtpPhone) {
-      const message = "Send a verification code for this mobile number.";
-      setPhoneError(message);
-      toast.error(message);
-      return;
-    }
-
-    let verifyingPhone = Boolean(registeredUser);
-
     try {
       const email = data.email.trim().toLowerCase();
 
       if (registeredUser) {
-        setSubmitStatus("verifying");
-        await verifyPhoneOtp({
-          phone: data.contactPhone.trim(),
-          code: data.phoneOtpCode.trim(),
-        });
-        toast.success("Phone verified");
+        toast.success("Profile already created");
         queryClient.setQueryData(authMeQueryKey, registeredUser);
         const callback = searchParams.get("callbackUrl");
         const target = resolveImmediatePostAuthPath(registeredUser, callback);
@@ -421,12 +334,6 @@ export function BrandRegisterForm() {
       });
 
       setRegisteredUser(result.user);
-      verifyingPhone = true;
-      setSubmitStatus("verifying");
-      await verifyPhoneOtp({
-        phone: data.contactPhone.trim(),
-        code: data.phoneOtpCode.trim(),
-      });
 
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
@@ -435,21 +342,12 @@ export function BrandRegisterForm() {
       beginClientNavigation();
       window.location.replace(target);
     } catch (error) {
-      if (verifyingPhone) {
-        const message = brandSignupErrorMessage(
+      toast.error(
+        brandSignupErrorMessage(
           error,
-          "Could not verify this code. Check it and try again.",
-        );
-        form.setError("phoneOtpCode", { message });
-        toast.error(message);
-      } else {
-        toast.error(
-          brandSignupErrorMessage(
-            error,
-            "Could not create brand profile. Please try again.",
-          ),
-        );
-      }
+          "Could not create brand profile. Please try again.",
+        ),
+      );
     } finally {
       setSubmitStatus("idle");
     }
@@ -660,116 +558,20 @@ export function BrandRegisterForm() {
                         const digits = val.replace(/\D/g, "");
                         const next = digits ? `+91${digits}` : "";
                         setPhoneInput(next);
-                        setOtpSentToPhone(null);
                         setPhoneError(null);
                         form.setValue("contactPhone", next, {
                           shouldValidate: true,
                         });
-                        form.setValue("phoneOtpCode", "");
-                        form.clearErrors("phoneOtpCode");
                       }}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleSendPhoneOtp}
-                      disabled={
-                        pendingAny ||
-                        !PHONE_E164_REGEX.test(normalizedPhone) ||
-                        (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
-                      }
-                      className={cn(
-                        "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
-                        activeOtpPhone
-                          ? "bg-[#f4f1f1] text-[#3e76ef] hover:bg-black hover:text-white dark:bg-slate-900 disabled:text-slate-400"
-                          : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900",
-                      )}
-                    >
-                      {sendSignupPhoneOtpMutation.isPending
-                        ? "Sending..."
-                        : resendSecondsRemaining > 0 && activeOtpPhone
-                        ? `Resend ${resendSecondsRemaining}s`
-                        : activeOtpPhone
-                          ? "Resend"
-                          : "Send OTP"}
-                    </Button>
                   </div>
-                  {phoneError ? (
+                  {phoneError && (
                     <p className="text-xs text-red-500">{phoneError}</p>
-                  ) : activeOtpPhone ? (
-                    <p className="text-xs font-medium text-green-600 dark:text-green-500">
-                      Enter the verification code from the SMS
-                    </p>
-                  ) : null}
-                  {activeOtpPhone ? (
-                    <div className="mt-[10px] flex items-center justify-between gap-[10px] rounded-[11px] border border-[#eef5fe] bg-[#f5f9ff] px-[12px] py-[10px] dark:border-blue-500/20 dark:bg-blue-500/10">
-                      <div className="flex items-center gap-5">
-                        <Label
-                          htmlFor="brand-signup-phone-otp"
-                          className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
-                        >
-                          Enter OTP
-                        </Label>
-                        <div className="relative flex items-center gap-2 group">
-                          <style>{`@keyframes otp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }`}</style>
-                          <Input
-                            id="brand-signup-phone-otp"
-                            type="text"
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            maxLength={6}
-                            className="absolute inset-0 z-10 w-full h-full bg-transparent text-transparent caret-transparent border-0 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 cursor-text p-0 m-0 opacity-0"
-                            value={form.watch("phoneOtpCode")}
-                            onChange={(e) => {
-                              form.setValue(
-                                "phoneOtpCode",
-                                e.target.value.replace(/\D/g, "").slice(0, 6),
-                                { shouldValidate: true },
-                              );
-                            }}
-                          />
-                          {Array.from({ length: 6 }).map((_, i) => {
-                            const code = form.watch("phoneOtpCode") || "";
-                            const char = code[i];
-                            const isActive = code.length === i;
-                            return (
-                              <div
-                                key={i}
-                                className={cn(
-                                  "relative flex size-[42px] items-center justify-center rounded-xl border bg-white text-[20px] font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors dark:bg-slate-900",
-                                  char
-                                    ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
-                                    : "border-slate-200 text-transparent dark:border-slate-800",
-                                )}
-                              >
-                                {char || ""}
-                                {isActive && (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-focus-within:opacity-100">
-                                    <div
-                                      className="w-[1.5px] h-5 bg-slate-900 dark:bg-white"
-                                      style={{
-                                        animation:
-                                          "otp-blink 1s step-end infinite",
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                  )}
                 </div>
                 {form.formState.errors.contactPhone && (
                   <p className="text-xs text-red-500">
                     {form.formState.errors.contactPhone.message}
-                  </p>
-                )}
-                {form.formState.errors.phoneOtpCode && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.phoneOtpCode.message}
                   </p>
                 )}
               </div>
@@ -828,50 +630,119 @@ export function BrandRegisterForm() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                  Brand Logo
-                </Label>
-                <div className="relative overflow-hidden rounded-[14px] border-2 border-dashed border-slate-200 hover:border-[#3e76ef]/50 hover:bg-[#3e76ef]/5 transition-colors dark:border-slate-800 dark:hover:border-[#3e76ef]/50 dark:hover:bg-[#3e76ef]/10">
+              <div className="space-y-3">
+                <div>
+                  <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+                    Brand Logo <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Upload your brand's logo directly.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 rounded-lg bg-slate-100 p-1 w-fit dark:bg-slate-900">
+                  <button
+                    type="button"
+                    disabled={pendingAny}
+                    onClick={() => logoInputRef.current?.click()}
+                    className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm transition-colors disabled:opacity-60 dark:bg-slate-800 dark:text-white"
+                  >
+                    <Upload className="size-3.5" />
+                    Upload file
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    title="Drive link uploads are coming soon"
+                    className="flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold text-slate-400 opacity-60 dark:text-slate-500"
+                  >
+                    <svg
+                      className="size-3.5"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M12.01 2.25 2.61 18.52h6.14l6.33-10.96-3.07-5.31Zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56Zm-15.53-2.02 3.07-5.31 9.4 16.28h-6.14l-6.33-10.97Z" />
+                    </svg>
+                    Drive link
+                  </button>
+                </div>
+
+                <div
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (pendingAny) return;
+                    handleLogoFile(event.dataTransfer.files[0] ?? null);
+                  }}
+                  onClick={() => logoInputRef.current?.click()}
+                  className={cn(
+                    "flex items-center gap-4 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-6 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer",
+                    logoError
+                      ? "border-red-300"
+                      : "border-slate-200 hover:bg-slate-50 hover:border-[#3e76ef] dark:border-slate-800 dark:hover:border-[#3e76ef]"
+                  )}
+                >
                   <input
-                    type="file"
                     ref={logoInputRef}
+                    type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      handleLogoFile(file);
-                      e.target.value = "";
+                    className="hidden"
+                    disabled={pendingAny}
+                    onChange={(event) => {
+                      handleLogoFile(event.target.files?.[0] ?? null);
+                      event.target.value = "";
                     }}
-                    className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                    aria-label="Upload brand logo"
                   />
-                  <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-[#f4f1f1] text-[#8b8489] dark:bg-slate-900">
-                      <Upload className="size-5" />
-                    </div>
-                    {logoFile ? (
-                      <>
-                        <p className="text-[14px] font-bold text-[#3e76ef] truncate max-w-[200px]">
-                          {logoFile.name}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Click to change image
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-[14px] font-bold text-slate-900 dark:text-slate-100">
-                          Upload Brand Logo
-                        </p>
-                        <p className="mt-1 text-[13px] text-slate-500">
-                          JPG, PNG, or WebP up to 5MB
-                        </p>
-                      </>
-                    )}
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#e9f0fe] text-[#3e76ef] dark:bg-blue-500/20">
+                    <Upload className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-bold text-slate-900 dark:text-white">
+                      Drop your logo here, or{" "}
+                      <span className="text-[#3e76ef] hover:text-[#2d5cc5] underline decoration-[#3e76ef] underline-offset-2">
+                        browse
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-slate-500">
+                      JPG, PNG, WebP up to 5 MB
+                    </p>
+                    {logoError ? (
+                      <p className="mt-1 text-xs text-red-500">{logoError}</p>
+                    ) : null}
                   </div>
                 </div>
-                {logoError && (
-                  <p className="mt-1 text-xs text-red-500">{logoError}</p>
+
+                {logoFile && (
+                  <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 mt-3">
+                    <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3e76ef] to-[#8b5cf6] text-white">
+                      <Upload className="size-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[16px] font-bold text-slate-900 truncate dark:text-white">
+                        {logoFile.name}
+                      </p>
+                      <p className="text-[13px] text-slate-500 mt-0.5">
+                        {formatBytes(logoFile.size)} &middot;{" "}
+                        {logoFile.type || "image"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pendingAny}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLogoFile(null);
+                        setLogoTempKey(null);
+                        setLogoError(null);
+                      }}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 ml-2"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -1188,11 +1059,9 @@ export function BrandRegisterForm() {
               ? "Uploading assets..."
               : submitStatus === "registering"
                 ? "Creating profile..."
-                : submitStatus === "verifying"
-                  ? "Verifying phone..."
-                  : registeredUser
-                    ? "Verify phone & continue ->"
-                    : "Create my brand profile ->"}
+                : registeredUser
+                  ? "Redirecting..."
+                  : "Create my brand profile ->"}
           </Button>
 
           <div className="text-right text-[11px] text-[#8B8489] leading-tight">

@@ -136,6 +136,12 @@ export function Navbar() {
   const { isAuthenticated, isLoading } = useAuth();
   const pathname = usePathname();
 
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
   const navItems = getNavItems(pathname || "");
 
   const [hidden, setHidden] = useState(false);
@@ -305,7 +311,7 @@ export function Navbar() {
           )}
         <div className="hidden items-center gap-2 md:flex shrink-0">
           {/* <ThemeToggle /> */}
-          {isLoading ? (
+          {!mounted || isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
             <>
@@ -426,7 +432,11 @@ export function Navbar() {
             </>
           )}
 
-          {isAuthenticated ? (
+          {!mounted || isLoading ? (
+            <div className="px-3 py-2">
+              <div className="h-7 w-32 animate-pulse rounded-lg bg-muted" />
+            </div>
+          ) : isAuthenticated ? (
             <div className="px-3 py-2">
               <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
             </div>

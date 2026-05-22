@@ -1,36 +1,52 @@
 "use client";
 
 import Image from "next/image";
-import { Sparkles, Wallet, Target, Quote, CheckCircle2 } from "lucide-react";
+import { Sparkles, Wallet, Target, CheckCircle2 } from "lucide-react";
 import { CreatorRegisterForm } from "./creator-register-form";
-
 
 export function CreatorRegisterPage() {
   return (
-    <div className="grid h-dvh overflow-hidden lg:grid-cols-[47.5%_52.5%]">
-      {/* Left Promotional Panel */}
-      <div className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 lg:flex" style={{ background: 'linear-gradient(165deg, #fef5ee 0%, #fde9e8 55%, #fbd9d7 100%)' }}>
-        {/* Dot Pattern Overlay */}
-        <div 
-          className="absolute inset-0 z-0 pointer-events-none opacity-40"
-          style={{ backgroundImage: 'radial-gradient(circle, #D2B4B4 1.5px, transparent 1.5px)', backgroundSize: '24px 24px' }}
+    <div className="grid h-dvh overflow-hidden lg:grid-cols-[47.5%_52.5%] box-border">
+      <div
+        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 lg:flex"
+        style={{
+          background:
+            "linear-gradient(165deg, #fef5ee 0%, #fde9e8 55%, #fbd9d7 100%)",
+        }}
+      >
+        <div
+          className="absolute inset-0 z-0 pointer-events-none opacity-10"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, #D2B4B4 1.5px, transparent 1.5px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+        <div
+          className="absolute pointer-events-none z-0 rounded-full blur-[100px]"
+          style={{
+            width: "360px",
+            height: "360px",
+            top: "-120px",
+            right: "-120px",
+            background: "rgba(239, 62, 81, 0.25)",
+          }}
         />
         <div className="relative z-10">
-          <div className="mb-6">
-            {/* Logo */}
+          <div className="-mt-10 mb-6">
             <img
               src="/brand-logo.png"
               alt="UGCull"
-              className="h-8 w-auto object-contain object-left"
+              className="h-32 w-auto object-contain object-left"
             />
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-semibold shadow-sm mb-6">
+          {/* <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-semibold shadow-sm mb-6">
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white">
               <Sparkles className="size-3" />
             </div>
             For creators
-          </div>
+          </div> */}
 
           <h1 className="text-4xl font-extrabold tracking-tight lg:text-[40px] mb-4 leading-tight">
             Get booked by brands. <br />
@@ -46,8 +62,13 @@ export function CreatorRegisterPage() {
           </p>
 
           <div className="space-y-3 w-full">
-            {/* Feature 1 */}
-            <div className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]" style={{ gridTemplateColumns: '36px 1fr', background: 'rgba(255, 255, 255, 0.72)' }}>
+            <div
+              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
+              style={{
+                gridTemplateColumns: "36px 1fr",
+                background: "rgba(255, 255, 255, 0.72)",
+              }}
+            >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-red-500 text-white">
                 <Sparkles className="size-4" />
               </div>
@@ -61,8 +82,13 @@ export function CreatorRegisterPage() {
               </div>
             </div>
 
-            {/* Feature 2 */}
-            <div className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]" style={{ gridTemplateColumns: '36px 1fr', background: 'rgba(255, 255, 255, 0.72)' }}>
+            <div
+              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
+              style={{
+                gridTemplateColumns: "36px 1fr",
+                background: "rgba(255, 255, 255, 0.72)",
+              }}
+            >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
                 <Wallet className="size-4" />
               </div>
@@ -77,8 +103,13 @@ export function CreatorRegisterPage() {
               </div>
             </div>
 
-            {/* Feature 3 */}
-            <div className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]" style={{ gridTemplateColumns: '36px 1fr', background: 'rgba(255, 255, 255, 0.72)' }}>
+            <div
+              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
+              style={{
+                gridTemplateColumns: "36px 1fr",
+                background: "rgba(255, 255, 255, 0.72)",
+              }}
+            >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white">
                 <Target className="size-4" />
               </div>
@@ -95,11 +126,16 @@ export function CreatorRegisterPage() {
           </div>
         </div>
 
-        {/* Testimonial */}
         <div className="relative z-10 mt-auto w-full rounded-3xl bg-[#221C1D] p-5 text-white shadow-xl overflow-hidden">
           <div className="absolute top-5 right-6 opacity-40">
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="#CCFF00" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 11L8.5 16H5L6.5 11H4V5H10V11ZM20 11L18.5 16H15L16.5 11H14V5H20V11Z"/>
+            <svg
+              width="44"
+              height="44"
+              viewBox="0 0 24 24"
+              fill="#CCFF00"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M10 11L8.5 16H5L6.5 11H4V5H10V11ZM20 11L18.5 16H15L16.5 11H14V5H20V11Z" />
             </svg>
           </div>
           <div className="flex gap-4 items-center">
@@ -144,7 +180,6 @@ export function CreatorRegisterPage() {
         </div>
       </div>
 
-      {/* Right Registration Form */}
       <div className="flex flex-col h-dvh bg-[#fdfcfb] dark:bg-slate-950 overflow-hidden">
         <CreatorRegisterForm />
       </div>

@@ -357,7 +357,7 @@ export function MarketingLanding() {
               <PillButton variant="primary" arrow href="/brand/creators">
                 Find Creators
               </PillButton>
-              <PillButton variant="lime" arrow href="/signup">
+              <PillButton variant="lime" arrow href="/register/creator">
                 Join as Creator
               </PillButton>
             </div>
@@ -725,7 +725,7 @@ export function MarketingLanding() {
               heading="Get Discovered by Brands That Need Your Content"
               paragraph="Create your profile, showcase your best videos, set your starting price, and get found by brands looking for real, relatable UGC creators."
               cta="Join as creator"
-              ctaHref="/signup"
+              ctaHref="/register/creator"
               benefits={[
                 {
                   title: "No more DM chasing",

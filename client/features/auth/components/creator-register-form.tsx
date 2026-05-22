@@ -233,7 +233,8 @@ export function CreatorRegisterForm() {
       setOtpClockTick(now);
       setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
       form.setValue("phone", variables.phone, { shouldValidate: true });
-      form.setValue("phoneOtpCode", "", { shouldValidate: true });
+      form.setValue("phoneOtpCode", "");
+      form.clearErrors("phoneOtpCode");
       toast.success("Verification code sent");
     },
     onError: (error) => {
@@ -299,7 +300,8 @@ export function CreatorRegisterForm() {
     setPhoneInput(phone);
     setPhoneError(null);
     form.setValue("phone", phone, { shouldValidate: true });
-    form.setValue("phoneOtpCode", "", { shouldValidate: true });
+    form.setValue("phoneOtpCode", "");
+    form.clearErrors("phoneOtpCode");
     sendSignupPhoneOtpMutation.mutate({ phone });
   }, [form, phoneInput, sendSignupPhoneOtpMutation]);
 
@@ -435,7 +437,7 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8 md:px-8">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
@@ -541,9 +543,7 @@ export function CreatorRegisterForm() {
                   Phone number <span className="text-red-500">*</span>
                 </Label>
                 <div className="grid gap-3">
-                  <div
-                    className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800"
-                  >
+                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
                     <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
                       +91
                     </div>
@@ -571,9 +571,8 @@ export function CreatorRegisterForm() {
                         form.setValue("phone", next, {
                           shouldValidate: true,
                         });
-                        form.setValue("phoneOtpCode", "", {
-                          shouldValidate: true,
-                        });
+                        form.setValue("phoneOtpCode", "");
+                        form.clearErrors("phoneOtpCode");
                       }}
                     />
                     <Button
@@ -588,8 +587,8 @@ export function CreatorRegisterForm() {
                       className={cn(
                         "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
                         activeOtpPhone
-                          ? "bg-transparent text-[#ef3e51] hover:bg-slate-50 hover:text-[#d93849] dark:hover:bg-slate-800 disabled:text-slate-400 disabled:bg-transparent"
-                          : "bg-[#f4f1f1] text-[#8b8489] hover:bg-[#e8e5e5] dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-300 disabled:opacity-70"
+                          ? "bg-[#f4f1f1] text-[#ef3e51] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black disabled:text-slate-400 disabled:bg-[#f4f1f1] dark:disabled:bg-slate-900 disabled:opacity-70"
+                          : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black dark:text-slate-300 disabled:opacity-70",
                       )}
                     >
                       {sendSignupPhoneOtpMutation.isPending
@@ -603,6 +602,10 @@ export function CreatorRegisterForm() {
                   </div>
                   {phoneError ? (
                     <p className="text-xs text-red-500">{phoneError}</p>
+                  ) : activeOtpPhone ? (
+                    <p className="text-xs font-medium text-green-600 dark:text-green-500">
+                      Enter the verification code from the SMS
+                    </p>
                   ) : null}
                   {activeOtpPhone ? (
                     <div className="mt-[10px] flex items-center justify-between gap-[10px] rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-[12px] py-[10px] dark:border-red-500/20 dark:bg-red-500/10">
@@ -1005,7 +1008,7 @@ export function CreatorRegisterForm() {
                   />
                 </button>
                 {categoriesOpen && (
-                  <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800">
+                  <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
                     {CATEGORIES.map((category) => {
                       const isSelected = selectedCategories.includes(
                         category.slug,

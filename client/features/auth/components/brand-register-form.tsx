@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isAxiosError } from "axios";
 import {
   Upload,
   Instagram,
@@ -16,20 +19,25 @@ import {
   Package,
   ChevronDown,
   X,
-  Mic,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
+import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
+import {
+  presignBrandSignupLogo,
+  presignBrandSignupPronunciation,
+  putBlobToPresignedUrl,
+  registerBrand,
+  sendSignupPhoneOtp,
+} from "@/features/auth/api/brand-signup";
+import { verifyPhoneOtp } from "@/features/auth/api/phone-otp";
+import { authMeQueryKey, type AuthUser } from "@/features/auth/hooks/use-me-query";
+import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
@@ -55,7 +63,6 @@ const brandSignupSchema = z
       .string()
       .regex(OTP_CODE_REGEX, "Enter the verification code from the SMS"),
     brandName: z.string().min(1, "Brand name is required"),
-    brandPronunciation: z.string().optional(),
     website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
     instagramUrl: z
       .string()
@@ -101,11 +108,49 @@ const BRAND_CATEGORIES = [
   { slug: "OTHER", label: "Other" },
 ];
 
+type SubmitStatus = "idle" | "uploading" | "registering" | "verifying";
+
+function readApiErrorMessage(error: unknown): string | undefined {
+  if (!isAxiosError(error)) return undefined;
+
+  const data = error.response?.data;
+  if (typeof data === "string") return data;
+
+  const message = (data as { message?: unknown } | undefined)?.message;
+  if (typeof message === "string") return message;
+  if (Array.isArray(message)) {
+    return message.find((item): item is string => typeof item === "string");
+  }
+
+  return undefined;
+}
+
+function brandSignupErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    if (error.response?.status === 409) {
+      return "An account with this email already exists.";
+    }
+    if (error.response?.status === 429) {
+      return "Too many attempts. Please wait before trying again.";
+    }
+    if (error.response?.status === 503) {
+      return "This service is temporarily unavailable.";
+    }
+  }
+
+  return readApiErrorMessage(error) ?? fallback;
+}
+
 function normalizePhoneForSignup(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
   if (!trimmed.startsWith("+")) return trimmed;
   return `+${trimmed.replace(/\D/g, "")}`;
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function validateLogoFile(file: File): string | null {
@@ -123,6 +168,8 @@ function validateLogoFile(file: File): string | null {
 }
 
 export function BrandRegisterForm() {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const [phoneInput, setPhoneInput] = useState("");
   const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -132,8 +179,17 @@ export function BrandRegisterForm() {
   const [otpClockTick, setOtpClockTick] = useState(0);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoTempKey, setLogoTempKey] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [pronunciationAudioBlob, setPronunciationAudioBlob] =
+    useState<Blob | null>(null);
+  const [pronunciationAudioTempKey, setPronunciationAudioTempKey] =
+    useState<string | null>(null);
+  const [pronunciationAudioPreviewUrl, setPronunciationAudioPreviewUrl] =
+    useState<string | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
+  const [registeredUser, setRegisteredUser] = useState<AuthUser | null>(null);
 
   const form = useForm<BrandSignupData>({
     resolver: zodResolver(brandSignupSchema),
@@ -168,6 +224,38 @@ export function BrandRegisterForm() {
       )
     : 0;
 
+  const sendSignupPhoneOtpMutation = useMutation({
+    mutationKey: ["auth", "signup", "brand", "phone", "send-otp"],
+    mutationFn: sendSignupPhoneOtp,
+    onSuccess: (_result, variables) => {
+      const now = Date.now();
+      setOtpSentToPhone(variables.phone);
+      setPhoneError(null);
+      setOtpClockTick(now);
+      setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
+      form.setValue("contactPhone", variables.phone, { shouldValidate: true });
+      form.setValue("phoneOtpCode", "");
+      form.clearErrors("phoneOtpCode");
+      toast.success("Verification code sent");
+    },
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 429) {
+        const now = Date.now();
+        setOtpClockTick(now);
+        setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
+      }
+      const message = brandSignupErrorMessage(
+        error,
+        "Could not send verification code. Check the number and try again.",
+      );
+      setPhoneError(message);
+      toast.error(message);
+    },
+  });
+
+  const pendingSubmit = submitStatus !== "idle";
+  const pendingAny = pendingSubmit || sendSignupPhoneOtpMutation.isPending;
+
   useEffect(() => {
     if (!otpResendAvailableAt) return;
     const intervalId = window.setInterval(
@@ -176,6 +264,14 @@ export function BrandRegisterForm() {
     );
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
+
+  useEffect(() => {
+    return () => {
+      if (pronunciationAudioPreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(pronunciationAudioPreviewUrl);
+      }
+    };
+  }, [pronunciationAudioPreviewUrl]);
 
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForSignup(phoneInput);
@@ -192,27 +288,80 @@ export function BrandRegisterForm() {
     form.setValue("contactPhone", phone, { shouldValidate: true });
     form.setValue("phoneOtpCode", "");
     form.clearErrors("phoneOtpCode");
-
-    // Simulate OTP sending for UI purposes
-    const now = Date.now();
-    setOtpSentToPhone(phone);
-    setOtpClockTick(now);
-    setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
-    toast.success("Verification code sent (Simulated)");
-  }, [form, phoneInput]);
+    sendSignupPhoneOtpMutation.mutate({ phone });
+  }, [form, phoneInput, sendSignupPhoneOtpMutation]);
 
   const handleLogoFile = useCallback((file: File | null) => {
     if (!file) return;
     const error = validateLogoFile(file);
     if (error) {
       setLogoFile(null);
+      setLogoTempKey(null);
       setLogoError(error);
       toast.error(error);
       return;
     }
     setLogoFile(file);
+    setLogoTempKey(null);
     setLogoError(null);
   }, []);
+
+  const handlePronunciationBlob = useCallback((blob: Blob) => {
+    setPronunciationAudioBlob(blob);
+    setPronunciationAudioTempKey(null);
+    setPronunciationAudioPreviewUrl((current) => {
+      if (current?.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return URL.createObjectURL(blob);
+    });
+  }, []);
+
+  const clearPronunciationAudio = useCallback(() => {
+    setPronunciationAudioBlob(null);
+    setPronunciationAudioTempKey(null);
+    setPronunciationAudioPreviewUrl((current) => {
+      if (current?.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return null;
+    });
+  }, []);
+
+  const uploadLogo = useCallback(
+    async (email: string): Promise<string | undefined> => {
+      if (logoTempKey) return logoTempKey;
+      if (!logoFile) return undefined;
+
+      const presign = await presignBrandSignupLogo({
+        email,
+        contentType: logoFile.type,
+        contentLength: logoFile.size,
+      });
+      await putBlobToPresignedUrl(logoFile, presign);
+      setLogoTempKey(presign.key);
+      return presign.key;
+    },
+    [logoFile, logoTempKey],
+  );
+
+  const uploadPronunciationAudio = useCallback(
+    async (email: string): Promise<string | undefined> => {
+      if (pronunciationAudioTempKey) return pronunciationAudioTempKey;
+      if (!pronunciationAudioBlob) return undefined;
+
+      const presign = await presignBrandSignupPronunciation({
+        email,
+        contentType: pronunciationAudioBlob.type || "audio/webm",
+        contentLength: pronunciationAudioBlob.size,
+      });
+      await putBlobToPresignedUrl(pronunciationAudioBlob, presign);
+      setPronunciationAudioTempKey(presign.key);
+      setPronunciationAudioPreviewUrl(presign.cdnUrl);
+      return presign.key;
+    },
+    [pronunciationAudioBlob, pronunciationAudioTempKey],
+  );
 
   const onSubmit = async (data: BrandSignupData) => {
     if (!activeOtpPhone || data.contactPhone !== activeOtpPhone) {
@@ -221,8 +370,89 @@ export function BrandRegisterForm() {
       toast.error(message);
       return;
     }
-    console.log("Brand Registration Submit (UI Only):", data);
-    toast.success("Form submitted successfully! Check console for payload.");
+
+    let verifyingPhone = Boolean(registeredUser);
+
+    try {
+      const email = data.email.trim().toLowerCase();
+
+      if (registeredUser) {
+        setSubmitStatus("verifying");
+        await verifyPhoneOtp({
+          phone: data.contactPhone.trim(),
+          code: data.phoneOtpCode.trim(),
+        });
+        toast.success("Phone verified");
+        queryClient.setQueryData(authMeQueryKey, registeredUser);
+        const callback = searchParams.get("callbackUrl");
+        const target = resolveImmediatePostAuthPath(registeredUser, callback);
+        beginClientNavigation();
+        window.location.replace(target);
+        return;
+      }
+
+      setSubmitStatus("uploading");
+      const [logoKey, brandPronunciationAudioKey] = await Promise.all([
+        uploadLogo(email),
+        uploadPronunciationAudio(email),
+      ]);
+
+      setSubmitStatus("registering");
+      const result = await registerBrand({
+        email,
+        password: data.password,
+        contactFullName: data.contactFullName.trim(),
+        contactEmail: data.contactEmail.trim(),
+        contactPhone: data.contactPhone.trim(),
+        brandName: data.brandName.trim(),
+        ...(logoKey ? { logoKey } : {}),
+        ...(brandPronunciationAudioKey ? { brandPronunciationAudioKey } : {}),
+        ...(normalizeOptionalText(data.website)
+          ? { website: normalizeOptionalText(data.website) }
+          : {}),
+        ...(normalizeOptionalText(data.instagramUrl)
+          ? { instagramUrl: normalizeOptionalText(data.instagramUrl) }
+          : {}),
+        productType: data.productType,
+        categories: data.categories as BrandCategoryApi[],
+        ...(data.categories.includes("OTHER")
+          ? { otherCategoryLabel: data.otherCategoryLabel?.trim() }
+          : {}),
+      });
+
+      setRegisteredUser(result.user);
+      verifyingPhone = true;
+      setSubmitStatus("verifying");
+      await verifyPhoneOtp({
+        phone: data.contactPhone.trim(),
+        code: data.phoneOtpCode.trim(),
+      });
+
+      toast.success("Brand profile created");
+      queryClient.setQueryData(authMeQueryKey, result.user);
+      const callback = searchParams.get("callbackUrl");
+      const target = resolveImmediatePostAuthPath(result.user, callback);
+      beginClientNavigation();
+      window.location.replace(target);
+    } catch (error) {
+      if (verifyingPhone) {
+        const message = brandSignupErrorMessage(
+          error,
+          "Could not verify this code. Check it and try again.",
+        );
+        form.setError("phoneOtpCode", { message });
+        toast.error(message);
+      } else {
+        toast.error(
+          brandSignupErrorMessage(
+            error,
+            "Could not create brand profile. Please try again.",
+          ),
+        );
+      }
+    } finally {
+      setSubmitStatus("idle");
+    }
   };
 
   const selectedCategories = form.watch("categories");
@@ -444,6 +674,7 @@ export function BrandRegisterForm() {
                       variant="ghost"
                       onClick={handleSendPhoneOtp}
                       disabled={
+                        pendingAny ||
                         !PHONE_E164_REGEX.test(normalizedPhone) ||
                         (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
                       }
@@ -454,7 +685,9 @@ export function BrandRegisterForm() {
                           : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900",
                       )}
                     >
-                      {resendSecondsRemaining > 0 && activeOtpPhone
+                      {sendSignupPhoneOtpMutation.isPending
+                        ? "Sending..."
+                        : resendSecondsRemaining > 0 && activeOtpPhone
                         ? `Resend ${resendSecondsRemaining}s`
                         : activeOtpPhone
                           ? "Resend"
@@ -526,21 +759,6 @@ export function BrandRegisterForm() {
                           })}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="text-[13px] font-bold text-[#3e76ef] hover:text-[#2c5ac4]"
-                        onClick={() => {
-                          if (form.getValues("phoneOtpCode").length === 6) {
-                            toast.success("OTP verified format.");
-                          } else {
-                            form.setError("phoneOtpCode", {
-                              message: "Enter 6-digit OTP",
-                            });
-                          }
-                        }}
-                      >
-                        Verify
-                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -595,25 +813,19 @@ export function BrandRegisterForm() {
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="brandPronunciation"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Brand Pronunciation
-                  </Label>
-                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800">
-                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                      <Mic className="size-4" />
-                    </div>
-                    <Input
-                      id="brandPronunciation"
-                      placeholder="Ak-mee"
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                      {...form.register("brandPronunciation")}
-                    />
-                  </div>
-                </div>
+                <BrandPronunciationAudioField
+                  disabled={pendingAny || Boolean(registeredUser)}
+                  uploading={
+                    submitStatus === "uploading" &&
+                    Boolean(pronunciationAudioBlob)
+                  }
+                  audioUrl={pronunciationAudioPreviewUrl}
+                  hasRecording={Boolean(
+                    pronunciationAudioBlob || pronunciationAudioTempKey,
+                  )}
+                  onRecordingReady={handlePronunciationBlob}
+                  onRemove={clearPronunciationAudio}
+                />
               </div>
 
               <div className="space-y-1">
@@ -681,11 +893,11 @@ export function BrandRegisterForm() {
                   Product Type <span className="text-red-500">*</span>
                 </Label>
                 <div className="grid grid-cols-3 gap-3">
-                  {[
+                  {([
                     { value: "PHYSICAL", label: "Physical", icon: Package },
                     { value: "DIGITAL", label: "Digital", icon: MonitorPlay },
                     { value: "BOTH", label: "Both", icon: ShoppingBag },
-                  ].map((type) => {
+                  ] as const).map((type) => {
                     const isSelected = form.watch("productType") === type.value;
                     const Icon = type.icon;
                     return (
@@ -693,7 +905,7 @@ export function BrandRegisterForm() {
                         key={type.value}
                         type="button"
                         onClick={() =>
-                          form.setValue("productType", type.value as any, {
+                          form.setValue("productType", type.value, {
                             shouldValidate: true,
                           })
                         }
@@ -969,9 +1181,18 @@ export function BrandRegisterForm() {
         <div className="flex items-center gap-6">
           <Button
             type="submit"
+            disabled={pendingAny}
             className="h-11 flex-1 rounded-full bg-[#F2F2F2] text-[15px] font-bold text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           >
-            Create my brand profile &rarr;
+            {submitStatus === "uploading"
+              ? "Uploading assets..."
+              : submitStatus === "registering"
+                ? "Creating profile..."
+                : submitStatus === "verifying"
+                  ? "Verifying phone..."
+                  : registeredUser
+                    ? "Verify phone & continue ->"
+                    : "Create my brand profile ->"}
           </Button>
 
           <div className="text-right text-[11px] text-[#8B8489] leading-tight">

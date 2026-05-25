@@ -274,6 +274,8 @@ model CreatorProfile {
   /// Primary contact email for orders and platform communication.
   contactEmail        String?
   instagramUrl        String?
+  /// Optional Google Drive folder/file link shared at signup (viewer access).
+  driveLink           String?
   youtubeUrl          String?
   tiktokUrl           String?
   snapchatUrl         String?

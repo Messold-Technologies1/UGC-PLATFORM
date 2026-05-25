@@ -117,7 +117,6 @@ export class CreatorProfileController {
   }
 
   @Get('suggestions/categories')
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'List category experience facet options (catalog)',
     description:
@@ -131,7 +130,6 @@ export class CreatorProfileController {
 
 
   @Get('suggestions/restrictions')
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List creator restriction suggestions' })
   @ApiOkResponse({ type: () => [CreatorSuggestionItemDto] })
   async listRestrictionSuggestions(): Promise<CreatorSuggestionItemDto[]> {

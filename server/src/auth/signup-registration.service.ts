@@ -60,6 +60,13 @@ export class SignupRegistrationService {
     await this.assertSignupPhoneOtpApproved(dto.phone, dto.phoneOtpCode);
 
     const portfolioKeys = dto.portfolioSignupVideoTempKeys ?? [];
+    const driveLink = dto.driveLink?.trim() || null;
+    if (portfolioKeys.length === 0 && !driveLink) {
+      throw new BadRequestException(
+        'Upload at least one portfolio video or provide a Google Drive link',
+      );
+    }
+
     for (const k of portfolioKeys) {
       const key = k.trim();
       if (!this.storage.isTempCreatorPortfolioVideoKeyForSignup(email, key)) {
@@ -96,6 +103,7 @@ export class SignupRegistrationService {
             countryName: dto.country.trim(),
             bio: dto.bio?.trim() || null,
             instagramUrl: dto.instagramUrl?.trim() || null,
+            driveLink: dto.driveLink?.trim() || null,
             categorySlugs: dto.categorySlugs,
           },
         );

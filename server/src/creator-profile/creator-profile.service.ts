@@ -628,6 +628,7 @@ export class CreatorProfileService {
           !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
+        driveLink: input.driveLink?.trim() || null,
         creatorApproval: {
           create: {},
         },
@@ -993,6 +994,7 @@ export class CreatorProfileService {
       gender: profile.gender ?? null,
       age,
       instagramUrl: profile.instagramUrl ?? null,
+      driveLink: profile.driveLink ?? null,
       contentCategories,
       portfolioVideos,
       approvalStatus:
@@ -1428,9 +1430,9 @@ export class CreatorProfileService {
     const rows = await this.prisma.creatorFacetOption.findMany({
       where: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, label: true },
+      select: { id: true, label: true , slug: true},
     });
-    return rows.map((r) => ({ id: r.id, name: r.label }));
+    return rows.map((r) => ({ id: r.id, name: r.label, slug: r.slug }));
   }
 
  

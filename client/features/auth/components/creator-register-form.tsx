@@ -22,8 +22,12 @@ import {
   Smartphone,
   Home,
   Heart,
+  Shirt,
+  Sparkles,
+  Tag,
   X,
   ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,6 +53,7 @@ import {
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import { useCreatorCategorySuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 import { cn } from "@/lib/utils";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
@@ -60,6 +65,16 @@ const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
   "video/quicktime",
   "video/webm",
 ] as const;
+const GOOGLE_DRIVE_LINK_REGEX =
+  /^https:\/\/(drive\.google\.com|docs\.google\.com)\/.+/i;
+
+type PortfolioInputMode = "upload" | "drive";
+
+function isValidGoogleDriveLink(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return GOOGLE_DRIVE_LINK_REGEX.test(trimmed);
+}
 
 const creatorSignupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
@@ -84,6 +99,13 @@ const creatorSignupSchema = z.object({
     .url("Must be a valid URL")
     .optional()
     .or(z.literal("")),
+  driveLink: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => !val || isValidGoogleDriveLink(val), {
+      message: "Enter a valid Google Drive sharing link",
+    }),
   categories: z.array(z.string()).min(1, "Select at least one category"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   termsAccepted: z.boolean().refine((val) => val === true, {
@@ -93,14 +115,81 @@ const creatorSignupSchema = z.object({
 
 type CreatorSignupData = z.infer<typeof creatorSignupSchema>;
 
-const CATEGORIES = [
-  { slug: "fitness_gym", label: "Fitness / Gym", icon: Activity },
-  { slug: "food_cooking", label: "Food / Cooking", icon: Utensils },
-  { slug: "travel", label: "Travel", icon: Plane },
-  { slug: "technology_gadgets", label: "Technology / Gadgets", icon: Smartphone },
-  { slug: "home_lifestyle", label: "Home / Lifestyle", icon: Home },
-  { slug: "health_wellness", label: "Health / Wellness", icon: Heart },
-];
+const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
+  name: "Full name",
+  age: "Age",
+  gender: "Gender",
+  city: "City",
+  state: "State",
+  country: "Country",
+  phone: "Phone number",
+  phoneOtpCode: "Phone verification code",
+  email: "Email",
+  bio: "Short bio (at least 10 characters)",
+  instagramUrl: "Instagram URL",
+  driveLink: "Google Drive portfolio link",
+  categories: "At least one category",
+  password: "Password (at least 8 characters)",
+  termsAccepted: "Terms acceptance",
+};
+
+function getCreatorSignupBlockers(
+  values: CreatorSignupData,
+  ctx: {
+    activeOtpPhone: string | null;
+    hasPortfolioVideo: boolean;
+    portfolioInputMode: PortfolioInputMode;
+  },
+): string[] {
+  const blockers: string[] = [];
+  if (ctx.portfolioInputMode === "drive") {
+    if (!isValidGoogleDriveLink(values.driveLink ?? "")) {
+      blockers.push("Google Drive portfolio link");
+    }
+  } else if (!ctx.hasPortfolioVideo) {
+    blockers.push("Upload at least one portfolio video");
+  }
+  const phone = values.phone.trim();
+  if (!ctx.activeOtpPhone || phone !== ctx.activeOtpPhone) {
+    blockers.push("Verify your phone with OTP");
+  }
+
+  const parsed = creatorSignupSchema.safeParse(values);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof CreatorSignupData | undefined;
+      const label = key ? SIGNUP_FIELD_LABELS[key] : undefined;
+      if (label && !blockers.includes(label)) blockers.push(label);
+    }
+  }
+  return blockers;
+}
+
+function isCreatorSignupReady(
+  values: CreatorSignupData,
+  ctx: {
+    activeOtpPhone: string | null;
+    hasPortfolioVideo: boolean;
+    portfolioInputMode: PortfolioInputMode;
+  },
+): boolean {
+  return getCreatorSignupBlockers(values, ctx).length === 0;
+}
+
+const CATEGORY_SUGGESTIONS_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const CATEGORY_ICON_BY_SLUG: Record<string, LucideIcon> = {
+  fashion: Shirt,
+  beauty_skincare: Sparkles,
+  fitness_gym: Activity,
+  food_cooking: Utensils,
+  travel: Plane,
+  technology_gadgets: Smartphone,
+  home_lifestyle: Home,
+  health_wellness: Heart,
+};
+
+const DEFAULT_CATEGORY_ICON = Tag;
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -186,10 +275,35 @@ export function CreatorRegisterForm() {
   const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
     "idle" | "uploading" | "uploaded"
   >("idle");
+  const [portfolioInputMode, setPortfolioInputMode] =
+    useState<PortfolioInputMode>("upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
+    staleTime: CATEGORY_SUGGESTIONS_CACHE_MS,
+    gcTime: CATEGORY_SUGGESTIONS_CACHE_MS,
+  });
+
+  const categoryOptions = useMemo(
+    () =>
+      (categorySuggestionsQuery.data ?? [])
+        .map((item) => ({
+          slug: item.slug?.trim() ?? "",
+          label: item.name.trim(),
+        }))
+        .filter((item) => item.slug && item.label),
+    [categorySuggestionsQuery.data],
+  );
+
+  const categoryLabelBySlug = useMemo(
+    () => new Map(categoryOptions.map((c) => [c.slug, c.label])),
+    [categoryOptions],
+  );
 
   const form = useForm<CreatorSignupData>({
     resolver: zodResolver(creatorSignupSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       age: "" as unknown as number,
@@ -199,6 +313,7 @@ export function CreatorRegisterForm() {
       email: "",
       bio: "",
       instagramUrl: "",
+      driveLink: "",
       categories: [],
       password: "",
       termsAccepted: false,
@@ -289,6 +404,20 @@ export function CreatorRegisterForm() {
   const pendingSubmit =
     registerCreatorMutation.isPending || portfolioVideoStatus === "uploading";
   const pendingAny = pendingSubmit || sendSignupPhoneOtpMutation.isPending;
+
+  const signupFormValues = form.watch();
+  const hasPortfolioVideo =
+    portfolioVideoFiles.length > 0 || portfolioVideoTempKeys.length > 0;
+  const signupBlockers = useMemo(
+    () =>
+      getCreatorSignupBlockers(signupFormValues, {
+        activeOtpPhone,
+        hasPortfolioVideo,
+        portfolioInputMode,
+      }),
+    [signupFormValues, activeOtpPhone, hasPortfolioVideo, portfolioInputMode],
+  );
+  const isSignupComplete = signupBlockers.length === 0;
 
   useEffect(() => {
     if (!otpResendAvailableAt) return;
@@ -386,11 +515,23 @@ export function CreatorRegisterForm() {
       return;
     }
 
-    if (
+    const driveLink = normalizeOptionalText(data.driveLink);
+    const useDrivePortfolio = portfolioInputMode === "drive";
+
+    if (useDrivePortfolio) {
+      if (!isValidGoogleDriveLink(driveLink ?? "")) {
+        const message =
+          "Paste a valid Google Drive link (Anyone with the link → Viewer).";
+        form.setError("driveLink", { message });
+        toast.error(message);
+        return;
+      }
+    } else if (
       portfolioVideoFiles.length === 0 &&
       portfolioVideoTempKeys.length === 0
     ) {
-      const message = "Upload at least one portfolio video before creating your profile.";
+      const message =
+        "Upload at least one portfolio video before creating your profile.";
       setPortfolioVideoError(message);
       toast.error(message);
       return;
@@ -398,7 +539,9 @@ export function CreatorRegisterForm() {
 
     try {
       const email = data.email.trim().toLowerCase();
-      const portfolioVideoKeys = await uploadPortfolioVideos(email);
+      const portfolioVideoKeys = useDrivePortfolio
+        ? []
+        : await uploadPortfolioVideos(email);
       registerCreatorMutation.mutate({
         email,
         password: data.password,
@@ -412,8 +555,10 @@ export function CreatorRegisterForm() {
         country: data.country.trim(),
         bio: normalizeOptionalText(data.bio),
         instagramUrl: normalizeOptionalText(data.instagramUrl),
+        driveLink: useDrivePortfolio ? driveLink : undefined,
         categorySlugs: data.categories,
-        portfolioSignupVideoTempKeys: portfolioVideoKeys,
+        portfolioSignupVideoTempKeys:
+          portfolioVideoKeys.length > 0 ? portfolioVideoKeys : undefined,
       });
     } catch (error) {
       setPortfolioVideoStatus("idle");
@@ -532,8 +677,12 @@ export function CreatorRegisterForm() {
                     Gender <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    onValueChange={(val) => form.setValue("gender", val as any)}
-                    defaultValue={form.getValues("gender")}
+                    value={form.watch("gender")}
+                    onValueChange={(val) =>
+                      form.setValue("gender", val as CreatorSignupData["gender"], {
+                        shouldValidate: true,
+                      })
+                    }
                   >
                     <SelectTrigger
                       id="gender"
@@ -554,7 +703,7 @@ export function CreatorRegisterForm() {
                   )}
                 </div>
               </div>
-
+              <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label
                   htmlFor="country"
@@ -575,7 +724,7 @@ export function CreatorRegisterForm() {
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+           
                 <div className="space-y-1">
                   <Label
                     htmlFor="state"
@@ -867,8 +1016,17 @@ export function CreatorRegisterForm() {
                 >
                   Short bio <span className="text-red-500">*</span>
                 </Label>
-                <span className="text-[11px] text-slate-400">
-                  2-3 sentences
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    (form.watch("bio")?.length ?? 0) < 10
+                      ? "text-slate-400"
+                      : "text-green-600 dark:text-green-500",
+                  )}
+                >
+                  {(form.watch("bio")?.length ?? 0) < 10
+                    ? `${form.watch("bio")?.length ?? 0}/10 characters minimum`
+                    : "2-3 sentences"}
                 </span>
               </div>
               <Textarea
@@ -924,10 +1082,10 @@ export function CreatorRegisterForm() {
               <div className="space-y-3">
                 <div>
                   <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                    Portfolio video <span className="text-red-500">*</span>
+                    Portfolio <span className="text-red-500">*</span>
                   </Label>
                   <p className="mt-1 text-xs text-slate-500">
-                    Upload a portfolio reel directly.
+                    Upload reels directly or share a Google Drive folder.
                   </p>
                 </div>
 
@@ -935,17 +1093,34 @@ export function CreatorRegisterForm() {
                   <button
                     type="button"
                     disabled={pendingAny}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm transition-colors disabled:opacity-60 dark:bg-slate-800 dark:text-white"
+                    onClick={() => {
+                      setPortfolioInputMode("upload");
+                      setPortfolioVideoError(null);
+                      form.clearErrors("driveLink");
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-60",
+                      portfolioInputMode === "upload"
+                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
+                    )}
                   >
                     <Upload className="size-3.5" />
                     Upload file
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title="Drive link uploads are coming soon"
-                    className="flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold text-slate-400 opacity-60 dark:text-slate-500"
+                    disabled={pendingAny}
+                    onClick={() => {
+                      setPortfolioInputMode("drive");
+                      setPortfolioVideoError(null);
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-60",
+                      portfolioInputMode === "drive"
+                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
+                    )}
                   >
                     <svg
                       className="size-3.5"
@@ -959,6 +1134,35 @@ export function CreatorRegisterForm() {
                   </button>
                 </div>
 
+                {portfolioInputMode === "drive" ? (
+                  <div className="space-y-2">
+                    <Input
+                      id="driveLink"
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      disabled={pendingAny}
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] bg-white text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] dark:border-slate-800 dark:bg-slate-950"
+                      {...form.register("driveLink")}
+                    />
+                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs leading-relaxed text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                      <p className="font-bold">Before you paste your link</p>
+                      <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
+                        In Google Drive, open <span className="font-semibold">Share</span>{" "}
+                        and enable{" "}
+                        <span className="font-semibold">
+                          &quot;Anyone with the link&quot;
+                        </span>{" "}
+                        → <span className="font-semibold">Viewer</span> access so
+                        our team can review your portfolio.
+                      </p>
+                    </div>
+                    {form.formState.errors.driveLink && (
+                      <p className="text-xs text-red-500">
+                        {form.formState.errors.driveLink.message}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                <>
                 <div
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -1057,6 +1261,8 @@ export function CreatorRegisterForm() {
                     ))}
                   </div>
                 )}
+                </>
+                )}
               </div>
             </div>
           </div>
@@ -1097,9 +1303,7 @@ export function CreatorRegisterForm() {
                   <div className="flex flex-wrap gap-2 items-center">
                     {selectedCategories.length > 0
                       ? selectedCategories.map((slug) => {
-                          const label = CATEGORIES.find(
-                            (c) => c.slug === slug,
-                          )?.label;
+                          const label = categoryLabelBySlug.get(slug) ?? slug;
                           return (
                             <div
                               key={slug}
@@ -1138,59 +1342,76 @@ export function CreatorRegisterForm() {
                 </div>
                 {categoriesOpen && (
                   <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
-                    {CATEGORIES.map((category) => {
-                      const isSelected = selectedCategories.includes(
-                        category.slug,
-                      );
-                      return (
-                        <button
-                          type="button"
-                          key={category.slug}
-                          onClick={() => {
-                            const current = form.getValues("categories");
-                            const checked = !isSelected;
-                            const next = checked
-                              ? [...current, category.slug]
-                              : current.filter((c) => c !== category.slug);
-                            form.setValue("categories", next, {
-                              shouldValidate: true,
-                            });
-                          }}
-                          className={cn(
-                            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 my-1 cursor-pointer text-left",
-                            isSelected
-                              ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                              : "text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900",
-                          )}
-                        >
-                          <div
+                    {categorySuggestionsQuery.isLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Spinner className="size-5" />
+                      </div>
+                    ) : categorySuggestionsQuery.isError ? (
+                      <p className="px-2 py-3 text-xs text-red-500">
+                        Could not load categories. Please refresh and try again.
+                      </p>
+                    ) : categoryOptions.length === 0 ? (
+                      <p className="px-2 py-3 text-xs text-slate-500">
+                        No categories available.
+                      </p>
+                    ) : (
+                      categoryOptions.map((category) => {
+                        const isSelected = selectedCategories.includes(
+                          category.slug,
+                        );
+                        const CategoryIcon =
+                          CATEGORY_ICON_BY_SLUG[category.slug] ??
+                          DEFAULT_CATEGORY_ICON;
+                        return (
+                          <button
+                            type="button"
+                            key={category.slug}
+                            onClick={() => {
+                              const current = form.getValues("categories");
+                              const checked = !isSelected;
+                              const next = checked
+                                ? [...current, category.slug]
+                                : current.filter((c) => c !== category.slug);
+                              form.setValue("categories", next, {
+                                shouldValidate: true,
+                              });
+                            }}
                             className={cn(
-                              "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 my-1 cursor-pointer text-left",
                               isSelected
-                                ? "bg-red-500 text-white"
-                                : "bg-slate-100 text-slate-500 dark:bg-slate-800",
+                                ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                : "text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900",
                             )}
                           >
-                            <category.icon className="size-4" />
-                          </div>
-                          <span className="flex-1 font-medium">
-                            {category.label}
-                          </span>
-                          <div
-                            className={cn(
-                              "flex size-5 shrink-0 items-center justify-center rounded border",
-                              isSelected
-                                ? "border-red-500 bg-red-500 text-white"
-                                : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-950",
-                            )}
-                          >
-                            {isSelected && (
-                              <Check className="size-3.5 stroke-[3]" />
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                            <div
+                              className={cn(
+                                "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                                isSelected
+                                  ? "bg-red-500 text-white"
+                                  : "bg-slate-100 text-slate-500 dark:bg-slate-800",
+                              )}
+                            >
+                              <CategoryIcon className="size-4" />
+                            </div>
+                            <span className="flex-1 font-medium">
+                              {category.label}
+                            </span>
+                            <div
+                              className={cn(
+                                "flex size-5 shrink-0 items-center justify-center rounded border",
+                                isSelected
+                                  ? "border-red-500 bg-red-500 text-white"
+                                  : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-950",
+                              )}
+                            >
+                              {isSelected && (
+                                <Check className="size-3.5 stroke-[3]" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 )}
               </div>
@@ -1295,25 +1516,32 @@ export function CreatorRegisterForm() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <Button
-            type="submit"
-            disabled={
-              pendingSubmit ||
-              (portfolioVideoFiles.length === 0 &&
-                portfolioVideoTempKeys.length === 0)
-            }
-            className="h-11 flex-1 rounded-full bg-[#F2F2F2] text-[15px] font-bold text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-          >
-            {pendingSubmit ? (
-              <>
-                <Spinner className="size-4" aria-hidden />
-                Creating profile...
-              </>
-            ) : (
-              <>Create my creator profile &rarr;</>
-            )}
-          </Button>
+        <div className="flex flex-col gap-2">
+          {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Still needed: {signupBlockers.join(" · ")}
+            </p>
+          ) : null}
+          <div className="flex items-center gap-6">
+            <Button
+              type="submit"
+              disabled={!isSignupComplete || pendingSubmit}
+              className={cn(
+                "h-11 flex-1 rounded-full text-[15px] font-bold transition-colors",
+                isSignupComplete
+                  ? "bg-[#ef3e51] text-white hover:bg-[#d63647] disabled:opacity-70 dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
+                  : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
+              )}
+            >
+              {pendingSubmit ? (
+                <>
+                  <Spinner className="size-4" aria-hidden />
+                  Creating profile...
+                </>
+              ) : (
+                <>Create my creator profile &rarr;</>
+              )}
+            </Button>
 
           <div className="text-right text-[11px] text-[#8B8489] leading-tight">
             Hiring instead? <br />
@@ -1323,6 +1551,7 @@ export function CreatorRegisterForm() {
             >
               Sign up as a brand
             </Link>
+          </div>
           </div>
         </div>
       </div>

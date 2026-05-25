@@ -17,6 +17,7 @@ import {
 type SuggestionQueryOptions = {
   enabled?: boolean;
   staleTime?: number;
+  gcTime?: number;
 };
 
 export function useCreatorCategorySuggestionsQuery(
@@ -27,6 +28,7 @@ export function useCreatorCategorySuggestionsQuery(
     queryFn: fetchCreatorCategorySuggestions,
     enabled: options?.enabled,
     staleTime: options?.staleTime,
+    gcTime: options?.gcTime,
   });
 }
 

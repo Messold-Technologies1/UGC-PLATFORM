@@ -461,6 +461,7 @@ describe('CreatorProfileService', () => {
       gender: 'FEMALE',
       dateOfBirth: new Date('1998-01-01'),
       instagramUrl: 'https://instagram.com/jane',
+      driveLink: 'https://drive.google.com/drive/folders/abc123',
       user: { phone: '+919876543210', phoneVerified: true },
       facetSelections: [
         {
@@ -503,6 +504,7 @@ describe('CreatorProfileService', () => {
       phoneVerified: true,
       contactEmail: 'jane@example.com',
       city: 'Bengaluru',
+      driveLink: 'https://drive.google.com/drive/folders/abc123',
       contentCategories: [{ slug: 'beauty', label: 'Beauty' }],
       approvalStatus: ApprovalStatus.PENDING,
       submittedAt: submitted,

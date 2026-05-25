@@ -176,6 +176,25 @@ export default function ReviewDrawer({
                         )}
                       </dd>
                     </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                        Google Drive
+                      </dt>
+                      <dd className="font-medium break-all">
+                        {creator.driveLink ? (
+                          <a
+                            href={creator.driveLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {creator.driveLink}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </dd>
+                    </div>
                   </dl>
 
                   {creator.contentCategories.length > 0 && (
@@ -230,6 +249,20 @@ export default function ReviewDrawer({
                           </div>
                         );
                       })}
+                    </div>
+                  ) : creator.driveLink ? (
+                    <div className="rounded-xl border border-border/20 bg-card/20 px-4 py-3 text-sm">
+                      <p className="text-muted-foreground font-medium">
+                        Portfolio provided via Google Drive at signup.
+                      </p>
+                      <a
+                        href={creator.driveLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-block break-all text-primary hover:underline"
+                      >
+                        Open Drive folder
+                      </a>
                     </div>
                   ) : (
                     <div className="py-8 text-center bg-card/20 rounded-xl border border-border/20">

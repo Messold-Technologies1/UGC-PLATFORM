@@ -1,0 +1,9 @@
+{{!-- context: recipientName, platformName, actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  Great news — your creator profile on <strong>{{platformName}}</strong> has been approved. You can now receive orders from brands.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Go to dashboard"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

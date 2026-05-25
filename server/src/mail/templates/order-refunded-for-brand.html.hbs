@@ -1,0 +1,26 @@
+{{!-- context: recipientName, platformName, packageName, orderId, refundAmount (optional), refundedAt, actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  Your payment for order
+  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>
+  (<strong>"{{packageName}}"</strong>) has been refunded.
+</p>
+<table style="margin:0 0 20px;width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+  {{#if refundAmount}}
+  <tr>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:120px;">Amount</td>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;"><strong>{{refundAmount}}</strong></td>
+  </tr>
+  {{/if}}
+  <tr>
+    <td style="padding:8px 0;color:#6b7280;">Refunded on</td>
+    <td style="padding:8px 0;">{{refundedAt}}</td>
+  </tr>
+</table>
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
+  Depending on your bank or card issuer, it may take a few business days for the amount to appear in your account.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

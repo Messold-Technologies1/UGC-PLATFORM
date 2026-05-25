@@ -39,4 +39,8 @@ export const envValidationSchema = Joi.object({
   TWILIO_ACCOUNT_SID: Joi.string().optional(),
   TWILIO_AUTH_TOKEN: Joi.string().optional(),
   TWILIO_VERIFY_SERVICE_SID: Joi.string().optional(),
+
+  // Email (SES) — optional until outbound mail is enabled
+  SES_FROM_EMAIL: Joi.string().email().optional(),
+  MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
 });

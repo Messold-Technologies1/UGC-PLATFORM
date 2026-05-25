@@ -1,0 +1,13 @@
+Hi {{recipientName}},
+
+Your payment for order {{orderId}} ("{{packageName}}") has been refunded.
+{{#if refundAmount}}
+Amount: {{refundAmount}}
+{{/if}}
+Refunded on: {{refundedAt}}
+
+Depending on your bank or card issuer, it may take a few business days for the amount to appear in your account.
+
+View order: {{actionUrl}}
+
+— The {{platformName}} team

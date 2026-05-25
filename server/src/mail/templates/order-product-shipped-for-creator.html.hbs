@@ -1,0 +1,26 @@
+{{!-- context: recipientName, platformName, brandName, orderId, courierName, trackingId (optional), dispatchedAt, actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  <strong>{{brandName}}</strong> shipped the product for order
+  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>.
+</p>
+<table style="margin:0 0 20px;width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+  <tr>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:120px;">Courier</td>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;">{{courierName}}</td>
+  </tr>
+  {{#if trackingId}}
+  <tr>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;">Tracking</td>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-family:monospace;">{{trackingId}}</td>
+  </tr>
+  {{/if}}
+  <tr>
+    <td style="padding:8px 0;color:#6b7280;">Dispatched</td>
+    <td style="padding:8px 0;">{{dispatchedAt}}</td>
+  </tr>
+</table>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Confirm receipt"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

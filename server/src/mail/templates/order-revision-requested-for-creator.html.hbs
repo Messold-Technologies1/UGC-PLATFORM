@@ -1,0 +1,19 @@
+{{!-- context: recipientName, platformName, brandName, packageName, orderId, revisionNumber (optional), revisionsRemaining (optional), actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  <strong>{{brandName}}</strong> requested a revision on your delivery for
+  <strong>"{{packageName}}"</strong> (order
+  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>).
+</p>
+{{#if revisionNumber}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  This is revision <strong>{{revisionNumber}}</strong>{{#if revisionsRemaining}} — you have <strong>{{revisionsRemaining}}</strong> revision(s) remaining on this order{{/if}}.
+</p>
+{{/if}}
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
+  Please review the brand’s feedback and submit an updated delivery when ready.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

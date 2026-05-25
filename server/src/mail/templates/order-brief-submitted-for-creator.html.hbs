@@ -1,0 +1,20 @@
+{{!-- context: recipientName, platformName, brandName, packageName, orderId, briefSubmittedAt, actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  <strong>{{brandName}}</strong> submitted a brief for your package
+  <strong>"{{packageName}}"</strong>. Review the brief and accept the order to get started.
+</p>
+<table style="margin:0 0 20px;width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+  <tr>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:120px;">Order</td>
+    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;">{{orderId}}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px 0;color:#6b7280;">Submitted</td>
+    <td style="padding:8px 0;">{{briefSubmittedAt}}</td>
+  </tr>
+</table>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Review brief"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

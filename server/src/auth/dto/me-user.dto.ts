@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApprovalStatus } from '@prisma/client';
 
 /** Workspace slice of the user returned by `GET /auth/me` and auth flows. */
 export class MeUserDto {
@@ -23,6 +24,14 @@ export class MeUserDto {
 
   @ApiProperty()
   hasCreatorProfile!: boolean;
+
+  @ApiPropertyOptional({
+    enum: ApprovalStatus,
+    nullable: true,
+    description:
+      'Creator profile approval status. Included when the user has the CREATOR role; null if they have no creator profile yet.',
+  })
+  creatorApprovalStatus?: ApprovalStatus | null;
 
   @ApiProperty()
   hasBrandProfile!: boolean;

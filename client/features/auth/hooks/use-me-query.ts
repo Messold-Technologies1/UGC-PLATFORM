@@ -5,6 +5,8 @@ import api, { persistAuthMeSnapshot } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 export type WorkspaceRole = "CREATOR" | "BRAND" | "ADMIN" | "AGENCY";
 
+export type CreatorApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export type AccessibleBrandSummary = {
   id: string;
   brandName: string;
@@ -18,6 +20,8 @@ export type AuthUser = {
   roles: WorkspaceRole[];
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;
+  /** Set when `roles` includes CREATOR; null if no creator profile yet. */
+  creatorApprovalStatus?: CreatorApprovalStatus | null;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
   brandAccessRevoked: boolean;

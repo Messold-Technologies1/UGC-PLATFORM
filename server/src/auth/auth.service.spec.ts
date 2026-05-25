@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
-import { RoleName } from '@prisma/client';
+import { ApprovalStatus, RoleName } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 
@@ -57,7 +57,10 @@ describe('AuthService', () => {
       brandAccessRevokedAt: null,
       primaryRole: { name: RoleName.BRAND },
       userRoles: [{ role: { name: RoleName.CREATOR } }],
-      creatorProfile: { id: 'creator-profile-1' },
+      creatorProfile: {
+        id: 'creator-profile-1',
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      },
       brandProfile: {
         id: 'brand-profile-1',
         brandName: 'Acme',
@@ -74,6 +77,7 @@ describe('AuthService', () => {
       email: 'user@example.com',
       primaryRole: 'BRAND',
       hasCreatorProfile: true,
+      creatorApprovalStatus: ApprovalStatus.APPROVED,
       hasBrandProfile: true,
       hasAgencyProfile: false,
       brandAccessRevoked: false,
@@ -91,7 +95,10 @@ describe('AuthService', () => {
       brandAccessRevokedAt: null,
       primaryRole: null,
       userRoles: [{ role: { name: RoleName.CREATOR } }],
-      creatorProfile: { id: 'creator-profile-1' },
+      creatorProfile: {
+        id: 'creator-profile-1',
+        creatorApproval: { status: ApprovalStatus.PENDING },
+      },
       brandProfile: null,
       ownedAgency: null,
     });
@@ -102,10 +109,34 @@ describe('AuthService', () => {
       primaryRole: 'CREATOR',
       roles: ['CREATOR'],
       hasCreatorProfile: true,
+      creatorApprovalStatus: ApprovalStatus.PENDING,
       hasBrandProfile: false,
       hasAgencyProfile: false,
       activeBrandProfileId: null,
       accessibleBrands: [],
     });
+  });
+
+  it('omits creatorApprovalStatus when the user has no CREATOR role', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'brand@example.com',
+      name: 'Brand User',
+      status: 'ACTIVE',
+      brandAccessRevokedAt: null,
+      primaryRole: { name: RoleName.BRAND },
+      userRoles: [{ role: { name: RoleName.BRAND } }],
+      creatorProfile: null,
+      brandProfile: {
+        id: 'brand-profile-1',
+        brandName: 'Acme',
+        logoUrl: null,
+      },
+      ownedAgency: null,
+    });
+
+    const result = await service.getMeForClient('user-1');
+
+    expect(result?.creatorApprovalStatus).toBeUndefined();
   });
 });

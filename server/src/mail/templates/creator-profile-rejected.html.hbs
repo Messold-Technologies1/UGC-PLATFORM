@@ -1,0 +1,15 @@
+{{!-- context: recipientName, platformName, rejectionReason (optional) --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  We regret to inform you that your creator profile application on <strong>{{platformName}}</strong> has not been approved at this time.
+</p>
+{{#if rejectionReason}}
+<div style="margin:0 0 16px;padding:12px 16px;background:#f9fafb;border-left:4px solid #9ca3af;border-radius:4px;">
+  <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#4b5563;">Note from our team</p>
+  <p style="margin:0;font-size:15px;line-height:1.5;color:#374151;">{{rejectionReason}}</p>
+</div>
+{{/if}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  We appreciate the time you took to apply and your interest in working with brands on our platform.
+</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

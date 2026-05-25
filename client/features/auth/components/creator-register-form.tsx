@@ -175,12 +175,10 @@ export function CreatorRegisterForm() {
     number | null
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
-  const [portfolioVideoFile, setPortfolioVideoFile] = useState<File | null>(
-    null,
+  const [portfolioVideoFiles, setPortfolioVideoFiles] = useState<File[]>([]);
+  const [portfolioVideoTempKeys, setPortfolioVideoTempKeys] = useState<string[]>(
+    [],
   );
-  const [portfolioVideoTempKey, setPortfolioVideoTempKey] = useState<
-    string | null
-  >(null);
   const [portfolioVideoError, setPortfolioVideoError] = useState<string | null>(
     null,
   );
@@ -305,47 +303,64 @@ export function CreatorRegisterForm() {
     sendSignupPhoneOtpMutation.mutate({ phone });
   }, [form, phoneInput, sendSignupPhoneOtpMutation]);
 
-  const handlePortfolioVideoFile = useCallback((file: File | null) => {
-    if (!file) return;
+  const handlePortfolioVideoFiles = useCallback(
+    (files: FileList | File[] | null) => {
+      if (!files || files.length === 0) return;
 
-    const error = validatePortfolioVideoFile(file);
-    if (error) {
-      setPortfolioVideoFile(null);
-      setPortfolioVideoTempKey(null);
+      const newFiles = Array.from(files);
+      let error: string | null = null;
+      for (const file of newFiles) {
+        error = validatePortfolioVideoFile(file);
+        if (error) break;
+      }
+
+      if (error) {
+        setPortfolioVideoError(error);
+        toast.error(error);
+        return;
+      }
+
+      setPortfolioVideoFiles((prev) => [...prev, ...newFiles]);
+      setPortfolioVideoTempKeys([]);
       setPortfolioVideoStatus("idle");
-      setPortfolioVideoError(error);
-      toast.error(error);
-      return;
-    }
+      setPortfolioVideoError(null);
+    },
+    [],
+  );
 
-    setPortfolioVideoFile(file);
-    setPortfolioVideoTempKey(null);
-    setPortfolioVideoStatus("idle");
-    setPortfolioVideoError(null);
-  }, []);
-
-  const uploadPortfolioVideo = useCallback(
-    async (email: string): Promise<string> => {
-      if (portfolioVideoTempKey) return portfolioVideoTempKey;
-      if (!portfolioVideoFile) {
+  const uploadPortfolioVideos = useCallback(
+    async (email: string): Promise<string[]> => {
+      if (
+        portfolioVideoTempKeys.length === portfolioVideoFiles.length &&
+        portfolioVideoFiles.length > 0
+      ) {
+        return portfolioVideoTempKeys;
+      }
+      if (portfolioVideoFiles.length === 0) {
         throw new Error(
-          "Upload a portfolio video before creating your profile.",
+          "Upload at least one portfolio video before creating your profile.",
         );
       }
 
       setPortfolioVideoStatus("uploading");
       setPortfolioVideoError(null);
-      const presign = await presignCreatorPortfolioVideo({
-        email,
-        contentType: portfolioVideoFile.type,
-        contentLength: portfolioVideoFile.size,
-      });
-      await putFileToPresignedUrl(portfolioVideoFile, presign);
-      setPortfolioVideoTempKey(presign.key);
+
+      const keys: string[] = [];
+      for (const file of portfolioVideoFiles) {
+        const presign = await presignCreatorPortfolioVideo({
+          email,
+          contentType: file.type,
+          contentLength: file.size,
+        });
+        await putFileToPresignedUrl(file, presign);
+        keys.push(presign.key);
+      }
+
+      setPortfolioVideoTempKeys(keys);
       setPortfolioVideoStatus("uploaded");
-      return presign.key;
+      return keys;
     },
-    [portfolioVideoFile, portfolioVideoTempKey],
+    [portfolioVideoFiles, portfolioVideoTempKeys],
   );
 
   const onSubmit = async (data: CreatorSignupData) => {
@@ -356,8 +371,11 @@ export function CreatorRegisterForm() {
       return;
     }
 
-    if (!portfolioVideoFile && !portfolioVideoTempKey) {
-      const message = "Upload a portfolio video before creating your profile.";
+    if (
+      portfolioVideoFiles.length === 0 &&
+      portfolioVideoTempKeys.length === 0
+    ) {
+      const message = "Upload at least one portfolio video before creating your profile.";
       setPortfolioVideoError(message);
       toast.error(message);
       return;
@@ -365,7 +383,7 @@ export function CreatorRegisterForm() {
 
     try {
       const email = data.email.trim().toLowerCase();
-      const portfolioVideoKey = await uploadPortfolioVideo(email);
+      const portfolioVideoKeys = await uploadPortfolioVideos(email);
       registerCreatorMutation.mutate({
         email,
         password: data.password,
@@ -380,7 +398,7 @@ export function CreatorRegisterForm() {
         bio: normalizeOptionalText(data.bio),
         instagramUrl: normalizeOptionalText(data.instagramUrl),
         categorySlugs: data.categories,
-        portfolioSignupVideoTempKeys: [portfolioVideoKey],
+        portfolioSignupVideoTempKeys: portfolioVideoKeys,
       });
     } catch (error) {
       setPortfolioVideoStatus("idle");
@@ -901,9 +919,7 @@ export function CreatorRegisterForm() {
                   onDrop={(event) => {
                     event.preventDefault();
                     if (pendingAny) return;
-                    handlePortfolioVideoFile(
-                      event.dataTransfer.files[0] ?? null,
-                    );
+                    handlePortfolioVideoFiles(event.dataTransfer.files);
                   }}
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
@@ -916,11 +932,12 @@ export function CreatorRegisterForm() {
                   <input
                     ref={fileInputRef}
                     type="file"
+                    multiple
                     accept={ACCEPTED_PORTFOLIO_VIDEO_TYPES.join(",")}
                     className="hidden"
                     disabled={pendingAny}
                     onChange={(event) => {
-                      handlePortfolioVideoFile(event.target.files?.[0] ?? null);
+                      handlePortfolioVideoFiles(event.target.files);
                       event.target.value = "";
                     }}
                   />
@@ -929,13 +946,13 @@ export function CreatorRegisterForm() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] font-bold text-slate-900 dark:text-white">
-                      Drop your reel here, or{" "}
+                      Drop your reels here, or{" "}
                       <span className="text-[#ef3e51] hover:text-[#d93849] underline decoration-[#ef3e51] underline-offset-2">
                         browse
                       </span>
                     </p>
                     <p className="mt-0.5 text-[13px] text-slate-500">
-                      MP4, MOV up to 200 MB &middot; 9:16 vertical preferred
+                      MP4, MOV up to 200 MB per file &middot; 9:16 vertical preferred
                     </p>
                     {portfolioVideoError ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -945,41 +962,52 @@ export function CreatorRegisterForm() {
                   </div>
                 </div>
 
-                {portfolioVideoFile && (
-                  <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 mt-3">
-                    <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ef3e51] to-[#8b5cf6] text-white">
-                      {portfolioVideoStatus === "uploading" ? (
-                        <Spinner className="size-6 text-white" aria-hidden />
-                      ) : (
-                        <Video className="size-6" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[16px] font-bold text-slate-900 truncate dark:text-white">
-                        {portfolioVideoFile.name}
-                      </p>
-                      <p className="text-[13px] text-slate-500 mt-0.5">
-                        {formatBytes(portfolioVideoFile.size)} &middot;{" "}
-                        {portfolioVideoFile.type || "video"}
-                        {portfolioVideoStatus === "uploading" &&
-                          " (Uploading...)"}
-                        {portfolioVideoStatus === "uploaded" && " (Uploaded)"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={pendingAny}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPortfolioVideoFile(null);
-                        setPortfolioVideoTempKey(null);
-                        setPortfolioVideoStatus("idle");
-                        setPortfolioVideoError(null);
-                      }}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 ml-2"
-                    >
-                      <X className="size-4" />
-                    </button>
+                {portfolioVideoFiles.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    {portfolioVideoFiles.map((file, index) => (
+                      <div
+                        key={`${file.name}-${index}`}
+                        className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950"
+                      >
+                        <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ef3e51] to-[#8b5cf6] text-white">
+                          {portfolioVideoStatus === "uploading" ? (
+                            <Spinner className="size-6 text-white" aria-hidden />
+                          ) : (
+                            <Video className="size-6" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[16px] font-bold text-slate-900 truncate dark:text-white">
+                            {file.name}
+                          </p>
+                          <p className="text-[13px] text-slate-500 mt-0.5">
+                            {formatBytes(file.size)} &middot;{" "}
+                            {file.type || "video"}
+                            {portfolioVideoStatus === "uploading" &&
+                              " (Uploading...)"}
+                            {portfolioVideoStatus === "uploaded" && " (Uploaded)"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={pendingAny}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPortfolioVideoFiles((prev) =>
+                              prev.filter((_, i) => i !== index),
+                            );
+                            setPortfolioVideoTempKeys([]);
+                            setPortfolioVideoStatus("idle");
+                            if (portfolioVideoFiles.length === 1) {
+                              setPortfolioVideoError(null);
+                            }
+                          }}
+                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 ml-2"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1224,7 +1252,9 @@ export function CreatorRegisterForm() {
           <Button
             type="submit"
             disabled={
-              pendingSubmit || (!portfolioVideoFile && !portfolioVideoTempKey)
+              pendingSubmit ||
+              (portfolioVideoFiles.length === 0 &&
+                portfolioVideoTempKeys.length === 0)
             }
             className="h-11 flex-1 rounded-full bg-[#F2F2F2] text-[15px] font-bold text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           >

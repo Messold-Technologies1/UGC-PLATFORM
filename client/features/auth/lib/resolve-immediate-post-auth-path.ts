@@ -17,6 +17,13 @@ export function resolveImmediatePostAuthPath(
     return "/admin";
   }
 
+  if (
+    user.primaryRole === "CREATOR" &&
+    user.creatorApprovalStatus === "PENDING"
+  ) {
+    return "/creator/under-review";
+  }
+
   if (canUseWorkspaceRole(user, user.primaryRole)) {
     return pathAfterWorkspaceSelection(
       user,

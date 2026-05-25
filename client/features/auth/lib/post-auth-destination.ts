@@ -39,6 +39,11 @@ export function resolvePostAuthRedirectPath(
     user.primaryRole,
     ...user.roles,
   ]);
+
+  if (role === "CREATOR" && user.creatorApprovalStatus === "PENDING") {
+    return "/creator/under-review";
+  }
+
   if (!role) {
     return postAuthContinuePath(callbackUrl);
   }

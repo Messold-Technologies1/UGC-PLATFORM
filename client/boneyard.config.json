@@ -1,7 +1,11 @@
 {
   "breakpoints": [375, 768, 1280],
   "out": "./app/bones",
-  "routes": ["/boneyard/admin-brand-management", "/boneyard/brand-creators-browser"],
+  "routes": [
+    "/boneyard/admin-brand-management",
+    "/boneyard/brand-creators-browser",
+    "/boneyard/creator-profile"
+  ],
   "animate": "shimmer",
   "color": "#ece7dd",
   "darkColor": "#26221c",

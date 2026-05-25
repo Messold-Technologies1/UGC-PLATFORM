@@ -1,9 +1,7 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
-import { DashboardOnboardingGate } from "@/components/onboarding/dashboard-onboarding-gate";
+import { type ReactNode } from "react";
 import type { PostAuthRole } from "@/features/auth/lib/post-auth-destination";
-
 
 const dashboardMainColumnClass =
   "w-full max-w-none px-4 pt-4 pb-8 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
@@ -23,11 +21,7 @@ export function PostLoginSetupShell({
 }) {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col bg-background text-foreground">
-      <Suspense fallback={null}>
-        <DashboardOnboardingGate role={role}>
-          <div className={dashboardContentClass[role]}>{children}</div>
-        </DashboardOnboardingGate>
-      </Suspense>
+      <div className={dashboardContentClass[role]}>{children}</div>
     </div>
   );
 }

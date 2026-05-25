@@ -6,7 +6,7 @@ import { useState, useSyncExternalStore} from "react";
 import { useTheme } from "next-themes";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
-  Menu, X, User, Moon, Sun,
+  Menu, X, User, Moon, Sun, Info,
   Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, MessageSquare, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { BrandSwitcher } from "@/features/brand/components/brand-switcher";
@@ -133,8 +139,16 @@ function isNavItemActive(pathname: string, item: NavItem): boolean {
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const pathname = usePathname();
+
+  const isPendingCreator = !!(user?.hasCreatorProfile && !user?.roles?.includes("CREATOR"));
+
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const navItems = getNavItems(pathname || "");
 
@@ -170,7 +184,7 @@ export function Navbar() {
     >
       <div className={cn(
         "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
-        mobileOpen ? "rounded-2xl" : "rounded-full",
+        mobileOpen ? "rounded-2xl" : "rounded-[24px] md:rounded-full",
       )}>
         <div className="relative flex h-12 w-full items-center justify-between overflow-visible px-4 sm:px-6">
           <div className="flex shrink-0 items-center gap-6 overflow-visible lg:gap-8">
@@ -304,11 +318,21 @@ export function Navbar() {
             </div>
           )}
         <div className="hidden items-center gap-2 md:flex shrink-0">
-          <ThemeToggle />
-          {isLoading ? (
+          {/* <ThemeToggle /> */}
+          {!mounted || isLoading ? (
             <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthenticated ? (
             <>
+              {isPendingCreator && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center text-amber-500 hover:text-amber-600 transition-colors cursor-help px-2">
+                      <Info className="size-5" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Your profile is under review</TooltipContent>
+                </Tooltip>
+              )}
               {(pathname === "/brand" ||
                 pathname.startsWith("/brand/")) && (
                 <BrandSwitcher />
@@ -323,21 +347,53 @@ export function Navbar() {
                   Log in
                 </Link>
               </Button>
-              <Button
-                asChild
-                size="sm"
-                className="bg-foreground border-0 text-background hover:opacity-90 font-heading"
-              >
-                <Link href="/signup" prefetch>
-                  Get Started
-                </Link>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-foreground border-0 text-background hover:opacity-90 font-heading"
+                  >
+                    Get Started
+                    <ChevronDown className="ml-1 size-3 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 font-heading rounded-xl">
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/register/creator" className="w-full">
+                      <User className="mr-2 size-4 opacity-70" />
+                      As a Creator
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/register/brand" className="w-full">
+                      <Briefcase className="mr-2 size-4 opacity-70" />
+                      As a Brand
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="#" className="w-full">
+                      <Users className="mr-2 size-4 opacity-70" />
+                      As Agency
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>
 
         <div className="flex items-center gap-1 md:hidden">
-          <ThemeToggle />
+          {isPendingCreator && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center mr-1 text-amber-500 cursor-help">
+                  <Info className="size-5" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Your profile is under review</TooltipContent>
+            </Tooltip>
+          )}
+          {isAuthenticated && <NotificationDropdown />}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -365,14 +421,13 @@ export function Navbar() {
         role="navigation"
         aria-label="Mobile navigation"
         className={cn(
-          "overflow-hidden border-t border-border/60 transition-all duration-200 md:hidden",
-          mobileOpen
-            ? "max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto"
-            : "max-h-0 border-t-0",
+          "grid transition-[grid-template-rows] duration-300 md:hidden",
+          mobileOpen ? "grid-rows-[1fr] border-t border-border/60" : "grid-rows-[0fr] border-t-0"
         )}
       >
-        <div className="flex flex-col gap-1 px-4 py-3">
-          {navItems.length > 0 && (
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-1 px-4 py-3 max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto">
+            {navItems.length > 0 && (
             <>
               {navItems.map((item) => {
                 const isActive = isNavItemActive(pathname || "", item);
@@ -427,9 +482,12 @@ export function Navbar() {
             </>
           )}
 
-          {isAuthenticated ? (
-            <div className="flex items-center gap-4 px-3 py-2">
-              <NotificationDropdown />
+          {!mounted || isLoading ? (
+            <div className="px-3 py-2">
+              <div className="h-7 w-32 animate-pulse rounded-lg bg-muted" />
+            </div>
+          ) : isAuthenticated ? (
+            <div className="px-3 py-2">
               <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
             </div>
           ) : (
@@ -442,18 +500,42 @@ export function Navbar() {
               >
                 Log in
               </Link>
-              <Link
-                href="/signup"
-                prefetch
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <User className="size-4" />
-                Get Started
-              </Link>
+              <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
+                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  Get Started
+                </div>
+                <Link
+                  href="/register/creator"
+                  prefetch
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <User className="size-4 opacity-70" />
+                  As a Creator
+                </Link>
+                <Link
+                  href="/register/brand"
+                  prefetch
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Briefcase className="size-4 opacity-70" />
+                  As a Brand
+                </Link>
+                <Link
+                  href="#"
+                  prefetch
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Users className="size-4 opacity-70" />
+                  As Agency
+                </Link>
+              </div>
             </>
           )}
         </div>
+      </div>
       </div>
       </div>
     </motion.header>

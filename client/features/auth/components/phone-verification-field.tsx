@@ -211,58 +211,52 @@ export function PhoneVerificationField({
     }
 
     setOtpError(null);
-    verifyPhoneOtpMutation.mutate({ phone, code });
+verifyPhoneOtpMutation.mutate({ phone, code });
   }, [otpCode, otpSentToPhone, phoneInput, verifyPhoneOtpMutation]);
 
   return (
     <div className="grid gap-2">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex min-w-0 items-center sm:flex-1">
-          <span className="absolute left-3 text-sm text-muted-foreground">
-            +91
-          </span>
-          <Input
-            id={`${idPrefix}-phone`}
-            placeholder="9876543210"
-            autoComplete="tel-national"
-            inputMode="tel"
-            disabled={disabled || phoneOtpPending}
-            aria-invalid={phoneError ? true : undefined}
-            className="w-full pl-10"
-            value={phoneInput.startsWith("+91") ? phoneInput.slice(3) : phoneInput}
-            onChange={(event) => {
-              let val = event.target.value;
-              if (val.startsWith("+91")) val = val.slice(3);
-              const digits = val.replace(/\D/g, "");
-              setPhoneInput(digits ? `+91${digits}` : "");
-              setVerifiedPhone(null);
-              setPhoneError(null);
-            }}
-          />
+      <div className="flex items-center h-10 rounded-lg border border-slate-200 bg-white overflow-hidden dark:bg-slate-950 dark:border-slate-800 focus-within:ring-2 focus-within:ring-slate-950 focus-within:ring-offset-2 dark:focus-within:ring-slate-300 w-full">
+        <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-sm font-medium text-[#8b8489]">
+          +91
         </div>
+        <Input
+          id={`${idPrefix}-phone`}
+          placeholder="9876543210"
+          autoComplete="tel-national"
+          inputMode="tel"
+          disabled={disabled || phoneOtpPending}
+          aria-invalid={phoneError ? true : undefined}
+          className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+          value={phoneInput.startsWith("+91") ? phoneInput.slice(3) : phoneInput}
+          onChange={(event) => {
+            let val = event.target.value;
+            if (val.startsWith("+91")) val = val.slice(3);
+            const digits = val.replace(/\D/g, "");
+            setPhoneInput(digits ? `+91${digits}` : "");
+            setVerifiedPhone(null);
+            setPhoneError(null);
+          }}
+        />
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           onClick={handleSendPhoneOtp}
           disabled={
             disabled ||
             phoneOtpPending ||
             phoneVerified ||
+            !PHONE_E164_REGEX.test(normalizedPhone) ||
             (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
           }
-          className="shrink-0 sm:w-28"
+          className="h-full rounded-none border-l border-slate-200 !bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] px-4 text-xs font-semibold dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300"
         >
-          {sendPhoneOtpMutation.isPending ? (
-            <>
-              <Spinner className="size-4" aria-hidden />
-              Sending...
-            </>
-          ) : phoneVerified ? (
+          {phoneVerified ? (
             "Verified"
+          ) : phoneOtpPending ? (
+            "Sending..."
           ) : resendSecondsRemaining > 0 && activeOtpPhone ? (
             `${resendSecondsRemaining}s`
-          ) : activeOtpPhone ? (
-            "OTP sent"
           ) : (
             "Send OTP"
           )}
@@ -276,7 +270,7 @@ export function PhoneVerificationField({
       ) : null}
       {activeOtpPhone && !phoneVerified ? (
         <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <Label htmlFor={`${idPrefix}-phone-otp`}>Verification code</Label>
+          <Label htmlFor={`${idPrefix}-phone-otp`} className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">Verification code</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               id={`${idPrefix}-phone-otp`}

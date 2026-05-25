@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, Clock, Info, Hourglass } from "lucide-react";
+import { AlertCircle, Info, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { OrderDetailsPublic } from "../../api/types";
@@ -97,7 +97,8 @@ function getStatusConfig(
       return {
         icon: Info,
         title: "Order completed",
-        description: "This order has been completed successfully. Thank you for using GoCollab!",
+        description:
+          "This order has been completed successfully. Thank you for using GoCollab!",
         showTimer: false,
         variant: "success",
       };
@@ -105,7 +106,8 @@ function getStatusConfig(
       return {
         icon: AlertCircle,
         title: "Order disputed",
-        description: "This order is currently under dispute. Our team is reviewing the case.",
+        description:
+          "This order is currently under dispute. Our team is reviewing the case.",
         showTimer: false,
         variant: "warning",
       };
@@ -113,7 +115,8 @@ function getStatusConfig(
       return {
         icon: Info,
         title: "Order refunded",
-        description: "This order has been refunded. The amount will be credited to your account.",
+        description:
+          "This order has been refunded. The amount will be credited to your account.",
         showTimer: false,
         variant: "neutral",
       };
@@ -130,8 +133,10 @@ function getStatusConfig(
 
 const VARIANT_STYLES = {
   info: "bg-background border-border shadow-sm",
-  warning: "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20",
-  success: "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20",
+  warning:
+    "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20",
+  success:
+    "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20",
   neutral: "bg-muted/50 border-border",
 };
 
@@ -154,7 +159,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
   const Icon = config.icon;
   const { hours, minutes, seconds } = useAcceptanceCountdown(
     order.briefSubmittedAt,
-    order.status
+    order.status,
   );
 
   return (
@@ -185,21 +190,23 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
 
       {config.showTimer && (
         <div className="flex items-center gap-2 rounded-lg bg-primary/5 dark:bg-primary/10 px-4 py-3 text-sm font-medium text-foreground shrink-0 sm:self-center">
-          <span className="text-muted-foreground text-[13px]">Auto-cancel in</span>
+          <span className="text-muted-foreground text-[13px]">
+            Auto-cancel in
+          </span>
           <span className="font-bold text-primary tracking-wide tabular-nums">
             {hours}h : {minutes}m : {seconds}s
           </span>
         </div>
       )}
 
-      {order.status === "BRIEF_ACCEPTED" && order.requiresPhysicalProductShipment && (
-        <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
-          <Link href={`/brand/orders/${order.id}/shipping`}>
-            Add Shipping Details
-          </Link>
-        </Button>
-      )}
+      {order.status === "BRIEF_ACCEPTED" &&
+        order.requiresPhysicalProductShipment && (
+          <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
+            <Link href={`/brand/orders/${order.id}/shipping`}>
+              Add Shipping Details
+            </Link>
+          </Button>
+        )}
     </div>
   );
 }
-

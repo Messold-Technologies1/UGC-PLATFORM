@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  forwardRef,
+  type HTMLAttributes,
   startTransition,
   useCallback,
   useEffect,
@@ -10,22 +12,19 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, Users, ChevronDown } from "lucide-react";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { VirtuosoGrid } from "react-virtuoso";
 import { Card } from "@/components/ui/card";
 // import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTrigger,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
-import { CreatorCard } from "./creator-card"; //, CreatorCardSkeleton
+import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { CreatorsBrowserLoadingShell } from "@/components/dashboard/route-loading-shells";
 import {
   CREATOR_PRICE_MAX,
@@ -40,13 +39,38 @@ import {
 } from "../lib/browse-listing-url";
 import { deriveCreatorFilterOptions } from "../lib/derive-filter-options";
 import {
-  useCreatorsListQuery,
+  useInfiniteCreatorsListQuery,
   type CreatorsListResult,
 } from "../hooks/use-creators-list-query";
 
-const BROWSE_LIST_LIMIT = 4;
+const BROWSE_LIST_LIMIT = 24;
 const BRAND_CREATOR_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform?usp=header";
+
+const virtuosoGridComponents = {
+  List: forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+    function CreatorGridList({ className, ...props }, ref) {
+      return (
+        <div
+          ref={ref}
+          {...props}
+          className={cn(
+            "grid w-full gap-x-5 gap-y-4",
+            "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
+            className,
+          )}
+        />
+      );
+    },
+  ),
+  Item: forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+    function CreatorGridItem({ className, ...props }, ref) {
+      return (
+        <div ref={ref} {...props} className={cn("min-w-0 h-full", className)} />
+      );
+    },
+  ),
+};
 
 function stringArraysEqual(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
@@ -136,17 +160,16 @@ export function CreatorListing({
   );
 
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
-  const [page, setPage] = useState<number>(() => parsedInitial.page);
 
-  const listingRef = useRef({ filters, page });
+  const listingRef = useRef({ filters });
 
   useEffect(() => {
-    listingRef.current = { filters, page };
-  }, [filters, page]);
+    listingRef.current = { filters };
+  }, [filters]);
 
   const syncUrlImmediate = useCallback(
-    (nextFilters: Filters, nextPage: number) => {
-      const qs = serializeBrowseListingParams(nextFilters, "", nextPage);
+    (nextFilters: Filters) => {
+      const qs = serializeBrowseListingParams(nextFilters, "");
       if (qs === searchParamsKey) return;
       router.replace(qs ? `?${qs}` : "?", { scroll: false });
     },
@@ -154,25 +177,29 @@ export function CreatorListing({
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: currentFilters, page: currentPage } = listingRef.current;
-    syncUrlImmediate(currentFilters, currentPage);
+    const { filters: currentFilters } = listingRef.current;
+    syncUrlImmediate(currentFilters);
   }, 500);
 
   useEffect(() => {
-    const parsed = parseBrowseListingParams(
-      new URLSearchParams(searchParamsKey),
-    );
+    const nextParams = new URLSearchParams(searchParamsKey);
+    const parsed = parseBrowseListingParams(nextParams);
+
+    if (nextParams.has("page")) {
+      nextParams.delete("page");
+      const qs = nextParams.toString();
+      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+    }
+
     startTransition(() => {
       setFilters((previous) =>
         filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
       );
-      setPage(parsed.page);
     });
-  }, [searchParamsKey]);
+  }, [router, searchParamsKey]);
 
   const apiFilters = useMemo(
     () => ({
-      page,
       limit: BROWSE_LIST_LIMIT,
       city: filters.city || undefined,
       categories: filters.categories,
@@ -207,22 +234,33 @@ export function CreatorListing({
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
-    [filters, page],
+    [filters],
   );
 
-  const { data, isPending, isError, error, refetch, isFetching } =
-    useCreatorsListQuery({
-      filters: apiFilters,
-      initialData:
-        initialData &&
-        initialData.page === page &&
-        initialData.limit === BROWSE_LIST_LIMIT &&
-        filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
-          ? initialData
-          : undefined,
-    });
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteCreatorsListQuery({
+    filters: apiFilters,
+    initialData:
+      initialData &&
+      initialData.page === 1 &&
+      initialData.limit === BROWSE_LIST_LIMIT &&
+      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+        ? initialData
+        : undefined,
+  });
 
-  const creators = useMemo(() => data?.creators ?? [], [data?.creators]);
+  const creators = useMemo(
+    () => data?.pages.flatMap((pageData) => pageData.creators) ?? [],
+    [data?.pages],
+  );
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),
     [creators],
@@ -314,20 +352,8 @@ export function CreatorListing({
   const handleFiltersChange = useCallback(
     (next: Filters) => {
       listingRef.current.filters = next;
-      listingRef.current.page = 1;
       setFilters(next);
-      setPage(1);
       debouncedPushUrl();
-    },
-    [debouncedPushUrl],
-  );
-
-  const handlePageChange = useCallback(
-    (nextPage: number) => {
-      listingRef.current.page = nextPage;
-      setPage(nextPage);
-      debouncedPushUrl();
-      window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [debouncedPushUrl],
   );
@@ -353,14 +379,17 @@ export function CreatorListing({
 
   const handleResetFilters = useCallback(() => {
     listingRef.current.filters = DEFAULT_FILTERS;
-    listingRef.current.page = 1;
     setFilters(DEFAULT_FILTERS);
-    setPage(1);
-    syncUrlImmediate(DEFAULT_FILTERS, 1);
+    syncUrlImmediate(DEFAULT_FILTERS);
   }, [syncUrlImmediate]);
 
-  const displayedCount = data?.total ?? 0;
-  const totalPages = Math.ceil(displayedCount / BROWSE_LIST_LIMIT);
+  const displayedCount = data?.pages.at(-1)?.total ?? 0;
+  const loadedCount = creators.length;
+
+  const handleEndReached = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (isPending && !data) {
     return <CreatorsBrowserLoadingShell />;
@@ -410,18 +439,44 @@ export function CreatorListing({
         </div> */}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div className="relative w-full max-w-2xl">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search niche, style, language, city or keyword"
-              value=""
-              disabled
-              aria-label="Creator search is currently unavailable"
-              className="h-[46px] rounded-lg border-gray-200 py-2.5 pl-11 pr-12 text-[14px] shadow-sm bg-white disabled:opacity-100 disabled:bg-white placeholder:text-[#888] placeholder:font-normal text-gray-900"
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
-              <SlidersHorizontal className="size-[18px] text-gray-400" />
+          <div className="relative w-full flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search niche, style, language, city or keyword"
+                value=""
+                disabled
+                aria-label="Creator search is currently unavailable"
+                className="h-[46px] rounded-lg border-gray-200 py-2.5 pl-11 pr-12 text-[14px] shadow-sm bg-white disabled:opacity-100 disabled:bg-white placeholder:text-[#888] placeholder:font-normal text-gray-900"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center lg:hidden">
+                <SlidersHorizontal className="size-[18px] text-gray-400 opacity-0 pointer-events-none" />
+              </div>
             </div>
+
+            <Drawer>
+              <DrawerTrigger asChild>
+                <button
+                  type="button"
+                  className="lg:hidden flex shrink-0 items-center justify-center h-[46px] rounded-lg border border-gray-200 bg-white px-4 shadow-sm hover:bg-gray-50 transition-colors"
+                  aria-label="Open filters"
+                >
+                  <SlidersHorizontal className="size-[18px] text-gray-700" />
+                  <span className="ml-2 text-[14px] font-medium text-gray-700 hidden xs:inline-block">Filters</span>
+                </button>
+              </DrawerTrigger>
+              <DrawerContent className="h-[85vh] bg-[#F9FAFB] rounded-t-[14px] flex flex-col overflow-hidden">
+                <DrawerTitle className="sr-only">Filters</DrawerTitle>
+                <div className="flex-1 min-h-0 bg-[#F9FAFB]">
+                  <CreatorFilters
+                    filters={filters}
+                    onChange={handleFiltersChange}
+                    categoryOptions={categoryOptions}
+                    className="border-0 shadow-none h-full max-w-none rounded-none pt-5 px-5 bg-transparent lg:h-auto"
+                  />
+                </div>
+              </DrawerContent>
+            </Drawer>
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <span className="text-[13px] text-[#6B7280] font-medium hidden sm:inline-block">
@@ -475,15 +530,15 @@ export function CreatorListing({
             )}
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-4 shrink-0 pt-2 sm:pt-0">
             <span className="text-[13px] font-semibold text-[#6B7280]">
               {displayedCount.toLocaleString()} creators found
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-medium text-[#111]">
+              <span className="text-[13px] font-medium text-[#111] whitespace-nowrap">
                 Sort by: Recommended
               </span>
-              <ChevronDown className="size-4 text-[#111]" />
+              <ChevronDown className="size-4 text-[#111] shrink-0" />
             </div>
           </div>
         </div>
@@ -491,80 +546,65 @@ export function CreatorListing({
         <div className="pb-2">
           {creators.length > 0 ? (
             <div className="flex flex-col gap-4">
-              <div
-                className={cn(
-                  "grid w-full gap-x-5 gap-y-4",
-                  "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4",
-                  isFetching &&
-                    "opacity-50 pointer-events-none transition-opacity",
-                )}
-              >
-                {creators.map((creator) => (
-                  <CreatorCard
-                    key={creator.id}
-                    creator={creator}
-                    variant="listing"
-                    appearance="browse"
-                  />
-                ))}
-              </div>
+              <VirtuosoGrid
+                useWindowScroll
+                totalCount={creators.length}
+                components={virtuosoGridComponents}
+                endReached={handleEndReached}
+                increaseViewportBy={{ top: 800, bottom: 1200 }}
+                computeItemKey={(index) => creators[index]?.id ?? index}
+                itemContent={(index) => {
+                  const creator = creators[index];
+                  if (!creator) return null;
 
-              {/* Pagination */}
-              <div className="pt-2 pb-4">
-                {totalPages > 1 && (
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (page > 1) handlePageChange(page - 1);
-                          }}
-                          disabled={page <= 1}
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: totalPages }).map((_, i) => {
-                        const p = i + 1;
-                        if (
-                          p === 1 ||
-                          p === totalPages ||
-                          (p >= page - 1 && p <= page + 1)
-                        ) {
-                          return (
-                            <PaginationItem key={p}>
-                              <PaginationLink
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handlePageChange(p);
-                                }}
-                                isActive={page === p}
-                              >
-                                {p}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
-                        if (p === page - 2 || p === page + 2) {
-                          return (
-                            <PaginationItem key={p}>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          );
-                        }
-                        return null;
-                      })}
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (page < totalPages) handlePageChange(page + 1);
-                          }}
-                          disabled={page >= totalPages}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                  return (
+                    <CreatorCard
+                      key={creator.id}
+                      creator={creator}
+                      variant="listing"
+                      appearance="browse"
+                    />
+                  );
+                }}
+              />
+
+              <div className="flex min-h-16 items-center justify-center pb-4 pt-2">
+                {isFetchingNextPage ? (
+                  <div
+                    className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4"
+                    aria-label="Loading more creators"
+                  >
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <CreatorCardSkeleton key={index} appearance="browse" />
+                    ))}
+                  </div>
+                ) : isError && data ? (
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <p className="text-sm font-medium text-foreground">
+                      Could not load more creators
+                    </p>
+                    <p className="max-w-md text-xs text-muted-foreground">
+                      {error instanceof Error
+                        ? error.message
+                        : "Something went wrong."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void fetchNextPage()}
+                      className="text-xs font-medium text-primary underline underline-offset-2"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : hasNextPage ? (
+                  <p className="text-xs text-muted-foreground">
+                    Showing {loadedCount.toLocaleString()} of{" "}
+                    {displayedCount.toLocaleString()} creators
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    You&apos;ve reached the end
+                  </p>
                 )}
               </div>
             </div>

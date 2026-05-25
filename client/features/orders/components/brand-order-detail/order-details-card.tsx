@@ -36,7 +36,7 @@ export function OrderDetailsCard({ order }: OrderDetailsCardProps) {
   }
 
   return (
-    <div className="rounded-2xl border bg-card p-6 shadow-sm">
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
       <h3 className="text-base font-bold text-foreground">Order Details</h3>
 
       <dl className="mt-4 space-y-3.5 text-sm">

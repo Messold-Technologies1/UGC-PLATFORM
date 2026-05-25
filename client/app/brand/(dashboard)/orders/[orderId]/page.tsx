@@ -1,4 +1,4 @@
-import { BrandOrderDetailsView } from "@/features/orders/components/brand-order-details-view";
+import { BrandOrderDetailsView } from "@/features/orders/components/brand-order-detail";
 
 export default async function OrderDetailsPage({
   params,

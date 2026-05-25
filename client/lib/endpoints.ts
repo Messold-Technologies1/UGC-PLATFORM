@@ -2,11 +2,19 @@ export const ENDPOINTS = {
   AUTH: {
     LOGIN: "/api/auth/login",
     REGISTER: "/api/auth/register",
+    REGISTER_CREATOR: "/api/auth/register/creator",
+    REGISTER_BRAND: "/api/auth/register/brand",
     REGISTER_ADMIN: "/api/auth/register-admin",
     GOOGLE: "/api/auth/google",
     GOOGLE_CALLBACK: "/api/auth/google/callback",
     PHONE_SEND_OTP: "/api/auth/phone/send-otp",
     PHONE_VERIFY_OTP: "/api/auth/phone/verify-otp",
+    SIGNUP_PHONE_SEND_OTP: "/api/auth/signup/phone/send-otp",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_PRESIGN:
+      "/api/auth/signup/presign/creator-portfolio-video",
+    SIGNUP_BRAND_LOGO_PRESIGN: "/api/auth/signup/presign/brand-logo",
+    SIGNUP_BRAND_PRONUNCIATION_PRESIGN:
+      "/api/auth/signup/presign/brand-pronunciation",
     REFRESH: "/api/auth/refresh",
     ME: "/api/auth/me",
     LOGOUT: "/api/auth/logout",

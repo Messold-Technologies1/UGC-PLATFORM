@@ -64,7 +64,7 @@ export const CreatorCard = memo(function CreatorCard({
     return (
       <article
         className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
+          "group relative flex h-full flex-col overflow-hidden rounded-lg border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
         )}
       >
         <div className="relative aspect-10/11 overflow-hidden bg-muted">
@@ -118,8 +118,8 @@ export const CreatorCard = memo(function CreatorCard({
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col p-3">
-          <h3 className="text-base font-bold text-foreground tracking-tight">
+        <div className="flex flex-1 flex-col p-4 sm:p-3">
+          <h3 className="text-[15px] sm:text-base font-bold text-foreground tracking-tight">
             {creator.name}
           </h3>
           

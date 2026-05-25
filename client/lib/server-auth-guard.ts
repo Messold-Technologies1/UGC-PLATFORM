@@ -148,7 +148,7 @@ function fallbackWorkspacePath(user: ServerAuthUser): string {
     }
   }
 
-  return "/auth/continue";
+  return "/";
 }
 
 async function requireWorkspaceRole(

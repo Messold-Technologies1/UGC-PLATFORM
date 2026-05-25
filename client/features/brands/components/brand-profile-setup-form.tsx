@@ -34,9 +34,6 @@ import {
 import { useAuth } from "@/providers/auth-provider";
 import type { BrandProfileItemApi } from "@/features/brands/api/types";
 import {
-  type CreateBrandProfilePayload,
-} from "@/features/brands/api/create-brand-profile";
-import {
   type UpdateBrandProfilePayload,
 } from "@/features/brands/api/update-brand-profile";
 import {
@@ -158,7 +155,7 @@ function phoneOtpErrorMessage(error: unknown, fallback: string): string {
 
 export type BrandProfileSetupFormProps = {
   variant: "onboarding" | "settings";
-  mode: "create" | "update";
+  mode: "update";
   initialProfile?: BrandProfileItemApi | null;
   onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
@@ -384,20 +381,12 @@ function BrandProfileSetupFormContent({
   const uploadingPronunciation = uploadPronunciationMutation.isPending;
 
   const title = useMemo(() => {
-    if (mode === "update") return "Edit your brand profile";
-    if (variant === "settings") return "Add your brand profile";
-    return "Set up your brand profile";
-  }, [mode, variant]);
+    return "Edit your brand profile";
+  }, []);
 
   const description = useMemo(() => {
-    if (mode === "update") {
-      return "Update your brand details and logo.";
-    }
-    if (variant === "settings") {
-      return "Add your brand details and logo.";
-    }
-    return "Add your brand details so creators know who they’re working with.";
-  }, [mode, variant]);
+    return "Update your brand details and logo.";
+  }, []);
 
   const toggleCategory = useCallback((value: BrandCategoryApi) => {
     const current = form.getValues("categories");
@@ -574,11 +563,8 @@ function BrandProfileSetupFormContent({
         toast.error(message);
         return;
       }
-      if ((mode === "create" || phoneChanged) && verifiedPhone !== phone) {
-        const message =
-          mode === "create"
-            ? "Verify your mobile number before creating a profile."
-            : "Verify your new mobile number before saving changes.";
+      if (phoneChanged && verifiedPhone !== phone) {
+        const message = "Verify your new mobile number before saving changes.";
         form.setError("contactPhone", { message });
         toast.error(message);
         return;
@@ -590,42 +576,7 @@ function BrandProfileSetupFormContent({
         return;
       }
 
-      if (mode === "create") {
-        const payload: CreateBrandProfilePayload = {
-          contactFullName: fullName,
-          contactEmail: email,
-          contactPhone: phone,
-          brandName: name,
-          ...(normalizeOptionalString(values.brandPronunciation)
-            ? {
-                brandPronunciation: normalizeOptionalString(
-                  values.brandPronunciation,
-                ),
-              }
-            : {}),
-          ...(pendingPronunciationAudioKey
-            ? { brandPronunciationAudioKey: pendingPronunciationAudioKey }
-            : {}),
-          ...(pendingLogoKey ? { logoKey: pendingLogoKey } : {}),
-          ...(normalizeOptionalUrl(values.website)
-            ? { website: normalizeOptionalUrl(values.website) }
-            : {}),
-          ...(normalizeOptionalUrl(values.instagramUrl)
-            ? { instagramUrl: normalizeOptionalUrl(values.instagramUrl) }
-            : {}),
-          ...(values.productType ? { productType: values.productType } : {}),
-          ...(values.categories.length
-            ? { categories: values.categories }
-            : {}),
-          ...(values.categories.includes("OTHER") &&
-          values.otherCategoryText.trim()
-            ? { otherCategoryLabel: values.otherCategoryText.trim() }
-            : {}),
-        };
 
-        submitBrandProfileMutation.mutate({ payload });
-        return;
-      }
 
       const payload: UpdateBrandProfilePayload = {
         brandName: name,

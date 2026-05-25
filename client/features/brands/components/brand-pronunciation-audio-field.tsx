@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Mic, X } from "lucide-react";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_MS = 45_000;
@@ -190,65 +191,71 @@ export function BrandPronunciationAudioField({
   const busy = disabled || uploading;
 
   return (
-    <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
-      <p className="text-sm font-medium text-foreground">Voice pronunciation</p>
-      <p className="text-xs text-muted-foreground">
-        Optional short clip so creators hear how you say your brand name (max ~45s,
-        5 MB).
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        {!recording ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => void startRecording()}
-          >
-            {hasRecording ? "Re-record" : "Record"}
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            disabled={busy}
-            onClick={stopRecording}
-          >
-            Stop
-          </Button>
-        )}
-        {hasRecording ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={busy || recording}
-            onClick={onRemove}
-          >
-            Remove audio
-          </Button>
-        ) : null}
-        {uploading ? (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <Spinner className="size-3.5" aria-hidden />
-            Uploading…
-          </span>
-        ) : null}
+    <div className="space-y-1">
+      <label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+        Voice Pronunciation
+      </label>
+      <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800">
+        <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489] shrink-0">
+          <Mic className="size-4" />
+        </div>
+        
+        <div className="flex-1 flex items-center justify-between px-3 h-full min-w-0">
+          {!hasRecording && !recording ? (
+             <span className="text-[14px] text-slate-400 font-medium truncate">Record how to say it...</span>
+          ) : recording ? (
+             <span className="text-[14px] text-amber-600 font-medium truncate animate-pulse">Recording...</span>
+          ) : uploading ? (
+             <span className="text-[14px] text-slate-500 font-medium flex items-center gap-2 truncate"><Spinner className="size-3.5" aria-hidden /> Uploading...</span>
+          ) : (
+             <span className="text-[14px] text-slate-900 dark:text-slate-100 font-medium truncate">Audio saved</span>
+          )}
+
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            {!recording ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void startRecording()}
+                className="text-[13px] font-bold text-[#3e76ef] hover:text-[#2d5cc5] disabled:opacity-50 transition-colors"
+              >
+                {hasRecording ? "Re-record" : "Record"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={stopRecording}
+                className="text-[13px] font-bold text-red-600 hover:text-red-700 disabled:opacity-50 transition-colors"
+              >
+                Stop
+              </button>
+            )}
+            {hasRecording && !recording && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onRemove}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors flex items-center justify-center p-1"
+                aria-label="Remove audio"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
-      {recording ? (
-        <p className="text-xs text-amber-600 dark:text-amber-500">
-          Recording… speak clearly, then press Stop.
-        </p>
-      ) : null}
+      
       {audioUrl ? (
-        <audio
-          key={audioUrl}
-          controls
-          src={audioUrl}
-          className="h-9 w-full max-w-md"
-          preload="metadata"
-        />
+        <div className="mt-1">
+          <audio
+            key={audioUrl}
+            controls
+            src={audioUrl}
+            className="h-8 w-full max-w-full"
+            preload="metadata"
+          />
+        </div>
       ) : null}
     </div>
   );

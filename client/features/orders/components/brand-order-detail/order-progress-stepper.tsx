@@ -16,6 +16,8 @@ import type { OrderDetailsPublic } from "../../api/types";
 
 interface OrderProgressStepperProps {
   order: OrderDetailsPublic;
+  onStepClick?: (label: string) => void;
+  previewState?: string | null;
 }
 
 interface StepDefinition {
@@ -98,7 +100,7 @@ function formatStepDate(value?: string | null) {
   );
 }
 
-export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
+export function OrderProgressStepper({ order, onStepClick, previewState }: OrderProgressStepperProps) {
   const steps = STEPS
     .filter((step) => {
       if (
@@ -125,7 +127,7 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
   const activeIndex = getActiveStepIndex(order.status, steps);
 
   return (
-    <div className="rounded-2xl border bg-card p-6 md:p-8 overflow-x-auto">
+    <div className="rounded-lg border bg-card p-6 md:p-8 overflow-x-auto">
       <div className="flex items-start justify-between min-w-[700px]">
         {steps.map((step, index) => {
           const isPassed = index <= activeIndex;
@@ -203,7 +205,7 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
                 </div>
               )}
 
-              {step.getHref && (isActive || isCompleted) ? (
+              {step.getHref && (isActive || isCompleted) && !onStepClick ? (
                 <Link
                   href={step.getHref(order.id)}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer"
@@ -211,7 +213,10 @@ export function OrderProgressStepper({ order }: OrderProgressStepperProps) {
                   <StepContent />
                 </Link>
               ) : (
-                <div className="flex flex-col items-center">
+                <div 
+                  className={cn("flex flex-col items-center", onStepClick ? "cursor-pointer hover:opacity-80 transition-opacity" : "")}
+                  onClick={() => onStepClick?.(step.label)}
+                >
                   <StepContent />
                 </div>
               )}

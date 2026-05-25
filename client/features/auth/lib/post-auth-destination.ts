@@ -39,6 +39,11 @@ export function resolvePostAuthRedirectPath(
     user.primaryRole,
     ...user.roles,
   ]);
+
+  if (role === "CREATOR" && user.creatorApprovalStatus === "PENDING") {
+    return "/creator/under-review";
+  }
+
   if (!role) {
     return postAuthContinuePath(callbackUrl);
   }
@@ -100,10 +105,7 @@ export function postAuthDestinationForRole(
 }
 
 export function postAuthContinuePath(callbackUrl: string | null): string {
-  const params = new URLSearchParams();
-  if (callbackUrl) params.set("callbackUrl", callbackUrl);
-  const q = params.toString();
-  return q ? `/auth/continue?${q}` : "/auth/continue";
+  return "/";
 }
 
 export function withDashboardOnboarding(

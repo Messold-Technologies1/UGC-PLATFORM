@@ -8,13 +8,8 @@ import { toast } from "sonner";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import {
   brandProfileMeQueryKey,
-  fetchBrandProfileMe,
 } from "../api/fetch-brand-profile-me";
 import { brandProfileStateQueryKey } from "../api/fetch-brand-profile-state";
-import {
-  createBrandProfile,
-  type CreateBrandProfilePayload,
-} from "../api/create-brand-profile";
 import {
   updateBrandProfile,
   type UpdateBrandProfilePayload,
@@ -33,14 +28,12 @@ import {
 type BrandProfileMode = "create" | "update";
 
 type SubmitBrandProfileVariables = {
-  payload: CreateBrandProfilePayload | UpdateBrandProfilePayload;
+  payload: UpdateBrandProfilePayload;
 };
 
 type SubmitBrandProfileResult =
   | { status: "skipped" }
-  | { status: "created" }
-  | { status: "updated" }
-  | { status: "already-exists" };
+  | { status: "updated" };
 
 export function useUploadBrandPronunciationMutation(mode: BrandProfileMode) {
   return useMutation({
@@ -133,31 +126,7 @@ export function useSubmitBrandProfileMutation({
         return { status: "updated" };
       }
 
-      try {
-        await createBrandProfile(payload as CreateBrandProfilePayload);
-        return { status: "created" };
-      } catch (error) {
-        if (isAxiosError(error) && error.response?.status === 409) {
-          return { status: "already-exists" };
-        }
-
-        if (
-          isAxiosError(error) &&
-          (error.response?.status ?? 0) >= 500
-        ) {
-          await invalidateBrandProfileQueries();
-
-          try {
-            await queryClient.fetchQuery({
-              queryKey: brandProfileMeQueryKey,
-              queryFn: fetchBrandProfileMe,
-            });
-            return { status: "created" };
-          } catch {}
-        }
-
-        throw error;
-      }
+      throw new Error("Create mode is no longer supported.");
     },
     onSuccess: async (result) => {
       if (result.status === "skipped") {
@@ -168,12 +137,6 @@ export function useSubmitBrandProfileMutation({
 
       if (result.status === "updated") {
         toast.success("Brand profile updated");
-      } else if (result.status === "already-exists") {
-        toast.message("Profile already exists", {
-          description: "Continuing to your workspace.",
-        });
-      } else {
-        toast.success("Brand profile created");
       }
 
       await onSuccess?.();
@@ -185,9 +148,7 @@ export function useSubmitBrandProfileMutation({
       }
 
       toast.error(
-        mode === "update"
-          ? "Could not update profile"
-          : "Could not create profile",
+        "Could not update profile",
         {
           description: "Check your connection and try again.",
         },

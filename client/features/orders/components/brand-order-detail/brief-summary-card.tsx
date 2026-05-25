@@ -119,7 +119,7 @@ export function BriefSummaryCard({
   }
 
   return (
-    <div className="rounded-2xl border bg-card p-6 shadow-sm">
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold text-foreground">Brief Summary</h3>
         <Button

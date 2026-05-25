@@ -1,0 +1,13 @@
+{{!-- context: recipientName, platformName, brandName, packageName, orderId, actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  Great news — <strong>{{brandName}}</strong> accepted your content for
+  <strong>"{{packageName}}"</strong>.
+</p>
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
+  Order <span style="font-family:monospace;font-size:14px;">{{orderId}}</span> is now complete. Thank you for delivering on this collaboration.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

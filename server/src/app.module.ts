@@ -20,6 +20,7 @@ import { OrderChatModule } from './order-chat/order-chat.module';
 import { BriefsModule } from './briefs/briefs.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AgencyModule } from './agency/agency.module';
       },
     ]),
     PrismaModule,
+    MailModule,
     BrandAccessModule,
     StorageModule,
     HealthModule,

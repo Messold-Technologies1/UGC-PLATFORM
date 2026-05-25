@@ -1,0 +1,12 @@
+Hi {{recipientName}},
+
+{{creatorName}} accepted the brief for order {{orderId}}.
+{{#if deliveryDeadlineAt}}
+Delivery deadline: {{deliveryDeadlineAt}}
+{{else}}
+The creator still needs to receive your physical product before the delivery clock starts.
+{{/if}}
+
+View order: {{actionUrl}}
+
+— The {{platformName}} team

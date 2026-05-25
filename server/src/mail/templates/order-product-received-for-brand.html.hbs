@@ -1,0 +1,13 @@
+{{!-- context: recipientName, platformName, creatorName, orderId, deliveryDeadlineAt, actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  <strong>{{creatorName}}</strong> confirmed they received the product for order
+  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>.
+</p>
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
+  Delivery deadline: <strong>{{deliveryDeadlineAt}}</strong>
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

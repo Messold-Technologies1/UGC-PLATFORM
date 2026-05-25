@@ -1,0 +1,19 @@
+{{!-- context: recipientName, platformName, creatorName, orderId, deliveryDeadlineAt (optional), actionUrl --}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
+  <strong>{{creatorName}}</strong> accepted the brief for order
+  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>.
+</p>
+{{#if deliveryDeadlineAt}}
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
+  Delivery deadline: <strong>{{deliveryDeadlineAt}}</strong>
+</p>
+{{else}}
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
+  Ship the physical product to the creator when ready. The delivery deadline starts once they confirm receipt.
+</p>
+{{/if}}
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

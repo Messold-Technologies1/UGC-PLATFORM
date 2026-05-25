@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { State, City } from "country-state-city";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -205,6 +206,20 @@ export function CreatorRegisterForm() {
       phoneOtpCode: "",
     },
   });
+
+  const watchState = form.watch("state");
+  
+  const indiaStates = useMemo(() => State.getStatesOfCountry("IN"), []);
+  
+  const selectedStateCode = useMemo(() => {
+    return indiaStates.find((s) => s.name === watchState)?.isoCode || "";
+  }, [indiaStates, watchState]);
+
+  const stateCities = useMemo(() => {
+    if (!selectedStateCode) return [];
+    const cities = City.getCitiesOfState("IN", selectedStateCode);
+    return Array.from(new Set(cities.map((c) => c.name)));
+  }, [selectedStateCode]);
 
   const normalizedPhone = normalizePhoneForSignup(phoneInput);
   const activeOtpPhone =
@@ -540,46 +555,6 @@ export function CreatorRegisterForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="city"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    City <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="city"
-                    placeholder="e.g. Mumbai"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                    {...form.register("city")}
-                  />
-                  {form.formState.errors.city && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.city.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="state"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    State <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="state"
-                    placeholder="e.g. Maharashtra"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                    {...form.register("state")}
-                  />
-                  {form.formState.errors.state && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.state.message}
-                    </p>
-                  )}
-                </div>
-              </div>
               <div className="space-y-1">
                 <Label
                   htmlFor="country"
@@ -589,8 +564,9 @@ export function CreatorRegisterForm() {
                 </Label>
                 <Input
                   id="country"
-                  placeholder="e.g. India"
-                  className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                  value="India"
+                  readOnly
+                  className="h-[42px] rounded-[11px] border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900 text-slate-500 dark:text-slate-400"
                   {...form.register("country")}
                 />
                 {form.formState.errors.country && (
@@ -598,6 +574,77 @@ export function CreatorRegisterForm() {
                     {form.formState.errors.country.message}
                   </p>
                 )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="state"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    State <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    onValueChange={(val) => {
+                      const selectedState = indiaStates.find((s) => s.isoCode === val);
+                      if (selectedState) {
+                        form.setValue("state", selectedState.name, { shouldValidate: true });
+                        form.setValue("city", "", { shouldValidate: true });
+                      }
+                    }}
+                    value={selectedStateCode}
+                  >
+                    <SelectTrigger
+                      id="state"
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
+                    >
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {indiaStates.map((state) => (
+                        <SelectItem key={state.isoCode} value={state.isoCode}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.state && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.state.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="city"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    City <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    onValueChange={(val) => form.setValue("city", val, { shouldValidate: true })}
+                    value={form.watch("city")}
+                    disabled={!selectedStateCode}
+                  >
+                    <SelectTrigger
+                      id="city"
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
+                    >
+                      <SelectValue placeholder="Select city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stateCities.map((cityName) => (
+                        <SelectItem key={cityName} value={cityName}>
+                          {cityName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.city && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.city.message}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -627,7 +674,7 @@ export function CreatorRegisterForm() {
                     </div>
                     <Input
                       id="creator-signup-phone"
-                      placeholder="9876543210"
+                      placeholder="0123456789"
                       autoComplete="tel-national"
                       inputMode="tel"
                       disabled={pendingAny}

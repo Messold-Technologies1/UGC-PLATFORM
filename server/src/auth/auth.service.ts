@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AuthProvider, RoleName } from '@prisma/client';
+import { ApprovalStatus, AuthProvider, RoleName } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -45,6 +45,8 @@ export type MeUser = {
   brandAccessRevoked: boolean;
   activeBrandProfileId: string | null;
   accessibleBrands: MeBrandSummary[];
+  /** Present when `roles` includes CREATOR; null if no creator profile yet. */
+  creatorApprovalStatus?: ApprovalStatus | null;
 };
 
 export interface AuthResult {
@@ -70,7 +72,10 @@ type MeLookupUser = {
   brandAccessRevokedAt: Date | null;
   primaryRole: { name: RoleName | null } | null;
   userRoles: Array<{ role: { name: RoleName | null } }>;
-  creatorProfile: { id: string } | null;
+  creatorProfile: {
+    id: string;
+    creatorApproval: { status: ApprovalStatus } | null;
+  } | null;
   brandProfile: { id: string; brandName: string; logoUrl: string | null } | null;
   ownedAgency: {
     id: string;
@@ -534,7 +539,12 @@ export class AuthService {
         brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
-        creatorProfile: { select: { id: true } },
+        creatorProfile: {
+          select: {
+            id: true,
+            creatorApproval: { select: { status: true } },
+          },
+        },
         brandProfile: {
           select: { id: true, brandName: true, logoUrl: true },
         },
@@ -598,7 +608,7 @@ export class AuthService {
       activeBrandProfileId = accessibleBrands[0]!.id;
     }
 
-    return {
+    const me: MeUser = {
       id: user.id,
       email: user.email,
       name: user.name,
@@ -611,6 +621,15 @@ export class AuthService {
       activeBrandProfileId,
       accessibleBrands,
     };
+
+    if (roles.includes('CREATOR')) {
+      me.creatorApprovalStatus = user.creatorProfile
+        ? (user.creatorProfile.creatorApproval?.status ??
+          ApprovalStatus.PENDING)
+        : null;
+    }
+
+    return me;
   }
 }
 

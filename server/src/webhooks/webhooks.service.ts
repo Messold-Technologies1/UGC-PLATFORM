@@ -5,9 +5,16 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EmailSuppressionReason } from '@prisma/client';
+import { EmailSuppressionService } from '../mail/email-suppression.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
+import type { SesSnsNotification } from './ses-sns.types';
+import {
+  verifySnsMessageSignature,
+  type SnsIncomingMessage,
+} from './sns-signature.verifier';
 
 type RazorpayWebhookBody = {
   event: string;
@@ -55,7 +62,134 @@ export class WebhooksService {
     private readonly razorpay: RazorpayService,
     private readonly orders: OrdersService,
     private readonly orderRealtime: OrderRealtimeNotifier,
+    private readonly emailSuppression: EmailSuppressionService,
   ) {}
+
+  async handleSesSnsWebhook(params: {
+    rawBody: Buffer;
+    json: unknown;
+  }): Promise<void> {
+    const message = this.parseSnsMessage(params.json);
+    const skipVerify =
+      this.config.get<string>('SES_SNS_SKIP_SIGNATURE_VERIFY') === 'true';
+
+    if (!skipVerify) {
+      const valid = await verifySnsMessageSignature(message);
+      if (!valid) {
+        throw new UnauthorizedException('Invalid SNS signature');
+      }
+    }
+
+    if (
+      message.Type === 'SubscriptionConfirmation' ||
+      message.Type === 'UnsubscribeConfirmation'
+    ) {
+      await this.confirmSnsSubscription(message);
+      return;
+    }
+
+    if (message.Type !== 'Notification') {
+      this.logger.debug(`ignored SNS type=${message.Type}`);
+      return;
+    }
+
+    await this.handleSesNotification(message.Message, message.TopicArn);
+  }
+
+  private parseSnsMessage(json: unknown): SnsIncomingMessage {
+    if (!json || typeof json !== 'object') {
+      throw new BadRequestException('Invalid SNS payload');
+    }
+    const m = json as Record<string, unknown>;
+    const required = [
+      'Type',
+      'MessageId',
+      'TopicArn',
+      'Message',
+      'Timestamp',
+      'SignatureVersion',
+      'Signature',
+      'SigningCertURL',
+    ] as const;
+    for (const key of required) {
+      if (typeof m[key] !== 'string' || !m[key]) {
+        throw new BadRequestException(`Invalid SNS payload: missing ${key}`);
+      }
+    }
+    return json as SnsIncomingMessage;
+  }
+
+  private async confirmSnsSubscription(
+    message: SnsIncomingMessage,
+  ): Promise<void> {
+    const url = message.SubscribeURL?.trim();
+    if (!url) {
+      throw new BadRequestException('SNS confirmation missing SubscribeURL');
+    }
+
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      throw new BadRequestException(
+        `SNS subscription confirmation failed: ${res.status}`,
+      );
+    }
+
+    this.logger.log(
+      `SNS subscription confirmed type=${message.Type} topic=${message.TopicArn}`,
+    );
+  }
+
+  private async handleSesNotification(
+    messageBody: string,
+    topicArn: string,
+  ): Promise<void> {
+    let ses: SesSnsNotification;
+    try {
+      ses = JSON.parse(messageBody) as SesSnsNotification;
+    } catch {
+      throw new BadRequestException('Invalid SES notification JSON');
+    }
+
+    if (ses.notificationType === 'Bounce') {
+      const bounceType = ses.bounce?.bounceType ?? 'Unknown';
+      const isPermanent = bounceType === 'Permanent';
+      if (!isPermanent) {
+        this.logger.log(
+          `SES transient bounce topic=${topicArn} type=${bounceType} subType=${ses.bounce?.bounceSubType ?? '?'}`,
+        );
+        return;
+      }
+
+      const recipients = ses.bounce?.bouncedRecipients ?? [];
+      for (const r of recipients) {
+        const email = r.emailAddress?.trim();
+        if (!email) continue;
+        await this.emailSuppression.suppress({
+          email,
+          reason: EmailSuppressionReason.HARD_BOUNCE,
+          detail: `${bounceType}/${ses.bounce?.bounceSubType ?? 'unknown'}`,
+        });
+      }
+      return;
+    }
+
+    if (ses.notificationType === 'Complaint') {
+      const recipients = ses.complaint?.complainedRecipients ?? [];
+      for (const r of recipients) {
+        const email = r.emailAddress?.trim();
+        if (!email) continue;
+        await this.emailSuppression.suppress({
+          email,
+          reason: EmailSuppressionReason.COMPLAINT,
+        });
+      }
+      return;
+    }
+
+    this.logger.debug(
+      `ignored SES notification type=${(ses as { notificationType?: string }).notificationType ?? 'unknown'}`,
+    );
+  }
 
   async handleRazorpayWebhook(params: {
     rawBody: Buffer;

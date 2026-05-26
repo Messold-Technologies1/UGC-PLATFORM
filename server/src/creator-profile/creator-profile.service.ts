@@ -22,6 +22,7 @@ import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
+import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import { PendingCreatorApprovalListItemDto } from './dto/pending-creator-approval-list-item.dto';
@@ -119,6 +120,7 @@ export class CreatorProfileService {
     private readonly prisma: PrismaService,
     private readonly creatorPackageService: CreatorPackageService,
     private readonly storage: StorageService,
+    private readonly creatorProfileMail: CreatorProfileMailNotifier,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -1069,6 +1071,9 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.creatorProfileMail.notifyApproved(creatorProfileId);
+
     return this.mapCreatorProfileResponseDto(updated);
   }
 
@@ -1109,6 +1114,9 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.creatorProfileMail.notifyRejected(creatorProfileId, rejectionReason);
+
     return this.mapCreatorProfileResponseDto(updated);
   }
 

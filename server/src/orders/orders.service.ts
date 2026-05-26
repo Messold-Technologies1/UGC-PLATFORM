@@ -35,6 +35,7 @@ import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
+import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
 
@@ -159,6 +160,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly razorpay: RazorpayService,
     private readonly orderRealtime: OrderRealtimeNotifier,
+    private readonly orderMail: OrderMailNotifier,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
   ) {}
@@ -423,6 +425,8 @@ export class OrdersService {
       orderId: order.id,
       briefSubmittedAt: now,
     });
+
+    this.orderMail.notifyBriefSubmitted(order.id, now);
   }
 
   async acceptBrief(params: {
@@ -499,6 +503,8 @@ export class OrdersService {
       deliveryDeadlineAt,
     });
 
+    this.orderMail.notifyBriefAccepted(order.id, deliveryDeadlineAt);
+
     return {
       orderId: updated.id,
       status: updated.status,
@@ -563,6 +569,12 @@ export class OrdersService {
 
     await this.orderRealtime.emitOrderProductShipped({
       orderId: order.id,
+      courierName,
+      trackingId,
+      dispatchedAt,
+    });
+
+    this.orderMail.notifyProductShipped(order.id, {
       courierName,
       trackingId,
       dispatchedAt,
@@ -642,6 +654,8 @@ export class OrdersService {
       productReceivedAt: now,
       deliveryDeadlineAt,
     });
+
+    this.orderMail.notifyProductReceived(order.id, deliveryDeadlineAt);
 
     return {
       orderId: updated.id,
@@ -881,6 +895,8 @@ export class OrdersService {
         revisionCount: order.revisionCount + 1,
       } as any,
     });
+
+    this.orderMail.notifyRevisionRequested(order.id);
   }
 
   private async isAdminUser(userId: string): Promise<boolean> {
@@ -1596,6 +1612,8 @@ export class OrdersService {
       where: { id: order.id },
       data: { status: 'ACCEPTED', acceptedAt: new Date() },
     });
+
+    this.orderMail.notifyContentAccepted(order.id);
   }
 
   async openDispute(params: {
@@ -1726,6 +1744,8 @@ export class OrdersService {
         data: { status: 'REJECTED' as any },
       }),
     ]);
+
+    this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
   }
 
   /**
@@ -1766,12 +1786,14 @@ export class OrdersService {
       throw new BadRequestException(razorpayRefundErrorMessage(err));
     }
 
+    const refundedAt = new Date();
+
     await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'REFUNDED' as any,
         razorpayRefundId: refund.id,
-        refundedAt: new Date(),
+        refundedAt,
       },
     });
 
@@ -1813,14 +1835,19 @@ export class OrdersService {
     if (String(order.status) === 'REFUNDED') return null;
     if (String(order.status) !== 'REJECTED') return null;
 
+    const refundedAt = new Date();
+
     await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'REFUNDED' as any,
         razorpayRefundId: params.razorpayRefundId,
-        refundedAt: new Date(),
+        refundedAt,
       },
     });
+
+    this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+
     return order.id;
   }
 }

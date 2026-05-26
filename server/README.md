@@ -79,6 +79,16 @@ Expose your local server webhook endpoint using a tunnel (ngrok / cloudflared) a
 
 The server verifies signature using `x-razorpay-signature` and `RAZORPAY_WEBHOOK_SECRET`.
 
+### SES bounce / complaint (SNS)
+
+Configure SNS topics on your SES identity (`gocollab-ses-bounces`, `gocollab-ses-complaints`) with an HTTPS subscription:
+
+- URL: `POST /api/webhooks/ses` (e.g. `https://<api-host>/api/webhooks/ses`)
+- SNS sends `SubscriptionConfirmation` first; the server auto-confirms via `SubscribeURL`.
+- Hard bounces and complaints add the address to `EmailSuppression`; outbound mail skips suppressed addresses.
+
+SNS message signatures are verified by default. For local testing only: `SES_SNS_SKIP_SIGNATURE_VERIFY=true`.
+
 Subscribe also to **`refund.processed`** if you want webhook reconciliation after refunds (optional if you only rely on the refund API response). Optionally subscribe to **`refund.failed`**—the server logs it and does **not** change order status (order stays **`REJECTED`** so you can retry).
 
 ### Admin: manual creator payout + refund (no RazorpayX)

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EmailSuppressionService } from './email-suppression.service';
 import { SesMailTransport } from './ses-mail.transport';
 import { TemplateRendererService } from './template-renderer.service';
 import type { SendMailParams } from './mail.types';
@@ -12,6 +13,7 @@ export class MailService {
     private readonly config: ConfigService,
     private readonly renderer: TemplateRendererService,
     private readonly transport: SesMailTransport,
+    private readonly suppression: EmailSuppressionService,
   ) {}
 
   /** Returns true when outbound email is configured and enabled. */
@@ -32,6 +34,13 @@ export class MailService {
     if (!this.isEnabled()) {
       this.logger.debug(
         `skip email template=${params.templateKey} to=${to} (mail disabled or SES_FROM_EMAIL unset)`,
+      );
+      return;
+    }
+
+    if (await this.suppression.isSuppressed(to)) {
+      this.logger.warn(
+        `skip email template=${params.templateKey} to=${to} (address suppressed)`,
       );
       return;
     }

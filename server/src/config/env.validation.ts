@@ -43,4 +43,6 @@ export const envValidationSchema = Joi.object({
   // Email (SES) — optional until outbound mail is enabled
   SES_FROM_EMAIL: Joi.string().email().optional(),
   MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
+  /** Dev only: skip SNS signature verification on POST /api/webhooks/ses */
+  SES_SNS_SKIP_SIGNATURE_VERIFY: Joi.string().valid('true', 'false').optional(),
 });

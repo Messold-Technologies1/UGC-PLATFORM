@@ -221,6 +221,10 @@ describe('CreatorProfileService', () => {
       prismaMock as unknown as PrismaService,
       creatorPackageService as unknown as CreatorPackageService,
       storageMock as unknown as StorageService,
+      {
+        notifyApproved: jest.fn(),
+        notifyRejected: jest.fn(),
+      } as any,
     );
   });
 

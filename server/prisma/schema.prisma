@@ -20,6 +20,11 @@ enum AuthProvider {
   GOOGLE
 }
 
+enum EmailSuppressionReason {
+  HARD_BOUNCE
+  COMPLAINT
+}
+
 enum ApprovalStatus {
   PENDING
   APPROVED
@@ -870,4 +875,15 @@ model AuditLog {
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+/// Outbound mail must not be sent to suppressed addresses (SES bounce/complaint).
+model EmailSuppression {
+  id        String                 @id @default(uuid()) @db.Uuid
+  email     String                 @unique
+  reason    EmailSuppressionReason
+  detail    String?
+  createdAt DateTime               @default(now())
+
+  @@index([reason])
 }

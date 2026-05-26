@@ -27,6 +27,24 @@ export class CreatorPortfolioService {
     private readonly storage: StorageService,
   ) {}
 
+  private async isAdminUser(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        primaryRole: { select: { name: true } },
+        userRoles: { select: { role: { select: { name: true } } } },
+      },
+    });
+    if (!user) return false;
+    if (user.primaryRole?.name === RoleName.ADMIN) return true;
+    return user.userRoles.some((ur) => ur.role.name === RoleName.ADMIN);
+  }
+
+  private async assertAdminUser(userId: string): Promise<void> {
+    if (!(await this.isAdminUser(userId))) {
+      throw new ForbiddenException('Admin access required');
+    }
+  }
 
   private async getCreatorProfileOrThrow(userId: string) {
     const profile = await this.prisma.creatorProfile.findUnique({
@@ -35,6 +53,27 @@ export class CreatorPortfolioService {
     });
     if (!profile) throw new NotFoundException('Creator profile not found');
     return profile;
+  }
+
+  private async getCreatorProfileByIdOrThrow(creatorProfileId: string) {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { id: true, userId: true },
+    });
+    if (!profile) throw new NotFoundException('Creator profile not found');
+    return profile;
+  }
+
+  /** Creator self-service, or admin acting on a specific creator profile. */
+  private async resolvePortfolioProfile(
+    actingUserId: string,
+    targetCreatorProfileId?: string,
+  ) {
+    if (targetCreatorProfileId) {
+      await this.assertAdminUser(actingUserId);
+      return this.getCreatorProfileByIdOrThrow(targetCreatorProfileId);
+    }
+    return this.getCreatorProfileOrThrow(actingUserId);
   }
 
   private assertVideoKeyOwner(creatorId: string, key: string): void {
@@ -51,17 +90,22 @@ export class CreatorPortfolioService {
     }
   }
 
-  async presignUpload(userId: string, dto: PresignPortfolioUploadDto) {
-   
-
-    const profile = await this.getCreatorProfileOrThrow(userId);
+  async presignUpload(
+    actingUserId: string,
+    dto: PresignPortfolioUploadDto,
+    targetCreatorProfileId?: string,
+  ) {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
     const kind =
       dto.kind === 'video'
         ? 'creator_portfolio_video'
         : 'creator_portfolio_thumbnail';
     const key = this.storage.buildObjectKey({
       kind,
-      userId,
+      userId: profile.userId,
       creatorProfileId: profile.id,
       contentType: dto.contentType,
     });
@@ -72,10 +116,15 @@ export class CreatorPortfolioService {
     });
   }
 
-  async createVideo(userId: string, dto: CreatePortfolioVideoDto) {
-   
-
-    const profile = await this.getCreatorProfileOrThrow(userId);
+  async createVideo(
+    actingUserId: string,
+    dto: CreatePortfolioVideoDto,
+    targetCreatorProfileId?: string,
+  ) {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
     this.assertVideoKeyOwner(profile.id, dto.videoKey.trim());
     const thumbnailKey = dto.thumbnailKey?.trim();
     if (thumbnailKey) this.assertThumbnailKeyOwner(profile.id, thumbnailKey);
@@ -205,8 +254,16 @@ export class CreatorPortfolioService {
     return rows.map((r) => r.name);
   }
 
-  async updateVideo(userId: string, videoId: string, dto: UpdatePortfolioVideoDto) {
-    const profile = await this.getCreatorProfileOrThrow(userId);
+  async updateVideo(
+    actingUserId: string,
+    videoId: string,
+    dto: UpdatePortfolioVideoDto,
+    targetCreatorProfileId?: string,
+  ) {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
     const existing = await this.prisma.creatorPortfolioVideo.findUnique({
       where: { id: videoId },
       select: { id: true, creatorId: true },

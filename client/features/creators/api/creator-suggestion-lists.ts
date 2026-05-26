@@ -4,6 +4,7 @@ import { ENDPOINTS } from "@/lib/endpoints";
 export type CreatorSuggestionItem = {
   id: string;
   name: string;
+  slug?: string;
 };
 
 export const creatorSuggestionListsQueryKeys = {

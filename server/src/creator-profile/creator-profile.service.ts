@@ -22,6 +22,7 @@ import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
+import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import { PendingCreatorApprovalListItemDto } from './dto/pending-creator-approval-list-item.dto';
@@ -119,6 +120,7 @@ export class CreatorProfileService {
     private readonly prisma: PrismaService,
     private readonly creatorPackageService: CreatorPackageService,
     private readonly storage: StorageService,
+    private readonly creatorProfileMail: CreatorProfileMailNotifier,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -628,6 +630,7 @@ export class CreatorProfileService {
           !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
+        driveLink: input.driveLink?.trim() || null,
         creatorApproval: {
           create: {},
         },
@@ -993,6 +996,7 @@ export class CreatorProfileService {
       gender: profile.gender ?? null,
       age,
       instagramUrl: profile.instagramUrl ?? null,
+      driveLink: profile.driveLink ?? null,
       contentCategories,
       portfolioVideos,
       approvalStatus:
@@ -1067,6 +1071,9 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.creatorProfileMail.notifyApproved(creatorProfileId);
+
     return this.mapCreatorProfileResponseDto(updated);
   }
 
@@ -1107,6 +1114,9 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.creatorProfileMail.notifyRejected(creatorProfileId, rejectionReason);
+
     return this.mapCreatorProfileResponseDto(updated);
   }
 
@@ -1428,9 +1438,9 @@ export class CreatorProfileService {
     const rows = await this.prisma.creatorFacetOption.findMany({
       where: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, label: true },
+      select: { id: true, label: true , slug: true},
     });
-    return rows.map((r) => ({ id: r.id, name: r.label }));
+    return rows.map((r) => ({ id: r.id, name: r.label, slug: r.slug }));
   }
 
  

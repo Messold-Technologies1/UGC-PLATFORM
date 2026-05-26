@@ -94,6 +94,7 @@ export interface PendingCreatorApprovalListItemDto {
   gender?: string | null;
   age?: number | null;
   instagramUrl?: string | null;
+  driveLink?: string | null;
   contentCategories: PendingCreatorContentCategoryDto[];
   portfolioVideos: CreatorPortfolioVideoPreviewResponseDto[];
   approvalStatus: ApprovalStatus;

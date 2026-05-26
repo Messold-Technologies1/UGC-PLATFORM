@@ -36,5 +36,27 @@ export class WebhooksController {
       json: body,
     });
   }
+
+  @Post('ses')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Amazon SNS webhook for SES bounces and complaints',
+    description:
+      'Subscribe HTTPS to gocollab-ses-bounces / gocollab-ses-complaints topics. Handles SubscriptionConfirmation automatically.',
+  })
+  async ses(
+    @Req() req: Request & { rawBody?: Buffer },
+    @Body() body: unknown,
+  ): Promise<void> {
+    const raw = req.rawBody;
+    if (!raw) {
+      throw new Error('Missing rawBody for SNS webhook');
+    }
+
+    await this.webhooks.handleSesSnsWebhook({
+      rawBody: raw,
+      json: body,
+    });
+  }
 }
 

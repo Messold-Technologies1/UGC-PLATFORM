@@ -58,6 +58,13 @@ export class PendingCreatorApprovalListItemDto {
   })
   instagramUrl?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'https://drive.google.com/drive/folders/abc123',
+    description: 'Google Drive portfolio link from signup (optional)',
+    nullable: true,
+  })
+  driveLink?: string | null;
+
   @ApiProperty({
     type: () => [PendingCreatorContentCategoryDto],
     description: 'CONTENT_CATEGORY facets from signup categorySlugs',

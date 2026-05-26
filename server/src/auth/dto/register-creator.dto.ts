@@ -88,6 +88,20 @@ export class RegisterCreatorDto {
   @MaxLength(500)
   instagramUrl?: string;
 
+  @ApiPropertyOptional({
+    example: 'https://drive.google.com/drive/folders/abc123',
+    description:
+      'Optional Google Drive sharing link (Anyone with the link → Viewer)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  @Matches(/^https:\/\/(drive\.google\.com|docs\.google\.com)\/.+/i, {
+    message:
+      'driveLink must be a Google Drive or Google Docs URL (https://drive.google.com/... or https://docs.google.com/...)',
+  })
+  driveLink?: string;
+
   @ApiProperty({
     type: [String],
     description: 'CONTENT_CATEGORY facet slugs',

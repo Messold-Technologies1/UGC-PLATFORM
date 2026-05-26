@@ -133,10 +133,10 @@ export function AuthForm({ mode }: AuthFormProps) {
     [registerMutation, queryClient, searchParams],
   );
 
-  const handleGoogleLogin = useCallback(() => {
-    setGoogleLoading(true);
-    window.location.replace(ENDPOINTS.AUTH.GOOGLE);
-  }, []);
+  // const handleGoogleLogin = useCallback(() => {
+  //   setGoogleLoading(true);
+  //   window.location.replace(ENDPOINTS.AUTH.GOOGLE);
+  // }, []);
 
   return (
     <div className="flex min-h-full w-full flex-col items-center justify-center px-6 py-12 lg:px-16">

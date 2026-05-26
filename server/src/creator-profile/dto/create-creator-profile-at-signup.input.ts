@@ -12,5 +12,6 @@ export type CreateCreatorProfileAtSignupInput = {
   countryName: string;
   bio?: string | null;
   instagramUrl?: string | null;
+  driveLink?: string | null;
   categorySlugs: string[];
 };

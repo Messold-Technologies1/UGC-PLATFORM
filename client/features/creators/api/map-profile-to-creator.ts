@@ -123,7 +123,7 @@ export function mapProfileToListingCreator(
   const thumbnail =
     thumb && (thumb.startsWith("http://") || thumb.startsWith("https://"))
       ? thumb
-      : "/globe.svg";
+      : "";
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
   const introVideoUrl = trimString(profile.introVideoUrl);
   const previewVideoUrl =

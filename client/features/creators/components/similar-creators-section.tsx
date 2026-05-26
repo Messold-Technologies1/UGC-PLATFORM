@@ -28,8 +28,8 @@ function parsePrice(value: string | null | undefined) {
 
 function normalizeThumbnailUrl(value: string | null | undefined) {
   const url = value?.trim();
-  if (!url) return "/globe.svg";
-  return url.startsWith("https://") || url.startsWith("/") ? url : "/globe.svg";
+  if (!url) return "";
+  return url.startsWith("https://") || url.startsWith("/") ? url : "";
 }
 
 function mapSuggestedCreatorToCreator(

@@ -12,6 +12,7 @@ import {
   updateCreatorProfile,
   type UpdateCreatorProfilePayload,
 } from "../api/update-creator-profile";
+import { updateCreatorProfileAdmin } from "@/features/admin/api/update-creator";
 import {
   presignCreatorProfileIntroVideoUpload,
   putIntroVideoToPresignedUrl,
@@ -72,18 +73,27 @@ export function useUploadCreatorIntroVideoMutation(mode: CreatorProfileMode) {
 export function useSubmitCreatorProfileMutation({
   mode,
   profileId,
+  adminMode,
   onSuccess,
 }: {
   mode: CreatorProfileMode;
   profileId?: string;
+  adminMode?: boolean;
   onSuccess?: () => void | Promise<void>;
 }) {
   const queryClient = useQueryClient();
 
   const invalidateCreatorQueries = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
-    await queryClient.invalidateQueries({ queryKey: creatorProfileMeQueryKey });
-  }, [queryClient]);
+    if (adminMode) {
+      await queryClient.invalidateQueries({ queryKey: ["creators", "list"] });
+      if (profileId) {
+        await queryClient.invalidateQueries({ queryKey: ["creators", "profile", profileId] });
+      }
+    } else {
+      await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
+      await queryClient.invalidateQueries({ queryKey: creatorProfileMeQueryKey });
+    }
+  }, [queryClient, adminMode, profileId]);
 
   return useMutation({
     mutationKey: ["creators", "profile", "submit", mode, profileId ?? "new"],
@@ -95,7 +105,11 @@ export function useSubmitCreatorProfileMutation({
           throw new Error("Missing profile id");
         }
 
-        await updateCreatorProfile(profileId, payload as UpdateCreatorProfilePayload);
+        if (adminMode) {
+          await updateCreatorProfileAdmin(profileId, payload as UpdateCreatorProfilePayload);
+        } else {
+          await updateCreatorProfile(profileId, payload as UpdateCreatorProfilePayload);
+        }
         return { status: "updated" };
       }
       

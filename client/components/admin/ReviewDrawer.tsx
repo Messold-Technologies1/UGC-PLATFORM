@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import { PendingCreatorApprovalListItemDto } from "@/features/admin/types";
+import { useRouter } from "next/navigation";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -33,6 +34,7 @@ export default function ReviewDrawer({
   onClose: () => void;
   creator?: PendingCreatorApprovalListItemDto | null;
 }) {
+  const router = useRouter();
   const { mutate: approve, isPending: isApproving } =
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } = useRejectCreatorMutation();
@@ -42,7 +44,9 @@ export default function ReviewDrawer({
   const handleApprove = () => {
     if (!creator) return;
     approve(creator.id, {
-      onSuccess: () => onClose(),
+      onSuccess: () => {
+        onClose();
+      },
     });
   };
 
@@ -217,6 +221,7 @@ export default function ReviewDrawer({
                                 controls
                                 muted
                                 playsInline
+                                poster={video.thumbnailUrl || undefined}
                               />
                             ) : (
                               <Image
@@ -248,7 +253,7 @@ export default function ReviewDrawer({
 
               <div className="p-8 border-t border-border/20 bg-background/95 backdrop-blur-md sticky bottom-0 flex space-x-4">
                 <button
-                  className="flex-1 py-4 rounded-xl border border-border text-muted-foreground font-bold text-sm uppercase tracking-wider hover:bg-error/10 hover:text-error hover:border-error/30 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                  className="flex-1 py-2 rounded-xl border border-border text-muted-foreground font-bold text-sm uppercase tracking-wider hover:bg-error/10 hover:text-error hover:border-error/30 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
                   onClick={handleRejectClick}
                   disabled={isWorking}
                 >
@@ -260,7 +265,7 @@ export default function ReviewDrawer({
                   <span>{isRejecting ? "Rejecting..." : "Reject"}</span>
                 </button>
                 <button
-                  className="flex-2 w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm uppercase tracking-wider hover:brightness-110 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                  className="flex-2 w-full py-2 rounded-xl bg-primary text-primary-foreground font-bold text-sm uppercase tracking-wider hover:brightness-110 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
                   onClick={handleApprove}
                   disabled={isWorking}
                 >

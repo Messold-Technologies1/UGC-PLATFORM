@@ -144,7 +144,7 @@ export function CreatorProfile({
   return (
     <div className="w-full min-w-0">
       <div className="px-6 sm:px-8 lg:px-10 py-4 flex items-center justify-between">
-        <Link
+        {/* <Link
           href="/brand/creators"
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -158,7 +158,7 @@ export function CreatorProfile({
         >
           Share
           <Share2 className="size-4" />
-        </button>
+        </button> */}
       </div>
 
       <div className="px-6 sm:px-8 lg:px-10">

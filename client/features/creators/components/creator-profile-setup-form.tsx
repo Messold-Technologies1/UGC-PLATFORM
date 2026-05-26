@@ -122,6 +122,7 @@ export type CreatorProfileSetupFormProps = {
   variant: "onboarding" | "settings";
   mode: "update";
   profileId?: string;
+  adminMode?: boolean;
   initialProfile?: CreatorProfileItemApi | null;
   onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
@@ -280,6 +281,7 @@ export function CreatorProfileSetupForm({
   variant,
   mode,
   profileId,
+  adminMode,
   initialProfile,
   onSuccess,
   onPendingChange,
@@ -293,6 +295,7 @@ export function CreatorProfileSetupForm({
       variant={variant}
       mode={mode}
       profileId={profileId}
+      adminMode={adminMode}
       initialProfile={initialProfile}
       onSuccess={onSuccess}
       onPendingChange={onPendingChange}
@@ -305,6 +308,7 @@ function CreatorProfileSetupFormContent({
   variant,
   mode,
   profileId,
+  adminMode,
   initialProfile,
   onSuccess,
   onPendingChange,
@@ -316,6 +320,7 @@ function CreatorProfileSetupFormContent({
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
+    adminMode,
     onSuccess,
   });
   const facetOptionsQuery = useCreatorFacetOptionsQuery({
@@ -341,11 +346,12 @@ function CreatorProfileSetupFormContent({
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
 
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(adminMode ? true : false);
+  const [phoneInput, setPhoneInput] = useState(() => initialProfile?.phone?.replace("+91", "") ?? "");
   const [displayName, setDisplayName] = useState(() =>
     initialProfile?.displayName ?? getInitialCreatorName(user)
   );
-  const [countryCode, setCountryCode] = useState(initialCountry?.isoCode ?? "");
+  const [countryCode, setCountryCode] = useState(() => adminMode ? "IN" : (initialCountry?.isoCode ?? ""));
   const [stateCode, setStateCode] = useState(initialState?.isoCode ?? "");
   const [city, setCity] = useState(() => initialProfile?.city?.trim() ?? "");
   const [bio, setBio] = useState(() => initialProfile?.bio?.trim() ?? "");
@@ -737,6 +743,7 @@ function CreatorProfileSetupFormContent({
           : introVideoRemoved
             ? { introVideoKey: "" }
             : {}),
+        ...(adminMode && phoneInput ? { phone: "+91" + phoneInput } : {}),
         countryName: countryName || undefined,
         stateName: stateName || undefined,
         city: city.trim() || undefined,
@@ -910,25 +917,46 @@ function CreatorProfileSetupFormContent({
       </motion.div>
 
       <div className="flex flex-col gap-6">
-        <motion.section
-          variants={itemVariants}
-          className="space-y-4 rounded-xl border border-border bg-muted/20 p-4"
-        >
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Account verification
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Required before creator profile changes can be saved.
-            </p>
-          </div>
-          <PhoneVerificationField
-            idPrefix="creator-profile"
-            disabled={pending}
-            onVerifiedChange={setPhoneVerified}
-            onVerified={() => void refreshUser()}
-          />
-        </motion.section>
+        {adminMode ? (
+          <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone number</Label>
+              <div className="flex items-stretch h-[42px] rounded-xl border border-input bg-background overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary/20">
+                <div className="flex h-full items-center justify-center bg-muted px-4 border-r border-input text-[15px] font-semibold text-muted-foreground">
+                  +91
+                </div>
+                <Input
+                  id="phone"
+                  className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium"
+                  disabled={pending}
+                  value={phoneInput}
+                  onChange={(event) => setPhoneInput(event.target.value.replace(/\D/g, ""))}
+                  required
+                />
+              </div>
+            </div>
+          </motion.section>
+        ) : (
+          <motion.section
+            variants={itemVariants}
+            className="space-y-4 rounded-xl border border-border bg-muted/20 p-4"
+          >
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Account verification
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Required before creator profile changes can be saved.
+              </p>
+            </div>
+            <PhoneVerificationField
+              idPrefix="creator-profile"
+              disabled={pending}
+              onVerifiedChange={setPhoneVerified}
+              onVerified={() => void refreshUser()}
+            />
+          </motion.section>
+        )}
 
         <motion.section variants={itemVariants} className="space-y-4">
           <div className="space-y-2">
@@ -945,22 +973,34 @@ function CreatorProfileSetupFormContent({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <SelectField
-              id="country"
-              label="Country"
-              value={countryCode}
-              placeholder="Select country"
-              disabled={pending}
-              options={countries.map((country) => ({
-                value: country.isoCode,
-                label: country.name,
-              }))}
-              onChange={(value) => {
-                setCountryCode(value);
-                setStateCode("");
-                setCity("");
-              }}
-            />
+            {adminMode ? (
+              <div className="space-y-1">
+                <Label htmlFor="country" className="mb-[6px] block text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Country</Label>
+                <Input
+                  id="country"
+                  value="India"
+                  readOnly
+                  className="h-9 border-input bg-muted opacity-70 cursor-not-allowed text-muted-foreground"
+                />
+              </div>
+            ) : (
+              <SelectField
+                id="country"
+                label="Country"
+                value={countryCode}
+                placeholder="Select country"
+                disabled={pending}
+                options={countries.map((country) => ({
+                  value: country.isoCode,
+                  label: country.name,
+                }))}
+                onChange={(value) => {
+                  setCountryCode(value);
+                  setStateCode("");
+                  setCity("");
+                }}
+              />
+            )}
             <SelectField
               id="state"
               label="State"

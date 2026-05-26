@@ -48,15 +48,44 @@ export class WebhooksController {
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: unknown,
   ): Promise<void> {
-    const raw = req.rawBody;
-    if (!raw) {
-      throw new Error('Missing rawBody for SNS webhook');
+    const { rawBody, json } = resolveWebhookPayload(req, body);
+    if (!json) {
+      throw new Error('Missing body for SNS webhook');
     }
 
     await this.webhooks.handleSesSnsWebhook({
-      rawBody: raw,
-      json: body,
+      rawBody,
+      json,
     });
   }
+}
+
+/** SNS may arrive as text/plain; Vercel/Express do not always set rawBody. */
+function resolveWebhookPayload(
+  req: Request & { rawBody?: Buffer },
+  body: unknown,
+): { rawBody: Buffer; json: unknown } {
+  if (req.rawBody?.length) {
+    const json =
+      body != null &&
+      typeof body === 'object' &&
+      !Buffer.isBuffer(body) &&
+      Object.keys(body as object).length > 0
+        ? body
+        : JSON.parse(req.rawBody.toString('utf8'));
+    return { rawBody: req.rawBody, json };
+  }
+
+  if (typeof body === 'string' && body.trim()) {
+    const rawBody = Buffer.from(body, 'utf8');
+    return { rawBody, json: JSON.parse(body) };
+  }
+
+  if (body != null && typeof body === 'object' && !Buffer.isBuffer(body)) {
+    const rawBody = Buffer.from(JSON.stringify(body), 'utf8');
+    return { rawBody, json: body };
+  }
+
+  return { rawBody: Buffer.alloc(0), json: null };
 }
 

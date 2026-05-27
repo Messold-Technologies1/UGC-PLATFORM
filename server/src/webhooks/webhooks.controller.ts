@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -48,9 +49,9 @@ export class WebhooksController {
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: unknown,
   ): Promise<void> {
-    const { rawBody, json } = resolveWebhookPayload(req, body);
+    const { rawBody, json } = resolveSnsWebhookPayload(req, body);
     if (!json) {
-      throw new Error('Missing body for SNS webhook');
+      throw new BadRequestException('Missing body for SNS webhook');
     }
 
     await this.webhooks.handleSesSnsWebhook({
@@ -60,46 +61,38 @@ export class WebhooksController {
   }
 }
 
-/**
- * SNS may arrive as text/plain; Vercel/Express do not always set rawBody.
- *
- * For SNS signature verification the json MUST be parsed from the original
- * raw bytes — never re-serialised from a JS object — so we always prefer
- * rawBody as the source of truth and only fall back to @Body() when rawBody
- * is unavailable (e.g. unit tests).
- */
-function resolveWebhookPayload(
+/** Parse SNS body from raw bytes (required for signature verification). */
+function resolveSnsWebhookPayload(
   req: Request & { rawBody?: Buffer },
   body: unknown,
 ): { rawBody: Buffer; json: unknown } {
-  // rawBody is always the preferred path: parse JSON from the exact bytes
-  // AWS signed so the string-to-sign matches perfectly.
   if (req.rawBody?.length) {
-    let json: unknown;
     try {
-      json = JSON.parse(req.rawBody.toString('utf8'));
+      return {
+        rawBody: req.rawBody,
+        json: JSON.parse(req.rawBody.toString('utf8')) as unknown,
+      };
     } catch {
-      // Not valid JSON from rawBody; fall through to body fallbacks below.
-      json = null;
-    }
-    if (json != null) {
-      return { rawBody: req.rawBody, json };
+      throw new BadRequestException('SNS webhook body is not valid JSON');
     }
   }
 
-  // Fallback 1: body arrived as a plain string (text/plain parsed by express.text).
+  // express.text on /api/webhooks/ses sets body to a string when rawBody verify missed
   if (typeof body === 'string' && body.trim()) {
     const rawBody = Buffer.from(body, 'utf8');
-    return { rawBody, json: JSON.parse(body) };
+    try {
+      return { rawBody, json: JSON.parse(body) as unknown };
+    } catch {
+      throw new BadRequestException('SNS webhook body is not valid JSON');
+    }
   }
 
-  // Fallback 2: body already parsed to an object by express.json.
-  // Re-serialise to get rawBody; signature verification won't work reliably
-  // in this path but at least SubscriptionConfirmation can still be processed
-  // when SES_SNS_SKIP_SIGNATURE_VERIFY=true.
+  // application/json (Nest rawBody: true) — body already parsed
   if (body != null && typeof body === 'object' && !Buffer.isBuffer(body)) {
-    const rawBody = Buffer.from(JSON.stringify(body), 'utf8');
-    return { rawBody, json: body };
+    return {
+      rawBody: Buffer.from(JSON.stringify(body), 'utf8'),
+      json: body,
+    };
   }
 
   return { rawBody: Buffer.alloc(0), json: null };

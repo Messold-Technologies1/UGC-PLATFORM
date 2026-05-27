@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { 
-  CheckCircle2, 
-  FileEdit, 
-  Briefcase, 
-  Clipboard, 
-  MonitorPlay, 
-  BadgeCheck, 
-  Video, 
-  Key 
+import {
+  CheckCircle2,
+  FileEdit,
+  Briefcase,
+  Clipboard,
+  MonitorPlay,
+  BadgeCheck,
+  Video,
+  Key,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderBriefPayload } from "../../../api/get-order-brief";
@@ -51,12 +51,22 @@ export function InprogressOrderDetailsCard({
   const contentTypes = brief?.contentType
     ? formatEnumLabel(brief.contentType)
     : "Product Demo • Instagram Reels";
+  const durationBucketLabels: Record<string, string> = {
+    SEC_0_15: "0 - 15 Seconds",
+    SEC_15_30: "15 - 30 Seconds",
+    SEC_30_45: "30 - 45 Seconds",
+    SEC_45_60: "45 - 60 Seconds",
+    SEC_60_100: "60 - 100 Seconds",
+    NOT_SURE: "Not sure / Creator decides",
+  };
+
   const durationBucket = brief?.durationBucket
-    ? formatEnumLabel(brief.durationBucket)
+    ? durationBucketLabels[brief.durationBucket] ||
+      formatEnumLabel(brief.durationBucket)
     : "Up to 60 seconds";
-  const style = "Casual, Bright, Energetic"; // Defaulting as placeholder if not in brief
+  const style = "Casual, Bright, Energetic";
   const scriptSummary = formatBriefScript(brief?.script);
-  
+
   function handleViewFullBrief() {
     if (briefId) {
       router.push(`/brand/briefs/${briefId}`);
@@ -88,57 +98,71 @@ export function InprogressOrderDetailsCard({
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-[1.2] space-y-8">
           <div className="grid grid-cols-[150px_1fr] gap-y-4 gap-x-4 items-center">
-            {/* Brand */}
             <div className="flex items-center gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Briefcase className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">Brand</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Brand
+              </span>
             </div>
-            <span className="text-sm font-medium text-foreground">{brandName}</span>
+            <span className="text-sm font-medium text-foreground">
+              {brandName}
+            </span>
 
-            {/* Product */}
             <div className="flex items-center gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Clipboard className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">Product</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Product
+              </span>
             </div>
-            <span className="text-sm font-medium text-foreground">{productName}</span>
+            <span className="text-sm font-medium text-foreground">
+              {productName}
+            </span>
 
-            {/* Content Type */}
             <div className="flex items-center gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <MonitorPlay className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">Content Type</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Content Type
+              </span>
             </div>
-            <span className="text-sm font-medium text-foreground">{contentTypes}</span>
+            <span className="text-sm font-medium text-foreground">
+              {contentTypes}
+            </span>
 
-            {/* Style */}
             <div className="flex items-center gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <BadgeCheck className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">Style</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Style
+              </span>
             </div>
             <span className="text-sm font-medium text-foreground">{style}</span>
 
-            {/* Video Length */}
             <div className="flex items-center gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Video className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">Video Length</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Video Length
+              </span>
             </div>
-            <span className="text-sm font-medium text-foreground">{durationBucket}</span>
+            <span className="text-sm font-medium text-foreground">
+              {durationBucket}
+            </span>
 
-            {/* Key Points */}
             <div className="flex items-center gap-3">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Key className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">Key Points</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                Key Points
+              </span>
             </div>
             <span className="text-sm font-medium text-foreground">
               {scriptSummary?.label ?? "5 key points"}
@@ -163,26 +187,53 @@ export function InprogressOrderDetailsCard({
               Deliverables
             </h4>
             <div className="space-y-3">
-              <div className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span className="text-foreground font-medium">1 UGC Video ({durationBucket})</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span className="text-foreground font-medium">9:16 Aspect Ratio</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span className="text-foreground font-medium">High Quality (1080p)</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span className="text-foreground font-medium">No Watermark</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span className="text-foreground font-medium">Raw Footage (Upon Request)</span>
-              </div>
+              {order.deliverablesSnapshot &&
+              order.deliverablesSnapshot.length > 0 ? (
+                order.deliverablesSnapshot.map((deliverable, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2.5 text-sm"
+                  >
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">
+                      {deliverable}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">
+                      1 UGC Video ({durationBucket})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">
+                      9:16 Aspect Ratio
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">
+                      High Quality (1080p)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">
+                      No Watermark
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">
+                      Raw Footage (Upon Request)
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

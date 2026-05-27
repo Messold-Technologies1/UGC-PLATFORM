@@ -85,7 +85,7 @@ export function ShippingDetailsCard({
                 Ship the product to the creator
               </p>
               <p className="text-sm text-purple-700 dark:text-purple-300 mt-1 leading-relaxed">
-                Once {creatorName} receives the product, she&apos;ll confirm and
+                Once {creatorName}{" "}receives the product, she&apos;ll confirm and
                 start creating your content.
               </p>
             </div>

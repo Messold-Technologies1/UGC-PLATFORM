@@ -34,18 +34,21 @@ const STEPS: StepDefinition[] = [
     icon: CreditCard,
     dateKey: "paidAt",
     statusMatch: [],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
     label: "Brief\nSubmitted",
     icon: FileText,
     dateKey: "briefSubmittedAt",
     statusMatch: ["BRIEF_SUBMISSION_PENDING"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
     label: "Awaiting Creator\nAcceptance",
     icon: UserCheck,
     dateKey: "briefAcceptedAt",
     statusMatch: ["BRIEF_SUBMITTED"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
     label: "Awaiting\nShipment",
@@ -59,18 +62,21 @@ const STEPS: StepDefinition[] = [
     icon: Play,
     dateKey: null,
     statusMatch: ["PRODUCT_SHIPPED", "PRODUCT_RECEIVED"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
     label: "Delivered",
     icon: Truck,
     dateKey: "deliveredAt",
     statusMatch: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
     label: "Completed",
     icon: Star,
     dateKey: "acceptedAt",
     statusMatch: ["ACCEPTED", "CREATOR_PAYMENT_DONE"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
 ];
 
@@ -127,7 +133,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
   const activeIndex = getActiveStepIndex(order.status, steps);
 
   return (
-    <div className="rounded-lg border bg-card p-6 md:p-8 overflow-x-auto">
+    <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">
       <div className="flex items-start justify-between min-w-[700px]">
         {steps.map((step, index) => {
           const isPassed = index <= activeIndex;
@@ -150,6 +156,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                     : isActive
                       ? "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
                       : "border-border bg-muted text-muted-foreground",
+                  previewState === step.label && "ring-4 ring-primary/40 ring-offset-2"
                 )}
               >
                 {isCompleted ? (
@@ -205,7 +212,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 </div>
               )}
 
-              {step.getHref && (isActive || isCompleted) && !onStepClick ? (
+              {step.getHref && (isActive || isCompleted) && (!onStepClick || step.label === "Awaiting\nShipment") ? (
                 <Link
                   href={step.getHref(order.id)}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer"
@@ -214,8 +221,12 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 </Link>
               ) : (
                 <div 
-                  className={cn("flex flex-col items-center", onStepClick ? "cursor-pointer hover:opacity-80 transition-opacity" : "")}
-                  onClick={() => onStepClick?.(step.label)}
+                  className={cn("flex flex-col items-center", onStepClick && (isActive || isCompleted) ? "cursor-pointer hover:opacity-80 transition-opacity" : "")}
+                  onClick={() => {
+                    if (onStepClick && (isActive || isCompleted)) {
+                      onStepClick(step.label);
+                    }
+                  }}
                 >
                   <StepContent />
                 </div>

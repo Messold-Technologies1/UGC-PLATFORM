@@ -4,6 +4,7 @@ import { Info, MessageCircle, Star } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../../api/types";
 
 interface CreatorProfileCardProps {
@@ -32,7 +33,6 @@ export function CreatorProfileCard({
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
       <h3 className="text-lg font-bold text-foreground mb-6">Creator</h3>
 
-      {/* Profile row */}
       <div className="flex items-start gap-4">
         <Avatar className="size-14 border-2 border-primary/20 shrink-0">
           <AvatarImage
@@ -72,8 +72,11 @@ export function CreatorProfileCard({
         <Button
           variant="outline"
           className="flex-1 rounded-xl text-sm font-semibold h-11"
+          asChild
         >
-          View Profile
+          <Link href={`/brand/creators/${creator.id}`}>
+            View Profile
+          </Link>
         </Button>
         <Button
           variant="outline"

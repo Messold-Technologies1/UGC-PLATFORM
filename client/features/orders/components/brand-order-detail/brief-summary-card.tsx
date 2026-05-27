@@ -8,6 +8,7 @@ import {
   Link2,
   Truck,
   Video,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
@@ -43,6 +44,7 @@ interface BriefFieldProps {
   value?: string | null;
   children?: React.ReactNode;
   image?: string | null;
+  imageFallbackIcon?: React.ElementType;
 }
 
 function BriefField({
@@ -52,6 +54,7 @@ function BriefField({
   value,
   children,
   image,
+  imageFallbackIcon: ImageFallbackIcon,
 }: BriefFieldProps) {
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50/40 dark:bg-slate-900/40 dark:border-slate-800 p-4 flex items-start gap-4 h-full transition-all hover:bg-slate-50/60 dark:hover:bg-slate-900/60">
@@ -65,6 +68,10 @@ function BriefField({
               (e.target as HTMLImageElement).src = "/placeholder-product.png";
             }}
           />
+        </div>
+      ) : ImageFallbackIcon ? (
+        <div className="size-16 shrink-0 rounded-lg border bg-muted/30 flex items-center justify-center">
+          <ImageFallbackIcon className="size-7 text-muted-foreground/60" />
         </div>
       ) : Icon ? (
         <div
@@ -103,8 +110,18 @@ export function BriefSummaryCard({
   const contentTypes = brief?.contentType
     ? formatEnumLabel(brief.contentType)
     : "Product Demo";
+    
+  const durationBucketLabels: Record<string, string> = {
+    SEC_0_15: "0 - 15 Seconds",
+    SEC_15_30: "15 - 30 Seconds",
+    SEC_30_45: "30 - 45 Seconds",
+    SEC_45_60: "45 - 60 Seconds",
+    SEC_60_100: "60 - 100 Seconds",
+    NOT_SURE: "Not sure / Creator decides",
+  };
+  
   const durationBucket = brief?.durationBucket
-    ? formatEnumLabel(brief.durationBucket)
+    ? durationBucketLabels[brief.durationBucket] || formatEnumLabel(brief.durationBucket)
     : "Up to 60 seconds";
   const referenceLinks = brief?.referenceLinks ?? [];
   const willShipProduct =
@@ -137,7 +154,8 @@ export function BriefSummaryCard({
         <BriefField
           label="Product Details"
           value={productName}
-          image={brief?.brandLogo?.url}
+          image={brief?.productImage?.url}
+          imageFallbackIcon={Package}
         >
           {productDescription && (
             <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-1">
@@ -190,15 +208,22 @@ export function BriefSummaryCard({
           {referenceLinks.length > 0 && (
             <div className="flex items-center gap-1.5 mt-2.5">
               {referenceLinks.slice(0, 3).map((link, idx) => (
-                <div
+                <a
                   key={idx}
-                  className="size-8 rounded-md bg-slate-200/50 border border-slate-300/50 flex items-center justify-center overflow-hidden"
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="size-8 rounded-md bg-slate-200/50 border border-slate-300/50 flex items-center justify-center overflow-hidden hover:bg-slate-300/50 transition-colors"
+                  title={link}
                 >
                   <ExternalLink className="size-3 text-slate-500" />
-                </div>
+                </a>
               ))}
               {referenceLinks.length > 3 && (
-                <div className="size-8 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                <div 
+                  className="size-8 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500"
+                  title={`${referenceLinks.length - 3} more links`}
+                >
                   +{referenceLinks.length - 3}
                 </div>
               )}

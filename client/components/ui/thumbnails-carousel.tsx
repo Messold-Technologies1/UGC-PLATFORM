@@ -20,6 +20,7 @@ export type CarouselAsset = {
 
 export interface ThumbnailsCarouselProps {
   className?: string;
+  itemGroupClassName?: string;
   assets?: CarouselAsset[];
   isEditable?: boolean;
   onRemove?: (index: number) => void;
@@ -27,6 +28,7 @@ export interface ThumbnailsCarouselProps {
 
 export function ThumbnailsCarousel({ 
   className,
+  itemGroupClassName,
   assets = [],
   isEditable = false,
   onRemove
@@ -119,7 +121,7 @@ export function ThumbnailsCarousel({
       onPageChange={handlePageChange}
       className={cn("w-full transition-opacity duration-300", className)}
     >
-      <Carousel.ItemGroup className="relative mb-4 aspect-video max-h-[70vh] overflow-hidden rounded-2xl border bg-black shadow-sm">
+      <Carousel.ItemGroup className={cn("relative mb-4 aspect-video max-h-[70vh] overflow-hidden rounded-2xl border bg-black shadow-sm", itemGroupClassName)}>
         {assets.map((asset, index) => (
           <Carousel.Item key={asset.id ?? index} index={index} className="relative h-full w-full">
             {asset.type === "video" ? (

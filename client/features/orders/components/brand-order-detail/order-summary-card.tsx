@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Info, Package, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { OrderBriefPayload } from "../../api/get-order-brief";
 import type { OrderDetailsPublic } from "../../api/types";
 
 interface OrderSummaryCardProps {
   order: OrderDetailsPublic;
   orderId: string;
   briefId?: string | null;
+  brief?: OrderBriefPayload | null;
 }
 
 function formatMoney(amount: number, currency: string) {
@@ -23,12 +25,13 @@ export function OrderSummaryCard({
   order,
   orderId,
   briefId,
+  brief,
 }: OrderSummaryCardProps) {
   const router = useRouter();
   const packageAmount = Number.parseFloat(order.priceAmountSnapshot) || 0;
   const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
   const totalAmount = order.expectedAmountPaise / 100;
-  // const platformFee = 299; 
+ 
 
   const canEditBrief =
     order.status === "BRIEF_SUBMISSION_PENDING" && !order.hasBrief;
@@ -65,7 +68,19 @@ export function OrderSummaryCard({
 
             <div className="flex items-center gap-3">
               <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted/50 border border-border/50 overflow-hidden">
-                <Package className="size-6 text-muted-foreground" />
+                {brief?.productImage?.url ? (
+                  <img
+                    src={brief.productImage.url}
+                    alt={order.packageNameSnapshot}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "/placeholder-product.png";
+                    }}
+                  />
+                ) : (
+                  <Package className="size-6 text-muted-foreground" />
+                )}
               </div>
               <p className="flex-1 text-sm text-foreground min-w-0 truncate">
                 {order.packageNameSnapshot}

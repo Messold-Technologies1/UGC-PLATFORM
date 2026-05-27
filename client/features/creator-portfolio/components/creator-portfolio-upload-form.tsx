@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import ISO6391 from "iso-639-1";
+import ReactSelect from "react-select";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -32,7 +34,6 @@ import {
 import { useCreatePortfolioVideoFlowMutation } from "../hooks/use-create-portfolio-video-flow-mutation";
 import {
   usePortfolioIndustrySuggestionsQuery,
-  usePortfolioLanguageSuggestionsQuery,
   usePortfolioTagSuggestionsQuery,
 } from "../hooks/use-portfolio-suggestion-queries";
 import {
@@ -63,7 +64,13 @@ function buildMetadataPatch(input: {
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
-export function CreatorPortfolioUploadForm() {
+export function CreatorPortfolioUploadForm({
+  isOverlay = false,
+  onSuccess,
+}: {
+  isOverlay?: boolean;
+  onSuccess?: () => void;
+} = {}) {
   const createPortfolioVideoFlowMutation = useCreatePortfolioVideoFlowMutation();
   const submitting = createPortfolioVideoFlowMutation.isPending;
 
@@ -71,9 +78,6 @@ export function CreatorPortfolioUploadForm() {
     staleTime: 5 * 60_000,
   });
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
-    staleTime: 5 * 60_000,
-  });
-  const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
     staleTime: 5 * 60_000,
   });
 
@@ -102,25 +106,33 @@ export function CreatorPortfolioUploadForm() {
         language,
         tagsRaw,
       }),
+    }, {
+      onSuccess: () => {
+        onSuccess?.();
+      }
     });
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <Link
-          href="/creator/portfolio"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Back to portfolio
-        </Link>
-      </div>
+    <div className={isOverlay ? "space-y-4" : "space-y-8"}>
+      {!isOverlay && (
+        <>
+          <div>
+            <Link
+              href="/creator/portfolio"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              Back to portfolio
+            </Link>
+          </div>
 
-      <PageHeader
-        title="Add portfolio video"
-        description="Upload a video and optional thumbnail."
-      />
+          <PageHeader
+            title="Add portfolio video"
+            description="Upload a video and optional thumbnail."
+          />
+        </>
+      )}
 
       <Card>
         <CardHeader>
@@ -210,37 +222,57 @@ export function CreatorPortfolioUploadForm() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="portfolio-lang">Language</Label>
-                <Input
-                  id="portfolio-lang"
-                  value={language}
-                  disabled={submitting}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  placeholder="e.g. English"
-                  list="portfolio-language-suggestions"
+                <ReactSelect
+                  inputId="portfolio-lang"
+                  options={ISO6391.getAllNames().map((name) => ({
+                    value: name,
+                    label: name,
+                  }))}
+                  value={language ? { value: language, label: language } : null}
+                  onChange={(option) => setLanguage(option?.value || "")}
+                  isDisabled={submitting}
+                  placeholder="Select a language..."
+                  isClearable
+                  isSearchable
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: "transparent",
+                      borderColor: "var(--input)",
+                      borderRadius: "calc(var(--radius) - 2px)",
+                      minHeight: "36px",
+                      boxShadow: "none",
+                      "&:hover": {
+                        borderColor: "var(--input)"
+                      }
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      backgroundColor: "var(--background)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "calc(var(--radius) - 2px)",
+                      zIndex: 9999,
+                    }),
+                    option: (base, state) => ({
+                      ...base,
+                      backgroundColor: state.isFocused
+                        ? "var(--accent)"
+                        : "transparent",
+                      color: state.isFocused
+                        ? "var(--accent-foreground)"
+                        : "var(--popover-foreground)",
+                      cursor: "pointer",
+                    }),
+                    singleValue: (base) => ({
+                      ...base,
+                      color: "var(--foreground)",
+                    }),
+                    input: (base) => ({
+                      ...base,
+                      color: "var(--foreground)",
+                    }),
+                  }}
                 />
-                {languageSuggestionsQuery.isSuccess &&
-                languageSuggestionsQuery.data.length > 0 ? (
-                  <datalist id="portfolio-language-suggestions">
-                    {languageSuggestionsQuery.data.map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
-                ) : null}
-                {languageSuggestionsQuery.isSuccess &&
-                languageSuggestionsQuery.data.length > 0 ? (
-                  <SuggestionChips
-                    items={languageSuggestionsQuery.data.map((name) => ({
-                      key: name,
-                      label: name,
-                      ariaLabel: `Use ${name} as language`,
-                    }))}
-                    disabled={submitting}
-                    selectedLabels={language ? [language] : []}
-                    onSelect={(name, nextSelected) =>
-                      setLanguage(nextSelected ? name : "")
-                    }
-                  />
-                ) : null}
               </div>
             </div>
 

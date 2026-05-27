@@ -259,7 +259,8 @@ const createBriefSchema = z
   })
   .superRefine((values, ctx) => {
     if (
-      values.shootLocationKind === "BRAND_SELECTED_LOCATION" &&
+      (values.shootLocationKind === "BRAND_SELECTED_LOCATION" ||
+        values.shootLocationKind === "OUTDOOR_PUBLIC_LOCATION") &&
       !values.shootLocationAddress?.trim()
     ) {
       ctx.addIssue({
@@ -387,6 +388,7 @@ function CreateBriefPageContent() {
   const form = useForm<CreateBriefValues>({
     resolver: zodResolver(createBriefSchema),
     defaultValues: createBriefDefaultValues,
+    mode: "onTouched",
   });
   const { data: brandProfileState } = useBrandProfileStateQuery({
     retry: false,
@@ -1165,7 +1167,8 @@ function CreateBriefPageContent() {
                     </div>
                   </div>
 
-                  {watchShootLocation === "BRAND_SELECTED_LOCATION" && (
+                  {(watchShootLocation === "BRAND_SELECTED_LOCATION" ||
+                    watchShootLocation === "OUTDOOR_PUBLIC_LOCATION") && (
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="shootLocationAddress"

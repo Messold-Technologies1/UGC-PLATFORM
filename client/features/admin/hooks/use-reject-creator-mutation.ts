@@ -26,6 +26,21 @@ export function useRejectCreatorMutation() {
         }
       );
 
+      // Also optimistically remove from the main creators list if they are there
+      queryClient.setQueriesData(
+        { queryKey: ["creators", "list"] },
+        (oldList: any) => {
+          if (!oldList || !oldList.creators) return oldList;
+          const filteredCreators = oldList.creators.filter((c: any) => c.id !== id);
+          if (filteredCreators.length === oldList.creators.length) return oldList;
+          return {
+            ...oldList,
+            creators: filteredCreators,
+            total: Math.max(0, oldList.total - 1),
+          };
+        }
+      );
+
       return { previousQueries };
     },
     onError: (err, variables, context) => {
@@ -44,6 +59,9 @@ export function useRejectCreatorMutation() {
     onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: ["admin", "pending-approvals"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["creators", "list"],
       });
     },
   });

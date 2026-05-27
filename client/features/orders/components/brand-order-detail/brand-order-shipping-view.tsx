@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
+import { useRouter } from "next/navigation";
 import { OrderPageHeader } from "./order-page-header";
 import { OrderProgressStepper } from "./order-progress-stepper";
 import { CreatorProfileCard } from "./creator-profile-card";
@@ -53,6 +54,12 @@ export function BrandOrderShippingView({
   const { data, isLoading, isError, error } =
     useGetBrandOrderDetailsQuery(orderId);
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
+  const router = useRouter();
+
+  const handleStepClick = (label: string) => {
+    if (label === "Awaiting\nShipment") return;
+    router.push(`/brand/orders/${orderId}?preview=${encodeURIComponent(label)}`);
+  };
 
   if (isLoading) {
     return <BrandOrderShippingSkeleton />;
@@ -94,7 +101,11 @@ export function BrandOrderShippingView({
     <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
       <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
 
-      <OrderProgressStepper order={order} />
+      <OrderProgressStepper 
+        order={order} 
+        onStepClick={handleStepClick}
+        previewState="Awaiting\nShipment"
+      />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
         <div className="flex flex-col gap-5 lg:col-span-8">
@@ -109,7 +120,7 @@ export function BrandOrderShippingView({
         <aside className="flex flex-col gap-5 lg:col-span-4">
           <CreatorProfileCard creator={creator} order={order} />
           <ShippingAddressCard creatorName={creator.displayName || "Creator"} />
-          <OrderSummaryCard order={order} orderId={orderId} briefId={briefId} />
+          <OrderSummaryCard order={order} orderId={orderId} briefId={briefId} brief={orderBriefData?.brief ?? null} />
           <NeedHelpCard />
         </aside>
       </div>

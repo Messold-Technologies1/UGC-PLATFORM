@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AlertCircle, /* AlertTriangle, */ ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { OrderRatingReviewCard } from "../order-rating-review-card";
 import { BriefSummaryCard } from "./brief-summary-card";
 import { CreatorAcceptanceCard } from "./creator-acceptance-card";
 import { CreatorProfileCard } from "./creator-profile-card";
+import { AwaitingAcceptanceCreatorCard } from "./awaiting-acceptance-creator-card";
 import { OrderActivityTimeline } from "./order-activity-timeline";
 import { OrderDetailsCard } from "./order-details-card";
 import { OrderPageHeader } from "./order-page-header";
@@ -42,7 +43,6 @@ import { DeliveredVideosCard } from "./order-delivered/delivered-videos-card";
 import { YourActionRequiredCard } from "./order-delivered/your-action-required-card";
 import { CompletedNotificationBanner } from "./order-completed/completed-notification-banner";
 import { CompletedPaymentSummaryCard } from "./order-completed/completed-payment-summary-card";
-import { FinalDeliveredVideoCard } from "./order-completed/final-delivered-video-card";
 import { ShareExperienceCard } from "./order-completed/share-experience-card";
 import { SupportBanner } from "./order-completed/support-banner";
 
@@ -88,6 +88,16 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
 
   const [previewState, setPreviewState] = useState<string | null>(null);
+
+  // Read preview state from URL if arriving from Shipping page
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const preview = params.get("preview");
+    if (preview) {
+      setPreviewState(preview);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
   // const [disputeReason, setDisputeReason] = useState("");
   // const openBrandDisputeMutation = useOpenBrandDisputeMutation({
   //   onSuccess: () => {
@@ -158,21 +168,21 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
     previewState === "In Progress" ||
     (isActuallyInProgress && previewState === null);
 
-  // Delivered state detection
+
   const deliveredStatuses = ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"];
   const isActuallyDelivered = deliveredStatuses.includes(order.status);
   const showDeliveredUI =
     previewState === "Delivered" ||
     (isActuallyDelivered && previewState === null);
 
-  // Completed state detection
+
   const completedStatuses = ["ACCEPTED", "CREATOR_PAYMENT_DONE"];
   const isActuallyCompleted = completedStatuses.includes(order.status);
   const showCompletedUI = 
     previewState === "Completed" || 
     (isActuallyCompleted && previewState === null);
 
-  // Build a package description from deliverables
+  
   const packageDescription = order.deliverablesSnapshot.length > 0
     ? `${order.deliverablesSnapshot.length} UGC Video (Up to 60 sec)`
     : order.packageNameSnapshot;
@@ -192,7 +202,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <OrderProgressStepper
           order={order}
-          onStepClick={(label) => setPreviewState(label)}
+          onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
           previewState={previewState}
         />
 
@@ -200,7 +210,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
           <div className="flex flex-col gap-5 lg:col-span-8 h-full">
-            <FinalDeliveredVideoCard orderId={orderId} order={order} />
+            <DeliveredVideosCard orderId={orderId} order={order} variant="completed" />
           </div>
           <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
             <CompletedPaymentSummaryCard order={order} />
@@ -239,7 +249,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <OrderProgressStepper
           order={order}
-          onStepClick={(label) => setPreviewState(label)}
+          onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
           previewState={previewState}
         />
 
@@ -264,7 +274,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           orderId={orderId}
         />
 
-        {/* Bottom 3-column section: Creator, Chat, Quick Actions */}
+       
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <CreatorProfileCard creator={creator} order={order} />
           <ChatPreviewCard creator={creator} orderId={orderId} />
@@ -281,7 +291,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
         
         <OrderProgressStepper 
           order={order} 
-          onStepClick={(label) => setPreviewState(label)} 
+          onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)} 
           previewState={previewState} 
         />
 
@@ -298,9 +308,10 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
             {order.requiresPhysicalProductShipment && (
               <InprogressShippingCard
-                courierPartner={(order as any).shippingCourier ?? "Delhivery"}
-                trackingId={(order as any).shippingTrackingId ?? "1234567890123"}
-                shippedAt={order.dispatchedAt ?? "2025-05-12T16:30:00Z"}
+                courierPartner={(order as any).courierName}
+                trackingId={(order as any).trackingId}
+                shippedAt={order.dispatchedAt}
+                productReceivedAt={(order as any).productReceivedAt}
               />
             )}
 
@@ -323,7 +334,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
       <OrderProgressStepper 
         order={order} 
-        onStepClick={(label) => setPreviewState(label)} 
+        onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)} 
         previewState={previewState} 
       />
 
@@ -331,12 +342,13 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
         <div className="flex flex-col gap-5 lg:col-span-8">
-          <CreatorProfileCard creator={creator} order={order} />
+          <AwaitingAcceptanceCreatorCard creator={creator} order={order} />
 
           <OrderSummaryCard
             order={order}
             orderId={orderId}
             briefId={briefId}
+            brief={brief}
           />
 
           <BriefSummaryCard order={order} brief={brief} briefId={briefId} />

@@ -12,6 +12,7 @@ export interface OrderBriefPayload {
   brandPronunciationAudio?: OrderBriefAsset | null;
   industry?: string | null;
   brandLogo?: OrderBriefAsset | null;
+  productImage?: OrderBriefAsset | null;
   productName?: string | null;
   productDescription?: string | null;
   productPageUrl?: string | null;

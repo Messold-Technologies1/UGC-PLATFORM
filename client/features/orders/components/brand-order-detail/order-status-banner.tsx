@@ -207,6 +207,14 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
             </Link>
           </Button>
         )}
+
+      {order.status === "BRIEF_SUBMISSION_PENDING" && (
+        <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white">
+          <Link href={`/brand/briefs/create?orderId=${order.id}`}>
+            Submit Brief
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }

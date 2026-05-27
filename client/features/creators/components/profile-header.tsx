@@ -65,7 +65,7 @@ export const ProfileHeader = memo(function ProfileHeader({
     <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
       <div className="relative w-full shrink-0 lg:w-[320px] xl:w-[340px]">
         <div 
-          className="relative aspect-3/4 w-full overflow-hidden rounded-lg bg-black"
+          className="relative aspect-[9/16] w-full overflow-hidden rounded-lg bg-black"
           onMouseEnter={() => setShowControls(true)}
           onMouseLeave={() => setShowControls(false)}
           onTouchStart={() => setShowControls(true)}
@@ -130,7 +130,7 @@ export const ProfileHeader = memo(function ProfileHeader({
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-6 flex flex-wrap gap-2">
           {displayTags.map((tag, i) => {
             const lowerTag = tag.toLowerCase();
             let specificClass = "";
@@ -168,8 +168,8 @@ export const ProfileHeader = memo(function ProfileHeader({
           })}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
+        <div className="mt-8 flex flex-wrap items-center gap-6 sm:gap-10 text-sm">
+          <div className="flex items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-full bg-muted">
               <CheckCircle2 className="size-4 text-muted-foreground" />
             </div>
@@ -183,7 +183,7 @@ export const ProfileHeader = memo(function ProfileHeader({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-full bg-muted">
               <Clock className="size-4 text-muted-foreground" />
             </div>
@@ -197,7 +197,7 @@ export const ProfileHeader = memo(function ProfileHeader({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-full bg-muted">
               <Star className="size-4 text-amber-400 fill-amber-400" />
             </div>
@@ -212,8 +212,8 @@ export const ProfileHeader = memo(function ProfileHeader({
           </div>
         </div>
 
-        <div className="mt-5 inline-flex flex-col rounded-xl border border-border p-3.5">
-          <p className="text-xs font-semibold text-foreground mb-2.5">
+        <div className="mt-8 inline-flex flex-col rounded-xl border border-border p-5">
+          <p className="text-[13px] font-semibold text-foreground mb-3">
             Can create with
           </p>
           <div className="flex items-center gap-5">
@@ -238,7 +238,7 @@ export const ProfileHeader = memo(function ProfileHeader({
           </div>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-8 space-y-3">
           {features.map((feature) => (
             <div
               key={feature}
@@ -251,7 +251,7 @@ export const ProfileHeader = memo(function ProfileHeader({
         </div>
 
         {creator.bio && (
-          <div className="mt-5">
+          <div className="mt-8">
             <p className="text-sm text-muted-foreground leading-relaxed">
               {isBioExpanded || creator.bio.length <= 150
                 ? creator.bio

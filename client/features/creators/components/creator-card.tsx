@@ -25,6 +25,15 @@ interface CreatorCardProps {
   appearance?: "standard" | "browse";
 }
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export const CreatorCard = memo(function CreatorCard({
   creator,
   variant = "listing",
@@ -103,7 +112,7 @@ export const CreatorCard = memo(function CreatorCard({
                 </div>
               </div>
             </div>
-          ) : (
+          ) : creator.thumbnail ? (
             <Image
               src={creator.thumbnail}
               alt={mediaAlt}
@@ -112,6 +121,10 @@ export const CreatorCard = memo(function CreatorCard({
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, (max-width: 1536px) 25vw, 20vw"
               priority
             />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted text-4xl font-bold text-muted-foreground/50 transition-transform duration-500 group-hover:scale-[1.03]">
+              {getInitials(creator.name)}
+            </div>
           )}
           <div className="absolute bottom-3 left-3 rounded-sm bg-black/60 px-2.5 py-1 text-sm font-bold text-white backdrop-blur-sm">
             ₹{creator.startingPrice.toLocaleString("en-IN")}
@@ -238,7 +251,7 @@ export const CreatorCard = memo(function CreatorCard({
               </div>
             </div>
           </div>
-        ) : (
+        ) : creator.thumbnail ? (
           <Image
             src={creator.thumbnail}
             alt={mediaAlt}
@@ -251,6 +264,10 @@ export const CreatorCard = memo(function CreatorCard({
             }
             priority
           />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-muted text-4xl font-bold text-muted-foreground/50">
+            {getInitials(creator.name)}
+          </div>
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/20 to-black/5" />
         <div className="absolute left-3 top-3 right-3 flex items-start justify-end gap-2">

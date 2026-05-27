@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
 
   return (
     <>
-      <div className="p-12 max-w-[1400px] mx-auto space-y-8 group selection-active">
+      <div className="p-12 w-full space-y-8 group selection-active">
         <section className="space-y-6">
           <div className="flex items-end justify-between">
             <div>

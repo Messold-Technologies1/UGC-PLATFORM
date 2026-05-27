@@ -127,7 +127,7 @@ export function OrderPageHeader({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* <div className="flex items-center gap-2 shrink-0">
           {showBriefDownload && (
             <Button
               variant="outline"
@@ -170,7 +170,7 @@ export function OrderPageHeader({
               <MoreVertical className="size-4" />
             </Button>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );

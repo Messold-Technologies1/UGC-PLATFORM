@@ -117,9 +117,16 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
   ],
   admin: [
-    { href: "/admin/approvals", label: "Creator Approval", icon: UserCheck, match: (p) => p.includes("/approvals") },
-    { href: "/admin/brandManagement", label: "Brand Management", icon: Users, match: (p) => p.includes("/brandManagement") },
-    { href: "/admin/orderManagement", label: "Order Management", icon: Package, match: (p) => p.includes("/orderManagement") },
+    {
+      label: "Activity",
+      icon: Activity,
+      children: [
+        { href: "/admin/approvals", label: "Creator Approval", icon: UserCheck, description: "Review and approve new creator applications." },
+        { href: "/admin/creatorManagement", label: "Creator Management", icon: Users, description: "Manage existing creators and their profiles." },
+        { href: "/admin/brandManagement", label: "Brand Management", icon: Users, description: "Manage brand accounts and settings." },
+        { href: "/admin/orderManagement", label: "Order Management", icon: Package, description: "Oversee platform orders and transactions." },
+      ]
+    },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
 };

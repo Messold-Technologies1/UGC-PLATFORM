@@ -34,37 +34,41 @@ function isAllowedSigningCertUrl(url: string): boolean {
   }
 }
 
+
 function buildStringToSign(message: SnsIncomingMessage): string {
-  const lines: string[] = [];
-  const push = (value: string | undefined) => {
-    lines.push(value ?? '');
+  const fields: string[] = [];
+
+  const addField = (key: string, value?: string) => {
+    if (value !== undefined) {
+      fields.push(key, value);
+    }
   };
 
-  if (
+  if (message.Type === 'Notification') {
+    addField('Message', message.Message);
+    addField('MessageId', message.MessageId);
+    if (message.Subject != null) {
+      addField('Subject', message.Subject);
+    }
+    addField('Timestamp', message.Timestamp);
+    addField('TopicArn', message.TopicArn);
+    addField('Type', message.Type);
+  } else if (
     message.Type === 'SubscriptionConfirmation' ||
     message.Type === 'UnsubscribeConfirmation'
   ) {
-    push(message.Message);
-    push(message.MessageId);
-    push(message.SubscribeURL);
-    push(message.Timestamp);
-    push(message.Token);
-    push(message.TopicArn);
-    push(message.Type);
-  } else if (message.Type === 'Notification') {
-    push(message.Message);
-    push(message.MessageId);
-    if (message.Subject !== undefined) {
-      push(message.Subject);
-    }
-    push(message.Timestamp);
-    push(message.TopicArn);
-    push(message.Type);
+    addField('Message', message.Message);
+    addField('MessageId', message.MessageId);
+    addField('SubscribeURL', message.SubscribeURL);
+    addField('Timestamp', message.Timestamp);
+    addField('Token', message.Token);
+    addField('TopicArn', message.TopicArn);
+    addField('Type', message.Type);
   } else {
     throw new Error(`Unsupported SNS message Type: ${message.Type}`);
   }
 
-  return `${lines.join('\n')}\n`;
+  return `${fields.join('\n')}\n`;
 }
 
 async function loadSigningCertificate(certUrl: string): Promise<string> {

@@ -60,27 +60,43 @@ export class WebhooksController {
   }
 }
 
-/** SNS may arrive as text/plain; Vercel/Express do not always set rawBody. */
+/**
+ * SNS may arrive as text/plain; Vercel/Express do not always set rawBody.
+ *
+ * For SNS signature verification the json MUST be parsed from the original
+ * raw bytes — never re-serialised from a JS object — so we always prefer
+ * rawBody as the source of truth and only fall back to @Body() when rawBody
+ * is unavailable (e.g. unit tests).
+ */
 function resolveWebhookPayload(
   req: Request & { rawBody?: Buffer },
   body: unknown,
 ): { rawBody: Buffer; json: unknown } {
+  // rawBody is always the preferred path: parse JSON from the exact bytes
+  // AWS signed so the string-to-sign matches perfectly.
   if (req.rawBody?.length) {
-    const json =
-      body != null &&
-      typeof body === 'object' &&
-      !Buffer.isBuffer(body) &&
-      Object.keys(body as object).length > 0
-        ? body
-        : JSON.parse(req.rawBody.toString('utf8'));
-    return { rawBody: req.rawBody, json };
+    let json: unknown;
+    try {
+      json = JSON.parse(req.rawBody.toString('utf8'));
+    } catch {
+      // Not valid JSON from rawBody; fall through to body fallbacks below.
+      json = null;
+    }
+    if (json != null) {
+      return { rawBody: req.rawBody, json };
+    }
   }
 
+  // Fallback 1: body arrived as a plain string (text/plain parsed by express.text).
   if (typeof body === 'string' && body.trim()) {
     const rawBody = Buffer.from(body, 'utf8');
     return { rawBody, json: JSON.parse(body) };
   }
 
+  // Fallback 2: body already parsed to an object by express.json.
+  // Re-serialise to get rawBody; signature verification won't work reliably
+  // in this path but at least SubscriptionConfirmation can still be processed
+  // when SES_SNS_SKIP_SIGNATURE_VERIFY=true.
   if (body != null && typeof body === 'object' && !Buffer.isBuffer(body)) {
     const rawBody = Buffer.from(JSON.stringify(body), 'utf8');
     return { rawBody, json: body };

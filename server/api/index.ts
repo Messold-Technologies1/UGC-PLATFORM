@@ -32,19 +32,49 @@ async function getServer() {
     return path.includes('/webhooks');
   };
 
-  // Webhooks: capture raw body for all content types (SNS uses text/plain JSON).
+  const isSesSnsRequest = (req: IncomingMessage) => {
+    const path = req.url ?? '';
+    return path.includes('/webhooks/ses');
+  };
+
+  // SNS posts to /webhooks/ses with any Content-Type (often text/plain).
+  // Capture raw bytes first before any parser touches the body, so the
+  // exact bytes are available for signature verification.
+  server.use((req, res, next) => {
+    if (!isSesSnsRequest(req)) return next();
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks);
+      (req as RequestWithRawBody).rawBody = raw;
+      // Expose a readable stream shim so downstream parsers don't re-read.
+      // We attach the parsed JSON directly so the NestJS @Body() decorator
+      // gets a usable value (express.json won't re-parse since stream is consumed).
+      try {
+        (req as any).body = JSON.parse(raw.toString('utf8'));
+      } catch {
+        (req as any).body = raw.toString('utf8');
+      }
+      next();
+    });
+    req.on('error', next);
+  });
+
+  // Webhooks (non-SNS): capture raw body for all content types.
   server.use(
     express.json({
       verify: captureRawBody,
       type: (req) =>
-        isWebhookRequest(req) ||
-        String(req.headers['content-type'] ?? '').includes('application/json'),
+        !isSesSnsRequest(req) &&
+        (isWebhookRequest(req) ||
+          String(req.headers['content-type'] ?? '').includes('application/json')),
     }),
   );
   server.use(
     express.text({
       verify: captureRawBody,
       type: (req) =>
+        !isSesSnsRequest(req) &&
         isWebhookRequest(req) &&
         String(req.headers['content-type'] ?? '').includes('text/plain'),
     }),

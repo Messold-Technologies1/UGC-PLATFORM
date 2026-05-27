@@ -32,7 +32,7 @@ export class CreatorProfileMailNotifier {
         templateKey: EmailTemplateKey.CREATOR_PROFILE_APPROVED,
         context: {
           recipientName: this.recipientName(profile),
-          actionUrl: `${this.frontendBase()}/creator/dashboard`,
+          actionUrl: `${this.frontendBase()}/creator/account`,
         },
       });
     });

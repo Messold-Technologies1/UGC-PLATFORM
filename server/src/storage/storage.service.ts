@@ -218,10 +218,10 @@ export class StorageService {
 
     if (input.kind === 'creator_intro_video') {
       const creatorId = input.creatorProfileId;
-      if (creatorId) {
-        return `creator-profile/${creatorId}/intro/${id}.${ext}`;
+      if (!creatorId) {
+        throw new Error('creatorProfileId is required');
       }
-      return `creator-profile-intro-temp/${input.userId}/${id}.${ext}`;
+      return `creator-profile/${creatorId}/intro/${id}.${ext}`;
     }
 
     if (input.kind === 'order_chat_voice_message') {
@@ -279,10 +279,6 @@ export class StorageService {
       return `creator-portfolio/${creatorId}/videos/${id}.${ext}`;
     }
     return `creator-portfolio/${creatorId}/thumbnails/${id}.${ext}`;
-  }
-
-  isTempCreatorIntroVideoKeyForUser(userId: string, key: string): boolean {
-    return key.startsWith(`creator-profile-intro-temp/${userId}/`);
   }
 
   buildTempBrandLogoKey(userId: string, extOrContentType: string): string {
@@ -351,37 +347,6 @@ export class StorageService {
 
   isTempBriefProductImageKeyForUser(userId: string, key: string): boolean {
     return key.startsWith(`brief-product-temp/${userId}/`);
-  }
-
-  async finalizeCreatorIntroVideoKey(input: {
-    tempKey: string;
-    creatorProfileId: string;
-    deleteTemp?: boolean;
-  }): Promise<string> {
-    const fileName = input.tempKey.split('/').pop();
-    if (!fileName?.includes('.')) {
-      throw new Error('Invalid temporary creator intro video key');
-    }
-    const finalKey = `creator-profile/${input.creatorProfileId}/intro/${fileName}`;
-
-    await this.s3.send(
-      new CopyObjectCommand({
-        Bucket: this.bucket,
-        Key: finalKey,
-        CopySource: `${this.bucket}/${input.tempKey}`,
-      }),
-    );
-
-    if (input.deleteTemp ?? true) {
-      await this.s3.send(
-        new DeleteObjectCommand({
-          Bucket: this.bucket,
-          Key: input.tempKey,
-        }),
-      );
-    }
-
-    return finalKey;
   }
 
   async finalizeCreatorPortfolioVideoFromTempKey(input: {

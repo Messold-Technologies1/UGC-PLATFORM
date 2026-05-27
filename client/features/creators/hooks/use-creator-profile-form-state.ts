@@ -267,7 +267,7 @@ export function useCreatorProfileFormState(
   const { user, refreshUser } = useAuth();
 
   const uploadCreatorIntroVideoMutation =
-    useUploadCreatorIntroVideoMutation(mode);
+    useUploadCreatorIntroVideoMutation({ mode, creatorProfileId: profileId });
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,

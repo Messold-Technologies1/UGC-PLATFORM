@@ -6,7 +6,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AppModule } from '../src/app.module';
+
+type RequestWithRawBody = IncomingMessage & { rawBody?: Buffer };
 
 let cachedServer: express.Express | null = null;
 
@@ -14,20 +17,42 @@ async function getServer() {
   if (cachedServer) return cachedServer;
 
   const server = express();
-  // Ensure webhooks can verify Razorpay signatures using the raw request body.
+
+  const captureRawBody = (
+    req: IncomingMessage,
+    _res: ServerResponse,
+    buf: Buffer,
+    _encoding: string,
+  ): void => {
+    (req as RequestWithRawBody).rawBody = buf;
+  };
+
+  const isWebhookRequest = (req: IncomingMessage) => {
+    const path = req.url ?? '';
+    return path.includes('/webhooks');
+  };
+
+  // Webhooks: capture raw body for all content types (SNS uses text/plain JSON).
   server.use(
     express.json({
-      verify: (req: any, _res, buf) => {
-        req.rawBody = buf;
-      },
+      verify: captureRawBody,
+      type: (req) =>
+        isWebhookRequest(req) ||
+        String(req.headers['content-type'] ?? '').includes('application/json'),
+    }),
+  );
+  server.use(
+    express.text({
+      verify: captureRawBody,
+      type: (req) =>
+        isWebhookRequest(req) &&
+        String(req.headers['content-type'] ?? '').includes('text/plain'),
     }),
   );
   server.use(
     express.urlencoded({
       extended: true,
-      verify: (req: any, _res, buf) => {
-        req.rawBody = buf;
-      },
+      verify: captureRawBody,
     }),
   );
 

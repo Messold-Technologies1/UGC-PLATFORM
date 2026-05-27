@@ -36,6 +36,13 @@ export const fetchCreatorProfileById = cache(async function fetchCreatorProfileB
   });
 
   if (!res.ok) {
+    console.error("FETCH ERROR", res.status, url);
+    try {
+      const text = await res.text();
+      console.error("FETCH ERROR BODY:", text);
+    } catch(e) {
+      console.error("FETCH ERROR BODY PARSE ERROR", e);
+    }
     return { ok: false, status: res.status };
   }
 

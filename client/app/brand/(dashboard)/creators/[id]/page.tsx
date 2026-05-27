@@ -61,7 +61,7 @@ export default async function CreatorProfilePage({ params }: PageProps) {
   }
 
   const result = await fetchCreatorProfileById(id);
-
+  
   if (result.ok) {
     const creator = mapProfileItemToCreatorProfile(result.profile);
     return (

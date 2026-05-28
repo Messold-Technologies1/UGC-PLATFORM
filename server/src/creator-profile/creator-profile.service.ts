@@ -124,18 +124,46 @@ export class CreatorProfileService {
   ) {}
 
   async presignProfileIntroVideoUpload(
-    userId: string,
+    actingUserId: string,
     dto: PresignProfileIntroVideoUploadDto,
   ) {
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
+    const explicitId = dto.creatorProfileId?.trim();
+
+    let creatorProfileId: string;
+
+    if (explicitId) {
+      const profile = await this.prisma.creatorProfile.findUnique({
+        where: { id: explicitId },
+        select: { userId: true },
+      });
+      if (!profile) {
+        throw new NotFoundException('Creator profile not found');
+      }
+      const ownsProfile = profile.userId === actingUserId;
+      const isAdmin = await this.isAdminUser(actingUserId);
+      if (!ownsProfile && !isAdmin) {
+        throw new ForbiddenException(
+          'Not allowed to upload an intro video for this creator profile.',
+        );
+      }
+      creatorProfileId = explicitId;
+    } else {
+      const profile = await this.prisma.creatorProfile.findUnique({
+        where: { userId: actingUserId },
+        select: { id: true },
+      });
+      if (!profile?.id) {
+        throw new BadRequestException(
+          'Creator profile not found. Pass creatorProfileId when uploading on behalf of another creator (e.g. as admin), or finish profile setup first.',
+        );
+      }
+      creatorProfileId = profile.id;
+    }
 
     const key = this.storage.buildObjectKey({
       kind: 'creator_intro_video',
-      userId,
-      creatorProfileId: profile?.id,
+      userId: actingUserId,
+      creatorProfileId,
       contentType: dto.contentType,
     });
 
@@ -149,12 +177,6 @@ export class CreatorProfileService {
   private assertIntroVideoKeyOwner(creatorProfileId: string, key: string): void {
     const prefix = `creator-profile/${creatorProfileId}/intro/`;
     if (!key.startsWith(prefix)) {
-      throw new BadRequestException('Invalid introVideoKey');
-    }
-  }
-
-  private assertTempIntroVideoKeyOwner(userId: string, key: string): void {
-    if (!this.storage.isTempCreatorIntroVideoKeyForUser(userId, key)) {
       throw new BadRequestException('Invalid introVideoKey');
     }
   }
@@ -1180,6 +1202,8 @@ export class CreatorProfileService {
         if (dto.introVideoKey !== undefined) {
           const trimmed = dto.introVideoKey?.trim();
           if (trimmed) {
+            // Profile already exists for this update flow; require a finalized key.
+            // The presign endpoint returns a finalized key when profile exists.
             this.assertIntroVideoKeyOwner(creatorProfileId, trimmed);
             nextIntroVideoKey = trimmed;
             nextIntroVideoUrl = this.storage.buildCdnUrl(trimmed);

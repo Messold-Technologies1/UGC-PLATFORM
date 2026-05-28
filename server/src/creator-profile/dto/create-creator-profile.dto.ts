@@ -126,9 +126,9 @@ export class CreateCreatorProfileDto {
   displayName!: string;
 
   @ApiPropertyOptional({
-    example: 'creator-profile-intro-temp/<userId>/<uuid>.mp4',
+    example: 'creator-profile/<profileId>/intro/<uuid>.mp4',
     description:
-      'Temporary S3 key from POST /creators/profile/uploads/presign-intro-video before create; finalized after profile creation.',
+      'Intro video S3 key from POST /creators/profile/uploads/presign-intro-video.',
   })
   @IsOptional()
   @IsString()

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 /** ~200 MiB — adjust if product needs larger intros. */
 const INTRO_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
@@ -11,6 +11,15 @@ export class PresignProfileIntroVideoUploadDto {
   })
   @IsString()
   contentType!: string;
+
+  @ApiPropertyOptional({
+    example: 'a505e890-eb10-48b4-920e-4a1c24f0b1f8',
+    description:
+      'Creator profile id to upload for. Required when the authenticated user is not the profile owner (e.g. admin). Owners may omit this to use their own profile.',
+  })
+  @IsOptional()
+  @IsUUID()
+  creatorProfileId?: string;
 
   @ApiPropertyOptional({
     example: 12_345_678,
@@ -25,9 +34,8 @@ export class PresignProfileIntroVideoUploadDto {
 
 export class PresignUploadResponseDto {
   @ApiProperty({
-    example: 'creator-profile-intro-temp/<userId>/<uuid>.mp4',
-    description:
-      'Before profile creation: temp key. With an existing profile: key under creator-profile/<id>/intro/.',
+    example: 'creator-profile/<profileId>/intro/<uuid>.mp4',
+    description: 'S3 object key for the intro video upload.',
   })
   key!: string;
 

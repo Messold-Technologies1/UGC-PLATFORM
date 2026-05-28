@@ -316,7 +316,10 @@ function CreatorProfileSetupFormContent({
 }: CreatorProfileSetupFormContentProps) {
   const { refreshUser } = useAuth();
   const uploadCreatorIntroVideoMutation =
-    useUploadCreatorIntroVideoMutation(mode);
+    useUploadCreatorIntroVideoMutation({
+      mode,
+      creatorProfileId: profileId,
+    });
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,

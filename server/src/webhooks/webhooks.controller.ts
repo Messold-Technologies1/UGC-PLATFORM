@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -48,9 +49,9 @@ export class WebhooksController {
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: unknown,
   ): Promise<void> {
-    const { rawBody, json } = resolveWebhookPayload(req, body);
+    const { rawBody, json } = resolveSnsWebhookPayload(req, body);
     if (!json) {
-      throw new Error('Missing body for SNS webhook');
+      throw new BadRequestException('Missing body for SNS webhook');
     }
 
     await this.webhooks.handleSesSnsWebhook({
@@ -60,30 +61,38 @@ export class WebhooksController {
   }
 }
 
-/** SNS may arrive as text/plain; Vercel/Express do not always set rawBody. */
-function resolveWebhookPayload(
+/** Parse SNS body from raw bytes (required for signature verification). */
+function resolveSnsWebhookPayload(
   req: Request & { rawBody?: Buffer },
   body: unknown,
 ): { rawBody: Buffer; json: unknown } {
   if (req.rawBody?.length) {
-    const json =
-      body != null &&
-      typeof body === 'object' &&
-      !Buffer.isBuffer(body) &&
-      Object.keys(body as object).length > 0
-        ? body
-        : JSON.parse(req.rawBody.toString('utf8'));
-    return { rawBody: req.rawBody, json };
+    try {
+      return {
+        rawBody: req.rawBody,
+        json: JSON.parse(req.rawBody.toString('utf8')) as unknown,
+      };
+    } catch {
+      throw new BadRequestException('SNS webhook body is not valid JSON');
+    }
   }
 
+  // express.text on /api/webhooks/ses sets body to a string when rawBody verify missed
   if (typeof body === 'string' && body.trim()) {
     const rawBody = Buffer.from(body, 'utf8');
-    return { rawBody, json: JSON.parse(body) };
+    try {
+      return { rawBody, json: JSON.parse(body) as unknown };
+    } catch {
+      throw new BadRequestException('SNS webhook body is not valid JSON');
+    }
   }
 
+  // application/json (Nest rawBody: true) — body already parsed
   if (body != null && typeof body === 'object' && !Buffer.isBuffer(body)) {
-    const rawBody = Buffer.from(JSON.stringify(body), 'utf8');
-    return { rawBody, json: body };
+    return {
+      rawBody: Buffer.from(JSON.stringify(body), 'utf8'),
+      json: body,
+    };
   }
 
   return { rawBody: Buffer.alloc(0), json: null };

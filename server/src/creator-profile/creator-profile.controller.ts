@@ -63,7 +63,7 @@ export class CreatorProfileController {
   @ApiOperation({
     summary: 'Presigned URL for creator intro video upload',
     description:
-      'Before profile exists: temp key under creator-profile-intro-temp/. After profile exists: key under creator-profile/<id>/intro/. Send returned key as introVideoKey on create or patch.',
+      'Returns a presigned PUT upload; key is under creator-profile/<id>/intro/. Pass creatorProfileId when acting as admin (JWT user has no creator row). Owners may omit it and their profile is resolved from the JWT.',
   })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
   async presignProfileIntroVideoUpload(

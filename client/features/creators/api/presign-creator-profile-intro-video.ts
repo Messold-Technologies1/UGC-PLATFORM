@@ -4,6 +4,8 @@ import { ENDPOINTS } from "@/lib/endpoints";
 export type PresignProfileIntroVideoUploadPayload = {
   contentType: string;
   contentLength?: number;
+  /** Required for admin uploads; optional for profile owner (resolved from JWT). */
+  creatorProfileId?: string;
 };
 
 export type PresignProfileIntroVideoUploadResponse = {

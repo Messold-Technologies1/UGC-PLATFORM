@@ -29,9 +29,19 @@ type SubmitCreatorProfileResult =
   | { status: "skipped" }
   | { status: "updated" };
 
-export function useUploadCreatorIntroVideoMutation(mode: CreatorProfileMode) {
+export function useUploadCreatorIntroVideoMutation(options: {
+  mode: CreatorProfileMode;
+  creatorProfileId?: string;
+}) {
+  const { mode, creatorProfileId } = options;
   return useMutation({
-    mutationKey: ["creators", "profile", "intro-video-upload", mode],
+    mutationKey: [
+      "creators",
+      "profile",
+      "intro-video-upload",
+      mode,
+      creatorProfileId ?? "self",
+    ],
     mutationFn: async (
       {
         file,
@@ -44,6 +54,7 @@ export function useUploadCreatorIntroVideoMutation(mode: CreatorProfileMode) {
       const presign = await presignCreatorProfileIntroVideoUpload({
         contentType,
         contentLength: file.size,
+        ...(creatorProfileId ? { creatorProfileId } : {}),
       });
       await putIntroVideoToPresignedUrl(file, presign);
       return presign;

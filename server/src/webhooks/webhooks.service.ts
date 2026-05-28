@@ -84,6 +84,7 @@ export class WebhooksService {
       message.Type === 'SubscriptionConfirmation' ||
       message.Type === 'UnsubscribeConfirmation'
     ) {
+      this.logSnsConfirmationReceived(message);
       await this.confirmSnsSubscription(message);
       return;
     }
@@ -119,6 +120,21 @@ export class WebhooksService {
     return json as SnsIncomingMessage;
   }
 
+  /** Log SubscribeURL so it appears in deploy logs (manual confirm if auto-fetch fails). */
+  private logSnsConfirmationReceived(message: SnsIncomingMessage): void {
+    const subscribeUrl = message.SubscribeURL?.trim();
+    this.logger.log(
+      [
+        `SNS ${message.Type} received`,
+        `topic=${message.TopicArn}`,
+        `messageId=${message.MessageId}`,
+        subscribeUrl
+          ? `SubscribeURL=${subscribeUrl}`
+          : 'SubscribeURL=(missing)',
+      ].join(' '),
+    );
+  }
+
   private async confirmSnsSubscription(
     message: SnsIncomingMessage,
   ): Promise<void> {
@@ -127,16 +143,33 @@ export class WebhooksService {
       throw new BadRequestException('SNS confirmation missing SubscribeURL');
     }
 
-    const res = await fetch(url, { method: 'GET' });
-    if (!res.ok) {
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      const responseText = await res.text().catch(() => '');
+      if (!res.ok) {
+        this.logger.error(
+          `SNS subscription confirmation HTTP ${res.status} topic=${message.TopicArn} SubscribeURL=${url} body=${responseText.slice(0, 500)}`,
+        );
+        throw new BadRequestException(
+          `SNS subscription confirmation failed: ${res.status}`,
+        );
+      }
+
+      this.logger.log(
+        `SNS subscription confirmed type=${message.Type} topic=${message.TopicArn}`,
+      );
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `SNS subscription confirmation request failed topic=${message.TopicArn} SubscribeURL=${url} error=${msg}`,
+      );
       throw new BadRequestException(
-        `SNS subscription confirmation failed: ${res.status}`,
+        `SNS subscription confirmation request failed: ${msg}`,
       );
     }
-
-    this.logger.log(
-      `SNS subscription confirmed type=${message.Type} topic=${message.TopicArn}`,
-    );
   }
 
   private async handleSesNotification(

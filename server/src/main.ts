@@ -1,13 +1,46 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import helmet from 'helmet';
+import type { IncomingMessage } from 'node:http';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+    bodyParser: false,
+  });
+
+  const captureRawBody = (
+    req: IncomingMessage & { rawBody?: Buffer },
+    _res: unknown,
+    buf: Buffer,
+  ) => {
+    req.rawBody = buf;
+  };
+
+  // SNS posts JSON as text/plain — parse this route before the global JSON parser.
+  app.use(
+    '/api/webhooks/ses',
+    express.text({
+      type: () => true,
+      limit: '1mb',
+      verify: captureRawBody,
+    }),
+  );
+
+  app.use(
+    express.json({
+      limit: '2mb',
+      verify: captureRawBody,
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
   const configService = app.get(ConfigService);
 
   app.use(helmet());
@@ -45,7 +78,7 @@ async function bootstrap() {
   }
 
   const port = configService.get<number>('PORT', 3000);
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 }
 
 bootstrap().catch((err: unknown) => {

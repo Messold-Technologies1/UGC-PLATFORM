@@ -53,25 +53,15 @@ describe('StorageService', () => {
     expect(key.endsWith('.mp4')).toBe(true);
   });
 
-  it('buildObjectKey creates a temporary creator intro video key', () => {
+  it('buildObjectKey rejects creator intro video without creatorProfileId', () => {
     const storage = new StorageService(config as any);
-    const key = storage.buildObjectKey({
-      kind: 'creator_intro_video',
-      userId: 'u1',
-      contentType: 'video/mp4',
-    });
-    expect(key.startsWith('creator-profile-intro-temp/u1/')).toBe(true);
-    expect(key.endsWith('.mp4')).toBe(true);
-  });
-
-  it('finalizes temporary creator intro video key', async () => {
-    const storage = new StorageService(config as any);
-    const finalKey = await storage.finalizeCreatorIntroVideoKey({
-      tempKey: 'creator-profile-intro-temp/u1/a.mp4',
-      creatorProfileId: 'c1',
-    });
-    expect(finalKey).toBe('creator-profile/c1/intro/a.mp4');
-    expect(sendMock).toHaveBeenCalledTimes(2);
+    expect(() =>
+      storage.buildObjectKey({
+        kind: 'creator_intro_video',
+        userId: 'u1',
+        contentType: 'video/mp4',
+      } as any),
+    ).toThrow('creatorProfileId is required');
   });
 
   it('deletes an object when a key is provided', async () => {

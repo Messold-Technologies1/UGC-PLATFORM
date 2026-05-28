@@ -218,6 +218,10 @@ export function mapProfileItemToCreatorProfile(
     ...base,
     bio: profile.bio?.trim() || "No bio yet.",
     languages: getProfileLanguages(profile),
+    profileLanguages: (profile.profileLanguages ?? []).map((lang) => ({
+      label: lang.label,
+      fluency: lang.fluency,
+    })),
     personaTags: (profile.personaTags ?? []).map((t) => t.tag),
     restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
     travelRadiusKm:

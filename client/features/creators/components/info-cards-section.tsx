@@ -70,7 +70,7 @@ function AboutCard({ creator }: { creator: CreatorProfile }) {
   );
 }
 
-function LanguagesCard({ languages }: { languages: string[] }) {
+function LanguagesCard({ profileLanguages }: { profileLanguages: { label: string; fluency: string }[] }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4 min-w-0">
       <div className="flex items-center gap-2">
@@ -80,14 +80,23 @@ function LanguagesCard({ languages }: { languages: string[] }) {
         <h3 className="text-sm font-bold text-foreground">Languages</h3>
       </div>
 
-      <div className="space-y-2.5">
-        {languages.map((lang) => (
-          <div key={lang} className="flex items-center gap-2 text-sm">
-            <Check className="size-4 text-primary shrink-0" />
-            <span className="text-foreground">{lang}</span>
-          </div>
-        ))}
-      </div>
+      {profileLanguages.length > 0 ? (
+        <div className="space-y-2.5">
+          {profileLanguages.map((lang) => (
+            <div key={lang.label} className="flex items-center gap-2 text-sm">
+              <Check className="size-4 text-primary shrink-0" />
+              <span className="text-foreground">
+                {lang.label}
+                <span className="text-muted-foreground ml-1.5 capitalize text-xs">
+                  • {lang.fluency.toLowerCase()}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground italic">None specified</p>
+      )}
     </div>
   );
 }
@@ -194,7 +203,7 @@ export const InfoCardsSection = memo(function InfoCardsSection({
     <section className="mt-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <AboutCard creator={creator} />
-        <LanguagesCard languages={creator.languages} />
+        <LanguagesCard profileLanguages={creator.profileLanguages} />
         <ContentStylesCard creator={creator} />
         <WorkedWithCard creator={creator} />
         <AiPermissionsCard creator={creator} />

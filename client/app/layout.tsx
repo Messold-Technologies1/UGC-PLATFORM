@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { BoneyardBootstrap } from "@/app/bones/bootstrap";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppShellProviders } from "@/providers/app-providers";
+import { GlobalVideoManager } from "@/components/global-video-manager";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -68,6 +69,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${dmSans.variable} font-sans antialiased flex min-h-svh flex-col`}
       >
+        <GlobalVideoManager />
         <BoneyardBootstrap />
         <a
           href="#main-content"

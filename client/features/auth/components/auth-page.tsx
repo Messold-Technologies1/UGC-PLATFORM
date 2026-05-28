@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { AuthThemeSwitch } from "./auth-theme-switch";
 import { AuthForm } from "./auth-form";
 import { DashboardPreview } from "./dashboard-preview";
 
@@ -14,7 +13,6 @@ export function AuthPage({ mode }: AuthPageProps) {
       <Suspense fallback={null}>
         <AuthForm mode={mode} />
       </Suspense>
-      <AuthThemeSwitch />
     </div>
   );
 }

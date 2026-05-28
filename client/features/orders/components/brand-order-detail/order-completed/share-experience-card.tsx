@@ -28,6 +28,7 @@ interface ShareExperienceCardProps {
 export function ShareExperienceCard({ order, creatorName = "the creator" }: ShareExperienceCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [review, setReview] = useState("");
 
   const isReviewable = useMemo(() => {
@@ -78,24 +79,51 @@ export function ShareExperienceCard({ order, creatorName = "the creator" }: Shar
             {existingReview ? (
               <StarRating rating={existingReview.rating} size="md" />
             ) : (
-              [1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  disabled={!canCreateReview}
-                  onClick={() => {
-                    setRating(star);
-                    setIsDialogOpen(true);
-                  }}
-                  className={cn(
-                    "transition-transform rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    canCreateReview ? "hover:scale-110 cursor-pointer" : "opacity-70 cursor-default"
-                  )}
-                  aria-label={`Rate ${star} stars`}
-                >
-                  <Star className="size-7 text-amber-400 fill-amber-400" />
-                </button>
-              ))
+              [1, 2, 3, 4, 5].map((star) => {
+                const current = hoverRating ?? 0;
+                const isFull = current >= star;
+                const isHalf = current >= star - 0.5 && current < star;
+
+                return (
+                  <div key={star} className={cn(
+                    "relative size-7 transition-transform",
+                    canCreateReview && "hover:scale-110"
+                  )}>
+                    <Star 
+                      className={cn(
+                        "size-7 transition-colors", 
+                        isFull || isHalf ? "text-amber-400" : "text-muted-foreground",
+                        isFull ? "fill-amber-400" : "fill-transparent"
+                      )} 
+                    />
+                    
+                    {isHalf && (
+                      <span className="absolute inset-0 w-1/2 overflow-hidden pointer-events-none">
+                        <Star className="size-7 fill-amber-400 text-amber-400" />
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={!canCreateReview}
+                      onMouseEnter={() => canCreateReview && setHoverRating(star - 0.5)}
+                      onMouseLeave={() => setHoverRating(null)}
+                      onClick={() => { setRating(star - 0.5); setIsDialogOpen(true); }}
+                      className="absolute left-0 inset-y-0 w-1/2 z-10 cursor-pointer focus-visible:outline-none"
+                      aria-label={`Rate ${star - 0.5} stars`}
+                    />
+                    <button
+                      type="button"
+                      disabled={!canCreateReview}
+                      onMouseEnter={() => canCreateReview && setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(null)}
+                      onClick={() => { setRating(star); setIsDialogOpen(true); }}
+                      className="absolute right-0 inset-y-0 w-1/2 z-10 cursor-pointer focus-visible:outline-none"
+                      aria-label={`Rate ${star} stars`}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -112,7 +140,7 @@ export function ShareExperienceCard({ order, creatorName = "the creator" }: Shar
         ) : canCreateReview ? (
           <Button
             variant="outline"
-            className="w-full mt-6 rounded-lg text-primary border-primary/20 hover:bg-primary/5 font-semibold"
+            className="w-full mt-6 rounded-xl text-sm font-semibold h-11"
             onClick={() => setIsDialogOpen(true)}
           >
             Write a Review
@@ -140,27 +168,50 @@ export function ShareExperienceCard({ order, creatorName = "the creator" }: Shar
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              {Array.from({ length: 5 }, (_, index) => {
-                const value = index + 1;
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => {
+                const current = hoverRating !== null ? hoverRating : rating;
+                const isFull = current >= star;
+                const isHalf = current >= star - 0.5 && current < star;
+
                 return (
-                  <button
-                    key={value}
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => setRating(value)}
-                    className="rounded-md p-1 text-amber-400 transition hover:bg-muted disabled:opacity-60"
-                    aria-label={`Rate ${value} star${value === 1 ? "" : "s"}`}
-                  >
-                    <Star
+                  <div key={star} className={cn(
+                    "relative size-9 flex items-center justify-center transition-transform rounded-md",
+                    !isSubmitting && "hover:bg-muted hover:scale-110"
+                  )}>
+                    <Star 
                       className={cn(
-                        "size-7",
-                        value <= rating
-                          ? "fill-amber-400 text-amber-400"
-                          : "text-muted-foreground/30",
-                      )}
+                        "size-7 transition-colors", 
+                        isFull || isHalf ? "text-amber-400" : "text-muted-foreground/30",
+                        isFull ? "fill-amber-400" : "fill-transparent"
+                      )} 
                     />
-                  </button>
+                    
+                    {isHalf && (
+                      <span className="absolute inset-y-0 left-0 w-1/2 overflow-hidden pointer-events-none flex items-center justify-start pl-1">
+                        <Star className="size-7 shrink-0 fill-amber-400 text-amber-400" />
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onMouseEnter={() => !isSubmitting && setHoverRating(star - 0.5)}
+                      onMouseLeave={() => setHoverRating(null)}
+                      onClick={() => setRating(star - 0.5)}
+                      className="absolute left-0 inset-y-0 w-1/2 z-10 cursor-pointer focus-visible:outline-none rounded-l-md"
+                      aria-label={`Rate ${star - 0.5} stars`}
+                    />
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onMouseEnter={() => !isSubmitting && setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(null)}
+                      onClick={() => setRating(star)}
+                      className="absolute right-0 inset-y-0 w-1/2 z-10 cursor-pointer focus-visible:outline-none rounded-r-md"
+                      aria-label={`Rate ${star} stars`}
+                    />
+                  </div>
                 );
               })}
             </div>

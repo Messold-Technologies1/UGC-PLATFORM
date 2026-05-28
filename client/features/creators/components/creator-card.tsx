@@ -132,12 +132,12 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
 
         <div className="flex flex-1 flex-col p-4 sm:p-3">
-          <h3 className="text-[15px] sm:text-base font-bold text-foreground tracking-tight">
+          <h3 className="text-[15px] sm:text-base font-bold text-foreground tracking-tight truncate">
             {creator.name}
           </h3>
           
-          <div className="mt-0.5 flex items-center text-xs text-muted-foreground">
-            <span>{locationLabel}</span>
+          <div className="mt-0.5 flex items-center text-xs text-muted-foreground truncate">
+            <span className="truncate">{locationLabel}</span>
             {creator.languages && creator.languages.length > 0 && (
               <>
                 <span className="mx-1.5">•</span>
@@ -146,7 +146,7 @@ export const CreatorCard = memo(function CreatorCard({
             )}
           </div>
 
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap gap-1.5 h-[22px] overflow-hidden">
             {browseTags.map((tag, i) => {
               const lowerTag = tag.toLowerCase();
               let specificClass = "";

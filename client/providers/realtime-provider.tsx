@@ -13,6 +13,7 @@ import type {
   OrderBriefSubmittedEvent,
   OrderProductReceivedEvent,
   OrderProductShippedEvent,
+  OrderChatMessageEvent,
 } from "@/lib/realtime-events";
 
 type RealtimeCtx = { connected: boolean };
@@ -127,6 +128,20 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    const onChatMessage = (e: OrderChatMessageEvent) => {
+      if (e.message.senderUserId === user.id) return;
+
+      toast.info("New chat message", {
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+      });
+      addNotification({
+        type: "info",
+        title: "New chat message",
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+      });
+    };
+
     s.on("connect", onConnect);
     s.on("connect_error", onConnectError);
     s.on("order.payment", onOrderPayment);
@@ -134,6 +149,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.brief_accepted", onBriefAccepted);
     s.on("order.product_shipped", onProductShipped);
     s.on("order.product_received", onProductReceived);
+    s.on("chat.message", onChatMessage);
 
     s.connect();
 
@@ -145,6 +161,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.brief_accepted", onBriefAccepted);
       s.off("order.product_shipped", onProductShipped);
       s.off("order.product_received", onProductReceived);
+      s.off("chat.message", onChatMessage);
       disconnectSocket();
     };
   }, [isAuthenticated, user, queryClient, addNotification]);

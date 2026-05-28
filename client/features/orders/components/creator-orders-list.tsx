@@ -613,8 +613,11 @@ export function CreatorOrdersList() {
                 <Button
                   variant="outline"
                   className="rounded-lg h-9 text-xs font-semibold gap-1.5 border-border/50 text-primary hover:text-primary"
+                  asChild
                 >
-                  View Brief <ExternalLink className="w-3.5 h-3.5" />
+                  <Link href={`/creator/orders/${selectedOrderId}/brief`}>
+                    View Brief <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
                 </Button>
               </div>
 

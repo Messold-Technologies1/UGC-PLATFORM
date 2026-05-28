@@ -246,7 +246,11 @@ export interface OrderChatMessageDto {
   id: string;
   orderId: string;
   senderUserId: string;
-  text: string;
+  type: "TEXT" | "VOICE";
+  text?: string | null;
+  audioUrl?: string | null;
+  audioDurationMs?: number | null;
+  audioMimeType?: string | null;
   clientMessageId?: string | null;
   createdAt: string;
 }

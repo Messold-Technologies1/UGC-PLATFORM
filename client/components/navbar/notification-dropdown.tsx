@@ -122,10 +122,16 @@ export function NotificationDropdown() {
                     !notification.isRead && "bg-black/5 dark:bg-white/5"
                   );
 
-                  return notification.link ? (
+                  // Fix old cached links in localStorage
+                  let href = notification.link;
+                  if (href && notification.title === "New chat message" && href.includes("/orders/")) {
+                    href = href.replace("/orders/", "/messages?orderId=");
+                  }
+
+                  return href ? (
                     <Link 
                       key={notification.id}
-                      href={notification.link} 
+                      href={href} 
                       className={commonClasses}
                       onClick={() => {
                         if (!notification.isRead) markAsRead(notification.id);

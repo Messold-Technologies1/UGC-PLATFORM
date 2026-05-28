@@ -8,13 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,9 +30,7 @@ import {
   usePortfolioIndustrySuggestionsQuery,
   usePortfolioTagSuggestionsQuery,
 } from "../hooks/use-portfolio-suggestion-queries";
-import {
-  type UpdatePortfolioVideoPayload,
-} from "../api/update-portfolio-video";
+import { type UpdatePortfolioVideoPayload } from "../api/update-portfolio-video";
 
 function parseTags(raw: string): string[] {
   return [...new Set(splitCommaSeparatedList(raw))];
@@ -66,9 +58,13 @@ function buildMetadataPatch(input: {
 
 export function CreatorPortfolioUploadForm({
   isOverlay = false,
+  adminMode = false,
+  adminCreatorId,
   onSuccess,
 }: {
   isOverlay?: boolean;
+  adminMode?: boolean;
+  adminCreatorId?: string;
   onSuccess?: () => void;
 } = {}) {
   const createPortfolioVideoFlowMutation = useCreatePortfolioVideoFlowMutation();
@@ -96,21 +92,30 @@ export function CreatorPortfolioUploadForm({
       return;
     }
 
-    createPortfolioVideoFlowMutation.mutate({
-      videoFile,
-      thumbnailFile,
-      visibility,
-      metadataPatch: buildMetadataPatch({
-        description,
-        industryLabel,
-        language,
-        tagsRaw,
-      }),
-    }, {
-      onSuccess: () => {
-        onSuccess?.();
-      }
-    });
+    if (adminMode && !adminCreatorId) {
+      toast.error("Missing creator id for admin upload");
+      return;
+    }
+
+    createPortfolioVideoFlowMutation.mutate(
+      {
+        videoFile,
+        thumbnailFile,
+        visibility,
+        metadataPatch: buildMetadataPatch({
+          description,
+          industryLabel,
+          language,
+          tagsRaw,
+        }),
+        adminCreatorId: adminMode ? adminCreatorId : undefined,
+      },
+      {
+        onSuccess: () => {
+          onSuccess?.();
+        },
+      },
+    );
   }
 
   return (
@@ -135,13 +140,7 @@ export function CreatorPortfolioUploadForm({
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Upload</CardTitle>
-          <CardDescription>
-            Supported video: MP4, QuickTime, WebM. Thumbnail: JPEG, PNG, WebP.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -243,8 +242,8 @@ export function CreatorPortfolioUploadForm({
                       minHeight: "36px",
                       boxShadow: "none",
                       "&:hover": {
-                        borderColor: "var(--input)"
-                      }
+                        borderColor: "var(--input)",
+                      },
                     }),
                     menu: (base) => ({
                       ...base,

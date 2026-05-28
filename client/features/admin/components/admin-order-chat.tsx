@@ -52,7 +52,11 @@ function mapMessages(
 
   return Array.from(byId.values()).sort(compareChatMessages).map((message) => ({
     id: message.id,
+    type: message.type,
     text: message.text,
+    audioUrl: message.audioUrl,
+    audioDurationMs: message.audioDurationMs,
+    audioMimeType: message.audioMimeType,
     senderUserId: message.senderUserId,
     createdAt: message.createdAt,
   }));

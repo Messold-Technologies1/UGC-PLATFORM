@@ -183,7 +183,6 @@ function CreatorManagementContent({
 
       const fadeTimer = setTimeout(() => {
         setActiveHighlight(null);
-        // Clean up the URL so a page refresh doesn't trigger the highlight again
         if (window.history.replaceState) {
           window.history.replaceState(null, '', window.location.pathname);
         }
@@ -314,7 +313,7 @@ function CreatorManagementContent({
                           })}
                         </div>
                       </div>
-                      <div className="flex flex-col">
+                      {/* <div className="flex flex-col">
                         <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
                           Orders
                         </p>
@@ -322,7 +321,7 @@ function CreatorManagementContent({
                           <ShieldCheck className="size-3 text-muted-foreground hidden lg:block" />
                           <span>{creator.ordersCompleted} completed</span>
                         </div>
-                      </div>
+                      </div> */}
                       <div className="flex flex-col">
                         <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
                           Starting Price

@@ -18,6 +18,7 @@ import {
   useOrderChatRealtime,
   useOrderChatStateQuery,
   useSendOrderChatMessageMutation,
+  useSendOrderChatVoiceMessageMutation,
 } from "@/features/orders/hooks/use-order-chat";
 import { useAuth } from "@/providers/auth-provider";
 import { cn } from "@/lib/utils";
@@ -106,6 +107,10 @@ export function OrderChatWidget({
       : state.brandLastReadAt
     : undefined;
   const sendMessageMutation = useSendOrderChatMessageMutation(
+    orderId,
+    viewerUserId,
+  );
+  const sendVoiceMessageMutation = useSendOrderChatVoiceMessageMutation(
     orderId,
     viewerUserId,
   );
@@ -198,7 +203,11 @@ export function OrderChatWidget({
   const messages = rawMessages.map((message) => {
     const mapped: MessagingConversationMessage = {
       id: message.id,
+      type: message.type,
       text: message.text,
+      audioUrl: message.audioUrl,
+      audioDurationMs: message.audioDurationMs,
+      audioMimeType: message.audioMimeType,
       senderUserId: message.senderUserId,
       createdAt: message.createdAt,
     };
@@ -230,6 +239,23 @@ export function OrderChatWidget({
     });
   }
 
+  async function handleSendVoiceMessage({
+    blob,
+    audioDurationMs,
+    contentType,
+  }: {
+    blob: Blob;
+    audioDurationMs: number;
+    contentType: string;
+  }) {
+    await sendVoiceMessageMutation.mutateAsync({
+      blob,
+      audioDurationMs,
+      contentType,
+      clientMessageId: createClientMessageId(),
+    });
+  }
+
   return (
     <MessagingConversation
       alignRightUserId={viewerUserId}
@@ -250,8 +276,12 @@ export function OrderChatWidget({
           : undefined
       }
       onSendMessage={handleSendMessage}
+      onSendVoiceMessage={handleSendVoiceMessage}
       participants={participants}
-      sendError={sendMessageMutation.error?.message}
+      sendError={
+        sendMessageMutation.error?.message ||
+        sendVoiceMessageMutation.error?.message
+      }
     />
   );
 }

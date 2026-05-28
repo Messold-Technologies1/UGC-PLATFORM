@@ -1,10 +1,11 @@
-import { MessagesPage } from "@/features/messages/components/messages-page";
+import { Metadata } from "next";
+import { MessagingInterface } from "@/components/messages/messaging-interface";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Messages | Creator Dashboard",
-  description: "Communicate with brands about your collaborations",
+  description: "View and manage your creator conversations.",
 };
 
-export default function MessagesRoutePage() {
-  return <MessagesPage />;
+export default function CreatorMessagesPage() {
+  return <MessagingInterface role="creator" />;
 }

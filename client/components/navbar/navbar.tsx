@@ -58,6 +58,7 @@ const roleConfigs: Record<string, NavItem[]> = {
         { href: "/creator/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing brand partnerships and orders." },
       ]
     },
+    { href: "/creator/messages", label: "Messages", icon: MessageSquare },
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
   ],
   admin: [

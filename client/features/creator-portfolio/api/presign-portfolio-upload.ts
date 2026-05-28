@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import type { PortfolioApiRequestOptions } from "./types";
 
 export type PresignPortfolioUploadPayload = {
   kind: "video" | "thumbnail";
@@ -18,9 +19,14 @@ export type PresignPortfolioUploadResponse = {
 
 export async function presignPortfolioUpload(
   payload: PresignPortfolioUploadPayload,
+  options?: PortfolioApiRequestOptions,
 ): Promise<PresignPortfolioUploadResponse> {
+  const endpoint = options?.adminCreatorId
+    ? ENDPOINTS.ADMIN.CREATORS.PORTFOLIO_UPLOADS_PRESIGN(options.adminCreatorId)
+    : ENDPOINTS.CREATOR_PORTFOLIO.UPLOADS_PRESIGN;
+
   const { data } = await api.post<PresignPortfolioUploadResponse>(
-    ENDPOINTS.CREATOR_PORTFOLIO.UPLOADS_PRESIGN,
+    endpoint,
     payload,
   );
   return data;

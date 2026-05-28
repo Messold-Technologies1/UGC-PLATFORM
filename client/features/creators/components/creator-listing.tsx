@@ -552,14 +552,13 @@ export function CreatorListing({
                 components={virtuosoGridComponents}
                 endReached={handleEndReached}
                 increaseViewportBy={{ top: 800, bottom: 1200 }}
-                computeItemKey={(index) => creators[index]?.id ?? index}
+                computeItemKey={(index) => creators[index]?.id ? `${creators[index].id}-${index}` : index}
                 itemContent={(index) => {
                   const creator = creators[index];
                   if (!creator) return null;
 
                   return (
                     <CreatorCard
-                      key={creator.id}
                       creator={creator}
                       variant="listing"
                       appearance="browse"

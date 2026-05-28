@@ -28,6 +28,7 @@ export interface Creator {
 export interface CreatorProfile extends Creator {
   bio: string;
   languages: string[];
+  profileLanguages: { label: string; fluency: string }[];
 
   personaTags: string[];
 

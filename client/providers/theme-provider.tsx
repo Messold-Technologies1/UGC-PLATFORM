@@ -7,7 +7,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ReactNode } from "react";
 
 const THEME_COLOR_STORAGE_KEY = "ugc-theme-color";
@@ -84,14 +83,7 @@ function ThemeColorProvider({ children }: { children: ReactNode }) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   return (
-    <NextThemesProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <ThemeColorProvider>{children}</ThemeColorProvider>
-    </NextThemesProvider>
+    <ThemeColorProvider>{children}</ThemeColorProvider>
   );
 }
 

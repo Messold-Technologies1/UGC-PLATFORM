@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore} from "react";
-import { useTheme } from "next-themes";
+
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
   Menu, X, User, Moon, Sun, Info,
@@ -28,63 +28,7 @@ import { BrandSwitcher } from "@/features/brand/components/brand-switcher";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
 
-  if (!mounted) {
-    return (
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Toggle theme"
-        className="relative overflow-hidden"
-        disabled
-      >
-        <Sun className="absolute size-4" />
-      </Button>
-    );
-  }
-
-  const isDark = resolvedTheme === "dark";
-  const tooltipLabel = isDark ? "Switch to light mode" : "Switch to dark mode";
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label="Toggle theme"
-          className="relative overflow-hidden"
-        >
-          <Sun
-            className={cn(
-              "absolute size-4 transition-all duration-300",
-              isDark
-                ? "rotate-90 scale-0 opacity-0"
-                : "rotate-0 scale-100 opacity-100",
-            )}
-          />
-          <Moon
-            className={cn(
-              "absolute size-4 transition-all duration-300",
-              isDark
-                ? "rotate-0 scale-100 opacity-100"
-                : "-rotate-90 scale-0 opacity-0",
-            )}
-          />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{tooltipLabel}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 interface NavItem {
   href?: string;

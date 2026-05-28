@@ -1,8 +1,6 @@
 "use client";
 
 import { ChevronDown, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
 import {
   accountMenuGlassPanel,
   accountMenuItemClass,
@@ -16,20 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { type ThemeColor, useThemeColor } from "@/providers/theme-provider";
 
-function useThemeMounted() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-}
-
 export function ThemeAppearancePanel({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme();
   const { themeColor, setThemeColor, options } = useThemeColor();
-  const themeMounted = useThemeMounted();
-  const currentTheme =
-    themeMounted && resolvedTheme === "dark" ? "dark" : "light";
 
   return (
     <div className={cn("rounded-xl p-1", accountMenuGlassPanel, className)}>
@@ -70,7 +56,7 @@ export function ThemeAppearancePanel({ className }: { className?: string }) {
                 <span>Theme</span>
                 <span className="inline-flex items-center gap-2 text-[11px] font-medium normal-case tracking-normal text-foreground/80">
                   <span
-                    className="size-2.5 rounded-full border border-black/10 dark:border-white/10"
+                    className="size-2.5 rounded-full border border-black/10"
                     style={{
                       backgroundColor:
                         options.find((option) => option.value === themeColor)
@@ -104,7 +90,7 @@ export function ThemeAppearancePanel({ className }: { className?: string }) {
                     >
                       <span className="flex items-center gap-2">
                         <span
-                          className="size-2.5 rounded-full border border-black/10 dark:border-white/10"
+                          className="size-2.5 rounded-full border border-black/10"
                           style={{ backgroundColor: option.swatch }}
                           aria-hidden
                         />

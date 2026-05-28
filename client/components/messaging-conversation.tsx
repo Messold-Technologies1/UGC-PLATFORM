@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type SyntheticEvent,
+} from "react";
 import {
   Copy,
   Flag,
   Loader2,
   MoreHorizontal,
+  Mic,
   Reply,
   Send,
+  Square,
   Trash2,
   UserMinus2,
+  ArrowLeft,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -33,11 +43,21 @@ export type MessagingParticipant = {
 
 export type MessagingConversationMessage = {
   id: string;
-  text: string;
+  type?: "TEXT" | "VOICE";
+  text?: string | null;
+  audioUrl?: string | null;
+  audioDurationMs?: number | null;
+  audioMimeType?: string | null;
   senderUserId: string;
   createdAt?: string;
   timeLabel?: string;
   statusLabel?: string;
+};
+
+type SendVoiceMessagePayload = {
+  blob: Blob;
+  audioDurationMs: number;
+  contentType: string;
 };
 
 type MessagingConversationProps = {
@@ -58,6 +78,9 @@ type MessagingConversationProps = {
   inputPlaceholder?: string;
   maxMessageLength?: number;
   onSendMessage?: (text: string) => Promise<void> | void;
+  onSendVoiceMessage?: (payload: SendVoiceMessagePayload) => Promise<void> | void;
+  maxVoiceDurationMs?: number;
+  onBack?: () => void;
 };
 
 const DEMO_USER: MessagingParticipant = {
@@ -138,6 +161,39 @@ function statusLabel(status?: StatusType) {
   if (status === "dnd") return "Do Not Disturb";
   if (status === "offline") return "Offline";
   return "";
+}
+
+function formatVoiceDuration(durationMs?: number | null) {
+  if (!durationMs || durationMs < 0) return "0:00";
+
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function getPreferredAudioMimeType() {
+  if (typeof MediaRecorder === "undefined") return "";
+
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/mpeg",
+  ];
+
+  return (
+    candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
+    ""
+  );
+}
+
+function isVoiceMessage(message: MessagingConversationMessage) {
+  return (
+    message.type === "VOICE" ||
+    Boolean(message.audioUrl || message.audioDurationMs || message.audioMimeType)
+  );
 }
 
 function UserActionsMenu() {
@@ -263,9 +319,21 @@ export function MessagingConversation({
   inputPlaceholder = "Type a message...",
   maxMessageLength = 5000,
   onSendMessage,
+  onSendVoiceMessage,
+  maxVoiceDurationMs = 5 * 60 * 1000,
+  onBack,
 }: MessagingConversationProps) {
   const [draft, setDraft] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStartedAtRef = useRef<number>(0);
+  const cancelRecordingRef = useRef(false);
   const resolvedParticipants = participants ?? [DEMO_USER, DEMO_OTHER];
   const resolvedMessages = messages ?? DEMO_MESSAGES;
   const lastMessageId = resolvedMessages.at(-1)?.id;
@@ -282,6 +350,11 @@ export function MessagingConversation({
   const avatarUrl = headerAvatarUrl ?? headerParticipant?.avatar;
   const trimmedDraft = draft.trim();
   const canSend = Boolean(onSendMessage) && Boolean(trimmedDraft);
+  const canRecordVoice =
+    Boolean(onSendVoiceMessage) &&
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    typeof MediaRecorder !== "undefined";
 
   const handleSendMessage = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -295,9 +368,123 @@ export function MessagingConversation({
     }
   };
 
+  const stopMediaTracks = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }, []);
+
+  const startVoiceRecording = useCallback(async () => {
+    if (!onSendVoiceMessage || isSendingVoice) return;
+
+    setVoiceError(null);
+
+    if (!canRecordVoice) {
+      setVoiceError("Voice recording is not supported in this browser.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getPreferredAudioMimeType();
+      const recorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined,
+      );
+
+      recordingChunksRef.current = [];
+      cancelRecordingRef.current = false;
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recordingStartedAtRef.current = Date.now();
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const chunks = recordingChunksRef.current;
+        const durationMs = Math.max(
+          1,
+          Date.now() - recordingStartedAtRef.current,
+        );
+        const contentType = recorder.mimeType || mimeType || "audio/webm";
+
+        setIsRecording(false);
+        setRecordingElapsedMs(0);
+        mediaRecorderRef.current = null;
+        stopMediaTracks();
+
+        if (cancelRecordingRef.current || chunks.length === 0) {
+          return;
+        }
+
+        const blob = new Blob(chunks, { type: contentType });
+
+        try {
+          setIsSendingVoice(true);
+          await onSendVoiceMessage({ blob, audioDurationMs: durationMs, contentType });
+        } catch (error) {
+          setVoiceError(
+            error instanceof Error ? error.message : "Unable to send voice message.",
+          );
+        } finally {
+          setIsSendingVoice(false);
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordingElapsedMs(0);
+    } catch (error) {
+      stopMediaTracks();
+      setIsRecording(false);
+      setVoiceError(
+        error instanceof Error ? error.message : "Unable to start recording.",
+      );
+    }
+  }, [canRecordVoice, isSendingVoice, onSendVoiceMessage, stopMediaTracks]);
+
+  const stopVoiceRecording = useCallback((cancel = false) => {
+    const recorder = mediaRecorderRef.current;
+
+    cancelRecordingRef.current = cancel;
+
+    if (!recorder || recorder.state === "inactive") {
+      setIsRecording(false);
+      setRecordingElapsedMs(0);
+      stopMediaTracks();
+      return;
+    }
+
+    recorder.stop();
+  }, [stopMediaTracks]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [lastMessageId]);
+
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const interval = window.setInterval(() => {
+      const elapsed = Date.now() - recordingStartedAtRef.current;
+      setRecordingElapsedMs(elapsed);
+
+      if (elapsed >= maxVoiceDurationMs) {
+        stopVoiceRecording(false);
+      }
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [isRecording, maxVoiceDurationMs, stopVoiceRecording]);
+
+  useEffect(() => {
+    return () => {
+      stopVoiceRecording(true);
+    };
+  }, [stopVoiceRecording]);
 
   return (
     <section
@@ -306,8 +493,13 @@ export function MessagingConversation({
         className,
       )}
     >
-      <div className="p-4 border-b bg-muted/40 flex items-center justify-between">
+      <div className="p-4 border-b border-border/40 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-10 relative shadow-sm">
         <div className="flex min-w-0 items-center gap-3">
+          {onBack && (
+            <Button variant="ghost" size="icon" className="md:hidden shrink-0 -ml-2" onClick={onBack}>
+              <ArrowLeft className="size-5" />
+            </Button>
+          )}
           <div className="relative shrink-0">
             <Avatar className="w-10 h-10 border-2 border-background shadow-xs">
               <AvatarImage
@@ -345,7 +537,7 @@ export function MessagingConversation({
       </div>
 
       <ScrollArea className="flex-1 min-h-0 p-5">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
           {hasMoreMessages && onLoadMore ? (
             <div className="flex justify-center">
               <Button
@@ -373,6 +565,7 @@ export function MessagingConversation({
               const sender = participantById.get(msg.senderUserId);
               const isMe = msg.senderUserId === rightAlignedUserId;
               const timestamp = formatMessageTime(msg);
+              const voiceMessage = isVoiceMessage(msg);
 
               return (
                 <div
@@ -396,13 +589,37 @@ export function MessagingConversation({
                   ) : null}
                   <div
                     className={cn(
-                      "p-3.5 px-4 rounded-2xl text-sm w-fit max-w-[85%] whitespace-pre-wrap break-words",
+                      "py-2 px-3.5 rounded-lg text-sm w-fit max-w-[85%] whitespace-pre-wrap break-words shadow-sm transition-all",
+                      voiceMessage ? "min-w-48" : null,
                       isMe
                         ? "bg-primary text-primary-foreground rounded-tr-sm font-medium"
-                        : "bg-muted text-foreground rounded-tl-sm",
+                        : "bg-white border border-border/40 text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-border/60 rounded-tl-sm",
                     )}
                   >
-                    {msg.text}
+                    {voiceMessage ? (
+                      msg.audioUrl ? (
+                        <div className="flex flex-col gap-1.5">
+                          <audio
+                            className="h-9 w-56 max-w-full"
+                            controls
+                            preload="metadata"
+                            src={msg.audioUrl}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {msg.statusLabel === "Sending" ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : null}
+                          <span>Voice message</span>
+                          <span className="text-[10px] opacity-80">
+                            {formatVoiceDuration(msg.audioDurationMs)}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      msg.text
+                    )}
                   </div>
                   <div
                     className={cn(
@@ -427,29 +644,76 @@ export function MessagingConversation({
       </ScrollArea>
 
       {readOnly ? null : (
-        <div className="p-4 bg-muted/20 border-t">
-          <form className="relative flex items-center" onSubmit={handleSendMessage}>
-            <input
-              type="text"
-              placeholder={inputPlaceholder}
-              className="w-full bg-background border rounded-xl py-3 pl-4 pr-12 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all placeholder:text-muted-foreground shadow-sm"
-              disabled={!onSendMessage}
-              maxLength={maxMessageLength}
-              onChange={(event) => setDraft(event.target.value)}
-              value={draft}
-            />
-            <button
-              aria-label="Send message"
-              className="absolute right-1.5 w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary/10 disabled:hover:text-primary disabled:active:scale-100"
-              disabled={!canSend}
-              type="submit"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+        <div className="p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-border/40 pb-6 relative z-10">
+          {isRecording ? (
+            <div className="flex items-center gap-2 rounded-xl border bg-background p-2 shadow-sm">
+              <div className="flex min-w-0 flex-1 items-center gap-2 px-2 text-sm font-medium text-foreground">
+                <span className="size-2 rounded-full bg-destructive" />
+                <span>{formatVoiceDuration(recordingElapsedMs)}</span>
+              </div>
+              <button
+                aria-label="Cancel recording"
+                className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => stopVoiceRecording(true)}
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
+              <button
+                aria-label="Send voice message"
+                className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+                onClick={() => stopVoiceRecording(false)}
+                type="button"
+              >
+                <Square className="size-4 fill-current" />
+              </button>
+            </div>
+          ) : (
+            <form className="relative flex items-center" onSubmit={handleSendMessage}>
+              <input
+                type="text"
+                placeholder={inputPlaceholder}
+                className="w-full bg-white dark:bg-slate-950 border border-border/60 rounded-lg py-3.5 pl-4 pr-24 text-sm text-foreground focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all placeholder:text-muted-foreground shadow-sm hover:border-border/80"
+                disabled={!onSendMessage || isSendingVoice}
+                maxLength={maxMessageLength}
+                onChange={(event) => setDraft(event.target.value)}
+                value={draft}
+              />
+              <div className="absolute right-1.5 flex items-center gap-1">
+                {onSendVoiceMessage ? (
+                  <button
+                    aria-label="Record voice message"
+                    className="flex size-9 items-center justify-center rounded-lg text-primary transition-all hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canRecordVoice || isSendingVoice}
+                    onClick={startVoiceRecording}
+                    type="button"
+                  >
+                    {isSendingVoice ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Mic className="size-4" />
+                    )}
+                  </button>
+                ) : null}
+                <button
+                  aria-label="Send message"
+                  className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all hover:scale-105 active:scale-95 shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+                  disabled={!canSend || isSendingVoice}
+                  type="submit"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          )}
           {sendError ? (
             <p className="mt-2 text-xs font-medium text-destructive">
               {sendError}
+            </p>
+          ) : null}
+          {voiceError ? (
+            <p className="mt-2 text-xs font-medium text-destructive">
+              {voiceError}
             </p>
           ) : null}
         </div>

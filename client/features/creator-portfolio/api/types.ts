@@ -11,3 +11,7 @@ export type PortfolioVideoApi = {
   visibilityStatus: "public" | "private";
   createdAt: string;
 };
+
+export type PortfolioApiRequestOptions = {
+  adminCreatorId?: string;
+};

@@ -15,10 +15,15 @@ import type {
   OrderChatReadUpdatedEvent,
 } from "@/lib/realtime-events";
 import {
+  ORDER_CHAT_VOICE_MAX_BYTES,
+  ORDER_CHAT_VOICE_MAX_DURATION_MS,
   fetchOrderChatMessages,
   fetchOrderChatState,
   markOrderChatRead,
+  presignOrderChatVoiceUpload,
+  putOrderChatVoiceToPresignedUrl,
   sendOrderChatMessage,
+  sendOrderChatVoiceMessage,
   type MarkOrderChatReadPayload,
   type OrderChatMessageDto,
   type OrderChatMessagesResponseDto,
@@ -237,12 +242,98 @@ export function useSendOrderChatMessageMutation(
           id: `local-${clientMessageId}`,
           orderId,
           senderUserId,
+          type: "TEXT",
           text: payload.text.trim(),
           clientMessageId,
           createdAt: new Date().toISOString(),
           deliveryStatus: "sending",
         },
       ]);
+
+      return { clientMessageId };
+    },
+    onSuccess: (message) => {
+      mergeMessagesIntoCache(queryClient, orderId, [message]);
+    },
+    onError: (_error, _payload, context) => {
+      queryClient.setQueriesData<OrderChatMessagesInfiniteData>(
+        { queryKey: orderChatMessagesBaseQueryKey(orderId) },
+        (current) =>
+          markOptimisticMessageFailed(current, context?.clientMessageId),
+      );
+    },
+  });
+}
+
+type SendOrderChatVoiceMessageVariables = {
+  blob: Blob;
+  audioDurationMs: number;
+  contentType?: string;
+  clientMessageId?: string;
+};
+
+export function useSendOrderChatVoiceMessageMutation(
+  orderId: string,
+  senderUserId?: string,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      blob,
+      audioDurationMs,
+      contentType,
+      clientMessageId,
+    }: SendOrderChatVoiceMessageVariables) => {
+      if (blob.size > ORDER_CHAT_VOICE_MAX_BYTES) {
+        throw new Error("Voice message is larger than 10 MB.");
+      }
+
+      if (audioDurationMs > ORDER_CHAT_VOICE_MAX_DURATION_MS) {
+        throw new Error("Voice message must be 5 minutes or shorter.");
+      }
+
+      const resolvedContentType =
+        contentType?.trim() || blob.type || "audio/webm";
+      const presign = await presignOrderChatVoiceUpload(orderId, {
+        contentType: resolvedContentType,
+        contentLength: blob.size,
+      });
+
+      await putOrderChatVoiceToPresignedUrl(blob, presign);
+
+      return sendOrderChatVoiceMessage(orderId, {
+        audioKey: presign.key,
+        audioDurationMs,
+        clientMessageId,
+      });
+    },
+    onMutate: async (payload) => {
+      void queryClient.cancelQueries({
+        queryKey: orderChatMessagesBaseQueryKey(orderId),
+      });
+
+      const clientMessageId =
+        payload.clientMessageId ?? `local-${Date.now().toString(36)}`;
+
+      if (senderUserId) {
+        mergeMessagesIntoCache(queryClient, orderId, [
+          {
+            id: `local-${clientMessageId}`,
+            orderId,
+            senderUserId,
+            type: "VOICE",
+            text: null,
+            audioUrl: null,
+            audioDurationMs: payload.audioDurationMs,
+            audioMimeType:
+              payload.contentType?.trim() || payload.blob.type || "audio/webm",
+            clientMessageId,
+            createdAt: new Date().toISOString(),
+            deliveryStatus: "sending",
+          },
+        ]);
+      }
 
       return { clientMessageId };
     },

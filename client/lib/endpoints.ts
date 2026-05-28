@@ -76,6 +76,10 @@ export const ENDPOINTS = {
       `/api/orders/${encodeURIComponent(id)}/product-received`,
     CHAT_MESSAGES: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/chat/messages`,
+    CHAT_MESSAGES_VOICE_PRESIGN: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/messages/presign-voice`,
+    CHAT_MESSAGES_VOICE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/chat/messages/voice`,
     CHAT_READ: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/chat/read`,
     CHAT_STATE: (id: string) =>
@@ -109,6 +113,12 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/reject`,
+      PORTFOLIO_UPLOADS_PRESIGN: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/portfolio/uploads/presign`,
+      PORTFOLIO_VIDEOS: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/portfolio/videos`,
+      PORTFOLIO_VIDEO: (creatorId: string, videoId: string) =>
+        `/api/admin/creators/${encodeURIComponent(creatorId)}/portfolio/videos/${encodeURIComponent(videoId)}`,
     },
     BRANDS: {
       LIST: "/api/admin/brands",

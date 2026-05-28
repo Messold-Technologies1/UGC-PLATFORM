@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -24,6 +25,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { addNotification } = useNotification();
   const queryClient = useQueryClient();
   const refreshAttemptedRef = useRef(false);
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -130,6 +137,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onChatMessage = (e: OrderChatMessageEvent) => {
       if (e.message.senderUserId === user.id) return;
+      if (pathnameRef.current?.includes("/messages")) return;
 
       toast.info("New chat message", {
         description: `Order ${e.orderId.slice(0, 8)}...`,
@@ -138,7 +146,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "info",
         title: "New chat message",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+        link: rolePath ? `/${rolePath}/messages?orderId=${e.orderId}` : undefined,
       });
     };
 

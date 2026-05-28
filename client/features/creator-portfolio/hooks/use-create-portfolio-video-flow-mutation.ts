@@ -6,8 +6,12 @@ import {
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
+import { publicPortfolioVideosByCreatorQueryKey } from "../api/list-public-portfolio-videos";
 import { createPortfolioVideo } from "../api/create-portfolio-video";
-import { type UpdatePortfolioVideoPayload, updatePortfolioVideo } from "../api/update-portfolio-video";
+import {
+  type UpdatePortfolioVideoPayload,
+  updatePortfolioVideo,
+} from "../api/update-portfolio-video";
 import {
   presignPortfolioUpload,
   putPortfolioFileToPresignedUrl,
@@ -18,6 +22,7 @@ type CreatePortfolioVideoFlowVariables = {
   thumbnailFile: File | null;
   visibility: "public" | "private";
   metadataPatch: UpdatePortfolioVideoPayload | null;
+  adminCreatorId?: string;
 };
 
 function resolveVideoContentType(file: File): string {
@@ -80,39 +85,64 @@ export function useCreatePortfolioVideoFlowMutation() {
       thumbnailFile,
       visibility,
       metadataPatch,
+      adminCreatorId,
     }: CreatePortfolioVideoFlowVariables) => {
-      const videoPresign = await presignPortfolioUpload({
-        kind: "video",
-        contentType: resolveVideoContentType(videoFile),
-        contentLength: videoFile.size,
-      });
+      const requestOptions = adminCreatorId ? { adminCreatorId } : undefined;
+      const videoPresign = await presignPortfolioUpload(
+        {
+          kind: "video",
+          contentType: resolveVideoContentType(videoFile),
+          contentLength: videoFile.size,
+        },
+        requestOptions,
+      );
       await putPortfolioFileToPresignedUrl(videoFile, videoPresign);
 
       let thumbnailKey: string | undefined;
       if (thumbnailFile) {
-        const thumbnailPresign = await presignPortfolioUpload({
-          kind: "thumbnail",
-          contentType: resolveImageContentType(thumbnailFile),
-          contentLength: thumbnailFile.size,
-        });
+        const thumbnailPresign = await presignPortfolioUpload(
+          {
+            kind: "thumbnail",
+            contentType: resolveImageContentType(thumbnailFile),
+            contentLength: thumbnailFile.size,
+          },
+          requestOptions,
+        );
         await putPortfolioFileToPresignedUrl(thumbnailFile, thumbnailPresign);
         thumbnailKey = thumbnailPresign.key;
       }
 
-      const created = await createPortfolioVideo({
-        videoKey: videoPresign.key,
-        thumbnailKey,
-        visibilityStatus: visibility,
-      });
+      const created = await createPortfolioVideo(
+        {
+          videoKey: videoPresign.key,
+          thumbnailKey,
+          visibilityStatus: visibility,
+        },
+        requestOptions,
+      );
 
       if (metadataPatch) {
-        await updatePortfolioVideo(created.id, metadataPatch);
+        await updatePortfolioVideo(created.id, metadataPatch, requestOptions);
       }
 
       return created;
     },
-    onSuccess: async () => {
+    onSuccess: async (_created, variables) => {
       toast.success("Portfolio video added");
+      if (variables.adminCreatorId) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: publicPortfolioVideosByCreatorQueryKey(
+              variables.adminCreatorId,
+            ),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["creators", "profile", variables.adminCreatorId],
+          }),
+        ]);
+        return;
+      }
+
       await queryClient.invalidateQueries({
         queryKey: portfolioMyVideosQueryKey,
       });

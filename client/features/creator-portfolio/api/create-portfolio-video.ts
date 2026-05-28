@@ -1,6 +1,6 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
-import type { PortfolioVideoApi } from "./types";
+import type { PortfolioApiRequestOptions, PortfolioVideoApi } from "./types";
 
 
 export type CreatePortfolioVideoPayload = {
@@ -15,9 +15,14 @@ export type CreatePortfolioVideoPayload = {
 
 export async function createPortfolioVideo(
   payload: CreatePortfolioVideoPayload,
+  options?: PortfolioApiRequestOptions,
 ): Promise<PortfolioVideoApi> {
+  const endpoint = options?.adminCreatorId
+    ? ENDPOINTS.ADMIN.CREATORS.PORTFOLIO_VIDEOS(options.adminCreatorId)
+    : ENDPOINTS.CREATOR_PORTFOLIO.VIDEOS;
+
   const { data } = await api.post<PortfolioVideoApi>(
-    ENDPOINTS.CREATOR_PORTFOLIO.VIDEOS,
+    endpoint,
     payload,
   );
   return data;

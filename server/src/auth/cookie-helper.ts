@@ -1,7 +1,30 @@
+import type { CookieOptions } from 'express';
 import type { Response } from 'express';
 import { AUTH_COOKIE_NAMES } from './auth.service';
 
 const isProduction = process.env.NODE_ENV === 'production';
+
+/**
+ * Parent domain for auth cookies (e.g. `.gocollab.io`) so tokens are sent to both
+ * the frontend host and the API/WebSocket host. Set via COOKIE_DOMAIN in production.
+ */
+function getAuthCookieDomain(): string | undefined {
+  const raw = process.env.COOKIE_DOMAIN?.trim();
+  if (!raw) return undefined;
+  return raw.startsWith('.') ? raw : `.${raw}`;
+}
+
+function getAuthCookieBaseOptions(): CookieOptions {
+  const domain = getAuthCookieDomain();
+  const sameSite = isProduction ? ('none' as const) : ('lax' as const);
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite,
+    path: '/',
+    ...(domain ? { domain } : {}),
+  };
+}
 
 /** Set access and refresh token cookies. Expiry can be e.g. "15m" or "7d". */
 export function setAuthCookies(
@@ -11,13 +34,7 @@ export function setAuthCookies(
   accessExpiry: string,
   refreshExpiry: string,
 ): void {
-  const sameSite = isProduction ? ('none' as const) : ('lax' as const);
-  const baseOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite,
-    path: '/',
-  };
+  const baseOptions = getAuthCookieBaseOptions();
 
   res.cookie(AUTH_COOKIE_NAMES.accessToken, accessToken, {
     ...baseOptions,
@@ -30,12 +47,8 @@ export function setAuthCookies(
 }
 
 export function clearAuthCookies(res: Response): void {
-  const sameSite = isProduction ? ('none' as const) : ('lax' as const);
-  const clearOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite,
-    path: '/',
+  const clearOptions: CookieOptions = {
+    ...getAuthCookieBaseOptions(),
     maxAge: 0,
   };
   res.cookie(AUTH_COOKIE_NAMES.accessToken, '', clearOptions);

@@ -15,6 +15,10 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().min(16).required(),
   JWT_ACCESS_EXPIRY: Joi.string().optional().default('15m'),
   JWT_REFRESH_EXPIRY: Joi.string().optional().default('7d'),
+  /** Parent domain for auth cookies, e.g. `.gocollab.io` (enables WebSocket on API subdomain) */
+  COOKIE_DOMAIN: Joi.string()
+    .pattern(/^\.?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i)
+    .optional(),
 
   // Auth: Google OAuth
   GOOGLE_CLIENT_ID: Joi.string().min(1).required(),

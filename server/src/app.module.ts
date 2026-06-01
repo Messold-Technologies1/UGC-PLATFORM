@@ -17,6 +17,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { OrderChatModule } from './order-chat/order-chat.module';
+import { ChatsModule } from './chats/chats.module';
 import { BriefsModule } from './briefs/briefs.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
@@ -48,6 +49,7 @@ import { MailModule } from './mail/mail.module';
     OrdersModule,
     BriefsModule,
     OrderChatModule,
+    ChatsModule,
     WebhooksModule,
     JobsModule,
     RealtimeModule,

@@ -31,6 +31,7 @@ export interface OrderListSummary {
   deliveryDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  expectedAmountPaise?: number;
 }
 
 export interface OrderAddOnSnapshot {

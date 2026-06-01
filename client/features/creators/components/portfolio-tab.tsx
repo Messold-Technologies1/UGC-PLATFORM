@@ -315,8 +315,8 @@ export const PortfolioTab = memo(function PortfolioTab({
 
   if (videos.length === 0) {
     return (
-      <div className="flex min-h-50 items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card">
-        <p className="text-sm text-muted-foreground">No portfolio items yet</p>
+      <div className="flex min-h-50 items-center justify-center rounded-2xl  border-dashed border-border/80 bg-card">
+        <p className="text-sm font-semibold text-muted-foreground">No portfolio items yet</p>
       </div>
     );
   }

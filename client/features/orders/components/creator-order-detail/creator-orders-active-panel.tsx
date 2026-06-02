@@ -405,29 +405,46 @@ function InProgressContent({
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
 
+  const [pendingUpload, setPendingUpload] = useState<{ type: 'draft' | 'final', files: File[] } | null>(null);
+
   const deadline = selectedItem.order.deliveryDeadlineAt;
   const remaining = daysLeft(deadline);
 
-  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
-    const fileList = event.target.files;
-    if (!fileList || fileList.length === 0 || !isCurrentStep) return;
+  function handleFileSelect(type: 'draft' | 'final') {
+    return (event: React.ChangeEvent<HTMLInputElement>) => {
+      const fileList = event.target.files;
+      if (!fileList || fileList.length === 0 || !isCurrentStep) return;
 
-    const validFiles = Array.from(fileList).filter(isSupportedFile);
+      const validFiles = Array.from(fileList).filter(isSupportedFile);
 
-    if (validFiles.length === 0) {
-      toast.error("Please upload valid video or image files.");
-      return;
-    }
+      if (validFiles.length === 0) {
+        toast.error("Please upload valid video or image files.");
+        return;
+      }
 
-    if (validFiles.some((f) => f.size > 250_000_000)) {
-      toast.error("Each file must be 250 MB or smaller.");
-      return;
-    }
+      if (validFiles.some((f) => f.size > 250_000_000)) {
+        toast.error("Each file must be 250 MB or smaller.");
+        return;
+      }
 
-    submitMutation.mutate({ orderId: selectedOrderId, files: validFiles });
+      setPendingUpload({ type, files: validFiles });
 
-    if (draftInputRef.current) draftInputRef.current.value = "";
-    if (finalInputRef.current) finalInputRef.current.value = "";
+      if (draftInputRef.current) draftInputRef.current.value = "";
+      if (finalInputRef.current) finalInputRef.current.value = "";
+    };
+  }
+
+  function handleConfirmUpload() {
+    if (!pendingUpload) return;
+    submitMutation.mutate(
+      { orderId: selectedOrderId, files: pendingUpload.files },
+      {
+        onSuccess: () => {
+          setPendingUpload(null);
+          toast.success("Files uploaded successfully!");
+        }
+      }
+    );
   }
 
   return (
@@ -458,7 +475,7 @@ function InProgressContent({
               className="hidden"
               accept="video/*,image/*"
               multiple
-              onChange={handleFileSelect}
+              onChange={handleFileSelect('draft')}
             />
             <input
               type="file"
@@ -466,36 +483,64 @@ function InProgressContent({
               className="hidden"
               accept="video/*,image/*"
               multiple
-              onChange={handleFileSelect}
+              onChange={handleFileSelect('final')}
             />
 
-            <Button
-              className="w-full mt-4 rounded-lg h-10 font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
-              disabled={isUploading}
-              onClick={() => draftInputRef.current?.click()}
-            >
-              {isUploading ? (
-                <>
-                  <Spinner className="w-4 h-4" aria-hidden />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Upload Draft
-                </>
-              )}
-            </Button>
+            {pendingUpload ? (
+              <div className="mt-4 p-4 rounded-lg border border-border/50 bg-muted/30 space-y-3 text-sm">
+                <div className="font-medium text-foreground">
+                  Ready to upload {pendingUpload.files.length} file(s) for {pendingUpload.type === 'draft' ? 'Draft' : 'Final Video'}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-9 rounded-lg border-border/50"
+                    disabled={isUploading}
+                    onClick={() => setPendingUpload(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 h-9 rounded-lg font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
+                    disabled={isUploading}
+                    onClick={handleConfirmUpload}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Spinner className="w-3.5 h-3.5 mr-1.5" aria-hidden />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        Confirm Upload
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Button
+                  className="w-full mt-4 rounded-lg h-10 font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
+                  disabled={isUploading}
+                  onClick={() => draftInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-1.5" />
+                  Select Draft
+                </Button>
 
-            <Button
-              variant="outline"
-              className="w-full mt-2 rounded-lg h-10 font-semibold border-border/50 gap-1.5"
-              disabled={isUploading}
-              onClick={() => finalInputRef.current?.click()}
-            >
-              <FileVideo className="w-4 h-4" />
-              Upload Final Video
-            </Button>
+                <Button
+                  variant="outline"
+                  className="w-full mt-2 rounded-lg h-10 font-semibold border-border/50 gap-1.5"
+                  disabled={isUploading}
+                  onClick={() => finalInputRef.current?.click()}
+                >
+                  <FileVideo className="w-4 h-4" />
+                  Select Final Video
+                </Button>
+              </>
+            )}
           </>
         )}
 

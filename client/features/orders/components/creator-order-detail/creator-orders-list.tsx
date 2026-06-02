@@ -72,6 +72,8 @@ export function CreatorOrdersList() {
   const total = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const paginatedItems = filteredItems.slice((page - 1) * limit, page * limit);
+  const isPaginatedTab = activeTab === "all" || activeTab === "new";
+  const displayItems = isPaginatedTab ? paginatedItems : filteredItems;
 
   const selectedItem = useMemo(() => {
     return allItems.find((item: any) => item.order.id === selectedOrderId);
@@ -134,7 +136,7 @@ export function CreatorOrdersList() {
                 </div>
               ))}
 
-            {!isLoading && paginatedItems.length === 0 && (
+            {!isLoading && displayItems.length === 0 && (
               <div className="py-20 flex flex-col items-center justify-center text-center text-muted-foreground bg-background rounded-lg border border-border/40">
                 <p className="text-sm font-medium text-foreground">
                   No orders yet
@@ -143,7 +145,7 @@ export function CreatorOrdersList() {
             )}
 
             {!isLoading &&
-              paginatedItems.map(({ order, brand }: any, i: number) => {
+              displayItems.map(({ order, brand }: any, i: number) => {
                 const isSelected = selectedOrderId === order.id;
                 const isNarrowLayout = Boolean(
                   selectedOrderId && (activeTab === "new" || activeTab === "active" || activeTab === "revisions" || activeTab === "delivered" || activeTab === "completed" || activeTab === "cancelled"),
@@ -355,134 +357,136 @@ export function CreatorOrdersList() {
                 );
               })}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 whitespace-nowrap">
-                  <span className="text-sm text-muted-foreground">Page</span>
-                  <span className="text-sm font-bold text-foreground">
-                    {page}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    of {totalPages}
+            {isPaginatedTab && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-sm text-muted-foreground">Page</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {page}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      of {totalPages}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-2 hidden xl:inline-block whitespace-nowrap">
+                    Showing{" "}
+                    {paginatedItems.length === 0 ? 0 : (page - 1) * limit + 1}-
+                    {Math.min(page * limit, total)} of {total} results
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground italic border-l border-border/50 pl-2 hidden xl:inline-block whitespace-nowrap">
-                  Showing{" "}
-                  {paginatedItems.length === 0 ? 0 : (page - 1) * limit + 1}-
-                  {Math.min(page * limit, total)} of {total} results
-                </span>
+
+                <div className="flex justify-center flex-1 min-w-[200px]">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={(e: MouseEvent) => {
+                            e.preventDefault();
+                            setPage((p) => Math.max(1, p - 1));
+                          }}
+                          className={cn(
+                            page <= 1 &&
+                              "pointer-events-none opacity-50 cursor-not-allowed",
+                          )}
+                        />
+                      </PaginationItem>
+
+                      {[...Array(totalPages)].map((_, i) => {
+                        const pageNum = i + 1;
+
+                        if (
+                          pageNum === 1 ||
+                          pageNum === totalPages ||
+                          (pageNum >= page - 1 && pageNum <= page + 1)
+                        ) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink
+                                href="#"
+                                isActive={page === pageNum}
+                                onClick={(e: MouseEvent) => {
+                                  e.preventDefault();
+                                  setPage(pageNum);
+                                }}
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+
+                        if (pageNum === page - 2 || pageNum === page + 2) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+
+                        return null;
+                      })}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={(e: MouseEvent) => {
+                            e.preventDefault();
+                            setPage((p) => Math.min(totalPages, p + 1));
+                          }}
+                          className={cn(
+                            page >= totalPages &&
+                              "pointer-events-none opacity-50 cursor-not-allowed",
+                          )}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+
+                <div className="flex items-center gap-2 justify-end">
+                  <span className="text-[11px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider whitespace-nowrap">
+                    Rows per page:
+                  </span>
+                  <Select
+                    value={limit.toString()}
+                    onValueChange={(v) => {
+                      setLimit(Number(v));
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
+                      <SelectValue placeholder={limit.toString()} />
+                    </SelectTrigger>
+                    <SelectContent align="end" className="min-w-[75px]">
+                      <SelectItem
+                        value="6"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        6
+                      </SelectItem>
+                      <SelectItem
+                        value="15"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        15
+                      </SelectItem>
+                      <SelectItem
+                        value="30"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        30
+                      </SelectItem>
+                      <SelectItem
+                        value="50"
+                        className="text-xs font-bold cursor-pointer"
+                      >
+                        50
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-
-              <div className="flex justify-center flex-1 min-w-[200px]">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={(e: MouseEvent) => {
-                          e.preventDefault();
-                          setPage((p) => Math.max(1, p - 1));
-                        }}
-                        className={cn(
-                          page <= 1 &&
-                            "pointer-events-none opacity-50 cursor-not-allowed",
-                        )}
-                      />
-                    </PaginationItem>
-
-                    {[...Array(totalPages)].map((_, i) => {
-                      const pageNum = i + 1;
-
-                      if (
-                        pageNum === 1 ||
-                        pageNum === totalPages ||
-                        (pageNum >= page - 1 && pageNum <= page + 1)
-                      ) {
-                        return (
-                          <PaginationItem key={pageNum}>
-                            <PaginationLink
-                              href="#"
-                              isActive={page === pageNum}
-                              onClick={(e: MouseEvent) => {
-                                e.preventDefault();
-                                setPage(pageNum);
-                              }}
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      }
-
-                      if (pageNum === page - 2 || pageNum === page + 2) {
-                        return (
-                          <PaginationItem key={pageNum}>
-                            <PaginationEllipsis />
-                          </PaginationItem>
-                        );
-                      }
-
-                      return null;
-                    })}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={(e: MouseEvent) => {
-                          e.preventDefault();
-                          setPage((p) => Math.min(totalPages, p + 1));
-                        }}
-                        className={cn(
-                          page >= totalPages &&
-                            "pointer-events-none opacity-50 cursor-not-allowed",
-                        )}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-
-              <div className="flex items-center gap-2 justify-end">
-                <span className="text-[11px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider whitespace-nowrap">
-                  Rows per page:
-                </span>
-                <Select
-                  value={limit.toString()}
-                  onValueChange={(v) => {
-                    setLimit(Number(v));
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
-                    <SelectValue placeholder={limit.toString()} />
-                  </SelectTrigger>
-                  <SelectContent align="end" className="min-w-[75px]">
-                    <SelectItem
-                      value="6"
-                      className="text-xs font-bold cursor-pointer"
-                    >
-                      6
-                    </SelectItem>
-                    <SelectItem
-                      value="15"
-                      className="text-xs font-bold cursor-pointer"
-                    >
-                      15
-                    </SelectItem>
-                    <SelectItem
-                      value="30"
-                      className="text-xs font-bold cursor-pointer"
-                    >
-                      30
-                    </SelectItem>
-                    <SelectItem
-                      value="50"
-                      className="text-xs font-bold cursor-pointer"
-                    >
-                      50
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 

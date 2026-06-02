@@ -98,6 +98,12 @@ export const ENDPOINTS = {
     RATING_REVIEW: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/rating-review`,
   },
+  CHATS: {
+    CREATOR: "/api/chats/creator",
+    BRAND: "/api/chats/brand",
+    MESSAGES: (orderId: string) =>
+      `/api/chats/${encodeURIComponent(orderId)}/messages`,
+  },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
     VIDEOS: "/api/creator-portfolio/videos",

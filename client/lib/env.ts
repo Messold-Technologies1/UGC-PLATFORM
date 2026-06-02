@@ -8,5 +8,5 @@ export const env = {
   authCookieName: process.env.AUTH_COOKIE_NAME || "accessToken",
   refreshCookieName: process.env.REFRESH_COOKIE_NAME || "refreshToken",
 
-  socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", //  || "ws://localhost:4000"
+  socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000",
 } as const;

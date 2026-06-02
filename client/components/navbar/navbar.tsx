@@ -51,13 +51,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/brand/briefs", label: "Briefs", icon: FileText },
   ],
   creator: [
-    {
-      label: "Activity",
-      icon: Activity,
-      children: [
-        { href: "/creator/orders", label: "Collaboration", icon: ShoppingCart, description: "Manage your ongoing brand partnerships and orders." },
-      ]
-    },
+    { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
     { href: "/creator/messages", label: "Messages", icon: MessageSquare },
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
   ],

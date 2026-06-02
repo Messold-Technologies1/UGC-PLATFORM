@@ -81,7 +81,7 @@ export async function fetchOrderChatMessages(
   query?: OrderChatMessagesQueryDto,
 ): Promise<OrderChatMessagesResponseDto> {
   const { data } = await api.get<OrderChatMessagesResponseDto>(
-    ENDPOINTS.ORDERS.CHAT_MESSAGES(orderId),
+    ENDPOINTS.CHATS.MESSAGES(orderId),
     { params: query },
   );
   return data;

@@ -29,6 +29,9 @@ type OrderChatWidgetProps = {
   brand?: OrderBrandSnapshot;
   creator?: OrderCreatorSnapshot;
   className?: string;
+  headerTitle?: string;
+  headerSubtitle?: string | null;
+  hideHeaderAvatar?: boolean;
 };
 
 function createClientMessageId() {
@@ -78,6 +81,9 @@ export function OrderChatWidget({
   brand,
   creator,
   className,
+  headerTitle,
+  headerSubtitle,
+  hideHeaderAvatar,
 }: OrderChatWidgetProps) {
   const { user } = useAuth();
   const stateQuery = useOrderChatStateQuery(orderId);
@@ -263,8 +269,9 @@ export function OrderChatWidget({
       emptyState="No chat messages yet."
       hasMoreMessages={messagesQuery.hasNextPage}
       headerAvatarUrl={otherParticipant.avatar}
-      headerSubtitle="Order chat"
-      headerTitle={otherParticipant.name}
+      headerSubtitle={headerSubtitle !== undefined ? headerSubtitle : "Order chat"}
+      headerTitle={headerTitle ?? otherParticipant.name}
+      hideHeaderAvatar={hideHeaderAvatar}
       inputPlaceholder="Message about this order..."
       isLoadingMore={messagesQuery.isFetchingNextPage}
       messages={messages}

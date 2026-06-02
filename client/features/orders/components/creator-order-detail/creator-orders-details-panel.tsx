@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2, X, ExternalLink, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,45 +12,160 @@ import { cn } from "@/lib/utils";
 import { useGetCreatorOrderDetailsQuery } from "../../hooks/use-get-creator-order-details-query";
 import { useGetOrderBriefQuery } from "../../hooks/use-get-order-brief-query";
 import { CreatorOrderNewRequestPanel } from "./creator-orders-new-request-panel";
+import { CreatorOrderActivePanel } from "./creator-orders-active-panel";
+import { CreatorOrderRevisionPanel } from "./creator-orders-revision-panel";
+import { CreatorOrderDeliveredPanel } from "./creator-orders-delivered-panel";
+import { CreatorOrderCompletedPanel } from "./creator-orders-completed-panel";
+import { CreatorOrderCancelledPanel } from "./creator-orders-cancelled-panel";
 
-const TIMELINE_STEPS = [
-  {
+const DATE_FMT: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+};
+
+function formatTs(ts: string | Date | null | undefined): string | null {
+  if (!ts) return null;
+  return new Intl.DateTimeFormat("en-GB", DATE_FMT).format(new Date(ts));
+}
+
+function fmtEnum(val?: string | string[] | null): string {
+  if (!val) return "N/A";
+  const arr = Array.isArray(val) ? val : [val];
+  if (arr.length === 0) return "N/A";
+  return arr
+    .map((s) =>
+      s
+        .split("_")
+        .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+        .join(" "),
+    )
+    .join(", ");
+}
+
+interface TimelineStep {
+  id: string;
+  label: string;
+  desc: string;
+  status: "completed" | "current" | "pending";
+}
+
+function buildTimelineSteps(
+  order: {
+    status?: string;
+    briefAcceptedAt?: string | null;
+    requiresPhysicalProductShipment?: boolean;
+    dispatchedAt?: string | null;
+    productReceivedAt?: string | null;
+    deliveredAt?: string | null;
+    acceptedAt?: string | null;
+    creatorPaidAt?: string | null;
+    revisionCount?: number;
+  } | null | undefined,
+  briefData: {
+    briefAcceptedAt?: string | null;
+  } | null | undefined,
+): TimelineStep[] {
+  const acceptedAt = order?.briefAcceptedAt ?? briefData?.briefAcceptedAt;
+  const requiresShipment = order?.requiresPhysicalProductShipment ?? false;
+
+  const steps: TimelineStep[] = [];
+
+  // 1 — Brief Accepted
+  steps.push({
     id: "accepted",
-    label: "Order Accepted",
-    desc: "11 May 2025, 10:20 AM",
-    status: "completed",
-  },
-  {
-    id: "shipped",
-    label: "Product Shipped",
-    desc: "Waiting for brand to ship the product",
-    status: "current",
-  },
-  {
-    id: "received",
-    label: "Product Received",
-    desc: "Mark the product as received to get started",
-    status: "pending",
-  },
-  {
+    label: "Brief Accepted",
+    desc: acceptedAt
+      ? formatTs(acceptedAt)!
+      : "Waiting for brief to be accepted",
+    status: acceptedAt ? "completed" : "pending",
+  });
+
+  // 2 & 3 — Shipping steps (only when physical product involved)
+  if (requiresShipment) {
+    steps.push({
+      id: "shipped",
+      label: "Product Shipped",
+      desc: order?.dispatchedAt
+        ? formatTs(order.dispatchedAt)!
+        : "Waiting for brand to ship the product",
+      status: order?.dispatchedAt ? "completed" : "pending",
+    });
+
+    steps.push({
+      id: "received",
+      label: "Product Received",
+      desc: order?.productReceivedAt
+        ? formatTs(order.productReceivedAt)!
+        : "Mark the product as received to get started",
+      status: order?.productReceivedAt ? "completed" : "pending",
+    });
+  }
+
+  // 4 — In Progress
+  const inProgressReached = requiresShipment
+    ? Boolean(order?.productReceivedAt)
+    : Boolean(acceptedAt);
+  steps.push({
     id: "progress",
     label: "In Progress",
-    desc: "Start creating your content",
-    status: "pending",
-  },
-  {
+    desc: inProgressReached
+      ? "Creating content…"
+      : "Start creating your content",
+    status: inProgressReached ? "completed" : "pending",
+  });
+
+  // 5 — Delivered
+  steps.push({
     id: "delivered",
     label: "Delivered",
-    desc: "Submit the final content for review",
-    status: "pending",
-  },
-  {
+    desc: order?.deliveredAt
+      ? formatTs(order.deliveredAt)!
+      : "Submit the final content for review",
+    status: order?.deliveredAt ? "completed" : "pending",
+  });
+
+  // 5b — Revision Requested (only shown when relevant)
+  const revisionStatuses = ["REVISION_REQUESTED", "REVISION_SUBMITTED"];
+  const hasRevision =
+    (order?.revisionCount && order.revisionCount > 0) ||
+    revisionStatuses.includes(order?.status ?? "");
+  if (hasRevision) {
+    const revisionDone =
+      order?.status === "REVISION_SUBMITTED" ||
+      (!revisionStatuses.includes(order?.status ?? "") && order?.deliveredAt);
+    steps.push({
+      id: "revision",
+      label: "Revision Requested",
+      desc: revisionDone
+        ? `Revision submitted (${order?.revisionCount ?? 1} revision${(order?.revisionCount ?? 1) > 1 ? "s" : ""})`
+        : "Brand requested changes to your content",
+      status: revisionDone ? "completed" : "pending",
+    });
+  }
+
+  // 6 — Completed
+  const completedAt = order?.acceptedAt ?? order?.creatorPaidAt;
+  steps.push({
     id: "completed",
     label: "Completed",
-    desc: "Get paid after approval",
-    status: "pending",
-  },
-];
+    desc: completedAt ? formatTs(completedAt)! : "Get paid after approval",
+    status: completedAt ? "completed" : "pending",
+  });
+
+  // Mark the first pending step as "current" — but only if the brief
+  // has been accepted (otherwise the timeline hasn't started yet).
+  if (acceptedAt) {
+    const firstPendingIdx = steps.findIndex((s) => s.status === "pending");
+    if (firstPendingIdx !== -1) {
+      steps[firstPendingIdx].status = "current";
+    }
+  }
+
+  return steps;
+}
 
 interface CreatorOrdersDetailsPanelProps {
   selectedOrderId: string;
@@ -91,6 +207,130 @@ export function CreatorOrdersDetailsPanel({
     );
   }
 
+  const [previewStepId, setPreviewStepId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewStepId(null);
+  }, [selectedOrderId, activeTab]);
+
+  const orderStatus = selectedItem?.order?.status as string;
+
+  let effectiveStatus = orderStatus;
+  if (previewStepId) {
+    switch (previewStepId) {
+      case "accepted":
+      case "awaiting_shipment":
+      case "product_received":
+      case "in_progress":
+        effectiveStatus = "PRODUCT_RECEIVED";
+        break;
+      case "revision_requested":
+        effectiveStatus = "REVISION_REQUESTED";
+        break;
+      case "delivered":
+        effectiveStatus = "DELIVERED";
+        break;
+      case "completed":
+        effectiveStatus = "ACCEPTED";
+        break;
+      case "cancelled":
+        effectiveStatus = "REJECTED";
+        break;
+    }
+  }
+
+  const REVISION_STATUSES = ["REVISION_REQUESTED"];
+  const DELIVERED_STATUSES = ["DELIVERED", "REVISION_SUBMITTED"];
+  const COMPLETED_STATUSES = ["ACCEPTED", "CREATOR_PAYMENT_DONE"];
+  const CANCELLED_STATUSES = ["REJECTED", "REFUNDED", "DISPUTED"];
+
+  if (activeTab !== "all") {
+    if (
+      activeTab === "revisions" ||
+      REVISION_STATUSES.includes(effectiveStatus)
+    ) {
+      return (
+        <CreatorOrderRevisionPanel
+          selectedOrderId={selectedOrderId}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+          briefData={briefData}
+          isLoading={isLoadingRightPanel}
+          onClose={onClose}
+          previewStepId={previewStepId}
+          onStepClick={setPreviewStepId}
+        />
+      );
+    }
+
+    if (
+      activeTab === "delivered" ||
+      DELIVERED_STATUSES.includes(effectiveStatus)
+    ) {
+      return (
+        <CreatorOrderDeliveredPanel
+          selectedOrderId={selectedOrderId}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+          briefData={briefData}
+          isLoading={isLoadingRightPanel}
+          onClose={onClose}
+          previewStepId={previewStepId}
+          onStepClick={setPreviewStepId}
+        />
+      );
+    }
+
+    if (
+      activeTab === "completed" ||
+      COMPLETED_STATUSES.includes(effectiveStatus)
+    ) {
+      return (
+        <CreatorOrderCompletedPanel
+          selectedOrderId={selectedOrderId}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+          briefData={briefData}
+          isLoading={isLoadingRightPanel}
+          onClose={onClose}
+          previewStepId={previewStepId}
+          onStepClick={setPreviewStepId}
+        />
+      );
+    }
+
+    if (
+      activeTab === "cancelled" ||
+      CANCELLED_STATUSES.includes(effectiveStatus)
+    ) {
+      return (
+        <CreatorOrderCancelledPanel
+          selectedOrderId={selectedOrderId}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+          briefData={briefData}
+          isLoading={isLoadingRightPanel}
+          onClose={onClose}
+          previewStepId={previewStepId}
+          onStepClick={setPreviewStepId}
+        />
+      );
+    }
+
+    return (
+      <CreatorOrderActivePanel
+        selectedOrderId={selectedOrderId}
+        selectedItem={selectedItem}
+        detailsData={detailsData}
+        briefData={briefData}
+        isLoading={isLoadingRightPanel}
+        onClose={onClose}
+        previewStepId={previewStepId}
+        onStepClick={setPreviewStepId}
+      />
+    );
+  }
+
   return (
     <div className="bg-background rounded-lg border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-fit sticky top-24">
       <div className="flex items-center justify-between p-5 border-b border-border/40">
@@ -128,9 +368,7 @@ export function CreatorOrdersDetailsPanel({
                 className="object-cover rounded-lg"
               />
               <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                {selectedItem.brand.brandName
-                  .substring(0, 1)
-                  .toUpperCase()}
+                {selectedItem.brand.brandName.substring(0, 1).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
@@ -168,14 +406,13 @@ export function CreatorOrdersDetailsPanel({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Video Type</span>
                 <span className="font-medium text-foreground text-right">
-                  {selectedItem.order.packageNameSnapshot ||
-                    "UGC Video (60s)"}
+                  {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Style</span>
                 <span className="font-medium text-foreground text-right">
-                  {briefData?.brief?.toneStyle?.join(", ") || "Standard"}
+                  {briefData?.brief?.toneStyle?.length ? fmtEnum(briefData.brief.toneStyle) : "Standard"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -200,29 +437,29 @@ export function CreatorOrdersDetailsPanel({
                       </span>
                     ))
                   ) : (
-                    <span className="text-muted-foreground text-xs">
-                      None
-                    </span>
+                    <span className="text-muted-foreground text-xs">None</span>
                   )}
                 </div>
               </div>
               <div className="flex justify-between pt-3">
-                <span className="text-muted-foreground">
-                  Total Payout
-                </span>
+                <span className="text-muted-foreground">Total Payout</span>
                 <span className="font-bold text-foreground text-right">
-                  {detailsData?.order?.expectedAmountPaise && detailsData.order.expectedAmountPaise > 0
+                  {detailsData?.order?.expectedAmountPaise &&
+                  detailsData.order.expectedAmountPaise > 0
                     ? new Intl.NumberFormat("en-IN", {
                         style: "currency",
                         currency: "INR",
                         maximumFractionDigits: 0,
                       }).format(detailsData.order.expectedAmountPaise / 100)
-                    : selectedItem.order.priceAmountSnapshot && parseFloat(selectedItem.order.priceAmountSnapshot) > 0
+                    : selectedItem.order.priceAmountSnapshot &&
+                        parseFloat(selectedItem.order.priceAmountSnapshot) > 0
                       ? new Intl.NumberFormat("en-IN", {
                           style: "currency",
                           currency: "INR",
                           maximumFractionDigits: 0,
-                        }).format(parseFloat(selectedItem.order.priceAmountSnapshot))
+                        }).format(
+                          parseFloat(selectedItem.order.priceAmountSnapshot),
+                        )
                       : "₹0"}
                 </span>
               </div>
@@ -231,39 +468,18 @@ export function CreatorOrdersDetailsPanel({
         </div>
 
         <div className="space-y-4">
-          <h4 className="font-bold text-sm">Timeline</h4>
-          <div className="relative space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border/60">
-            {TIMELINE_STEPS.map((step, idx) => {
-              let label = step.label;
-              let desc = step.desc;
-              let status = step.status;
-
-              if (step.id === "accepted") {
-                label = "Brief Accepted";
-                if (briefData?.briefAcceptedAt) {
-                  desc = new Intl.DateTimeFormat("en-GB", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  }).format(new Date(briefData.briefAcceptedAt));
-                  status = "completed";
-                } else {
-                  desc = "Waiting for brief to be accepted";
-                  status = "pending";
-                }
-              }
-
-              return (
-                <div
-                  key={step.id}
-                  className="relative flex items-start pl-8"
-                >
+            <h4 className="font-bold text-sm">Timeline</h4>
+            <div className="relative space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border/60">
+              {buildTimelineSteps(detailsData?.order, briefData).map((step) => (
+                <div key={step.id} className="relative flex items-start pl-8">
                   <div className="absolute left-0 top-0.5 flex items-center justify-center bg-background ring-4 ring-background rounded-full">
-                    {status === "completed" ? (
+                    {step.status === "completed" ? (
                       <div className="w-5 h-5 rounded-md bg-[#4318FF] flex items-center justify-center">
                         <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    ) : step.status === "current" ? (
+                      <div className="w-5 h-5 rounded-full bg-[#4318FF]/20 flex items-center justify-center ring-2 ring-[#4318FF]/40">
+                        <div className="w-2 h-2 rounded-full bg-[#4318FF]" />
                       </div>
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-muted/50 flex items-center justify-center">
@@ -275,22 +491,23 @@ export function CreatorOrdersDetailsPanel({
                     <span
                       className={cn(
                         "text-sm font-semibold mb-0.5",
-                        status === "completed"
+                        step.status === "completed"
                           ? "text-foreground"
-                          : "text-muted-foreground",
+                          : step.status === "current"
+                            ? "text-foreground"
+                            : "text-muted-foreground",
                       )}
                     >
-                      {label}
+                      {step.label}
                     </span>
                     <span className="text-[11px] text-muted-foreground leading-snug">
-                      {desc}
+                      {step.desc}
                     </span>
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
       </div>
 
       <div className="p-5 border-t border-border/40 flex items-center gap-3 bg-accent/20 mt-auto">

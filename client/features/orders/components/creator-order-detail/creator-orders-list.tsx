@@ -57,6 +57,13 @@ export function CreatorOrdersList() {
     if (activeTab === "all") return allItems;
     const tabDef = TAB_DEFINITIONS.find((t) => t.id === activeTab);
     if (!tabDef) return allItems;
+    
+    if (activeTab === "new") {
+      return allItems.filter((item: any) => 
+        Boolean(item.order.hasBrief) && tabDef.statuses.includes(item.order.status as string)
+      );
+    }
+
     return allItems.filter((item: any) =>
       tabDef.statuses.includes(item.order.status as string),
     );
@@ -71,26 +78,12 @@ export function CreatorOrdersList() {
   }, [allItems, selectedOrderId]);
 
   return (
-    <div className="px-8 pb-8 pt-0 md:px-12 md:pb-12 md:pt-2 w-full mx-auto space-y-8 min-h-screen">
-      <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-headline font-bold text-3xl tracking-tight mb-1">
-            Orders
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Manage all your orders and track your progress.
-          </p>
-        </div>
-        {/* <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-lg flex items-center gap-2 border-border/60 bg-background hover:bg-accent/50 shadow-sm h-10 font-semibold"
-          >
-            <CalendarDays className="w-4 h-4" />
-            Availability Calendar
-          </Button>
-        </div> */}
-      </section>
+    <div className="w-full mx-auto space-y-8 min-h-screen pb-4 pt-2">
+      {/* <section className="flex items-center justify-between gap-4 mb-2">
+        <h1 className="font-bold text-2xl tracking-tight">
+          Orders
+        </h1>
+      </section> */}
 
       <CreatorOrdersTabs
         activeTab={activeTab}
@@ -107,14 +100,14 @@ export function CreatorOrdersList() {
         className={cn(
           "grid gap-6 items-start mt-4 transition-all duration-300",
           selectedOrderId
-            ? activeTab === "new"
-              ? "lg:grid-cols-[450px_1fr] xl:grid-cols-[500px_1fr]"
+            ? activeTab !== "all"
+              ? "lg:grid-cols-[320px_1fr] xl:grid-cols-[350px_1fr]"
               : "lg:grid-cols-[1fr_400px]"
             : "grid-cols-1",
         )}
       >
         <div className="space-y-6">
-          <CreatorOrdersFilters activeTab={activeTab} />
+          <CreatorOrdersFilters activeTab={activeTab} isCompact={Boolean(selectedOrderId)} />
 
           <div className="space-y-3">
             {isLoading &&
@@ -153,7 +146,7 @@ export function CreatorOrdersList() {
               paginatedItems.map(({ order, brand }: any, i: number) => {
                 const isSelected = selectedOrderId === order.id;
                 const isNarrowLayout = Boolean(
-                  selectedOrderId && activeTab === "new",
+                  selectedOrderId && (activeTab === "new" || activeTab === "active" || activeTab === "revisions" || activeTab === "delivered" || activeTab === "completed" || activeTab === "cancelled"),
                 );
                 const displayId = `#${order.id.substring(0, 5).toUpperCase()}`;
 
@@ -204,11 +197,11 @@ export function CreatorOrdersList() {
                     <>
                       <div
                         className={cn(
-                          "flex-1 items-center justify-between w-full",
+                          "flex-1 items-center justify-between w-full gap-4",
                           isNarrowLayout ? "flex" : "flex lg:hidden",
                         )}
                       >
-                        <div className="flex flex-col gap-2.5">
+                        <div className="flex flex-col gap-2.5 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-sm text-foreground">
                               {displayId}
@@ -222,31 +215,33 @@ export function CreatorOrdersList() {
                               </Badge>
                             )}
                           </div>
-                          <h3 className="font-semibold text-sm text-foreground/90">
+                          <h3 className="font-semibold text-sm text-foreground/90 truncate">
                             {brand.brandName}
                           </h3>
                           <div className="flex flex-col gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground truncate">
                               {order.packageNameSnapshot || "UGC Video (60s)"}
                             </span>
                             {activeTab !== "new" && (
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "w-fit rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
+                                  "w-fit max-w-full rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
                                   STATUS_COLORS[order.status as string] ||
                                     "bg-muted text-muted-foreground",
                                 )}
                               >
-                                {STATUS_LABELS[
-                                  order.status as keyof typeof STATUS_LABELS
-                                ] || order.status}
+                                <span className="truncate">
+                                  {STATUS_LABELS[
+                                    order.status as keyof typeof STATUS_LABELS
+                                  ] || order.status}
+                                </span>
                               </Badge>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
                           <div className="flex flex-col gap-4">
                             <div className="flex flex-col items-start">
                               <span className="font-bold text-sm text-foreground leading-none mb-1.5">
@@ -360,7 +355,7 @@ export function CreatorOrdersList() {
                 );
               })}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-12 w-full">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 whitespace-nowrap">
                   <span className="text-sm text-muted-foreground">Page</span>

@@ -12,9 +12,6 @@ export function MessagesPage() {
   const { conversations, isLoading } = useMessagesQuery();
   const [selected, setSelected] = useState<MessageConversation | null>(null);
 
-  // Select the first conversation once data is available.
-  // Using useEffect (not useState initializer) so this works correctly
-  // when conversations load asynchronously from a real API.
   useEffect(() => {
     if (conversations.length > 0 && selected === null) {
       setSelected(conversations[0]);
@@ -31,7 +28,6 @@ export function MessagesPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-background">
-      {/* Page header */}
       <div className="px-6 py-4 border-b border-border bg-background shrink-0">
         <h1 className="text-xl font-bold text-foreground">Messages</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -39,9 +35,7 @@ export function MessagesPage() {
         </p>
       </div>
 
-      {/* 3-column layout */}
       <div className="flex flex-1 overflow-hidden divide-x divide-border">
-        {/* Col 1: Conversation list (280px) */}
         <div className="w-[280px] shrink-0 flex flex-col overflow-hidden bg-card">
           <MessagesConversationList
             conversations={conversations}
@@ -50,7 +44,6 @@ export function MessagesPage() {
           />
         </div>
 
-        {/* Col 2: Active thread (flex-1) */}
         <div className="flex-1 overflow-hidden bg-background">
           {selected ? (
             <MessagesChatThread conversation={selected} />
@@ -62,7 +55,6 @@ export function MessagesPage() {
           )}
         </div>
 
-        {/* Col 3: Info panel (280px) */}
         {selected && (
           <div className="w-[280px] shrink-0 overflow-hidden bg-card">
             <MessagesInfoPanel conversation={selected} />

@@ -82,8 +82,11 @@ export function CreatorProfileCard({
           variant="outline"
           size="icon"
           className="size-11 shrink-0 rounded-xl"
+          asChild
         >
-          <MessageCircle className="size-5 text-muted-foreground" />
+          <Link href="/brand/messages">
+            <MessageCircle className="size-5 text-muted-foreground" />
+          </Link>
         </Button>
       </div>
     </div>

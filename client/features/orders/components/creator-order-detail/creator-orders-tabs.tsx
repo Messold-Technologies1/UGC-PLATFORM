@@ -13,7 +13,7 @@ export const TAB_DEFINITIONS = [
   {
     id: "active",
     label: "Active",
-    statuses: ["BRIEF_ACCEPTED", "PRODUCT_SHIPPED", "PRODUCT_RECEIVED"],
+    statuses: ["BRIEF_ACCEPTED", "PRODUCT_SHIPPED", "PRODUCT_RECEIVED", "DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
   },
   { 
     id: "revisions", 
@@ -55,6 +55,10 @@ export function CreatorOrdersTabs({
       let count = 0;
       if (tab.id === "all") {
         count = totalCount ?? allItems.length;
+      } else if (tab.id === "new") {
+        count = allItems.filter((item: any) => 
+          Boolean(item.order.hasBrief) && tab.statuses.includes(item.order.status as string)
+        ).length;
       } else {
         count = allItems.filter((item: any) =>
           tab.statuses.includes(item.order.status as string),

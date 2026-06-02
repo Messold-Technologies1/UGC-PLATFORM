@@ -1,7 +1,13 @@
 "use client";
 
 import { ExternalLink, Star, Package } from "lucide-react";
-import { BrandAvatar, StatusBadge, SectionCard, KeyValueRow, StatGrid } from "@/features/creator-ui";
+import {
+  BrandAvatar,
+  StatusBadge,
+  SectionCard,
+  KeyValueRow,
+  StatGrid,
+} from "@/features/creator-ui";
 import {
   MSG_STATUS_COLORS,
   MSG_STATUS_LABELS,
@@ -15,13 +21,19 @@ interface Props {
 export function MessagesInfoPanel({ conversation: c }: Props) {
   return (
     <div className="flex flex-col gap-5 p-5 overflow-y-auto h-full">
-      {/* Brand card */}
       <SectionCard>
         <div className="flex flex-col items-center gap-3 text-center">
-          <BrandAvatar initials={c.brandInitials} bgClass={c.brandBgClass} size="lg" className="size-14 rounded-xl" />
+          <BrandAvatar
+            initials={c.brandInitials}
+            bgClass={c.brandBgClass}
+            size="lg"
+            className="size-14 rounded-xl"
+          />
           <div>
             <p className="font-bold text-foreground">{c.brandName}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{c.brandCategory}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {c.brandCategory}
+            </p>
           </div>
           <StatusBadge colorClass={MSG_STATUS_COLORS[c.status]}>
             {MSG_STATUS_LABELS[c.status]}
@@ -36,7 +48,6 @@ export function MessagesInfoPanel({ conversation: c }: Props) {
         </div>
       </SectionCard>
 
-      {/* Order info */}
       <SectionCard title="Order Info">
         <div className="flex flex-col gap-2">
           <KeyValueRow label="Order ID" value={`#${c.orderId}`} />
@@ -45,7 +56,6 @@ export function MessagesInfoPanel({ conversation: c }: Props) {
         </div>
       </SectionCard>
 
-      {/* Brand stats */}
       <SectionCard title="Brand Stats">
         <StatGrid
           cols={3}
@@ -65,7 +75,6 @@ export function MessagesInfoPanel({ conversation: c }: Props) {
         />
       </SectionCard>
 
-      {/* Platform rules */}
       <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
         <div className="flex items-start gap-2">
           <Package className="size-4 text-amber-500 mt-0.5 shrink-0" />
@@ -74,8 +83,8 @@ export function MessagesInfoPanel({ conversation: c }: Props) {
               Keep all communication here
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
-              All payments, agreements, and deliverables must happen through the platform.
-              Off-platform communication is not supported.
+              All payments, agreements, and deliverables must happen through the
+              platform. Off-platform communication is not supported.
             </p>
           </div>
         </div>

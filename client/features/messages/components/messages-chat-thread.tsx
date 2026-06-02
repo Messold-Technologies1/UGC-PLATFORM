@@ -32,7 +32,6 @@ export function MessagesChatThread({ conversation }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation.id]);
 
-  // Group messages by date
   const grouped: { date: string; messages: typeof conversation.messages }[] =
     [];
   for (const msg of conversation.messages) {
@@ -47,12 +46,11 @@ export function MessagesChatThread({ conversation }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-card shrink-0">
         <div
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-lg font-bold text-white text-xs",
-            conversation.brandBgClass
+            conversation.brandBgClass,
           )}
         >
           {conversation.brandInitials}
@@ -73,7 +71,6 @@ export function MessagesChatThread({ conversation }: Props) {
         </a>
       </div>
 
-      {/* Locked banner */}
       {conversation.isChatLocked && (
         <div className="flex items-center gap-2 px-5 py-2.5 bg-muted/50 border-b border-border text-muted-foreground text-xs font-medium">
           <Lock className="size-3.5" />
@@ -81,11 +78,9 @@ export function MessagesChatThread({ conversation }: Props) {
         </div>
       )}
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
         {grouped.map(({ date, messages }) => (
           <div key={date} className="flex flex-col gap-3">
-            {/* Date divider */}
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-border" />
               <span className="text-[11px] text-muted-foreground font-medium shrink-0">
@@ -96,16 +91,13 @@ export function MessagesChatThread({ conversation }: Props) {
 
             {messages.map((msg) =>
               msg.isTracking && msg.trackingData ? (
-                // Tracking card
                 <div key={msg.id} className="flex justify-center">
                   <div className="flex flex-col gap-2 p-3 rounded-xl border border-border bg-card max-w-[280px] w-full">
                     <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                       <Truck className="size-3.5 text-sky-500" />
                       Product Shipped
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {msg.text}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{msg.text}</p>
                     <div className="text-xs">
                       <span className="text-muted-foreground">
                         {msg.trackingData.courier} ·{" "}
@@ -120,12 +112,13 @@ export function MessagesChatThread({ conversation }: Props) {
                   </div>
                 </div>
               ) : (
-                // Normal message bubble
                 <div
                   key={msg.id}
                   className={cn(
                     "flex flex-col max-w-[72%]",
-                    msg.senderId === "creator" ? "self-end items-end" : "self-start items-start"
+                    msg.senderId === "creator"
+                      ? "self-end items-end"
+                      : "self-start items-start",
                   )}
                 >
                   <div
@@ -133,7 +126,7 @@ export function MessagesChatThread({ conversation }: Props) {
                       "px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed",
                       msg.senderId === "creator"
                         ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : "bg-muted text-foreground rounded-bl-sm"
+                        : "bg-muted text-foreground rounded-bl-sm",
                     )}
                   >
                     {msg.text}
@@ -142,14 +135,13 @@ export function MessagesChatThread({ conversation }: Props) {
                     {formatTime(msg.createdAt)}
                   </span>
                 </div>
-              )
+              ),
             )}
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area */}
       <div className="px-5 py-3 border-t border-border bg-card shrink-0">
         {conversation.isChatLocked ? (
           <div className="flex items-center justify-center gap-2 py-2 text-muted-foreground text-sm">

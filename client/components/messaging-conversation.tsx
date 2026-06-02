@@ -66,8 +66,9 @@ type MessagingConversationProps = {
   participants?: MessagingParticipant[];
   alignRightUserId?: string;
   headerTitle?: string;
-  headerSubtitle?: string;
+  headerSubtitle?: string | null;
   headerAvatarUrl?: string | null;
+  hideHeaderAvatar?: boolean;
   readOnly?: boolean;
   showSenderNames?: boolean;
   emptyState?: string;
@@ -83,47 +84,6 @@ type MessagingConversationProps = {
   onBack?: () => void;
 };
 
-const DEMO_USER: MessagingParticipant = {
-  id: "user-123",
-  name: "You",
-  avatar:
-    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop",
-};
-
-const DEMO_OTHER: MessagingParticipant = {
-  id: "user-456",
-  name: "Riya Sharma",
-  avatar:
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop",
-  status: "online",
-};
-
-const DEMO_MESSAGES: MessagingConversationMessage[] = [
-  {
-    id: "1",
-    text: "Hi! I've received the brief. Could you clarify the lighting preference for the bathroom shots?",
-    senderUserId: DEMO_OTHER.id,
-    timeLabel: "10:24 AM",
-  },
-  {
-    id: "2",
-    text: 'Hey Riya! We\'re aiming for "Morning Spa" vibes. Soft natural light, maybe some lens flares.',
-    senderUserId: DEMO_USER.id,
-    timeLabel: "11:02 AM",
-  },
-  {
-    id: "3",
-    text: "Perfect. I'll start filming as soon as the package arrives tomorrow.",
-    senderUserId: DEMO_OTHER.id,
-    timeLabel: "11:15 AM",
-  },
-  {
-    id: "4",
-    text: "Awesome. Keep us posted!",
-    senderUserId: DEMO_USER.id,
-    timeLabel: "Yesterday",
-  },
-];
 
 function initials(value: string) {
   return (
@@ -309,6 +269,7 @@ export function MessagingConversation({
   headerTitle,
   headerSubtitle,
   headerAvatarUrl,
+  hideHeaderAvatar = false,
   readOnly = false,
   showSenderNames = false,
   emptyState = "No messages yet.",
@@ -334,10 +295,10 @@ export function MessagingConversation({
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingStartedAtRef = useRef<number>(0);
   const cancelRecordingRef = useRef(false);
-  const resolvedParticipants = participants ?? [DEMO_USER, DEMO_OTHER];
-  const resolvedMessages = messages ?? DEMO_MESSAGES;
+  const resolvedParticipants = participants ?? [];
+  const resolvedMessages = messages ?? [];
   const lastMessageId = resolvedMessages.at(-1)?.id;
-  const rightAlignedUserId = alignRightUserId ?? DEMO_USER.id;
+  const rightAlignedUserId = alignRightUserId ?? "";
   const participantById = new Map(
     resolvedParticipants.map((participant) => [participant.id, participant]),
   );
@@ -500,28 +461,30 @@ export function MessagingConversation({
               <ArrowLeft className="size-5" />
             </Button>
           )}
-          <div className="relative shrink-0">
-            <Avatar className="w-10 h-10 border-2 border-background shadow-xs">
-              <AvatarImage
-                alt={title}
-                src={avatarUrl || undefined}
-                className="object-cover"
-              />
-              <AvatarFallback>{initials(title)}</AvatarFallback>
-            </Avatar>
-            {headerParticipant?.status ? (
-              <span
-                className={cn(
-                  "absolute bottom-0 right-0 w-3 h-3 border-2 border-card rounded-full",
-                  headerParticipant.status === "online"
-                    ? "bg-emerald-500"
-                    : headerParticipant.status === "dnd"
-                      ? "bg-amber-500"
-                      : "bg-muted-foreground",
-                )}
-              />
-            ) : null}
-          </div>
+          {!hideHeaderAvatar && (
+            <div className="relative shrink-0">
+              <Avatar className="w-10 h-10 border-2 border-background shadow-xs">
+                <AvatarImage
+                  alt={title}
+                  src={avatarUrl || undefined}
+                  className="object-cover"
+                />
+                <AvatarFallback>{initials(title)}</AvatarFallback>
+              </Avatar>
+              {headerParticipant?.status ? (
+                <span
+                  className={cn(
+                    "absolute bottom-0 right-0 w-3 h-3 border-2 border-card rounded-full",
+                    headerParticipant.status === "online"
+                      ? "bg-emerald-500"
+                      : headerParticipant.status === "dnd"
+                        ? "bg-amber-500"
+                        : "bg-muted-foreground",
+                  )}
+                />
+              ) : null}
+            </div>
+          )}
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-card-foreground">
               {title}

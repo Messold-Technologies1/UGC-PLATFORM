@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import { orderChatsBaseQueryKey } from "@/features/chats/hooks/use-order-chats-query";
 import { getSocket, disconnectSocket } from "@/lib/socket";
 import { useAuth } from "@/providers/auth-provider";
 import { useNotification } from "@/providers/notification-provider";
@@ -55,6 +56,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onOrderPayment = (e: OrderPaymentEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
       const msg =
         e.kind === "captured"
@@ -79,6 +81,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onBriefSubmitted = (e: OrderBriefSubmittedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
       toast.info("Brand submitted a brief", {
         description: `Order ${e.orderId.slice(0, 8)}…`,
@@ -93,6 +96,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onBriefAccepted = (e: OrderBriefAcceptedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
       toast.success("Creator accepted the brief", {
         description: `Order ${e.orderId.slice(0, 8)}...`,
@@ -107,6 +111,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onProductShipped = (e: OrderProductShippedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       toast.info("Product shipment recorded", {
         description: e.trackingId
           ? `${e.courierName} · ${e.trackingId}`
@@ -124,6 +129,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onProductReceived = (e: OrderProductReceivedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       toast.success("Creator confirmed product receipt", {
         description: `Order ${e.orderId.slice(0, 8)}...`,
       });
@@ -136,6 +142,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const onChatMessage = (e: OrderChatMessageEvent) => {
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       if (e.message.senderUserId === user.id) return;
       if (pathnameRef.current?.includes("/messages")) return;
 

@@ -36,6 +36,21 @@ interface CreatorOrderNewRequestPanelProps {
   onClose: () => void;
 }
 
+function formatEnumLabel(value?: string | string[] | null) {
+  if (!value) return "N/A";
+  const values = Array.isArray(value) ? value : [value];
+  if (values.length === 0) return "N/A";
+
+  return values
+    .map((item) =>
+      item
+        .split("_")
+        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+        .join(" "),
+    )
+    .join(", ");
+}
+
 export function CreatorOrderNewRequestPanel({
   selectedOrderId,
   selectedItem,
@@ -47,6 +62,7 @@ export function CreatorOrderNewRequestPanel({
   const [timeLeft, setTimeLeft] = useState<{
     hours: number;
     minutes: number;
+    seconds: number;
   } | null>(null);
 
   useEffect(() => {
@@ -59,16 +75,17 @@ export function CreatorOrderNewRequestPanel({
       const diff = expiresAt - now;
 
       if (diff <= 0) {
-        setTimeLeft({ hours: 0, minutes: 0 });
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
       } else {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setTimeLeft({ hours, minutes });
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft({ hours, minutes, seconds });
       }
     };
 
     calculateTimeLeft();
-    const interval = setInterval(calculateTimeLeft, 60000);
+    const interval = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(interval);
   }, [selectedItem?.order?.createdAt]);
 
@@ -167,20 +184,20 @@ export function CreatorOrderNewRequestPanel({
           {timeLeft && (
             <div className="flex items-center gap-2 text-amber-700 font-bold text-sm bg-white/60 px-3 py-1 rounded-md border border-amber-200/60">
               <Clock className="w-4 h-4 text-amber-500" />
-              {timeLeft.hours}h : {timeLeft.minutes}m left
+              {String(timeLeft.hours ?? 0).padStart(2, '0')}h : {String(timeLeft.minutes ?? 0).padStart(2, '0')}m : {String(timeLeft.seconds ?? 0).padStart(2, '0')}s left
             </div>
           )}
         </div>
 
         {isLoading ? (
           <div className="space-y-4">
-            <Skeleton className="h-64 w-full rounded-xl" />
-            <Skeleton className="h-32 w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-lg" />
+            <Skeleton className="h-32 w-full rounded-lg" />
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px_280px] gap-4">
-              <div className="bg-white rounded-xl border border-border/50 p-5 shadow-sm flex flex-col">
+              <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-base">Brief</h3>
                   <Button
@@ -210,16 +227,15 @@ export function CreatorOrderNewRequestPanel({
                       <Music className="w-3.5 h-3.5" /> Video Type
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.videoType || "UGC Testimonial"}
+                      {briefData?.brief?.contentType ? formatEnumLabel(briefData.brief.contentType) : "UGC Testimonial"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
-                      <FileText className="w-3.5 h-3.5" /> Key Points
+                      <FileText className="w-3.5 h-3.5" /> Key Notes
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.keySellingPoints?.length || "5"} key
-                      points
+                      {briefData?.brief?.keyNoteToInclude ? "Included in brief" : "None"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -235,8 +251,7 @@ export function CreatorOrderNewRequestPanel({
                       <Star className="w-3.5 h-3.5" /> Tone
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.toneStyle?.join(", ") ||
-                        "Natural, Authentic"}
+                      {briefData?.brief?.toneStyle ? formatEnumLabel(briefData.brief.toneStyle) : "Natural, Authentic"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -282,7 +297,7 @@ export function CreatorOrderNewRequestPanel({
               </div>
 
               <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-xl border border-border/50 p-5 shadow-sm flex flex-col">
+                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
                   <div>
                     <h3 className="font-bold text-base mb-4">Brand</h3>
 
@@ -337,7 +352,7 @@ export function CreatorOrderNewRequestPanel({
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-border/50 p-5 shadow-sm flex flex-col flex-1">
+                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col flex-1">
                   <h3 className="font-bold text-base mb-4">Earnings</h3>
 
                   <div className="space-y-3 flex-1">
@@ -389,7 +404,7 @@ export function CreatorOrderNewRequestPanel({
               </div>
 
               <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-xl border border-border/50 p-5 shadow-sm flex flex-col">
+                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
                   <div>
                     <h3 className="font-bold text-base mb-4">
                       Message from Brand
@@ -414,7 +429,7 @@ export function CreatorOrderNewRequestPanel({
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-border/50 p-5 shadow-sm flex flex-col flex-1">
+                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col flex-1">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-base">Brand Attachments</h3>
                     <span className="text-xs text-muted-foreground font-semibold">
@@ -431,7 +446,7 @@ export function CreatorOrderNewRequestPanel({
               </div>
             </div>
 
-            <div className="bg-[#FAF9FF] rounded-xl border border-[#4318FF]/10 p-6 shadow-sm mt-4">
+            <div className="bg-[#FAF9FF] rounded-lg border border-[#4318FF]/10 p-6 shadow-sm mt-4">
               <h3 className="font-bold text-base mb-6">What happens next?</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

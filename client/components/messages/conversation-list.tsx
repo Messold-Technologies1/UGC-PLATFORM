@@ -36,11 +36,7 @@ export function ConversationList({
   isLoading = false,
   error = null,
 }: ConversationListProps) {
-  const uniqueConversations = conversations.filter(
-    (conv, index, self) => index === self.findIndex((c) => c.name === conv.name)
-  );
-
-  const unreadTotal = uniqueConversations.reduce(
+  const unreadTotal = conversations.reduce(
     (total, conv) => total + (conv.unreadCount > 0 ? 1 : 0),
     0,
   );
@@ -101,12 +97,12 @@ export function ConversationList({
             ))
           ) : error ? (
             <div className="px-4 py-6 text-sm text-destructive">{error}</div>
-          ) : uniqueConversations.length === 0 ? (
+          ) : conversations.length === 0 ? (
             <div className="px-4 py-6 text-sm text-muted-foreground">
               No order conversations yet.
             </div>
           ) : (
-            uniqueConversations.map((conv) => (
+            conversations.map((conv) => (
             <button
               key={conv.id}
               onClick={() => onSelect(conv.id)}
@@ -135,13 +131,23 @@ export function ConversationList({
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{conv.lastMessageTime}</span>
                 </div>
-                {conv.unreadCount > 0 && (
-                  <div className="flex items-center justify-end gap-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {conv.subtitle ? (
+                      <p className="truncate text-[11px] font-medium uppercase text-muted-foreground">
+                        {conv.subtitle}
+                      </p>
+                    ) : null}
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {conv.lastMessage}
+                    </p>
+                  </div>
+                  {conv.unreadCount > 0 && (
                     <span className="flex items-center justify-center size-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold shrink-0 shadow-sm">
                       {conv.unreadCount}
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </button>
             ))
@@ -151,7 +157,7 @@ export function ConversationList({
 
       <div className="p-4 border-t border-border/50 mt-auto bg-muted/20">
         <p className="text-xs text-muted-foreground">
-          Showing {uniqueConversations.length} conversation{uniqueConversations.length === 1 ? "" : "s"}
+          Showing {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
         </p>
       </div>
     </div>

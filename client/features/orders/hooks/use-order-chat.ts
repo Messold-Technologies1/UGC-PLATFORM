@@ -31,6 +31,7 @@ import {
   type OrderChatStateDto,
   type SendOrderChatMessagePayload,
 } from "../api/order-chat";
+import { orderChatsBaseQueryKey } from "@/features/chats/hooks/use-order-chats-query";
 
 const DEFAULT_CHAT_MESSAGES_LIMIT = 20;
 
@@ -64,60 +65,95 @@ function sortMessagesAscending(
   return first.id.localeCompare(second.id);
 }
 
-function mergeMessageIntoInfiniteData(
-  data: OrderChatMessagesInfiniteData | undefined,
+function mergeMessageIntoCacheData(
+  data: OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto | undefined,
   message: OrderChatMessageDto,
-): OrderChatMessagesInfiniteData | undefined {
+): OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto | undefined {
   if (!data) {
+    // We don't know if it's an infinite query or regular query if it's undefined.
+    // Safest is to return undefined and let it fetch naturally, or return it as an infinite query structure
+    // which was the previous behavior, but this could break regular queries. Let's return undefined.
+    return undefined;
+  }
+
+  if ("pages" in data && Array.isArray(data.pages)) {
+    const pages = data.pages.length
+      ? data.pages.map((page) => ({
+          ...page,
+          items: page.items.filter(
+            (item) =>
+              item.id !== message.id &&
+              !(
+                message.clientMessageId &&
+                item.clientMessageId === message.clientMessageId
+              ),
+          ),
+        }))
+      : [{ items: [] }];
+
     return {
-      pages: [{ items: [message] }],
-      pageParams: [undefined],
+      ...data,
+      pages: [
+        {
+          ...pages[0],
+          items: [message, ...pages[0].items],
+        },
+        ...pages.slice(1),
+      ],
     };
   }
 
-  const pages = data.pages.length
-    ? data.pages.map((page) => ({
-        ...page,
-        items: page.items.filter(
-          (item) =>
-            item.id !== message.id &&
-            !(
-              message.clientMessageId &&
-              item.clientMessageId === message.clientMessageId
-            ),
+  if ("items" in data && Array.isArray(data.items)) {
+    const items = data.items.filter(
+      (item) =>
+        item.id !== message.id &&
+        !(
+          message.clientMessageId &&
+          item.clientMessageId === message.clientMessageId
         ),
-      }))
-    : [{ items: [] }];
+    );
 
-  return {
-    ...data,
-    pages: [
-      {
-        ...pages[0],
-        items: [message, ...pages[0].items],
-      },
-      ...pages.slice(1),
-    ],
-  };
+    return {
+      ...data,
+      items: [message, ...items],
+    };
+  }
+
+  return data;
 }
 
 function markOptimisticMessageFailed(
-  data: OrderChatMessagesInfiniteData | undefined,
+  data: OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto | undefined,
   clientMessageId?: string,
-): OrderChatMessagesInfiniteData | undefined {
+): OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto | undefined {
   if (!data || !clientMessageId) return data;
 
-  return {
-    ...data,
-    pages: data.pages.map((page) => ({
-      ...page,
-      items: page.items.map((item) =>
+  if ("pages" in data && Array.isArray(data.pages)) {
+    return {
+      ...data,
+      pages: data.pages.map((page) => ({
+        ...page,
+        items: page.items.map((item) =>
+          item.clientMessageId === clientMessageId
+            ? { ...item, deliveryStatus: "failed" }
+            : item,
+        ),
+      })),
+    };
+  }
+
+  if ("items" in data && Array.isArray(data.items)) {
+    return {
+      ...data,
+      items: data.items.map((item) =>
         item.clientMessageId === clientMessageId
           ? { ...item, deliveryStatus: "failed" }
           : item,
       ),
-    })),
-  };
+    };
+  }
+
+  return data;
 }
 
 function mergeMessagesIntoCache(
@@ -127,11 +163,11 @@ function mergeMessagesIntoCache(
 ) {
   if (!messages.length) return;
 
-  queryClient.setQueriesData<OrderChatMessagesInfiniteData>(
+  queryClient.setQueriesData<OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto>(
     { queryKey: orderChatMessagesBaseQueryKey(orderId) },
     (current) =>
       messages.reduce(
-        (next, message) => mergeMessageIntoInfiniteData(next, message),
+        (next, message) => mergeMessageIntoCacheData(next, message),
         current,
       ),
   );
@@ -171,6 +207,10 @@ function updateReadStateCache(
     orderChatStateQueryKey(orderId),
     (current) => applyReadReceiptToState(current, receipt),
   );
+}
+
+function invalidateOrderChatThreads(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
 }
 
 export function getSortedOrderChatMessages(
@@ -254,9 +294,10 @@ export function useSendOrderChatMessageMutation(
     },
     onSuccess: (message) => {
       mergeMessagesIntoCache(queryClient, orderId, [message]);
+      invalidateOrderChatThreads(queryClient);
     },
     onError: (_error, _payload, context) => {
-      queryClient.setQueriesData<OrderChatMessagesInfiniteData>(
+      queryClient.setQueriesData<OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto>(
         { queryKey: orderChatMessagesBaseQueryKey(orderId) },
         (current) =>
           markOptimisticMessageFailed(current, context?.clientMessageId),
@@ -339,9 +380,10 @@ export function useSendOrderChatVoiceMessageMutation(
     },
     onSuccess: (message) => {
       mergeMessagesIntoCache(queryClient, orderId, [message]);
+      invalidateOrderChatThreads(queryClient);
     },
     onError: (_error, _payload, context) => {
-      queryClient.setQueriesData<OrderChatMessagesInfiniteData>(
+      queryClient.setQueriesData<OrderChatMessagesInfiniteData | OrderChatMessagesResponseDto>(
         { queryKey: orderChatMessagesBaseQueryKey(orderId) },
         (current) =>
           markOptimisticMessageFailed(current, context?.clientMessageId),
@@ -358,6 +400,7 @@ export function useMarkOrderChatReadMutation(orderId: string) {
       markOrderChatRead(orderId, payload),
     onSuccess: (receipt) => {
       updateReadStateCache(queryClient, orderId, receipt);
+      invalidateOrderChatThreads(queryClient);
     },
   });
 }
@@ -406,11 +449,13 @@ export function useOrderChatRealtime(
     const onMessage = (event: OrderChatMessageEvent) => {
       if (event.orderId !== orderId) return;
       mergeMessagesIntoCache(queryClient, orderId, [event.message]);
+      invalidateOrderChatThreads(queryClient);
     };
 
     const onReadUpdated = (event: OrderChatReadUpdatedEvent) => {
       if (event.orderId !== orderId) return;
       updateReadStateCache(queryClient, orderId, event);
+      invalidateOrderChatThreads(queryClient);
     };
 
     socket.on("connect", onConnect);

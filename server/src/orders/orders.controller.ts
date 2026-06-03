@@ -49,6 +49,9 @@ import { CreateCreatorRatingReviewResponseDto } from '../creator-reviews/dto/cre
 import { CreatorRatingReviewDto } from '../creator-reviews/dto/creator-rating-review.dto';
 import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
+import { CreatorDeliveriesResponseDto } from './dto/creator-deliveries-response.dto';
+import { RequestRevisionDto } from './dto/request-revision.dto';
+import { OrderRevisionsResponseDto } from './dto/order-revisions-response.dto';
 import { brandActorParams } from '../brand-access/brand-actor-params.util';
 
 @ApiTags('Orders')
@@ -128,6 +131,25 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorOrdersListResponseDto> {
     return this.ordersService.listOrdersForCreator({
+      creatorUserId: req.user.id,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get('creator/deliveries')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiOperation({
+    summary:
+      'List all deliveries submitted by the authenticated creator (paginated)',
+  })
+  @ApiOkResponse({ type: CreatorDeliveriesResponseDto })
+  async listCreatorDeliveries(
+    @Query() query: ListOrdersQueryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorDeliveriesResponseDto> {
+    return this.ordersService.listDeliveriesForCreator({
       creatorUserId: req.user.id,
       page: query.page,
       limit: query.limit,
@@ -340,7 +362,7 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Brand requests revision (enforces max revisions)',
+    summary: 'Brand requests revision with optional feedback note (enforces max revisions)',
   })
   @ApiParam({
     name: 'id',
@@ -350,11 +372,30 @@ export class OrdersController {
   @ApiNoContentResponse({ description: 'Revision requested' })
   async requestRevision(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RequestRevisionDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     await this.ordersService.requestRevision({
       orderId: id,
       ...brandActorParams(req),
+      note: dto.note,
+    });
+  }
+
+  @Get(':id/revisions')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get revision history for an order (brand, creator, or admin on that order)',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiOkResponse({ type: OrderRevisionsResponseDto })
+  async listOrderRevisions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<OrderRevisionsResponseDto> {
+    return this.ordersService.listRevisionsForOrder({
+      orderId: id,
+      viewerUserId: req.user.id,
     });
   }
 

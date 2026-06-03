@@ -132,7 +132,7 @@ export class OrderMailNotifier {
     });
   }
 
-  notifyRevisionRequested(orderId: string): void {
+  notifyRevisionRequested(orderId: string, note?: string | null): void {
     void this.run('revision_requested', async () => {
       const order = await this.loadOrder(orderId);
       if (!order) return;
@@ -142,17 +142,22 @@ export class OrderMailNotifier {
         order.maxRevisionsSnapshot - order.revisionCount,
       );
 
+      const vars: Record<string, string> = {
+        brandName: order.brand.brandName,
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        revisionNumber: String(order.revisionCount),
+        revisionsRemaining: String(revisionsRemaining),
+        actionUrl: this.creatorOrderUrl(order.id),
+      };
+      if (note?.trim()) {
+        vars.revisionNote = note.trim();
+      }
+
       await this.sendToCreator(
         order,
         EmailTemplateKey.ORDER_REVISION_REQUESTED_FOR_CREATOR,
-        {
-          brandName: order.brand.brandName,
-          packageName: order.packageNameSnapshot,
-          orderId: order.id,
-          revisionNumber: String(order.revisionCount),
-          revisionsRemaining: String(revisionsRemaining),
-          actionUrl: this.creatorOrderUrl(order.id),
-        },
+        vars,
       );
     });
   }

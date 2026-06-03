@@ -177,6 +177,7 @@ model User {
   featuredCreatorRecords CreatorFeature[]     @relation("CreatorFeaturedBy")
   auditLogs              AuditLog[]           @relation("AuditLogActor")
   resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
+  requestedRevisions     OrderRevision[]      @relation("OrderRevisionRequester")
   sentChatMessages       OrderChatMessage[]
   orderChatReadStates    OrderChatReadState[]
 
@@ -426,6 +427,7 @@ model Order {
   package        CreatorPackage?      @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
   briefRef       Brief?               @relation(fields: [briefId], references: [id], onDelete: SetNull)
   disputes       OrderDispute[]
+  revisions      OrderRevision[]
   deliveries     OrderDelivery[]
   chatMessages   OrderChatMessage[]
   chatReadStates OrderChatReadState[]
@@ -580,6 +582,22 @@ model OrderDelivery {
   @@unique([orderId, revisionNumber])
   @@index([orderId, createdAt])
   @@index([creatorId, createdAt])
+}
+
+model OrderRevision {
+  id                String   @id @default(uuid()) @db.Uuid
+  orderId           String   @db.Uuid
+  revisionNumber    Int
+  note              String?
+  requestedByUserId String   @db.Uuid
+  createdAt         DateTime @default(now())
+
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedByUser User  @relation("OrderRevisionRequester", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, revisionNumber])
+  @@index([orderId, createdAt])
+  @@index([requestedByUserId])
 }
 
 model OrderDispute {

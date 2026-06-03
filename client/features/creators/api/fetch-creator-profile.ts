@@ -32,7 +32,7 @@ export const fetchCreatorProfileById = cache(async function fetchCreatorProfileB
       Accept: "application/json",
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
     },
-    cache: "no-store",
+    next: { revalidate: 3600 },
   });
 
   if (!res.ok) {

@@ -12,5 +12,6 @@ export function useAdminOrdersQuery(query?: AdminOrdersQueryDto) {
   return useQuery({
     queryKey: adminOrdersQueryKey(query),
     queryFn: () => fetchAdminOrders(query),
+    staleTime: 60_000,
   });
 }

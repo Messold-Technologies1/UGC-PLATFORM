@@ -14,6 +14,8 @@ import {
   getCreatorFacetOptions,
 } from "../api/get-creator-facet-options";
 
+const TWENTY_FOUR_HOURS = 24 * 60 * 60_000;
+
 type SuggestionQueryOptions = {
   enabled?: boolean;
   staleTime?: number;
@@ -27,7 +29,7 @@ export function useCreatorCategorySuggestionsQuery(
     queryKey: creatorSuggestionListsQueryKeys.categories,
     queryFn: fetchCreatorCategorySuggestions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
     gcTime: options?.gcTime,
   });
 }
@@ -39,7 +41,7 @@ export function useCreatorPersonaTagSuggestionsQuery(
     queryKey: creatorSuggestionListsQueryKeys.personaTags,
     queryFn: fetchCreatorPersonaTagSuggestions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }
 
@@ -50,7 +52,7 @@ export function useCreatorRestrictionSuggestionsQuery(
     queryKey: creatorSuggestionListsQueryKeys.restrictions,
     queryFn: fetchCreatorRestrictionSuggestions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }
 
@@ -59,7 +61,7 @@ export function useCreatorFacetOptionsQuery(options?: SuggestionQueryOptions) {
     queryKey: creatorFacetOptionsQueryKey,
     queryFn: getCreatorFacetOptions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }
 
@@ -68,6 +70,6 @@ export function useCreatorAddOnOptionsQuery(options?: SuggestionQueryOptions) {
     queryKey: creatorAddOnOptionsQueryKey,
     queryFn: getCreatorAddOnOptions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }

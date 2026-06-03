@@ -11,7 +11,7 @@ import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { Button } from "@/components/ui/button";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ id: string }>;

@@ -6,6 +6,8 @@ import {
   portfolioSuggestionListsQueryKeys,
 } from "../api/portfolio-suggestion-lists";
 
+const TWENTY_FOUR_HOURS = 24 * 60 * 60_000;
+
 type SuggestionQueryOptions = {
   enabled?: boolean;
   staleTime?: number;
@@ -18,7 +20,7 @@ export function usePortfolioIndustrySuggestionsQuery(
     queryKey: portfolioSuggestionListsQueryKeys.industries,
     queryFn: fetchPortfolioIndustrySuggestions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }
 
@@ -29,7 +31,7 @@ export function usePortfolioTagSuggestionsQuery(
     queryKey: portfolioSuggestionListsQueryKeys.tags,
     queryFn: fetchPortfolioTagSuggestions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }
 
@@ -40,6 +42,6 @@ export function usePortfolioLanguageSuggestionsQuery(
     queryKey: portfolioSuggestionListsQueryKeys.languages,
     queryFn: fetchPortfolioLanguageSuggestions,
     enabled: options?.enabled,
-    staleTime: options?.staleTime,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }

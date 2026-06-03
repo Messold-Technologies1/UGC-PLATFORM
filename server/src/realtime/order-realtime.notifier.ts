@@ -130,6 +130,30 @@ export class OrderRealtimeNotifier {
     });
   }
 
+  /** Brand requested revision; notify the creator with the revision number and optional note. */
+  async emitOrderRevisionRequested(params: {
+    orderId: string;
+    revisionNumber: number;
+    note: string | null;
+    revisionsRemaining: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { creator: { select: { userId: true } } },
+    });
+    if (!order) {
+      this.logger.warn(`emitOrderRevisionRequested: order not found ${params.orderId}`);
+      return;
+    }
+    const creatorUserId = order.creator.userId;
+    this.gateway.server.to(`user:${creatorUserId}`).emit('order.revision_requested', {
+      orderId: params.orderId,
+      revisionNumber: params.revisionNumber,
+      note: params.note,
+      revisionsRemaining: params.revisionsRemaining,
+    });
+  }
+
   /** Creator received physical product; notify brand. Includes the now-set delivery deadline. */
   async emitOrderProductReceived(params: {
     orderId: string;

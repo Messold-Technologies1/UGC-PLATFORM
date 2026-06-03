@@ -49,6 +49,7 @@ import { CreateCreatorRatingReviewResponseDto } from '../creator-reviews/dto/cre
 import { CreatorRatingReviewDto } from '../creator-reviews/dto/creator-rating-review.dto';
 import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
+import { CreatorDeliveriesResponseDto } from './dto/creator-deliveries-response.dto';
 import { brandActorParams } from '../brand-access/brand-actor-params.util';
 
 @ApiTags('Orders')
@@ -128,6 +129,25 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorOrdersListResponseDto> {
     return this.ordersService.listOrdersForCreator({
+      creatorUserId: req.user.id,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get('creator/deliveries')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiOperation({
+    summary:
+      'List all deliveries submitted by the authenticated creator (paginated)',
+  })
+  @ApiOkResponse({ type: CreatorDeliveriesResponseDto })
+  async listCreatorDeliveries(
+    @Query() query: ListOrdersQueryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorDeliveriesResponseDto> {
+    return this.ordersService.listDeliveriesForCreator({
       creatorUserId: req.user.id,
       page: query.page,
       limit: query.limit,

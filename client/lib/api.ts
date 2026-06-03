@@ -7,6 +7,7 @@ import {
   writeStoredActiveBrandId,
 } from "@/features/brand/lib/active-brand";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
+import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
 const AUTH_ME_SNAPSHOT_KEY = "ugc:auth-me-snapshot";
@@ -31,6 +32,7 @@ export function persistAuthMeSnapshot(user: AuthUser | null): void {
 }
 
 const api = axios.create({
+  baseURL: env.apiUrl,
   withCredentials: true,
 });
 

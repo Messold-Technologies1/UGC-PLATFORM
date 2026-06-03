@@ -135,7 +135,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   // const handleGoogleLogin = useCallback(() => {
   //   setGoogleLoading(true);
-  //   window.location.replace(ENDPOINTS.AUTH.GOOGLE);
+  //   window.location.replace(resolveApiUrl(ENDPOINTS.AUTH.GOOGLE));
   // }, []);
 
   return (

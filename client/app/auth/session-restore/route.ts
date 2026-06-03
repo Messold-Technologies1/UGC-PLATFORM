@@ -42,6 +42,7 @@ function clearAuthCookies(response: NextResponse) {
     sameSite: sameSite as "lax" | "none",
     path: "/",
     maxAge: 0,
+    ...(env.cookieDomain ? { domain: env.cookieDomain } : {}),
   };
 
   response.cookies.set(env.authCookieName, "", baseOptions);

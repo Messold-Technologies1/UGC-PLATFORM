@@ -3,7 +3,7 @@ import { canUseWorkspaceRole } from "./workspace-defaulting";
 
 export type PostAuthRole = "creator" | "brand" | "admin";
 
-const CREATOR_FALLBACK = "/creator/orders";
+const CREATOR_FALLBACK = "/creator/portfolio";
 const BRAND_FALLBACK = "/brand/creators";
 const ADMIN_FALLBACK = "/admin";
 

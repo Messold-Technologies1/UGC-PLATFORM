@@ -32,6 +32,10 @@ import type {
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
+import type {
+  CreatorDeliveriesResponseDto,
+  CreatorDeliveryItemDto,
+} from './dto/creator-deliveries-response.dto';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
@@ -1210,6 +1214,70 @@ export class OrdersService {
     }));
 
     return { items };
+  }
+
+  async listDeliveriesForCreator(params: {
+    creatorUserId: string;
+    page?: number;
+    limit?: number;
+  }): Promise<CreatorDeliveriesResponseDto> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const page = params.page ?? 1;
+    const limit = Math.min(params.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+    const where = { creatorId: creator.id };
+
+    const [total, rows] = await this.prisma.$transaction([
+      (this.prisma as any).orderDelivery.count({ where }),
+      (this.prisma as any).orderDelivery.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderId: true,
+          revisionNumber: true,
+          assets: true,
+          note: true,
+          createdAt: true,
+          order: {
+            select: {
+              id: true,
+              status: true,
+              brand: {
+                select: {
+                  brandName: true,
+                  logoUrl: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: CreatorDeliveryItemDto[] = rows.map((r: any) => ({
+      id: r.id,
+      orderId: r.orderId,
+      revisionNumber: r.revisionNumber,
+      assets: mapDeliveryAssets(r.assets),
+      note: r.note ?? null,
+      createdAt: r.createdAt,
+      order: {
+        id: r.order.id,
+        status: String(r.order.status),
+        brandName: r.order.brand?.brandName ?? '',
+        brandLogoUrl: r.order.brand?.logoUrl ?? null,
+      },
+    }));
+
+    return { items, total, page, limit };
   }
 
   async getOrderDetailsForAdmin(params: {

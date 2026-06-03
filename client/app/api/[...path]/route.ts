@@ -91,25 +91,6 @@ async function proxy(request: NextRequest): Promise<NextResponse> {
   response.headers.set("x-proxy-has-cookie", cookie ? "1" : "0");
   response.headers.set("x-proxy-cookie-bytes", String(cookie?.length ?? 0));
 
-  // Selective caching for stable, public reference endpoints.
-  if (method === "GET" && upstreamResponse.status === 200) {
-    const path = request.nextUrl.pathname;
-    if (
-      path === "/api/briefs/field-options" ||
-      path.startsWith("/api/creator-portfolio/suggestions")
-    ) {
-      response.headers.set(
-        "Cache-Control",
-        "public, max-age=86400, stale-while-revalidate=86400",
-      );
-    } else if (path.match(/^\/api\/creators\/profile\/[^/]+$/)) {
-      response.headers.set(
-        "Cache-Control",
-        "private, max-age=3600, stale-while-revalidate=3600",
-      );
-    }
-  }
-
   return response;
 }
 

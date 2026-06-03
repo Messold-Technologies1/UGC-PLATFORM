@@ -80,7 +80,7 @@ export function CreatorOrdersList() {
   }, [allItems, selectedOrderId]);
 
   return (
-    <div className="w-full mx-auto space-y-8 min-h-screen pb-4 pt-2">
+    <div className="w-full mx-auto space-y-8 pb-4 pt-2">
       {/* <section className="flex items-center justify-between gap-4 mb-2">
         <h1 className="font-bold text-2xl tracking-tight">
           Orders

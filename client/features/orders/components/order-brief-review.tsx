@@ -65,7 +65,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   const { data, isLoading, isError, error } = useGetOrderBriefQuery(orderId);
   const acceptBriefMutation = useAcceptBriefMutation({
     onSuccess: () => {
-      router.push(`/creator/orders/${orderId}`);
+      router.push(`/creator/orders`);
     },
   });
 

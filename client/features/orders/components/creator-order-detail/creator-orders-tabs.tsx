@@ -13,7 +13,7 @@ export const TAB_DEFINITIONS = [
   {
     id: "active",
     label: "Active",
-    statuses: ["BRIEF_ACCEPTED", "PRODUCT_SHIPPED", "PRODUCT_RECEIVED", "DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
+    statuses: ["BRIEF_ACCEPTED", "PRODUCT_SHIPPED", "PRODUCT_RECEIVED"],
   },
   { 
     id: "revisions", 

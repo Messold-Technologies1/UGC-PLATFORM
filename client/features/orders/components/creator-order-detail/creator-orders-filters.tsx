@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -20,9 +19,7 @@ export function CreatorOrdersFilters({
   activeTab,
   isCompact = false,
 }: CreatorOrdersFiltersProps) {
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  const showInlineFilters = activeTab === "all" || !isCompact;
+  const showInlineFilters = activeTab === "all";
 
   return (
     <div className="flex items-center gap-3 w-full">
@@ -56,23 +53,6 @@ export function CreatorOrdersFilters({
           </Select>
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={() => setFiltersOpen((prev) => !prev)}
-        className={`flex shrink-0 items-center gap-2 h-[42px] rounded-lg border px-4 shadow-sm transition-colors ${
-          filtersOpen
-            ? "border-primary bg-primary/5 text-primary"
-            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-        }`}
-        aria-label="Toggle filters"
-        aria-expanded={filtersOpen}
-      >
-        <SlidersHorizontal className="size-[18px]" />
-        <span className="text-[14px] font-medium">
-          {showInlineFilters ? "More Filters" : "Filters"}
-        </span>
-      </button>
     </div>
   );
 }

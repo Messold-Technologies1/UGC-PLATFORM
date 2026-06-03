@@ -74,7 +74,7 @@ export function MessagesChatThread({ conversation }: Props) {
       {conversation.isChatLocked && (
         <div className="flex items-center gap-2 px-5 py-2.5 bg-muted/50 border-b border-border text-muted-foreground text-xs font-medium">
           <Lock className="size-3.5" />
-          This order is completed. The chat is now read-only.
+          This order is no longer active. The chat is now read-only.
         </div>
       )}
 
@@ -146,7 +146,7 @@ export function MessagesChatThread({ conversation }: Props) {
         {conversation.isChatLocked ? (
           <div className="flex items-center justify-center gap-2 py-2 text-muted-foreground text-sm">
             <Lock className="size-4" />
-            <span>Chat is locked for completed orders</span>
+            <span>Chat is locked for inactive orders</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">

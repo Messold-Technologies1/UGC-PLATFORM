@@ -1,28 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  Check,
-  ExternalLink,
-  FileVideo,
-  MessageSquare,
-  Play,
-  Upload,
-  X,
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { OrderChatWidget } from "../order-chat-widget";
-import { useGetBrandOrderDeliveriesQuery } from "../../hooks/use-get-brand-order-deliveries-query";
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
+import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 
 interface CreatorOrderRevisionPanelProps {
   selectedOrderId: string;
@@ -47,19 +34,6 @@ const STEP_LABELS: Record<string, string> = {
 const MAX_FILE_SIZE_MB = 250;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1_000_000;
 
-function fmtDate(val?: string | null): string {
-  if (!val) return "TBD";
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(val));
-  } catch {
-    return "TBD";
-  }
-}
-
 function fmtDateTime(val?: string | null): string | null {
   if (!val) return null;
   try {
@@ -73,20 +47,6 @@ function fmtDateTime(val?: string | null): string | null {
   } catch {
     return null;
   }
-}
-
-function fmtEnum(val?: string | string[] | null): string {
-  if (!val) return "N/A";
-  const arr = Array.isArray(val) ? val : [val];
-  if (arr.length === 0) return "N/A";
-  return arr
-    .map((s) =>
-      s
-        .split("_")
-        .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
-        .join(" "),
-    )
-    .join(", ");
 }
 
 function isSupportedFile(file: File): boolean {
@@ -130,11 +90,16 @@ function buildRevisionSteps(order: any): StepDef[] {
   }));
 }
 
-
 function RevisionNotesCard({ order }: { order: any }) {
   const revisionNotes = useMemo(() => {
     if (order?.revisionNotes && Array.isArray(order.revisionNotes)) {
       return order.revisionNotes as string[];
+    }
+    if (order?.note && typeof order.note === "string") {
+      return order.note
+        .split(/\n/)
+        .map((s: string) => s.replace(/^\d+\.\s*/, "").trim())
+        .filter(Boolean);
     }
     if (order?.revisionNote && typeof order.revisionNote === "string") {
       return order.revisionNote
@@ -175,81 +140,12 @@ function RevisionNotesCard({ order }: { order: any }) {
 }
 
 function PreviousSubmissionCard({ orderId }: { orderId: string }) {
-  const { data: deliveriesData, isLoading } = useGetBrandOrderDeliveriesQuery(
-    orderId,
-    {
-      enabled: Boolean(orderId),
-    },
-  );
-
-  const latestDelivery = deliveriesData?.items?.at(-1);
-  const videoAsset = latestDelivery?.assets?.find((a) => a.kind === "video");
-  const submittedDate = fmtDateTime(latestDelivery?.createdAt);
-  const versionLabel = `Version ${(latestDelivery?.revisionsUsed ?? 0) + 1}`;
-
-  if (isLoading) {
-    return (
-      <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
-        <h3 className="font-bold text-sm mb-4">Your Previous Submission</h3>
-        <Skeleton className="h-36 w-full rounded-lg" />
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
-      <h3 className="font-bold text-sm mb-4">Your Previous Submission</h3>
-
-      {videoAsset ? (
-        <div className="space-y-3">
-          <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5 border border-border/40">
-            <video
-              src={videoAsset.url}
-              className="w-full h-full object-cover"
-              preload="metadata"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                <Play className="w-5 h-5 text-foreground ml-0.5" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                {versionLabel} (Submitted)
-              </p>
-              {submittedDate && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Submitted on {submittedDate}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <Button
-            variant="outline"
-            className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-            asChild
-          >
-            <a href={videoAsset.url} target="_blank" rel="noreferrer">
-              <Play className="w-3.5 h-3.5" />
-              Re-watch
-            </a>
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center mb-3">
-            <FileVideo className="w-5 h-5 text-muted-foreground/50" />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            No previous submission found.
-          </p>
-        </div>
-      )}
-    </div>
+    <CreatorDeliveryAssetsCard
+      orderId={orderId}
+      title="Your Previous Submission"
+      emptyLabel="No previous submission found."
+    />
   );
 }
 
@@ -396,10 +292,6 @@ export function CreatorOrderRevisionPanel({
     : selectedItem?.order?.priceAmountSnapshot
       ? parseFloat(selectedItem.order.priceAmountSnapshot)
       : 0;
-
-  function handleContactBrand() {
-    chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   if (!selectedItem) return null;
 

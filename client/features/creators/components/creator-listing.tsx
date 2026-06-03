@@ -25,7 +25,7 @@ import {
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
-import { CreatorsBrowserLoadingShell } from "@/components/dashboard/route-loading-shells";
+// Removed CreatorsBrowserLoadingShell import as we now handle loading state locally
 import {
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
@@ -94,7 +94,6 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     stringArraysEqual(a.capability, b.capability) &&
     stringArraysEqual(a.lifeStyle, b.lifeStyle) &&
     stringArraysEqual(a.occupation, b.occupation) &&
-    stringArraysEqual(a.interest, b.interest) &&
     stringArraysEqual(a.categoryExperience, b.categoryExperience) &&
     stringArraysEqual(a.canCreateWith, b.canCreateWith) &&
     stringArraysEqual(a.aiContentPermission, b.aiContentPermission) &&
@@ -110,6 +109,14 @@ function formatPriceRangeForCopy(filters: Filters): string | null {
   const maxLabel =
     max >= CREATOR_PRICE_MAX ? "₹10,000+" : `₹${max.toLocaleString("en-IN")}`;
   return `₹${min.toLocaleString("en-IN")} - ${maxLabel}`;
+}
+
+function formatFacetSlug(slug: string): string {
+  if (!slug) return slug;
+  return slug
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function EmptyBrowseState({ filters }: { filters: Filters }) {
@@ -171,9 +178,10 @@ export function CreatorListing({
     (nextFilters: Filters) => {
       const qs = serializeBrowseListingParams(nextFilters, "");
       if (qs === searchParamsKey) return;
-      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+      const nextUrl = qs ? `?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", nextUrl);
     },
-    [router, searchParamsKey],
+    [searchParamsKey],
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
@@ -188,7 +196,8 @@ export function CreatorListing({
     if (nextParams.has("page")) {
       nextParams.delete("page");
       const qs = nextParams.toString();
-      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+      const nextUrl = qs ? `?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", nextUrl);
     }
 
     startTransition(() => {
@@ -221,7 +230,6 @@ export function CreatorListing({
       capability: filters.capability.length ? filters.capability : undefined,
       lifeStyle: filters.lifeStyle.length ? filters.lifeStyle : undefined,
       occupation: filters.occupation.length ? filters.occupation : undefined,
-      interest: filters.interest.length ? filters.interest : undefined,
       categoryExperience: filters.categoryExperience.length
         ? filters.categoryExperience
         : undefined,
@@ -300,51 +308,48 @@ export function CreatorListing({
         type: "ageGroup",
       });
     filters.categories.forEach((c) =>
-      tags.push({ id: `cat-${c}`, label: c, type: "categories", value: c }),
+      tags.push({ id: `cat-${c}`, label: formatFacetSlug(c), type: "categories", value: c }),
     );
     // filters.personaTags.forEach(p => tags.push({ id: `persona-${p}`, label: p, type: "personaTags", value: p }));
     filters.contentFormat.forEach((v) =>
-      tags.push({ id: `cf-${v}`, label: v, type: "contentFormat", value: v }),
+      tags.push({ id: `cf-${v}`, label: formatFacetSlug(v), type: "contentFormat", value: v }),
     );
     filters.appearance.forEach((v) =>
-      tags.push({ id: `ap-${v}`, label: v, type: "appearance", value: v }),
+      tags.push({ id: `ap-${v}`, label: formatFacetSlug(v), type: "appearance", value: v }),
     );
     filters.contentStyle.forEach((v) =>
-      tags.push({ id: `cs-${v}`, label: v, type: "contentStyle", value: v }),
+      tags.push({ id: `cs-${v}`, label: formatFacetSlug(v), type: "contentStyle", value: v }),
     );
     filters.capability.forEach((v) =>
-      tags.push({ id: `cap-${v}`, label: v, type: "capability", value: v }),
+      tags.push({ id: `cap-${v}`, label: formatFacetSlug(v), type: "capability", value: v }),
     );
     filters.lifeStyle.forEach((v) =>
-      tags.push({ id: `ls-${v}`, label: v, type: "lifeStyle", value: v }),
+      tags.push({ id: `ls-${v}`, label: formatFacetSlug(v), type: "lifeStyle", value: v }),
     );
     filters.occupation.forEach((v) =>
-      tags.push({ id: `occ-${v}`, label: v, type: "occupation", value: v }),
-    );
-    filters.interest.forEach((v) =>
-      tags.push({ id: `int-${v}`, label: v, type: "interest", value: v }),
+      tags.push({ id: `occ-${v}`, label: formatFacetSlug(v), type: "occupation", value: v }),
     );
     filters.categoryExperience.forEach((v) =>
       tags.push({
         id: `ce-${v}`,
-        label: v,
+        label: formatFacetSlug(v),
         type: "categoryExperience",
         value: v,
       }),
     );
     filters.canCreateWith.forEach((v) =>
-      tags.push({ id: `ccw-${v}`, label: v, type: "canCreateWith", value: v }),
+      tags.push({ id: `ccw-${v}`, label: formatFacetSlug(v), type: "canCreateWith", value: v }),
     );
     filters.aiContentPermission.forEach((v) =>
       tags.push({
         id: `acp-${v}`,
-        label: v,
+        label: formatFacetSlug(v),
         type: "aiContentPermission",
         value: v,
       }),
     );
     filters.language.forEach((v) =>
-      tags.push({ id: `lang-${v}`, label: v, type: "language", value: v }),
+      tags.push({ id: `lang-${v}`, label: formatFacetSlug(v), type: "language", value: v }),
     );
     return tags;
   }, [filters]);
@@ -390,10 +395,6 @@ export function CreatorListing({
     if (!hasNextPage || isFetchingNextPage) return;
     void fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
-
-  if (isPending && !data) {
-    return <CreatorsBrowserLoadingShell />;
-  }
 
   if (isError && !data) {
     return (
@@ -532,7 +533,7 @@ export function CreatorListing({
 
           <div className="flex items-center gap-4 shrink-0 pt-2 sm:pt-0">
             <span className="text-[13px] font-semibold text-[#6B7280]">
-              {displayedCount.toLocaleString()} creators found
+              {isPending && !data ? "Searching..." : `${displayedCount.toLocaleString()} creators found`}
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[13px] font-medium text-[#111] whitespace-nowrap">
@@ -544,7 +545,18 @@ export function CreatorListing({
         </div>
 
         <div className="pb-2">
-          {creators.length > 0 ? (
+          {isPending && !data ? (
+            <div
+              className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4"
+              aria-label="Loading creators"
+            >
+              {Array.from({ length: 8 }, (_, index) => (
+                <div key={index} className="min-w-0 h-full">
+                  <CreatorCardSkeleton appearance="browse" />
+                </div>
+              ))}
+            </div>
+          ) : creators.length > 0 ? (
             <div className="flex flex-col gap-4">
               <VirtuosoGrid
                 useWindowScroll

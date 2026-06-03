@@ -27,7 +27,6 @@ export type CreatorListApiFilters = {
   aiContentPermission?: string[];
   language?: string[];
   categories?: string[];
-  personaTags?: string[];
   restrictions?: string[];
 };
 
@@ -95,10 +94,7 @@ export function serializeCreatorListApiParams(
   }
 
   for (const category of normalizeStringArray(filters.categories)) {
-    params.append("categories", category);
-  }
-  for (const personaTag of normalizeStringArray(filters.personaTags)) {
-    params.append("personaTags", personaTag);
+    params.append("contentCategory", category);
   }
   for (const restriction of normalizeStringArray(filters.restrictions)) {
     params.append("restrictions", restriction);

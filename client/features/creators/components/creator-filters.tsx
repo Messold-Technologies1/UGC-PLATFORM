@@ -75,7 +75,6 @@ const FACET_SECTION_CONFIG: {
     | "capability"
     | "lifeStyle"
     | "occupation"
-    | "interest"
     | "categoryExperience"
     | "canCreateWith"
     | "aiContentPermission"
@@ -96,7 +95,6 @@ const FACET_SECTION_CONFIG: {
   { dimension: "CAPABILITY", label: "Capability", filterKey: "capability" },
   { dimension: "LIFE_STYLE", label: "Life Style", filterKey: "lifeStyle" },
   { dimension: "OCCUPATION", label: "Occupation", filterKey: "occupation" },
-  { dimension: "INTEREST", label: "Interest", filterKey: "interest" },
   {
     dimension: "CATEGORY_EXPERIENCE",
     label: "Category Experience",
@@ -133,7 +131,6 @@ export interface Filters {
   capability: string[];
   lifeStyle: string[];
   occupation: string[];
-  interest: string[];
   categoryExperience: string[];
   canCreateWith: string[];
   aiContentPermission: string[];
@@ -158,7 +155,6 @@ export const DEFAULT_FILTERS: Filters = {
   capability: [],
   lifeStyle: [],
   occupation: [],
-  interest: [],
   categoryExperience: [],
   canCreateWith: [],
   aiContentPermission: [],
@@ -189,7 +185,6 @@ type MultiSelectFilterKey =
   | "capability"
   | "lifeStyle"
   | "occupation"
-  | "interest"
   | "categoryExperience"
   | "canCreateWith"
   | "aiContentPermission"
@@ -318,13 +313,29 @@ export const CreatorFilters = memo(function CreatorFilters({
     }));
   }, []);
 
-  const categoryNames = useMemo(() => {
-    const fromQuery =
-      categorySuggestionsQuery.data
-        ?.map((item) => item.name.trim())
-        .filter(Boolean) ?? [];
+  const categoryOptionsToRender = useMemo(() => {
+    const options: { slug: string; label: string }[] = [];
+    const seen = new Set<string>();
+
+    const fromQuery = categorySuggestionsQuery.data ?? [];
+    for (const item of fromQuery) {
+      const label = item.name.trim();
+      const slug = item.slug?.trim() || label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (!label || seen.has(slug)) continue;
+      options.push({ slug, label });
+      seen.add(slug);
+    }
+
     const fallback = categoryOptions.map((item) => item.trim()).filter(Boolean);
-    return normalizeSelectedValues([...fromQuery, ...fallback]);
+    for (const fallbackLabel of fallback) {
+      const fallbackSlug = fallbackLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (!seen.has(fallbackSlug)) {
+        options.push({ slug: fallbackSlug, label: fallbackLabel });
+        seen.add(fallbackSlug);
+      }
+    }
+
+    return options.sort((a, b) => a.label.localeCompare(b.label));
   }, [categoryOptions, categorySuggestionsQuery.data]);
 
   // const personaNames = useMemo(
@@ -370,13 +381,14 @@ export const CreatorFilters = memo(function CreatorFilters({
           className="space-y-0"
         >
           <DropdownFilterSection value="category" label="Content Category">
-            {categoryNames.length === 0 ? (
+            {categoryOptionsToRender.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 No category suggestions are available right now.
               </p>
             ) : (
               <CheckboxList
-                items={categoryNames}
+                items={categoryOptionsToRender.map((o) => o.slug)}
+                labels={Object.fromEntries(categoryOptionsToRender.map((o) => [o.slug, o.label]))}
                 selected={draftFilters.categories}
                 onToggle={(v) => toggleMultiSelect("categories", v)}
                 sectionKey="category"

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import type { CreatorOrderListItem } from "../../api/get-creator-orders";
 
 export const TAB_DEFINITIONS = [
   { id: "all", label: "All Orders", statuses: [] },
@@ -40,7 +41,7 @@ export const TAB_DEFINITIONS = [
 interface CreatorOrdersTabsProps {
   activeTab: string;
   onTabChange: (tabId: string) => void;
-  allItems: any[];
+  allItems: CreatorOrderListItem[];
   totalCount?: number;
 }
 
@@ -56,11 +57,11 @@ export function CreatorOrdersTabs({
       if (tab.id === "all") {
         count = totalCount ?? allItems.length;
       } else if (tab.id === "new") {
-        count = allItems.filter((item: any) => 
+        count = allItems.filter((item) =>
           Boolean(item.order.hasBrief) && tab.statuses.includes(item.order.status as string)
         ).length;
       } else {
-        count = allItems.filter((item: any) =>
+        count = allItems.filter((item) =>
           tab.statuses.includes(item.order.status as string),
         ).length;
       }

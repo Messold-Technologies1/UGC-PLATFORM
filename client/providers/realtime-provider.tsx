@@ -15,6 +15,7 @@ import type {
   OrderBriefSubmittedEvent,
   OrderProductReceivedEvent,
   OrderProductShippedEvent,
+  OrderRevisionRequestedEvent,
   OrderChatMessageEvent,
 } from "@/lib/realtime-events";
 
@@ -53,6 +54,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const rolePath = user.primaryRole?.toLowerCase() || "";
+    const orderNotificationLink = (orderId: string, suffix = "") => {
+      if (!rolePath) return undefined;
+      if (rolePath === "creator") return "/creator/orders";
+      return `/${rolePath}/orders/${orderId}${suffix}`;
+    };
 
     const onOrderPayment = (e: OrderPaymentEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -75,7 +81,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: variant,
         title: msg,
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+        link: orderNotificationLink(e.orderId),
       });
     };
 
@@ -90,7 +96,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "info",
         title: "Brand submitted a brief",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/orders/${e.orderId}/brief` : undefined,
+        link: orderNotificationLink(e.orderId, "/brief"),
       });
     };
 
@@ -105,7 +111,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "success",
         title: "Creator accepted the brief",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/orders/${e.orderId}/brief` : undefined,
+        link: orderNotificationLink(e.orderId, "/brief"),
       });
     };
 
@@ -123,7 +129,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         description: e.trackingId
           ? `${e.courierName} · ${e.trackingId}`
           : `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+        link: orderNotificationLink(e.orderId),
       });
     };
 
@@ -137,7 +143,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "success",
         title: "Creator confirmed product receipt",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/orders/${e.orderId}` : undefined,
+        link: orderNotificationLink(e.orderId),
+      });
+    };
+
+    const onRevisionRequested = (e: OrderRevisionRequestedEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
+      const description =
+        e.note?.trim() || `Order ${e.orderId.slice(0, 8)}...`;
+
+      toast.info(`Revision ${e.revisionNumber} requested`, {
+        description,
+      });
+      addNotification({
+        type: "info",
+        title: `Revision ${e.revisionNumber} requested`,
+        description,
+        link: orderNotificationLink(e.orderId),
       });
     };
 
@@ -164,6 +187,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.brief_accepted", onBriefAccepted);
     s.on("order.product_shipped", onProductShipped);
     s.on("order.product_received", onProductReceived);
+    s.on("order.revision_requested", onRevisionRequested);
     s.on("chat.message", onChatMessage);
 
     s.connect();
@@ -176,6 +200,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.brief_accepted", onBriefAccepted);
       s.off("order.product_shipped", onProductShipped);
       s.off("order.product_received", onProductReceived);
+      s.off("order.revision_requested", onRevisionRequested);
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };

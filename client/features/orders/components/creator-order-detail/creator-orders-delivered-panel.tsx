@@ -1,26 +1,15 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import Link from "next/link";
+import { useMemo } from "react";
 import {
-  Check,
   Clock,
-  Download,
-  ExternalLink,
-  FileVideo,
   Info,
-  MessageSquare,
-  Play,
-  X,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useGetBrandOrderDeliveriesQuery } from "../../hooks/use-get-brand-order-deliveries-query";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
+import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 interface CreatorOrderDeliveredPanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -89,12 +78,6 @@ function daysLeft(deadline?: string | null): number | null {
   return Math.max(0, Math.ceil(ms / 86_400_000));
 }
 
-function formatFileSize(bytes?: number): string {
-  if (!bytes || bytes <= 0) return "N/A";
-  if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-  if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-}
 
 function buildDeliveredSteps(order: any): StepDef[] {
   const ids = [
@@ -129,87 +112,12 @@ function buildDeliveredSteps(order: any): StepDef[] {
 
 
 function DeliveredFilesCard({ orderId }: { orderId: string }) {
-  const { data: deliveriesData, isLoading } = useGetBrandOrderDeliveriesQuery(
-    orderId,
-    {
-      enabled: Boolean(orderId),
-    },
-  );
-
-  const latestDelivery = deliveriesData?.items?.at(-1);
-  const videoAsset = latestDelivery?.assets?.find((a) => a.kind === "video");
-  const allAssets = latestDelivery?.assets ?? [];
-  const submittedDate = fmtDateTime(latestDelivery?.createdAt);
-
-  if (isLoading) {
-    return (
-      <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
-        <h3 className="font-bold text-sm mb-4">Delivered Files</h3>
-        <Skeleton className="h-36 w-full rounded-lg" />
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
-      <h3 className="font-bold text-sm mb-4">Delivered Files</h3>
-
-      {videoAsset ? (
-        <div className="space-y-3">
-          <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5 border border-border/40">
-            <video
-              src={videoAsset.url}
-              className="w-full h-full object-cover"
-              preload="metadata"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                <Play className="w-5 h-5 text-foreground ml-0.5" />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-foreground">Final Video</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {allAssets.length} asset{allAssets.length !== 1 ? "s" : ""}
-              {submittedDate && ` • Delivered on ${submittedDate}`}
-            </p>
-          </div>
-
-          <div className="flex gap-2 mt-auto">
-            <Button
-              variant="outline"
-              className="flex-1 rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-              asChild
-            >
-              <a href={videoAsset.url} target="_blank" rel="noreferrer">
-                <Play className="w-3.5 h-3.5" />
-                Preview Video
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-              asChild
-            >
-              <a href={videoAsset.url} download>
-                <Download className="w-3.5 h-3.5" />
-              </a>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center mb-3">
-            <FileVideo className="w-5 h-5 text-muted-foreground/50" />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            No delivery files found.
-          </p>
-        </div>
-      )}
-    </div>
+    <CreatorDeliveryAssetsCard
+      orderId={orderId}
+      title="Delivered Files"
+      emptyLabel="No delivery files found."
+    />
   );
 }
 

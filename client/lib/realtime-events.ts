@@ -32,6 +32,13 @@ export interface OrderProductReceivedEvent {
   productReceivedAt: string;
 }
 
+export interface OrderRevisionRequestedEvent {
+  orderId: string;
+  revisionNumber: number;
+  note?: string | null;
+  revisionsRemaining: number;
+}
+
 export interface OrderChatMessage {
   id: string;
   orderId: string;
@@ -76,6 +83,7 @@ export interface ServerToClientEvents {
   "order.brief_accepted": (e: OrderBriefAcceptedEvent) => void;
   "order.product_shipped": (e: OrderProductShippedEvent) => void;
   "order.product_received": (e: OrderProductReceivedEvent) => void;
+  "order.revision_requested": (e: OrderRevisionRequestedEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

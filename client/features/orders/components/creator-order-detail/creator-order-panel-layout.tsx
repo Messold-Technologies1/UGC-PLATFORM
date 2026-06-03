@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { OrderChatWidget } from "../order-chat-widget";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 
 interface CreatorOrderPanelLayoutProps {
@@ -40,11 +39,6 @@ export function CreatorOrderPanelLayout({
   viewingStepId,
   children,
 }: CreatorOrderPanelLayoutProps) {
-  // const chatRef = useRef<HTMLDivElement>(null);
-
-  // function handleContactBrand() {
-  //   chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  // }
 
   const amountDisplay =
     payoutAmountDisplay ??
@@ -98,7 +92,7 @@ export function CreatorOrderPanelLayout({
               <span className="font-bold text-lg leading-none text-foreground">
                 {amountDisplay}
               </span>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider leading-none">
+              <span className="text-[11px] text-muted-foreground font-medium tracking-wider leading-none">
                 {payoutLabelDisplay}
               </span>
             </div>
@@ -148,23 +142,6 @@ export function CreatorOrderPanelLayout({
           children
         )}
       </div>
-
-      {/* <div
-        ref={chatRef}
-        className="hidden xl:block w-[300px] shrink-0 relative"
-      >
-        <div className="absolute inset-0">
-          <OrderChatWidget
-            orderId={selectedOrderId}
-            role="creator"
-            brand={selectedItem.brand}
-            className="h-full rounded-lg border border-border/40 bg-accent/10"
-            headerTitle={`Chat with ${selectedItem.brand.brandName}`}
-            headerSubtitle={null}
-            hideHeaderAvatar={true}
-          />
-        </div>
-      </div> */}
     </div>
   );
 }

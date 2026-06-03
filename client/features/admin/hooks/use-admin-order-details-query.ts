@@ -8,6 +8,7 @@ export function useAdminOrderDetailsQuery(orderId: string) {
   return useQuery({
     queryKey: adminOrderDetailsQueryKey(orderId),
     queryFn: () => fetchAdminOrderDetails(orderId),
+    staleTime: 60_000,
     enabled: Boolean(orderId),
   });
 }

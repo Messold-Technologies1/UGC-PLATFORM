@@ -20,5 +20,6 @@ export function useGetCreatorOrdersQuery(
     ...options,
     queryKey: ["orders", "creator", page, limit],
     queryFn: () => getCreatorOrders({ page, limit }),
+    staleTime: options?.staleTime ?? 30_000,
   });
 }

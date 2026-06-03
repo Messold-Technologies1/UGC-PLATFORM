@@ -10,6 +10,8 @@ type UseBriefFieldOptionsQueryOptions = Omit<
   "queryKey" | "queryFn"
 >;
 
+const TWENTY_FOUR_HOURS = 24 * 60 * 60_000;
+
 export function useBriefFieldOptionsQuery(
   options?: UseBriefFieldOptionsQueryOptions,
 ) {
@@ -17,5 +19,6 @@ export function useBriefFieldOptionsQuery(
     ...options,
     queryKey: briefFieldOptionsQueryKey,
     queryFn: getBriefFieldOptions,
+    staleTime: options?.staleTime ?? TWENTY_FOUR_HOURS,
   });
 }

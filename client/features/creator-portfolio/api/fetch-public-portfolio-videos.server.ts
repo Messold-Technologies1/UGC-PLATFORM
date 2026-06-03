@@ -14,7 +14,7 @@ export async function fetchPublicPortfolioVideosByCreatorIdServer(
         headers: {
           Accept: "application/json",
         },
-        cache: "no-store",
+        next: { revalidate: 3600 },
       },
     );
 

@@ -17,6 +17,7 @@ export function useGetBriefQuery(
     ...options,
     queryKey: briefDetailQueryKey(id),
     queryFn: () => getBrief(id),
+    staleTime: options?.staleTime ?? 2 * 60_000,
     enabled: Boolean(id) && (options?.enabled ?? true),
   });
 }

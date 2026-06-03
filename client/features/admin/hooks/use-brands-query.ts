@@ -12,5 +12,6 @@ export function useBrandsQuery(query?: AdminBrandsQueryDto) {
   return useQuery({
     queryKey: brandsQueryKey(query),
     queryFn: () => fetchBrands(query),
+    staleTime: 5 * 60_000,
   });
 }

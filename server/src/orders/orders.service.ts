@@ -36,6 +36,10 @@ import type {
   CreatorDeliveriesResponseDto,
   CreatorDeliveryItemDto,
 } from './dto/creator-deliveries-response.dto';
+import type {
+  OrderRevisionsResponseDto,
+  OrderRevisionItemDto,
+} from './dto/order-revisions-response.dto';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
@@ -865,6 +869,7 @@ export class OrdersService {
     orderId: string;
     actorUserId: string;
     brandProfileId?: string | null;
+    note?: string | null;
   }): Promise<void> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -892,15 +897,78 @@ export class OrdersService {
       throw new BadRequestException('Max revisions reached for this order');
     }
 
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'REVISION_REQUESTED' as any,
-        revisionCount: order.revisionCount + 1,
-      } as any,
+    const newRevisionNumber = order.revisionCount + 1;
+    const trimmedNote = params.note?.trim() || null;
+
+    await this.prisma.$transaction([
+      this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'REVISION_REQUESTED' as any,
+          revisionCount: newRevisionNumber,
+        } as any,
+      }),
+      (this.prisma as any).orderRevision.create({
+        data: {
+          orderId: order.id,
+          revisionNumber: newRevisionNumber,
+          note: trimmedNote,
+          requestedByUserId: params.actorUserId,
+        },
+      }),
+    ]);
+
+    this.orderMail.notifyRevisionRequested(order.id, trimmedNote);
+    void this.orderRealtime.emitOrderRevisionRequested({
+      orderId: order.id,
+      revisionNumber: newRevisionNumber,
+      note: trimmedNote,
+      revisionsRemaining: order.maxRevisionsSnapshot - newRevisionNumber,
+    });
+  }
+
+  async listRevisionsForOrder(params: {
+    orderId: string;
+    viewerUserId: string;
+  }): Promise<OrderRevisionsResponseDto> {
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        creatorId: true,
+        brand: { select: { userId: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const isAdminUser = await this.isAdminUser(params.viewerUserId);
+    const isBrand = order.brand.userId === params.viewerUserId;
+    const isCreator = order.creator.userId === params.viewerUserId;
+    if (!isBrand && !isCreator && !isAdminUser) {
+      throw new ForbiddenException('Not your order');
+    }
+
+    const rows: any[] = await (this.prisma as any).orderRevision.findMany({
+      where: { orderId: order.id },
+      orderBy: { revisionNumber: 'asc' },
+      select: {
+        id: true,
+        revisionNumber: true,
+        note: true,
+        createdAt: true,
+      },
     });
 
-    this.orderMail.notifyRevisionRequested(order.id);
+    const items: OrderRevisionItemDto[] = rows.map((r) => ({
+      id: r.id,
+      revisionNumber: r.revisionNumber,
+      note: r.note ?? null,
+      requestedAt: r.createdAt,
+    }));
+
+    return { items };
   }
 
   private async isAdminUser(userId: string): Promise<boolean> {

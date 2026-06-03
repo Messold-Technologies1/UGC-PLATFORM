@@ -4,6 +4,11 @@ Hi {{recipientName}},
 {{#if revisionNumber}}
 This is revision {{revisionNumber}}{{#if revisionsRemaining}} — {{revisionsRemaining}} revision(s) remaining on this order{{/if}}.
 {{/if}}
+{{#if revisionNote}}
+
+Feedback from {{brandName}}:
+{{revisionNote}}
+{{/if}}
 
 Please review the brand’s feedback and submit an updated delivery when ready.
 

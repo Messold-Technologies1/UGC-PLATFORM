@@ -65,6 +65,31 @@ export interface ListChatsParams {
   limit?: number;
 }
 
+/** Preview line for the messages inbox (uses API denormalized lastMessage). */
+export function formatChatInboxPreview(
+  lastMessage: ChatLastMessageDto | undefined,
+  options?: { viewerUserId?: string; emptyLabel?: string },
+): string {
+  const emptyLabel = options?.emptyLabel ?? "No messages yet";
+
+  if (!lastMessage) return emptyLabel;
+
+  const body =
+    lastMessage.previewText?.trim() ||
+    (lastMessage.type === "VOICE" ? "Voice message" : "");
+
+  if (!body) return emptyLabel;
+
+  if (
+    options?.viewerUserId &&
+    lastMessage.senderUserId === options.viewerUserId
+  ) {
+    return `You: ${body}`;
+  }
+
+  return body;
+}
+
 export async function fetchCreatorChats(
   params?: ListChatsParams,
 ): Promise<CreatorChatsListResponseDto> {

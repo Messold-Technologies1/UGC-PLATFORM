@@ -9,7 +9,7 @@ describe('OrderChatService', () => {
   const outsiderUserId = 'outsider';
 
   const prisma = {
-    order: { findUnique: jest.fn() },
+    order: { findUnique: jest.fn(), update: jest.fn() },
     orderChatMessage: {
       findMany: jest.fn(),
       create: jest.fn(),
@@ -17,6 +17,7 @@ describe('OrderChatService', () => {
       findUnique: jest.fn(),
     },
     orderChatReadState: { findMany: jest.fn(), upsert: jest.fn() },
+    $transaction: jest.fn(),
   };
 
   const storage = {
@@ -44,6 +45,10 @@ describe('OrderChatService', () => {
       brand: { id: 'brand-profile-1' },
       creator: { userId: creatorUserId },
     });
+    prisma.order.update.mockResolvedValue({});
+    prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => unknown) =>
+      fn(prisma),
+    );
     brandAccess.resolveBrandActorUserIdForProfile.mockResolvedValue(brandUserId);
     service = new OrderChatService(
       prisma as any,
@@ -121,6 +126,15 @@ describe('OrderChatService', () => {
       expect(result.text).toBeNull();
       expect(result.audioUrl).toBe(`https://cdn.example.com/${voiceRow.audioKey}`);
       expect(result.audioDurationMs).toBe(5000);
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: orderId },
+          data: expect.objectContaining({
+            lastChatMessageId: 'msg-voice',
+            lastChatActivityAt: voiceRow.createdAt,
+          }),
+        }),
+      );
       expect(realtime.emitChatMessage).toHaveBeenCalledWith({
         orderId,
         message: expect.objectContaining({
@@ -174,6 +188,15 @@ describe('OrderChatService', () => {
           data: expect.objectContaining({
             type: OrderChatMessageType.TEXT,
             text: 'Hello',
+          }),
+        }),
+      );
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: orderId },
+          data: expect.objectContaining({
+            lastChatMessageId: 'msg-text',
+            lastChatMessageText: 'Hello',
           }),
         }),
       );

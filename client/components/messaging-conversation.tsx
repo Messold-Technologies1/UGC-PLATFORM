@@ -19,6 +19,7 @@ import {
   Trash2,
   UserMinus2,
   ArrowLeft,
+  CheckCheck,
   X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +33,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 type StatusType = "online" | "dnd" | "offline";
+
+export type MessageDeliveryStatus = "sending" | "sent" | "read" | "failed";
 
 export type MessagingParticipant = {
   id: string;
@@ -51,8 +54,43 @@ export type MessagingConversationMessage = {
   senderUserId: string;
   createdAt?: string;
   timeLabel?: string;
+  /** @deprecated Prefer deliveryStatus for outgoing tick UI */
   statusLabel?: string;
+  deliveryStatus?: MessageDeliveryStatus;
 };
+
+function MessageDeliveryTicks({
+  status,
+}: {
+  status?: MessagingConversationMessage["deliveryStatus"];
+}) {
+  if (!status) return null;
+
+  if (status === "failed") {
+    return <span className="text-destructive">Failed</span>;
+  }
+
+  if (status === "sending") {
+    return (
+      <Loader2
+        className="size-3 animate-spin opacity-70"
+        aria-label="Sending"
+      />
+    );
+  }
+
+  return (
+    <CheckCheck
+      className={cn(
+        "size-3.5 shrink-0",
+        status === "read"
+          ? "text-sky-500 dark:text-sky-400"
+          : "text-muted-foreground/80",
+      )}
+      aria-label={status === "read" ? "Read" : "Sent"}
+    />
+  );
+}
 
 type SendVoiceMessagePayload = {
   blob: Blob;
@@ -571,7 +609,7 @@ export function MessagingConversation({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          {msg.statusLabel === "Sending" ? (
+                          {msg.deliveryStatus === "sending" ? (
                             <Loader2 className="size-3.5 animate-spin" />
                           ) : null}
                           <span>Voice message</span>
@@ -591,7 +629,9 @@ export function MessagingConversation({
                     )}
                   >
                     {timestamp ? <span>{timestamp}</span> : null}
-                    {msg.statusLabel ? <span>{msg.statusLabel}</span> : null}
+                    {isMe ? (
+                      <MessageDeliveryTicks status={msg.deliveryStatus} />
+                    ) : null}
                     {readOnly ? null : (
                       <div className="opacity-0 transition-opacity group-hover:opacity-100">
                         <MessageActions isMe={isMe} />

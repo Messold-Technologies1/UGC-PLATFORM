@@ -6,8 +6,7 @@ describe('ChatsService', () => {
   const prisma = {
     creatorProfile: { findUnique: jest.fn() },
     order: { count: jest.fn(), findMany: jest.fn() },
-    orderChatMessage: { findMany: jest.fn(), count: jest.fn() },
-    orderChatReadState: { findMany: jest.fn() },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 
@@ -24,37 +23,36 @@ describe('ChatsService', () => {
   });
 
   describe('listChatsForCreator', () => {
-    it('returns paginated chat threads sorted by latest message', async () => {
+    it('returns paginated chat threads sorted by lastChatActivityAt', async () => {
       prisma.creatorProfile.findUnique.mockResolvedValue({ id: 'creator-1' });
-      const orders = [
-        {
-          id: 'order-a',
-          status: OrderStatus.BRIEF_ACCEPTED,
-          packageNameSnapshot: 'UGC 60s',
-          updatedAt: new Date('2025-05-01T00:00:00Z'),
-          brand: { id: 'brand-1', brandName: 'Acme', logoUrl: null },
-        },
+      const pageRows = [
         {
           id: 'order-b',
           status: OrderStatus.DELIVERED,
           packageNameSnapshot: 'UGC 30s',
           updatedAt: new Date('2025-05-02T00:00:00Z'),
+          lastChatActivityAt: new Date('2025-05-10T12:00:00Z'),
+          lastChatMessageId: 'msg-1',
+          lastChatMessageSenderUserId: 'brand-user',
+          lastChatMessageType: OrderChatMessageType.TEXT,
+          lastChatMessageText: 'Hello',
           brand: { id: 'brand-2', brandName: 'Beta', logoUrl: 'https://logo' },
         },
-      ];
-      prisma.$transaction.mockResolvedValue([2, orders]);
-      prisma.orderChatMessage.findMany.mockResolvedValue([
         {
-          id: 'msg-1',
-          orderId: 'order-b',
-          senderUserId: 'brand-user',
-          type: OrderChatMessageType.TEXT,
-          text: 'Hello',
-          createdAt: new Date('2025-05-10T12:00:00Z'),
+          id: 'order-a',
+          status: OrderStatus.BRIEF_ACCEPTED,
+          packageNameSnapshot: 'UGC 60s',
+          updatedAt: new Date('2025-05-01T00:00:00Z'),
+          lastChatActivityAt: new Date('2025-05-01T00:00:00Z'),
+          lastChatMessageId: null,
+          lastChatMessageSenderUserId: null,
+          lastChatMessageType: null,
+          lastChatMessageText: null,
+          brand: { id: 'brand-1', brandName: 'Acme', logoUrl: null },
         },
-      ]);
-      prisma.orderChatReadState.findMany.mockResolvedValue([]);
-      prisma.orderChatMessage.count.mockResolvedValue(1);
+      ];
+      prisma.$transaction.mockResolvedValue([2, pageRows]);
+      prisma.$queryRaw.mockResolvedValue([{ orderId: 'order-b', count: 1 }]);
 
       const result = await service.listChatsForCreator({
         creatorUserId: 'user-1',
@@ -68,6 +66,13 @@ describe('ChatsService', () => {
       expect(result.items[0].unreadCount).toBe(1);
       expect(result.items[1].orderId).toBe('order-a');
       expect(result.items[1].lastMessage).toBeUndefined();
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { lastChatActivityAt: 'desc' },
+          skip: 0,
+          take: 20,
+        }),
+      );
     });
 
     it('throws when creator profile is missing', async () => {
@@ -84,12 +89,17 @@ describe('ChatsService', () => {
         brand: { id: 'brand-1' },
       });
       brandAccess.resolveBrandActorUserIdForProfile.mockResolvedValue('agency-owner');
-      const orders = [
+      const pageRows = [
         {
           id: 'order-1',
           status: OrderStatus.ACCEPTED,
           packageNameSnapshot: 'Package',
           updatedAt: new Date('2025-05-03T00:00:00Z'),
+          lastChatActivityAt: new Date('2025-05-03T00:00:00Z'),
+          lastChatMessageId: null,
+          lastChatMessageSenderUserId: null,
+          lastChatMessageType: null,
+          lastChatMessageText: null,
           creator: {
             id: 'creator-1',
             displayName: 'Riya',
@@ -98,10 +108,8 @@ describe('ChatsService', () => {
           },
         },
       ];
-      prisma.$transaction.mockResolvedValue([1, orders]);
-      prisma.orderChatMessage.findMany.mockResolvedValue([]);
-      prisma.orderChatReadState.findMany.mockResolvedValue([]);
-      prisma.orderChatMessage.count.mockResolvedValue(0);
+      prisma.$transaction.mockResolvedValue([1, pageRows]);
+      prisma.$queryRaw.mockResolvedValue([]);
 
       const result = await service.listChatsForBrand({
         actorUserId: 'agency-owner',

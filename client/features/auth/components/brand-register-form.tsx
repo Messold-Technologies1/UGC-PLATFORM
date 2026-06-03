@@ -38,7 +38,7 @@ import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immedi
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 
-const PHONE_E164_REGEX = /^\+\d{8,15}$/;
+// const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -205,7 +205,7 @@ export function BrandRegisterForm() {
     },
   });
 
-  const normalizedPhone = normalizePhoneForSignup(phoneInput);
+  // const normalizedPhone = normalizePhoneForSignup(phoneInput);
 
   const pendingSubmit = submitStatus !== "idle";
   const pendingAny = pendingSubmit;
@@ -633,7 +633,7 @@ export function BrandRegisterForm() {
               <div className="space-y-3">
                 <div>
                   <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                    Brand Logo <span className="text-red-500">*</span>
+                    Brand Logo
                   </Label>
                   <p className="mt-1 text-xs text-slate-500">
                     Upload your brand's logo directly.
@@ -650,7 +650,7 @@ export function BrandRegisterForm() {
                     <Upload className="size-3.5" />
                     Upload file
                   </button>
-                  <button
+                  {/* <button
                     type="button"
                     disabled
                     title="Drive link uploads are coming soon"
@@ -665,7 +665,7 @@ export function BrandRegisterForm() {
                       <path d="M12.01 2.25 2.61 18.52h6.14l6.33-10.96-3.07-5.31Zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56Zm-15.53-2.02 3.07-5.31 9.4 16.28h-6.14l-6.33-10.97Z" />
                     </svg>
                     Drive link
-                  </button>
+                  </button> */}
                 </div>
 
                 <div

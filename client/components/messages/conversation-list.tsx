@@ -1,4 +1,4 @@
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, AlertCircle, WifiOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -82,6 +82,12 @@ export function ConversationList({
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col">
+          {error && conversations.length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 mx-2 mt-2 mb-1 text-xs font-medium text-amber-600 bg-amber-500/10 rounded-md border border-amber-500/20">
+              <WifiOff className="size-3.5 shrink-0" />
+              <span>Offline. Showing cached conversations.</span>
+            </div>
+          )}
           {isLoading ? (
             Array.from({ length: 6 }).map((_, index) => (
               <div
@@ -95,8 +101,12 @@ export function ConversationList({
                 </div>
               </div>
             ))
-          ) : error ? (
-            <div className="px-4 py-6 text-sm text-destructive">{error}</div>
+          ) : error && conversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground min-h-[200px] gap-2">
+              <AlertCircle className="size-8 opacity-20 text-destructive" />
+              <p className="text-sm font-medium">Unable to load conversations</p>
+              <p className="text-xs">Please check your connection and try again.</p>
+            </div>
           ) : conversations.length === 0 ? (
             <div className="px-4 py-6 text-sm text-muted-foreground">
               No order conversations yet.

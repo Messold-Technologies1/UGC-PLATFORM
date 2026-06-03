@@ -77,6 +77,7 @@ export function useCreatorsListQuery({
     staleTime: initialData ? 5 * 60_000 : 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    retry: 1,
   });
 }
 
@@ -113,5 +114,6 @@ export function useInfiniteCreatorsListQuery({
     staleTime: initialData ? 5 * 60_000 : 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    retry: 1,
   });
 }

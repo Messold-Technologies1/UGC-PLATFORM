@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MessageSquare } from "lucide-react";
 import { useMessagesQuery } from "../hooks/use-messages-query";
 import { MessagesConversationList } from "./messages-conversation-list";
@@ -9,14 +9,26 @@ import { MessagesInfoPanel } from "./messages-info-panel";
 import type { MessageConversation } from "../mock/messages-mock-data";
 
 export function MessagesPage() {
-  const { conversations, isLoading } = useMessagesQuery();
+  const { conversations: rawConversations, isLoading } = useMessagesQuery();
+
+  const conversations = useMemo(() => {
+    return rawConversations.map((conv) => ({
+      ...conv,
+      isChatLocked:
+        conv.isChatLocked ||
+        ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(
+          conv.status.toUpperCase(),
+        ),
+    }));
+  }, [rawConversations]);
+
   const [selected, setSelected] = useState<MessageConversation | null>(null);
 
   useEffect(() => {
     if (conversations.length > 0 && selected === null) {
       setSelected(conversations[0]);
     }
-  }, [conversations]);
+  }, [conversations, selected]);
 
   if (isLoading) {
     return (

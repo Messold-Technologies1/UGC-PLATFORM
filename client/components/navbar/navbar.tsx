@@ -2,12 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore} from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
-  Menu, X, User, Moon, Sun, Info,
-  Users, ShoppingCart, Briefcase, UserCheck, Settings, Package, Activity, FileText, ChevronDown, MessageSquare, type LucideIcon
+  Menu,
+  X,
+  User,
+  Moon,
+  Sun,
+  Info,
+  Users,
+  ShoppingCart,
+  Briefcase,
+  UserCheck,
+  Settings,
+  Package,
+  Activity,
+  FileText,
+  ChevronDown,
+  MessageSquare,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,8 +42,6 @@ import { NotificationDropdown } from "@/components/navbar/notification-dropdown"
 import { BrandSwitcher } from "@/features/brand/components/brand-switcher";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
-
-
 
 interface NavItem {
   href?: string;
@@ -60,11 +73,31 @@ const roleConfigs: Record<string, NavItem[]> = {
       label: "Activity",
       icon: Activity,
       children: [
-        { href: "/admin/approvals", label: "Creator Approval", icon: UserCheck, description: "Review and approve new creator applications." },
-        { href: "/admin/creatorManagement", label: "Creator Management", icon: Users, description: "Manage existing creators and their profiles." },
-        { href: "/admin/brandManagement", label: "Brand Management", icon: Users, description: "Manage brand accounts and settings." },
-        { href: "/admin/orderManagement", label: "Order Management", icon: Package, description: "Oversee platform orders and transactions." },
-      ]
+        {
+          href: "/admin/approvals",
+          label: "Creator Approval",
+          icon: UserCheck,
+          description: "Review and approve new creator applications.",
+        },
+        {
+          href: "/admin/creatorManagement",
+          label: "Creator Management",
+          icon: Users,
+          description: "Manage existing creators and their profiles.",
+        },
+        {
+          href: "/admin/brandManagement",
+          label: "Brand Management",
+          icon: Users,
+          description: "Manage brand accounts and settings.",
+        },
+        {
+          href: "/admin/orderManagement",
+          label: "Order Management",
+          icon: Package,
+          description: "Oversee platform orders and transactions.",
+        },
+      ],
     },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
@@ -78,8 +111,16 @@ function getNavItems(pathname: string): NavItem[] {
 function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (item.match) return item.match(pathname);
   if (item.href && pathname === item.href) return true;
-  if (item.href && item.href.length > 1 && pathname.startsWith(`${item.href}/`)) return true;
-  if (item.children?.some(child => pathname === child.href || (child.href.length > 1 && pathname.startsWith(`${child.href}/`)))) return true;
+  if (item.href && item.href.length > 1 && pathname.startsWith(`${item.href}/`))
+    return true;
+  if (
+    item.children?.some(
+      (child) =>
+        pathname === child.href ||
+        (child.href.length > 1 && pathname.startsWith(`${child.href}/`)),
+    )
+  )
+    return true;
   return false;
 }
 
@@ -88,7 +129,9 @@ export function Navbar() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const pathname = usePathname();
 
-  const isPendingCreator = !!(user?.hasCreatorProfile && !user?.roles?.includes("CREATOR"));
+  const isPendingCreator = !!(
+    user?.hasCreatorProfile && !user?.roles?.includes("CREATOR")
+  );
 
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -103,7 +146,7 @@ export function Navbar() {
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious() ?? 0;
-    
+
     if (mobileOpen) return;
 
     if (latest > 100 && latest > previous) {
@@ -116,22 +159,24 @@ export function Navbar() {
   return (
     <motion.header
       variants={{
-        visible: { 
+        visible: {
           y: 0,
-          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 }
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 },
         },
-        hidden: { 
+        hidden: {
           y: "-150%",
-          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 }
-        }
+          transition: { type: "spring", stiffness: 260, damping: 20, mass: 1 },
+        },
       }}
       animate={hidden ? "hidden" : "visible"}
       className="sticky top-4 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
     >
-      <div className={cn(
-        "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
-        mobileOpen ? "rounded-2xl" : "rounded-[24px] md:rounded-full",
-      )}>
+      <div
+        className={cn(
+          "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
+          mobileOpen ? "rounded-2xl" : "rounded-[24px] md:rounded-full",
+        )}
+      >
         <div className="relative flex h-12 w-full items-center justify-between overflow-visible px-4 sm:px-6">
           <div className="flex shrink-0 items-center gap-6 overflow-visible lg:gap-8">
             <Link
@@ -152,13 +197,13 @@ export function Navbar() {
               />
             </Link>
           </div>
-           
-          {navItems.length > 0 && (
+
+          {navItems.length > 0 ? (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <nav className="hidden md:flex items-center gap-1">
                 {navItems.map((item) => {
                   const isActive = isNavItemActive(pathname || "", item);
-                  
+
                   if (item.children) {
                     return (
                       <div key={item.label} className="group relative">
@@ -167,24 +212,28 @@ export function Navbar() {
                             "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
                             isActive
                               ? "text-primary bg-primary/10"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
                           )}
                         >
                           <item.icon className="size-4" />
                           <span>{item.label}</span>
                           <ChevronDown className="size-3 opacity-50 transition-transform group-hover:rotate-180" />
                         </button>
-                        
+
                         <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 pointer-events-none opacity-0 translate-y-2 group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-50">
                           <div className="w-[960px] max-w-[95vw] rounded-[2rem] bg-[#f7f7f7] shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:bg-slate-950 border border-border/50 overflow-hidden flex p-6 gap-6 items-stretch">
-                            
-                            {/* Left Section */}
                             <div className="flex-1 flex flex-col justify-start pt-1 pl-2">
                               {/* <div className="text-sm text-muted-foreground mb-4 px-4">By feature</div> */}
                               <div className="grid grid-cols-2 gap-2">
                                 {item.children.map((child) => (
-                                  <Link key={child.href} href={child.href} className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm">
-                                    <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">{child.label}</div>
+                                  <Link
+                                    key={child.href}
+                                    href={child.href}
+                                    className="group/link block p-4 rounded-3xl hover:bg-white dark:hover:bg-white/10 transition-all hover:shadow-sm"
+                                  >
+                                    <div className="font-semibold text-foreground mb-1 group-hover/link:text-primary transition-colors">
+                                      {child.label}
+                                    </div>
                                     <div className="text-sm text-muted-foreground leading-relaxed">
                                       {child.description}
                                     </div>
@@ -192,51 +241,6 @@ export function Navbar() {
                                 ))}
                               </div>
                             </div>
-
-                            {/* Right Section - Blue Card */}
-                            {/* <div className="w-[300px] shrink-0 flex flex-col">
-                              <div className="bg-[#c2e2ff] dark:bg-blue-900/40 rounded-3xl p-5 flex flex-col relative overflow-hidden h-full">
-                                <div className="relative z-10 mb-3">
-                                  <div className="text-sm text-blue-900/80 dark:text-blue-200 mb-0.5">Now Live:</div>
-                                  <div className="text-[24px] leading-tight font-medium text-blue-950 dark:text-blue-50 tracking-tight">CreativeOps</div>
-                                </div>
-                                
-                                <div className="flex flex-col gap-2 relative z-10">
-                                 
-                                  <div className="bg-white/95 dark:bg-slate-800/90 rounded-[16px] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
-                                    <div className="text-[13px] font-semibold text-foreground mb-0.5">Brief</div>
-                                    <div className="text-[10px] text-muted-foreground mb-2">New Year, New Me</div>
-                                    <div className="h-1 bg-gray-200 dark:bg-slate-700 rounded-full w-full mb-1.5"></div>
-                                    <div className="h-1 bg-gray-200 dark:bg-slate-700 rounded-full w-2/3"></div>
-                                  </div>
-                                  
-                                 
-                                  <div className="bg-white/95 dark:bg-slate-800/90 rounded-[16px] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex items-center gap-3">
-                                    <div className="size-8 bg-blue-50 dark:bg-blue-900/50 rounded-lg shrink-0 flex items-center justify-center">
-                                      <Package className="size-4 text-blue-500 dark:text-blue-400" />
-                                    </div>
-                                    <div>
-                                      <div className="text-[13px] font-semibold text-foreground">Product</div>
-                                      <div className="text-[10px] text-muted-foreground">Skincare Set</div>
-                                    </div>
-                                  </div>
-
-                                  
-                                  <div className="bg-white/95 dark:bg-slate-800/90 rounded-[16px] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                      <span className="text-[13px] font-semibold text-foreground">Creators</span>
-                                      <span className="text-[8px] bg-[#dcfce7] text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">99% match</span>
-                                    </div>
-                                    <div className="flex -space-x-1.5">
-                                      <div className="size-5 rounded-full bg-slate-200 dark:bg-slate-600 border-2 border-white dark:border-slate-800"></div>
-                                      <div className="size-5 rounded-full bg-slate-300 dark:bg-slate-500 border-2 border-white dark:border-slate-800"></div>
-                                      <div className="size-5 rounded-full bg-slate-400 dark:bg-slate-400 border-2 border-white dark:border-slate-800"></div>
-                                      <div className="size-5 rounded-full bg-[#dcfce7] dark:bg-green-900/50 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[8px] text-green-700 dark:text-green-400 font-bold z-10">+50</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div> */}
                           </div>
                         </div>
                       </div>
@@ -252,7 +256,7 @@ export function Navbar() {
                         "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
                         isActive
                           ? "text-primary bg-primary/10"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
                       )}
                     >
                       <item.icon className="size-4" />
@@ -262,227 +266,236 @@ export function Navbar() {
                 })}
               </nav>
             </div>
-          )}
-        <div className="hidden items-center gap-2 md:flex shrink-0">
-          {/* <ThemeToggle /> */}
-          {!mounted || isLoading ? (
-            <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
-          ) : isAuthenticated ? (
-            <>
-              {isPendingCreator && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center text-amber-500 hover:text-amber-600 transition-colors cursor-help px-2">
-                      <Info className="size-5" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Your profile is under review</TooltipContent>
-                </Tooltip>
-              )}
-              {(pathname === "/brand" ||
-                pathname.startsWith("/brand/")) && (
-                <BrandSwitcher />
-              )}
-              <NotificationDropdown />
-              <NavbarProfileMenu />
-            </>
-          ) : (
-            <>
-              <Button asChild variant="outline" size="sm" className="font-heading">
-                <Link href="/login" prefetch>
-                  Log in
-                </Link>
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="bg-foreground border-0 text-background hover:opacity-90 font-heading"
-                  >
-                    Get Started
-                    <ChevronDown className="ml-1 size-3 opacity-70" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 font-heading rounded-xl">
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/register/creator" className="w-full">
-                      <User className="mr-2 size-4 opacity-70" />
-                      As a Creator
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/register/brand" className="w-full">
-                      <Briefcase className="mr-2 size-4 opacity-70" />
-                      As a Brand
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="#" className="w-full">
-                      <Users className="mr-2 size-4 opacity-70" />
-                      As Agency
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 md:hidden">
-          {isPendingCreator && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center mr-1 text-amber-500 cursor-help">
-                  <Info className="size-5" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Your profile is under review</TooltipContent>
-            </Tooltip>
-          )}
-          {isAuthenticated && <NotificationDropdown />}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setMobileOpen((v) => !v)}
-                aria-label="Toggle menu"
-                aria-expanded={mobileOpen}
-                aria-controls="mobile-nav"
-              >
-                {mobileOpen ? (
-                  <X className="size-5" />
-                ) : (
-                  <Menu className="size-5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{mobileOpen ? "Close menu" : "Open menu"}</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
-      <div
-        id="mobile-nav"
-        role="navigation"
-        aria-label="Mobile navigation"
-        className={cn(
-          "grid transition-[grid-template-rows] duration-300 md:hidden",
-          mobileOpen ? "grid-rows-[1fr] border-t border-border/60" : "grid-rows-[0fr] border-t-0"
-        )}
-      >
-        <div className="overflow-hidden">
-          <div className="flex flex-col gap-1 px-4 py-3 max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto">
-            {navItems.length > 0 && (
-            <>
-              {navItems.map((item) => {
-                const isActive = isNavItemActive(pathname || "", item);
-                if (item.children) {
-                  return (
-                    <div key={item.label} className="flex flex-col gap-1">
-                      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
-                        {item.label}
-                      </div>
-                      {item.children.map(child => {
-                        const isChildActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            prefetch
-                            onClick={() => setMobileOpen(false)}
-                            className={cn(
-                              "flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading transition-colors",
-                              isChildActive
-                                ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                            )}
-                          >
-                            <child.icon className="size-4" />
-                            {child.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-                return (
-                  <Link
-                    key={item.href || item.label}
-                    href={item.href || "#"}
-                    prefetch
-                    onClick={() => setMobileOpen(false)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading transition-colors",
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="size-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-              <div className="my-2 h-px bg-border/60" />
-            </>
-          )}
-
-          {!mounted || isLoading ? (
-            <div className="px-3 py-2">
-              <div className="h-7 w-32 animate-pulse rounded-lg bg-muted" />
-            </div>
-          ) : isAuthenticated ? (
-            <div className="px-3 py-2">
-              <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
-            </div>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                prefetch
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-              >
-                Log in
-              </Link>
-              <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
-                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
-                  Get Started
-                </div>
+          ) : (!isAuthenticated && !isLoading && mounted) ? (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <nav className="hidden md:flex items-center gap-1">
                 <Link
                   href="/register/creator"
                   prefetch
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
-                  <User className="size-4 opacity-70" />
-                  As a Creator
+                  <User className="size-4" />
+                  <span>As Creators</span>
                 </Link>
                 <Link
                   href="/register/brand"
                   prefetch
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
-                  <Briefcase className="size-4 opacity-70" />
-                  As a Brand
+                  <Briefcase className="size-4" />
+                  <span>As Brands</span>
                 </Link>
-                <Link
+                {/* <Link
                   href="#"
                   prefetch
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
-                  <Users className="size-4 opacity-70" />
-                  As Agency
-                </Link>
-              </div>
-            </>
-          )}
+                  <Users className="size-4" />
+                  <span>For Agencies</span>
+                </Link> */}
+              </nav>
+            </div>
+          ) : null}
+          <div className="hidden items-center gap-2 md:flex shrink-0">
+            {!mounted || isLoading ? (
+              <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
+            ) : isAuthenticated ? (
+              <>
+                {isPendingCreator && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center text-amber-500 hover:text-amber-600 transition-colors cursor-help px-2">
+                        <Info className="size-5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Your profile is under review
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {(pathname === "/brand" || pathname.startsWith("/brand/")) && (
+                  <BrandSwitcher />
+                )}
+                <NotificationDropdown />
+                <NavbarProfileMenu />
+              </>
+            ) : (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="font-heading"
+                >
+                  <Link href="/login" prefetch>
+                    Log in
+                  </Link>
+                </Button>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 md:hidden">
+            {isPendingCreator && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center mr-1 text-amber-500 cursor-help">
+                    <Info className="size-5" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Your profile is under review</TooltipContent>
+              </Tooltip>
+            )}
+            {isAuthenticated && <NotificationDropdown />}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setMobileOpen((v) => !v)}
+                  aria-label="Toggle menu"
+                  aria-expanded={mobileOpen}
+                  aria-controls="mobile-nav"
+                >
+                  {mobileOpen ? (
+                    <X className="size-5" />
+                  ) : (
+                    <Menu className="size-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {mobileOpen ? "Close menu" : "Open menu"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-      </div>
-      </div>
+
+        <div
+          id="mobile-nav"
+          role="navigation"
+          aria-label="Mobile navigation"
+          className={cn(
+            "grid transition-[grid-template-rows] duration-300 md:hidden",
+            mobileOpen
+              ? "grid-rows-[1fr] border-t border-border/60"
+              : "grid-rows-[0fr] border-t-0",
+          )}
+        >
+          <div className="overflow-hidden">
+            <div className="flex flex-col gap-1 px-4 py-3 max-h-[min(100dvh-5.25rem,28rem)] overflow-y-auto">
+              {navItems.length > 0 && (
+                <>
+                  {navItems.map((item) => {
+                    const isActive = isNavItemActive(pathname || "", item);
+                    if (item.children) {
+                      return (
+                        <div key={item.label} className="flex flex-col gap-1">
+                          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                            {item.label}
+                          </div>
+                          {item.children.map((child) => {
+                            const isChildActive =
+                              pathname === child.href ||
+                              pathname.startsWith(`${child.href}/`);
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                prefetch
+                                onClick={() => setMobileOpen(false)}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading transition-colors",
+                                  isChildActive
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                                )}
+                              >
+                                <child.icon className="size-4" />
+                                {child.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={item.href || item.label}
+                        href={item.href || "#"}
+                        prefetch
+                        onClick={() => setMobileOpen(false)}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading transition-colors",
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
+                      >
+                        <item.icon className="size-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                  <div className="my-2 h-px bg-border/60" />
+                </>
+              )}
+
+              {!mounted || isLoading ? (
+                <div className="px-3 py-2">
+                  <div className="h-7 w-32 animate-pulse rounded-lg bg-muted" />
+                </div>
+              ) : isAuthenticated ? (
+                <div className="px-3 py-2">
+                  <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
+                </div>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Log in
+                  </Link>
+                  <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
+                    <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                      Get Started
+                    </div>
+                    <Link
+                      href="/register/creator"
+                      prefetch
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <User className="size-4 opacity-70" />
+                      As a Creator
+                    </Link>
+                    <Link
+                      href="/register/brand"
+                      prefetch
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <Briefcase className="size-4 opacity-70" />
+                      As a Brand
+                    </Link>
+                    <Link
+                      href="#"
+                      prefetch
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <Users className="size-4 opacity-70" />
+                      As Agency
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </motion.header>
   );

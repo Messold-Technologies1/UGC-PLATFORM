@@ -101,7 +101,7 @@ export function YourActionRequiredCard({
 
   function handleRequestRevision() {
     if (!canRequestRevision || isRevisionPending) return;
-    revisionMutation.mutate({ orderId });
+    revisionMutation.mutate({ orderId, note: trimmedRevisionNote });
   }
 
   if (isAccepted) {

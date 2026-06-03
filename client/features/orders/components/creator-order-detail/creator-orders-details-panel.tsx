@@ -53,27 +53,32 @@ interface TimelineStep {
 }
 
 function buildTimelineSteps(
-  order: {
-    status?: string;
-    briefAcceptedAt?: string | null;
-    requiresPhysicalProductShipment?: boolean;
-    dispatchedAt?: string | null;
-    productReceivedAt?: string | null;
-    deliveredAt?: string | null;
-    acceptedAt?: string | null;
-    creatorPaidAt?: string | null;
-    revisionCount?: number;
-  } | null | undefined,
-  briefData: {
-    briefAcceptedAt?: string | null;
-  } | null | undefined,
+  order:
+    | {
+        status?: string;
+        briefAcceptedAt?: string | null;
+        requiresPhysicalProductShipment?: boolean;
+        dispatchedAt?: string | null;
+        productReceivedAt?: string | null;
+        deliveredAt?: string | null;
+        acceptedAt?: string | null;
+        creatorPaidAt?: string | null;
+        revisionCount?: number;
+      }
+    | null
+    | undefined,
+  briefData:
+    | {
+        briefAcceptedAt?: string | null;
+      }
+    | null
+    | undefined,
 ): TimelineStep[] {
   const acceptedAt = order?.briefAcceptedAt ?? briefData?.briefAcceptedAt;
   const requiresShipment = order?.requiresPhysicalProductShipment ?? false;
 
   const steps: TimelineStep[] = [];
 
-  // 1 — Brief Accepted
   steps.push({
     id: "accepted",
     label: "Brief Accepted",
@@ -83,7 +88,6 @@ function buildTimelineSteps(
     status: acceptedAt ? "completed" : "pending",
   });
 
-  // 2 & 3 — Shipping steps (only when physical product involved)
   if (requiresShipment) {
     steps.push({
       id: "shipped",
@@ -104,7 +108,6 @@ function buildTimelineSteps(
     });
   }
 
-  // 4 — In Progress
   const inProgressReached = requiresShipment
     ? Boolean(order?.productReceivedAt)
     : Boolean(acceptedAt);
@@ -117,7 +120,6 @@ function buildTimelineSteps(
     status: inProgressReached ? "completed" : "pending",
   });
 
-  // 5 — Delivered
   steps.push({
     id: "delivered",
     label: "Delivered",
@@ -127,7 +129,6 @@ function buildTimelineSteps(
     status: order?.deliveredAt ? "completed" : "pending",
   });
 
-  // 5b — Revision Requested (only shown when relevant)
   const revisionStatuses = ["REVISION_REQUESTED", "REVISION_SUBMITTED"];
   const hasRevision =
     (order?.revisionCount && order.revisionCount > 0) ||
@@ -146,7 +147,6 @@ function buildTimelineSteps(
     });
   }
 
-  // 6 — Completed
   const completedAt = order?.acceptedAt ?? order?.creatorPaidAt;
   steps.push({
     id: "completed",
@@ -155,8 +155,6 @@ function buildTimelineSteps(
     status: completedAt ? "completed" : "pending",
   });
 
-  // Mark the first pending step as "current" — but only if the brief
-  // has been accepted (otherwise the timeline hasn't started yet).
   if (acceptedAt) {
     const firstPendingIdx = steps.findIndex((s) => s.status === "pending");
     if (firstPendingIdx !== -1) {
@@ -412,7 +410,9 @@ export function CreatorOrdersDetailsPanel({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Style</span>
                 <span className="font-medium text-foreground text-right">
-                  {briefData?.brief?.toneStyle?.length ? fmtEnum(briefData.brief.toneStyle) : "Standard"}
+                  {briefData?.brief?.toneStyle?.length
+                    ? fmtEnum(briefData.brief.toneStyle)
+                    : "Standard"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -468,46 +468,46 @@ export function CreatorOrdersDetailsPanel({
         </div>
 
         <div className="space-y-4">
-            <h4 className="font-bold text-sm">Timeline</h4>
-            <div className="relative space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border/60">
-              {buildTimelineSteps(detailsData?.order, briefData).map((step) => (
-                <div key={step.id} className="relative flex items-start pl-8">
-                  <div className="absolute left-0 top-0.5 flex items-center justify-center bg-background ring-4 ring-background rounded-full">
-                    {step.status === "completed" ? (
-                      <div className="w-5 h-5 rounded-md bg-[#4318FF] flex items-center justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                      </div>
-                    ) : step.status === "current" ? (
-                      <div className="w-5 h-5 rounded-full bg-[#4318FF]/20 flex items-center justify-center ring-2 ring-[#4318FF]/40">
-                        <div className="w-2 h-2 rounded-full bg-[#4318FF]" />
-                      </div>
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-muted/50 flex items-center justify-center">
-                        <CheckCircle2 className="w-4 h-4 text-muted-foreground/40" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span
-                      className={cn(
-                        "text-sm font-semibold mb-0.5",
-                        step.status === "completed"
-                          ? "text-foreground"
-                          : step.status === "current"
-                            ? "text-foreground"
-                            : "text-muted-foreground",
-                      )}
-                    >
-                      {step.label}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground leading-snug">
-                      {step.desc}
-                    </span>
-                  </div>
+          <h4 className="font-bold text-sm">Timeline</h4>
+          <div className="relative space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border/60">
+            {buildTimelineSteps(detailsData?.order, briefData).map((step) => (
+              <div key={step.id} className="relative flex items-start pl-8">
+                <div className="absolute left-0 top-0.5 flex items-center justify-center bg-background ring-4 ring-background rounded-full">
+                  {step.status === "completed" ? (
+                    <div className="w-5 h-5 rounded-md bg-[#4318FF] flex items-center justify-center">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  ) : step.status === "current" ? (
+                    <div className="w-5 h-5 rounded-full bg-[#4318FF]/20 flex items-center justify-center ring-2 ring-[#4318FF]/40">
+                      <div className="w-2 h-2 rounded-full bg-[#4318FF]" />
+                    </div>
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-muted/50 flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4 text-muted-foreground/40" />
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-col">
+                  <span
+                    className={cn(
+                      "text-sm font-semibold mb-0.5",
+                      step.status === "completed"
+                        ? "text-foreground"
+                        : step.status === "current"
+                          ? "text-foreground"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground leading-snug">
+                    {step.desc}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
       </div>
 
       <div className="p-5 border-t border-border/40 flex items-center gap-3 bg-accent/20 mt-auto">
@@ -517,14 +517,6 @@ export function CreatorOrdersDetailsPanel({
         >
           <MessageSquare className="w-4 h-4 mr-2" />
           Message Brand
-        </Button>
-        <Button
-          asChild
-          className="flex-1 rounded-lg h-11 font-bold bg-[#4318FF] hover:bg-[#4318FF]/90 text-white shadow-md"
-        >
-          <Link href={`/creator/orders/${selectedOrderId}`}>
-            View Order Details
-          </Link>
         </Button>
       </div>
     </div>

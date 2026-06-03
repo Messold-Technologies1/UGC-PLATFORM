@@ -5,12 +5,7 @@ import {
   CheckCircle2,
   X,
   Clock,
-  Download,
   FileText,
-  CheckCircle,
-  Smartphone,
-  CreditCard,
-  ExternalLink,
   MessageSquare,
   Star,
   XCircle,
@@ -24,7 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 interface CreatorOrderNewRequestPanelProps {
@@ -102,7 +97,6 @@ export function CreatorOrderNewRequestPanel({
   const addOnsTotal = detailsData?.order?.addOnsTotalSnapshot
     ? parseFloat(detailsData.order.addOnsTotalSnapshot)
     : 0;
-  const platformFee = 0;
 
   return (
     <div className="bg-background rounded-lg border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-fit sticky top-24">

@@ -2,26 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Check,
-  Clock,
-  Copy,
-  ExternalLink,
-  FileVideo,
-  MessageSquare,
-  Package,
-  Truck,
-  Upload,
-  X,
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Check, Copy, FileVideo, Package, Truck, Upload } from "lucide-react";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+// import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { OrderChatWidget } from "../order-chat-widget";
+// import { OrderChatWidget } from "../order-chat-widget";
 import { useMarkProductReceivedMutation } from "../../hooks/use-mark-product-received-mutation";
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
@@ -53,8 +42,6 @@ const QUICK_TIPS = [
   "Keep it natural and authentic",
   "Follow the brand guidelines",
 ];
-
-
 
 function fmtDate(val?: string | null): string {
   if (!val) return "TBD";
@@ -405,12 +392,15 @@ function InProgressContent({
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
 
-  const [pendingUpload, setPendingUpload] = useState<{ type: 'draft' | 'final', files: File[] } | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<{
+    type: "draft" | "final";
+    files: File[];
+  } | null>(null);
 
   const deadline = selectedItem.order.deliveryDeadlineAt;
   const remaining = daysLeft(deadline);
 
-  function handleFileSelect(type: 'draft' | 'final') {
+  function handleFileSelect(type: "draft" | "final") {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
       const fileList = event.target.files;
       if (!fileList || fileList.length === 0 || !isCurrentStep) return;
@@ -442,8 +432,8 @@ function InProgressContent({
         onSuccess: () => {
           setPendingUpload(null);
           toast.success("Files uploaded successfully!");
-        }
-      }
+        },
+      },
     );
   }
 
@@ -475,7 +465,7 @@ function InProgressContent({
               className="hidden"
               accept="video/*,image/*"
               multiple
-              onChange={handleFileSelect('draft')}
+              onChange={handleFileSelect("draft")}
             />
             <input
               type="file"
@@ -483,13 +473,14 @@ function InProgressContent({
               className="hidden"
               accept="video/*,image/*"
               multiple
-              onChange={handleFileSelect('final')}
+              onChange={handleFileSelect("final")}
             />
 
             {pendingUpload ? (
               <div className="mt-4 p-4 rounded-lg border border-border/50 bg-muted/30 space-y-3 text-sm">
                 <div className="font-medium text-foreground">
-                  Ready to upload {pendingUpload.files.length} file(s) for {pendingUpload.type === 'draft' ? 'Draft' : 'Final Video'}
+                  Ready to upload {pendingUpload.files.length} file(s) for{" "}
+                  {pendingUpload.type === "draft" ? "Draft" : "Final Video"}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -654,7 +645,9 @@ export function CreatorOrderActivePanel({
       statusBadgeColor={statusColor}
       expectedAmount={expectedAmount}
       steps={steps}
-      viewingStepId={isViewingCurrentStep ? currentStepId : effectiveViewingStepId}
+      viewingStepId={
+        isViewingCurrentStep ? currentStepId : effectiveViewingStepId
+      }
     >
       {(effectiveViewingStepId === "awaiting_shipment" ||
         effectiveViewingStepId === "product_received") && (
@@ -697,8 +690,8 @@ export function CreatorOrderActivePanel({
               </div>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              You accepted this order and the brief. The order has
-              progressed to the next stage in the workflow.
+              You accepted this order and the brief. The order has progressed to
+              the next stage in the workflow.
             </p>
           </div>
           <OrderSummaryCard

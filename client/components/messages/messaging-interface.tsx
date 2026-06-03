@@ -144,7 +144,7 @@ function mapBrandChat(item: BrandChatListItemDto): OrderConversation {
       displayName: item.creator.displayName,
       city: item.creator.city,
     },
-    isChatLocked: item.isChatLocked,
+    isChatLocked: item.isChatLocked || ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(item.status.toUpperCase()),
   };
 }
 
@@ -171,7 +171,7 @@ function mapCreatorChat(item: CreatorChatListItemDto): OrderConversation {
       updatedAt: item.updatedAt,
     },
     brand: item.brand,
-    isChatLocked: item.isChatLocked,
+    isChatLocked: item.isChatLocked || ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(item.status.toUpperCase()),
   };
 }
 

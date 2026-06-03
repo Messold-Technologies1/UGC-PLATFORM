@@ -1,19 +1,9 @@
 "use client";
 
 import { useState, type MouseEvent, useMemo } from "react";
-// import Link from "next/link";
-import {
-  // Search,
-  // CalendarDays,
-  // CheckCircle2,
-  // X,
-  // ExternalLink,
-  // MessageSquare,
-  ChevronRight,
-} from "lucide-react";
+
+import { ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 import {
   Pagination,
@@ -33,8 +23,7 @@ import {
 } from "@/components/ui/select";
 
 import { useGetCreatorOrdersQuery } from "../../hooks/use-get-creator-orders-query";
-// import { useGetCreatorOrderDetailsQuery } from "../../hooks/use-get-creator-order-details-query";
-// import { useGetOrderBriefQuery } from "../../hooks/use-get-order-brief-query";
+import type { CreatorOrderListItem } from "../../api/get-creator-orders";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COLORS, STATUS_LABELS } from "../../constants";
@@ -51,20 +40,25 @@ export function CreatorOrdersList() {
 
   const { data, isLoading } = useGetCreatorOrdersQuery({ page: 1, limit: 50 });
 
-  const allItems = data?.items || [];
+  const allItems = useMemo<CreatorOrderListItem[]>(
+    () => data?.items ?? [],
+    [data?.items],
+  );
 
   const filteredItems = useMemo(() => {
     if (activeTab === "all") return allItems;
     const tabDef = TAB_DEFINITIONS.find((t) => t.id === activeTab);
     if (!tabDef) return allItems;
-    
+
     if (activeTab === "new") {
-      return allItems.filter((item: any) => 
-        Boolean(item.order.hasBrief) && tabDef.statuses.includes(item.order.status as string)
+      return allItems.filter(
+        (item) =>
+          Boolean(item.order.hasBrief) &&
+          tabDef.statuses.includes(item.order.status as string),
       );
     }
 
-    return allItems.filter((item: any) =>
+    return allItems.filter((item) =>
       tabDef.statuses.includes(item.order.status as string),
     );
   }, [allItems, activeTab]);
@@ -76,17 +70,11 @@ export function CreatorOrdersList() {
   const displayItems = isPaginatedTab ? paginatedItems : filteredItems;
 
   const selectedItem = useMemo(() => {
-    return allItems.find((item: any) => item.order.id === selectedOrderId);
+    return allItems.find((item) => item.order.id === selectedOrderId);
   }, [allItems, selectedOrderId]);
 
   return (
-    <div className="w-full mx-auto space-y-8 min-h-screen pb-4 pt-2">
-      {/* <section className="flex items-center justify-between gap-4 mb-2">
-        <h1 className="font-bold text-2xl tracking-tight">
-          Orders
-        </h1>
-      </section> */}
-
+    <div className="w-full mx-auto space-y-8 pb-4 pt-2">
       <CreatorOrdersTabs
         activeTab={activeTab}
         onTabChange={(tabId) => {
@@ -109,7 +97,10 @@ export function CreatorOrdersList() {
         )}
       >
         <div className="space-y-6">
-          <CreatorOrdersFilters activeTab={activeTab} isCompact={Boolean(selectedOrderId)} />
+          <CreatorOrdersFilters
+            activeTab={activeTab}
+            isCompact={Boolean(selectedOrderId)}
+          />
 
           <div className="space-y-3">
             {isLoading &&
@@ -145,10 +136,16 @@ export function CreatorOrdersList() {
             )}
 
             {!isLoading &&
-              displayItems.map(({ order, brand }: any, i: number) => {
+              displayItems.map(({ order, brand }) => {
                 const isSelected = selectedOrderId === order.id;
                 const isNarrowLayout = Boolean(
-                  selectedOrderId && (activeTab === "new" || activeTab === "active" || activeTab === "revisions" || activeTab === "delivered" || activeTab === "completed" || activeTab === "cancelled"),
+                  selectedOrderId &&
+                  (activeTab === "new" ||
+                    activeTab === "active" ||
+                    activeTab === "revisions" ||
+                    activeTab === "delivered" ||
+                    activeTab === "completed" ||
+                    activeTab === "cancelled"),
                 );
                 const displayId = `#${order.id.substring(0, 5).toUpperCase()}`;
 

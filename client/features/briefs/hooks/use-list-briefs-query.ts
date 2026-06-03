@@ -16,5 +16,6 @@ export function useListBriefsQuery(options?: UseListBriefsQueryOptions) {
     ...options,
     queryKey: briefsQueryKey,
     queryFn: listBriefs,
+    staleTime: options?.staleTime ?? 2 * 60_000,
   });
 }

@@ -12,5 +12,6 @@ export function usePendingApprovalsQuery(query?: PendingApprovalsQueryDto) {
   return useQuery({
     queryKey: pendingApprovalsQueryKey(query),
     queryFn: () => fetchPendingApprovals(query),
+    staleTime: 60_000,
   });
 }

@@ -14,5 +14,6 @@ export function useGetOrderBriefQuery(
     ...options,
     queryKey: ["orders", "brief", orderId],
     queryFn: () => getOrderBrief(orderId),
+    staleTime: options?.staleTime ?? 2 * 60_000,
   });
 }

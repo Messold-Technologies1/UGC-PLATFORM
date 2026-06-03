@@ -18,5 +18,6 @@ export function useGetBrandOrdersQuery(
     ...options,
     queryKey: ["orders", "brand", params],
     queryFn: () => getBrandOrders(params),
+    staleTime: options?.staleTime ?? 30_000,
   });
 }

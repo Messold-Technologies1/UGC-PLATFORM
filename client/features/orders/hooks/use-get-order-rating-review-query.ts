@@ -20,6 +20,7 @@ export function useGetOrderRatingReviewQuery(
     ...options,
     queryKey: orderRatingReviewQueryKey(orderId),
     queryFn: () => getOrderRatingReview(orderId),
+    staleTime: options?.staleTime ?? 5 * 60_000,
     enabled: Boolean(orderId) && (options?.enabled ?? true),
   });
 }

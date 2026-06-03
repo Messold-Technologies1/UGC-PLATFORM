@@ -40,11 +40,11 @@ export function CreatorOrderPanelLayout({
   viewingStepId,
   children,
 }: CreatorOrderPanelLayoutProps) {
-  const chatRef = useRef<HTMLDivElement>(null);
+  // const chatRef = useRef<HTMLDivElement>(null);
 
-  function handleContactBrand() {
-    chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  // function handleContactBrand() {
+  //   chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // }
 
   const amountDisplay =
     payoutAmountDisplay ??
@@ -94,16 +94,16 @@ export function CreatorOrderPanelLayout({
           </div>
 
           <div className="flex items-center gap-4 shrink-0">
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="font-bold text-lg leading-none mb-1 text-foreground">
+            <div className="hidden sm:flex flex-col justify-center items-end gap-1.5">
+              <span className="font-bold text-lg leading-none text-foreground">
                 {amountDisplay}
               </span>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider leading-none">
                 {payoutLabelDisplay}
               </span>
             </div>
 
-            <Button
+            {/* <Button
               variant="outline"
               className="rounded-lg h-9 text-xs font-semibold gap-1.5 border-border/50 text-primary hover:text-primary whitespace-nowrap"
               asChild
@@ -111,15 +111,17 @@ export function CreatorOrderPanelLayout({
               <Link href={`/creator/orders/${selectedOrderId}/brief`}>
                 View Brief <ExternalLink className="w-3.5 h-3.5" />
               </Link>
-            </Button>
+            </Button> */}
 
             <Button
               variant="outline"
-              className="rounded-lg h-9 text-xs font-semibold gap-1.5 border-border/50 whitespace-nowrap"
-              onClick={handleContactBrand}
+              className="rounded-lg h-9 px-3.5 text-xs font-semibold border-border/50 whitespace-nowrap"
+              asChild
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              Contact Brand
+              <Link href={`/creator/messages?orderId=${selectedOrderId}`} className="flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5" />
+                Contact Brand
+              </Link>
             </Button>
 
             <button
@@ -147,7 +149,7 @@ export function CreatorOrderPanelLayout({
         )}
       </div>
 
-      <div
+      {/* <div
         ref={chatRef}
         className="hidden xl:block w-[300px] shrink-0 relative"
       >
@@ -162,7 +164,7 @@ export function CreatorOrderPanelLayout({
             hideHeaderAvatar={true}
           />
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

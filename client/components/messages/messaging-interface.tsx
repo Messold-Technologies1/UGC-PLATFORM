@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Loader2, MessageSquare } from "lucide-react";
 import {
   MessagingConversation,
@@ -17,7 +16,6 @@ import {
 } from "./conversation-list";
 import type {
   BrandChatListItemDto,
-  ChatLastMessageDto,
   CreatorChatListItemDto,
 } from "@/features/chats/api/order-chats";
 import {
@@ -29,27 +27,15 @@ import type {
   OrderCreatorSnapshot,
 } from "@/features/orders/api/types";
 import {
-  fetchOrderChatMessages,
-  fetchOrderChatState,
-  markOrderChatRead,
-  type OrderChatMessageDto,
-  type OrderChatMessagesResponseDto,
-  type OrderChatStateDto,
-} from "@/features/orders/api/order-chat";
-import {
   getSortedOrderChatMessages,
-  orderChatMessagesQueryKey,
-  orderChatStateQueryKey,
+  useMarkOrderChatReadMutation,
+  useOrderChatMessagesInfiniteQuery,
+  useOrderChatRealtime,
+  useOrderChatStateQuery,
   useSendOrderChatMessageMutation,
   useSendOrderChatVoiceMessageMutation,
 } from "@/features/orders/hooks/use-order-chat";
-import { orderChatsBaseQueryKey } from "@/features/chats/hooks/use-order-chats-query";
 import { useAuth } from "@/providers/auth-provider";
-import { getSocket } from "@/lib/socket";
-import type {
-  OrderChatMessageEvent,
-  OrderChatReadUpdatedEvent,
-} from "@/lib/realtime-events";
 import { cn } from "@/lib/utils";
 
 interface MessagingInterfaceProps {
@@ -63,30 +49,10 @@ type ChatOrderSummary = {
   updatedAt: string;
 };
 
-type OrderThread = {
-  id: string;
-  name: string;
-  avatarText: string;
-  avatarUrl?: string | null;
-  avatarColor: string;
-  status: string;
-  subtitle?: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  latestActivityAt: string;
-  unreadCount: number;
+type OrderConversation = MessageListConversation & {
   order: ChatOrderSummary;
   brand?: OrderBrandSnapshot;
   creator?: OrderCreatorSnapshot;
-  isChatLocked: boolean;
-};
-
-type UserConversation = MessageListConversation & {
-  threads: OrderThread[];
-  brand?: OrderBrandSnapshot;
-  creator?: OrderCreatorSnapshot;
-  activeOrderId: string;
-  activeOrder?: ChatOrderSummary;
   isChatLocked: boolean;
 };
 
@@ -130,20 +96,8 @@ function shortOrderId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
-function formatLastMessage(
-  lastMessage: ChatLastMessageDto | undefined,
-  packageName: string,
-  orderId: string,
-) {
-  if (!lastMessage) {
-    return `${packageName} • Order #${shortOrderId(orderId)}`;
-  }
-
-  if (lastMessage.type === "VOICE") {
-    return "Voice message";
-  }
-
-  return lastMessage.previewText?.trim() || "Message";
+function formatOrderPreview(orderId: string) {
+  return `Order #${shortOrderId(orderId)}`;
 }
 
 function formatConversationTime(value?: string | null) {
@@ -163,7 +117,7 @@ function formatConversationTime(value?: string | null) {
   }).format(date);
 }
 
-function mapBrandChat(item: BrandChatListItemDto): OrderThread {
+function mapBrandChat(item: BrandChatListItemDto): OrderConversation {
   const name = item.creator.displayName || "Creator";
 
   return {
@@ -174,11 +128,10 @@ function mapBrandChat(item: BrandChatListItemDto): OrderThread {
     avatarColor: colorForId(item.creator.id),
     status: item.status,
     subtitle: item.packageName,
-    lastMessage: formatLastMessage(item.lastMessage, item.packageName, item.orderId),
+    lastMessage: formatOrderPreview(item.orderId),
     lastMessageTime: formatConversationTime(
       item.lastMessage?.createdAt ?? item.updatedAt,
     ),
-    latestActivityAt: item.lastMessage?.createdAt ?? item.updatedAt,
     unreadCount: item.unreadCount,
     order: {
       id: item.orderId,
@@ -195,7 +148,7 @@ function mapBrandChat(item: BrandChatListItemDto): OrderThread {
   };
 }
 
-function mapCreatorChat(item: CreatorChatListItemDto): OrderThread {
+function mapCreatorChat(item: CreatorChatListItemDto): OrderConversation {
   const name = item.brand.brandName || "Brand";
 
   return {
@@ -206,11 +159,10 @@ function mapCreatorChat(item: CreatorChatListItemDto): OrderThread {
     avatarColor: colorForId(item.brand.id),
     status: item.status,
     subtitle: item.packageName,
-    lastMessage: formatLastMessage(item.lastMessage, item.packageName, item.orderId),
+    lastMessage: formatOrderPreview(item.orderId),
     lastMessageTime: formatConversationTime(
       item.lastMessage?.createdAt ?? item.updatedAt,
     ),
-    latestActivityAt: item.lastMessage?.createdAt ?? item.updatedAt,
     unreadCount: item.unreadCount,
     order: {
       id: item.orderId,
@@ -221,68 +173,6 @@ function mapCreatorChat(item: CreatorChatListItemDto): OrderThread {
     brand: item.brand,
     isChatLocked: item.isChatLocked,
   };
-}
-
-function timestamp(value: string) {
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? 0 : time;
-}
-
-function buildUserConversations(
-  threads: OrderThread[],
-  role: "brand" | "creator",
-): UserConversation[] {
-  const byCounterparty = new Map<string, OrderThread[]>();
-
-  for (const thread of threads) {
-    const counterpartyId =
-      role === "brand" ? thread.creator?.id : thread.brand?.id;
-    if (!counterpartyId) continue;
-
-    const key = `${role === "brand" ? "creator" : "brand"}:${counterpartyId}`;
-    byCounterparty.set(key, [...(byCounterparty.get(key) ?? []), thread]);
-  }
-
-  return Array.from(byCounterparty.entries())
-    .map(([id, groupThreads]) => {
-      const sortedThreads = [...groupThreads].sort(
-        (first, second) =>
-          timestamp(second.latestActivityAt) - timestamp(first.latestActivityAt),
-      );
-      const latestThread = sortedThreads[0];
-      const activeThread =
-        sortedThreads.find((thread) => !thread.isChatLocked) ?? latestThread;
-
-      return {
-        id,
-        name: latestThread.name,
-        avatarText: latestThread.avatarText,
-        avatarUrl: latestThread.avatarUrl,
-        avatarColor: latestThread.avatarColor,
-        status: latestThread.status,
-        subtitle:
-          sortedThreads.length > 1
-            ? `${sortedThreads.length} order chats`
-            : latestThread.subtitle,
-        lastMessage: latestThread.lastMessage,
-        lastMessageTime: latestThread.lastMessageTime,
-        unreadCount: sortedThreads.reduce(
-          (total, thread) => total + thread.unreadCount,
-          0,
-        ),
-        threads: sortedThreads,
-        brand: latestThread.brand,
-        creator: latestThread.creator,
-        activeOrderId: activeThread.order.id,
-        activeOrder: activeThread.order,
-        isChatLocked: sortedThreads.every((thread) => thread.isChatLocked),
-      };
-    })
-    .sort(
-      (first, second) =>
-        timestamp(second.threads[0]?.latestActivityAt ?? "") -
-        timestamp(first.threads[0]?.latestActivityAt ?? ""),
-    );
 }
 
 function isMessageReadByOther(
@@ -298,269 +188,78 @@ function isMessageReadByOther(
   return messageDate <= readDate;
 }
 
-const GROUPED_CHAT_MESSAGES_LIMIT = 50;
-
-function sortChatMessagesAscending(
-  first: OrderChatMessageDto,
-  second: OrderChatMessageDto,
-) {
-  const firstDate = new Date(first.createdAt).getTime();
-  const secondDate = new Date(second.createdAt).getTime();
-
-  if (firstDate !== secondDate) {
-    return firstDate - secondDate;
-  }
-
-  return first.id.localeCompare(second.id);
-}
-
-function ActiveUserConversation({
+function ActiveOrderConversation({
   conversation,
   role,
   onBack,
 }: {
-  conversation: UserConversation;
+  conversation: OrderConversation;
   role: "brand" | "creator";
   onBack: () => void;
 }) {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const orderIds = useMemo(
-    () => conversation.threads.map((thread) => thread.order.id),
-    [conversation.threads],
+  const orderId = conversation.order.id;
+  const stateQuery = useOrderChatStateQuery(orderId);
+  const messagesQuery = useOrderChatMessagesInfiniteQuery(orderId);
+  const markReadMutation = useMarkOrderChatReadMutation(orderId);
+  const lastReadAttemptRef = useRef<string | null>(null);
+
+  const state = stateQuery.data;
+  const rawMessages = useMemo(
+    () => getSortedOrderChatMessages(messagesQuery.data?.pages),
+    [messagesQuery.data?.pages],
   );
-  const activeThread =
-    conversation.threads.find(
-      (thread) => thread.order.id === conversation.activeOrderId,
-    ) ?? conversation.threads[0];
-  const activeOrderId = activeThread?.order.id ?? "";
 
-  const stateQueries = useQueries({
-    queries: orderIds.map((orderId) => ({
-      queryKey: orderChatStateQueryKey(orderId),
-      queryFn: () => fetchOrderChatState(orderId),
-      enabled: Boolean(orderId),
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-    })),
-  });
-
-  const messageQueries = useQueries({
-    queries: orderIds.map((orderId) => ({
-      queryKey: orderChatMessagesQueryKey(orderId, GROUPED_CHAT_MESSAGES_LIMIT),
-      queryFn: () =>
-        fetchOrderChatMessages(orderId, {
-          limit: GROUPED_CHAT_MESSAGES_LIMIT,
-        }),
-      enabled: Boolean(orderId),
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-    })),
-  });
-
-  const stateByOrderId = useMemo(() => {
-    const map = new Map<string, OrderChatStateDto>();
-
-    stateQueries.forEach((query, index) => {
-      if (query.data) {
-        map.set(orderIds[index], query.data as OrderChatStateDto);
-      }
-    });
-
-    return map;
-  }, [orderIds, stateQueries]);
-
-  const rawMessages = useMemo(() => {
-    const byId = new Map<string, OrderChatMessageDto>();
-
-    messageQueries.forEach((query) => {
-      const data = query.data as OrderChatMessagesResponseDto | undefined;
-      for (const message of getSortedOrderChatMessages(
-        data ? [data] : undefined,
-      )) {
-        byId.set(message.id, message);
-      }
-    });
-
-    return Array.from(byId.values()).sort(sortChatMessagesAscending);
-  }, [messageQueries]);
-
-  const activeState = activeOrderId
-    ? stateByOrderId.get(activeOrderId)
-    : undefined;
-  const firstState = stateQueries.find((query) => query.data)?.data as
-    | OrderChatStateDto
-    | undefined;
-  const state = activeState ?? firstState;
-
-  const activeOrder = activeThread?.order ?? conversation.activeOrder;
   const viewerUserId = state
     ? role === "brand"
       ? state.brandUserId
       : state.creatorUserId
     : undefined;
+  const viewerLastReadMessageId = state
+    ? role === "brand"
+      ? state.brandLastReadMessageId
+      : state.creatorLastReadMessageId
+    : undefined;
+  const otherLastReadAt = state
+    ? role === "brand"
+      ? state.creatorLastReadAt
+      : state.brandLastReadAt
+    : undefined;
   const sendMessageMutation = useSendOrderChatMessageMutation(
-    activeOrderId,
+    orderId,
     viewerUserId,
   );
   const sendVoiceMessageMutation = useSendOrderChatVoiceMessageMutation(
-    activeOrderId,
+    orderId,
     viewerUserId,
   );
 
-  const latestPersistedMessagesByOrderId = useMemo(() => {
-    const map = new Map<string, OrderChatMessageDto>();
+  const latestPersistedMessage = rawMessages
+    .filter((message) => !message.deliveryStatus)
+    .at(-1);
 
-    for (const message of rawMessages) {
-      if (!message.deliveryStatus) {
-        map.set(message.orderId, message);
-      }
-    }
-
-    return map;
-  }, [rawMessages]);
-
-  const latestCreatedAtByOrderId = useMemo(() => {
-    const map = new Map<string, string>();
-
-    latestPersistedMessagesByOrderId.forEach((message, orderId) => {
-      map.set(orderId, message.createdAt);
-    });
-
-    return map;
-  }, [latestPersistedMessagesByOrderId]);
-  const latestCreatedAtByOrderIdRef = useRef(latestCreatedAtByOrderId);
-  const lastReadAttemptRef = useRef<Set<string>>(new Set());
+  useOrderChatRealtime(orderId, latestPersistedMessage?.createdAt);
 
   useEffect(() => {
-    latestCreatedAtByOrderIdRef.current = latestCreatedAtByOrderId;
-  }, [latestCreatedAtByOrderId]);
+    lastReadAttemptRef.current = null;
+  }, [orderId]);
 
   useEffect(() => {
-    lastReadAttemptRef.current = new Set();
-  }, [conversation.id]);
+    if (!latestPersistedMessage || !viewerUserId) return;
+    if (viewerLastReadMessageId === latestPersistedMessage.id) return;
+    if (lastReadAttemptRef.current === latestPersistedMessage.id) return;
+    if (markReadMutation.isPending) return;
 
-  useEffect(() => {
-    if (!orderIds.length) return;
-
-    const matchingOrderIds = new Set(orderIds);
-    const socket = getSocket();
-    const connectedOnMount = socket.connected;
-    const hasConnectedRef = { current: connectedOnMount };
-
-    const catchUpMessages = async () => {
-      const pairs = Array.from(latestCreatedAtByOrderIdRef.current.entries());
-      if (!pairs.length) return;
-
-      await Promise.all(
-        pairs.map(async ([orderId, after]) => {
-          try {
-            await queryClient.invalidateQueries({
-              queryKey: orderChatMessagesQueryKey(
-                orderId,
-                GROUPED_CHAT_MESSAGES_LIMIT,
-              ),
-            });
-            const response = await fetchOrderChatMessages(orderId, {
-              after,
-              limit: GROUPED_CHAT_MESSAGES_LIMIT,
-            });
-            if (response.items.length > 0) {
-              await queryClient.invalidateQueries({
-                queryKey: orderChatMessagesQueryKey(
-                  orderId,
-                  GROUPED_CHAT_MESSAGES_LIMIT,
-                ),
-              });
-            }
-          } catch {
-          }
-        }),
-      );
-    };
-
-    const onConnect = () => {
-      if (!hasConnectedRef.current) {
-        hasConnectedRef.current = true;
-        return;
-      }
-
-      void catchUpMessages();
-    };
-
-    const onMessage = (event: OrderChatMessageEvent) => {
-      if (!matchingOrderIds.has(event.orderId)) return;
-      void queryClient.invalidateQueries({
-        queryKey: orderChatMessagesQueryKey(
-          event.orderId,
-          GROUPED_CHAT_MESSAGES_LIMIT,
-        ),
-      });
-      void queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-    };
-
-    const onReadUpdated = (event: OrderChatReadUpdatedEvent) => {
-      if (!matchingOrderIds.has(event.orderId)) return;
-      void queryClient.invalidateQueries({
-        queryKey: orderChatStateQueryKey(event.orderId),
-      });
-      void queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-    };
-
-    socket.on("connect", onConnect);
-    socket.on("chat.message", onMessage);
-    socket.on("chat.read_updated", onReadUpdated);
-
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("chat.message", onMessage);
-      socket.off("chat.read_updated", onReadUpdated);
-    };
-  }, [orderIds, queryClient]);
-
-  useEffect(() => {
-    if (!viewerUserId) return;
-
-    latestPersistedMessagesByOrderId.forEach((message, orderId) => {
-      const readState = stateByOrderId.get(orderId);
-      if (!readState) return;
-
-      const viewerLastReadMessageId =
-        role === "brand"
-          ? readState.brandLastReadMessageId
-          : readState.creatorLastReadMessageId;
-      const key = `${orderId}:${message.id}`;
-
-      if (viewerLastReadMessageId === message.id) return;
-      if (lastReadAttemptRef.current.has(key)) return;
-
-      lastReadAttemptRef.current.add(key);
-      void markOrderChatRead(orderId, {
-        lastReadMessageId: message.id,
-      }).then(() => {
-        void queryClient.invalidateQueries({
-          queryKey: orderChatStateQueryKey(orderId),
-        });
-        void queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-      });
-    });
+    lastReadAttemptRef.current = latestPersistedMessage.id;
+    markReadMutation.mutate({ lastReadMessageId: latestPersistedMessage.id });
   }, [
-    latestPersistedMessagesByOrderId,
-    queryClient,
-    role,
-    stateByOrderId,
+    latestPersistedMessage,
+    markReadMutation,
+    viewerLastReadMessageId,
     viewerUserId,
   ]);
 
-  const isLoading =
-    stateQueries.some((query) => query.isPending) ||
-    messageQueries.some((query) => query.isPending);
-  const errorMessage =
-    stateQueries.find((query) => query.error)?.error?.message ||
-    messageQueries.find((query) => query.error)?.error?.message ||
-    "Please try again in a moment.";
-
-  if (isLoading) {
+  if (stateQuery.isPending || messagesQuery.isPending) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         <div className="flex flex-col items-center gap-3">
@@ -571,13 +270,7 @@ function ActiveUserConversation({
     );
   }
 
-  if (
-    stateQueries.some((query) => query.isError) ||
-    messageQueries.some((query) => query.isError) ||
-    !state ||
-    !viewerUserId ||
-    !activeOrderId
-  ) {
+  if (stateQuery.isError || messagesQuery.isError || !state || !viewerUserId) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center">
         <div className="flex max-w-sm flex-col items-center gap-3">
@@ -589,7 +282,9 @@ function ActiveUserConversation({
               Unable to load chat
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              {errorMessage}
+              {stateQuery.error?.message ||
+                messagesQuery.error?.message ||
+                "Please try again in a moment."}
             </p>
           </div>
         </div>
@@ -618,18 +313,13 @@ function ActiveUserConversation({
   ];
   const otherParticipant = role === "brand" ? participants[1] : participants[0];
 
-  const latestReadOutgoingMessageIdByOrderId = new Map<string, string>();
-
-  for (const message of rawMessages) {
-    const readState = stateByOrderId.get(message.orderId);
-    if (!readState || message.senderUserId !== viewerUserId) continue;
-
-    const otherLastReadAt =
-      role === "brand" ? readState.creatorLastReadAt : readState.brandLastReadAt;
-    if (isMessageReadByOther(message, otherLastReadAt)) {
-      latestReadOutgoingMessageIdByOrderId.set(message.orderId, message.id);
-    }
-  }
+  const latestReadOutgoingMessageId = rawMessages
+    .filter(
+      (message) =>
+        message.senderUserId === viewerUserId &&
+        isMessageReadByOther(message, otherLastReadAt),
+    )
+    .at(-1)?.id;
 
   const messages = rawMessages.map((message) => {
     const mapped: MessagingConversationMessage = {
@@ -654,7 +344,7 @@ function ActiveUserConversation({
     }
 
     if (
-      message.id === latestReadOutgoingMessageIdByOrderId.get(message.orderId) &&
+      message.id === latestReadOutgoingMessageId &&
       message.senderUserId === viewerUserId
     ) {
       mapped.statusLabel = "Read";
@@ -692,20 +382,23 @@ function ActiveUserConversation({
       alignRightUserId={viewerUserId}
       className="h-full rounded-none border-0 bg-transparent shadow-none"
       emptyState="No chat messages yet."
+      hasMoreMessages={messagesQuery.hasNextPage}
       headerAvatarUrl={otherParticipant.avatar}
-      headerSubtitle={
-        conversation.threads.length > 1
-          ? `${conversation.threads.length} order chats • ${activeOrder?.packageNameSnapshot ?? "Order chat"}`
-          : `${activeOrder?.packageNameSnapshot ?? "Order chat"} • Order #${shortOrderId(activeOrderId)}`
-      }
+      headerSubtitle={`${conversation.order.packageNameSnapshot} • Order #${shortOrderId(orderId)}`}
       headerTitle={otherParticipant.name}
       inputPlaceholder="Message about this order..."
+      isLoadingMore={messagesQuery.isFetchingNextPage}
       messages={messages}
       onBack={onBack}
-      onSendMessage={conversation.isChatLocked ? undefined : handleSendMessage}
-      onSendVoiceMessage={
-        conversation.isChatLocked ? undefined : handleSendVoiceMessage
+      onLoadMore={
+        messagesQuery.hasNextPage
+          ? () => {
+              void messagesQuery.fetchNextPage();
+            }
+          : undefined
       }
+      onSendMessage={handleSendMessage}
+      onSendVoiceMessage={handleSendVoiceMessage}
       participants={participants}
       readOnly={conversation.isChatLocked}
       sendError={
@@ -733,25 +426,24 @@ function MessagingInterfaceContent({
   );
 
   const conversations = useMemo(() => {
-    const threads =
-      role === "brand"
-        ? (brandChatsQuery.data?.items ?? []).map(mapBrandChat)
-        : (creatorChatsQuery.data?.items ?? []).map(mapCreatorChat);
+    if (role === "brand") {
+      return (brandChatsQuery.data?.items ?? []).map(mapBrandChat);
+    }
 
-    return buildUserConversations(threads, role);
+    return (creatorChatsQuery.data?.items ?? []).map(mapCreatorChat);
   }, [brandChatsQuery.data?.items, creatorChatsQuery.data?.items, role]);
 
-  const selectedConversation = selectedConversationId
-    ? conversations.find(
-        (conversation) =>
-          conversation.id === selectedConversationId ||
-          conversation.threads.some(
-            (thread) => thread.order.id === selectedConversationId,
-          ),
+  const selectedConversationExists = selectedConversationId
+    ? conversations.some(
+        (conversation) => conversation.id === selectedConversationId,
       )
-    : null;
-  const activeConversation = selectedConversation ?? conversations[0] ?? null;
-  const activeConversationId = activeConversation?.id ?? null;
+    : false;
+  const activeConversationId = selectedConversationExists
+    ? selectedConversationId
+    : conversations[0]?.id ?? null;
+  const selectedConversation =
+    conversations.find((conversation) => conversation.id === activeConversationId) ??
+    null;
   const isLoading =
     role === "brand" ? brandChatsQuery.isPending : creatorChatsQuery.isPending;
   const error =
@@ -785,9 +477,9 @@ function MessagingInterfaceContent({
                 selectedConversationId ? "block" : "hidden md:block",
               )}
             >
-              {activeConversation ? (
-                <ActiveUserConversation
-                  conversation={activeConversation}
+              {selectedConversation ? (
+                <ActiveOrderConversation
+                  conversation={selectedConversation}
                   onBack={() => setSelectedConversationId(null)}
                   role={role}
                 />

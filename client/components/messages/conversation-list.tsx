@@ -42,7 +42,7 @@ export function ConversationList({
   );
 
   return (
-    <div className="flex flex-col h-full w-full bg-background overflow-hidden">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
       <div className="p-4 flex flex-col gap-4 border-b border-border">
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -80,7 +80,7 @@ export function ConversationList({
         </Tabs>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col">
           {isLoading ? (
             Array.from({ length: 6 }).map((_, index) => (

@@ -166,6 +166,15 @@ function CreatorProfileUpdateFormContent({
   const [instagramUrl, setInstagramUrl] = useState(
     () => initialProfile?.instagramUrl?.trim() ?? "",
   );
+  const [youtubeUrl, setYoutubeUrl] = useState(
+    () => initialProfile?.youtubeUrl?.trim() ?? "",
+  );
+  const [tiktokUrl, setTiktokUrl] = useState(
+    () => initialProfile?.tiktokUrl?.trim() ?? "",
+  );
+  const [snapchatUrl, setSnapchatUrl] = useState(
+    () => initialProfile?.snapchatUrl?.trim() ?? "",
+  );
   const [contentVolume, setContentVolume] = useState<
     CreatorContentVolumeBucket | ""
   >(
@@ -262,6 +271,24 @@ function CreatorProfileUpdateFormContent({
         return;
       }
 
+      const youtube = normalizeOptionalUrl(youtubeUrl);
+      if (youtubeUrl.trim() && !youtube) {
+        toast.error("YouTube URL must be a valid http(s) URL.");
+        return;
+      }
+
+      const tiktok = normalizeOptionalUrl(tiktokUrl);
+      if (tiktokUrl.trim() && !tiktok) {
+        toast.error("TikTok URL must be a valid http(s) URL.");
+        return;
+      }
+
+      const snapchat = normalizeOptionalUrl(snapchatUrl);
+      if (snapchatUrl.trim() && !snapchat) {
+        toast.error("Snapchat URL must be a valid http(s) URL.");
+        return;
+      }
+
       const collaborationCountNumber = Number(collaborationCount || "0");
       if (
         !Number.isInteger(collaborationCountNumber) ||
@@ -314,6 +341,9 @@ function CreatorProfileUpdateFormContent({
         dateOfBirth: dateOfBirth || undefined,
         shippingAddress: shippingAddress.trim() || undefined,
         instagramUrl: instagram,
+        youtubeUrl: youtube,
+        tiktokUrl: tiktok,
+        snapchatUrl: snapchat,
         contentVolume: contentVolume || undefined,
         collaborationCount: collaborationCountNumber,
         travelRadius: radius,
@@ -336,6 +366,9 @@ function CreatorProfileUpdateFormContent({
       facets,
       gender,
       instagramUrl,
+      youtubeUrl,
+      tiktokUrl,
+      snapchatUrl,
       introVideo,
       location,
       mode,
@@ -643,8 +676,8 @@ function CreatorProfileUpdateFormContent({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2 sm:col-span-1">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="instagramUrl">Instagram URL</Label>
               <Input
                 id="instagramUrl"
@@ -656,6 +689,45 @@ function CreatorProfileUpdateFormContent({
                 inputMode="url"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="youtubeUrl">YouTube URL</Label>
+              <Input
+                id="youtubeUrl"
+                className={inputClass}
+                disabled={pending}
+                value={youtubeUrl}
+                onChange={(event) => setYoutubeUrl(event.target.value)}
+                placeholder="https://youtube.com/@you"
+                inputMode="url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tiktokUrl">TikTok URL</Label>
+              <Input
+                id="tiktokUrl"
+                className={inputClass}
+                disabled={pending}
+                value={tiktokUrl}
+                onChange={(event) => setTiktokUrl(event.target.value)}
+                placeholder="https://tiktok.com/@you"
+                inputMode="url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="snapchatUrl">Snapchat URL</Label>
+              <Input
+                id="snapchatUrl"
+                className={inputClass}
+                disabled={pending}
+                value={snapchatUrl}
+                onChange={(event) => setSnapchatUrl(event.target.value)}
+                placeholder="https://snapchat.com/add/you"
+                inputMode="url"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
               id="contentVolume"
               label="Content volume"

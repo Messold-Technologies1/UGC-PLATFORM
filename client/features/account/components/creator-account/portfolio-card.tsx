@@ -101,6 +101,12 @@ export function PortfolioCard({ video }: { video: PortfolioVideoApi }) {
           <div className="size-full bg-gradient-to-br from-gray-200 to-gray-300" />
         )}
 
+        {video.tags?.includes("Intro") && (
+          <div className="absolute left-3 top-3 z-20 rounded-lg bg-black px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+            Intro
+          </div>
+        )}
+
         <div
           className={cn(
             "absolute inset-0 flex items-center justify-center z-10 transition-opacity",

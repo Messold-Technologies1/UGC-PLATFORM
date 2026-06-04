@@ -60,7 +60,26 @@ export function CreatorAccountProfileView({
 }) {
   const [aboutExpanded, setAboutExpanded] = useState(false);
 
-  const topVideos = videos.slice(0, 3);
+  let displayVideos = [...videos];
+  if (profile.introVideoUrl) {
+    const introVideo: PortfolioVideoApi = {
+      id: "intro-video",
+      creatorId: profile.userId,
+      videoUrl: profile.introVideoUrl,
+      thumbnailUrl: null,
+      tags: ["Intro"],
+      industryLabel: "Intro",
+      description: "Intro Video",
+      visibilityStatus: "public",
+      createdAt: profile.createdAt || new Date().toISOString(),
+    };
+    displayVideos = [
+      introVideo,
+      ...displayVideos.filter((v) => v.videoUrl !== profile.introVideoUrl),
+    ];
+  }
+
+  const topVideos = displayVideos.slice(0, 3);
 
   const locationString = [profile.city, profile.stateName, profile.countryName]
     .filter(Boolean)

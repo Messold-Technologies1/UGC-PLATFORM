@@ -302,6 +302,10 @@ export function DashboardPayoutDetails() {
               {payoutDetails.hasBankDetails ? (
                 <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
                   <p>
+                    <span className="font-medium mr-1 text-foreground">Bank Name:</span>
+                    {payoutDetails.accountHolderName}
+                  </p>
+                  <p>
                     <span className="font-medium mr-1 text-foreground">A/c:</span>
                     XXXX {payoutDetails.accountNumberLast4}
                   </p>

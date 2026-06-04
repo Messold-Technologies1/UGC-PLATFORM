@@ -132,6 +132,12 @@ export type CreatorProfileItemApi = {
   packages: CreatorProfilePackageApi[];
   addOns?: CreatorProfileAddOnApi[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
+  timezone?: string | null;
+  highlights?: string[];
+  createdAt?: string;
+  completedOrders?: number;
+  totalEarnings?: number;
+  responseRate?: number;
 };
 
 export type SuggestedCreatorContentCategoryApi = {

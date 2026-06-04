@@ -28,7 +28,7 @@ export function CreatorPayoutDetailsBanner() {
 
   return (
     <div
-      className="rounded-xl bg-foreground text-background px-4 py-3 sm:px-5 shadow-lg"
+      className="rounded-sm bg-foreground text-background px-4 py-3 sm:px-5 shadow-lg"
       role="status"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

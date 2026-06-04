@@ -53,7 +53,6 @@ import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-face
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
 
-// Shared constants, types, and pure functions
 import {
   INTRO_VIDEO_ACCEPT,
   SELECT_NONE,
@@ -70,11 +69,7 @@ import {
   type AddOnDraft,
 } from "@/features/creators/hooks/creator-profile-form-utils";
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-export type CreatorProfileSetupFormProps = {
+export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
   mode: "update";
   profileId?: string;
@@ -84,15 +79,11 @@ export type CreatorProfileSetupFormProps = {
   onPendingChange?: (pending: boolean) => void;
 };
 
-type CreatorProfileSetupFormContentProps = CreatorProfileSetupFormProps & {
+type CreatorProfileUpdateFormContentProps = CreatorProfileUpdateFormProps & {
   user: AuthUser | null;
 };
 
-// ---------------------------------------------------------------------------
-// Exported component
-// ---------------------------------------------------------------------------
-
-export function CreatorProfileSetupForm({
+export function CreatorProfileUpdateForm({
   variant,
   mode,
   profileId,
@@ -100,12 +91,12 @@ export function CreatorProfileSetupForm({
   initialProfile,
   onSuccess,
   onPendingChange,
-}: CreatorProfileSetupFormProps) {
+}: CreatorProfileUpdateFormProps) {
   const { user } = useAuth();
   const formKey = `update:${initialProfile?.id ?? profileId ?? "profile"}`;
 
   return (
-    <CreatorProfileSetupFormContent
+    <CreatorProfileUpdateFormContent
       key={formKey}
       variant={variant}
       mode={mode}
@@ -119,11 +110,7 @@ export function CreatorProfileSetupForm({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Form content (composes domain hooks)
-// ---------------------------------------------------------------------------
-
-function CreatorProfileSetupFormContent({
+function CreatorProfileUpdateFormContent({
   variant,
   mode,
   profileId,
@@ -132,10 +119,9 @@ function CreatorProfileSetupFormContent({
   onSuccess,
   onPendingChange,
   user,
-}: CreatorProfileSetupFormContentProps) {
+}: CreatorProfileUpdateFormContentProps) {
   const { refreshUser } = useAuth();
 
-  // --- Domain hooks ---
   const location = useCreatorLocationForm({ initialProfile, adminMode });
   const introVideo = useCreatorIntroVideo({ mode, profileId, initialProfile });
   const facets = useCreatorFacetsForm({
@@ -148,7 +134,6 @@ function CreatorProfileSetupFormContent({
     enabled: Boolean(user),
   });
 
-  // --- Mutation ---
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
@@ -161,7 +146,6 @@ function CreatorProfileSetupFormContent({
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
 
-  // --- Remaining personal-info state ---
   const [phoneVerified, setPhoneVerified] = useState(adminMode ? true : false);
   const [phoneInput, setPhoneInput] = useState(
     () => initialProfile?.phone?.replace("+91", "") ?? "",
@@ -204,10 +188,11 @@ function CreatorProfileSetupFormContent({
     () => initialProfile?.onLocationAvailable ?? false,
   );
 
-  // --- Derived ---
   const completionSummary = useMemo(() => {
     const checkpoints = [
-      Boolean(introVideo.introVideoPreviewUrl || introVideo.pendingIntroVideoKey),
+      Boolean(
+        introVideo.introVideoPreviewUrl || introVideo.pendingIntroVideoKey,
+      ),
       phoneVerified,
       Boolean(displayName.trim()),
       Boolean(location.countryName && location.city.trim()),
@@ -234,7 +219,6 @@ function CreatorProfileSetupFormContent({
     facets.selectedFacetCount,
   ]);
 
-  // --- Submit ---
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -243,11 +227,17 @@ function CreatorProfileSetupFormContent({
         toast.error("Wait for uploads to finish before saving your profile.");
         return;
       }
-      if (facets.facetOptionsQuery.isLoading || addOns.addOnOptionsQuery.isLoading) {
+      if (
+        facets.facetOptionsQuery.isLoading ||
+        addOns.addOnOptionsQuery.isLoading
+      ) {
         toast.error("Profile options are still loading.");
         return;
       }
-      if (facets.facetOptionsQuery.isError || addOns.addOnOptionsQuery.isError) {
+      if (
+        facets.facetOptionsQuery.isError ||
+        addOns.addOnOptionsQuery.isError
+      ) {
         toast.error("Could not load profile options. Try again.");
         return;
       }
@@ -361,7 +351,6 @@ function CreatorProfileSetupFormContent({
     ],
   );
 
-  // --- Render ---
   const inputClass = "h-9 text-sm";
   const shellClass =
     variant === "onboarding"
@@ -437,11 +426,18 @@ function CreatorProfileSetupFormContent({
           accept={INTRO_VIDEO_ACCEPT}
           disabled={introVideo.uploadingIntroVideo || pending}
           uploading={introVideo.uploadingIntroVideo}
-          hasPendingVideo={Boolean(introVideo.pendingIntroVideoKey) || introVideo.introVideoRemoved}
+          hasPendingVideo={
+            Boolean(introVideo.pendingIntroVideoKey) ||
+            introVideo.introVideoRemoved
+          }
           hasExistingVideo={Boolean(introVideo.introVideoPreviewUrl)}
-          pendingActionLabel={introVideo.introVideoRemoved ? "Undo remove" : undefined}
+          pendingActionLabel={
+            introVideo.introVideoRemoved ? "Undo remove" : undefined
+          }
           fileInputRef={introVideo.introVideoInputRef}
-          onSelectFile={(file) => void introVideo.handleIntroVideoSelected(file)}
+          onSelectFile={(file) =>
+            void introVideo.handleIntroVideoSelected(file)
+          }
           onDiscard={introVideo.restoreInitialIntroVideo}
           onRemove={introVideo.removeIntroVideo}
         />
@@ -449,7 +445,10 @@ function CreatorProfileSetupFormContent({
 
       <div className="flex flex-col gap-6">
         {adminMode ? (
-          <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+          <motion.section
+            variants={itemVariants}
+            className="space-y-4 rounded-xl border border-border bg-muted/20 p-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="phone">Phone number</Label>
               <div className="flex items-stretch h-[42px] rounded-xl border border-input bg-background overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary/20">
@@ -461,7 +460,9 @@ function CreatorProfileSetupFormContent({
                   className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium"
                   disabled={pending}
                   value={phoneInput}
-                  onChange={(event) => setPhoneInput(event.target.value.replace(/\D/g, ""))}
+                  onChange={(event) =>
+                    setPhoneInput(event.target.value.replace(/\D/g, ""))
+                  }
                   required
                 />
               </div>
@@ -506,7 +507,12 @@ function CreatorProfileSetupFormContent({
           <div className="grid gap-4 sm:grid-cols-3">
             {adminMode ? (
               <div className="space-y-1">
-                <Label htmlFor="country" className="mb-[6px] block text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Country</Label>
+                <Label
+                  htmlFor="country"
+                  className="mb-[6px] block text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Country
+                </Label>
                 <Input
                   id="country"
                   value="India"
@@ -536,8 +542,12 @@ function CreatorProfileSetupFormContent({
               id="state"
               label="State"
               value={location.stateCode}
-              placeholder={location.countryCode ? "Select state" : "Select country first"}
-              disabled={pending || !location.countryCode || location.states.length === 0}
+              placeholder={
+                location.countryCode ? "Select state" : "Select country first"
+              }
+              disabled={
+                pending || !location.countryCode || location.states.length === 0
+              }
               options={location.states.map((state) => ({
                 value: state.isoCode,
                 label: state.name,
@@ -551,8 +561,12 @@ function CreatorProfileSetupFormContent({
               id="city"
               label="City"
               value={location.city}
-              placeholder={location.stateCode ? "Select city" : "Select state first"}
-              disabled={pending || !location.stateCode || location.cities.length === 0}
+              placeholder={
+                location.stateCode ? "Select city" : "Select state first"
+              }
+              disabled={
+                pending || !location.stateCode || location.cities.length === 0
+              }
               options={location.cities.map((row) => ({
                 value: row.name,
                 label: row.name,
@@ -719,11 +733,13 @@ function CreatorProfileSetupFormContent({
           />
         </motion.div>
 
-        {!facets.facetOptionsQuery.isLoading && !facets.facetOptionsQuery.isError ? (
+        {!facets.facetOptionsQuery.isLoading &&
+        !facets.facetOptionsQuery.isError ? (
           <motion.section variants={itemVariants} className="space-y-4">
             <div className="flex flex-col gap-3">
               {facetSections.map((section) => {
-                const options = facets.facetOptionsByDimension[section.dimension] ?? [];
+                const options =
+                  facets.facetOptionsByDimension[section.dimension] ?? [];
                 const selected = facets.selectedFacets[section.dimension] ?? [];
                 return (
                   <FacetSectionDropdown
@@ -733,7 +749,9 @@ function CreatorProfileSetupFormContent({
                     options={options}
                     selected={selected}
                     disabled={pending}
-                    onToggle={(slug) => facets.toggleFacet(section.dimension, slug)}
+                    onToggle={(slug) =>
+                      facets.toggleFacet(section.dimension, slug)
+                    }
                   />
                 );
               })}
@@ -765,7 +783,8 @@ function CreatorProfileSetupFormContent({
           />
         </motion.div>
 
-        {!addOns.addOnOptionsQuery.isLoading && !addOns.addOnOptionsQuery.isError ? (
+        {!addOns.addOnOptionsQuery.isLoading &&
+        !addOns.addOnOptionsQuery.isError ? (
           <motion.div variants={itemVariants}>
             <AddOnCatalogEditor
               options={addOns.addOnOptions}
@@ -777,9 +796,13 @@ function CreatorProfileSetupFormContent({
               onDraftChange={(slug, patch) => {
                 addOns.setAddOnsTouched(true);
                 addOns.setAddOnDrafts((current) => ({
-                  ...(addOns.addOnsTouched ? current : addOns.effectiveAddOnDrafts),
+                  ...(addOns.addOnsTouched
+                    ? current
+                    : addOns.effectiveAddOnDrafts),
                   [slug]: {
-                    ...((addOns.addOnsTouched ? current : addOns.effectiveAddOnDrafts)[slug] ?? {
+                    ...((addOns.addOnsTouched
+                      ? current
+                      : addOns.effectiveAddOnDrafts)[slug] ?? {
                       priceAmount: "",
                       description: "",
                     }),
@@ -826,10 +849,6 @@ function CreatorProfileSetupFormContent({
     </motion.form>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Private UI components (unchanged)
-// ---------------------------------------------------------------------------
 
 function SelectField({
   id,
@@ -1009,7 +1028,11 @@ function FacetSectionDropdown({
                       key={option.slug}
                       variants={{
                         hidden: { opacity: 0, y: 6 },
-                        visible: { opacity: 1, y: 0, transition: { duration: 0.15 } },
+                        visible: {
+                          opacity: 1,
+                          y: 0,
+                          transition: { duration: 0.15 },
+                        },
                       }}
                       className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
                     >
@@ -1024,7 +1047,9 @@ function FacetSectionDropdown({
                   ))}
                 </motion.div>
               ) : (
-                <p className="text-xs text-muted-foreground">No options configured.</p>
+                <p className="text-xs text-muted-foreground">
+                  No options configured.
+                </p>
               )}
             </div>
           </motion.div>
@@ -1052,7 +1077,10 @@ function LanguageDropdown({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -1078,7 +1106,12 @@ function LanguageDropdown({
         <span>
           Languages {selected.length > 0 ? `(${selected.length})` : ""}
         </span>
-        <ChevronDownIcon className={cn("h-4 w-4 opacity-50 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDownIcon
+          className={cn(
+            "h-4 w-4 opacity-50 transition-transform",
+            isOpen && "rotate-180",
+          )}
+        />
       </Button>
 
       {isOpen && (
@@ -1119,10 +1152,14 @@ function LanguageDropdown({
                             key={item.value}
                             className={cn(
                               "flex items-center gap-2 text-sm cursor-pointer",
-                              disabled && "opacity-50 cursor-not-allowed"
+                              disabled && "opacity-50 cursor-not-allowed",
                             )}
                           >
-                            <RadioGroupItem value={item.value} id={`${option.slug}-${item.value}`} disabled={disabled} />
+                            <RadioGroupItem
+                              value={item.value}
+                              id={`${option.slug}-${item.value}`}
+                              disabled={disabled}
+                            />
                             <span>{item.label}</span>
                           </label>
                         ))}
@@ -1133,7 +1170,9 @@ function LanguageDropdown({
               })}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">No languages configured.</p>
+            <p className="text-xs text-muted-foreground">
+              No languages configured.
+            </p>
           )}
         </div>
       )}
@@ -1218,7 +1257,11 @@ function PackageEditor({
         </div>
         <div className="space-y-2">
           <Label>Delivery time (days)</Label>
-          <Input value={`${PACKAGE_DELIVERY_DAYS} Days`} disabled className="h-9 text-sm" />
+          <Input
+            value={`${PACKAGE_DELIVERY_DAYS} Days`}
+            disabled
+            className="h-9 text-sm"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="package-revisions">Revisions</Label>
@@ -1247,7 +1290,9 @@ function PackageEditor({
         <Switch
           checked={draft.basicEditing}
           disabled={disabled}
-          onCheckedChange={(basicEditing) => onChange({ ...draft, basicEditing })}
+          onCheckedChange={(basicEditing) =>
+            onChange({ ...draft, basicEditing })
+          }
         />
       </div>
     </section>
@@ -1324,7 +1369,9 @@ function AddOnCatalogEditor({
                 {selected ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor={`addon-price-${option.slug}`}>Price</Label>
+                      <Label htmlFor={`addon-price-${option.slug}`}>
+                        Price
+                      </Label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                           ₹

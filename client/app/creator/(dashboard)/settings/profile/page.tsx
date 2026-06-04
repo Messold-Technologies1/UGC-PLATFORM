@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { CreatorProfileSetupForm } from "@/features/creators/components/creator-profile-setup-form.lazy";
+import { CreatorProfileUpdateForm } from "@/features/creators/components/creator-profile-update-form.lazy";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -62,6 +62,8 @@ export default function CreatorSettingsProfilePage() {
     );
   }
 
+
+
   const loaded = profile;
 
   return (
@@ -71,7 +73,7 @@ export default function CreatorSettingsProfilePage() {
         description="Update your display name, bio, packages, and how brands find you."
       />
 
-      <CreatorProfileSetupForm
+      <CreatorProfileUpdateForm
         variant="settings"
         mode="update"
         profileId={loaded.id}

@@ -20,7 +20,6 @@ NestJS backend with Swagger, Prisma, and Neon PostgreSQL.
    - Create a project at [Neon Console](https://console.neon.tech)
    - Copy **pooled** connection string → `DATABASE_URL`
    - Copy **direct** connection string → `DIRECT_URL`
-   - Runtime pool limits and query timeouts are applied in `PrismaService` from optional `DATABASE_*` env vars (see `.env.example`). Set `DATABASE_CONNECTION_LIMIT` per replica so `replicas × limit` stays within your Neon pooler budget.
 
 3. **Install and migrate**
 

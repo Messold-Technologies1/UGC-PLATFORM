@@ -7,36 +7,6 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().port().default(4000),
   DATABASE_URL: Joi.string().min(10).required(),
   DIRECT_URL: Joi.string().min(10).required(),
-  /** Per-process Prisma pool size (divide Neon pool budget across Railway replicas). */
-  DATABASE_CONNECTION_LIMIT: Joi.number().integer().min(1).max(100).default(5),
-  DATABASE_POOL_TIMEOUT_SECONDS: Joi.number()
-    .integer()
-    .min(1)
-    .max(120)
-    .default(15),
-  DATABASE_CONNECT_TIMEOUT_SECONDS: Joi.number()
-    .integer()
-    .min(1)
-    .max(120)
-    .default(10),
-  /** Max time a single query may run (`socket_timeout` on the connection string). */
-  DATABASE_QUERY_TIMEOUT_MS: Joi.number()
-    .integer()
-    .min(1_000)
-    .max(600_000)
-    .default(30_000),
-  /** Set false for direct (non-pooler) URLs; default auto-detects `-pooler` in the host. */
-  DATABASE_PGBOUNCER: Joi.string().valid('true', 'false').optional(),
-  DATABASE_TRANSACTION_MAX_WAIT_MS: Joi.number()
-    .integer()
-    .min(1_000)
-    .max(120_000)
-    .default(5_000),
-  DATABASE_TRANSACTION_TIMEOUT_MS: Joi.number()
-    .integer()
-    .min(1_000)
-    .max(600_000)
-    .default(30_000),
   SWAGGER_ENABLED: Joi.string().valid('true', 'false').optional(),
   CORS_ORIGIN: Joi.string().optional().default('*'),
 

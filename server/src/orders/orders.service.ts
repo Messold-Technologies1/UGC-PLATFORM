@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma, RoleName } from '@prisma/client';
 import type { CreatorAddOn, OrderStatus } from '@prisma/client';
@@ -830,8 +831,8 @@ export class OrdersService {
       url: this.storage.buildCdnUrl(a.key),
     }));
 
-    await this.prisma.$transaction([
-      (this.prisma as any).orderDelivery.upsert({
+    await this.prisma.$transaction(async (tx) => {
+      await (tx as any).orderDelivery.upsert({
         where: {
           orderId_revisionNumber: {
             orderId: order.id,
@@ -849,15 +850,18 @@ export class OrdersService {
           assets: assets as any,
           note: params.dto.note?.trim() || null,
         },
-      }),
-      this.updateOrder({
-        where: { id: order.id },
-        data: {
-          status: nextStatus as any,
-          deliveredAt: order.deliveredAt ?? new Date(),
-        } as any,
-      }),
-    ]);
+      });
+      await this.updateOrder(
+        {
+          where: { id: order.id },
+          data: {
+            status: nextStatus as any,
+            deliveredAt: order.deliveredAt ?? new Date(),
+          } as any,
+        },
+        tx,
+      );
+    });
 
     return {
       orderId: order.id,
@@ -901,23 +905,26 @@ export class OrdersService {
     const newRevisionNumber = order.revisionCount + 1;
     const trimmedNote = params.note?.trim() || null;
 
-    await this.prisma.$transaction([
-      this.updateOrder({
-        where: { id: order.id },
-        data: {
-          status: 'REVISION_REQUESTED' as any,
-          revisionCount: newRevisionNumber,
-        } as any,
-      }),
-      (this.prisma as any).orderRevision.create({
+    await this.prisma.$transaction(async (tx) => {
+      await this.updateOrder(
+        {
+          where: { id: order.id },
+          data: {
+            status: 'REVISION_REQUESTED' as any,
+            revisionCount: newRevisionNumber,
+          } as any,
+        },
+        tx,
+      );
+      await (tx as any).orderRevision.create({
         data: {
           orderId: order.id,
           revisionNumber: newRevisionNumber,
           note: trimmedNote,
           requestedByUserId: params.actorUserId,
         },
-      }),
-    ]);
+      });
+    });
 
     this.orderMail.notifyRevisionRequested(order.id, trimmedNote);
     void this.orderRealtime.emitOrderRevisionRequested({
@@ -1802,20 +1809,23 @@ export class OrdersService {
     });
     if (existing) return;
 
-    await this.prisma.$transaction([
-      this.prisma.orderDispute.create({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderDispute.create({
         data: {
           orderId: order.id,
           openedBy: params.openedBy,
           reason: params.reason,
           status: 'OPEN',
         },
-      }),
-      this.updateOrder({
-        where: { id: order.id },
-        data: { status: 'DISPUTED' },
-      }),
-    ]);
+      });
+      await this.updateOrder(
+        {
+          where: { id: order.id },
+          data: { status: 'DISPUTED' },
+        },
+        tx,
+      );
+    });
   }
 
   /**
@@ -1866,8 +1876,8 @@ export class OrdersService {
       );
     }
 
-    await this.prisma.$transaction([
-      this.prisma.orderDispute.updateMany({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderDispute.updateMany({
         where: { orderId: order.id, status: 'OPEN' },
         data: {
           status: 'RESOLVED_REFUNDED',
@@ -1875,12 +1885,15 @@ export class OrdersService {
           resolvedByUserId: params.adminUserId,
           resolutionNotes: params.resolutionNotes ?? null,
         },
-      }),
-      this.updateOrder({
-        where: { id: order.id },
-        data: { status: 'REJECTED' as any },
-      }),
-    ]);
+      });
+      await this.updateOrder(
+        {
+          where: { id: order.id },
+          data: { status: 'REJECTED' as any },
+        },
+        tx,
+      );
+    });
 
     this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
   }
@@ -1920,6 +1933,7 @@ export class OrdersService {
         notes: { orderId: order.id },
       });
     } catch (err: unknown) {
+      if (err instanceof ServiceUnavailableException) throw err;
       throw new BadRequestException(razorpayRefundErrorMessage(err));
     }
 
@@ -1988,8 +2002,12 @@ export class OrdersService {
     return order.id;
   }
 
-  private async updateOrder<A extends Prisma.OrderUpdateArgs>(args: A) {
-    const enriched = await withOrderInboxActivityOnUpdate(this.prisma, args);
-    return this.prisma.order.update(enriched);
+  private async updateOrder<A extends Prisma.OrderUpdateArgs>(
+    args: A,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const enriched = await withOrderInboxActivityOnUpdate(client, args);
+    return client.order.update(enriched);
   }
 }

@@ -4,17 +4,21 @@ import { EmailSuppressionService } from './email-suppression.service';
 import { SesMailTransport } from './ses-mail.transport';
 import { TemplateRendererService } from './template-renderer.service';
 import type { SendMailParams } from './mail.types';
+import { TimeoutError, withTimeout } from '../util/with-timeout';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
+  private readonly sendTimeoutMs: number;
 
   constructor(
     private readonly config: ConfigService,
     private readonly renderer: TemplateRendererService,
     private readonly transport: SesMailTransport,
     private readonly suppression: EmailSuppressionService,
-  ) {}
+  ) {
+    this.sendTimeoutMs = this.config.get<number>('MAIL_SEND_TIMEOUT_MS', 10_000);
+  }
 
   /** Returns true when outbound email is configured and enabled. */
   isEnabled(): boolean {
@@ -46,11 +50,24 @@ export class MailService {
     }
 
     const rendered = this.renderer.render(params.templateKey, params.context);
-    await this.transport.send({
-      to,
-      subject: rendered.subject,
-      html: rendered.html,
-      text: rendered.text,
-    });
+    try {
+      await withTimeout(
+        this.transport.send({
+          to,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+        }),
+        this.sendTimeoutMs,
+        `SES send template=${params.templateKey}`,
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.logger.warn(
+          `email timeout template=${params.templateKey} to=${to}: ${err.message}`,
+        );
+      }
+      throw err;
+    }
   }
 }

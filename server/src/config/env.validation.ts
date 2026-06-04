@@ -38,6 +38,11 @@ export const envValidationSchema = Joi.object({
   RAZORPAY_KEY_ID: Joi.string().min(1).required(),
   RAZORPAY_KEY_SECRET: Joi.string().min(1).required(),
   RAZORPAY_WEBHOOK_SECRET: Joi.string().min(1).required(),
+  RAZORPAY_REQUEST_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .max(120_000)
+    .default(15_000),
 
   // Twilio Verify (optional until phone OTP is used)
   TWILIO_ACCOUNT_SID: Joi.string().optional(),
@@ -47,6 +52,11 @@ export const envValidationSchema = Joi.object({
   // Email (SES) — optional until outbound mail is enabled
   SES_FROM_EMAIL: Joi.string().email().optional(),
   MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
+  MAIL_SEND_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .max(120_000)
+    .default(10_000),
   /** Dev only: skip SNS signature verification on POST /api/webhooks/ses */
   SES_SNS_SKIP_SIGNATURE_VERIFY: Joi.string().valid('true', 'false').optional(),
 });

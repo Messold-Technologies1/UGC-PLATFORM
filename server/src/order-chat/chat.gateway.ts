@@ -3,10 +3,9 @@ import { JwtService } from '@nestjs/jwt';
 import { OnGatewayConnection, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import { AUTH_COOKIE_NAMES } from '../auth/auth.service';
+import { SOCKET_IO_GATEWAY_OPTIONS } from '../socket-io-gateway.options';
 
-@WebSocketGateway({
-  cors: { origin: true, credentials: true },
-})
+@WebSocketGateway(SOCKET_IO_GATEWAY_OPTIONS)
 export class ChatGateway implements OnGatewayConnection {
   private readonly logger = new Logger(ChatGateway.name);
 

@@ -227,6 +227,20 @@ export class CreatorProfileResponseDto {
   @ApiProperty({ example: 12, description: 'Number of brand reviews received' })
   reviewCount!: number;
 
+  @ApiProperty({
+    example: 24,
+    description:
+      'All orders assigned to this creator (any status, including unpaid checkout).',
+  })
+  totalOrders!: number;
+
+  @ApiProperty({
+    example: 18,
+    description:
+      'Orders successfully completed (ACCEPTED or CREATOR_PAYMENT_DONE).',
+  })
+  completedOrders!: number;
+
   @ApiPropertyOptional({ example: 15 })
   travelRadius?: number | null;
 

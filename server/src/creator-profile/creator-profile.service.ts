@@ -10,6 +10,7 @@ import {
   ApprovalStatus,
   CreatorFacetDimension,
   CreatorLanguageFluency,
+  OrderStatus,
   PortfolioVisibilityStatus,
   Prisma,
   PrismaClient,
@@ -46,6 +47,11 @@ import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
 } from './dto/suggested-creators-response.dto';
+
+/** Orders counted as successfully completed for creator stats. */
+const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.ACCEPTED
+];
 
 const creatorProfileWithRelationsInclude = {
   user: { select: { phone: true, phoneVerified: true } },
@@ -206,6 +212,7 @@ export class CreatorProfileService {
 
   private mapCreatorProfileResponseDto(
     profile: CreatorProfileWithRelations,
+    orderCounts?: { totalOrders: number; completedOrders: number },
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
     const first = (mapped.portfolioVideos ?? [])[0] ?? null;
@@ -295,7 +302,25 @@ export class CreatorProfileService {
       firstPortfolioVideo,
       avgRating: mapped.stats?.avgRating?.toString() ?? null,
       reviewCount: mapped.stats?.reviewCount ?? 0,
+      totalOrders: orderCounts?.totalOrders ?? 0,
+      completedOrders: orderCounts?.completedOrders ?? 0,
     };
+  }
+
+  private async countCreatorOrders(creatorProfileId: string): Promise<{
+    totalOrders: number;
+    completedOrders: number;
+  }> {
+    const [totalOrders, completedOrders] = await this.prisma.$transaction([
+      this.prisma.order.count({ where: { creatorId: creatorProfileId } }),
+      this.prisma.order.count({
+        where: {
+          creatorId: creatorProfileId,
+          status: { in: CREATOR_COMPLETED_ORDER_STATUSES },
+        },
+      }),
+    ]);
+    return { totalOrders, completedOrders };
   }
 
   private async isAdminUser(userId: string): Promise<boolean> {
@@ -1154,7 +1179,8 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator profile not found');
     }
 
-    return this.mapCreatorProfileResponseDto(profile);
+    const orderCounts = await this.countCreatorOrders(profile.id);
+    return this.mapCreatorProfileResponseDto(profile, orderCounts);
   }
 
   async updateCreatorProfile(

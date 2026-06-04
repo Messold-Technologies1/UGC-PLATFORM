@@ -46,6 +46,7 @@ import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
+import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 
 /**
  * Nested `BrandProfile` fields for order API brand snapshots.
@@ -286,7 +287,7 @@ export class OrdersService {
       },
     });
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: created.id },
       data: { razorpayOrderId: rzpOrder.id },
     });
@@ -330,7 +331,7 @@ export class OrdersService {
       return null;
     }
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'BRIEF_SUBMISSION_PENDING',
@@ -419,7 +420,7 @@ export class OrdersService {
       );
     }
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'BRIEF_SUBMITTED',
@@ -489,7 +490,7 @@ export class OrdersService {
       ? null
       : computeDeliveryDeadlineAt(now, order.deliveryDaysSnapshot);
 
-    const updated = await this.prisma.order.update({
+    const updated = await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'BRIEF_ACCEPTED',
@@ -565,7 +566,7 @@ export class OrdersService {
     const trackingId =
       trackingTrimmed && trackingTrimmed.length > 0 ? trackingTrimmed : null;
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'PRODUCT_SHIPPED',
@@ -642,7 +643,7 @@ export class OrdersService {
       order.deliveryDaysSnapshot,
     );
 
-    const updated = await this.prisma.order.update({
+    const updated = await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'PRODUCT_RECEIVED',
@@ -849,7 +850,7 @@ export class OrdersService {
           note: params.dto.note?.trim() || null,
         },
       }),
-      this.prisma.order.update({
+      this.updateOrder({
         where: { id: order.id },
         data: {
           status: nextStatus as any,
@@ -901,7 +902,7 @@ export class OrdersService {
     const trimmedNote = params.note?.trim() || null;
 
     await this.prisma.$transaction([
-      this.prisma.order.update({
+      this.updateOrder({
         where: { id: order.id },
         data: {
           status: 'REVISION_REQUESTED' as any,
@@ -1744,7 +1745,7 @@ export class OrdersService {
       throw new BadRequestException('Order is not awaiting acceptance');
     }
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: { status: 'ACCEPTED', acceptedAt: new Date() },
     });
@@ -1810,7 +1811,7 @@ export class OrdersService {
           status: 'OPEN',
         },
       }),
-      this.prisma.order.update({
+      this.updateOrder({
         where: { id: order.id },
         data: { status: 'DISPUTED' },
       }),
@@ -1836,7 +1837,7 @@ export class OrdersService {
     }
     if (order.creatorPaidAt) return;
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'CREATOR_PAYMENT_DONE',
@@ -1875,7 +1876,7 @@ export class OrdersService {
           resolutionNotes: params.resolutionNotes ?? null,
         },
       }),
-      this.prisma.order.update({
+      this.updateOrder({
         where: { id: order.id },
         data: { status: 'REJECTED' as any },
       }),
@@ -1924,7 +1925,7 @@ export class OrdersService {
 
     const refundedAt = new Date();
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'REFUNDED' as any,
@@ -1973,7 +1974,7 @@ export class OrdersService {
 
     const refundedAt = new Date();
 
-    await this.prisma.order.update({
+    await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'REFUNDED' as any,
@@ -1985,5 +1986,10 @@ export class OrdersService {
     this.orderMail.notifyOrderRefunded(order.id, refundedAt);
 
     return order.id;
+  }
+
+  private async updateOrder<A extends Prisma.OrderUpdateArgs>(args: A) {
+    const enriched = await withOrderInboxActivityOnUpdate(this.prisma, args);
+    return this.prisma.order.update(enriched);
   }
 }

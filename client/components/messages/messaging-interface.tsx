@@ -5,22 +5,30 @@ import { useSearchParams } from "next/navigation";
 import { AlertCircle, Loader2, MessageSquare } from "lucide-react";
 import {
   MessagingConversation,
+  type MessageDeliveryStatus,
   type MessagingConversationMessage,
   type MessagingParticipant,
 } from "@/components/messaging-conversation";
+
+type OutgoingChatMessage = MessagingConversationMessage & {
+  deliveryStatus?: MessageDeliveryStatus;
+};
 import { ChatRulesFooter } from "./chat-rules-footer";
 import { ChatSidebarRight } from "./chat-sidebar-right";
 import {
   ConversationList,
   type MessageListConversation,
 } from "./conversation-list";
-import type {
-  BrandChatListItemDto,
-  CreatorChatListItemDto,
+import {
+  formatChatInboxPreview,
+  type BrandChatListItemDto,
+  type CreatorChatListItemDto,
 } from "@/features/chats/api/order-chats";
 import {
-  useBrandChatsQuery,
-  useCreatorChatsQuery,
+  CHATS_INBOX_PAGE_SIZE,
+  flattenChatsInboxItems,
+  useBrandChatsInfiniteQuery,
+  useCreatorChatsInfiniteQuery,
 } from "@/features/chats/hooks/use-order-chats-query";
 import type {
   OrderBrandSnapshot,
@@ -96,10 +104,6 @@ function shortOrderId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
-function formatOrderPreview(orderId: string) {
-  return `Order #${shortOrderId(orderId)}`;
-}
-
 function formatConversationTime(value?: string | null) {
   if (!value) return "";
 
@@ -117,7 +121,10 @@ function formatConversationTime(value?: string | null) {
   }).format(date);
 }
 
-function mapBrandChat(item: BrandChatListItemDto): OrderConversation {
+function mapBrandChat(
+  item: BrandChatListItemDto,
+  viewerUserId?: string,
+): OrderConversation {
   const name = item.creator.displayName || "Creator";
 
   return {
@@ -127,8 +134,8 @@ function mapBrandChat(item: BrandChatListItemDto): OrderConversation {
     avatarUrl: null,
     avatarColor: colorForId(item.creator.id),
     status: item.status,
-    subtitle: item.packageName,
-    lastMessage: formatOrderPreview(item.orderId),
+    subtitle: `Order #${shortOrderId(item.orderId)}`,
+    lastMessage: formatChatInboxPreview(item.lastMessage, { viewerUserId }),
     lastMessageTime: formatConversationTime(
       item.lastMessage?.createdAt ?? item.updatedAt,
     ),
@@ -148,7 +155,10 @@ function mapBrandChat(item: BrandChatListItemDto): OrderConversation {
   };
 }
 
-function mapCreatorChat(item: CreatorChatListItemDto): OrderConversation {
+function mapCreatorChat(
+  item: CreatorChatListItemDto,
+  viewerUserId?: string,
+): OrderConversation {
   const name = item.brand.brandName || "Brand";
 
   return {
@@ -158,8 +168,8 @@ function mapCreatorChat(item: CreatorChatListItemDto): OrderConversation {
     avatarUrl: item.brand.logoUrl,
     avatarColor: colorForId(item.brand.id),
     status: item.status,
-    subtitle: item.packageName,
-    lastMessage: formatOrderPreview(item.orderId),
+    subtitle: `Order #${shortOrderId(item.orderId)}`,
+    lastMessage: formatChatInboxPreview(item.lastMessage, { viewerUserId }),
     lastMessageTime: formatConversationTime(
       item.lastMessage?.createdAt ?? item.updatedAt,
     ),
@@ -313,16 +323,8 @@ function ActiveOrderConversation({
   ];
   const otherParticipant = role === "brand" ? participants[1] : participants[0];
 
-  const latestReadOutgoingMessageId = rawMessages
-    .filter(
-      (message) =>
-        message.senderUserId === viewerUserId &&
-        isMessageReadByOther(message, otherLastReadAt),
-    )
-    .at(-1)?.id;
-
-  const messages = rawMessages.map((message) => {
-    const mapped: MessagingConversationMessage = {
+  const messages: OutgoingChatMessage[] = rawMessages.map((message) => {
+    const mapped: OutgoingChatMessage = {
       id: message.id,
       type: message.type,
       text: message.text,
@@ -333,24 +335,21 @@ function ActiveOrderConversation({
       createdAt: message.createdAt,
     };
 
+    if (message.senderUserId !== viewerUserId) return mapped;
+
     if (message.deliveryStatus === "sending") {
-      mapped.statusLabel = "Sending";
-      return mapped;
+      return { ...mapped, deliveryStatus: "sending" };
     }
 
     if (message.deliveryStatus === "failed") {
-      mapped.statusLabel = "Failed";
-      return mapped;
+      return { ...mapped, deliveryStatus: "failed" };
     }
 
-    if (
-      message.id === latestReadOutgoingMessageId &&
-      message.senderUserId === viewerUserId
-    ) {
-      mapped.statusLabel = "Read";
+    if (isMessageReadByOther(message, otherLastReadAt)) {
+      return { ...mapped, deliveryStatus: "read" };
     }
 
-    return mapped;
+    return { ...mapped, deliveryStatus: "sent" };
   });
 
   function handleSendMessage(text: string) {
@@ -413,41 +412,59 @@ function MessagingInterfaceContent({
   initialOrderId,
   role,
 }: MessagingInterfaceProps & { initialOrderId: string | null }) {
+  const { user } = useAuth();
   const [selectedConversationId, setSelectedConversationId] =
     useState<string | null>(initialOrderId);
+  const [inboxTab, setInboxTab] = useState<"all" | "unread">("all");
 
-  const brandChatsQuery = useBrandChatsQuery(
-    { page: 1, limit: 50 },
-    { enabled: role === "brand" },
-  );
-  const creatorChatsQuery = useCreatorChatsQuery(
-    { page: 1, limit: 50 },
-    { enabled: role === "creator" },
-  );
+  const brandChatsQuery = useBrandChatsInfiniteQuery(CHATS_INBOX_PAGE_SIZE, {
+    enabled: role === "brand",
+  });
+  const creatorChatsQuery = useCreatorChatsInfiniteQuery(CHATS_INBOX_PAGE_SIZE, {
+    enabled: role === "creator",
+  });
 
   const conversations = useMemo(() => {
+    const viewerUserId = user?.id;
+
     if (role === "brand") {
-      return (brandChatsQuery.data?.items ?? []).map(mapBrandChat);
+      const items = flattenChatsInboxItems(brandChatsQuery.data);
+      return items.map((item) => mapBrandChat(item, viewerUserId));
     }
 
-    return (creatorChatsQuery.data?.items ?? []).map(mapCreatorChat);
-  }, [brandChatsQuery.data?.items, creatorChatsQuery.data?.items, role]);
+    const items = flattenChatsInboxItems(creatorChatsQuery.data);
+    return items.map((item) => mapCreatorChat(item, viewerUserId));
+  }, [brandChatsQuery.data, creatorChatsQuery.data, role, user?.id]);
 
   const selectedConversationExists = selectedConversationId
     ? conversations.some(
         (conversation) => conversation.id === selectedConversationId,
       )
     : false;
-  const activeConversationId = selectedConversationExists
-    ? selectedConversationId
-    : conversations[0]?.id ?? null;
+  const listSelectedId =
+    inboxTab === "unread"
+      ? selectedConversationId
+      : selectedConversationExists
+        ? selectedConversationId
+        : conversations[0]?.id ?? null;
   const selectedConversation =
-    conversations.find((conversation) => conversation.id === activeConversationId) ??
-    null;
-  const isLoading =
-    role === "brand" ? brandChatsQuery.isPending : creatorChatsQuery.isPending;
-  const error =
-    role === "brand" ? brandChatsQuery.error : creatorChatsQuery.error;
+    listSelectedId != null
+      ? conversations.find((conversation) => conversation.id === listSelectedId) ??
+        null
+      : null;
+  const activeChatsQuery =
+    role === "brand" ? brandChatsQuery : creatorChatsQuery;
+  const isLoading = activeChatsQuery.isPending;
+  const error = activeChatsQuery.error;
+  const hasMoreChats = activeChatsQuery.hasNextPage;
+  const isLoadingMoreChats = activeChatsQuery.isFetchingNextPage;
+
+  const handleLoadMoreChats = () => {
+    if (!activeChatsQuery.hasNextPage || activeChatsQuery.isFetchingNextPage) {
+      return;
+    }
+    void activeChatsQuery.fetchNextPage();
+  };
 
   return (
     <div className="w-full px-4 py-4 sm:px-6 md:px-8 md:py-6 flex flex-col">
@@ -463,9 +480,13 @@ function MessagingInterfaceContent({
               <ConversationList
                 conversations={conversations}
                 error={error?.message ?? null}
+                hasMore={hasMoreChats}
                 isLoading={isLoading}
+                isLoadingMore={isLoadingMoreChats}
+                onInboxTabChange={setInboxTab}
+                onLoadMore={handleLoadMoreChats}
                 onSelect={setSelectedConversationId}
-                selectedId={activeConversationId}
+                selectedId={listSelectedId}
               />
             </div>
 

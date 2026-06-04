@@ -14,6 +14,7 @@ import {
   OrderChatMessageRow,
   toRealtimeChatMessagePayload,
 } from './order-chat-message.mapper';
+import { buildOrderLastChatSnapshotUpdate } from './order-chat-order-snapshot';
 import { OrderChatRealtimeNotifier } from './order-chat-realtime.notifier';
 
 type OrderChatParticipants = {
@@ -308,9 +309,16 @@ export class OrderChatService {
     };
   }): Promise<OrderChatMessageRow> {
     try {
-      return await this.prisma.orderChatMessage.create({
-        data: params.data,
-        select: MESSAGE_SELECT,
+      return await this.prisma.$transaction(async (tx) => {
+        const message = await tx.orderChatMessage.create({
+          data: params.data,
+          select: MESSAGE_SELECT,
+        });
+        await tx.order.update({
+          where: { id: params.orderId },
+          data: buildOrderLastChatSnapshotUpdate(message),
+        });
+        return message;
       });
     } catch (err: unknown) {
       if (params.clientMessageId && (err as { code?: string })?.code === 'P2002') {

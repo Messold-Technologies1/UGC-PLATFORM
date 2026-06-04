@@ -1,4 +1,5 @@
-import { Search, Filter, AlertCircle, WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, Filter, AlertCircle, WifiOff, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,9 +23,13 @@ export interface MessageListConversation {
 interface ConversationListProps {
   conversations: MessageListConversation[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
   isLoading?: boolean;
   error?: string | null;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
+  onInboxTabChange?: (tab: "all" | "unread") => void;
 }
 
 
@@ -35,11 +40,36 @@ export function ConversationList({
   onSelect,
   isLoading = false,
   error = null,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
+  onInboxTabChange,
 }: ConversationListProps) {
-  const unreadTotal = conversations.reduce(
-    (total, conv) => total + (conv.unreadCount > 0 ? 1 : 0),
-    0,
-  );
+  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
+
+  const unreadConversations = conversations.filter((conv) => conv.unreadCount > 0);
+  const unreadTotal = unreadConversations.length;
+  const visibleConversations =
+    activeTab === "unread" ? unreadConversations : conversations;
+
+  const handleTabChange = (value: string) => {
+    const tab = value === "unread" ? "unread" : "all";
+    setActiveTab(tab);
+    onInboxTabChange?.(tab);
+
+    if (tab === "unread") {
+      onSelect(null);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== "unread" || selectedId == null) return;
+
+    const selected = conversations.find((conv) => conv.id === selectedId);
+    if (selected && selected.unreadCount > 0) return;
+
+    onSelect(null);
+  }, [activeTab, selectedId, conversations, onSelect]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
@@ -57,7 +87,11 @@ export function ConversationList({
           </Button>
         </div>
 
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="w-full"
+        >
           <TabsList className="w-full grid grid-cols-2 bg-muted/50 p-1 rounded-lg h-auto">
             <TabsTrigger 
               value="all" 
@@ -107,12 +141,14 @@ export function ConversationList({
               <p className="text-sm font-medium">Unable to load conversations</p>
               <p className="text-xs">Please check your connection and try again.</p>
             </div>
-          ) : conversations.length === 0 ? (
+          ) : visibleConversations.length === 0 ? (
             <div className="px-4 py-6 text-sm text-muted-foreground">
-              No order conversations yet.
+              {activeTab === "unread"
+                ? "No unread conversations."
+                : "No order conversations yet."}
             </div>
           ) : (
-            conversations.map((conv) => (
+            visibleConversations.map((conv) => (
             <button
               key={conv.id}
               onClick={() => onSelect(conv.id)}
@@ -162,12 +198,35 @@ export function ConversationList({
             </button>
             ))
           )}
+          {activeTab === "all" && hasMore && onLoadMore ? (
+            <div className="px-4 py-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={isLoadingMore}
+                onClick={onLoadMore}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  "Load more conversations"
+                )}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
 
       <div className="p-4 border-t border-border/50 mt-auto bg-muted/20">
         <p className="text-xs text-muted-foreground">
-          Showing {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
+          {activeTab === "unread"
+            ? `Showing ${visibleConversations.length} unread conversation${visibleConversations.length === 1 ? "" : "s"}`
+            : `Showing ${visibleConversations.length} conversation${visibleConversations.length === 1 ? "" : "s"}`}
         </p>
       </div>
     </div>

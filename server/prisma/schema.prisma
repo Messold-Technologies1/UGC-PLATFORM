@@ -419,6 +419,13 @@ model Order {
   razorpayRefundId  String?
   refundedAt        DateTime?
 
+  /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
+  lastChatActivityAt          DateTime @default(now())
+  lastChatMessageId           String?  @db.Uuid
+  lastChatMessageSenderUserId String?  @db.Uuid
+  lastChatMessageType         OrderChatMessageType?
+  lastChatMessageText         String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -435,6 +442,8 @@ model Order {
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
+  @@index([brandId, lastChatActivityAt(sort: Desc)])
+  @@index([creatorId, lastChatActivityAt(sort: Desc)])
   @@index([status, createdAt])
   @@index([deliveryDeadlineAt])
   @@index([briefId])

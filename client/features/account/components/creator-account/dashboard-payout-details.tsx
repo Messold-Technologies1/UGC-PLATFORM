@@ -279,11 +279,11 @@ export function DashboardPayoutDetails() {
           </Dialog>
         </div>
         
-        <p className="mt-1.5 text-sm text-muted-foreground">
+        {/* <p className="mt-1.5 text-sm text-muted-foreground">
           Update your Bank Details or UPI ID for payouts.
-        </p>
+        </p> */}
 
-        <div className="mt-4 flex flex-col gap-2.5">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/40 p-3.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Building2 className="size-4" />
@@ -291,7 +291,7 @@ export function DashboardPayoutDetails() {
             <div className="flex-1 space-y-1">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground leading-none">
-                  Bank Transfer
+                  Bank Details
                 </p>
                 {payoutDetails.hasBankDetails && (
                   <div className="shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-600 bg-green-50 rounded-full border border-green-200">

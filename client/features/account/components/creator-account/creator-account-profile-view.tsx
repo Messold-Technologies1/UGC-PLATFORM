@@ -106,14 +106,14 @@ export function CreatorAccountProfileView({
       iconBg: "bg-amber-100",
       iconColor: "text-amber-600",
     },
-    {
-      label: "Response Rate",
-      value: profile.responseRate ? `${profile.responseRate}%` : "0%",
-      linkText: "View Analytics",
-      icon: <MessageSquareText className="size-5" />,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-    },
+    // {
+    //   label: "Response Rate",
+    //   value: profile.responseRate ? `${profile.responseRate}%` : "0%",
+    //   linkText: "View Analytics",
+    //   icon: <MessageSquareText className="size-5" />,
+    //   iconBg: "bg-blue-100",
+    //   iconColor: "text-blue-600",
+    // },
   ];
 
   const getHandle = (url: string) => {

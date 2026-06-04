@@ -3,7 +3,7 @@
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
-import { BrandProfileSetupForm } from "@/features/brands/components/brand-profile-setup-form.lazy";
+import { BrandProfileUpdateForm } from "@/features/brands/components/brand-profile-update-form.lazy";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 
 export default function BrandSettingsProfilePage() {
@@ -69,7 +69,7 @@ export default function BrandSettingsProfilePage() {
         description="Update your company details and logo."
       />
 
-      <BrandProfileSetupForm
+      <BrandProfileUpdateForm
         variant="settings"
         mode="update"
         initialProfile={initialProfile}

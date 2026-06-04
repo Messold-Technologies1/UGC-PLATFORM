@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
-import { BrandSwitcher } from "@/features/brand/components/brand-switcher";
+import { BrandSwitcher } from "@/features/brands/components/brand-switcher";
 import { useAuth } from "@/providers/auth-provider";
 import { SITE_NAME } from "@/config/site";
 

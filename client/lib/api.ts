@@ -5,7 +5,7 @@ import {
   readStoredActiveBrandId,
   resolveClientActiveBrandId,
   writeStoredActiveBrandId,
-} from "@/features/brand/lib/active-brand";
+} from "@/features/brands/lib/active-brand";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";

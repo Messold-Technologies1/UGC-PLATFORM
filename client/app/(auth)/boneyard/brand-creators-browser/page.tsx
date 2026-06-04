@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BrandCreatorsLoadingState } from "@/features/brand/components/brand-creators-loading";
+import { BrandCreatorsLoadingState } from "@/features/brands/components/brand-creators-loading";
 import { BoneyardDashboardPreviewShell } from "../preview-shells";
 
 export const dynamic = "force-dynamic";

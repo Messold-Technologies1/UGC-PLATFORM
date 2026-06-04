@@ -3,12 +3,12 @@
 import dynamic from "next/dynamic";
 import { Spinner } from "@/components/ui/spinner";
 
-export type { BrandProfileSetupFormProps } from "./brand-profile-setup-form";
+export type { BrandProfileUpdateFormProps } from "./brand-profile-update-form";
 
-export const BrandProfileSetupForm = dynamic(
+export const BrandProfileUpdateForm = dynamic(
   () =>
-    import("./brand-profile-setup-form").then((m) => ({
-      default: m.BrandProfileSetupForm,
+    import("./brand-profile-update-form").then((m) => ({
+      default: m.BrandProfileUpdateForm,
     })),
   {
     loading: () => (

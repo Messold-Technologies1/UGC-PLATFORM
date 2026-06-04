@@ -22,20 +22,15 @@ export function writeStoredActiveBrandId(
 ): void {
   try {
     sessionStorage.setItem(activeBrandStorageKey(userId), brandProfileId);
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 export function clearStoredActiveBrandId(userId: string): void {
   try {
     sessionStorage.removeItem(activeBrandStorageKey(userId));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
-/** Resolve which brand id API calls should use for this user. */
 export function resolveClientActiveBrandId(user: AuthUser): string | null {
   const allowed = new Set(user.accessibleBrands.map((b) => b.id));
 

@@ -79,7 +79,7 @@ export function CreatorAccountProfileView({
     ];
   }
 
-  const topVideos = displayVideos.slice(0, 3);
+  const topVideos = displayVideos.slice(0, 4);
 
   const locationString = [profile.city, profile.stateName, profile.countryName]
     .filter(Boolean)
@@ -97,6 +97,7 @@ export function CreatorAccountProfileView({
       label: "Total Orders",
       value: profile.totalOrders?.toString() || "0",
       linkText: "View Orders",
+      linkUrl: "/creator/orders",
       icon: <ShoppingBag className="size-5" />,
       iconBg: "bg-purple-100",
       iconColor: "text-purple-600",
@@ -105,6 +106,7 @@ export function CreatorAccountProfileView({
       label: "Completed Orders",
       value: profile.completedOrders?.toString() || "0",
       linkText: "View Orders",
+      linkUrl: "/creator/orders",
       icon: <CheckCircle className="size-5" />,
       iconBg: "bg-emerald-100",
       iconColor: "text-emerald-600",
@@ -188,7 +190,7 @@ export function CreatorAccountProfileView({
     },
     { label: "Location", value: locationString || "Not specified" },
     { label: "Languages", value: languagesText },
-    { label: "Time Zone", value: profile.timezone || "Not specified" },
+    // { label: "Time Zone", value: profile.timezone || "Not specified" },
     { label: "Member Since", value: profile.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "Not specified" },
   ];
 
@@ -327,7 +329,7 @@ export function CreatorAccountProfileView({
 
           <motion.div
             variants={fadeInUp}
-            className="grid grid-cols-[2fr_3fr] gap-6"
+            className="grid grid-cols-[1fr_3fr] gap-6"
           >
             <section
               className="rounded-lg border border-border bg-card p-6 shadow-sm"
@@ -351,6 +353,16 @@ export function CreatorAccountProfileView({
                     {profile.bio || "No bio provided."}
                   </motion.p>
                 </AnimatePresence>
+
+                {profile.bio && (profile.bio.length > 180 || profile.bio.split('\n').length > 4) && (
+                  <button
+                    onClick={() => setAboutExpanded((prev) => !prev)}
+                    className="mt-4 text-sm font-semibold text-primary transition-colors hover:underline"
+                    aria-expanded={aboutExpanded}
+                  >
+                    {aboutExpanded ? "View Less" : "View More"}
+                  </button>
+                )}
               </div>
 
               <ul className="mt-4 space-y-3.5" aria-label="Creator highlights">
@@ -398,14 +410,6 @@ export function CreatorAccountProfileView({
                   </li>
                 )}
               </ul>
-
-              <button
-                onClick={() => setAboutExpanded((prev) => !prev)}
-                className="mt-4 text-sm font-semibold text-primary transition-colors hover:underline"
-                aria-expanded={aboutExpanded}
-              >
-                {aboutExpanded ? "View Less" : "View More"}
-              </button>
             </section>
 
             <section
@@ -422,7 +426,7 @@ export function CreatorAccountProfileView({
                 </Link>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-4">
+              <div className="mt-5 grid grid-cols-4 gap-4">
                 {topVideos.length > 0 ? (
                   topVideos.map((video) => (
                     <PortfolioCard key={video.id} video={video} />

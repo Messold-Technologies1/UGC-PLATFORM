@@ -123,7 +123,6 @@ export type CreatorProfileItemApi = {
   avgRating?: string | null;
   reviewCount: number;
   totalOrders?: number;
-  completedOrders?: number;
   travelRadius?: number | null;
   onLocationAvailable?: boolean;
   profileLanguages?: CreatorProfileStructuredLanguageApi[];

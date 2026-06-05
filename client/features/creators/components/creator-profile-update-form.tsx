@@ -4,13 +4,12 @@ import { AnimatePresence, motion, type Variants } from "framer-motion";
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useEffect,
 } from "react";
-import { City, Country, State, type ICity, type ICountry, type IState } from "country-state-city";
 import { toast } from "sonner";
 import { CalendarIcon, ChevronDownIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,90 +34,42 @@ import { PhoneVerificationField } from "@/features/auth/components/phone-verific
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-intro-video-field";
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
 import type {
-  CreatorAddOnCreatePayload,
   CreatorContentVolumeBucket,
   CreatorFacetSelectionPayload,
   CreatorGender,
   CreatorLanguageFluency,
-  CreatorPackageCreatePayload,
   CreatorProfileLanguagePayload,
 } from "@/features/creators/api/create-creator-profile";
-import {
-  useSubmitCreatorProfileMutation,
-  useUploadCreatorIntroVideoMutation,
-} from "@/features/creators/hooks/use-creator-profile-form-mutation";
-import {
-  useCreatorAddOnOptionsQuery,
-  useCreatorFacetOptionsQuery,
-} from "@/features/creators/hooks/use-creator-suggestion-queries";
+import { useSubmitCreatorProfileMutation } from "@/features/creators/hooks/use-creator-profile-form-mutation";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update-creator-profile";
-import type {
-  CreatorAddOnOption,
-} from "@/features/creators/api/get-creator-add-on-options";
-import type {
-  CreatorFacetDimension,
-  CreatorFacetOption,
-} from "@/features/creators/api/get-creator-facet-options";
+import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
+import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
 
-const MAX_INTRO_VIDEO_BYTES = 200 * 1024 * 1024;
-const INTRO_VIDEO_ACCEPT = "video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm";
-const INTRO_VIDEO_CONTENT_TYPES = new Set([
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
-]);
+// Composable hooks
+import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-location-form";
+import { useCreatorIntroVideo } from "@/features/creators/hooks/use-creator-intro-video";
+import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
+import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
+import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
 
-const SELECT_NONE = "__none__";
-const PACKAGE_NAME = "1 Video UGC";
-const PACKAGE_DELIVERY_DAYS = 5;
-const PACKAGE_VIDEO_LENGTH_SECONDS = 60;
-const PACKAGE_PRICE_STEP = 500;
+import {
+  INTRO_VIDEO_ACCEPT,
+  SELECT_NONE,
+  PACKAGE_DELIVERY_DAYS,
+  facetSections,
+  genderOptions,
+  contentVolumeOptions,
+  fluencyOptions,
+  normalizeWholeNumberInput,
+  normalizeOptionalUrl,
+  getInitialCreatorName,
+  type LanguageDraft,
+  type PackageDraft,
+  type AddOnDraft,
+} from "@/features/creators/hooks/creator-profile-form-utils";
 
-const facetSections: Array<{
-  dimension: Exclude<CreatorFacetDimension, "LANGUAGE">;
-  label: string;
-}> = [
-  { dimension: "CONTENT_FORMAT", label: "Content format" },
-  { dimension: "APPEARANCE", label: "Appearance" },
-  { dimension: "CONTENT_STYLE", label: "Content style" },
-  { dimension: "CAPABILITY", label: "Capabilities" },
-  { dimension: "LIFE_STYLE", label: "Lifestyle" },
-  { dimension: "CONTENT_CATEGORY", label: "Content category" },
-  { dimension: "CATEGORY_EXPERIENCE", label: "Category experience" },
-  { dimension: "OCCUPATION", label: "Occupation" },
-  { dimension: "CAN_CREATE_WITH", label: "Can create with" },
-  { dimension: "AI_CONTENT_PERMISSION", label: "AI content permission" },
-];
-
-const genderOptions: Array<{ value: CreatorGender; label: string }> = [
-  { value: "FEMALE", label: "Female" },
-  { value: "MALE", label: "Male" },
-  { value: "NON_BINARY", label: "Non-binary" },
-  { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
-  { value: "OTHER", label: "Other" },
-];
-
-const contentVolumeOptions: Array<{
-  value: CreatorContentVolumeBucket;
-  label: string;
-}> = [
-  { value: "NONE", label: "0" },
-  { value: "RANGE_1_5", label: "1-5" },
-  { value: "RANGE_5_15", label: "5-15" },
-  { value: "RANGE_15_25", label: "15-25" },
-  { value: "RANGE_25_50", label: "25-50" },
-  { value: "RANGE_50_PLUS", label: "50+" },
-];
-
-const fluencyOptions: Array<{ value: CreatorLanguageFluency; label: string }> =
-  [
-    { value: "NATIVE", label: "Native" },
-    { value: "FLUENT", label: "Fluent" },
-    { value: "CONVERSATIONAL", label: "Conversational" },
-  ];
-
-export type CreatorProfileSetupFormProps = {
+export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
   mode: "update";
   profileId?: string;
@@ -128,156 +79,11 @@ export type CreatorProfileSetupFormProps = {
   onPendingChange?: (pending: boolean) => void;
 };
 
-type CreatorProfileSetupFormContentProps = CreatorProfileSetupFormProps & {
+type CreatorProfileUpdateFormContentProps = CreatorProfileUpdateFormProps & {
   user: AuthUser | null;
 };
 
-type SelectedFacets = Partial<
-  Record<Exclude<CreatorFacetDimension, "LANGUAGE">, string[]>
->;
-
-type LanguageDraft = {
-  slug: string;
-  fluency: CreatorLanguageFluency;
-};
-
-type PackageDraft = {
-  packageName: string;
-  videoLengthSeconds: string;
-  priceAmount: string;
-  maxRevisions: string;
-  basicEditing: boolean;
-};
-
-type AddOnDraft = {
-  priceAmount: string;
-  description: string;
-};
-
-function getInitialCreatorName(user: AuthUser | null): string {
-  return user?.name?.trim() || user?.email?.split("@")[0] || "";
-}
-
-function getInitialCreatorIntroVideoPreviewUrl(
-  initialProfile?: CreatorProfileItemApi | null,
-): string | null {
-  const url = initialProfile?.introVideoUrl?.trim();
-  if (!url) return null;
-
-  return url.startsWith("http://") || url.startsWith("https://") ? url : null;
-}
-
-function getIntroVideoContentType(file: File): string | null {
-  const contentType = file.type.toLowerCase();
-  if (INTRO_VIDEO_CONTENT_TYPES.has(contentType)) {
-    return contentType;
-  }
-
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  if (extension === "mp4") return "video/mp4";
-  if (extension === "mov") return "video/quicktime";
-  if (extension === "webm") return "video/webm";
-  return null;
-}
-
-function normalizeWholeNumberInput(value: string): string {
-  return value.replace(/\D/g, "");
-}
-
-function normalizeOptionalUrl(raw: string): string | undefined {
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return undefined;
-    }
-    return url.toString();
-  } catch {
-    return undefined;
-  }
-}
-
-function createInitialSelectedFacets(
-  initialProfile?: CreatorProfileItemApi | null,
-): SelectedFacets {
-  const out: SelectedFacets = {};
-  for (const row of initialProfile?.facetSelections ?? []) {
-    if (row.dimension === "LANGUAGE") continue;
-    const dimension = row.dimension as Exclude<CreatorFacetDimension, "LANGUAGE">;
-    out[dimension] = [...(out[dimension] ?? []), row.slug];
-  }
-  return out;
-}
-
-function createInitialLanguageDrafts(
-  initialProfile?: CreatorProfileItemApi | null,
-): LanguageDraft[] {
-  return (initialProfile?.profileLanguages ?? []).map((row) => ({
-    slug: row.slug,
-    fluency: row.fluency,
-  }));
-}
-
-function createInitialPackageDraft(
-  initialProfile?: CreatorProfileItemApi | null,
-): PackageDraft {
-  const pkg = initialProfile?.packages?.[0];
-  return {
-    packageName: pkg?.name ?? PACKAGE_NAME,
-    videoLengthSeconds: pkg?.videoLengthSeconds != null ? String(pkg.videoLengthSeconds) : String(PACKAGE_VIDEO_LENGTH_SECONDS),
-    priceAmount: pkg?.priceAmount ? String(Math.round(Number(pkg.priceAmount))) : "",
-    maxRevisions: pkg?.maxRevisions != null ? String(pkg.maxRevisions) : "1",
-    basicEditing: pkg?.deliverables?.includes("Basic editing") ?? false,
-  };
-}
-
-function findCountryByName(name: string | null | undefined): ICountry | null {
-  const target = name?.trim().toLowerCase();
-  if (!target) return null;
-  return (
-    Country.getAllCountries().find(
-      (country) => country.name.trim().toLowerCase() === target,
-    ) ?? null
-  );
-}
-
-function findStateByName(
-  countryCode: string,
-  name: string | null | undefined,
-): IState | null {
-  const target = name?.trim().toLowerCase();
-  if (!countryCode || !target) return null;
-  return (
-    State.getStatesOfCountry(countryCode).find(
-      (state) => state.name.trim().toLowerCase() === target,
-    ) ?? null
-  );
-}
-
-function addOnPriceError(
-  option: CreatorAddOnOption,
-  priceAmount: string,
-): string | null {
-  const price = Number(priceAmount);
-  if (!/^\d+$/.test(priceAmount) || !Number.isInteger(price)) {
-    return `${option.name} price must be a whole number.`;
-  }
-  if (option.fixedPrice != null) {
-    return price === option.fixedPrice
-      ? null
-      : `${option.name} price must be exactly ₹${option.fixedPrice}.`;
-  }
-
-  const min = option.minPrice ?? 0;
-  const step = option.stepPrice ?? 1;
-  if (price < min || price % step !== 0) {
-    return `${option.name} price must be >= ₹${min} and in steps of ₹${step}.`;
-  }
-  return null;
-}
-
-export function CreatorProfileSetupForm({
+export function CreatorProfileUpdateForm({
   variant,
   mode,
   profileId,
@@ -285,12 +91,12 @@ export function CreatorProfileSetupForm({
   initialProfile,
   onSuccess,
   onPendingChange,
-}: CreatorProfileSetupFormProps) {
+}: CreatorProfileUpdateFormProps) {
   const { user } = useAuth();
   const formKey = `update:${initialProfile?.id ?? profileId ?? "profile"}`;
 
   return (
-    <CreatorProfileSetupFormContent
+    <CreatorProfileUpdateFormContent
       key={formKey}
       variant={variant}
       mode={mode}
@@ -304,7 +110,7 @@ export function CreatorProfileSetupForm({
   );
 }
 
-function CreatorProfileSetupFormContent({
+function CreatorProfileUpdateFormContent({
   variant,
   mode,
   profileId,
@@ -313,36 +119,27 @@ function CreatorProfileSetupFormContent({
   onSuccess,
   onPendingChange,
   user,
-}: CreatorProfileSetupFormContentProps) {
+}: CreatorProfileUpdateFormContentProps) {
   const { refreshUser } = useAuth();
-  const uploadCreatorIntroVideoMutation =
-    useUploadCreatorIntroVideoMutation({
-      mode,
-      creatorProfileId: profileId,
-    });
+
+  const location = useCreatorLocationForm({ initialProfile, adminMode });
+  const introVideo = useCreatorIntroVideo({ mode, profileId, initialProfile });
+  const facets = useCreatorFacetsForm({
+    initialProfile,
+    enabled: Boolean(user),
+  });
+  const packages = useCreatorPackagesForm({ initialProfile });
+  const addOns = useCreatorAddOnsForm({
+    initialProfile,
+    enabled: Boolean(user),
+  });
+
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
     adminMode,
     onSuccess,
   });
-  const facetOptionsQuery = useCreatorFacetOptionsQuery({
-    enabled: Boolean(user),
-    staleTime: 60 * 60_000,
-  });
-  const addOnOptionsQuery = useCreatorAddOnOptionsQuery({
-    enabled: Boolean(user),
-    staleTime: 60 * 60_000,
-  });
-
-  const initialCountry = useMemo(
-    () => findCountryByName(initialProfile?.countryName),
-    [initialProfile?.countryName],
-  );
-  const initialState = useMemo(
-    () => findStateByName(initialCountry?.isoCode ?? "", initialProfile?.stateName),
-    [initialCountry?.isoCode, initialProfile?.stateName],
-  );
 
   const pending = submitCreatorProfileMutation.isPending;
   useLayoutEffect(() => {
@@ -350,13 +147,12 @@ function CreatorProfileSetupFormContent({
   }, [onPendingChange, pending]);
 
   const [phoneVerified, setPhoneVerified] = useState(adminMode ? true : false);
-  const [phoneInput, setPhoneInput] = useState(() => initialProfile?.phone?.replace("+91", "") ?? "");
-  const [displayName, setDisplayName] = useState(() =>
-    initialProfile?.displayName ?? getInitialCreatorName(user)
+  const [phoneInput, setPhoneInput] = useState(
+    () => initialProfile?.phone?.replace("+91", "") ?? "",
   );
-  const [countryCode, setCountryCode] = useState(() => adminMode ? "IN" : (initialCountry?.isoCode ?? ""));
-  const [stateCode, setStateCode] = useState(initialState?.isoCode ?? "");
-  const [city, setCity] = useState(() => initialProfile?.city?.trim() ?? "");
+  const [displayName, setDisplayName] = useState(
+    () => initialProfile?.displayName ?? getInitialCreatorName(user),
+  );
   const [bio, setBio] = useState(() => initialProfile?.bio?.trim() ?? "");
   const [gender, setGender] = useState<CreatorGender | "">(
     () => (initialProfile?.gender as CreatorGender | undefined) ?? "",
@@ -370,9 +166,23 @@ function CreatorProfileSetupFormContent({
   const [instagramUrl, setInstagramUrl] = useState(
     () => initialProfile?.instagramUrl?.trim() ?? "",
   );
+  const [youtubeUrl, setYoutubeUrl] = useState(
+    () => initialProfile?.youtubeUrl?.trim() ?? "",
+  );
+  const [tiktokUrl, setTiktokUrl] = useState(
+    () => initialProfile?.tiktokUrl?.trim() ?? "",
+  );
+  const [snapchatUrl, setSnapchatUrl] = useState(
+    () => initialProfile?.snapchatUrl?.trim() ?? "",
+  );
   const [contentVolume, setContentVolume] = useState<
     CreatorContentVolumeBucket | ""
-  >(() => (initialProfile?.contentVolume as CreatorContentVolumeBucket | undefined) ?? "");
+  >(
+    () =>
+      (initialProfile?.contentVolume as
+        | CreatorContentVolumeBucket
+        | undefined) ?? "",
+  );
   const [collaborationCount, setCollaborationCount] = useState(() =>
     initialProfile?.collaborationCount != null
       ? String(initialProfile.collaborationCount)
@@ -386,299 +196,57 @@ function CreatorProfileSetupFormContent({
   const [onLocationAvailable, setOnLocationAvailable] = useState(
     () => initialProfile?.onLocationAvailable ?? false,
   );
-  const [selectedFacets, setSelectedFacets] = useState<SelectedFacets>(() =>
-    createInitialSelectedFacets(initialProfile),
-  );
-  const [languageDrafts, setLanguageDrafts] = useState<LanguageDraft[]>(() =>
-    createInitialLanguageDrafts(initialProfile),
-  );
-  const [packageDraft, setPackageDraft] = useState<PackageDraft>(() =>
-    createInitialPackageDraft(initialProfile),
-  );
-  const [selectedAddOnSlugs, setSelectedAddOnSlugs] = useState<string[]>([]);
-  const [addOnDrafts, setAddOnDrafts] = useState<Record<string, AddOnDraft>>({});
-  const [addOnsTouched, setAddOnsTouched] = useState(false);
 
-  const introVideoInputRef = useRef<HTMLInputElement>(null);
-  const [introVideoPreviewUrl, setIntroVideoPreviewUrl] = useState<string | null>(
-    () => getInitialCreatorIntroVideoPreviewUrl(initialProfile)
-  );
-  const [pendingIntroVideoKey, setPendingIntroVideoKey] = useState<
-    string | null
-  >(null);
-  const [introVideoRemoved, setIntroVideoRemoved] = useState(false);
-  const uploadingIntroVideo = uploadCreatorIntroVideoMutation.isPending;
-
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const states = useMemo(
-    () => (countryCode ? State.getStatesOfCountry(countryCode) : []),
-    [countryCode],
-  );
-  const cities = useMemo<ICity[]>(
-    () =>
-      countryCode && stateCode
-        ? City.getCitiesOfState(countryCode, stateCode)
-        : [],
-    [countryCode, stateCode],
-  );
-  const countryName = useMemo(
-    () =>
-      countries.find((country) => country.isoCode === countryCode)?.name ?? "",
-    [countries, countryCode],
-  );
-  const stateName = useMemo(
-    () => states.find((state) => state.isoCode === stateCode)?.name ?? "",
-    [states, stateCode],
-  );
-  const facetOptionsByDimension =
-    facetOptionsQuery.data?.optionsByDimension ?? {};
-  const addOnOptions = useMemo(
-    () => addOnOptionsQuery.data?.options ?? [],
-    [addOnOptionsQuery.data?.options],
-  );
-  const hydratedAddOns = useMemo(() => {
-    if (!addOnOptions.length) {
-      return {
-        selectedSlugs: [] as string[],
-        drafts: {} as Record<string, AddOnDraft>,
-        unmatchedNames: [] as string[],
-      };
-    }
-
-    const byName = new Map(
-      addOnOptions.map((option) => [option.name.trim().toLowerCase(), option]),
-    );
-    const nextSlugs: string[] = [];
-    const nextDrafts: Record<string, AddOnDraft> = {};
-    const unmatched: string[] = [];
-
-    for (const addOn of initialProfile?.addOns ?? []) {
-      const option = byName.get(addOn.name.trim().toLowerCase());
-      if (!option) {
-        unmatched.push(addOn.name);
-        continue;
-      }
-      nextSlugs.push(option.slug);
-      nextDrafts[option.slug] = {
-        priceAmount: String(Math.round(Number(addOn.priceAmount))),
-        description: addOn.description?.trim() ?? "",
-      };
-    }
-
-    return {
-      selectedSlugs: [...new Set(nextSlugs)],
-      drafts: nextDrafts,
-      unmatchedNames: unmatched,
-    };
-  }, [addOnOptions, initialProfile?.addOns]);
-  const effectiveSelectedAddOnSlugs = addOnsTouched
-    ? selectedAddOnSlugs
-    : hydratedAddOns.selectedSlugs;
-  const effectiveAddOnDrafts = addOnsTouched
-    ? addOnDrafts
-    : hydratedAddOns.drafts;
-
-  const handleIntroVideoSelected = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-
-      const contentType = getIntroVideoContentType(file);
-      if (!contentType) {
-        toast.error("Use MP4, MOV, or WebM video.");
-        return;
-      }
-      if (file.size > MAX_INTRO_VIDEO_BYTES) {
-        toast.error("Intro video must be 200 MB or smaller.");
-        return;
-      }
-
-      uploadCreatorIntroVideoMutation.mutate(
-        { file, contentType },
-        {
-          onSuccess: (result) => {
-            if (!result) return;
-            setPendingIntroVideoKey(result.key);
-            setIntroVideoPreviewUrl(result.cdnUrl);
-            setIntroVideoRemoved(false);
-          },
-          onSettled: () => {
-            if (introVideoInputRef.current) {
-              introVideoInputRef.current.value = "";
-            }
-          },
-        },
-      );
-    },
-    [uploadCreatorIntroVideoMutation],
-  );
-
-  const restoreInitialIntroVideo = useCallback(() => {
-    setPendingIntroVideoKey(null);
-    setIntroVideoRemoved(false);
-
-    const url = initialProfile?.introVideoUrl?.trim();
-    setIntroVideoPreviewUrl(
-      url?.startsWith("http://") || url?.startsWith("https://")
-        ? url
-        : null,
-    );
-  }, [initialProfile?.introVideoUrl]);
-
-  const removeIntroVideo = useCallback(() => {
-    setPendingIntroVideoKey(null);
-    setIntroVideoPreviewUrl(null);
-    setIntroVideoRemoved(true);
-    if (introVideoInputRef.current) {
-      introVideoInputRef.current.value = "";
-    }
-  }, []);
-
-  const toggleFacet = useCallback(
-    (dimension: Exclude<CreatorFacetDimension, "LANGUAGE">, slug: string) => {
-      setSelectedFacets((current) => {
-        const values = current[dimension] ?? [];
-        const nextValues = values.includes(slug)
-          ? values.filter((value) => value !== slug)
-          : [...values, slug];
-        return { ...current, [dimension]: nextValues };
-      });
-    },
-    [],
-  );
-
-  const toggleLanguage = useCallback((slug: string) => {
-    setLanguageDrafts((current) => {
-      if (current.some((row) => row.slug === slug)) {
-        return current.filter((row) => row.slug !== slug);
-      }
-      return [...current, { slug, fluency: "FLUENT" }];
-    });
-  }, []);
-
-  const updateLanguageFluency = useCallback(
-    (slug: string, fluency: CreatorLanguageFluency) => {
-      setLanguageDrafts((current) =>
-        current.map((row) => (row.slug === slug ? { ...row, fluency } : row)),
-      );
-    },
-    [],
-  );
-
-  const toggleAddOn = useCallback(
-    (option: CreatorAddOnOption) => {
-      setAddOnsTouched(true);
-      setSelectedAddOnSlugs((current) => {
-        const base = addOnsTouched ? current : effectiveSelectedAddOnSlugs;
-        if (base.includes(option.slug)) {
-          return base.filter((slug) => slug !== option.slug);
-        }
-        return [...base, option.slug];
-      });
-      setAddOnDrafts((current) => {
-        const base = addOnsTouched ? current : effectiveAddOnDrafts;
-        if (base[option.slug]) return base;
-        return {
-          ...base,
-          [option.slug]: {
-            priceAmount: String(option.fixedPrice ?? option.minPrice ?? 0),
-            description: "",
-          },
-        };
-      });
-    },
-    [addOnsTouched, effectiveAddOnDrafts, effectiveSelectedAddOnSlugs],
-  );
-
-  const buildPackages = useCallback((): CreatorPackageCreatePayload[] | null => {
-    const packageName = packageDraft.packageName.trim();
-    const videoLength = Number(packageDraft.videoLengthSeconds);
-    const price = packageDraft.priceAmount.trim();
-    const priceNumber = Number(price);
-    const revisions = Number(packageDraft.maxRevisions);
-
-    if (!packageName) {
-      toast.error("Package name is required.");
-      return null;
-    }
-    if (!Number.isInteger(videoLength) || videoLength < 1 || videoLength > 60) {
-      toast.error("Video length must be between 1 and 60 seconds.");
-      return null;
-    }
-    if (!/^\d+$/.test(price)) {
-      toast.error("Package price must be a whole number.");
-      return null;
-    }
-    if (
-      !Number.isInteger(priceNumber) ||
-      priceNumber < PACKAGE_PRICE_STEP ||
-      priceNumber % PACKAGE_PRICE_STEP !== 0
-    ) {
-      toast.error("Package price must be at least ₹500 and in steps of ₹500.");
-      return null;
-    }
-    if (!Number.isInteger(revisions) || revisions < 1) {
-      toast.error("Package revisions must be at least 1.");
-      return null;
-    }
-
-    const deliverables = packageDraft.basicEditing
-      ? ["1 Video", "Basic editing"]
-      : ["1 Video"];
-
-    return [
-      {
-        name: packageName,
-        deliverables,
-        videoLengthSeconds: videoLength,
-        basicEditing: packageDraft.basicEditing,
-        priceAmount: price,
-        deliveryDays: PACKAGE_DELIVERY_DAYS,
-        maxRevisions: revisions,
-      },
+  const completionSummary = useMemo(() => {
+    const checkpoints = [
+      Boolean(
+        introVideo.introVideoPreviewUrl || introVideo.pendingIntroVideoKey,
+      ),
+      phoneVerified,
+      Boolean(displayName.trim()),
+      Boolean(location.countryName && location.city.trim()),
+      Boolean(dateOfBirth),
+      Boolean(gender),
+      facets.languageDrafts.length > 0,
+      facets.selectedFacetCount > 0,
+      Boolean(packages.packageDraft.priceAmount.trim()),
     ];
-  }, [packageDraft]);
-
-  const buildAddOns = useCallback((): CreatorAddOnCreatePayload[] | null => {
-    const bySlug = new Map(addOnOptions.map((option) => [option.slug, option]));
-    const out: CreatorAddOnCreatePayload[] = [];
-
-    for (const slug of effectiveSelectedAddOnSlugs) {
-      const option = bySlug.get(slug);
-      const draft = effectiveAddOnDrafts[slug];
-      if (!option || !draft) continue;
-
-      const price = draft.priceAmount.trim();
-      const error = addOnPriceError(option, price);
-      if (error) {
-        toast.error(error);
-        return null;
-      }
-
-      out.push({
-        slug,
-        priceAmount: price,
-        ...(draft.description.trim()
-          ? { description: draft.description.trim() }
-          : {}),
-      });
-    }
-
-    return out;
-  }, [addOnOptions, effectiveAddOnDrafts, effectiveSelectedAddOnSlugs]);
+    const completed = checkpoints.filter(Boolean).length;
+    const total = checkpoints.length;
+    return { completed, total, percent: Math.round((completed / total) * 100) };
+  }, [
+    location.city,
+    location.countryName,
+    dateOfBirth,
+    displayName,
+    gender,
+    introVideo.introVideoPreviewUrl,
+    facets.languageDrafts.length,
+    packages.packageDraft.priceAmount,
+    introVideo.pendingIntroVideoKey,
+    phoneVerified,
+    facets.selectedFacetCount,
+  ]);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
-      if (uploadingIntroVideo) {
+      if (introVideo.uploadingIntroVideo) {
         toast.error("Wait for uploads to finish before saving your profile.");
         return;
       }
-      if (facetOptionsQuery.isLoading || addOnOptionsQuery.isLoading) {
+      if (
+        facets.facetOptionsQuery.isLoading ||
+        addOns.addOnOptionsQuery.isLoading
+      ) {
         toast.error("Profile options are still loading.");
         return;
       }
-      if (facetOptionsQuery.isError || addOnOptionsQuery.isError) {
+      if (
+        facets.facetOptionsQuery.isError ||
+        addOns.addOnOptionsQuery.isError
+      ) {
         toast.error("Could not load profile options. Try again.");
         return;
       }
@@ -703,6 +271,24 @@ function CreatorProfileSetupFormContent({
         return;
       }
 
+      const youtube = normalizeOptionalUrl(youtubeUrl);
+      if (youtubeUrl.trim() && !youtube) {
+        toast.error("YouTube URL must be a valid http(s) URL.");
+        return;
+      }
+
+      const tiktok = normalizeOptionalUrl(tiktokUrl);
+      if (tiktokUrl.trim() && !tiktok) {
+        toast.error("TikTok URL must be a valid http(s) URL.");
+        return;
+      }
+
+      const snapchat = normalizeOptionalUrl(snapchatUrl);
+      if (snapchatUrl.trim() && !snapchat) {
+        toast.error("Snapchat URL must be a valid http(s) URL.");
+        return;
+      }
+
       const collaborationCountNumber = Number(collaborationCount || "0");
       if (
         !Number.isInteger(collaborationCountNumber) ||
@@ -720,81 +306,81 @@ function CreatorProfileSetupFormContent({
         return;
       }
 
-      const packages = buildPackages();
-      if (!packages) return;
+      const builtPackages = packages.buildPackages();
+      if (!builtPackages) return;
 
-      const addOns = buildAddOns();
-      if (!addOns) return;
+      const builtAddOns = addOns.buildAddOns();
+      if (!builtAddOns) return;
 
       const facetSelections: CreatorFacetSelectionPayload[] = [];
       for (const section of facetSections) {
-        for (const slug of selectedFacets[section.dimension] ?? []) {
+        for (const slug of facets.selectedFacets[section.dimension] ?? []) {
           facetSelections.push({ dimension: section.dimension, slug });
         }
       }
 
       const profileLanguages: CreatorProfileLanguagePayload[] =
-        languageDrafts.map((row) => ({
+        facets.languageDrafts.map((row) => ({
           slug: row.slug,
           fluency: row.fluency,
         }));
 
       const payload: UpdateCreatorProfilePayload = {
         displayName: name,
-        ...(pendingIntroVideoKey
-          ? { introVideoKey: pendingIntroVideoKey }
-          : introVideoRemoved
+        ...(introVideo.pendingIntroVideoKey
+          ? { introVideoKey: introVideo.pendingIntroVideoKey }
+          : introVideo.introVideoRemoved
             ? { introVideoKey: "" }
             : {}),
         ...(adminMode && phoneInput ? { phone: "+91" + phoneInput } : {}),
-        countryName: countryName || undefined,
-        stateName: stateName || undefined,
-        city: city.trim() || undefined,
+        countryName: location.countryName || undefined,
+        stateName: location.stateName || undefined,
+        city: location.city.trim() || undefined,
         bio: bio.trim() || undefined,
         gender: gender || undefined,
         dateOfBirth: dateOfBirth || undefined,
         shippingAddress: shippingAddress.trim() || undefined,
         instagramUrl: instagram,
+        youtubeUrl: youtube,
+        tiktokUrl: tiktok,
+        snapchatUrl: snapchat,
         contentVolume: contentVolume || undefined,
         collaborationCount: collaborationCountNumber,
         travelRadius: radius,
         onLocationAvailable,
         facetSelections,
         profileLanguages,
-        packages,
-        addOns,
+        packages: builtPackages,
+        addOns: builtAddOns,
       };
 
       submitCreatorProfileMutation.mutate({ payload });
     },
     [
-      addOnOptionsQuery.isError,
-      addOnOptionsQuery.isLoading,
+      addOns,
       bio,
-      buildAddOns,
-      buildPackages,
-      city,
       collaborationCount,
       contentVolume,
-      countryName,
       dateOfBirth,
       displayName,
-      facetOptionsQuery.isError,
-      facetOptionsQuery.isLoading,
+      facets,
       gender,
       instagramUrl,
-      introVideoRemoved,
-      languageDrafts,
+      youtubeUrl,
+      tiktokUrl,
+      snapchatUrl,
+      introVideo,
+      location,
+      mode,
       onLocationAvailable,
-      pendingIntroVideoKey,
+      packages,
+      phoneInput,
       phoneVerified,
       profileId,
-      selectedFacets,
       shippingAddress,
-      stateName,
       submitCreatorProfileMutation,
       travelRadius,
-      uploadingIntroVideo,
+      adminMode,
     ],
   );
 
@@ -811,42 +397,6 @@ function CreatorProfileSetupFormContent({
     variant === "settings"
       ? "Changes apply to how brands see you in search and on your public profile."
       : "Brands see this in search. You can edit everything later in settings.";
-  const selectedFacetCount = useMemo(
-    () =>
-      Object.values(selectedFacets).reduce(
-        (sum, values) => sum + (values?.length ?? 0),
-        0,
-      ),
-    [selectedFacets],
-  );
-  const completionSummary = useMemo(() => {
-    const checkpoints = [
-      Boolean(introVideoPreviewUrl || pendingIntroVideoKey),
-      phoneVerified,
-      Boolean(displayName.trim()),
-      Boolean(countryName && city.trim()),
-      Boolean(dateOfBirth),
-      Boolean(gender),
-      languageDrafts.length > 0,
-      selectedFacetCount > 0,
-      Boolean(packageDraft.priceAmount.trim()),
-    ];
-    const completed = checkpoints.filter(Boolean).length;
-    const total = checkpoints.length;
-    return { completed, total, percent: Math.round((completed / total) * 100) };
-  }, [
-    city,
-    countryName,
-    dateOfBirth,
-    displayName,
-    gender,
-    introVideoPreviewUrl,
-    languageDrafts.length,
-    packageDraft.priceAmount,
-    pendingIntroVideoKey,
-    phoneVerified,
-    selectedFacetCount,
-  ]);
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -905,23 +455,33 @@ function CreatorProfileSetupFormContent({
 
       <motion.div variants={itemVariants}>
         <CreatorProfileIntroVideoField
-          videoPreviewUrl={introVideoPreviewUrl}
+          videoPreviewUrl={introVideo.introVideoPreviewUrl}
           accept={INTRO_VIDEO_ACCEPT}
-          disabled={uploadingIntroVideo || pending}
-          uploading={uploadingIntroVideo}
-          hasPendingVideo={Boolean(pendingIntroVideoKey) || introVideoRemoved}
-          hasExistingVideo={Boolean(introVideoPreviewUrl)}
-          pendingActionLabel={introVideoRemoved ? "Undo remove" : undefined}
-          fileInputRef={introVideoInputRef}
-          onSelectFile={(file) => void handleIntroVideoSelected(file)}
-          onDiscard={restoreInitialIntroVideo}
-          onRemove={removeIntroVideo}
+          disabled={introVideo.uploadingIntroVideo || pending}
+          uploading={introVideo.uploadingIntroVideo}
+          hasPendingVideo={
+            Boolean(introVideo.pendingIntroVideoKey) ||
+            introVideo.introVideoRemoved
+          }
+          hasExistingVideo={Boolean(introVideo.introVideoPreviewUrl)}
+          pendingActionLabel={
+            introVideo.introVideoRemoved ? "Undo remove" : undefined
+          }
+          fileInputRef={introVideo.introVideoInputRef}
+          onSelectFile={(file) =>
+            void introVideo.handleIntroVideoSelected(file)
+          }
+          onDiscard={introVideo.restoreInitialIntroVideo}
+          onRemove={introVideo.removeIntroVideo}
         />
       </motion.div>
 
       <div className="flex flex-col gap-6">
         {adminMode ? (
-          <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+          <motion.section
+            variants={itemVariants}
+            className="space-y-4 rounded-xl border border-border bg-muted/20 p-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="phone">Phone number</Label>
               <div className="flex items-stretch h-[42px] rounded-xl border border-input bg-background overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary/20">
@@ -933,7 +493,9 @@ function CreatorProfileSetupFormContent({
                   className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium"
                   disabled={pending}
                   value={phoneInput}
-                  onChange={(event) => setPhoneInput(event.target.value.replace(/\D/g, ""))}
+                  onChange={(event) =>
+                    setPhoneInput(event.target.value.replace(/\D/g, ""))
+                  }
                   required
                 />
               </div>
@@ -978,7 +540,12 @@ function CreatorProfileSetupFormContent({
           <div className="grid gap-4 sm:grid-cols-3">
             {adminMode ? (
               <div className="space-y-1">
-                <Label htmlFor="country" className="mb-[6px] block text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Country</Label>
+                <Label
+                  htmlFor="country"
+                  className="mb-[6px] block text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Country
+                </Label>
                 <Input
                   id="country"
                   value="India"
@@ -990,46 +557,54 @@ function CreatorProfileSetupFormContent({
               <SelectField
                 id="country"
                 label="Country"
-                value={countryCode}
+                value={location.countryCode}
                 placeholder="Select country"
                 disabled={pending}
-                options={countries.map((country) => ({
+                options={location.countries.map((country) => ({
                   value: country.isoCode,
                   label: country.name,
                 }))}
                 onChange={(value) => {
-                  setCountryCode(value);
-                  setStateCode("");
-                  setCity("");
+                  location.setCountryCode(value);
+                  location.setStateCode("");
+                  location.setCity("");
                 }}
               />
             )}
             <SelectField
               id="state"
               label="State"
-              value={stateCode}
-              placeholder={countryCode ? "Select state" : "Select country first"}
-              disabled={pending || !countryCode || states.length === 0}
-              options={states.map((state) => ({
+              value={location.stateCode}
+              placeholder={
+                location.countryCode ? "Select state" : "Select country first"
+              }
+              disabled={
+                pending || !location.countryCode || location.states.length === 0
+              }
+              options={location.states.map((state) => ({
                 value: state.isoCode,
                 label: state.name,
               }))}
               onChange={(value) => {
-                setStateCode(value);
-                setCity("");
+                location.setStateCode(value);
+                location.setCity("");
               }}
             />
             <SelectField
               id="city"
               label="City"
-              value={city}
-              placeholder={stateCode ? "Select city" : "Select state first"}
-              disabled={pending || !stateCode || cities.length === 0}
-              options={cities.map((row) => ({
+              value={location.city}
+              placeholder={
+                location.stateCode ? "Select city" : "Select state first"
+              }
+              disabled={
+                pending || !location.stateCode || location.cities.length === 0
+              }
+              options={location.cities.map((row) => ({
                 value: row.name,
                 label: row.name,
               }))}
-              onChange={setCity}
+              onChange={location.setCity}
             />
           </div>
 
@@ -1101,8 +676,8 @@ function CreatorProfileSetupFormContent({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2 sm:col-span-1">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="instagramUrl">Instagram URL</Label>
               <Input
                 id="instagramUrl"
@@ -1114,6 +689,45 @@ function CreatorProfileSetupFormContent({
                 inputMode="url"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="youtubeUrl">YouTube URL</Label>
+              <Input
+                id="youtubeUrl"
+                className={inputClass}
+                disabled={pending}
+                value={youtubeUrl}
+                onChange={(event) => setYoutubeUrl(event.target.value)}
+                placeholder="https://youtube.com/@you"
+                inputMode="url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tiktokUrl">TikTok URL</Label>
+              <Input
+                id="tiktokUrl"
+                className={inputClass}
+                disabled={pending}
+                value={tiktokUrl}
+                onChange={(event) => setTiktokUrl(event.target.value)}
+                placeholder="https://tiktok.com/@you"
+                inputMode="url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="snapchatUrl">Snapchat URL</Label>
+              <Input
+                id="snapchatUrl"
+                className={inputClass}
+                disabled={pending}
+                value={snapchatUrl}
+                onChange={(event) => setSnapchatUrl(event.target.value)}
+                placeholder="https://snapchat.com/add/you"
+                inputMode="url"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
               id="contentVolume"
               label="Content volume"
@@ -1184,27 +798,21 @@ function CreatorProfileSetupFormContent({
 
         <motion.div variants={itemVariants}>
           <CatalogStatus
-            loading={facetOptionsQuery.isLoading}
-          error={facetOptionsQuery.isError}
+            loading={facets.facetOptionsQuery.isLoading}
+            error={facets.facetOptionsQuery.isError}
             label="creator profile options"
-            onRetry={() => void facetOptionsQuery.refetch()}
+            onRetry={() => void facets.facetOptionsQuery.refetch()}
           />
         </motion.div>
 
-        {!facetOptionsQuery.isLoading && !facetOptionsQuery.isError ? (
+        {!facets.facetOptionsQuery.isLoading &&
+        !facets.facetOptionsQuery.isError ? (
           <motion.section variants={itemVariants} className="space-y-4">
-            {/* <div>
-              <p className="text-sm font-medium text-foreground">
-                Profile facets
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Select the catalog values that best describe your creator work.
-              </p>
-            </div> */}
             <div className="flex flex-col gap-3">
               {facetSections.map((section) => {
-                const options = facetOptionsByDimension[section.dimension] ?? [];
-                const selected = selectedFacets[section.dimension] ?? [];
+                const options =
+                  facets.facetOptionsByDimension[section.dimension] ?? [];
+                const selected = facets.selectedFacets[section.dimension] ?? [];
                 return (
                   <FacetSectionDropdown
                     key={section.dimension}
@@ -1213,102 +821,101 @@ function CreatorProfileSetupFormContent({
                     options={options}
                     selected={selected}
                     disabled={pending}
-                    onToggle={(slug) => toggleFacet(section.dimension, slug)}
+                    onToggle={(slug) =>
+                      facets.toggleFacet(section.dimension, slug)
+                    }
                   />
                 );
               })}
             </div>
-            {/* <div>
-              <p className="text-sm font-medium text-foreground">
-                Select languages
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Select the languages you are comfortable creating content in.
-              </p>
-            </div> */}
             <LanguageDropdown
-              options={facetOptionsByDimension.LANGUAGE ?? []}
-              selected={languageDrafts}
+              options={facets.facetOptionsByDimension.LANGUAGE ?? []}
+              selected={facets.languageDrafts}
               disabled={pending}
-              onToggle={toggleLanguage}
-              onFluencyChange={updateLanguageFluency}
+              onToggle={facets.toggleLanguage}
+              onFluencyChange={facets.updateLanguageFluency}
             />
           </motion.section>
         ) : null}
 
         <motion.div variants={itemVariants}>
           <PackageEditor
-            draft={packageDraft}
+            draft={packages.packageDraft}
             disabled={pending}
-            onChange={setPackageDraft}
+            onChange={packages.setPackageDraft}
           />
         </motion.div>
 
         <motion.div variants={itemVariants}>
           <CatalogStatus
-            loading={addOnOptionsQuery.isLoading}
-          error={addOnOptionsQuery.isError}
+            loading={addOns.addOnOptionsQuery.isLoading}
+            error={addOns.addOnOptionsQuery.isError}
             label="add-on options"
-            onRetry={() => void addOnOptionsQuery.refetch()}
+            onRetry={() => void addOns.addOnOptionsQuery.refetch()}
           />
         </motion.div>
 
-        {!addOnOptionsQuery.isLoading && !addOnOptionsQuery.isError ? (
+        {!addOns.addOnOptionsQuery.isLoading &&
+        !addOns.addOnOptionsQuery.isError ? (
           <motion.div variants={itemVariants}>
             <AddOnCatalogEditor
-            options={addOnOptions}
-            selectedSlugs={effectiveSelectedAddOnSlugs}
-            drafts={effectiveAddOnDrafts}
-            unmatchedNames={hydratedAddOns.unmatchedNames}
-            disabled={pending}
-            onToggle={toggleAddOn}
-            onDraftChange={(slug, patch) => {
-              setAddOnsTouched(true);
-              setAddOnDrafts((current) => ({
-                ...(addOnsTouched ? current : effectiveAddOnDrafts),
-                [slug]: {
-                  ...((addOnsTouched ? current : effectiveAddOnDrafts)[slug] ?? {
-                    priceAmount: "",
-                    description: "",
-                  }),
-                  ...patch,
-                },
-              }));
-            }}
-          />
-        </motion.div>
+              options={addOns.addOnOptions}
+              selectedSlugs={addOns.selectedAddOnSlugs}
+              drafts={addOns.addOnDrafts}
+              unmatchedNames={addOns.hydratedAddOns.unmatchedNames}
+              disabled={pending}
+              onToggle={addOns.toggleAddOn}
+              onDraftChange={(slug, patch) => {
+                addOns.setAddOnsTouched(true);
+                addOns.setAddOnDrafts((current) => ({
+                  ...(addOns.addOnsTouched
+                    ? current
+                    : addOns.effectiveAddOnDrafts),
+                  [slug]: {
+                    ...((addOns.addOnsTouched
+                      ? current
+                      : addOns.effectiveAddOnDrafts)[slug] ?? {
+                      priceAmount: "",
+                      description: "",
+                    }),
+                    ...patch,
+                  },
+                }));
+              }}
+            />
+          </motion.div>
         ) : null}
       </div>
 
       <motion.div variants={itemVariants} className="flex justify-end">
         <Button
-        type="submit"
-        className="mt-8 w-full sm:w-auto"
-        disabled={
-          pending ||
-          uploadingIntroVideo ||
-          facetOptionsQuery.isLoading ||
-          addOnOptionsQuery.isLoading
-        }
-      >
-        {pending ? (
-          variant === "onboarding" ? (
-            mode === "update" ? (
-              "Saving..."
+          type="submit"
+          className="mt-8 w-full sm:w-auto"
+          disabled={
+            pending ||
+            introVideo.uploadingIntroVideo ||
+            facets.facetOptionsQuery.isLoading ||
+            addOns.addOnOptionsQuery.isLoading
+          }
+        >
+          {pending ? (
+            variant === "onboarding" ? (
+              mode === "update" ? (
+                "Saving..."
+              ) : (
+                "Creating..."
+              )
             ) : (
-              "Creating..."
+              <>
+                <Spinner className="size-4" aria-hidden />
+                {mode === "update" ? "Saving..." : "Creating..."}
+              </>
             )
+          ) : mode === "update" ? (
+            "Save changes"
           ) : (
-            <>
-              <Spinner className="size-4" aria-hidden />
-              {mode === "update" ? "Saving..." : "Creating..."}
-            </>
-          )
-        ) : mode === "update" ? (
-          "Save changes"
-        ) : (
-          "Create profile"
-        )}
+            "Create profile"
+          )}
         </Button>
       </motion.div>
     </motion.form>
@@ -1493,7 +1100,11 @@ function FacetSectionDropdown({
                       key={option.slug}
                       variants={{
                         hidden: { opacity: 0, y: 6 },
-                        visible: { opacity: 1, y: 0, transition: { duration: 0.15 } },
+                        visible: {
+                          opacity: 1,
+                          y: 0,
+                          transition: { duration: 0.15 },
+                        },
                       }}
                       className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
                     >
@@ -1508,55 +1119,15 @@ function FacetSectionDropdown({
                   ))}
                 </motion.div>
               ) : (
-                <p className="text-xs text-muted-foreground">No options configured.</p>
+                <p className="text-xs text-muted-foreground">
+                  No options configured.
+                </p>
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-function OptionChecklist({
-  title,
-  options,
-  selected,
-  disabled,
-  onToggle,
-}: {
-  title: string;
-  options: CreatorFacetOption[];
-  selected: string[];
-  disabled: boolean;
-  onToggle: (slug: string) => void;
-}) {
-  return (
-    <fieldset className="space-y-3 rounded-xl border border-border/70 bg-muted/15 p-4">
-      <legend className="px-1 text-sm font-medium text-foreground">
-        {title}
-      </legend>
-      {options.length ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {options.map((option) => (
-            <label
-              key={option.slug}
-              className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/60"
-            >
-              <Checkbox
-                className="mt-0.5"
-                disabled={disabled}
-                checked={selected.includes(option.slug)}
-                onCheckedChange={() => onToggle(option.slug)}
-              />
-              <span>{option.label}</span>
-            </label>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">No options configured.</p>
-      )}
-    </fieldset>
   );
 }
 
@@ -1578,7 +1149,10 @@ function LanguageDropdown({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -1604,7 +1178,12 @@ function LanguageDropdown({
         <span>
           Languages {selected.length > 0 ? `(${selected.length})` : ""}
         </span>
-        <ChevronDownIcon className={cn("h-4 w-4 opacity-50 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDownIcon
+          className={cn(
+            "h-4 w-4 opacity-50 transition-transform",
+            isOpen && "rotate-180",
+          )}
+        />
       </Button>
 
       {isOpen && (
@@ -1645,10 +1224,14 @@ function LanguageDropdown({
                             key={item.value}
                             className={cn(
                               "flex items-center gap-2 text-sm cursor-pointer",
-                              disabled && "opacity-50 cursor-not-allowed"
+                              disabled && "opacity-50 cursor-not-allowed",
                             )}
                           >
-                            <RadioGroupItem value={item.value} id={`${option.slug}-${item.value}`} disabled={disabled} />
+                            <RadioGroupItem
+                              value={item.value}
+                              id={`${option.slug}-${item.value}`}
+                              disabled={disabled}
+                            />
                             <span>{item.label}</span>
                           </label>
                         ))}
@@ -1659,7 +1242,9 @@ function LanguageDropdown({
               })}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">No languages configured.</p>
+            <p className="text-xs text-muted-foreground">
+              No languages configured.
+            </p>
           )}
         </div>
       )}
@@ -1744,7 +1329,11 @@ function PackageEditor({
         </div>
         <div className="space-y-2">
           <Label>Delivery time (days)</Label>
-          <Input value={`${PACKAGE_DELIVERY_DAYS} Days`} disabled className="h-9 text-sm" />
+          <Input
+            value={`${PACKAGE_DELIVERY_DAYS} Days`}
+            disabled
+            className="h-9 text-sm"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="package-revisions">Revisions</Label>
@@ -1773,7 +1362,9 @@ function PackageEditor({
         <Switch
           checked={draft.basicEditing}
           disabled={disabled}
-          onCheckedChange={(basicEditing) => onChange({ ...draft, basicEditing })}
+          onCheckedChange={(basicEditing) =>
+            onChange({ ...draft, basicEditing })
+          }
         />
       </div>
     </section>
@@ -1850,7 +1441,9 @@ function AddOnCatalogEditor({
                 {selected ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor={`addon-price-${option.slug}`}>Price</Label>
+                      <Label htmlFor={`addon-price-${option.slug}`}>
+                        Price
+                      </Label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                           ₹

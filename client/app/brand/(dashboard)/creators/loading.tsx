@@ -1,4 +1,4 @@
-import { BrandCreatorsLoadingState } from "@/features/brand/components/brand-creators-loading";
+import { BrandCreatorsLoadingState } from "@/features/brands/components/brand-creators-loading";
 
 export default function BrandCreatorsLoading() {
   return <BrandCreatorsLoadingState />;

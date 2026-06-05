@@ -123,7 +123,6 @@ export type CreatorProfileItemApi = {
   avgRating?: string | null;
   reviewCount: number;
   totalOrders?: number;
-  completedOrders?: number;
   travelRadius?: number | null;
   onLocationAvailable?: boolean;
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
@@ -134,6 +133,12 @@ export type CreatorProfileItemApi = {
   packages: CreatorProfilePackageApi[];
   addOns?: CreatorProfileAddOnApi[];
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
+  timezone?: string | null;
+  highlights?: string[];
+  createdAt?: string;
+  completedOrders?: number;
+  totalEarnings?: number;
+  responseRate?: number;
 };
 
 export type SuggestedCreatorContentCategoryApi = {

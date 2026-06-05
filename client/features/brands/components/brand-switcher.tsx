@@ -20,7 +20,7 @@ import {
 import {
   resolveClientActiveBrandId,
   writeStoredActiveBrandId,
-} from "@/features/brand/lib/active-brand";
+} from "@/features/brands/lib/active-brand";
 
 function BrandChip({
   brandName,

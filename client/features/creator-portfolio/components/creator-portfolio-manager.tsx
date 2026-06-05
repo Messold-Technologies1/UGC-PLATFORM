@@ -9,33 +9,33 @@ import {
   Trash2,
   ExternalLink,
   Settings,
-  Search,
-  LayoutGrid,
-  List,
-  Info,
+  // Search,
+  // LayoutGrid,
+  // List,
+  // Info,
   Sparkles,
   CheckCircle2,
   Layout,
   Copy,
   MoreHorizontal,
-  Globe,
-  Lock,
+  // Globe,
+  // Lock,
   X,
-  Video,
-  FileText,
+  // Video,
+  // FileText,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
+// import {
+//   Tooltip,
+//   TooltipContent,
+//   TooltipTrigger,
+//   TooltipProvider,
+// } from "@/components/ui/tooltip";
+// import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -59,7 +59,7 @@ import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -88,7 +88,7 @@ export function CreatorPortfolioManager() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showBanner, setShowBanner] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] = useState("all-categories");
   const [selectedSort, setSelectedSort] = useState("newest");
 

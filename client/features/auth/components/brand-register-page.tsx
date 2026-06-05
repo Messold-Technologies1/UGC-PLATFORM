@@ -133,7 +133,7 @@ export function BrandRegisterPage() {
             </div>
           </div>
 
-          <div className="mt-auto pt-8">
+          {/* <div className="mt-auto pt-8">
             <p className="text-[13px] font-semibold text-slate-600 mb-4">
               Trusted by 500+ brands worldwide
             </p>
@@ -154,7 +154,7 @@ export function BrandRegisterPage() {
                 minimalist
               </span>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 

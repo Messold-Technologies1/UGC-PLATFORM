@@ -26,7 +26,7 @@ import {
 import {
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
-  DEFAULT_FILTERS,
+  // DEFAULT_FILTERS,
   type Filters,
 } from "../types/creator-filter-types";
 import type { CreatorFacetOption } from "../api/get-creator-facet-options";
@@ -385,30 +385,54 @@ const PriceRangeBody = memo(function PriceRangeBody({
   );
 });
 
-const SmartSearchBar = memo(function SmartSearchBar() {
-  const [query, setQuery] = useState("");
+interface SmartSearchBarProps {
+  value?: string;
+  onChange?: (value: string) => void;
+  onSubmit?: (value: string) => void;
+}
+
+const SmartSearchBar = memo(function SmartSearchBar({
+  value,
+  onChange,
+  onSubmit,
+}: SmartSearchBarProps) {
+  const [query, setQuery] = useState(value ?? "");
+
+  useEffect(() => {
+    if (value !== undefined) setQuery(value);
+  }, [value]);
+
+  const handleSearchChange = (v: string) => {
+    setQuery(v);
+    onChange?.(v);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && onSubmit) {
+      onSubmit(query);
+    }
+  };
 
   return (
     <>
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-primary">
-            <Sparkles className="size-[19px]" />
-          </span>
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
           <input
-            className="h-14 w-full rounded-[15px] border-[1.5px] border-primary/30 bg-white py-2 pl-[50px] pr-11 text-base text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground/70 focus:border-primary/50 smart-search-glow"
+            className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-8 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200"
             placeholder="Describe the creator you need — niche, language, city, budget, style…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
           {query && (
             <button
               type="button"
-              className="absolute right-3 top-1/2 flex size-[26px] -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground"
-              onClick={() => setQuery("")}
+              className="absolute right-2.5 top-1/2 flex size-[18px] -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground"
+              onClick={() => handleSearchChange("")}
               aria-label="Clear"
             >
-              <X className="size-[15px]" />
+              <X className="size-[12px]" />
             </button>
           )}
         </div>
@@ -423,7 +447,10 @@ const SmartSearchBar = memo(function SmartSearchBar() {
             key={ex}
             type="button"
             className="h-[30px] rounded-full border border-dashed border-gray-200 bg-white px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-gray-50 hover:text-foreground"
-            onClick={() => setQuery(ex)}
+            onClick={() => {
+              handleSearchChange(ex);
+              onSubmit?.(ex);
+            }}
           >
             {ex}
           </button>
@@ -546,11 +573,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 }: CreatorFilterBarProps) {
   const [mode, setMode] = useState<"smart" | "manual">("manual");
   const [openPopover, setOpenPopover] = useState<string | null>(null);
-  const [localSearch, setLocalSearch] = useState(filters.city);
-  useEffect(() => {
-    setLocalSearch(filters.city);
-  }, [filters.city]);
-
   const [localCity, setLocalCity] = useState(filters.city);
   useEffect(() => {
     setLocalCity(filters.city);
@@ -672,20 +694,27 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 
   const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
-  const getFacetItems = useCallback(
-    (dimension: string): { slug: string; label: string }[] => {
-      const options: CreatorFacetOption[] =
-        (
-          facetOptionsByDimension as
-            | Record<string, CreatorFacetOption[]>
-            | undefined
-        )?.[dimension] ?? [];
-      return options.map((o) => ({
+  const facetItemsByDimension = useMemo(() => {
+    const result: Record<string, { slug: string; label: string }[]> = {};
+    const optionsMap = facetOptionsByDimension as
+      | Record<string, CreatorFacetOption[]>
+      | undefined;
+    if (!optionsMap) return result;
+
+    for (const [dim, options] of Object.entries(optionsMap)) {
+      result[dim] = options.map((o) => ({
         slug: o.slug,
         label: o.label.replace(/\s*\/\s*/g, " & ").replace(/\bAnd\b/g, "&"),
       }));
+    }
+    return result;
+  }, [facetOptionsByDimension]);
+
+  const getFacetItems = useCallback(
+    (dimension: string): { slug: string; label: string }[] => {
+      return facetItemsByDimension[dimension] ?? [];
     },
-    [facetOptionsByDimension],
+    [facetItemsByDimension],
   );
 
   const restrictionNames = useMemo(
@@ -694,6 +723,11 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
         (restrictionSuggestionsQuery.data ?? []).map((item) => item.name),
       ),
     [restrictionSuggestionsQuery.data],
+  );
+
+  const restrictionItems = useMemo(
+    () => restrictionNames.map((n) => ({ slug: n, label: n })),
+    [restrictionNames],
   );
 
   const categoryCount = filters.categories.length;
@@ -784,7 +818,12 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 
         <div className="mt-3">
           {mode === "smart" ? (
-            <SmartSearchBar />
+            <SmartSearchBar
+              onSubmit={(val) => {
+                // TODO: Wire up smart search logic here once backend is ready
+                console.log("Smart search query:", val);
+              }}
+            />
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2.5">
@@ -944,10 +983,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           Restrictions
                         </h5>
                         <ChipGrid
-                          items={restrictionNames.map((n) => ({
-                            slug: n,
-                            label: n,
-                          }))}
+                          items={restrictionItems}
                           selected={filters.restrictions}
                           onToggle={(slug) =>
                             toggleArrayField("restrictions", slug)

@@ -16,7 +16,10 @@ import { VirtuosoGrid } from "react-virtuoso";
 import { Card } from "@/components/ui/card";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
-import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
+import { CreatorCardSkeleton } from "./creator-card";
+import { ReelCard } from "./browse-creators/reel-card";
+import { ProfileDrawer } from "./browse-creators/profile-drawer";
+import type { Creator } from "../types";
 import { CreatorFilterBar } from "./creator-filter-bar";
 import {
   CREATOR_PRICE_MAX,
@@ -43,11 +46,7 @@ const virtuosoGridComponents = {
         <div
           ref={ref}
           {...props}
-          className={cn(
-            "grid w-full gap-x-5 gap-y-4",
-            "sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
-            className,
-          )}
+          className={cn("reelgrid browse-redesign-scope", className)}
         />
       );
     },
@@ -140,6 +139,20 @@ export function CreatorListing({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
+  const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
+
+  const openDrawer = useCallback((creator: Creator) => {
+    setSelectedCreator(creator);
+    setDrawerCreatorId(creator.id);
+    setDrawerOpen(true);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+  }, []);
   const searchParamsKey = searchParams.toString();
 
   const parsedInitial = useMemo(
@@ -340,10 +353,10 @@ export function CreatorListing({
                 if (!creator) return null;
 
                 return (
-                  <CreatorCard
+                  <ReelCard
                     creator={creator}
-                    variant="listing"
-                    appearance="browse"
+                    index={index}
+                    onOpen={openDrawer}
                   />
                 );
               }}
@@ -393,6 +406,13 @@ export function CreatorListing({
           <EmptyBrowseState filters={filters} />
         )}
       </div>
+
+      <ProfileDrawer
+        creatorId={drawerCreatorId}
+        open={drawerOpen}
+        onClose={closeDrawer}
+        creator={selectedCreator}
+      />
     </div>
   );
 }

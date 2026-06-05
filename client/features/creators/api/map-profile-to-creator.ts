@@ -140,7 +140,7 @@ export function mapProfileToListingCreator(
     rating: parseRating(profile.avgRating),
     reviewCount: profile.reviewCount ?? 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
-    ordersCompleted: profile.collaborationCount ?? 0,
+    ordersCompleted: (profile as any).completedOrders ?? 0,
     thumbnail,
     previewVideoUrl,
     introVideoUrl: introVideoUrl || null,

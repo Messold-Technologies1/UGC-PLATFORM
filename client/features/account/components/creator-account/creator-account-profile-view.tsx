@@ -217,34 +217,35 @@ export function CreatorAccountProfileView({
             className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
             aria-label="Profile overview"
           >
-            <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-slate-100">
+            {/* <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-slate-100">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_40%,rgba(255,255,255,0.4),transparent_50%)]" />
 
               <div className="absolute bottom-0 right-8 h-32 w-16 rounded-t-2xl bg-white/20 backdrop-blur-sm" />
               <div className="absolute bottom-0 right-28 h-28 w-14 rounded-t-xl bg-white/15 backdrop-blur-sm" />
               <div className="absolute bottom-0 right-48 h-24 w-12 rounded-t-xl bg-white/10 backdrop-blur-sm" />
               <div className="absolute bottom-0 right-64 h-20 w-10 rounded-t-lg bg-white/10" />
-            </div>
+            </div> */}
 
-            <div className="px-6 pb-6">
-              <div className="relative z-10 -mt-14">
-                {profile.profileImageUrl ? (
-                  <img
-                    src={profile.profileImageUrl}
-                    alt={profile.displayName}
-                    className="size-28 rounded-full border-4 border-white object-cover shadow-lg ring-1 ring-border bg-white"
-                  />
-                ) : (
-                  <div
-                    className="flex size-28 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-violet-400 to-fuchsia-400 text-3xl font-bold text-white shadow-lg ring-1 ring-border"
-                    aria-label={`${profile.displayName} avatar`}
-                  >
-                    {initials}
-                  </div>
-                )}
-              </div>
+            <div className="p-6">
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="relative z-10 shrink-0">
+                  {profile.profileImageUrl ? (
+                    <img
+                      src={profile.profileImageUrl}
+                      alt={profile.displayName}
+                      className="size-28 rounded-full border-4 border-white object-cover shadow-lg ring-1 ring-border bg-white"
+                    />
+                  ) : (
+                    <div
+                      className="flex size-28 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-violet-400 to-fuchsia-400 text-3xl font-bold text-white shadow-lg ring-1 ring-border"
+                      aria-label={`${profile.displayName} avatar`}
+                    >
+                      {initials}
+                    </div>
+                  )}
+                </div>
 
-              <div className="mt-4 flex items-stretch justify-between gap-6">
+                <div className="flex flex-1 flex-col md:flex-row md:items-stretch justify-between gap-6">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2.5">
                     <h2 className="text-2xl font-bold tracking-tight">
@@ -301,6 +302,7 @@ export function CreatorAccountProfileView({
                 </div>
               </div>
             </div>
+          </div>
           </motion.section>
 
           <motion.section

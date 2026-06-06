@@ -80,9 +80,10 @@ function getTagColor(tag: string, index: number): string {
 interface VideoCardProps {
   video: PortfolioVideoApi;
   index: number;
+  onError?: () => void;
 }
 
-const VideoCard = memo(function VideoCard({ video, index }: VideoCardProps) {
+const VideoCard = memo(function VideoCard({ video, index, onError }: VideoCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -166,6 +167,7 @@ const VideoCard = memo(function VideoCard({ video, index }: VideoCardProps) {
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onClick={handleTogglePlay}
+          onError={onError}
         />
 
         <div
@@ -272,6 +274,8 @@ export const PortfolioTab = memo(function PortfolioTab({
   initialVideos,
 }: PortfolioTabProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
+
   const query = usePublicPortfolioVideosQuery(creatorId, {
     placeholderData: initialVideos,
     staleTime: 5 * 60_000,
@@ -311,7 +315,10 @@ export const PortfolioTab = memo(function PortfolioTab({
     );
   }
 
-  const videos = query.data ?? [];
+  const videos = (query.data?.filter((v) => {
+    if (!v.videoUrl || v.videoUrl.length < 5 || v.videoUrl === "null" || v.videoUrl === "undefined") return false;
+    return true;
+  }) ?? []).filter(v => !failedVideos.has(v.id));
 
   if (videos.length === 0) {
     return (
@@ -345,7 +352,18 @@ export const PortfolioTab = memo(function PortfolioTab({
           animate="show"
         >
           {videos.map((v, index) => (
-            <VideoCard key={v.id} video={v} index={index} />
+            <VideoCard 
+              key={v.id} 
+              video={v} 
+              index={index} 
+              onError={() => {
+                setFailedVideos(prev => {
+                  const next = new Set(prev);
+                  next.add(v.id);
+                  return next;
+                });
+              }}
+            />
           ))}
         </motion.div>
 

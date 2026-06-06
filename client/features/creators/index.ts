@@ -1,6 +1,6 @@
 export {
   CreatorCard,
-  CreatorFilters,
+  CreatorFilterBar,
   CreatorListing,
   FeaturedCreators,
 } from "./components";

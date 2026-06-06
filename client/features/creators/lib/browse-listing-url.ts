@@ -1,5 +1,5 @@
-import type { Filters } from "../components/creator-filters";
-import { DEFAULT_FILTERS } from "../components/creator-filters";
+import type { Filters } from "../types/creator-filter-types";
+import { DEFAULT_FILTERS } from "../types/creator-filter-types";
 
 function normalizeMultiValue(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort(
@@ -67,7 +67,6 @@ export function parseBrowseListingParams(
   };
 }
 
-/** All multi-value filter keys that get serialized with `append` */
 const MULTI_VALUE_KEYS = [
   "categories",
   // "personaTags",
@@ -96,7 +95,6 @@ export function serializeBrowseListingParams(
   const city = filters.city.trim();
   if (city) params.set("city", city);
 
-  // Multi-value params
   for (const key of MULTI_VALUE_KEYS) {
     for (const value of normalizeMultiValue(filters[key])) {
       params.append(key, value);

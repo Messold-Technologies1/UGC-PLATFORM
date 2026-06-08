@@ -1,7 +1,6 @@
 import React from "react";
 import Image from "next/image";
 import { PendingCreatorApprovalListItemDto } from "@/features/admin/types";
-import { useRouter } from "next/navigation";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -34,7 +33,6 @@ export default function ReviewDrawer({
   onClose: () => void;
   creator?: PendingCreatorApprovalListItemDto | null;
 }) {
-  const router = useRouter();
   const { mutate: approve, isPending: isApproving } =
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } = useRejectCreatorMutation();

@@ -4,19 +4,13 @@ import { approveCreator } from "../api/approve-creator";
 import { toast } from "sonner";
 import { isAxiosError } from "axios";
 
-import { useRouter } from "next/navigation";
-
 export function useApproveCreatorMutation() {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   return useMutation({
     mutationFn: approveCreator,
     onMutate: async (id) => {
       toast.success("Creator approved successfully");
-      
-      // Redirect instantly before waiting for the API to complete
-      router.push(`/admin/creatorManagement?highlightedCreatorId=${id}`);
 
       await queryClient.cancelQueries({ queryKey: ["admin", "pending-approvals"] });
       const previousQueries = queryClient.getQueriesData({ queryKey: ["admin", "pending-approvals"] });

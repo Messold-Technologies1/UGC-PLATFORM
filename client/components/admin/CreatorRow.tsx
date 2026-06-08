@@ -1,6 +1,5 @@
 import React from "react";
 import { PendingCreatorApprovalListItemDto } from "@/features/admin/types";
-import { useRouter } from "next/navigation";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { RejectDialog } from "./RejectDialog";
@@ -23,7 +22,6 @@ export default function CreatorRow({
   delay: number;
   onReview: () => void;
 }) {
-  const router = useRouter();
   const { mutate: approve, isPending: isApproving } =
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } = useRejectCreatorMutation();

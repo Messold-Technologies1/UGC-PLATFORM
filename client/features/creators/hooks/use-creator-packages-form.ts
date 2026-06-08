@@ -3,8 +3,12 @@ import { toast } from "sonner";
 
 import {
   createInitialPackageDraft,
+  PACKAGE_DEFAULT_MAX_REVISIONS,
+  PACKAGE_MAX_DELIVERY_DAYS,
+  PACKAGE_MAX_VIDEO_LENGTH_SECONDS,
+  PACKAGE_MIN_DELIVERY_DAYS,
+  PACKAGE_NAME,
   PACKAGE_PRICE_STEP,
-  PACKAGE_DELIVERY_DAYS,
   type PackageDraft,
 } from "./creator-profile-form-utils";
 import type { CreatorPackageCreatePayload } from "@/features/creators/api/create-creator-profile";
@@ -24,18 +28,19 @@ export function useCreatorPackagesForm({
   const buildPackages = useCallback(():
     | CreatorPackageCreatePayload[]
     | null => {
-    const packageName = packageDraft.packageName.trim();
     const videoLength = Number(packageDraft.videoLengthSeconds);
     const price = packageDraft.priceAmount.trim();
     const priceNumber = Number(price);
-    const revisions = Number(packageDraft.maxRevisions);
+    const deliveryDays = Number(packageDraft.deliveryDays);
 
-    if (!packageName) {
-      toast.error("Package name is required.");
-      return null;
-    }
-    if (!Number.isInteger(videoLength) || videoLength < 1 || videoLength > 60) {
-      toast.error("Video length must be between 1 and 60 seconds.");
+    if (
+      !Number.isInteger(videoLength) ||
+      videoLength < 1 ||
+      videoLength > PACKAGE_MAX_VIDEO_LENGTH_SECONDS
+    ) {
+      toast.error(
+        `Video length must be between 1 and ${PACKAGE_MAX_VIDEO_LENGTH_SECONDS} seconds.`,
+      );
       return null;
     }
     if (!/^\d+$/.test(price)) {
@@ -50,24 +55,29 @@ export function useCreatorPackagesForm({
       toast.error("Package price must be at least ₹500 and in steps of ₹500.");
       return null;
     }
-    if (!Number.isInteger(revisions) || revisions < 1) {
-      toast.error("Package revisions must be at least 1.");
+    if (
+      !Number.isInteger(deliveryDays) ||
+      deliveryDays < PACKAGE_MIN_DELIVERY_DAYS ||
+      deliveryDays > PACKAGE_MAX_DELIVERY_DAYS
+    ) {
+      toast.error(
+        `Delivery time must be between ${PACKAGE_MIN_DELIVERY_DAYS} and ${PACKAGE_MAX_DELIVERY_DAYS} days.`,
+      );
       return null;
     }
-
     const deliverables = packageDraft.basicEditing
       ? ["1 Video", "Basic editing"]
       : ["1 Video"];
 
     return [
       {
-        name: packageName,
+        name: PACKAGE_NAME,
         deliverables,
         videoLengthSeconds: videoLength,
         basicEditing: packageDraft.basicEditing,
         priceAmount: price,
-        deliveryDays: PACKAGE_DELIVERY_DAYS,
-        maxRevisions: revisions,
+        deliveryDays,
+        maxRevisions: PACKAGE_DEFAULT_MAX_REVISIONS,
       },
     ];
   }, [packageDraft]);

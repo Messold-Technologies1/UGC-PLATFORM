@@ -59,7 +59,11 @@ import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-
 import {
   INTRO_VIDEO_ACCEPT,
   SELECT_NONE,
-  PACKAGE_DELIVERY_DAYS,
+  PACKAGE_NAME,
+  PACKAGE_DEFAULT_MAX_REVISIONS,
+  PACKAGE_MAX_DELIVERY_DAYS,
+  PACKAGE_MAX_VIDEO_LENGTH_SECONDS,
+  PACKAGE_MIN_DELIVERY_DAYS,
   facetSections,
   genderOptions,
   contentVolumeOptions,
@@ -1275,11 +1279,9 @@ function PackageEditor({
           <Input
             id="package-name"
             className="h-9 text-sm"
-            disabled={disabled}
-            value={draft.packageName}
-            onChange={(event) =>
-              onChange({ ...draft, packageName: event.target.value })
-            }
+            disabled
+            value={PACKAGE_NAME}
+            readOnly
           />
         </div>
         <div className="space-y-2">
@@ -1294,11 +1296,14 @@ function PackageEditor({
             disabled={disabled}
             value={draft.videoLengthSeconds}
             inputMode="numeric"
-            placeholder="Up to 60"
+            placeholder={`Up to ${PACKAGE_MAX_VIDEO_LENGTH_SECONDS}`}
             onChange={(event) => {
               const val = normalizeWholeNumberInput(event.target.value);
-              if (Number(val) > 60) {
-                onChange({ ...draft, videoLengthSeconds: "60" });
+              if (Number(val) > PACKAGE_MAX_VIDEO_LENGTH_SECONDS) {
+                onChange({
+                  ...draft,
+                  videoLengthSeconds: String(PACKAGE_MAX_VIDEO_LENGTH_SECONDS),
+                });
               } else {
                 onChange({ ...draft, videoLengthSeconds: val });
               }
@@ -1328,11 +1333,25 @@ function PackageEditor({
           </div>
         </div>
         <div className="space-y-2">
-          <Label>Delivery time (days)</Label>
+          <Label htmlFor="package-delivery-days">Delivery time (days)</Label>
           <Input
-            value={`${PACKAGE_DELIVERY_DAYS} Days`}
-            disabled
+            id="package-delivery-days"
             className="h-9 text-sm"
+            disabled={disabled}
+            value={draft.deliveryDays}
+            inputMode="numeric"
+            placeholder={String(PACKAGE_MIN_DELIVERY_DAYS)}
+            onChange={(event) => {
+              const val = normalizeWholeNumberInput(event.target.value);
+              if (val && Number(val) > PACKAGE_MAX_DELIVERY_DAYS) {
+                onChange({
+                  ...draft,
+                  deliveryDays: String(PACKAGE_MAX_DELIVERY_DAYS),
+                });
+                return;
+              }
+              onChange({ ...draft, deliveryDays: val });
+            }}
           />
         </div>
         <div className="space-y-2">
@@ -1340,15 +1359,9 @@ function PackageEditor({
           <Input
             id="package-revisions"
             className="h-9 text-sm"
-            disabled={disabled}
-            value={draft.maxRevisions}
-            inputMode="numeric"
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                maxRevisions: normalizeWholeNumberInput(event.target.value),
-              })
-            }
+            disabled
+            value={String(PACKAGE_DEFAULT_MAX_REVISIONS)}
+            readOnly
           />
         </div>
       </div>

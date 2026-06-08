@@ -25,9 +25,14 @@ export const INTRO_VIDEO_CONTENT_TYPES = new Set([
 ]);
 
 export const SELECT_NONE = "__none__";
-export const PACKAGE_NAME = "1 Video UGC";
+export const PACKAGE_NAME = "Standard";
 export const PACKAGE_DELIVERY_DAYS = 5;
+export const PACKAGE_DEFAULT_MAX_REVISIONS = 2;
+export const PACKAGE_MAX_REVISIONS = 10;
+export const PACKAGE_MIN_DELIVERY_DAYS = 1;
+export const PACKAGE_MAX_DELIVERY_DAYS = 30;
 export const PACKAGE_VIDEO_LENGTH_SECONDS = 60;
+export const PACKAGE_MAX_VIDEO_LENGTH_SECONDS = 60;
 export const PACKAGE_PRICE_STEP = 500;
 
 
@@ -90,6 +95,7 @@ export type PackageDraft = {
   packageName: string;
   videoLengthSeconds: string;
   priceAmount: string;
+  deliveryDays: string;
   maxRevisions: string;
   basicEditing: boolean;
 };
@@ -176,7 +182,11 @@ export function createInitialPackageDraft(
     priceAmount: pkg?.priceAmount
       ? String(Math.round(Number(pkg.priceAmount)))
       : "",
-    maxRevisions: pkg?.maxRevisions != null ? String(pkg.maxRevisions) : "1",
+    deliveryDays:
+      pkg?.deliveryDays != null
+        ? String(pkg.deliveryDays)
+        : String(PACKAGE_DELIVERY_DAYS),
+    maxRevisions: String(PACKAGE_DEFAULT_MAX_REVISIONS),
     basicEditing: pkg?.deliverables?.includes("Basic editing") ?? false,
   };
 }

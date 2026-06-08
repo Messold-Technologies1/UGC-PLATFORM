@@ -369,7 +369,9 @@ describe('CreatorProfileService', () => {
     const createManyArgUpdate = txMock.creatorAddOn.createMany.mock
       .calls[0]?.[0] as { data: { name: string }[] };
     const addOnRowsUpdate = createManyArgUpdate.data;
-    expect(addOnRowsUpdate.map((r) => r.name)).toEqual(['On-location Shoot']);
+    expect(addOnRowsUpdate.map((r) => r.name)).toEqual([
+      'On-location Shoot (25 km)',
+    ]);
     expect(result.id).toBe(profileId);
   });
 

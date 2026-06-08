@@ -20,16 +20,19 @@ import {
   Max,
   MaxLength,
   Min,
-  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { CreatorFacetSelectionInputDto } from './creator-facet-selection-input.dto';
 import { CreatorProfileLanguageInputDto } from './creator-profile-language-input.dto';
 
 export class CreatorPackageCreateDto {
-  @ApiProperty({ example: 'Basic' })
+  @ApiPropertyOptional({
+    example: 'Standard',
+    description: 'Defaults to "Standard" when omitted or blank.',
+  })
+  @IsOptional()
   @IsString()
-  name!: string;
+  name?: string;
 
   @ApiPropertyOptional({
     example: ['1 Video'],
@@ -67,23 +70,24 @@ export class CreatorPackageCreateDto {
 
   @ApiPropertyOptional({
     example: 5,
-    description: 'Fixed at 5 days (backend will enforce).',
+    description: 'Delivery timeline in days (1–30).',
   })
   @IsOptional()
   @IsInt()
-  @ValidateIf((_, v) => v !== undefined)
-  @Min(5)
-  @Max(5)
+  @Min(1)
+  @Max(30)
   deliveryDays?: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 2,
     description:
-      'Maximum number of revision cycles included in this package.',
+      'Maximum number of revision cycles included in this package. Defaults to 2.',
   })
+  @IsOptional()
   @IsInt()
   @Min(1)
-  maxRevisions!: number;
+  @Max(10)
+  maxRevisions?: number;
 }
 
 export class CreatorAddOnCreateDto {
@@ -96,7 +100,7 @@ export class CreatorAddOnCreateDto {
   slug!: string;
 
   @ApiPropertyOptional({
-    example: 'On-location Shoot',
+    example: 'On-location Shoot (25 km)',
     description:
       'Optional display name (backend will override with catalog name).',
   })
@@ -253,14 +257,13 @@ export class CreateCreatorProfileDto {
     type: [CreatorPackageCreateDto],
     example: [
       {
-        name: '1 Video UGC',
-        // deliverables optional; defaults to ["1 Video"] if omitted
+        name: 'Standard',
         deliverables: ['1 Video', 'Basic editing'],
         videoLengthSeconds: 60,
         basicEditing: true,
         priceAmount: '500',
         deliveryDays: 5,
-        maxRevisions: 1,
+        maxRevisions: 2,
       },
     ],
   })

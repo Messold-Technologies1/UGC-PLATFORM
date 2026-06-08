@@ -290,7 +290,7 @@ export class CreatorProfileService {
         videoLengthSeconds: (p as any).videoLengthSeconds ?? 60,
         priceAmount: p.priceAmount,
         deliveryDays: p.deliveryDays,
-        maxRevisions: p.maxRevisions ?? 1,
+        maxRevisions: p.maxRevisions ?? 2,
       })),
       addOns: (mapped.addOns ?? []).map((a: any) => ({
         id: a.id,

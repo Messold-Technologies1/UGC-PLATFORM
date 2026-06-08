@@ -26,7 +26,7 @@ export const CREATOR_ADDON_OPTION_SEED_ROWS: AddOnOptionSeedRow[] = [
   },
   {
     slug: 'on_location_shoot',
-    name: 'On-location Shoot',
+    name: 'On-location Shoot (25 km)',
     sortOrder: 2,
     fixedPrice: 500,
   },
@@ -44,14 +44,30 @@ export const CREATOR_ADDON_OPTION_SEED_ROWS: AddOnOptionSeedRow[] = [
     minPrice: 100,
     stepPrice: 100,
   },
+  {
+    slug: 'raw_file_usage',
+    name: 'Raw File Usage',
+    sortOrder: 5,
+    minPrice: 100,
+    stepPrice: 100,
+  },
 ];
 
 export async function seedCreatorAddOnOptions(
   prisma: PrismaClient,
 ): Promise<void> {
-  await prisma.creatorAddOnOption.createMany({
-    data: CREATOR_ADDON_OPTION_SEED_ROWS,
-    skipDuplicates: true,
-  });
+  for (const row of CREATOR_ADDON_OPTION_SEED_ROWS) {
+    await prisma.creatorAddOnOption.upsert({
+      where: { slug: row.slug },
+      create: row,
+      update: {
+        name: row.name,
+        sortOrder: row.sortOrder,
+        fixedPrice: row.fixedPrice ?? null,
+        minPrice: row.minPrice ?? null,
+        stepPrice: row.stepPrice ?? null,
+      },
+    });
+  }
 }
 

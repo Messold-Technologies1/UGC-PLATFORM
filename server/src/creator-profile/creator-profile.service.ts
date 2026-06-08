@@ -484,17 +484,18 @@ export class CreatorProfileService {
     return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
   }
 
-  private async assertPhoneVerifiedForCreator(userId: string): Promise<void> {
-    const u = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { phoneVerified: true, phone: true },
-    });
-    if (!u?.phoneVerified || !u?.phone?.trim()) {
-      throw new BadRequestException(
-        'Verify your mobile number before managing a creator profile.',
-      );
-    }
-  }
+  // OTP gate temporarily disabled — re-enable before profile edits require verified phone.
+  // private async assertPhoneVerifiedForCreator(userId: string): Promise<void> {
+  //   const u = await this.prisma.user.findUnique({
+  //     where: { id: userId },
+  //     select: { phoneVerified: true, phone: true },
+  //   });
+  //   if (!u?.phoneVerified || !u?.phone?.trim()) {
+  //     throw new BadRequestException(
+  //       'Verify your mobile number before managing a creator profile.',
+  //     );
+  //   }
+  // }
 
   private async syncUserDisplayName(
     tx: PrismaTransactionClient,
@@ -1263,13 +1264,14 @@ export class CreatorProfileService {
     creatorProfileId: string,
     dto: UpdateCreatorProfileDto,
   ): Promise<CreatorProfileResponseDto> {
-    const profileForGate = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      select: { userId: true },
-    });
-    if (profileForGate?.userId === actingUserId) {
-      await this.assertPhoneVerifiedForCreator(actingUserId);
-    }
+    // OTP gate temporarily disabled for creator profile edits — uncomment when re-enabling.
+    // const profileForGate = await this.prisma.creatorProfile.findUnique({
+    //   where: { id: creatorProfileId },
+    //   select: { userId: true },
+    // });
+    // if (profileForGate?.userId === actingUserId) {
+    //   await this.assertPhoneVerifiedForCreator(actingUserId);
+    // }
 
     return this.prisma.$transaction(
       async (tx) => {

@@ -103,9 +103,12 @@ export class UpdateCreatorProfileDto {
   @MaxLength(320)
   contactEmail?: string;
 
-  @ApiPropertyOptional({ example: 'https://instagram.com/jane' })
+  @ApiPropertyOptional({
+    example: '@jane',
+    description: 'Instagram handle or profile URL (plain string).',
+  })
   @IsOptional()
-  @IsUrl({ require_protocol: true })
+  @IsString()
   @MaxLength(500)
   instagramUrl?: string;
 

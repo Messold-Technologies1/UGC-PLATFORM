@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CreatorTopReviewDto } from '../../creator-reviews/dto/creator-top-review.dto';
 import {
   ApprovalStatus,
   CreatorAgeGroup,
@@ -279,4 +280,10 @@ export class CreatorProfileResponseDto {
 
   @ApiPropertyOptional({ type: () => CreatorPortfolioVideoPreviewResponseDto })
   firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
+
+  @ApiProperty({
+    type: () => [CreatorTopReviewDto],
+    description: 'Top-rated brand reviews (up to 3), highest rating first.',
+  })
+  topReviews!: CreatorTopReviewDto[];
 }

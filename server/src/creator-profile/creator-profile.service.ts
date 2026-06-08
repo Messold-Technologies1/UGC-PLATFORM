@@ -24,6 +24,8 @@ import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
+import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
+import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import { PendingCreatorApprovalListItemDto } from './dto/pending-creator-approval-list-item.dto';
@@ -127,6 +129,7 @@ export class CreatorProfileService {
     private readonly creatorPackageService: CreatorPackageService,
     private readonly storage: StorageService,
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
+    private readonly creatorReviews: CreatorReviewsService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -213,6 +216,7 @@ export class CreatorProfileService {
   private mapCreatorProfileResponseDto(
     profile: CreatorProfileWithRelations,
     orderCounts?: { totalOrders: number; completedOrders: number },
+    topReviews: CreatorTopReviewDto[] = [],
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
     const first = (mapped.portfolioVideos ?? [])[0] ?? null;
@@ -304,6 +308,7 @@ export class CreatorProfileService {
       reviewCount: mapped.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
       completedOrders: orderCounts?.completedOrders ?? 0,
+      topReviews,
     };
   }
 
@@ -311,16 +316,63 @@ export class CreatorProfileService {
     totalOrders: number;
     completedOrders: number;
   }> {
-    const [totalOrders, completedOrders] = await this.prisma.$transaction([
-      this.prisma.order.count({ where: { creatorId: creatorProfileId } }),
-      this.prisma.order.count({
+    const counts = await this.countCreatorOrdersBatch([creatorProfileId]);
+    return (
+      counts.get(creatorProfileId) ?? { totalOrders: 0, completedOrders: 0 }
+    );
+  }
+
+  private async countCreatorOrdersBatch(
+    creatorProfileIds: string[],
+  ): Promise<
+    Map<string, { totalOrders: number; completedOrders: number }>
+  > {
+    const uniqueIds = [...new Set(creatorProfileIds.filter(Boolean))];
+    const counts = new Map<
+      string,
+      { totalOrders: number; completedOrders: number }
+    >();
+    for (const id of uniqueIds) {
+      counts.set(id, { totalOrders: 0, completedOrders: 0 });
+    }
+    if (uniqueIds.length === 0) {
+      return counts;
+    }
+
+    const [totalRows, completedRows] = await this.prisma.$transaction([
+      this.prisma.order.groupBy({
+        by: ['creatorId'],
+        where: { creatorId: { in: uniqueIds } },
+        _count: { _all: true },
+        orderBy: { creatorId: 'asc' },
+      }),
+      this.prisma.order.groupBy({
+        by: ['creatorId'],
         where: {
-          creatorId: creatorProfileId,
+          creatorId: { in: uniqueIds },
           status: { in: CREATOR_COMPLETED_ORDER_STATUSES },
         },
+        _count: { _all: true },
+        orderBy: { creatorId: 'asc' },
       }),
     ]);
-    return { totalOrders, completedOrders };
+
+    for (const row of totalRows) {
+      const existing = counts.get(row.creatorId);
+      if (existing) {
+        existing.totalOrders =
+          typeof row._count === 'object' ? (row._count._all ?? 0) : 0;
+      }
+    }
+    for (const row of completedRows) {
+      const existing = counts.get(row.creatorId);
+      if (existing) {
+        existing.completedOrders =
+          typeof row._count === 'object' ? (row._count._all ?? 0) : 0;
+      }
+    }
+
+    return counts;
   }
 
   private async isAdminUser(userId: string): Promise<boolean> {
@@ -727,8 +779,17 @@ export class CreatorProfileService {
       }),
     ]);
 
+    const orderCountsByCreatorId = await this.countCreatorOrdersBatch(
+      items.map((profile) => profile.id),
+    );
+
     return {
-      items: items.map((p) => this.mapCreatorPublicListItemDto(p)),
+      items: items.map((p) =>
+        this.mapCreatorPublicListItemDto(
+          p,
+          orderCountsByCreatorId.get(p.id),
+        ),
+      ),
       total,
       page,
       limit,
@@ -865,6 +926,7 @@ export class CreatorProfileService {
 
   private mapCreatorPublicListItemDto(
     profile: any,
+    orderCounts?: { totalOrders: number; completedOrders: number },
   ): CreatorPublicListItemDto {
     const portfolioVideos: CreatorPublicListPortfolioVideoDto[] = Array.isArray(
       profile.portfolioVideos,
@@ -954,6 +1016,8 @@ export class CreatorProfileService {
       portfolioVideos,
       avgRating: profile.stats?.avgRating?.toString() ?? null,
       reviewCount: profile.stats?.reviewCount ?? 0,
+      totalOrders: orderCounts?.totalOrders ?? 0,
+      completedOrders: orderCounts?.completedOrders ?? 0,
     };
   }
 
@@ -984,7 +1048,15 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    const dto = this.mapCreatorProfileResponseDto(profile);
+    const [orderCounts, topReviews] = await Promise.all([
+      this.countCreatorOrders(profile.id),
+      this.creatorReviews.listTopForCreator({ creatorId: profile.id }),
+    ]);
+    const dto = this.mapCreatorProfileResponseDto(
+      profile,
+      orderCounts,
+      topReviews,
+    );
     if (isOwner || admin) {
       return dto;
     }
@@ -1179,8 +1251,11 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator profile not found');
     }
 
-    const orderCounts = await this.countCreatorOrders(profile.id);
-    return this.mapCreatorProfileResponseDto(profile, orderCounts);
+    const [orderCounts, topReviews] = await Promise.all([
+      this.countCreatorOrders(profile.id),
+      this.creatorReviews.listTopForCreator({ creatorId: profile.id }),
+    ]);
+    return this.mapCreatorProfileResponseDto(profile, orderCounts, topReviews);
   }
 
   async updateCreatorProfile(

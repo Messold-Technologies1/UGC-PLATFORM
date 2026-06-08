@@ -27,9 +27,6 @@ export class CreatorRatingReviewDto {
   @ApiPropertyOptional()
   review?: string | null;
 
-  @ApiPropertyOptional({ example: 'Basic UGC package' })
-  packageNameSnapshot?: string | null;
-
   @ApiProperty({ type: () => CreatorRatingReviewBrandSnapshotDto })
   brand!: CreatorRatingReviewBrandSnapshotDto;
 

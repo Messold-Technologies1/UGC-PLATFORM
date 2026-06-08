@@ -149,7 +149,7 @@ function CreatorProfileUpdateFormContent({
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
 
-  const [phoneVerified, setPhoneVerified] = useState(
+  const [phoneVerified, setPhoneVerified] = useState<boolean>(
     adminMode || !PROFILE_OTP_VERIFICATION_ENABLED,
   );
   const [phoneInput, setPhoneInput] = useState(

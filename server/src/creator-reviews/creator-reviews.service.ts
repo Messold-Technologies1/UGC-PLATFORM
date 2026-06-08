@@ -10,12 +10,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCreatorRatingReviewDto } from './dto/create-creator-rating-review.dto';
 import type { CreateCreatorRatingReviewResponseDto } from './dto/create-creator-rating-review-response.dto';
 import type { CreatorRatingReviewDto } from './dto/creator-rating-review.dto';
+import type { CreatorTopReviewDto } from './dto/creator-top-review.dto';
 import type { ListCreatorRatingReviewsQueryDto } from './dto/list-creator-rating-reviews-query.dto';
 import type { ListCreatorRatingReviewsResponseDto } from './dto/list-creator-rating-reviews-response.dto';
 
+const DEFAULT_TOP_REVIEWS_LIMIT = 3;
+
 const reviewInclude = {
   brand: { select: { id: true, brandName: true, logoUrl: true } },
-  order: { select: { packageNameSnapshot: true } },
 } as const;
 
 function formatAvgRating(value: number | null | undefined): string | null {
@@ -23,7 +25,7 @@ function formatAvgRating(value: number | null | undefined): string | null {
   return (Math.round(value * 100) / 100).toFixed(2);
 }
 
-function mapReview(row: {
+type ReviewRow = {
   id: string;
   orderId: string;
   creatorId: string;
@@ -31,21 +33,33 @@ function mapReview(row: {
   review: string | null;
   createdAt: Date;
   brand: { id: string; brandName: string; logoUrl: string | null };
-  order: { packageNameSnapshot: string };
-}): CreatorRatingReviewDto {
+};
+
+function mapReview(row: ReviewRow): CreatorRatingReviewDto {
   return {
     id: row.id,
     orderId: row.orderId,
     creatorId: row.creatorId,
     rating: row.rating,
     review: row.review ?? null,
-    packageNameSnapshot: row.order.packageNameSnapshot,
     brand: {
       id: row.brand.id,
       brandName: row.brand.brandName,
       logoUrl: row.brand.logoUrl ?? null,
     },
     createdAt: row.createdAt,
+  };
+}
+
+function mapTopReview(row: ReviewRow): CreatorTopReviewDto {
+  return {
+    rating: row.rating,
+    review: row.review ?? null,
+    brand: {
+      id: row.brand.id,
+      brandName: row.brand.brandName,
+      logoUrl: row.brand.logoUrl ?? null,
+    },
   };
 }
 
@@ -193,6 +207,20 @@ export class CreatorReviewsService {
     });
     if (!row) return null;
     return mapReview(row);
+  }
+
+  async listTopForCreator(params: {
+    creatorId: string;
+    limit?: number;
+  }): Promise<CreatorTopReviewDto[]> {
+    const limit = params.limit ?? DEFAULT_TOP_REVIEWS_LIMIT;
+    const rows = await this.prisma.creatorRatingReview.findMany({
+      where: { creatorId: params.creatorId },
+      orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+      include: reviewInclude,
+    });
+    return rows.map(mapTopReview);
   }
 
   async listForCreator(params: {

@@ -116,6 +116,15 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ example: 12, description: 'Number of brand reviews received' })
   reviewCount!: number;
 
+  @ApiProperty({ example: 24, description: 'Total orders assigned to this creator' })
+  totalOrders!: number;
+
+  @ApiProperty({
+    example: 18,
+    description: 'Orders in a successfully completed status',
+  })
+  completedOrders!: number;
+
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
 

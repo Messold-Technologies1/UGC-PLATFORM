@@ -7,6 +7,7 @@ import { CreatorPackageCreateDto } from './dto/create-creator-profile.dto';
 import type { CreateCreatorProfileAtSignupInput } from './dto/create-creator-profile-at-signup.input';
 import { CreatorFacetDimension } from '@prisma/client';
 import { CreatorProfileService } from './creator-profile.service';
+import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import { StorageService } from '../storage/storage.service';
 
 const mockCreatorAddOnOptionsForCatalog = CREATOR_ADDON_OPTION_SEED_ROWS.map(
@@ -120,6 +121,9 @@ describe('CreatorProfileService', () => {
       (fn: (tx: TxMock) => Promise<unknown>): Promise<unknown> =>
         Promise.resolve(fn(txMock)),
     ),
+    order: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
     creatorProfile: {
       findUnique: txMock.creatorProfile.findUnique,
       count: jest.fn(),
@@ -213,9 +217,17 @@ describe('CreatorProfileService', () => {
         if (typeof arg === 'function') {
           return Promise.resolve(arg(txMock));
         }
+        if (Array.isArray(arg)) {
+          return Promise.all(arg);
+        }
         return Promise.resolve(arg);
       },
     );
+    prismaMock.order.groupBy.mockResolvedValue([]);
+
+    const creatorReviewsMock = {
+      listTopForCreator: jest.fn().mockResolvedValue([]),
+    };
 
     service = new CreatorProfileService(
       prismaMock as unknown as PrismaService,
@@ -225,6 +237,7 @@ describe('CreatorProfileService', () => {
         notifyApproved: jest.fn(),
         notifyRejected: jest.fn(),
       } as any,
+      creatorReviewsMock as unknown as CreatorReviewsService,
     );
   });
 

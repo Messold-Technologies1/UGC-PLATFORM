@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
@@ -1080,47 +1081,60 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 </FilterPopover>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 min-h-[28px] xl:col-span-2 mt-2.5 xl:mt-0">
+              <AnimatePresence>
                 {hasActiveFilters && (
-                  <span className="text-[13.5px] font-bold text-foreground">
-                    {isPending
-                      ? "Searching…"
-                      : `${total.toLocaleString()} creators`}
-                  </span>
-                )}
-
-                {hasActiveFilters && (
-                  <>
-                    <div
-                      className="mx-1 h-[18px] w-px bg-gray-200"
-                      aria-hidden
-                    />
-                    {chips.map((chip) => (
-                      <span
-                        key={chip.id}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-primary/8 px-2.5 py-1 text-[13px] font-medium text-foreground"
-                      >
-                        {chip.label}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveChip(chip)}
-                          className="text-foreground/70 transition-colors hover:text-foreground"
-                          aria-label={`Remove ${chip.label}`}
-                        >
-                          <X className="size-[10px] stroke-[2.5]" />
-                        </button>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="xl:col-span-2 overflow-hidden"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 mt-2.5 xl:mt-0 pt-1 pb-1">
+                      <span className="text-[13.5px] font-bold text-foreground">
+                        {isPending
+                          ? "Searching…"
+                          : `${total.toLocaleString()} creators`}
                       </span>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={onClear}
-                      className="ml-1 rounded-md border border-gray-200 bg-white px-3 py-1 text-[13px] font-medium text-primary transition-colors hover:bg-gray-50"
-                    >
-                      Clear all
-                    </button>
-                  </>
+
+                      <div
+                        className="mx-1 h-[18px] w-px bg-gray-200"
+                        aria-hidden
+                      />
+                      <AnimatePresence mode="popLayout">
+                        {chips.map((chip) => (
+                          <motion.span
+                            layout
+                            key={chip.id}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.15 }}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-primary/8 px-2.5 py-1 text-[13px] font-medium text-foreground"
+                          >
+                            {chip.label}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveChip(chip)}
+                              className="text-foreground/70 transition-colors hover:text-foreground"
+                              aria-label={`Remove ${chip.label}`}
+                            >
+                              <X className="size-[10px] stroke-[2.5]" />
+                            </button>
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
+                      <button
+                        type="button"
+                        onClick={onClear}
+                        className="ml-1 rounded-md border border-gray-200 bg-white px-3 py-1 text-[13px] font-medium text-primary transition-colors hover:bg-gray-50"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
             </>
           )}
         </div>

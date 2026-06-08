@@ -8,7 +8,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import Link from "next/link";
+import { OrderModal } from "./order-modal";
 import {
   X,
   MapPin,
@@ -24,14 +24,13 @@ import {
   Baby,
   PawPrint,
   User,
-  MessageCircle,
 } from "lucide-react";
 import type { Creator } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import { mapProfileItemToCreatorProfile } from "../../api/map-profile-to-creator";
-import { getInitials, posterColor, tagColor } from "@/lib/utils";
+import { tagColor } from "@/lib/utils";
 
 interface ProfileDrawerProps {
   creatorId: string | null;
@@ -51,7 +50,13 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-const Stars = React.memo(function Stars({ count, size = 13 }: { count: number; size?: number }) {
+const Stars = React.memo(function Stars({
+  count,
+  size = 13,
+}: {
+  count: number;
+  size?: number;
+}) {
   return (
     <span style={{ display: "inline-flex", gap: 1 }}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -66,7 +71,11 @@ const Stars = React.memo(function Stars({ count, size = 13 }: { count: number; s
   );
 });
 
-const SectionHeading = React.memo(function SectionHeading({ children }: { children: ReactNode }) {
+const SectionHeading = React.memo(function SectionHeading({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return <h4>{children}</h4>;
 });
 
@@ -85,7 +94,11 @@ const SkeletonBlock = React.memo(function SkeletonBlock({
   );
 });
 
-const OverviewTab = React.memo(function OverviewTab({ profile }: { profile: any | null }) {
+const OverviewTab = React.memo(function OverviewTab({
+  profile,
+}: {
+  profile: any | null;
+}) {
   const specialties = useMemo(() => {
     if (!profile) return [];
     return [...new Set([...profile.categories, ...profile.tags])].slice(0, 10);
@@ -320,7 +333,11 @@ const OverviewTab = React.memo(function OverviewTab({ profile }: { profile: any 
   );
 });
 
-const PackagesTab = React.memo(function PackagesTab({ profile }: { profile: any | null }) {
+const PackagesTab = React.memo(function PackagesTab({
+  profile,
+}: {
+  profile: any | null;
+}) {
   if (!profile) {
     return (
       <div className="dr-section" style={{ paddingTop: 18 }}>
@@ -418,7 +435,7 @@ const PortfolioTab = React.memo(function PortfolioTab({
   introUrl,
   onVideoError,
   onIntroError,
-  isLoading
+  isLoading,
 }: {
   validPortfolioVideos: any[];
   showIntro: boolean;
@@ -475,7 +492,11 @@ const PortfolioTab = React.memo(function PortfolioTab({
   );
 });
 
-const ReviewsTab = React.memo(function ReviewsTab({ creatorId }: { creatorId: string }) {
+const ReviewsTab = React.memo(function ReviewsTab({
+  creatorId,
+}: {
+  creatorId: string;
+}) {
   const { data: reviewsData } = useCreatorRatingReviewsQuery(creatorId, {
     limit: 10,
   });
@@ -593,14 +614,19 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   const activeId = creatorId || lastIdRef.current;
 
   const [tab, setTab] = useState<TabId>("overview");
+  const [orderOpen, setOrderOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  
+
   const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
   const [introFailed, setIntroFailed] = useState(false);
 
-  const creatorIndex = useMemo(() => activeId
-    ? activeId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-    : 0, [activeId]);
+  const creatorIndex = useMemo(
+    () =>
+      activeId
+        ? activeId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+        : 0,
+    [activeId],
+  );
 
   useEffect(() => {
     if (open) {
@@ -632,20 +658,28 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     };
   }, [open]);
 
-  const { data: rawPortfolioVideos = [], isLoading: isVideosLoading } = usePublicPortfolioVideosQuery(
-    activeId ?? "",
-    { enabled: !!activeId }
+  const { data: rawPortfolioVideos = [], isLoading: isVideosLoading } =
+    usePublicPortfolioVideosQuery(activeId ?? "", { enabled: !!activeId });
+
+  const { data: profileApi, isLoading: isProfileLoading } =
+    useCreatorProfileQuery(activeId ?? "", {
+      enabled: !!activeId,
+    });
+
+  const profile = useMemo(
+    () => (profileApi ? mapProfileItemToCreatorProfile(profileApi) : null),
+    [profileApi],
   );
-
-  const { data: profileApi, isLoading: isProfileLoading } = useCreatorProfileQuery(activeId ?? "", {
-    enabled: !!activeId,
-  });
-
-  const profile = useMemo(() => profileApi ? mapProfileItemToCreatorProfile(profileApi) : null, [profileApi]);
 
   const portfolioVideos = useMemo(() => {
     return rawPortfolioVideos.filter((v) => {
-      if (!v.videoUrl || v.videoUrl.length < 5 || v.videoUrl === "null" || v.videoUrl === "undefined") return false;
+      if (
+        !v.videoUrl ||
+        v.videoUrl.length < 5 ||
+        v.videoUrl === "null" ||
+        v.videoUrl === "undefined"
+      )
+        return false;
       if (c?.introVideoUrl && v.videoUrl === c.introVideoUrl) return false;
       return true;
     });
@@ -663,22 +697,27 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     setIntroFailed(true);
   }, []);
 
-  const portfolioTiles = useMemo(() => portfolioVideos.map((video) => ({
-    id: video.id,
-    label: video.industryLabel || "UGC",
-    videoUrl: video.videoUrl,
-    thumbnailUrl: video.thumbnailUrl,
-  })), [portfolioVideos]);
+  const portfolioTiles = useMemo(
+    () =>
+      portfolioVideos.map((video) => ({
+        id: video.id,
+        label: video.industryLabel || "UGC",
+        videoUrl: video.videoUrl,
+        thumbnailUrl: video.thumbnailUrl,
+      })),
+    [portfolioVideos],
+  );
 
-  const validPortfolioTiles = useMemo(() => 
-    portfolioTiles.filter((tile) => !failedVideos.has(tile.id)), 
-  [portfolioTiles, failedVideos]);
+  const validPortfolioTiles = useMemo(
+    () => portfolioTiles.filter((tile) => !failedVideos.has(tile.id)),
+    [portfolioTiles, failedVideos],
+  );
 
   if (!c) return null;
 
   const verified = c.rating >= 4.8;
   const profileUrl = `/brand/creators/${c.id}`;
-  
+
   const showIntro = !!c.introVideoUrl && !introFailed;
 
   return (
@@ -749,18 +788,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                       onError={() => handleVideoError(tile.id)}
                     />
                     <div className="tscrim" style={{ pointerEvents: "none" }} />
-                    <span
-                      className="tlabel"
-                      style={{
-                        zIndex: 3,
-                        position: "absolute",
-                        padding: "0 10px",
-                        textAlign: "center",
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {tile.label}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -792,7 +819,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 <div className="k">Orders completed</div>
               </div>
               <div className="dr-stat">
-                <div className="v">{c.deliveryDays}d</div>
+                <div className="v">{c.deliveryDays} days</div>
                 <div className="k">Delivery time</div>
               </div>
             </div>
@@ -810,12 +837,8 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             ))}
           </div>
 
-          {activeId && tab === "overview" && (
-            <OverviewTab profile={profile} />
-          )}
-          {activeId && tab === "packages" && (
-            <PackagesTab profile={profile} />
-          )}
+          {activeId && tab === "overview" && <OverviewTab profile={profile} />}
+          {activeId && tab === "packages" && <PackagesTab profile={profile} />}
           {activeId && tab === "portfolio" && (
             <PortfolioTab
               validPortfolioVideos={validPortfolioTiles}
@@ -838,14 +861,21 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               ₹{c.startingPrice.toLocaleString("en-IN")}
             </div>
           </div>
-          {/* <Link href={profileUrl} className="dr-btn dr-btn-ghost">
-            <MessageCircle size={16} /> Full Profile
-          </Link> */}
-          {/* <button type="button" className="dr-btn dr-btn-primary">
-            <Plus size={16} /> Add to brief
-          </button> */}
+          <button
+            type="button"
+            className="dr-btn dr-btn-primary flex-1"
+            onClick={() => setOrderOpen(true)}
+          >
+            <Zap size={16} /> Place order
+          </button>
         </div>
       </div>
+
+      <OrderModal
+        creator={profile}
+        open={orderOpen}
+        onClose={() => setOrderOpen(false)}
+      />
     </>
   );
 });

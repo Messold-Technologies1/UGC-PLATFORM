@@ -283,8 +283,8 @@ export function DashboardPayoutDetails() {
           Update your Bank Details or UPI ID for payouts.
         </p> */}
 
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/40 p-3.5">
+        <div className="mt-4 flex flex-col overflow-hidden rounded-xl border border-border/70 bg-background/40 divide-y divide-border/50">
+          <div className="flex items-start gap-3 p-3.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Building2 className="size-4" />
             </div>
@@ -322,7 +322,7 @@ export function DashboardPayoutDetails() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/40 p-3.5">
+          <div className="flex items-start gap-3 p-3.5 bg-muted/10">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
               <QrCode className="size-4" />
             </div>

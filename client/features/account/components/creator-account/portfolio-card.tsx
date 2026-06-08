@@ -180,8 +180,8 @@ export function PortfolioCard({ video }: { video: PortfolioVideoApi }) {
         )}
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between">
-        <p className="truncate text-sm font-semibold text-foreground">
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
           {video.description || video.industryLabel || "Portfolio Item"}
         </p>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

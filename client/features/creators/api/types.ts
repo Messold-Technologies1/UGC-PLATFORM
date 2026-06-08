@@ -139,6 +139,7 @@ export type CreatorProfileItemApi = {
   completedOrders?: number;
   totalEarnings?: number;
   responseRate?: number;
+  topReviews?: CreatorRatingReviewApi[];
 };
 
 export type SuggestedCreatorContentCategoryApi = {

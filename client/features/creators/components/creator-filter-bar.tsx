@@ -10,6 +10,7 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
+  User,
   X,
   Zap,
 } from "lucide-react";
@@ -37,7 +38,6 @@ const GENDER_OPTIONS = [
   { value: "MALE", label: "Male" },
   { value: "FEMALE", label: "Female" },
   { value: "NON_BINARY", label: "Non-Binary" },
-  { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
   { value: "OTHER", label: "Other" },
 ] as const;
 
@@ -737,6 +737,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const categoryCount = filters.categories.length;
   const formatCount = filters.contentFormat.length;
   const langCount = filters.language.length;
+  const genderCount = filters.gender ? 1 : 0;
   const priceCount = filters.minPrice || filters.maxPrice ? 1 : 0;
 
   const moreCount =
@@ -749,7 +750,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     filters.canCreateWith.length +
     filters.aiContentPermission.length +
     filters.restrictions.length +
-    (filters.gender ? 1 : 0) +
     (filters.ageGroup ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
     (filters.city ? 1 : 0) +
@@ -782,12 +782,12 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
               )}
               onClick={() => setMode("smart")}
             >
-              <Sparkles
+              {/* <Sparkles
                 className={cn(
                   "size-[15px]",
                   mode === "smart" && "text-primary",
                 )}
-              />
+              /> */}
               Smart search
               <span className="rounded-full bg-primary px-1.5 py-px text-[9px] font-extrabold tracking-wide text-white">
                 AI
@@ -917,6 +917,24 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   />
                 </FilterPopover>
 
+                <FilterPopover
+                  id="gender"
+                  openId={openPopover}
+                  onOpenChange={setOpenPopover}
+                  label="Gender"
+                  icon={<User className="size-[15px]" />}
+                  activeCount={genderCount}
+                >
+                  <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                    Gender
+                  </h5>
+                  <CheckboxRow
+                    items={GENDER_OPTIONS}
+                    selected={filters.gender}
+                    onToggle={(v) => commitField("gender", v)}
+                  />
+                </FilterPopover>
+
                 <div className="mx-0.5 h-[26px] w-px bg-gray-200" aria-hidden />
 
                 <FilterPopover
@@ -953,17 +971,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                         );
                       },
                     )}
-
-                    <div className="mb-4">
-                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Gender
-                      </h5>
-                      <CheckboxRow
-                        items={GENDER_OPTIONS}
-                        selected={filters.gender}
-                        onToggle={(v) => commitField("gender", v)}
-                      />
-                    </div>
 
                     <div className="mb-4">
                       <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
@@ -1074,11 +1081,13 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 min-h-[28px] xl:col-span-2 mt-2.5 xl:mt-0">
-                <span className="text-[13.5px] font-bold text-foreground">
-                  {isPending
-                    ? "Searching…"
-                    : `${total.toLocaleString()} creators`}
-                </span>
+                {hasActiveFilters && (
+                  <span className="text-[13.5px] font-bold text-foreground">
+                    {isPending
+                      ? "Searching…"
+                      : `${total.toLocaleString()} creators`}
+                  </span>
+                )}
 
                 {hasActiveFilters && (
                   <>

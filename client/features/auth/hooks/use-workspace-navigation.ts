@@ -101,7 +101,7 @@ function readCurrentSearchString(): string {
 }
 
 function fallbackPathForWorkspaceRole(role: WorkspaceRole): string {
-  return role === "BRAND" ? "/brand/creators" : "/creator/orders";
+  return role === "BRAND" ? "/brand/creators" : "/creator/account";
 }
 
 export function useWorkspaceNavigation() {

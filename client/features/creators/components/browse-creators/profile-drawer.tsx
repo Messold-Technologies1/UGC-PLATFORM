@@ -632,7 +632,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     };
   }, [open]);
 
-  // Centralized queries
   const { data: rawPortfolioVideos = [], isLoading: isVideosLoading } = usePublicPortfolioVideosQuery(
     activeId ?? "",
     { enabled: !!activeId }
@@ -839,9 +838,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               ₹{c.startingPrice.toLocaleString("en-IN")}
             </div>
           </div>
-          <Link href={profileUrl} className="dr-btn dr-btn-ghost">
+          {/* <Link href={profileUrl} className="dr-btn dr-btn-ghost">
             <MessageCircle size={16} /> Full Profile
-          </Link>
+          </Link> */}
           {/* <button type="button" className="dr-btn dr-btn-primary">
             <Plus size={16} /> Add to brief
           </button> */}

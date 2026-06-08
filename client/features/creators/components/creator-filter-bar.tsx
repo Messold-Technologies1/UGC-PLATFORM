@@ -419,18 +419,21 @@ const SmartSearchBar = memo(function SmartSearchBar({
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
           <input
-            className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-8 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200"
+            className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-8 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200 disabled:opacity-100 disabled:cursor-default"
             placeholder="Describe the creator you need — niche, language, city, budget, style…"
             value={query}
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled
+            aria-label="Smart search is currently unavailable"
           />
           {query && (
             <button
               type="button"
-              className="absolute right-2.5 top-1/2 flex size-[18px] -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground"
+              className="absolute right-2.5 top-1/2 flex size-[18px] -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => handleSearchChange("")}
               aria-label="Clear"
+              disabled
             >
               <X className="size-[12px]" />
             </button>
@@ -438,7 +441,7 @@ const SmartSearchBar = memo(function SmartSearchBar({
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 min-h-[32px]">
+      <div className="flex flex-wrap items-center gap-2 min-h-[32px] xl:col-span-2 mt-2 xl:mt-0">
         <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-foreground">
           <Zap className="size-[13px] text-primary" /> Try:
         </span>
@@ -446,7 +449,8 @@ const SmartSearchBar = memo(function SmartSearchBar({
           <button
             key={ex}
             type="button"
-            className="h-[30px] rounded-full border border-dashed border-gray-200 bg-white px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-gray-50 hover:text-foreground"
+            disabled
+            className="h-[30px] rounded-full border border-dashed border-gray-200 bg-white px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-gray-50 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-dashed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-muted-foreground"
             onClick={() => {
               handleSearchChange(ex);
               onSubmit?.(ex);
@@ -759,12 +763,13 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
       aria-label="Creator filters"
     >
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 lg:py-4">
-        <div className="flex items-center gap-4">
-          <div
-            className="inline-flex gap-[3px] rounded-[13px] border border-gray-200 bg-gray-100/80 p-1"
-            role="tablist"
-            aria-label="Search mode"
-          >
+        <div className="grid grid-cols-1 xl:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3">
+          <div className="flex items-start">
+            <div
+              className="inline-flex gap-[3px] rounded-[13px] border border-gray-200 bg-gray-100/80 p-1"
+              role="tablist"
+              aria-label="Search mode"
+            >
             <button
               type="button"
               role="tab"
@@ -809,15 +814,9 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
               Manual filters
             </button>
           </div>
-          <span className="hidden text-[12.5px] font-medium text-muted-foreground sm:inline">
-            {mode === "smart"
-              ? "Describe what you want in plain language"
-              : "Refine with filters and facets"}
-          </span>
         </div>
 
-        <div className="mt-3">
-          {mode === "smart" ? (
+        {mode === "smart" ? (
             <SmartSearchBar
               onSubmit={(val) => {
                 // TODO: Wire up smart search logic here once backend is ready
@@ -1074,7 +1073,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 </FilterPopover>
               </div>
 
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 min-h-[28px]">
+              <div className="flex flex-wrap items-center gap-2 min-h-[28px] xl:col-span-2 mt-2.5 xl:mt-0">
                 <span className="text-[13.5px] font-bold text-foreground">
                   {isPending
                     ? "Searching…"
@@ -1116,7 +1115,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
             </>
           )}
         </div>
-      </div>
     </div>
+  </div>
   );
 });

@@ -57,7 +57,7 @@ export class SignupRegistrationService {
       throw new ConflictException('User with this email already exists');
     }
 
-    await this.assertSignupPhoneOtpApproved(dto.phone, dto.phoneOtpCode);
+    // await this.assertSignupPhoneOtpApproved(dto.phone, dto.phoneOtpCode);
 
     const portfolioKeys = dto.portfolioSignupVideoTempKeys ?? [];
     const driveLink = dto.driveLink?.trim() || null;
@@ -86,7 +86,8 @@ export class SignupRegistrationService {
             name: dto.name.trim(),
             passwordHash,
             phone: dto.phone.trim(),
-            phoneVerified: true,
+            // Set to true when signup OTP verification is re-enabled.
+            phoneVerified: false,
             primaryRoleId: null,
           },
         });

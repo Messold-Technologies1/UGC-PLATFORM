@@ -25,7 +25,7 @@ export type RegisterCreatorPayload = {
   password: string;
   name: string;
   phone: string;
-  phoneOtpCode: string;
+  phoneOtpCode?: string;
   age: number;
   gender: "MALE" | "FEMALE" | "OTHER";
   city: string;

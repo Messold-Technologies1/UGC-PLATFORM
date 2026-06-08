@@ -9,7 +9,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   Max,
   MaxLength,
@@ -42,11 +41,13 @@ export class RegisterCreatorDto {
   })
   phone!: string;
 
-  @ApiProperty({ example: '123456' })
+  /** Optional while signup OTP verification is disabled on the server. */
+  @ApiPropertyOptional({ example: '123456' })
+  @IsOptional()
   @IsString()
   @MinLength(4)
   @MaxLength(10)
-  phoneOtpCode!: string;
+  phoneOtpCode?: string;
 
   @ApiProperty({ example: 28, description: 'Age in years; stored as Jan 1 dateOfBirth' })
   @IsInt()
@@ -82,9 +83,12 @@ export class RegisterCreatorDto {
   @MaxLength(5000)
   bio?: string;
 
-  @ApiPropertyOptional({ example: 'https://instagram.com/jane' })
+  @ApiPropertyOptional({
+    example: '@jane',
+    description: 'Instagram handle or profile URL (plain string).',
+  })
   @IsOptional()
-  @IsUrl({ require_protocol: true })
+  @IsString()
   @MaxLength(500)
   instagramUrl?: string;
 

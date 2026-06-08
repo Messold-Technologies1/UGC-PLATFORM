@@ -32,6 +32,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-intro-video-field";
+
+/** Set to true when profile OTP verification is re-enabled (matches server). */
+const PROFILE_OTP_VERIFICATION_ENABLED = false;
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
 import type {
   CreatorContentVolumeBucket,
@@ -146,7 +149,9 @@ function CreatorProfileUpdateFormContent({
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
 
-  const [phoneVerified, setPhoneVerified] = useState(adminMode ? true : false);
+  const [phoneVerified, setPhoneVerified] = useState(
+    adminMode || !PROFILE_OTP_VERIFICATION_ENABLED,
+  );
   const [phoneInput, setPhoneInput] = useState(
     () => initialProfile?.phone?.replace("+91", "") ?? "",
   );
@@ -202,7 +207,7 @@ function CreatorProfileUpdateFormContent({
       Boolean(
         introVideo.introVideoPreviewUrl || introVideo.pendingIntroVideoKey,
       ),
-      phoneVerified,
+      PROFILE_OTP_VERIFICATION_ENABLED ? phoneVerified : true,
       Boolean(displayName.trim()),
       Boolean(location.countryName && location.city.trim()),
       Boolean(dateOfBirth),
@@ -250,10 +255,10 @@ function CreatorProfileUpdateFormContent({
         toast.error("Could not load profile options. Try again.");
         return;
       }
-      if (!phoneVerified) {
-        toast.error("Verify your mobile number before saving your profile.");
-        return;
-      }
+      // if (PROFILE_OTP_VERIFICATION_ENABLED && !phoneVerified) {
+      //   toast.error("Verify your mobile number before saving your profile.");
+      //   return;
+      // }
 
       const name = displayName.trim();
       if (!name) {
@@ -265,11 +270,7 @@ function CreatorProfileUpdateFormContent({
         return;
       }
 
-      const instagram = normalizeOptionalUrl(instagramUrl);
-      if (instagramUrl.trim() && !instagram) {
-        toast.error("Instagram URL must be a valid http(s) URL.");
-        return;
-      }
+      const instagram = instagramUrl.trim() || undefined;
 
       const youtube = normalizeOptionalUrl(youtubeUrl);
       if (youtubeUrl.trim() && !youtube) {
@@ -501,7 +502,7 @@ function CreatorProfileUpdateFormContent({
               </div>
             </div>
           </motion.section>
-        ) : (
+        ) : PROFILE_OTP_VERIFICATION_ENABLED ? (
           <motion.section
             variants={itemVariants}
             className="space-y-4 rounded-xl border border-border bg-muted/20 p-4"
@@ -521,7 +522,7 @@ function CreatorProfileUpdateFormContent({
               onVerified={() => void refreshUser()}
             />
           </motion.section>
-        )}
+        ) : null}
 
         <motion.section variants={itemVariants} className="space-y-4">
           <div className="space-y-2">
@@ -678,15 +679,14 @@ function CreatorProfileUpdateFormContent({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="instagramUrl">Instagram URL</Label>
+              <Label htmlFor="instagramUrl">Instagram handle</Label>
               <Input
                 id="instagramUrl"
                 className={inputClass}
                 disabled={pending}
                 value={instagramUrl}
                 onChange={(event) => setInstagramUrl(event.target.value)}
-                placeholder="https://instagram.com/you"
-                inputMode="url"
+                placeholder="@you"
               />
             </div>
             <div className="space-y-2">

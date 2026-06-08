@@ -59,6 +59,8 @@ import { cn } from "@/lib/utils";
 const PHONE_OTP_RESEND_SECONDS = 60;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
+/** Set to true when signup OTP verification is re-enabled (matches server). */
+const SIGNUP_OTP_VERIFICATION_ENABLED = false;
 const MAX_PORTFOLIO_VIDEO_BYTES = 200 * 1024 * 1024;
 const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
   "video/mp4",
@@ -89,16 +91,17 @@ const creatorSignupSchema = z.object({
   state: z.string().min(1, "State is required"),
   country: z.string().min(1, "Country is required"),
   phone: z.string().min(1, "Phone is required"),
-  phoneOtpCode: z
-    .string()
-    .regex(OTP_CODE_REGEX, "Enter the verification code from the SMS"),
+  phoneOtpCode: SIGNUP_OTP_VERIFICATION_ENABLED
+    ? z
+        .string()
+        .regex(OTP_CODE_REGEX, "Enter the verification code from the SMS")
+    : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   bio: z.string().min(10, "Please write a short bio").max(5000),
   instagramUrl: z
     .string()
-    .url("Must be a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .min(1, "Instagram handle is required")
+    .max(500),
   driveLink: z
     .string()
     .optional()
@@ -126,7 +129,7 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   phoneOtpCode: "Phone verification code",
   email: "Email",
   bio: "Short bio (at least 10 characters)",
-  instagramUrl: "Instagram URL",
+  instagramUrl: "Instagram handle",
   driveLink: "Google Drive portfolio link",
   categories: "At least one category",
   password: "Password (at least 8 characters)",
@@ -149,10 +152,12 @@ function getCreatorSignupBlockers(
   } else if (!ctx.hasPortfolioVideo) {
     blockers.push("Upload at least one portfolio video");
   }
-  const phone = values.phone.trim();
-  if (!ctx.activeOtpPhone || phone !== ctx.activeOtpPhone) {
-    blockers.push("Verify your phone with OTP");
-  }
+  // if (SIGNUP_OTP_VERIFICATION_ENABLED) {
+  //   const phone = values.phone.trim();
+  //   if (!ctx.activeOtpPhone || phone !== ctx.activeOtpPhone) {
+  //     blockers.push("Verify your phone with OTP");
+  //   }
+  // }
 
   const parsed = creatorSignupSchema.safeParse(values);
   if (!parsed.success) {
@@ -508,12 +513,14 @@ export function CreatorRegisterForm() {
   );
 
   const onSubmit = async (data: CreatorSignupData) => {
-    if (!activeOtpPhone || data.phone !== activeOtpPhone) {
-      const message = "Send a verification code for this mobile number.";
-      setPhoneError(message);
-      toast.error(message);
-      return;
-    }
+    // if (SIGNUP_OTP_VERIFICATION_ENABLED) {
+    //   if (!activeOtpPhone || data.phone !== activeOtpPhone) {
+    //     const message = "Send a verification code for this mobile number.";
+    //     setPhoneError(message);
+    //     toast.error(message);
+    //     return;
+    //   }
+    // }
 
     const driveLink = normalizeOptionalText(data.driveLink);
     const useDrivePortfolio = portfolioInputMode === "drive";
@@ -547,7 +554,9 @@ export function CreatorRegisterForm() {
         password: data.password,
         name: data.name.trim(),
         phone: data.phone.trim(),
-        phoneOtpCode: data.phoneOtpCode.trim(),
+        ...(SIGNUP_OTP_VERIFICATION_ENABLED
+          ? { phoneOtpCode: data.phoneOtpCode?.trim() ?? "" }
+          : {}),
         age: data.age,
         gender: data.gender,
         city: data.city.trim(),
@@ -804,7 +813,9 @@ export function CreatorRegisterForm() {
                 2
               </div>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Contact & Verification
+                {SIGNUP_OTP_VERIFICATION_ENABLED
+                  ? "Contact & Verification"
+                  : "Contact"}
               </h2>
             </div>
 
@@ -849,100 +860,108 @@ export function CreatorRegisterForm() {
                         form.clearErrors("phoneOtpCode");
                       }}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleSendPhoneOtp}
-                      disabled={
-                        pendingAny ||
-                        !PHONE_E164_REGEX.test(normalizedPhone) ||
-                        (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
-                      }
-                      className={cn(
-                        "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
-                        activeOtpPhone
-                          ? "bg-[#f4f1f1] text-[#ef3e51] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black disabled:text-slate-400 disabled:bg-[#f4f1f1] dark:disabled:bg-slate-900 disabled:opacity-70"
-                          : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black dark:text-slate-300 disabled:opacity-70",
-                      )}
-                    >
-                      {sendSignupPhoneOtpMutation.isPending
-                        ? "Sending..."
-                        : resendSecondsRemaining > 0 && activeOtpPhone
-                          ? `Resend ${resendSecondsRemaining}s`
-                          : activeOtpPhone
-                            ? "Resend"
-                            : "Send OTP"}
-                    </Button>
+                    {SIGNUP_OTP_VERIFICATION_ENABLED ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleSendPhoneOtp}
+                        disabled={
+                          pendingAny ||
+                          !PHONE_E164_REGEX.test(normalizedPhone) ||
+                          (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
+                        }
+                        className={cn(
+                          "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
+                          activeOtpPhone
+                            ? "bg-[#f4f1f1] text-[#ef3e51] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black disabled:text-slate-400 disabled:bg-[#f4f1f1] dark:disabled:bg-slate-900 disabled:opacity-70"
+                            : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black dark:text-slate-300 disabled:opacity-70",
+                        )}
+                      >
+                        {sendSignupPhoneOtpMutation.isPending
+                          ? "Sending..."
+                          : resendSecondsRemaining > 0 && activeOtpPhone
+                            ? `Resend ${resendSecondsRemaining}s`
+                            : activeOtpPhone
+                              ? "Resend"
+                              : "Send OTP"}
+                      </Button>
+                    ) : null}
                   </div>
-                  {phoneError ? (
-                    <p className="text-xs text-red-500">{phoneError}</p>
-                  ) : activeOtpPhone ? (
-                    <p className="text-xs font-medium text-green-600 dark:text-green-500">
-                      Enter the verification code from the SMS
-                    </p>
-                  ) : null}
-                  {activeOtpPhone ? (
-                    <div className="mt-[10px] flex items-center justify-between gap-[10px] rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-[12px] py-[10px] dark:border-red-500/20 dark:bg-red-500/10">
-                      <div className="flex items-center gap-5">
-                        <Label
-                          htmlFor="creator-signup-phone-otp"
-                          className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
-                        >
-                          Enter OTP
-                        </Label>
-                        <div className="relative flex items-center gap-2 group">
-                          <style>{`
+                  {SIGNUP_OTP_VERIFICATION_ENABLED ? (
+                    <>
+                      {phoneError ? (
+                        <p className="text-xs text-red-500">{phoneError}</p>
+                      ) : activeOtpPhone ? (
+                        <p className="text-xs font-medium text-green-600 dark:text-green-500">
+                          Enter the verification code from the SMS
+                        </p>
+                      ) : null}
+                      {activeOtpPhone ? (
+                        <div className="mt-[10px] flex items-center justify-between gap-[10px] rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-[12px] py-[10px] dark:border-red-500/20 dark:bg-red-500/10">
+                          <div className="flex items-center gap-5">
+                            <Label
+                              htmlFor="creator-signup-phone-otp"
+                              className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
+                            >
+                              Enter OTP
+                            </Label>
+                            <div className="relative flex items-center gap-2 group">
+                              <style>{`
                             @keyframes otp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
                           `}</style>
-                          <Input
-                            id="creator-signup-phone-otp"
-                            type="text"
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            maxLength={6}
-                            disabled={pendingAny}
-                            className="absolute inset-0 z-10 w-full h-full bg-transparent text-transparent caret-transparent border-0 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 cursor-text p-0 m-0 opacity-0"
-                            value={form.watch("phoneOtpCode")}
-                            onChange={(e) => {
-                              form.setValue(
-                                "phoneOtpCode",
-                                e.target.value.replace(/\D/g, "").slice(0, 6),
-                                { shouldValidate: true },
-                              );
-                            }}
-                          />
-                          {Array.from({ length: 6 }).map((_, i) => {
-                            const code = form.watch("phoneOtpCode") || "";
-                            const char = code[i];
-                            const isActive = code.length === i;
-                            return (
-                              <div
-                                key={i}
-                                className={cn(
-                                  "relative flex size-[42px] items-center justify-center rounded-xl border bg-white text-[20px] font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors dark:bg-slate-900",
-                                  char
-                                    ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
-                                    : "border-slate-200 text-transparent dark:border-slate-800",
-                                )}
-                              >
-                                {char || ""}
-                                {isActive && (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-focus-within:opacity-100">
-                                    <div
-                                      className="w-[1.5px] h-5 bg-slate-900 dark:bg-white"
-                                      style={{
-                                        animation:
-                                          "otp-blink 1s step-end infinite",
-                                      }}
-                                    />
+                              <Input
+                                id="creator-signup-phone-otp"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={6}
+                                disabled={pendingAny}
+                                className="absolute inset-0 z-10 w-full h-full bg-transparent text-transparent caret-transparent border-0 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 cursor-text p-0 m-0 opacity-0"
+                                value={form.watch("phoneOtpCode")}
+                                onChange={(e) => {
+                                  form.setValue(
+                                    "phoneOtpCode",
+                                    e.target.value.replace(/\D/g, "").slice(0, 6),
+                                    { shouldValidate: true },
+                                  );
+                                }}
+                              />
+                              {Array.from({ length: 6 }).map((_, i) => {
+                                const code = form.watch("phoneOtpCode") || "";
+                                const char = code[i];
+                                const isActive = code.length === i;
+                                return (
+                                  <div
+                                    key={i}
+                                    className={cn(
+                                      "relative flex size-[42px] items-center justify-center rounded-xl border bg-white text-[20px] font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors dark:bg-slate-900",
+                                      char
+                                        ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
+                                        : "border-slate-200 text-transparent dark:border-slate-800",
+                                    )}
+                                  >
+                                    {char || ""}
+                                    {isActive && (
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-focus-within:opacity-100">
+                                        <div
+                                          className="w-[1.5px] h-5 bg-slate-900 dark:bg-white"
+                                          style={{
+                                            animation:
+                                              "otp-blink 1s step-end infinite",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      ) : null}
+                    </>
+                  ) : phoneError ? (
+                    <p className="text-xs text-red-500">{phoneError}</p>
                   ) : null}
                 </div>
                 {form.formState.errors.phone && (
@@ -950,11 +969,12 @@ export function CreatorRegisterForm() {
                     {form.formState.errors.phone.message}
                   </p>
                 )}
-                {form.formState.errors.phoneOtpCode && (
+                {SIGNUP_OTP_VERIFICATION_ENABLED &&
+                form.formState.errors.phoneOtpCode ? (
                   <p className="text-xs text-red-500">
                     {form.formState.errors.phoneOtpCode.message}
                   </p>
-                )}
+                ) : null}
               </div>
 
               <div className="space-y-1">
@@ -1067,7 +1087,7 @@ export function CreatorRegisterForm() {
                   </div>
                   <Input
                     id="instagramUrl"
-                    placeholder="https://instagram.com/yourhandle"
+                    placeholder="@yourhandle"
                     className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
                     {...form.register("instagramUrl")}
                   />

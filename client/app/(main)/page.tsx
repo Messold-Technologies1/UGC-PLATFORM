@@ -32,12 +32,19 @@ export default async function Home() {
     await redirectToSessionRestoreIfPossible("/", "/");
   }
 
-  const target = canUseWorkspaceRole(
+  let target = canUseWorkspaceRole(
     user?.brandAccessRevoked,
     user?.primaryRole,
   )
     ? workspacePath(user?.primaryRole)
     : null;
+
+  if (!target && user?.roles && user.roles.length > 0) {
+    const fallbackRole = user.roles.find((r) => canUseWorkspaceRole(user?.brandAccessRevoked, r));
+    if (fallbackRole) {
+      target = workspacePath(fallbackRole);
+    }
+  }
 
   if (target) {
     redirect(target);

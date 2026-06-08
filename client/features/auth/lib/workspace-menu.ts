@@ -49,12 +49,13 @@ export function workspaceSetupHref(
   callbackUrl?: string | null,
 ): string {
   const params = new URLSearchParams();
-  params.set("setupRole", role === "BRAND" ? "brand" : "creator");
 
   const safeCallbackUrl = normalizeInternalHref(callbackUrl);
   if (safeCallbackUrl) {
     params.set("callbackUrl", safeCallbackUrl);
   }
 
-  return `/auth/continue?${params.toString()}`;
+  const query = params.toString();
+  const path = role === "BRAND" ? "/register/brand" : "/register/creator";
+  return query ? `${path}?${query}` : path;
 }

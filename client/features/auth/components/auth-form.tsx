@@ -332,11 +332,11 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
           By continuing, you agree to our{" "}
-          <Link href="/terms" className="underline hover:text-foreground">
+          <Link href="/terms" prefetch={false} className="underline hover:text-foreground">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" className="underline hover:text-foreground">
+          <Link href="/privacy" prefetch={false} className="underline hover:text-foreground">
             Privacy Policy
           </Link>
         </p>

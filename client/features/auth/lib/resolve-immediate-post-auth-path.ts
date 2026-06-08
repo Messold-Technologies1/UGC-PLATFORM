@@ -2,6 +2,7 @@ import type { AuthUser, WorkspaceRole } from "@/features/auth/hooks/use-me-query
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
+  resolvePostAuthRedirectPath,
 } from "./post-auth-destination";
 import { canUseWorkspaceRole } from "./workspace-defaulting";
 
@@ -32,5 +33,5 @@ export function resolveImmediatePostAuthPath(
     );
   }
 
-  return postAuthContinuePath(callbackUrl);
+  return resolvePostAuthRedirectPath(user, callbackUrl);
 }

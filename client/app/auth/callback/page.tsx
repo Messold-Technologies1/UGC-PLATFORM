@@ -31,7 +31,11 @@ function AuthCallbackInner() {
             : "Google sign-in failed. Try again.";
         toast.error(message);
         beginClientNavigation();
-        router.replace("/login");
+        router.replace(
+          callbackUrl
+            ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+            : "/login",
+        );
         return;
       }
       

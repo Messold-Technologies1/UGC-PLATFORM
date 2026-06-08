@@ -33,6 +33,7 @@ import { VerifiedBadge, GreenCheck } from "@/components/icons/status-icons";
 import { StatCard } from "./stat-card";
 import { PortfolioCard } from "./portfolio-card";
 import { DashboardPayoutDetails } from "./dashboard-payout-details";
+import { CreatorReviewsCard } from "./creator-reviews-card";
 
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -123,6 +124,7 @@ export function CreatorAccountProfileView({
       label: "Avg. Rating",
       value: profile.avgRating || "0.0",
       linkText: `${profile.reviewCount || 0} Reviews`,
+      linkUrl: "#top-reviews",
       icon: <Star className="size-5" />,
       iconBg: "bg-amber-100",
       iconColor: "text-amber-600",
@@ -338,30 +340,42 @@ export function CreatorAccountProfileView({
               <h3 className="text-lg font-bold">About Me</h3>
 
               <div className="mt-4">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.p
-                    key={aboutExpanded ? "full" : "truncated"}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={cn(
-                      "text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap",
-                      !aboutExpanded && "line-clamp-4",
-                    )}
-                  >
-                    {profile.bio || "No bio provided."}
-                  </motion.p>
-                </AnimatePresence>
+                {profile.bio ? (
+                  <>
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.p
+                        key={aboutExpanded ? "full" : "truncated"}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={cn(
+                          "text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap",
+                          !aboutExpanded && "line-clamp-4",
+                        )}
+                      >
+                        {profile.bio}
+                      </motion.p>
+                    </AnimatePresence>
 
-                {profile.bio && (profile.bio.length > 180 || profile.bio.split('\n').length > 4) && (
-                  <button
-                    onClick={() => setAboutExpanded((prev) => !prev)}
-                    className="mt-4 text-sm font-semibold text-primary transition-colors hover:underline"
-                    aria-expanded={aboutExpanded}
-                  >
-                    {aboutExpanded ? "View Less" : "View More"}
-                  </button>
+                    {(profile.bio.length > 180 || profile.bio.split('\n').length > 4) && (
+                      <button
+                        onClick={() => setAboutExpanded((prev) => !prev)}
+                        className="mt-4 text-sm font-semibold text-primary transition-colors hover:underline"
+                        aria-expanded={aboutExpanded}
+                      >
+                        {aboutExpanded ? "View Less" : "View More"}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-8 bg-muted/30">
+                    <MessageSquareText className="size-6 text-muted-foreground/40 mb-2" />
+                    <p className="text-sm font-medium text-foreground">No bio provided</p>
+                    <p className="text-xs text-muted-foreground mt-1 text-center max-w-[250px]">
+                      Add a short bio to let brands know more about your style and personality.
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -426,21 +440,37 @@ export function CreatorAccountProfileView({
                 </Link>
               </div>
 
-              <div className="mt-5 grid grid-cols-4 gap-4">
-                {topVideos.length > 0 ? (
-                  topVideos.map((video) => (
+              {topVideos.length > 0 ? (
+                <div
+                  className={cn(
+                    "mt-5 grid gap-4",
+                    topVideos.length === 1 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                    topVideos.length === 2 && "grid-cols-2 lg:grid-cols-4",
+                    topVideos.length === 3 && "grid-cols-3",
+                    topVideos.length >= 4 && "grid-cols-4"
+                  )}
+                >
+                  {topVideos.map((video) => (
                     <PortfolioCard key={video.id} video={video} />
-                  ))
-                ) : (
-                  <p className="col-span-3 text-sm text-muted-foreground">
-                    No portfolio items added yet.
-                  </p>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-10 bg-muted/30">
+                  <Video className="size-8 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm font-medium text-foreground">No portfolio items</p>
+                  <p className="text-xs text-muted-foreground mt-1">Upload videos to showcase your work.</p>
+                </div>
+              )}
             </section>
           </motion.div>
 
-          <DashboardPayoutDetails />
+          <motion.div
+            variants={fadeInUp}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          >
+            <DashboardPayoutDetails />
+            <CreatorReviewsCard reviews={profile.topReviews} />
+          </motion.div>
         </motion.div>
 
         <motion.aside
@@ -507,7 +537,14 @@ export function CreatorAccountProfileView({
                   className="flex items-center justify-between text-sm"
                 >
                   <dt className="text-muted-foreground">{row.label}</dt>
-                  <dd className="font-medium text-foreground text-right ml-4">
+                  <dd
+                    className={cn(
+                      "text-right ml-4",
+                      row.value === "Not specified"
+                        ? "text-muted-foreground italic opacity-80"
+                        : "font-medium text-foreground"
+                    )}
+                  >
                     {row.value}
                   </dd>
                 </div>
@@ -529,19 +566,29 @@ export function CreatorAccountProfileView({
               </h3>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {contentCategories.map((cat) => (
-                <div
-                  key={cat.id || cat.slug}
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-2.5 transition-colors hover:border-blue-200 hover:bg-blue-50/50 shadow-sm"
-                >
-                  <GreenCheck size="sm" />
-                  <span className="text-sm font-semibold text-foreground">
-                    {cat.label.replace(/\s*\/\s*/g, " & ")}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {contentCategories.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                {contentCategories.map((cat) => (
+                  <div
+                    key={cat.id || cat.slug}
+                    className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-2.5 transition-colors hover:border-blue-200 hover:bg-blue-50/50 shadow-sm"
+                  >
+                    <GreenCheck size="sm" />
+                    <span className="text-sm font-semibold text-foreground">
+                      {cat.label.replace(/\s*\/\s*/g, " & ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-8 bg-muted/30">
+                <ClipboardList className="size-6 text-muted-foreground/40 mb-2" />
+                <p className="text-sm font-medium text-foreground">No categories</p>
+                <p className="text-xs text-muted-foreground mt-1 text-center max-w-[200px]">
+                  Select categories to show brands what you create.
+                </p>
+              </div>
+            )}
           </motion.section>
         </motion.aside>
       </div>

@@ -169,7 +169,7 @@ export function Navbar() {
         },
       }}
       animate={hidden ? "hidden" : "visible"}
-      className="sticky top-4 z-50 mx-auto w-[90%] md:w-[82%] mb-8"
+      className="sticky top-4 z-50 mx-auto w-[90%] md:w-[75%] mb-8"
     >
       <div
         className={cn(

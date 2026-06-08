@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Browse Creators" };
 
 export default function BrandCreatorsPage() {
   return (
-    <div>
+    <div className="flex-1 flex flex-col min-h-full">
       <BrandCreatorsBrowser />
     </div>
   );

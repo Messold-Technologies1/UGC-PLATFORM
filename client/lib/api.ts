@@ -70,7 +70,8 @@ function notifySessionExpiredAndGoToLogin() {
     id: "session-expired",
     description: "Please log in again.",
   });
-  window.location.href = "/login";
+  const currentPath = window.location.pathname + window.location.search;
+  window.location.href = `/login?callbackUrl=${encodeURIComponent(currentPath)}`;
 }
 
 let refreshPromise: Promise<void> | null = null;

@@ -133,7 +133,7 @@ const OverviewTab = React.memo(function OverviewTab({ profile }: { profile: any 
   };
 
   const whatYouGet = [
-    `Delivery in ${profile.deliveryDays} days`,
+    `Delivery within ${profile.deliveryDays} days`,
     profile.basicEditing ? "Basic editing included" : "Editing as add-on",
     profile.storeVisit
       ? "On-location shoots available"
@@ -632,7 +632,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     };
   }, [open]);
 
-  // Centralized queries
   const { data: rawPortfolioVideos = [], isLoading: isVideosLoading } = usePublicPortfolioVideosQuery(
     activeId ?? "",
     { enabled: !!activeId }
@@ -790,11 +789,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 <div className="v">
                   {profileApi?.completedOrders ?? c.ordersCompleted ?? 0}
                 </div>
-                <div className="k">Orders done</div>
+                <div className="k">Orders completed</div>
               </div>
               <div className="dr-stat">
                 <div className="v">{c.deliveryDays}d</div>
-                <div className="k">Delivery</div>
+                <div className="k">Delivery time</div>
               </div>
             </div>
           </div>
@@ -839,9 +838,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               ₹{c.startingPrice.toLocaleString("en-IN")}
             </div>
           </div>
-          <Link href={profileUrl} className="dr-btn dr-btn-ghost">
+          {/* <Link href={profileUrl} className="dr-btn dr-btn-ghost">
             <MessageCircle size={16} /> Full Profile
-          </Link>
+          </Link> */}
           {/* <button type="button" className="dr-btn dr-btn-primary">
             <Plus size={16} /> Add to brief
           </button> */}

@@ -1,8 +1,8 @@
 "use client";
 
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, Star, MapPin, CheckCircle, ArrowRight } from "lucide-react";
+import { Play, Star, MapPin, CheckCircle, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import type { Creator } from "../../types";
 import {
   getInitials,
@@ -22,6 +22,7 @@ export const ReelCard = memo(function ReelCard({
   index,
   onOpen,
 }: ReelCardProps) {
+  const [isMuted, setIsMuted] = useState(true);
   const [g1, g2] = posterColor(index);
   const tags = creator.tags.slice(0, 2);
   const reelDuration = formatReelDuration(index);
@@ -72,6 +73,11 @@ export const ReelCard = memo(function ReelCard({
     [creator, onOpen],
   );
 
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted((prev) => !prev);
+  }, []);
+
   return (
     <article
       className="rcard"
@@ -90,7 +96,7 @@ export const ReelCard = memo(function ReelCard({
             src={creator.previewVideoUrl!}
             poster={creator.previewVideoThumbnail || creator.thumbnail}
             className="real-media"
-            muted
+            muted={isMuted}
             loop
             playsInline
             preload="metadata"
@@ -146,6 +152,17 @@ export const ReelCard = memo(function ReelCard({
             {creator.languages.slice(0, 2).join(", ")}
           </div>
         </div>
+
+        {hasVideo && (
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            className="absolute bottom-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+            aria-label={isMuted ? "Unmute video" : "Mute video"}
+          >
+            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+        )}
       </div>
 
       <div className="foot">

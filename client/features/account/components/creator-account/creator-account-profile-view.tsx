@@ -259,9 +259,9 @@ export function CreatorAccountProfileView({
                   </div>
 
                   <div className="mt-1.5 flex items-center gap-2 text-sm">
-                    <Badge className="rounded-full border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100">
+                    {/* <Badge className="rounded-full border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100">
                       Top Creator
-                    </Badge>
+                    </Badge> */}
                     <span className="text-muted-foreground">•</span>
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                       {locationString || "Location not set"}
@@ -480,10 +480,14 @@ export function CreatorAccountProfileView({
         >
           <motion.section
             variants={fadeInUp}
-            className="rounded-lg border border-border bg-card p-5 shadow-sm"
+            className="relative rounded-lg border border-border bg-card p-5 shadow-sm opacity-50 pointer-events-none select-none"
             aria-label="Social media links"
+            aria-disabled="true"
           >
-            <h3 className="text-base font-bold">Social Links</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold">Social Links</h3>
+              {/* <Badge variant="secondary" className="text-xs font-medium">Coming Soon</Badge> */}
+            </div>
 
             <nav className="mt-4 space-y-4" aria-label="Social profiles">
               {socialLinksData.map((link) => {

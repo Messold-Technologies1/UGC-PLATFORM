@@ -205,7 +205,7 @@ const OrderModalContent = React.memo(function OrderModalContent({
   return (
     <>
       <div
-        className={`scrim om-scrim${open ? " show" : ""}`}
+        className={`fixed inset-0 om-scrim backdrop-blur-md transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
         onClick={handleScrimClick}
         style={{ pointerEvents: open ? "auto" : "none", zIndex: 80 }}
         aria-hidden="true"
@@ -305,7 +305,7 @@ const OrderModalContent = React.memo(function OrderModalContent({
                     </div>
                     <div className="om-spec">
                       <Film size={15} />
-                      <span>Video</span>
+                      <span>{selectedPackage.videoLengthSeconds ? `${selectedPackage.videoLengthSeconds}s` : "Video"}</span>
                       <small>per video</small>
                     </div>
                     <div className="om-spec">
@@ -339,13 +339,6 @@ const OrderModalContent = React.memo(function OrderModalContent({
                   <span>{inr(total)}</span>
                 </div>
               </div>
-
-              {selectedPackage && (
-                <div className="om-eta sum">
-                  <Truck size={14} /> Delivery by{" "}
-                  <b>{etaLabel(selectedPackage.deliveryDays)}</b>
-                </div>
-              )}
 
               <button
                 type="button"

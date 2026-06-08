@@ -195,6 +195,7 @@ function mapApiPackages(
     revisions: p.maxRevisions,
     features:
       p.deliverables.length > 0 ? p.deliverables : ["See package details"],
+    videoLengthSeconds: p.videoLengthSeconds,
   }));
 }
 

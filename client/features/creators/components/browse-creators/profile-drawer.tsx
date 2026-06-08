@@ -863,8 +863,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           </div>
           <button
             type="button"
-            className="dr-btn dr-btn-primary flex-1"
+            className={`dr-btn dr-btn-primary flex-1 ${!profile || isProfileLoading ? "opacity-50 cursor-not-allowed" : ""}`}
             onClick={() => setOrderOpen(true)}
+            disabled={!profile || isProfileLoading}
           >
             <Zap size={16} /> Place order
           </button>

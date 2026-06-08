@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Check,
@@ -92,16 +93,85 @@ export interface OrderModalProps {
   creator: CreatorProfile | null;
   open: boolean;
   onClose: () => void;
+  isLoading?: boolean;
 }
+
+const OrderModalLoading = React.memo(function OrderModalLoading({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div
+        className={`om-scrim${open ? " show" : ""}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={`ordermodal${open ? " show" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-busy="true"
+        aria-label="Loading order options"
+      >
+        <header className="om-head">
+          <div className="om-title">Place order</div>
+          <button
+            type="button"
+            className="om-x"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div
+          className="om-body"
+          style={{
+            display: "grid",
+            placeItems: "center",
+            padding: 48,
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--muted-foreground)",
+          }}
+        >
+          Loading packages…
+        </div>
+      </div>
+    </>
+  );
+});
 
 export const OrderModal = React.memo(function OrderModal({
   creator,
   open,
   onClose,
+  isLoading = false,
 }: OrderModalProps) {
-  if (!creator || !open) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return <OrderModalContent creator={creator} open={open} onClose={onClose} />;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !open) return null;
+
+  const modal = creator ? (
+    <OrderModalContent creator={creator} open={open} onClose={onClose} />
+  ) : isLoading ? (
+    <OrderModalLoading open={open} onClose={onClose} />
+  ) : null;
+
+  if (!modal) return null;
+
+  return createPortal(
+    <div className="browse-redesign-scope">{modal}</div>,
+    document.body,
+  );
 });
 
 interface OrderModalContentProps {
@@ -205,9 +275,8 @@ const OrderModalContent = React.memo(function OrderModalContent({
   return (
     <>
       <div
-        className={`fixed inset-0 om-scrim backdrop-blur-md transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
+        className={`om-scrim${open ? " show" : ""}`}
         onClick={handleScrimClick}
-        style={{ pointerEvents: open ? "auto" : "none", zIndex: 80 }}
         aria-hidden="true"
       />
 

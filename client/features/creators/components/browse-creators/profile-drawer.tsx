@@ -25,6 +25,7 @@ import {
   PawPrint,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { Creator } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
@@ -632,6 +633,8 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     if (open) {
       setTab("overview");
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    } else {
+      setOrderOpen(false);
     }
   }, [open, activeId]);
 
@@ -643,11 +646,16 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key !== "Escape") return;
+      if (orderOpen) {
+        setOrderOpen(false);
+        return;
+      }
+      onCloseRef.current();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, orderOpen]);
 
   useEffect(() => {
     if (open) {
@@ -661,10 +669,13 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   const { data: rawPortfolioVideos = [], isLoading: isVideosLoading } =
     usePublicPortfolioVideosQuery(activeId ?? "", { enabled: !!activeId });
 
-  const { data: profileApi, isLoading: isProfileLoading } =
-    useCreatorProfileQuery(activeId ?? "", {
-      enabled: !!activeId,
-    });
+  const {
+    data: profileApi,
+    isLoading: isProfileLoading,
+    isError: isProfileError,
+  } = useCreatorProfileQuery(activeId ?? "", {
+    enabled: open && !!activeId,
+  });
 
   const profile = useMemo(
     () => (profileApi ? mapProfileItemToCreatorProfile(profileApi) : null),
@@ -863,9 +874,15 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           </div>
           <button
             type="button"
-            className={`dr-btn dr-btn-primary flex-1 ${!profile || isProfileLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-            onClick={() => setOrderOpen(true)}
-            disabled={!profile || isProfileLoading}
+            className={`dr-btn dr-btn-primary flex-1 ${!profile || isProfileLoading || isProfileError ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={!profile || isProfileLoading || isProfileError}
+            onClick={() => {
+              if (isProfileError) {
+                toast.error("Could not load creator packages. Try again.");
+                return;
+              }
+              setOrderOpen(true);
+            }}
           >
             <Zap size={16} /> Place order
           </button>
@@ -875,6 +892,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
       <OrderModal
         creator={profile}
         open={orderOpen}
+        isLoading={isProfileLoading}
         onClose={() => setOrderOpen(false)}
       />
     </>

@@ -819,7 +819,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 <div className="k">Orders completed</div>
               </div>
               <div className="dr-stat">
-                <div className="v">{c.deliveryDays}d</div>
+                <div className="v">{c.deliveryDays} days</div>
                 <div className="k">Delivery time</div>
               </div>
             </div>

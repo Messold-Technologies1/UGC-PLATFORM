@@ -55,6 +55,7 @@ export interface Package {
   deliveryDays: number;
   revisions: number;
   features: string[];
+  videoLengthSeconds?: number;
 }
 
 export interface AddOn {

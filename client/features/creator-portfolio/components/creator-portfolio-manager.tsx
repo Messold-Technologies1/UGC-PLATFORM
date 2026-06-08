@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useState, useMemo, useEffect } from "react";
 import { isAxiosError } from "axios";
 import {
   Image as ImageIcon,
@@ -9,33 +9,18 @@ import {
   Trash2,
   ExternalLink,
   Settings,
-  // Search,
-  // LayoutGrid,
-  // List,
-  // Info,
   Sparkles,
   CheckCircle2,
   Layout,
   Copy,
-  MoreHorizontal,
-  // Globe,
-  // Lock,
   X,
-  // Video,
-  // FileText,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-// import {
-//   Tooltip,
-//   TooltipContent,
-//   TooltipTrigger,
-//   TooltipProvider,
-// } from "@/components/ui/tooltip";
-// import { Input } from "@/components/ui/input";
+
 import {
   Select,
   SelectContent,
@@ -44,18 +29,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog,
   DialogContent,
   DialogTrigger,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy";
+import { CreatorPortfolioTagsModal } from "./creator-portfolio-tags-modal";
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
@@ -86,11 +66,17 @@ function errorMessage(err: unknown): string {
 export function CreatorPortfolioManager() {
   const [isUploadOverlayOpen, setIsUploadOverlayOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingTagsVideo, setEditingTagsVideo] = useState<PortfolioVideoApi | null>(null);
   const [showBanner, setShowBanner] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   // const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] = useState("all-categories");
   const [selectedSort, setSelectedSort] = useState("newest");
+  const [visibleCount, setVisibleCount] = useState(6);
+
+  useEffect(() => {
+    setVisibleCount(6);
+  }, [selectedCategory, selectedSort]);
 
   const deletePortfolioVideoMutation = useDeletePortfolioVideoMutation();
   const videosQuery = useMyPortfolioVideosQuery({
@@ -246,51 +232,6 @@ export function CreatorPortfolioManager() {
                   {staticCounts.all}
                 </span>
               </button>
-              {/* <button
-                onClick={() => setActiveTab("videos")}
-                className={`flex items-center gap-2 pb-2 border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === "videos"
-                    ? "border-primary text-primary font-semibold"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Videos
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === "videos" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-                >
-                  {staticCounts.videos}
-                </span>
-              </button> */}
-              {/* <button
-                onClick={() => setActiveTab("images")}
-                className={`flex items-center gap-2 pb-2 border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === "images"
-                    ? "border-primary text-primary font-semibold"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Images
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === "images" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-                >
-                  {staticCounts.images}
-                </span>
-              </button> */}
-              {/* <button
-                onClick={() => setActiveTab("other")}
-                className={`flex items-center gap-2 pb-2 border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === "other"
-                    ? "border-primary text-primary font-semibold"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Other Files
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === "other" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-                >
-                  {staticCounts.other}
-                </span>
-              </button> */}
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
@@ -348,13 +289,6 @@ export function CreatorPortfolioManager() {
           )}
 
           <div className="flex flex-col sm:flex-row justify-between gap-4">
-            {/* <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Search your works..."
-                className="pl-9 bg-background border-border"
-              />
-            </div> */}
             <div className="flex flex-wrap items-center gap-3">
               <Select
                 value={selectedCategory}
@@ -373,19 +307,6 @@ export function CreatorPortfolioManager() {
                 </SelectContent>
               </Select>
 
-              {/* <Select defaultValue="all-collaborations">
-                <SelectTrigger className="w-[160px] bg-background">
-                  <SelectValue placeholder="All Collaborations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-collaborations">
-                    All Collaborations
-                  </SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="barter">Barter</SelectItem>
-                </SelectContent>
-              </Select> */}
-
               <Select value={selectedSort} onValueChange={setSelectedSort}>
                 <SelectTrigger className="w-[130px] bg-background">
                   <SelectValue placeholder="Newest First" />
@@ -393,24 +314,8 @@ export function CreatorPortfolioManager() {
                 <SelectContent>
                   <SelectItem value="newest">Newest First</SelectItem>
                   <SelectItem value="oldest">Oldest First</SelectItem>
-                  {/* <SelectItem value="popular">Most Popular</SelectItem> */}
                 </SelectContent>
               </Select>
-
-              {/* <div className="flex items-center gap-1 bg-background border border-border rounded-lg p-1 ml-auto sm:ml-2">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <LayoutGrid className="size-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <List className="size-4" />
-                </button>
-              </div> */}
             </div>
           </div>
 
@@ -442,7 +347,7 @@ export function CreatorPortfolioManager() {
                 </div>
               ) : (
                 <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {displayedVideos.map((v) => {
+                  {displayedVideos.slice(0, visibleCount).map((v) => {
                     const cardTitle =
                       v.description?.trim() || "Portfolio video";
                     const createdLabel = new Date(
@@ -532,7 +437,7 @@ export function CreatorPortfolioManager() {
                             </div>
 
                             {v.tags && v.tags.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
                                 {v.tags.map((tag, i) => {
                                   const colors = [
                                     "bg-emerald-50/80 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-800 hover:bg-emerald-100/80",
@@ -552,51 +457,55 @@ export function CreatorPortfolioManager() {
                                 })}
                               </div>
                             )}
+
+                            <div className="flex items-center gap-2 mt-auto">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 border-2 border-dotted border-muted-foreground/40 bg-transparent text-muted-foreground hover:border-muted-foreground hover:bg-transparent text-xs h-8 justify-start px-2"
+                                onClick={() => setEditingTagsVideo(v)}
+                              >
+                                <Plus className="size-3 mr-1.5" />
+                                {v.tags && v.tags.length > 0 ? "edit tags" : "add tags for better search"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
+                                disabled={deletingId === v.id}
+                                onClick={() => void handleDelete(v)}
+                              >
+                                {deletingId === v.id ? (
+                                  <Spinner className="size-4" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
 
-                          <div className="flex items-center justify-end gap-3 mt-2">
+                          {/* <div className="flex items-center justify-end gap-3 mt-2">
                             <span className="font-medium text-xs text-muted-foreground">
                               {createdLabel}
                             </span>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                                  disabled={deletingId === v.id}
-                                >
-                                  {deletingId === v.id ? (
-                                    <Spinner className="size-4" />
-                                  ) : (
-                                    <MoreHorizontal className="size-4" />
-                                  )}
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem
-                                  onClick={() => void handleDelete(v)}
-                                  className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer font-medium"
-                                >
-                                  <Trash2 className="mr-2 size-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
-              <div className="pt-4 flex justify-center pb-8">
-                <Button
-                  variant="outline"
-                  className="bg-background min-w-[140px]"
-                >
-                  Load More
-                </Button>
-              </div>
+              {displayedVideos.length > visibleCount && (
+                <div className="pt-4 flex justify-center pb-8">
+                  <Button
+                    variant="outline"
+                    className="bg-background min-w-[140px]"
+                    onClick={() => setVisibleCount((prev) => prev + 6)}
+                  >
+                    Load More
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -801,6 +710,13 @@ export function CreatorPortfolioManager() {
           </div>
         </div>
       </div>
+      <CreatorPortfolioTagsModal
+        video={editingTagsVideo}
+        open={!!editingTagsVideo}
+        onOpenChange={(open) => {
+          if (!open) setEditingTagsVideo(null);
+        }}
+      />
     </div>
   );
 }

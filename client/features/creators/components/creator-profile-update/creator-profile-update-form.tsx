@@ -22,13 +22,15 @@ import {
   Camera,
   Check,
   Film,
-  Heart,
   Layers,
   MapPin,
   MessageSquare,
   Share2,
   Sparkles,
   User,
+  Instagram,
+  Youtube,
+  Ghost,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -1078,7 +1080,7 @@ function CreatorProfileUpdateFormContent({
                 </label>
                 <div className="pe-input-wrap">
                   <span className="pe-lead">
-                    <Heart size={15} />
+                    <Instagram size={15} />
                   </span>
                   <input
                     id="instagramUrl"
@@ -1103,7 +1105,7 @@ function CreatorProfileUpdateFormContent({
                 </label>
                 <div className="pe-input-wrap">
                   <span className="pe-lead">
-                    <Film size={14} />
+                    <Youtube size={14} />
                   </span>
                   <input
                     id="youtubeUrl"
@@ -1129,7 +1131,7 @@ function CreatorProfileUpdateFormContent({
                 </label>
                 <div className="pe-input-wrap">
                   <span className="pe-lead">
-                    <Camera size={15} />
+                    <Ghost size={15} />
                   </span>
                   <input
                     id="snapchatUrl"

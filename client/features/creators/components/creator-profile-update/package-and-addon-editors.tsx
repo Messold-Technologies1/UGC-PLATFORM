@@ -42,20 +42,28 @@ export function PackageEditor({
 }) {
   return (
     <div className="pe-pkg">
-      <div className="pe-pkg-top">
-        <span className="pe-pkg-name">{PACKAGE_NAME}</span>
-        <span
-          style={{
-            fontSize: 12,
-            color: "var(--muted-foreground)",
-            fontWeight: 600,
-          }}
-        >
-          1 Video
-        </span>
-      </div>
+      <div className="pe-grid pe-grid-3">
+        <div className="pe-field">
+          <label htmlFor="package-name">Package Name</label>
+          <input
+            id="package-name"
+            className="pe-input"
+            disabled
+            value={PACKAGE_NAME}
+            readOnly
+          />
+        </div>
 
-      <div className="pe-grid pe-grid-4">
+        <div className="pe-field">
+          <label htmlFor="package-deliverables">Deliverables</label>
+          <input
+            id="package-deliverables"
+            className="pe-input"
+            disabled
+            value="1 Video"
+            readOnly
+          />
+        </div>
         <div className="pe-field">
           <label htmlFor="packagePriceAmount">Price (₹)</label>
           <div style={{ position: "relative" }}>

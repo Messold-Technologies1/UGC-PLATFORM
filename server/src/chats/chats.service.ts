@@ -24,6 +24,7 @@ const orderCreatorSnapshotSelect = {
   id: true,
   displayName: true,
   introVideoUrl: true,
+  profileImageUrl: true,
   city: true,
 } as const;
 
@@ -224,6 +225,7 @@ export class ChatsService {
         id: row.creator!.id,
         displayName: row.creator!.displayName,
         introVideoUrl: row.creator!.introVideoUrl ?? null,
+        profileImageUrl: row.creator!.profileImageUrl ?? null,
         city: row.creator!.city ?? null,
       },
       lastMessage: this.lastMessageFromOrder(row),

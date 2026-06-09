@@ -13,6 +13,12 @@ export class OrderCreatorSnapshotDto {
   })
   introVideoUrl?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/creator-profile/.../profile-image/....jpg',
+    description: 'Creator profile image URL at time of order (optional).',
+  })
+  profileImageUrl?: string | null;
+
   @ApiPropertyOptional({ example: 'Bengaluru' })
   city?: string | null;
 }

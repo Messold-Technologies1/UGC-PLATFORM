@@ -22,5 +22,8 @@ export class ChatCreatorCounterpartyDto {
   introVideoUrl?: string | null;
 
   @ApiPropertyOptional()
+  profileImageUrl?: string | null;
+
+  @ApiPropertyOptional()
   city?: string | null;
 }

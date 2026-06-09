@@ -23,6 +23,7 @@ import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
+import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
@@ -183,10 +184,68 @@ export class CreatorProfileService {
     });
   }
 
+  async presignProfileImageUpload(
+    actingUserId: string,
+    dto: PresignProfileImageUploadDto,
+  ) {
+    const explicitId = dto.creatorProfileId?.trim();
+
+    let creatorProfileId: string;
+
+    if (explicitId) {
+      const profile = await this.prisma.creatorProfile.findUnique({
+        where: { id: explicitId },
+        select: { userId: true },
+      });
+      if (!profile) {
+        throw new NotFoundException('Creator profile not found');
+      }
+      const ownsProfile = profile.userId === actingUserId;
+      const isAdmin = await this.isAdminUser(actingUserId);
+      if (!ownsProfile && !isAdmin) {
+        throw new ForbiddenException(
+          'Not allowed to upload a profile image for this creator profile.',
+        );
+      }
+      creatorProfileId = explicitId;
+    } else {
+      const profile = await this.prisma.creatorProfile.findUnique({
+        where: { userId: actingUserId },
+        select: { id: true },
+      });
+      if (!profile?.id) {
+        throw new BadRequestException(
+          'Creator profile not found. Pass creatorProfileId when uploading on behalf of another creator (e.g. as admin), or finish profile setup first.',
+        );
+      }
+      creatorProfileId = profile.id;
+    }
+
+    const key = this.storage.buildObjectKey({
+      kind: 'creator_profile_image',
+      userId: actingUserId,
+      creatorProfileId,
+      contentType: dto.contentType,
+    });
+
+    return this.storage.createPresignedPutUpload({
+      key,
+      contentType: dto.contentType,
+      contentLength: dto.contentLength,
+    });
+  }
+
   private assertIntroVideoKeyOwner(creatorProfileId: string, key: string): void {
     const prefix = `creator-profile/${creatorProfileId}/intro/`;
     if (!key.startsWith(prefix)) {
       throw new BadRequestException('Invalid introVideoKey');
+    }
+  }
+
+  private assertProfileImageKeyOwner(creatorProfileId: string, key: string): void {
+    const prefix = `creator-profile/${creatorProfileId}/profile-image/`;
+    if (!key.startsWith(prefix)) {
+      throw new BadRequestException('Invalid profileImageKey');
     }
   }
 
@@ -246,6 +305,7 @@ export class CreatorProfileService {
       phone: mapped.user?.phone ?? null,
       phoneVerified: mapped.user?.phoneVerified ?? false,
       introVideoUrl: mapped.introVideoUrl ?? null,
+      profileImageUrl: mapped.profileImageUrl ?? null,
       countryName: mapped.countryName ?? null,
       stateName: mapped.stateName ?? null,
       city: mapped.city ?? null,
@@ -978,6 +1038,7 @@ export class CreatorProfileService {
       userId: profile.userId,
       name: profile.displayName,
       introVideoUrl: profile.introVideoUrl ?? null,
+      profileImageUrl: profile.profileImageUrl ?? null,
       city: profile.city ?? null,
       countryName: profile.countryName ?? null,
       stateName: profile.stateName ?? null,
@@ -1316,6 +1377,20 @@ export class CreatorProfileService {
           }
         }
 
+        let nextProfileImageKey: string | null | undefined = undefined;
+        let nextProfileImageUrl: string | null | undefined = undefined;
+        if (dto.profileImageKey !== undefined) {
+          const trimmed = dto.profileImageKey?.trim();
+          if (trimmed) {
+            this.assertProfileImageKeyOwner(creatorProfileId, trimmed);
+            nextProfileImageKey = trimmed;
+            nextProfileImageUrl = this.storage.buildCdnUrl(trimmed);
+          } else {
+            nextProfileImageKey = null;
+            nextProfileImageUrl = null;
+          }
+        }
+
         const data: Prisma.CreatorProfileUpdateInput = {};
         if (dto.displayName !== undefined) {
           data.displayName = dto.displayName.trim();
@@ -1380,6 +1455,10 @@ export class CreatorProfileService {
         if (nextIntroVideoKey !== undefined) {
           data.introVideoKey = nextIntroVideoKey;
           data.introVideoUrl = nextIntroVideoUrl;
+        }
+        if (nextProfileImageKey !== undefined) {
+          data.profileImageKey = nextProfileImageKey;
+          data.profileImageUrl = nextProfileImageUrl;
         }
 
         if (Object.keys(data).length > 0) {

@@ -8,71 +8,17 @@ import { brandOrderDetailsQueryOptions } from "@/features/orders/api/get-brand-o
 import { toast } from "sonner";
 import type { AddOn, CreatorProfile, Package } from "@/features/creators/types";
 import type { CheckoutSession } from "@/features/payments/api/create-checkout";
+import {
+  clearStoredCheckoutSession,
+  readStoredCheckoutSession,
+  writeStoredCheckoutSession,
+} from "@/features/payments/lib/checkout-session-storage";
+import {
+  loadRazorpayCheckoutScript,
+  openRazorpayCheckout,
+} from "@/features/payments/lib/open-razorpay-checkout";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/use-create-checkout-mutation";
 import { useAuth } from "@/providers/auth-provider";
-
-const RAZORPAY_CHECKOUT_URL = "https://checkout.razorpay.com/v1/checkout.js";
-
-let razorpayScriptPromise: Promise<void> | null = null;
-
-function loadRazorpayCheckoutScript(): Promise<void> {
-  if (typeof window === "undefined") {
-    return Promise.reject(
-      new Error("Razorpay checkout is only available in the browser."),
-    );
-  }
-
-  if (window.Razorpay) {
-    return Promise.resolve();
-  }
-
-  if (razorpayScriptPromise) {
-    return razorpayScriptPromise;
-  }
-
-  razorpayScriptPromise = new Promise<void>((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>(
-      `script[src="${RAZORPAY_CHECKOUT_URL}"]`,
-    );
-
-    const handleLoad = (script: HTMLScriptElement) => {
-      script.dataset.loaded = "true";
-      resolve();
-    };
-    const handleError = () =>
-      reject(new Error("Failed to load Razorpay checkout."));
-
-    if (existingScript) {
-      if (existingScript.dataset.loaded === "true") {
-        resolve();
-        return;
-      }
-
-      existingScript.addEventListener(
-        "load",
-        () => handleLoad(existingScript),
-        {
-          once: true,
-        },
-      );
-      existingScript.addEventListener("error", handleError, { once: true });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = RAZORPAY_CHECKOUT_URL;
-    script.async = true;
-    script.dataset.loaded = "false";
-    script.addEventListener("load", () => handleLoad(script), { once: true });
-    script.addEventListener("error", handleError, { once: true });
-    document.body.appendChild(script);
-  }).catch((error) => {
-    razorpayScriptPromise = null;
-    throw error;
-  });
-
-  return razorpayScriptPromise;
-}
 
 function getErrorMessage(error: unknown): string {
   if (isAxiosError(error)) {
@@ -131,10 +77,15 @@ export function useRazorpayCheckout({
     [selectedAddOns, selectedPackage?.price],
   );
 
+  const persistedSession = useMemo(
+    () => readStoredCheckoutSession(selectionSignature),
+    [selectionSignature],
+  );
+
   const checkoutSession =
     cachedSession?.selectionSignature === selectionSignature
       ? cachedSession.session
-      : null;
+      : persistedSession;
 
   const total = checkoutSession
     ? Math.round(checkoutSession.amountPaise / 100)
@@ -169,75 +120,29 @@ export function useRazorpayCheckout({
     };
   }, []);
 
-  const openRazorpayCheckout = useCallback(
+  const launchCheckout = useCallback(
     async (session: CheckoutSession) => {
-      await loadRazorpayCheckoutScript();
-      setIsGatewayReady(true);
-
-      if (!window.Razorpay) {
-        throw new Error("Razorpay checkout is unavailable right now.");
-      }
-
-      let didCompletePayment = false;
-
-      const razorpay = new window.Razorpay({
-        key: session.razorpayKeyId,
-        amount: session.amountPaise,
-        currency: session.currency,
-        name: "Collabry",
+      await openRazorpayCheckout({
+        session,
         description: `${selectedPackage?.label ?? "Creator"} package checkout`,
-        order_id: session.razorpayOrderId,
-        prefill: {
-          name: user?.name ?? undefined,
-          email: user?.email ?? undefined,
-        },
+        user: user ?? undefined,
         notes: {
           creatorId: creator.id,
           packageId: selectedPackage?.id ?? "",
-          platformOrderId: session.orderId,
         },
-        retry: {
-          enabled: true,
-          max_count: 1,
-        },
-        theme: {
-          color: "#111827",
-        },
-        handler: () => {
-          didCompletePayment = true;
+        onSuccess: (orderId) => {
           setIsProcessing(false);
-          void queryClient.prefetchQuery(
-            brandOrderDetailsQueryOptions(session.orderId),
-          );
+          clearStoredCheckoutSession(selectionSignature);
+          void queryClient.prefetchQuery(brandOrderDetailsQueryOptions(orderId));
           toast.success("Payment successful", {
             description: "Redirecting to brief creation...",
           });
-          redirectToBriefCreation(session.orderId);
+          redirectToBriefCreation(orderId);
         },
-        modal: {
-          ondismiss: () => {
-            if (didCompletePayment) {
-              return;
-            }
-
-            setIsProcessing(false);
-            toast.message("Checkout closed", {
-              description: "You can reopen payment whenever you're ready.",
-            });
-          },
+        onDismiss: () => {
+          setIsProcessing(false);
         },
       });
-
-      razorpay.on("payment.failed", (response) => {
-        setIsProcessing(false);
-        toast.error("Payment failed", {
-          description:
-            response.error?.description?.trim() ||
-            "Your payment could not be completed.",
-        });
-      });
-
-      razorpay.open();
     },
     [
       creator.id,
@@ -245,8 +150,8 @@ export function useRazorpayCheckout({
       redirectToBriefCreation,
       selectedPackage?.id,
       selectedPackage?.label,
-      user?.email,
-      user?.name,
+      selectionSignature,
+      user,
     ],
   );
 
@@ -268,14 +173,13 @@ export function useRazorpayCheckout({
             : {}),
         }));
 
-      if (!checkoutSession) {
-        setCachedSession({
-          selectionSignature,
-          session,
-        });
-      }
+      setCachedSession({
+        selectionSignature,
+        session,
+      });
+      writeStoredCheckoutSession(selectionSignature, session);
 
-      await openRazorpayCheckout(session);
+      await launchCheckout(session);
       return true;
     } catch (error) {
       setIsProcessing(false);
@@ -289,7 +193,7 @@ export function useRazorpayCheckout({
     createCheckoutMutation,
     creator.id,
     isProcessing,
-    openRazorpayCheckout,
+    launchCheckout,
     selectionSignature,
     selectedAddOns,
     selectedPackage,

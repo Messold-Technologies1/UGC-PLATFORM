@@ -162,6 +162,34 @@ function canCreatorUploadOrSubmitDelivery(order: {
   return st === 'BRIEF_ACCEPTED';
 }
 
+function extractAddOnIdsFromSnapshot(snapshot: Prisma.JsonValue): string[] {
+  if (!Array.isArray(snapshot)) return [];
+  return snapshot
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return '';
+      const id = (item as { id?: unknown }).id;
+      return typeof id === 'string' ? id : '';
+    })
+    .filter(Boolean)
+    .sort();
+}
+
+function sortedAddOnIdsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((id, index) => id === b[index]);
+}
+
+type CheckoutSessionResult = {
+  orderId: string;
+  razorpayOrderId: string;
+  amountPaise: number;
+  currency: string;
+  razorpayKeyId: string;
+  packageAmountPaise: number;
+  addOnsAmountPaise: number;
+  addOnsCount: number;
+};
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -185,22 +213,73 @@ export class OrdersService {
     });
   }
 
+  private buildCheckoutSessionResult(params: {
+    orderId: string;
+    razorpayOrderId: string;
+    amountPaise: number;
+    currency: string;
+    packageAmountPaise: number;
+    addOnsAmountPaise: number;
+    addOnsCount: number;
+  }): CheckoutSessionResult {
+    return {
+      orderId: params.orderId,
+      razorpayOrderId: params.razorpayOrderId,
+      amountPaise: params.amountPaise,
+      currency: params.currency,
+      razorpayKeyId: this.razorpay.getPublicKeyId(),
+      packageAmountPaise: params.packageAmountPaise,
+      addOnsAmountPaise: params.addOnsAmountPaise,
+      addOnsCount: params.addOnsCount,
+    };
+  }
+
+  /** Reject other awaiting-payment orders for the same brand+creator pair. */
+  private async rejectOtherPendingOrdersForBrandCreator(
+    brandId: string,
+    creatorId: string,
+    keepOrderId: string,
+  ): Promise<void> {
+    await this.prisma.order.updateMany({
+      where: {
+        brandId,
+        creatorId,
+        status: 'PENDING_PAYMENT',
+        NOT: { id: keepOrderId },
+      },
+      data: { status: 'REJECTED' },
+    });
+  }
+
+  private async createRazorpayOrderForPlatformOrder(params: {
+    orderId: string;
+    amountPaise: number;
+    currency: string;
+    brandProfileId: string;
+    creatorProfileId: string;
+    creatorPackageId: string;
+  }): Promise<string> {
+    const rzpOrder = await this.razorpay.createOrder({
+      amountPaise: params.amountPaise,
+      currency: params.currency,
+      receipt: params.orderId,
+      notes: {
+        platformOrderId: params.orderId,
+        brandProfileId: params.brandProfileId,
+        creatorProfileId: params.creatorProfileId,
+        creatorPackageId: params.creatorPackageId,
+      },
+    });
+    return rzpOrder.id;
+  }
+
   async createCheckout(params: {
     actorUserId: string;
     brandProfileId?: string | null;
     creatorId: string;
     packageId: string;
     addOnIds?: string[];
-  }): Promise<{
-    orderId: string;
-    razorpayOrderId: string;
-    amountPaise: number;
-    currency: string;
-    razorpayKeyId: string;
-    packageAmountPaise: number;
-    addOnsAmountPaise: number;
-    addOnsCount: number;
-  }> {
+  }): Promise<CheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
@@ -254,6 +333,120 @@ export class OrdersService {
       priceAmount: a.priceAmount.toString(),
       description: a.description ?? null,
     }));
+    const sortedAddOnIds = [...addOnIdList].sort();
+
+    const pendingForCreator = await this.prisma.order.findMany({
+      where: {
+        brandId: brand.id,
+        creatorId: pkg.creatorId,
+        status: 'PENDING_PAYMENT',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        creatorPackageId: true,
+        addOnsSnapshot: true,
+        expectedAmountPaise: true,
+        currency: true,
+        razorpayOrderId: true,
+      },
+    });
+
+    const matchingPackageOrder = pendingForCreator.find(
+      (order) => order.creatorPackageId === pkg.id,
+    );
+
+    if (matchingPackageOrder) {
+      const existingAddOnIds = extractAddOnIdsFromSnapshot(
+        matchingPackageOrder.addOnsSnapshot,
+      );
+      const sameCart =
+        sortedAddOnIdsEqual(existingAddOnIds, sortedAddOnIds) &&
+        matchingPackageOrder.expectedAmountPaise === amountPaise;
+
+      if (sameCart) {
+        let razorpayOrderId = matchingPackageOrder.razorpayOrderId;
+        if (!razorpayOrderId) {
+          razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
+            orderId: matchingPackageOrder.id,
+            amountPaise,
+            currency: matchingPackageOrder.currency,
+            brandProfileId: brand.id,
+            creatorProfileId: pkg.creatorId,
+            creatorPackageId: pkg.id,
+          });
+          await this.updateOrder({
+            where: { id: matchingPackageOrder.id },
+            data: { razorpayOrderId },
+          });
+        }
+
+        await this.rejectOtherPendingOrdersForBrandCreator(
+          brand.id,
+          pkg.creatorId,
+          matchingPackageOrder.id,
+        );
+
+        this.logger.debug(
+          `checkout reused pending order=${matchingPackageOrder.id}`,
+        );
+
+        return this.buildCheckoutSessionResult({
+          orderId: matchingPackageOrder.id,
+          razorpayOrderId,
+          amountPaise: matchingPackageOrder.expectedAmountPaise,
+          currency: matchingPackageOrder.currency,
+          packageAmountPaise,
+          addOnsAmountPaise,
+          addOnsCount: addOnRows.length,
+        });
+      }
+
+      const razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
+        orderId: matchingPackageOrder.id,
+        amountPaise,
+        currency: matchingPackageOrder.currency,
+        brandProfileId: brand.id,
+        creatorProfileId: pkg.creatorId,
+        creatorPackageId: pkg.id,
+      });
+
+      await this.updateOrder({
+        where: { id: matchingPackageOrder.id },
+        data: {
+          packageNameSnapshot: pkg.name,
+          deliverablesSnapshot:
+            pkg.deliverables as unknown as Prisma.InputJsonValue,
+          priceAmountSnapshot: pkg.priceAmount,
+          deliveryDaysSnapshot: pkg.deliveryDays,
+          maxRevisionsSnapshot: pkg.maxRevisions,
+          addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
+          addOnsTotalSnapshot: addOnsTotalDecimal,
+          expectedAmountPaise: amountPaise,
+          razorpayOrderId,
+        },
+      });
+
+      await this.rejectOtherPendingOrdersForBrandCreator(
+        brand.id,
+        pkg.creatorId,
+        matchingPackageOrder.id,
+      );
+
+      this.logger.debug(
+        `checkout refreshed pending order=${matchingPackageOrder.id}`,
+      );
+
+      return this.buildCheckoutSessionResult({
+        orderId: matchingPackageOrder.id,
+        razorpayOrderId,
+        amountPaise,
+        currency: matchingPackageOrder.currency,
+        packageAmountPaise,
+        addOnsAmountPaise,
+        addOnsCount: addOnRows.length,
+      });
+    }
 
     const created = await this.prisma.order.create({
       data: {
@@ -262,7 +455,6 @@ export class OrdersService {
         creatorPackageId: pkg.id,
         status: 'PENDING_PAYMENT',
         packageNameSnapshot: pkg.name,
-        // Some Prisma client versions type JsonValue vs InputJsonValue differently.
         deliverablesSnapshot:
           pkg.deliverables as unknown as Prisma.InputJsonValue,
         priceAmountSnapshot: pkg.priceAmount,
@@ -276,33 +468,111 @@ export class OrdersService {
       select: { id: true, currency: true },
     });
 
-    const rzpOrder = await this.razorpay.createOrder({
+    const razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
+      orderId: created.id,
       amountPaise,
       currency: created.currency,
-      receipt: created.id,
-      notes: {
-        platformOrderId: created.id,
-        brandProfileId: brand.id,
-        creatorProfileId: pkg.creatorId,
-        creatorPackageId: pkg.id,
-      },
+      brandProfileId: brand.id,
+      creatorProfileId: pkg.creatorId,
+      creatorPackageId: pkg.id,
     });
 
     await this.updateOrder({
       where: { id: created.id },
-      data: { razorpayOrderId: rzpOrder.id },
+      data: { razorpayOrderId },
     });
 
-    return {
+    await this.rejectOtherPendingOrdersForBrandCreator(
+      brand.id,
+      pkg.creatorId,
+      created.id,
+    );
+
+    return this.buildCheckoutSessionResult({
       orderId: created.id,
-      razorpayOrderId: rzpOrder.id,
+      razorpayOrderId,
       amountPaise,
       currency: created.currency,
-      razorpayKeyId: this.razorpay.getPublicKeyId(),
       packageAmountPaise,
       addOnsAmountPaise,
       addOnsCount: addOnRows.length,
-    };
+    });
+  }
+
+  async resumeCheckout(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    orderId: string;
+  }): Promise<CheckoutSessionResult> {
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        creatorId: true,
+        creatorPackageId: true,
+        status: true,
+        currency: true,
+        expectedAmountPaise: true,
+        priceAmountSnapshot: true,
+        addOnsTotalSnapshot: true,
+        addOnsSnapshot: true,
+        razorpayOrderId: true,
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.brandId !== brand.id) {
+      throw new ForbiddenException('Not your order');
+    }
+    if (order.status !== 'PENDING_PAYMENT') {
+      throw new BadRequestException('Order is not awaiting payment');
+    }
+    if (!order.creatorPackageId) {
+      throw new BadRequestException('Order cannot be paid');
+    }
+    if (order.expectedAmountPaise <= 0) {
+      throw new BadRequestException('Invalid checkout amount');
+    }
+
+    const packageAmountPaise = toPaise(order.priceAmountSnapshot);
+    const addOnsAmountPaise =
+      order.addOnsTotalSnapshot === null
+        ? 0
+        : toPaise(order.addOnsTotalSnapshot);
+    const addOnsCount = extractAddOnIdsFromSnapshot(order.addOnsSnapshot).length;
+
+    let razorpayOrderId = order.razorpayOrderId;
+    if (!razorpayOrderId) {
+      razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
+        orderId: order.id,
+        amountPaise: order.expectedAmountPaise,
+        currency: order.currency,
+        brandProfileId: brand.id,
+        creatorProfileId: order.creatorId,
+        creatorPackageId: order.creatorPackageId,
+      });
+      await this.updateOrder({
+        where: { id: order.id },
+        data: { razorpayOrderId },
+      });
+    }
+
+    return this.buildCheckoutSessionResult({
+      orderId: order.id,
+      razorpayOrderId,
+      amountPaise: order.expectedAmountPaise,
+      currency: order.currency,
+      packageAmountPaise,
+      addOnsAmountPaise,
+      addOnsCount,
+    });
   }
 
   async markPaidFromWebhook(params: {

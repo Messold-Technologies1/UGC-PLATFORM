@@ -67,6 +67,8 @@ export const ENDPOINTS = {
     CREATOR_DETAIL: (id: string) =>
       `/api/orders/creator/${encodeURIComponent(id)}`,
     CHECKOUT: "/api/orders/checkout",
+    RESUME_CHECKOUT: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/resume-checkout`,
     GET_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     ACCEPT_BRIEF: (id: string) =>

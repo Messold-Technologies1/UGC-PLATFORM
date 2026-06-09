@@ -39,9 +39,11 @@ export function CreatorAcceptanceCard({
     order.status,
   );
 
+  const isAwaitingPayment = order.status === "PENDING_PAYMENT";
   const isAwaitingAcceptance = order.status === "BRIEF_SUBMITTED";
   const isAccepted = ACCEPTED_STATUSES.includes(order.status);
-  const isPendingBrief = !isAwaitingAcceptance && !isAccepted;
+  const isPendingBrief =
+    !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
 
   let progressColor = "bg-[#6E42FF]";
   if (percentage <= 10) {
@@ -65,6 +67,38 @@ export function CreatorAcceptanceCard({
               {creatorName} has accepted your project and is working on it.
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAwaitingPayment) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Send className="size-4" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">
+              Creator Acceptance
+            </h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Complete payment above to unlock brief submission.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <Button
+            disabled
+            className="w-full bg-[#6E42FF] text-white opacity-60 cursor-not-allowed"
+          >
+            Submit Brief
+          </Button>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Available after payment is complete
+          </p>
         </div>
       </div>
     );

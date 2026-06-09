@@ -15,13 +15,14 @@ export async function updatePortfolioVideo(
   payload: UpdatePortfolioVideoPayload,
   options?: PortfolioApiRequestOptions,
 ): Promise<PortfolioVideoApi> {
-  const endpoint = options?.adminCreatorId
-    ? ENDPOINTS.ADMIN.CREATORS.PORTFOLIO_VIDEO(options.adminCreatorId, videoId)
-    : creatorPortfolioVideoPath(videoId);
+  const endpoint = creatorPortfolioVideoPath(videoId);
+  const finalPayload = options?.adminCreatorId
+    ? { ...payload, creatorId: options.adminCreatorId }
+    : payload;
 
   const { data } = await api.patch<PortfolioVideoApi>(
     endpoint,
-    payload,
+    finalPayload,
   );
   return data;
 }

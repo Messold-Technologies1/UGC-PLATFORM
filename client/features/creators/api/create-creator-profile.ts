@@ -49,6 +49,7 @@ export type CreatorAddOnCreatePayload = {
 export type CreateCreatorProfilePayload = {
   displayName: string;
   contactEmail: string;
+  profileImageKey?: string;
   introVideoKey?: string;
   countryName?: string;
   stateName?: string;

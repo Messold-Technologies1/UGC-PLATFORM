@@ -6,11 +6,9 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { PortfolioVideoApi } from "../api/types";
-import {
-  updatePortfolioVideo,
-  type UpdatePortfolioVideoPayload,
-} from "../api/update-portfolio-video";
+import { updatePortfolioVideo, type UpdatePortfolioVideoPayload } from "../api/update-portfolio-video";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
+import { portfolioAdminVideosQueryKey } from "../api/list-admin-portfolio-videos";
 
 type UpdatePortfolioVideoVariables = {
   videoId: string;
@@ -93,10 +91,11 @@ export function useUpdatePortfolioVideoMutation(
     },
     onError: (error, variables, onMutateResult, context) => {
       if (onMutateResult?.previousVideos) {
-        queryClient.setQueryData(
-          portfolioMyVideosQueryKey,
-          onMutateResult.previousVideos,
-        );
+        const queryKey = variables.adminCreatorId
+          ? portfolioAdminVideosQueryKey(variables.adminCreatorId)
+          : portfolioMyVideosQueryKey;
+
+        queryClient.setQueryData(queryKey, onMutateResult.previousVideos);
       }
 
       toast.error("Could not update video", {
@@ -106,7 +105,15 @@ export function useUpdatePortfolioVideoMutation(
       options?.onError?.(error, variables, onMutateResult, context);
     },
     onSettled: (data, error, variables, onMutateResult, context) => {
-      void queryClient.invalidateQueries({ queryKey: portfolioMyVideosQueryKey });
+      if (variables.adminCreatorId) {
+        void queryClient.invalidateQueries({
+          queryKey: portfolioAdminVideosQueryKey(variables.adminCreatorId),
+        });
+      } else {
+        void queryClient.invalidateQueries({
+          queryKey: portfolioMyVideosQueryKey,
+        });
+      }
       options?.onSettled?.(data, error, variables, onMutateResult, context);
     },
   });

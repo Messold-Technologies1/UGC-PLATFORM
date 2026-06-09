@@ -37,9 +37,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-update/creator-profile-intro-video-field";
+import { CreatorProfileImageField } from "@/features/creators/components/creator-profile-update/creator-profile-image-field";
 
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
+import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
 import { useUpdatePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-update-portfolio-video-mutation";
 import { useDeletePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-delete-portfolio-video-mutation";
@@ -63,10 +65,14 @@ import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update
 
 import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-location-form";
 import { useCreatorIntroVideo } from "@/features/creators/hooks/use-creator-intro-video";
+import { useCreatorProfileImage } from "@/features/creators/hooks/use-creator-profile-image";
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
 
+import {
+  PROFILE_IMAGE_ACCEPT,
+} from "@/features/creators/hooks/use-creator-profile-image";
 import {
   INTRO_VIDEO_ACCEPT,
   facetSections,
@@ -178,6 +184,7 @@ function CreatorProfileUpdateFormContent({
   const { refreshUser } = useAuth();
   const location = useCreatorLocationForm({ initialProfile, adminMode });
   const introVideo = useCreatorIntroVideo({ mode, profileId, initialProfile });
+  const profileImage = useCreatorProfileImage({ mode, profileId, initialProfile });
   const facets = useCreatorFacetsForm({
     initialProfile,
     enabled: Boolean(user),
@@ -187,7 +194,16 @@ function CreatorProfileUpdateFormContent({
     initialProfile,
     enabled: Boolean(user),
   });
-  const portfolioQuery = useMyPortfolioVideosQuery({ staleTime: 2 * 60_000 });
+  const myPortfolioQuery = useMyPortfolioVideosQuery({ 
+    enabled: !adminMode,
+    staleTime: 2 * 60_000,
+  });
+  const adminPortfolioQuery = useAdminPortfolioVideosQuery({
+    creatorId: profileId,
+    enabled: !!adminMode,
+    staleTime: 2 * 60_000,
+  });
+  const portfolioQuery = adminMode ? adminPortfolioQuery : myPortfolioQuery;
   const createPortfolioMutation = useCreatePortfolioVideoFlowMutation();
   const updatePortfolioMutation = useUpdatePortfolioVideoMutation();
   const deletePortfolioMutation = useDeletePortfolioVideoMutation();
@@ -425,6 +441,10 @@ function CreatorProfileUpdateFormContent({
         }));
 
       const payload: UpdateCreatorProfilePayload = {
+        contactEmail: user?.email ?? "",
+        profileImageKey: profileImage.profileImageRemoved
+          ? ""
+          : profileImage.pendingProfileImageKey ?? undefined,
         displayName: parsedData.displayName,
         ...(introVideo.pendingIntroVideoKey
           ? { introVideoKey: introVideo.pendingIntroVideoKey }
@@ -468,6 +488,7 @@ function CreatorProfileUpdateFormContent({
       youtubeUrl,
       tiktokUrl,
       snapchatUrl,
+      profileImage,
       introVideo,
       location,
       mode,
@@ -592,6 +613,7 @@ function CreatorProfileUpdateFormContent({
                   disabled={
                     pending ||
                     introVideo.uploadingIntroVideo ||
+                    profileImage.uploadingProfileImage ||
                     facets.facetOptionsQuery.isLoading ||
                     addOns.addOnOptionsQuery.isLoading
                   }
@@ -620,6 +642,7 @@ function CreatorProfileUpdateFormContent({
               disabled={
                 pending ||
                 introVideo.uploadingIntroVideo ||
+                profileImage.uploadingProfileImage ||
                 facets.facetOptionsQuery.isLoading ||
                 addOns.addOnOptionsQuery.isLoading
               }
@@ -652,33 +675,37 @@ function CreatorProfileUpdateFormContent({
             title="Photo & intro reel"
             desc="Your face and a short intro reel build instant trust."
           >
-            <CreatorProfileIntroVideoField
-              videoPreviewUrl={introVideo.introVideoPreviewUrl}
-              accept={INTRO_VIDEO_ACCEPT}
-              disabled={introVideo.uploadingIntroVideo || pending}
-              uploading={introVideo.uploadingIntroVideo}
-              hasPendingVideo={
-                Boolean(introVideo.pendingIntroVideoKey) ||
-                introVideo.introVideoRemoved
-              }
-              hasExistingVideo={Boolean(introVideo.introVideoPreviewUrl)}
-              pendingActionLabel={
-                introVideo.introVideoRemoved ? "Undo remove" : undefined
-              }
-              fileInputRef={introVideo.introVideoInputRef}
-              onSelectFile={(file) => {
-                void introVideo.handleIntroVideoSelected(file);
-                markDirty();
-              }}
-              onDiscard={() => {
-                introVideo.restoreInitialIntroVideo();
-                markDirty();
-              }}
-              onRemove={() => {
-                introVideo.removeIntroVideo();
-                markDirty();
-              }}
-            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1px 1fr", gap: 32 }}>
+              <div style={{ paddingRight: 8, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <CreatorProfileImageField
+                  imagePreviewUrl={profileImage.profileImagePreviewUrl}
+                  accept={PROFILE_IMAGE_ACCEPT}
+                  disabled={profileImage.uploadingProfileImage || pending}
+                  uploading={profileImage.uploadingProfileImage}
+                  fileInputRef={profileImage.profileImageInputRef}
+                  onSelectFile={(file) => {
+                    void profileImage.handleProfileImageSelected(file);
+                    markDirty();
+                  }}
+                />
+              </div>
+
+              <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
+
+              <div style={{ paddingLeft: 8, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <CreatorProfileIntroVideoField
+                  videoPreviewUrl={introVideo.introVideoPreviewUrl}
+                  accept={INTRO_VIDEO_ACCEPT}
+                  disabled={introVideo.uploadingIntroVideo || pending}
+                  uploading={introVideo.uploadingIntroVideo}
+                  fileInputRef={introVideo.introVideoInputRef}
+                  onSelectFile={(file) => {
+                    void introVideo.handleIntroVideoSelected(file);
+                    markDirty();
+                  }}
+                />
+              </div>
+            </div>
           </SectionCard>
         </motion.div>
 

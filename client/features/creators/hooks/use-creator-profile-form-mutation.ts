@@ -18,6 +18,11 @@ import {
   putIntroVideoToPresignedUrl,
   type PresignProfileIntroVideoUploadResponse,
 } from "../api/presign-creator-profile-intro-video";
+import {
+  presignCreatorProfileImageUpload,
+  putProfileImageToPresignedUrl,
+  type PresignProfileImageUploadResponse,
+} from "../api/presign-creator-profile-image";
 
 type CreatorProfileMode = "create" | "update";
 
@@ -77,6 +82,58 @@ export function useUploadCreatorIntroVideoMutation(options: {
       }
 
       toast.error("Could not upload intro video. Try again.");
+    },
+  });
+}
+
+export function useUploadCreatorProfileImageMutation(options: {
+  mode: CreatorProfileMode;
+  creatorProfileId?: string;
+}) {
+  const { mode, creatorProfileId } = options;
+  return useMutation({
+    mutationKey: [
+      "creators",
+      "profile",
+      "profile-image-upload",
+      mode,
+      creatorProfileId ?? "self",
+    ],
+    mutationFn: async (
+      {
+        file,
+        contentType,
+      }: {
+        file: File;
+        contentType: string;
+      },
+    ): Promise<PresignProfileImageUploadResponse | null> => {
+      const presign = await presignCreatorProfileImageUpload({
+        contentType,
+        contentLength: file.size,
+        ...(creatorProfileId ? { creatorProfileId } : {}),
+      });
+      await putProfileImageToPresignedUrl(file, presign);
+      return presign;
+    },
+    onSuccess: (result) => {
+      if (!result) {
+        return;
+      }
+
+      toast.success(
+        mode === "update"
+          ? "Profile image uploaded — save your profile to apply."
+          : "Profile image uploaded — create your profile to apply.",
+      );
+    },
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 403) {
+        toast.error("You do not have access to upload a profile image.");
+        return;
+      }
+
+      toast.error("Could not upload profile image. Try again.");
     },
   });
 }

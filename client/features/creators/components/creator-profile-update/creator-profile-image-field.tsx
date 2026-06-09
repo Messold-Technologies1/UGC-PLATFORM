@@ -1,18 +1,19 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Film, Trash2, Video } from "lucide-react";
+import Image from "next/image";
+import { User, Camera } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
-export function CreatorProfileIntroVideoField({
-  videoPreviewUrl,
+export function CreatorProfileImageField({
+  imagePreviewUrl,
   accept,
   disabled,
   uploading,
   fileInputRef,
   onSelectFile,
 }: {
-  videoPreviewUrl: string | null;
+  imagePreviewUrl: string | null;
   accept: string;
   disabled: boolean;
   uploading: boolean;
@@ -31,29 +32,23 @@ export function CreatorProfileIntroVideoField({
         style={{
           width: 160,
           position: "relative",
-          aspectRatio: "9/16",
-          borderRadius: 14,
+          aspectRatio: "1/1",
+          borderRadius: 24,
           overflow: "hidden",
           background: "var(--brand-gradient)",
           display: "grid",
           placeItems: "center",
         }}
       >
-        {videoPreviewUrl ? (
-          <video
-            src={videoPreviewUrl}
-            controls
-            preload="metadata"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              position: "absolute",
-              inset: 0,
-            }}
+        {imagePreviewUrl ? (
+          <Image
+            src={imagePreviewUrl}
+            alt="Profile"
+            fill
+            style={{ objectFit: "cover" }}
           />
         ) : (
-          <Video
+          <User
             size={32}
             style={{ color: "white", opacity: 0.9 }}
             aria-hidden
@@ -99,9 +94,9 @@ export function CreatorProfileIntroVideoField({
           {uploading ? (
             <Spinner className="size-3.5" aria-hidden />
           ) : (
-            <Film size={14} aria-hidden />
+            <Camera size={14} aria-hidden />
           )}
-          {videoPreviewUrl ? "Replace reel" : "Upload reel"}
+          {imagePreviewUrl ? "Change photo" : "Upload photo"}
         </button>
       </div>
     </div>

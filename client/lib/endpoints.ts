@@ -24,6 +24,8 @@ export const ENDPOINTS = {
     PROFILE: "/api/creators/profile",
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",
+    PROFILE_IMAGE_PRESIGN:
+      "/api/creators/profile/uploads/presign-profile-image",
     PROFILE_INTRO_VIDEO_PRESIGN:
       "/api/creators/profile/uploads/presign-intro-video",
     FACET_OPTIONS: "/api/creators/facet-options",
@@ -111,6 +113,7 @@ export const ENDPOINTS = {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
     VIDEOS: "/api/creator-portfolio/videos",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
+    VIDEOS_ADMIN: "/api/creator-portfolio/videos/admin",
     SUGGESTIONS_INDUSTRIES: "/api/creator-portfolio/suggestions/industries",
     SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
     SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
@@ -122,12 +125,6 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/reject`,
-      PORTFOLIO_UPLOADS_PRESIGN: (id: string) =>
-        `/api/admin/creators/${encodeURIComponent(id)}/portfolio/uploads/presign`,
-      PORTFOLIO_VIDEOS: (id: string) =>
-        `/api/admin/creators/${encodeURIComponent(id)}/portfolio/videos`,
-      PORTFOLIO_VIDEO: (creatorId: string, videoId: string) =>
-        `/api/admin/creators/${encodeURIComponent(creatorId)}/portfolio/videos/${encodeURIComponent(videoId)}`,
     },
     BRANDS: {
       LIST: "/api/admin/brands",

@@ -6,6 +6,7 @@ import {
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
+import { portfolioAdminVideosQueryKey } from "../api/list-admin-portfolio-videos";
 import { publicPortfolioVideosByCreatorQueryKey } from "../api/list-public-portfolio-videos";
 import { createPortfolioVideo } from "../api/create-portfolio-video";
 import {
@@ -135,6 +136,9 @@ export function useCreatePortfolioVideoFlowMutation() {
             queryKey: publicPortfolioVideosByCreatorQueryKey(
               variables.adminCreatorId,
             ),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: portfolioAdminVideosQueryKey(variables.adminCreatorId),
           }),
           queryClient.invalidateQueries({
             queryKey: ["creators", "profile", variables.adminCreatorId],

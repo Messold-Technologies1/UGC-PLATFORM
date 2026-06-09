@@ -8,9 +8,11 @@ import { toast } from "sonner";
 import type { PortfolioVideoApi } from "../api/types";
 import { deletePortfolioVideo } from "../api/delete-portfolio-video";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
+import { portfolioAdminVideosQueryKey } from "../api/list-admin-portfolio-videos";
 
 type DeletePortfolioVideoVariables = {
   videoId: string;
+  adminCreatorId?: string;
 };
 
 type DeletePortfolioVideoContext = {
@@ -56,17 +58,19 @@ export function useDeletePortfolioVideoMutation(
   return useMutation({
     ...options,
     mutationKey: ["creator-portfolio", "delete-video"],
-    mutationFn: ({ videoId }: DeletePortfolioVideoVariables) =>
-      deletePortfolioVideo(videoId),
+    mutationFn: ({ videoId, adminCreatorId }: DeletePortfolioVideoVariables) =>
+      deletePortfolioVideo(videoId, { adminCreatorId }),
     onMutate: async (variables, context) => {
-      await queryClient.cancelQueries({ queryKey: portfolioMyVideosQueryKey });
+      const queryKey = variables.adminCreatorId
+        ? portfolioAdminVideosQueryKey(variables.adminCreatorId)
+        : portfolioMyVideosQueryKey;
 
-      const previousVideos = queryClient.getQueryData<PortfolioVideoApi[]>(
-        portfolioMyVideosQueryKey,
-      );
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousVideos = queryClient.getQueryData<PortfolioVideoApi[]>(queryKey);
 
       queryClient.setQueryData<PortfolioVideoApi[]>(
-        portfolioMyVideosQueryKey,
+        queryKey,
         (current) => (current ?? []).filter((video) => video.id !== variables.videoId),
       );
 
@@ -83,8 +87,12 @@ export function useDeletePortfolioVideoMutation(
     },
     onError: (error, variables, onMutateResult, context) => {
       if (onMutateResult?.previousVideos) {
+        const queryKey = variables.adminCreatorId
+          ? portfolioAdminVideosQueryKey(variables.adminCreatorId)
+          : portfolioMyVideosQueryKey;
+
         queryClient.setQueryData(
-          portfolioMyVideosQueryKey,
+          queryKey,
           onMutateResult.previousVideos,
         );
       }
@@ -96,7 +104,11 @@ export function useDeletePortfolioVideoMutation(
       options?.onError?.(error, variables, onMutateResult, context);
     },
     onSettled: (data, error, variables, onMutateResult, context) => {
-      void queryClient.invalidateQueries({ queryKey: portfolioMyVideosQueryKey });
+      const queryKey = variables.adminCreatorId
+        ? portfolioAdminVideosQueryKey(variables.adminCreatorId)
+        : portfolioMyVideosQueryKey;
+        
+      void queryClient.invalidateQueries({ queryKey });
       options?.onSettled?.(data, error, variables, onMutateResult, context);
     },
   });

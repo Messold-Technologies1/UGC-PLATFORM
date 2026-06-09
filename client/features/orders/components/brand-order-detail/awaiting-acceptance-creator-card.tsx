@@ -38,12 +38,17 @@ export function AwaitingAcceptanceCreatorCard({
     "ACCEPTED",
     "CREATOR_PAYMENT_DONE",
   ];
+  const isAwaitingPayment = order.status === "PENDING_PAYMENT";
   const isAwaitingAcceptance = order.status === "BRIEF_SUBMITTED";
   const isAccepted = ACCEPTED_STATUSES.includes(order.status);
-  const isPendingBrief = !isAwaitingAcceptance && !isAccepted;
+  const isPendingBrief =
+    !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
 
   let infoMessage = "";
-  if (isAwaitingAcceptance) {
+  if (isAwaitingPayment) {
+    infoMessage =
+      "Complete payment to confirm this order. Brief submission and creator coordination unlock after payment.";
+  } else if (isAwaitingAcceptance) {
     infoMessage = `${firstName} will review your brief and accept or decline the project. If she accepts, you can proceed to the next steps.`;
   } else if (isPendingBrief) {
     infoMessage = `Submit your brief to start the acceptance window. Once submitted, ${firstName} will have 48 hours to review and accept the project.`;

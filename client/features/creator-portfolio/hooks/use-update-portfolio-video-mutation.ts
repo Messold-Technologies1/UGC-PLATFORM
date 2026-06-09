@@ -15,6 +15,7 @@ import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
 type UpdatePortfolioVideoVariables = {
   videoId: string;
   payload: UpdatePortfolioVideoPayload;
+  adminCreatorId?: string;
 };
 
 type UpdatePortfolioVideoContext = {
@@ -60,8 +61,8 @@ export function useUpdatePortfolioVideoMutation(
   return useMutation({
     ...options,
     mutationKey: ["creator-portfolio", "update-video"],
-    mutationFn: ({ videoId, payload }: UpdatePortfolioVideoVariables) =>
-      updatePortfolioVideo(videoId, payload),
+    mutationFn: ({ videoId, payload, adminCreatorId }: UpdatePortfolioVideoVariables) =>
+      updatePortfolioVideo(videoId, payload, adminCreatorId ? { adminCreatorId } : undefined),
     onMutate: async (variables, context) => {
       await queryClient.cancelQueries({ queryKey: portfolioMyVideosQueryKey });
 

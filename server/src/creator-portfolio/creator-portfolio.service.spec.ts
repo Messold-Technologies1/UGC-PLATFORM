@@ -12,6 +12,7 @@ describe('CreatorPortfolioService admin portfolio access', () => {
     creatorProfile: { findUnique: jest.fn() },
     creatorPortfolioVideo: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
     $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
@@ -165,6 +166,58 @@ describe('CreatorPortfolioService admin portfolio access', () => {
         creatorProfileId,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('lists all portfolio videos for admin including private', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      primaryRole: { name: RoleName.ADMIN },
+      userRoles: [],
+    });
+    prismaMock.creatorPortfolioVideo.findMany.mockResolvedValueOnce([
+      {
+        id: 'video-1',
+        creatorId: creatorProfileId,
+        videoUrl: 'https://cdn.example/v1.mp4',
+        thumbnailUrl: null,
+        industryLabel: null,
+        language: null,
+        description: null,
+        visibilityStatus: 'PUBLIC',
+        tags: [],
+        createdAt: new Date(),
+      },
+      {
+        id: 'video-2',
+        creatorId: creatorProfileId,
+        videoUrl: 'https://cdn.example/v2.mp4',
+        thumbnailUrl: null,
+        industryLabel: null,
+        language: null,
+        description: null,
+        visibilityStatus: 'PRIVATE',
+        tags: [],
+        createdAt: new Date(),
+      },
+    ]);
+
+    const result = await service.listAllVideosForAdmin(adminUserId);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((v) => v.visibilityStatus).sort()).toEqual([
+      'private',
+      'public',
+    ]);
+  });
+
+  it('rejects non-admin list all portfolio videos', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      primaryRole: { name: RoleName.BRAND },
+      userRoles: [],
+    });
+
+    await expect(service.listAllVideosForAdmin('brand-user')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('throws when admin targets unknown creator profile', async () => {

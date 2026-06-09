@@ -208,6 +208,25 @@ export class CreatorPortfolioService {
     return rows.map((r) => this.mapVideo(r));
   }
 
+  async listAllVideosForAdmin(
+    actingUserId: string,
+    creatorProfileId?: string,
+  ): Promise<PortfolioVideoResponseDto[]> {
+    await this.assertAdminUser(actingUserId);
+
+    if (creatorProfileId) {
+      await this.getCreatorProfileByIdOrThrow(creatorProfileId);
+    }
+
+    const rows = await this.prisma.creatorPortfolioVideo.findMany({
+      where: creatorProfileId ? { creatorId: creatorProfileId } : undefined,
+      orderBy: { createdAt: 'desc' },
+      include: { tags: true },
+    });
+
+    return rows.map((r) => this.mapVideo(r));
+  }
+
   async listPublicVideosByCreatorId(creatorId: string) {
     const creator = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorId },
@@ -347,8 +366,15 @@ export class CreatorPortfolioService {
     });
   }
 
-  async deleteVideo(userId: string, videoId: string): Promise<void> {
-    const profile = await this.getCreatorProfileOrThrow(userId);
+  async deleteVideo(
+    actingUserId: string,
+    videoId: string,
+    targetCreatorProfileId?: string,
+  ): Promise<void> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
     const existing = await this.prisma.creatorPortfolioVideo.findUnique({
       where: { id: videoId },
       select: { id: true, creatorId: true },

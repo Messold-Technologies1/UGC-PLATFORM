@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayUnique, IsArray, IsIn, IsOptional, IsString } from 'class-validator';
+import { PortfolioActingCreatorDto } from './portfolio-acting-creator.dto';
 
-export class UpdatePortfolioVideoDto {
+export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
   @ApiPropertyOptional({ example: 'gym' })
   @IsOptional()
   @IsString()

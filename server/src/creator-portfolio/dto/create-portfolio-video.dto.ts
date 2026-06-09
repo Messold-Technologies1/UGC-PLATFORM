@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayUnique, IsArray, IsIn, IsOptional, IsString } from 'class-validator';
+import { PortfolioActingCreatorDto } from './portfolio-acting-creator.dto';
 
-export class CreatePortfolioVideoDto {
+export class CreatePortfolioVideoDto extends PortfolioActingCreatorDto {
   @ApiProperty({
     example: 'creator-portfolio/<creatorId>/videos/<uuid>.mp4',
     description: 'S3 object key after uploading via presigned URL.',

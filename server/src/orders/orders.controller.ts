@@ -196,7 +196,9 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create platform order + Razorpay order for checkout',
+    summary: 'Create or reuse platform order + Razorpay order for checkout',
+    description:
+      'Idempotent for the same brand, creator, package, and add-ons: reuses an existing PENDING_PAYMENT order instead of creating duplicates.',
   })
   @ApiCreatedResponse({ type: CheckoutResponseDto })
   async createCheckout(
@@ -208,6 +210,29 @@ export class OrdersController {
       creatorId: dto.creatorId,
       packageId: dto.packageId,
       addOnIds: dto.addOnIds,
+    });
+  }
+
+  @Post(':id/resume-checkout')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resume Razorpay checkout for an existing awaiting-payment order',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
+  @ApiOkResponse({ type: CheckoutResponseDto })
+  async resumeCheckout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CheckoutResponseDto> {
+    return this.ordersService.resumeCheckout({
+      orderId: id,
+      ...brandActorParams(req),
     });
   }
 

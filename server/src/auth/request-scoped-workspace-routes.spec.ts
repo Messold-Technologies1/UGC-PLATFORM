@@ -97,7 +97,7 @@ describe('Request-scoped workspace routes', () => {
     ]);
   });
 
-  it('protects creator-owned portfolio mutations with creator workspace metadata', () => {
+  it('keeps portfolio mutations authenticated-only (admin may pass creatorId)', () => {
     const controller =
       CreatorPortfolioController.prototype as unknown as Record<
         string,
@@ -107,16 +107,26 @@ describe('Request-scoped workspace routes', () => {
     for (const methodName of [
       'presign',
       'createVideo',
-      'listMyVideos',
       'updateVideo',
       'deleteVideo',
     ]) {
-      expect(requiredWorkspaceFor(controller, methodName)).toBe('CREATOR');
-      expect(guardsFor(controller, methodName)).toEqual([
-        JwtAuthGuard,
-        WorkspacePermissionGuard,
-      ]);
+      expect(requiredWorkspaceFor(controller, methodName)).toBeUndefined();
+      expect(guardsFor(controller, methodName)).toEqual([JwtAuthGuard]);
     }
+  });
+
+  it('protects creator portfolio list-me with creator workspace metadata', () => {
+    const controller =
+      CreatorPortfolioController.prototype as unknown as Record<
+        string,
+        unknown
+      >;
+
+    expect(requiredWorkspaceFor(controller, 'listMyVideos')).toBe('CREATOR');
+    expect(guardsFor(controller, 'listMyVideos')).toEqual([
+      JwtAuthGuard,
+      WorkspacePermissionGuard,
+    ]);
   });
 
   it('keeps the orders controller role split request-scoped by endpoint', () => {
@@ -132,6 +142,7 @@ describe('Request-scoped workspace routes', () => {
     expect(requiredWorkspaceFor(controller, 'getCreatorOrderDetails')).toBe('CREATOR');
 
     expect(requiredWorkspaceFor(controller, 'createCheckout')).toBe('BRAND');
+    expect(requiredWorkspaceFor(controller, 'resumeCheckout')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'submitBrief')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'markProductShipped')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'acceptBrief')).toBe('CREATOR');

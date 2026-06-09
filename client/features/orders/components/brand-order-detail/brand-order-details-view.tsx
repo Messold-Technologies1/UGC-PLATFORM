@@ -45,6 +45,7 @@ import { CompletedNotificationBanner } from "./order-completed/completed-notific
 import { CompletedPaymentSummaryCard } from "./order-completed/completed-payment-summary-card";
 import { ShareExperienceCard } from "./order-completed/share-experience-card";
 import { SupportBanner } from "./order-completed/support-banner";
+import { cn } from "@/lib/utils";
 
 interface BrandOrderDetailsViewProps {
   orderId: string;
@@ -186,6 +187,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   const packageDescription = order.deliverablesSnapshot.length > 0
     ? `${order.deliverablesSnapshot.length} UGC Video (Up to 60 sec)`
     : order.packageNameSnapshot;
+  const isAwaitingPayment = order.status === "PENDING_PAYMENT";
 
   if (showCompletedUI) {
     return (
@@ -340,7 +342,13 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
       <OrderStatusBanner order={order} creator={creator} />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-5 lg:grid-cols-12 items-start",
+          isAwaitingPayment && "pointer-events-none select-none opacity-50",
+        )}
+        aria-disabled={isAwaitingPayment}
+      >
         <div className="flex flex-col gap-5 lg:col-span-8">
           <AwaitingAcceptanceCreatorCard creator={creator} order={order} />
 

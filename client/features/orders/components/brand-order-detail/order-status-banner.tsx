@@ -4,6 +4,8 @@ import Link from "next/link";
 import { AlertCircle, Info, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { useResumeOrderCheckout } from "@/features/payments/hooks/use-resume-order-checkout";
 import type { OrderDetailsPublic } from "../../api/types";
 import type { OrderCreatorSnapshot } from "../../api/types";
 
@@ -120,6 +122,15 @@ function getStatusConfig(
         showTimer: false,
         variant: "neutral",
       };
+    case "PENDING_PAYMENT":
+      return {
+        icon: AlertCircle,
+        title: "Awaiting payment",
+        description:
+          "Complete payment to confirm this order and continue to brief submission.",
+        showTimer: false,
+        variant: "warning",
+      };
     default:
       return {
         icon: Info,
@@ -160,6 +171,10 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
   const { hours, minutes, seconds } = useAcceptanceCountdown(
     order.briefSubmittedAt,
     order.status,
+  );
+  const { isGatewayReady, isProcessing, resumePayment } = useResumeOrderCheckout(
+    order.id,
+    order.packageNameSnapshot,
   );
 
   return (
@@ -213,6 +228,25 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
           <Link href={`/brand/briefs/create?orderId=${order.id}`}>
             Submit Brief
           </Link>
+        </Button>
+      )}
+
+      {order.status === "PENDING_PAYMENT" && (
+        <Button
+          className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white"
+          disabled={!isGatewayReady || isProcessing}
+          onClick={() => {
+            void resumePayment();
+          }}
+        >
+          {isProcessing ? (
+            <>
+              <Spinner className="size-4" aria-hidden />
+              Opening payment...
+            </>
+          ) : (
+            "Complete payment"
+          )}
         </Button>
       )}
     </div>

@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { PortfolioActingCreatorDto } from './portfolio-acting-creator.dto';
 
-export class PresignPortfolioUploadDto {
+export class PresignPortfolioUploadDto extends PortfolioActingCreatorDto {
   @ApiProperty({ enum: ['video', 'thumbnail'], example: 'video' })
   @IsIn(['video', 'thumbnail'])
   kind!: 'video' | 'thumbnail';

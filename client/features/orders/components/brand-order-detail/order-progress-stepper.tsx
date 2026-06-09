@@ -33,7 +33,7 @@ const STEPS: StepDefinition[] = [
     label: "Payment\nCompleted",
     icon: CreditCard,
     dateKey: "paidAt",
-    statusMatch: [],
+    statusMatch: ["PENDING_PAYMENT"],
     getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
@@ -86,10 +86,20 @@ function getActiveStepIndex(status: string, steps: StepDefinition[]): number {
       return i;
     }
   }
-  if (status === "PENDING_PAYMENT") return 0;
   if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(status))
     return steps.length;
   return 0;
+}
+
+function getStepDisplayLabel(
+  step: StepDefinition,
+  order: OrderDetailsPublic,
+  stepIndex: number,
+): string {
+  if (stepIndex === 0 && order.status === "PENDING_PAYMENT") {
+    return "Awaiting\nPayment";
+  }
+  return step.label;
 }
 
 function formatStepDate(value?: string | null) {
@@ -140,6 +150,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
           const isCompleted = index < activeIndex;
           const isActive = index === activeIndex;
           const isPending = index > activeIndex;
+          const isAwaitingPayment =
+            order.status === "PENDING_PAYMENT" && index === 0;
+          const displayLabel = getStepDisplayLabel(step, order, index);
           const Icon = step.icon;
 
           const dateValue = step.dateKey
@@ -154,7 +167,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   isCompleted
                     ? "border-primary bg-primary text-primary-foreground"
                     : isActive
-                      ? "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
+                      ? isAwaitingPayment
+                        ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+                        : "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
                       : "border-border bg-muted text-muted-foreground",
                   previewState === step.label && "ring-4 ring-primary/40 ring-offset-2"
                 )}
@@ -176,7 +191,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                       : "text-muted-foreground",
                 )}
               >
-                {step.label}
+                {displayLabel}
               </p>
 
               {isCompleted && dateValue ? (
@@ -184,8 +199,13 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   {formatStepDate(dateValue)}
                 </p>
               ) : isActive ? (
-                <span className="mt-1.5 text-[10px] font-semibold text-primary">
-                  Current step
+                <span
+                  className={cn(
+                    "mt-1.5 text-[10px] font-semibold",
+                    isAwaitingPayment ? "text-amber-600 dark:text-amber-400" : "text-primary",
+                  )}
+                >
+                  {isAwaitingPayment ? "Payment pending" : "Current step"}
                 </span>
               ) : isPending ? (
                 <span className="mt-1 h-3" />

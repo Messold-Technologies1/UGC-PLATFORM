@@ -31,7 +31,15 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
-export function ChangePasswordForm() {
+type ChangePasswordFormProps = {
+  idPrefix?: string;
+  onSuccess?: () => void;
+};
+
+export function ChangePasswordForm({
+  idPrefix = "change-password",
+  onSuccess,
+}: ChangePasswordFormProps) {
   const mutation = useChangePasswordMutation();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -57,8 +65,10 @@ export function ChangePasswordForm() {
           onSuccess: () => {
             form.reset();
             toast.success("Password updated", {
-              description: "Your password has been changed. Other sessions were signed out.",
+              description:
+                "Your password has been changed. Other sessions were signed out.",
             });
+            onSuccess?.();
           },
           onError: (error) => {
             if (isAxiosError(error) && error.response) {
@@ -70,13 +80,13 @@ export function ChangePasswordForm() {
         },
       );
     },
-    [form, mutation],
+    [form, mutation, onSuccess],
   );
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-md space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <PasswordInput
-        id="current-password"
+        id={`${idPrefix}-current`}
         label="Current password"
         autoComplete="current-password"
         disabled={mutation.isPending}
@@ -87,7 +97,7 @@ export function ChangePasswordForm() {
       />
 
       <PasswordInput
-        id="new-password"
+        id={`${idPrefix}-new`}
         label="New password"
         autoComplete="new-password"
         disabled={mutation.isPending}
@@ -98,7 +108,7 @@ export function ChangePasswordForm() {
       />
 
       <PasswordInput
-        id="confirm-password"
+        id={`${idPrefix}-confirm`}
         label="Confirm new password"
         autoComplete="new-password"
         disabled={mutation.isPending}

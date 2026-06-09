@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
@@ -69,15 +68,6 @@ export default function BrandSettingsProfilePage() {
         title="Profile"
         description="Update your company details and logo."
       />
-
-      <p className="text-sm text-muted-foreground">
-        <Link
-          href="/brand/settings/security"
-          className="underline hover:text-foreground"
-        >
-          Password &amp; security
-        </Link>
-      </p>
 
       <BrandProfileUpdateForm
         variant="settings"

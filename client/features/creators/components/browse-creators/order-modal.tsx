@@ -375,7 +375,7 @@ const OrderModalContent = React.memo(function OrderModalContent({
                     <div className="om-spec">
                       <Film size={15} />
                       <span>{selectedPackage.videoLengthSeconds ? `${selectedPackage.videoLengthSeconds}s` : "Video"}</span>
-                      <small>per video</small>
+                      <small>video</small>
                     </div>
                     <div className="om-spec">
                       <RefreshCw size={15} />

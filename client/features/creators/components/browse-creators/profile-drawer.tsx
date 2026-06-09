@@ -152,7 +152,6 @@ const OverviewTab = React.memo(function OverviewTab({
     profile.storeVisit
       ? "On-location shoots available"
       : "Studio & at-home shoots",
-    "Full usage rights for paid ads",
   ];
 
   return (
@@ -816,13 +815,22 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               <Globe size={14} /> {c.languages.join(", ")}
             </div>
             <div className="dr-stats">
-              <div className="dr-stat">
-                <div className="v">
-                  <Star size={16} style={{ color: "#f5a623" }} fill="#f5a623" />{" "}
-                  {c.rating.toFixed(1)}
+              {c.reviewCount > 0 ? (
+                <div className="dr-stat">
+                  <div className="v">
+                    <Star size={16} style={{ color: "#f5a623" }} fill="#f5a623" />{" "}
+                    {c.rating.toFixed(1)}
+                  </div>
+                  <div className="k">{c.reviewCount} reviews</div>
                 </div>
-                <div className="k">{c.reviewCount} reviews</div>
-              </div>
+              ) : (
+                <div className="dr-stat">
+                  <div className="v">
+                    {profileApi?.collaborationCount ?? c.collaborationCount ?? 0}
+                  </div>
+                  <div className="k">Collaborations</div>
+                </div>
+              )}
               <div className="dr-stat">
                 <div className="v">
                   {profileApi?.completedOrders ?? c.ordersCompleted ?? 0}
@@ -836,16 +844,19 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             </div>
           </div>
           <div className="dr-tabs">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={tab === t.id ? "on" : ""}
-                onClick={() => setTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
+            {TABS.map((t) => {
+              if (t.id === "reviews" && c.reviewCount === 0) return null;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={tab === t.id ? "on" : ""}
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
 
           {activeId && tab === "overview" && <OverviewTab profile={profile} />}

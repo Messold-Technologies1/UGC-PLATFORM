@@ -4,7 +4,6 @@ import { FacetChipSection, LanguageRows } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 
-
 import { motion, type Variants } from "framer-motion";
 
 import {
@@ -72,9 +71,7 @@ import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-face
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
 
-import {
-  PROFILE_IMAGE_ACCEPT,
-} from "@/features/creators/hooks/use-creator-profile-image";
+import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 import {
   INTRO_VIDEO_ACCEPT,
   facetSections,
@@ -103,30 +100,61 @@ const NAV_ITEMS: NavItem[] = [
 
 const profileFormSchema = z.object({
   displayName: z.string().trim().min(1, "Display name is required"),
-  instagramUrl: z.union([z.literal(""), z.string().trim().url("Instagram URL must be a valid http(s) URL.")]),
-  youtubeUrl: z.union([z.literal(""), z.string().trim().url("YouTube URL must be a valid http(s) URL.")]),
-  tiktokUrl: z.union([z.literal(""), z.string().trim().url("TikTok URL must be a valid http(s) URL.")]),
-  snapchatUrl: z.union([z.literal(""), z.string().trim().url("Snapchat URL must be a valid http(s) URL.")]),
+  instagramUrl: z.union([
+    z.literal(""),
+    z.string().trim().url("Instagram URL must be a valid http(s) URL."),
+  ]),
+  youtubeUrl: z.union([
+    z.literal(""),
+    z.string().trim().url("YouTube URL must be a valid http(s) URL."),
+  ]),
+  tiktokUrl: z.union([
+    z.literal(""),
+    z.string().trim().url("TikTok URL must be a valid http(s) URL."),
+  ]),
+  snapchatUrl: z.union([
+    z.literal(""),
+    z.string().trim().url("Snapchat URL must be a valid http(s) URL."),
+  ]),
   collaborationCount: z.coerce
     .number({ message: "Collaboration count must be a number." })
     .int("Collaboration count must be a whole number.")
     .nonnegative("Collaboration count must be zero or more."),
-  travelRadius: z.union([
-    z.literal(""),
-    z.coerce
-      .number({ message: "Travel radius must be a number." })
-      .int("Travel radius must be a whole number.")
-      .nonnegative("Travel radius must be zero or more.")
-  ]).optional(),
-  packagePriceAmount: z.string().trim().refine((val) => {
-    const priceNumber = Number(val);
-    return Number.isInteger(priceNumber) && priceNumber >= 500 && priceNumber % 500 === 0;
-  }, "Package price must be at least ₹500 and in steps of ₹500."),
-  packageDeliveryDays: z.coerce.number({ message: "Must be a number." }).int("Must be a whole number.").min(1, "Delivery time must be between 1 and 30 days.").max(30, "Delivery time must be between 1 and 30 days."),
-  packageVideoLengthSeconds: z.coerce.number({ message: "Must be a number." }).int("Must be a whole number.").min(1, "Video length must be between 1 and 60 seconds.").max(60, "Video length must be between 1 and 60 seconds."),
+  travelRadius: z
+    .union([
+      z.literal(""),
+      z.coerce
+        .number({ message: "Travel radius must be a number." })
+        .int("Travel radius must be a whole number.")
+        .nonnegative("Travel radius must be zero or more."),
+    ])
+    .optional(),
+  packagePriceAmount: z
+    .string()
+    .trim()
+    .refine((val) => {
+      const priceNumber = Number(val);
+      return (
+        Number.isInteger(priceNumber) &&
+        priceNumber >= 500 &&
+        priceNumber % 500 === 0
+      );
+    }, "Package price must be at least ₹500 and in steps of ₹500."),
+  packageDeliveryDays: z.coerce
+    .number({ message: "Must be a number." })
+    .int("Must be a whole number.")
+    .min(1, "Delivery time must be between 1 and 30 days.")
+    .max(30, "Delivery time must be between 1 and 30 days."),
+  packageVideoLengthSeconds: z.coerce
+    .number({ message: "Must be a number." })
+    .int("Must be a whole number.")
+    .min(1, "Video length must be between 1 and 60 seconds.")
+    .max(60, "Video length must be between 1 and 60 seconds."),
 });
 
-type FormErrors = Partial<Record<keyof z.infer<typeof profileFormSchema>, string>>;
+type FormErrors = Partial<
+  Record<keyof z.infer<typeof profileFormSchema>, string>
+>;
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -186,7 +214,11 @@ function CreatorProfileUpdateFormContent({
   const { refreshUser } = useAuth();
   const location = useCreatorLocationForm({ initialProfile, adminMode });
   const introVideo = useCreatorIntroVideo({ mode, profileId, initialProfile });
-  const profileImage = useCreatorProfileImage({ mode, profileId, initialProfile });
+  const profileImage = useCreatorProfileImage({
+    mode,
+    profileId,
+    initialProfile,
+  });
   const facets = useCreatorFacetsForm({
     initialProfile,
     enabled: Boolean(user),
@@ -196,7 +228,7 @@ function CreatorProfileUpdateFormContent({
     initialProfile,
     enabled: Boolean(user),
   });
-  const myPortfolioQuery = useMyPortfolioVideosQuery({ 
+  const myPortfolioQuery = useMyPortfolioVideosQuery({
     enabled: !adminMode,
     staleTime: 2 * 60_000,
   });
@@ -399,9 +431,9 @@ function CreatorProfileUpdateFormContent({
           }
         }
         setFormErrors(newErrors);
-        
+
         toast.error("Please fix the validation errors in the form.");
-        
+
         const firstErrorKey = Object.keys(newErrors)[0];
         if (firstErrorKey) {
           const el = document.getElementById(firstErrorKey);
@@ -421,7 +453,8 @@ function CreatorProfileUpdateFormContent({
       const youtube = parsedData.youtubeUrl || undefined;
       const tiktok = parsedData.tiktokUrl || undefined;
       const snapchat = parsedData.snapchatUrl || undefined;
-      const radius = parsedData.travelRadius === "" ? undefined : parsedData.travelRadius;
+      const radius =
+        parsedData.travelRadius === "" ? undefined : parsedData.travelRadius;
 
       const builtPackages = packages.buildPackages();
       if (!builtPackages) return;
@@ -446,7 +479,7 @@ function CreatorProfileUpdateFormContent({
         contactEmail: user?.email ?? "",
         profileImageKey: profileImage.profileImageRemoved
           ? ""
-          : profileImage.pendingProfileImageKey ?? undefined,
+          : (profileImage.pendingProfileImageKey ?? undefined),
         displayName: parsedData.displayName,
         ...(introVideo.pendingIntroVideoKey
           ? { introVideoKey: introVideo.pendingIntroVideoKey }
@@ -593,7 +626,11 @@ function CreatorProfileUpdateFormContent({
           <div className="pe-savebar" data-visible={isDirty || pending}>
             <div className="pe-savebar-inner">
               {pending ? (
-                <Spinner className="size-4" aria-hidden style={{ color: "var(--primary)" }} />
+                <Spinner
+                  className="size-4"
+                  aria-hidden
+                  style={{ color: "var(--primary)" }}
+                />
               ) : (
                 <span className="pe-savebar-dot" />
               )}
@@ -677,8 +714,21 @@ function CreatorProfileUpdateFormContent({
             title="Photo & intro reel"
             desc="Your face and a short intro reel build instant trust."
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1px 1fr", gap: 32 }}>
-              <div style={{ paddingRight: 8, display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1px 1fr",
+                gap: 32,
+              }}
+            >
+              <div
+                style={{
+                  paddingRight: 8,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
                 <CreatorProfileImageField
                   imagePreviewUrl={profileImage.profileImagePreviewUrl}
                   accept={PROFILE_IMAGE_ACCEPT}
@@ -692,9 +742,22 @@ function CreatorProfileUpdateFormContent({
                 />
               </div>
 
-              <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
+              <div
+                style={{
+                  width: 1,
+                  background: "var(--border)",
+                  alignSelf: "stretch",
+                }}
+              />
 
-              <div style={{ paddingLeft: 8, display: "flex", justifyContent: "center", alignItems: "center" }}>
+              <div
+                style={{
+                  paddingLeft: 8,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
                 <CreatorProfileIntroVideoField
                   videoPreviewUrl={introVideo.introVideoPreviewUrl}
                   accept={INTRO_VIDEO_ACCEPT}
@@ -763,14 +826,25 @@ function CreatorProfileUpdateFormContent({
                   value={displayName}
                   onChange={(e) => {
                     setDisplayName(e.target.value);
-                    if (formErrors.displayName) setFormErrors((prev) => ({ ...prev, displayName: undefined }));
+                    if (formErrors.displayName)
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        displayName: undefined,
+                      }));
                     markDirty();
                   }}
                   required
                   autoComplete="name"
                   aria-invalid={!!formErrors.displayName}
                 />
-                {formErrors.displayName && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{formErrors.displayName}</p>}
+                {formErrors.displayName && (
+                  <p
+                    className="pe-help text-destructive"
+                    style={{ color: "var(--destructive)" }}
+                  >
+                    {formErrors.displayName}
+                  </p>
+                )}
               </div>
               {user?.email ? (
                 <div className="pe-field">
@@ -977,13 +1051,24 @@ function CreatorProfileUpdateFormContent({
                   value={travelRadius}
                   onChange={(e) => {
                     setTravelRadius(e.target.value);
-                    if (formErrors.travelRadius) setFormErrors((prev) => ({ ...prev, travelRadius: undefined }));
+                    if (formErrors.travelRadius)
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        travelRadius: undefined,
+                      }));
                     markDirty();
                   }}
                   placeholder="How far you'll travel for on-location shoots."
                   aria-invalid={!!formErrors.travelRadius}
                 />
-                {formErrors.travelRadius && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{formErrors.travelRadius}</p>}
+                {formErrors.travelRadius && (
+                  <p
+                    className="pe-help text-destructive"
+                    style={{ color: "var(--destructive)" }}
+                  >
+                    {formErrors.travelRadius}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1089,14 +1174,25 @@ function CreatorProfileUpdateFormContent({
                     value={instagramUrl}
                     onChange={(e) => {
                       setInstagramUrl(e.target.value);
-                      if (formErrors.instagramUrl) setFormErrors((prev) => ({ ...prev, instagramUrl: undefined }));
+                      if (formErrors.instagramUrl)
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          instagramUrl: undefined,
+                        }));
                       markDirty();
                     }}
                     placeholder="https://instagram.com/…"
                     aria-invalid={!!formErrors.instagramUrl}
                   />
                 </div>
-                {formErrors.instagramUrl && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{formErrors.instagramUrl}</p>}
+                {formErrors.instagramUrl && (
+                  <p
+                    className="pe-help text-destructive"
+                    style={{ color: "var(--destructive)" }}
+                  >
+                    {formErrors.instagramUrl}
+                  </p>
+                )}
               </div>
               <div className="pe-field">
                 <label htmlFor="youtubeUrl">
@@ -1114,7 +1210,11 @@ function CreatorProfileUpdateFormContent({
                     value={youtubeUrl}
                     onChange={(e) => {
                       setYoutubeUrl(e.target.value);
-                      if (formErrors.youtubeUrl) setFormErrors((prev) => ({ ...prev, youtubeUrl: undefined }));
+                      if (formErrors.youtubeUrl)
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          youtubeUrl: undefined,
+                        }));
                       markDirty();
                     }}
                     placeholder="https://youtube.com/@…"
@@ -1122,7 +1222,14 @@ function CreatorProfileUpdateFormContent({
                     aria-invalid={!!formErrors.youtubeUrl}
                   />
                 </div>
-                {formErrors.youtubeUrl && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{formErrors.youtubeUrl}</p>}
+                {formErrors.youtubeUrl && (
+                  <p
+                    className="pe-help text-destructive"
+                    style={{ color: "var(--destructive)" }}
+                  >
+                    {formErrors.youtubeUrl}
+                  </p>
+                )}
               </div>
               <div className="pe-field">
                 <label htmlFor="snapchatUrl">
@@ -1140,7 +1247,11 @@ function CreatorProfileUpdateFormContent({
                     value={snapchatUrl}
                     onChange={(e) => {
                       setSnapchatUrl(e.target.value);
-                      if (formErrors.snapchatUrl) setFormErrors((prev) => ({ ...prev, snapchatUrl: undefined }));
+                      if (formErrors.snapchatUrl)
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          snapchatUrl: undefined,
+                        }));
                       markDirty();
                     }}
                     placeholder="https://snapchat.com/add/…"
@@ -1148,7 +1259,14 @@ function CreatorProfileUpdateFormContent({
                     aria-invalid={!!formErrors.snapchatUrl}
                   />
                 </div>
-                {formErrors.snapchatUrl && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{formErrors.snapchatUrl}</p>}
+                {formErrors.snapchatUrl && (
+                  <p
+                    className="pe-help text-destructive"
+                    style={{ color: "var(--destructive)" }}
+                  >
+                    {formErrors.snapchatUrl}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1179,12 +1297,23 @@ function CreatorProfileUpdateFormContent({
                     setCollaborationCount(
                       normalizeWholeNumberInput(e.target.value),
                     );
-                    if (formErrors.collaborationCount) setFormErrors((prev) => ({ ...prev, collaborationCount: undefined }));
+                    if (formErrors.collaborationCount)
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        collaborationCount: undefined,
+                      }));
                     markDirty();
                   }}
                   aria-invalid={!!formErrors.collaborationCount}
                 />
-                {formErrors.collaborationCount && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{formErrors.collaborationCount}</p>}
+                {formErrors.collaborationCount && (
+                  <p
+                    className="pe-help text-destructive"
+                    style={{ color: "var(--destructive)" }}
+                  >
+                    {formErrors.collaborationCount}
+                  </p>
+                )}
                 <span className="pe-help">
                   Total brand projects you've delivered.
                 </span>
@@ -1206,18 +1335,33 @@ function CreatorProfileUpdateFormContent({
                 disabled={pending}
                 onChange={(draft) => {
                   packages.setPackageDraft(draft);
-                  
+
                   // Live validation for package price
-                  const priceSchema = profileFormSchema.shape.packagePriceAmount;
+                  const priceSchema =
+                    profileFormSchema.shape.packagePriceAmount;
                   const result = priceSchema.safeParse(draft.priceAmount);
                   if (!result.success) {
-                    setFormErrors((prev) => ({ ...prev, packagePriceAmount: result.error.issues[0].message }));
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      packagePriceAmount: result.error.issues[0].message,
+                    }));
                   } else {
-                    setFormErrors((prev) => ({ ...prev, packagePriceAmount: undefined }));
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      packagePriceAmount: undefined,
+                    }));
                   }
 
-                  if (formErrors.packageDeliveryDays) setFormErrors((prev) => ({ ...prev, packageDeliveryDays: undefined }));
-                  if (formErrors.packageVideoLengthSeconds) setFormErrors((prev) => ({ ...prev, packageVideoLengthSeconds: undefined }));
+                  if (formErrors.packageDeliveryDays)
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      packageDeliveryDays: undefined,
+                    }));
+                  if (formErrors.packageVideoLengthSeconds)
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      packageVideoLengthSeconds: undefined,
+                    }));
                   markDirty();
                 }}
                 errors={{
@@ -1318,7 +1462,7 @@ function CreatorProfileUpdateFormContent({
         industrySuggestions={industrySuggestionsQuery.data ?? []}
         tagSuggestions={tagSuggestionsQuery.data ?? []}
         languageOptions={(facets.facetOptionsByDimension.LANGUAGE ?? []).map(
-          (lang) => ({ value: lang.slug, label: lang.label })
+          (lang) => ({ value: lang.slug, label: lang.label }),
         )}
         onSave={(form) => {
           if (pfEditingVideo) {

@@ -141,6 +141,7 @@ export function mapProfileToListingCreator(
     reviewCount: profile.reviewCount ?? 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
     ordersCompleted: (profile as any).completedOrders ?? 0,
+    collaborationCount: profile.collaborationCount ?? 0,
     thumbnail,
     previewVideoUrl,
     introVideoUrl: introVideoUrl || null,

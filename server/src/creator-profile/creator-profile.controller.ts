@@ -34,6 +34,10 @@ import {
   PresignProfileIntroVideoUploadDto,
   PresignUploadResponseDto,
 } from './dto/presign-profile-intro-video-upload.dto';
+import {
+  PresignProfileImageUploadDto,
+  PresignProfileImageUploadResponseDto,
+} from './dto/presign-profile-image-upload.dto';
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
@@ -72,6 +76,23 @@ export class CreatorProfileController {
     req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
     return this.creatorProfileService.presignProfileIntroVideoUpload(req.user.id, dto);
+  }
+
+  @Post('profile/uploads/presign-profile-image')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Presigned URL for creator profile image upload',
+    description:
+      'Returns a presigned PUT upload; key is under creator-profile/<id>/profile-image/. Pass creatorProfileId when acting as admin (JWT user has no creator row). Owners may omit it and their profile is resolved from the JWT.',
+  })
+  @ApiCreatedResponse({ type: PresignProfileImageUploadResponseDto })
+  async presignProfileImageUpload(
+    @Body() dto: PresignProfileImageUploadDto,
+    @Req()
+    req: Request & { user: { id: string } },
+  ): Promise<PresignProfileImageUploadResponseDto> {
+    return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
   }
 
   @Get()

@@ -155,6 +155,12 @@ export class CreatorProfileResponseDto {
   })
   introVideoUrl?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/creator-profile/<id>/profile-image/<uuid>.jpg',
+    description: 'CDN URL for the creator profile image (optional).',
+  })
+  profileImageUrl?: string | null;
+
   @ApiPropertyOptional({ example: 'India' })
   countryName?: string | null;
 

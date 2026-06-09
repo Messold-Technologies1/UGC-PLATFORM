@@ -270,6 +270,8 @@ model CreatorProfile {
   displayName         String
   introVideoKey       String?
   introVideoUrl       String?
+  profileImageKey     String?
+  profileImageUrl     String?
   city                String?
   countryName         String?
   stateName           String?

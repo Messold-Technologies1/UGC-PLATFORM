@@ -73,6 +73,7 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
   }
   if (
     kind === 'creator_portfolio_thumbnail' ||
+    kind === 'creator_profile_image' ||
     kind === 'brand_logo' ||
     kind === 'agency_logo' ||
     kind === 'brief_product_image'
@@ -222,6 +223,14 @@ export class StorageService {
         throw new Error('creatorProfileId is required');
       }
       return `creator-profile/${creatorId}/intro/${id}.${ext}`;
+    }
+
+    if (input.kind === 'creator_profile_image') {
+      const creatorId = input.creatorProfileId;
+      if (!creatorId) {
+        throw new Error('creatorProfileId is required');
+      }
+      return `creator-profile/${creatorId}/profile-image/${id}.${ext}`;
     }
 
     if (input.kind === 'order_chat_voice_message') {

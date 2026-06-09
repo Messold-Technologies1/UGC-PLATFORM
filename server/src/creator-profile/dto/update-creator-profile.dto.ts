@@ -57,6 +57,15 @@ export class UpdateCreatorProfileDto {
   @IsString()
   introVideoKey?: string;
 
+  @ApiPropertyOptional({
+    example: 'creator-profile/<profileId>/profile-image/<uuid>.jpg',
+    description:
+      'Profile image S3 key under creator-profile/<id>/profile-image/ from presign, or empty string to remove.',
+  })
+  @IsOptional()
+  @IsString()
+  profileImageKey?: string;
+
   @ApiPropertyOptional({ example: 'India' })
   @IsOptional()
   @IsString()

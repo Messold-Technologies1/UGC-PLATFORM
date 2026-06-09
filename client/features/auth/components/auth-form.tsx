@@ -197,6 +197,16 @@ export function AuthForm({ mode }: AuthFormProps) {
                 errorMessage={loginForm.formState.errors.password?.message}
               />
 
+              <div className="flex justify-end">
+                <Link
+                  href="/forgot-password"
+                  prefetch={false}
+                  className="text-sm text-muted-foreground underline hover:text-foreground"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
               <Button
                 type="submit"
                 disabled={pendingAuth}

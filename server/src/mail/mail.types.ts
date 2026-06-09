@@ -11,6 +11,7 @@ export enum EmailTemplateKey {
   ORDER_REJECTED_FOR_BRAND = 'order-rejected-for-brand',
   ORDER_REJECTED_FOR_CREATOR = 'order-rejected-for-creator',
   ORDER_REFUNDED_FOR_BRAND = 'order-refunded-for-brand',
+  PASSWORD_RESET = 'password-reset',
 }
 
 export type EmailTemplateContext = Record<

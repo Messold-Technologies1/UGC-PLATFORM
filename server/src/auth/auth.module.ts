@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthPhoneController } from './auth-phone.controller';
 import { AuthSignupController } from './auth-signup.controller';
 import { AuthService } from './auth.service';
+import { PasswordService } from './password.service';
 import { SignupModule } from './signup.module';
 import { StorageModule } from '../storage/storage.module';
 import { AdminGuard } from './guards/admin.guard';
@@ -31,9 +32,10 @@ import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
     }),
   ],
   controllers: [AuthController, AuthPhoneController, AuthSignupController],
-  providers: [AuthService, AdminGuard, WorkspacePermissionGuard],
+  providers: [AuthService, PasswordService, AdminGuard, WorkspacePermissionGuard],
   exports: [
     AuthService,
+    PasswordService,
     JwtModule,
     AdminGuard,
     WorkspacePermissionGuard,

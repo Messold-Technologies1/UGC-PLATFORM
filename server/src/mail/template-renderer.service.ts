@@ -21,6 +21,7 @@ const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = [
   EmailTemplateKey.ORDER_REJECTED_FOR_BRAND,
   EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR,
   EmailTemplateKey.ORDER_REFUNDED_FOR_BRAND,
+  EmailTemplateKey.PASSWORD_RESET,
 ];
 
 type CompiledSet = {

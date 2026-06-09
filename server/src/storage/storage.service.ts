@@ -105,8 +105,8 @@ export class StorageService {
     this.s3 = new S3Client({
       region: config.getOrThrow<string>('AWS_REGION'),
       credentials: {
-        accessKeyId: config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: config.getOrThrow<string>('AWS_SECRET_ACCESS_KEY'),
+        accessKeyId: config.getOrThrow<string>('AWS_S3_ACCESS_KEY_ID'),
+        secretAccessKey: config.getOrThrow<string>('AWS_S3_SECRET_ACCESS_KEY'),
       },
       requestChecksumCalculation: 'WHEN_REQUIRED',
     });

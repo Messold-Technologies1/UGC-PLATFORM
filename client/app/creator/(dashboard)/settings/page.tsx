@@ -30,6 +30,7 @@ const sections = [
     title: "Security",
     description:
       "Manage your password, two-factor authentication, and sessions.",
+    href: "/creator/settings/security",
   },
 ];
 

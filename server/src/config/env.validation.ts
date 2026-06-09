@@ -28,8 +28,8 @@ export const envValidationSchema = Joi.object({
 
   // Storage: S3 + CDN
   AWS_REGION: Joi.string().min(1).required(),
-  AWS_ACCESS_KEY_ID: Joi.string().min(1).required(),
-  AWS_SECRET_ACCESS_KEY: Joi.string().min(1).required(),
+  AWS_S3_ACCESS_KEY_ID: Joi.string().min(1).required(),
+  AWS_S3_SECRET_ACCESS_KEY: Joi.string().min(1).required(),
   S3_BUCKET_NAME: Joi.string().min(1).required(),
   S3_UPLOAD_URL_TTL_SECONDS: Joi.number().integer().min(60).max(3600).default(900),
   CDN_BASE_URL: Joi.string().uri().required(),
@@ -50,6 +50,8 @@ export const envValidationSchema = Joi.object({
   TWILIO_VERIFY_SERVICE_SID: Joi.string().optional(),
 
   // Email (SES) — optional until outbound mail is enabled
+  AWS_SES_ACCESS_KEY_ID: Joi.string().min(1).optional(),
+  AWS_SES_SECRET_ACCESS_KEY: Joi.string().min(1).optional(),
   SES_FROM_EMAIL: Joi.string().email().optional(),
   MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
   MAIL_SEND_TIMEOUT_MS: Joi.number()

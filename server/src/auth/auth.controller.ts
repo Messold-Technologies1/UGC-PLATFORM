@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Query,
   Req,
@@ -24,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import {
   clearAuthCookies,
   clearOAuthStateCookie,
@@ -32,6 +34,9 @@ import {
   OAUTH_STATE_COOKIE,
 } from './cookie-helper';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { MeUserDto } from './dto/me-user.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterCreatorDto } from './dto/register-creator.dto';
@@ -41,6 +46,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { AdminGuard } from './guards/admin.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AUTH_COOKIE_NAMES, AuthService } from './auth.service';
+import { PasswordService } from './password.service';
 import { parsePublicSignupRole, PublicSignupRole } from './public-signup-role';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -64,6 +70,7 @@ function readCookie(req: Request, name: string): string | undefined {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly passwordService: PasswordService,
     private readonly config: ConfigService,
   ) {}
 
@@ -298,6 +305,53 @@ export class AuthController {
       this.config.get<string>('JWT_REFRESH_EXPIRY', '7d'),
     );
     return { user: result.user };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Request a password reset email',
+    description:
+      'Always returns 204. If an active account exists, a reset link is emailed.',
+  })
+  @ApiResponse({ status: 204, description: 'Request accepted' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
+    await this.passwordService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Reset password using token from email link' })
+  @ApiResponse({ status: 204, description: 'Password updated' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired reset link' })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<void> {
+    await this.passwordService.resetPassword(dto);
+  }
+
+  @Patch('password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Change password for the authenticated user',
+    description:
+      'Invalidates other sessions; the current session remains signed in.',
+  })
+  @ApiResponse({ status: 204, description: 'Password updated' })
+  @ApiResponse({ status: 401, description: 'Incorrect current password' })
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    const refreshToken = readCookie(req, AUTH_COOKIE_NAMES.refreshToken);
+    await this.passwordService.changePassword(
+      req.user.id,
+      dto,
+      refreshToken,
+    );
   }
 
   @Get('google')

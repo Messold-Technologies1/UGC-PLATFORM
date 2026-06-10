@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   MapPin,
@@ -8,6 +8,9 @@ import {
   Star,
   CheckCircle2,
   Play,
+  Pause,
+  Volume2,
+  VolumeX,
   Zap,
   MessageCircle,
   ArrowRight,
@@ -19,6 +22,10 @@ import {
   Film,
   Clock,
   RefreshCw,
+  MapPinned,
+  Users,
+  Layers,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
@@ -98,13 +105,15 @@ export function PublicCreatorProfile({
   const portfolioQuery = usePublicPortfolioVideosQuery(profile.id, {
     initialData: initialPortfolioVideos,
   });
-  const portfolioVideos = useMemo(
-    () =>
-      (portfolioQuery.data ?? []).filter(
-        (v) => v.videoUrl && v.videoUrl !== profile.introVideoUrl,
-      ),
-    [portfolioQuery.data, profile.introVideoUrl],
+  const allPortfolioVideos = useMemo(
+    () => (portfolioQuery.data ?? []).filter((v) => v.videoUrl),
+    [portfolioQuery.data],
   );
+  const portfolioVideos = useMemo(
+    () => allPortfolioVideos.filter((v) => v.videoUrl !== profile.introVideoUrl),
+    [allPortfolioVideos, profile.introVideoUrl],
+  );
+  const firstPortfolioVideo = allPortfolioVideos[0] ?? null;
 
   const locationString = useMemo(() => {
     const parts = [profile.city, profile.stateName, profile.countryName].filter(
@@ -130,6 +139,8 @@ export function PublicCreatorProfile({
   const contentFormats = facetsByDim.CONTENT_FORMAT ?? [];
   const contentStyles = facetsByDim.CONTENT_STYLE ?? [];
   const productionCapabilities = facetsByDim.PRODUCTION_CAPABILITY ?? [];
+  const categoryExperience = facetsByDim.CATEGORY_EXPERIENCE ?? [];
+  const canCreateWith = facetsByDim.CAN_CREATE_WITH ?? [];
   const brandsWorkedWith =
     profile.highlights && profile.highlights.length > 0
       ? profile.highlights.map((h) => ({ slug: h, label: h }))
@@ -185,6 +196,8 @@ export function PublicCreatorProfile({
     return buckets;
   }, [reviews]);
 
+  const [playingPortfolioId, setPlayingPortfolioId] = useState<string | null>(null);
+
   const handle = `@${handleFromName(profile.displayName)}`;
   const firstName = profile.displayName.split(" ")[0] || profile.displayName;
   const initials = getInitials(profile.displayName);
@@ -226,8 +239,8 @@ export function PublicCreatorProfile({
         <div className="pointer-events-none absolute -left-24 top-32 size-[360px] rounded-full bg-gradient-to-tr from-pink-100/60 to-transparent blur-3xl" />
 
         <div className="relative mx-auto grid max-w-6xl gap-10 px-6 py-12 lg:grid-cols-[1fr_320px] lg:gap-12">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="flex flex-col justify-center gap-6">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
               <AvatarCard
                 imageUrl={profile.profileImageUrl ?? null}
                 initials={initials}
@@ -332,8 +345,9 @@ export function PublicCreatorProfile({
           {/* INTRO REEL */}
           <div>
             <IntroReel
-              src={profile.introVideoUrl ?? null}
-              poster={profile.profileImageUrl ?? null}
+              src={profile.introVideoUrl ?? firstPortfolioVideo?.videoUrl ?? null}
+              poster={profile.profileImageUrl ?? firstPortfolioVideo?.thumbnailUrl ?? null}
+              label={profile.introVideoUrl ? "Intro reel" : "Portfolio reel"}
             />
           </div>
         </div>
@@ -364,6 +378,9 @@ export function PublicCreatorProfile({
                         TILE_GRADIENTS[i % TILE_GRADIENTS.length]!
                       }
                       fallbackText={profile.displayName}
+                      isPlayingElsewhere={playingPortfolioId !== null && playingPortfolioId !== video.id}
+                      onPlay={() => setPlayingPortfolioId(video.id)}
+                      onStop={() => setPlayingPortfolioId((prev) => prev === video.id ? null : prev)}
                     />
                   ))}
                 </div>
@@ -374,39 +391,79 @@ export function PublicCreatorProfile({
               )}
             </div>
 
-            {/* ABOUT GRID */}
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                <DetailGroup
-                  label="Content formats"
-                  items={contentFormats.map((f) => f.label)}
-                />
-                <DetailGroup
-                  label="Style"
-                  items={contentStyles.map((f) => f.label)}
-                />
-                <DetailGroup
-                  label="Languages"
-                  items={languages.map((l) => ({
-                    label: l.label,
-                    sub: l.fluency
-                      ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
-                      : null,
-                  }))}
-                />
-                <DetailGroup
-                  label="Production"
-                  items={productionCapabilities.map((f) => f.label)}
-                />
-                {brandsWorkedWith.length > 0 && (
-                  <div className="sm:col-span-2">
+            {/* ABOUT SECTION */}
+            <div>
+              <SectionTitle
+                icon={Layers}
+                title={`About ${firstName}`}
+              />
+              <div className="mt-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                  {contentCategories.length > 0 && (
                     <DetailGroup
-                      label="Worked with"
-                      items={brandsWorkedWith.map((b) => b.label)}
-                      pillClass="bg-white border border-neutral-200 text-neutral-700"
+                      label="Content category"
+                      items={contentCategories.map((f) => f.label)}
                     />
+                  )}
+                  <DetailGroup
+                    label="Content formats"
+                    items={contentFormats.map((f) => f.label)}
+                  />
+                  <DetailGroup
+                    label="Style"
+                    items={contentStyles.map((f) => f.label)}
+                  />
+                  <DetailGroup
+                    label="Languages"
+                    items={languages.map((l) => ({
+                      label: l.label,
+                      sub: l.fluency
+                        ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
+                        : null,
+                    }))}
+                  />
+                  <DetailGroup
+                    label="Production"
+                    items={productionCapabilities.map((f) => f.label)}
+                  />
+                  {categoryExperience.length > 0 && (
+                    <DetailGroup
+                      label="Industry experience"
+                      items={categoryExperience.map((f) => f.label)}
+                    />
+                  )}
+                  {canCreateWith.length > 0 && (
+                    <DetailGroup
+                      label="Can create with"
+                      items={canCreateWith.map((f) => f.label)}
+                    />
+                  )}
+                  <div className="flex items-center gap-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                      On-location shoot
+                    </p>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold",
+                        profile.onLocationAvailable
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-neutral-100 text-neutral-500",
+                      )}
+                    >
+                      <MapPinned className="size-3" />
+                      {profile.onLocationAvailable ? "Available" : "Not available"}
+                    </span>
                   </div>
-                )}
+                  {brandsWorkedWith.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <DetailGroup
+                        label="Worked with"
+                        items={brandsWorkedWith.map((b) => b.label)}
+                        pillClass="bg-white border border-neutral-200 text-neutral-700"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -611,9 +668,11 @@ function AvatarCard({
 function IntroReel({
   src,
   poster,
+  label = "Intro reel",
 }: {
   src: string | null;
   poster: string | null;
+  label?: string;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -676,7 +735,7 @@ function IntroReel({
 
       <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-md bg-white/95 px-2 py-1 text-[10px] font-semibold text-neutral-800 shadow-sm">
         <Play className="size-2.5 fill-neutral-800" strokeWidth={0} />
-        Intro reel
+        {label}
       </span>
 
       {duration != null && (
@@ -721,51 +780,74 @@ function PortfolioTile({
   video,
   fallbackGradient,
   fallbackText,
+  isPlayingElsewhere,
+  onPlay,
+  onStop,
 }: {
   video: PortfolioVideoApi;
   fallbackGradient: string;
   fallbackText: string;
+  isPlayingElsewhere: boolean;
+  onPlay: () => void;
+  onStop: () => void;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
-  const [hovered, setHovered] = useState(false);
   const initials = getInitials(fallbackText);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [duration, setDuration] = useState<string | null>(null);
 
+  // Stop this tile when another starts playing
+  const prevElsewhere = useRef(false);
+  if (isPlayingElsewhere && !prevElsewhere.current && playing) {
+    const v = ref.current;
+    if (v) { v.pause(); v.currentTime = 0; }
+  }
+  prevElsewhere.current = isPlayingElsewhere;
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) {
+      onPlay();
+      void v.play();
+    } else {
+      v.pause();
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
   return (
-    <div
-      className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-neutral-900 shadow-sm ring-1 ring-neutral-200 transition hover:shadow-md"
-      onMouseEnter={() => {
-        setHovered(true);
-        ref.current?.play().catch(() => {});
-      }}
-      onMouseLeave={() => {
-        setHovered(false);
-        const v = ref.current;
-        if (v) {
-          v.pause();
-          v.currentTime = 0;
-        }
-      }}
-    >
-      {!video.thumbnailUrl && !hovered && (
-        <div
-          className={cn(
-            "absolute inset-0 flex items-center justify-center bg-gradient-to-br font-display text-5xl font-bold text-white/90",
-            fallbackGradient,
-          )}
-        >
-          {initials}
-        </div>
-      )}
+    <div className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-neutral-900 shadow-sm ring-1 ring-neutral-200 transition hover:shadow-md">
+      {/* Gradient shown until playing */}
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-center bg-gradient-to-br font-display text-5xl font-bold text-white/90 transition-opacity duration-300",
+          fallbackGradient,
+          playing ? "opacity-0 pointer-events-none" : "opacity-100",
+        )}
+      >
+        {initials}
+      </div>
+
       <video
         ref={ref}
         src={video.videoUrl}
-        poster={video.thumbnailUrl ?? undefined}
         className="size-full object-cover"
-        muted
         loop
         playsInline
         preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => { setPlaying(false); onStop(); }}
+        onEnded={() => { setPlaying(false); onStop(); }}
         onLoadedMetadata={(e) => {
           const d = e.currentTarget.duration;
           if (Number.isFinite(d) && d > 0) {
@@ -775,21 +857,58 @@ function PortfolioTile({
           }
         }}
       />
+
+      {/* Duration badge */}
       {duration && (
-        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+        <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           <Play className="size-2.5 fill-white" strokeWidth={0} />
           {duration}
         </span>
       )}
-      {!hovered && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 text-white">
-          {video.industryLabel && (
-            <p className="text-[11px] font-semibold uppercase tracking-wider opacity-90">
-              {video.industryLabel}
-            </p>
-          )}
-        </div>
-      )}
+
+      {/* Controls overlay — always visible on hover, or when playing */}
+      <div
+        className={cn(
+          "absolute inset-0 flex flex-col items-center justify-center transition-opacity",
+          playing
+            ? "opacity-0 hover:opacity-100"
+            : "opacity-0 group-hover:opacity-100",
+        )}
+      >
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="flex size-12 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg transition hover:bg-white"
+          aria-label={playing ? "Pause" : "Play"}
+        >
+          {playing
+            ? <Pause className="size-5 fill-neutral-900" strokeWidth={0} />
+            : <Play className="size-5 fill-neutral-900" strokeWidth={0} />
+          }
+        </button>
+      </div>
+
+      {/* Bottom controls: mute + label */}
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/70 to-transparent p-3">
+        {video.industryLabel ? (
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/90">
+            {video.industryLabel}
+          </p>
+        ) : <span />}
+        {playing && (
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="flex size-7 items-center justify-center rounded-full bg-black/50 text-white transition hover:bg-black/70"
+            aria-label={muted ? "Unmute" : "Mute"}
+          >
+            {muted
+              ? <VolumeX className="size-3.5" />
+              : <Volume2 className="size-3.5" />
+            }
+          </button>
+        )}
+      </div>
     </div>
   );
 }

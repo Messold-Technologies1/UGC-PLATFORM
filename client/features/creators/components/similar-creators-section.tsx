@@ -51,6 +51,7 @@ function mapSuggestedCreatorToCreator(
     reviewCount: 0,
     startingPrice: parsePrice(suggestion.priceAmount),
     ordersCompleted: 0,
+    collaborationCount: 0,
     thumbnail,
     previewVideoUrl: suggestion.firstPortfolioVideo?.videoUrl ?? null,
     previewVideoThumbnail: thumbnail,

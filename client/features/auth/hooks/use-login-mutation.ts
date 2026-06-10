@@ -8,6 +8,7 @@ import type { AuthUser } from "./use-me-query";
 export type LoginPayload = {
   email: string;
   password: string;
+  role: string;
 };
 
 export type LoginResponse = {

@@ -93,7 +93,17 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
 
   const handleLogin = useCallback(
     (data: LoginData) => {
-      loginMutation.mutate(data, {
+      if (!roleConfig) {
+        toast.error("Please select a login role (e.g., Brand, Creator) before logging in.");
+        return;
+      }
+      
+      loginMutation.mutate(
+        {
+          ...data,
+          role: roleConfig.key.toUpperCase(),
+        },
+        {
         onSuccess: async (result) => {
           if (!result.user) return;
           toast.success("Welcome back!", {

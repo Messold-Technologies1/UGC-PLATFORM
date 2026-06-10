@@ -238,7 +238,7 @@ function CreatorProfileUpdateFormContent({
     staleTime: 2 * 60_000,
   });
   const portfolioQuery = adminMode ? adminPortfolioQuery : myPortfolioQuery;
-  const createPortfolioMutation = useCreatePortfolioVideoFlowMutation();
+  const createPortfolioMutation = useCreatePortfolioVideoFlowMutation({ preventRedirect: true });
   const updatePortfolioMutation = useUpdatePortfolioVideoMutation();
   const deletePortfolioMutation = useDeletePortfolioVideoMutation();
   const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({
@@ -470,10 +470,12 @@ function CreatorProfileUpdateFormContent({
       }
 
       const profileLanguages: CreatorProfileLanguagePayload[] =
-        facets.languageDrafts.map((row) => ({
-          slug: row.slug,
-          fluency: row.fluency,
-        }));
+        facets.languageDrafts
+          .filter((row) => row.slug !== "")
+          .map((row) => ({
+            slug: row.slug,
+            fluency: row.fluency,
+          }));
 
       const payload: UpdateCreatorProfilePayload = {
         contactEmail: user?.email ?? "",
@@ -1039,7 +1041,27 @@ function CreatorProfileUpdateFormContent({
               />
             </div>
 
-            <div className="pe-grid pe-grid-2">
+            <div className="pe-grid pe-grid-2" style={{ alignItems: "center" }}>
+              <div className="pe-switchrow">
+                <div>
+                  <div className="pe-switchrow-title">
+                    Available for on-location shoots
+                  </div>
+                  <div className="pe-switchrow-desc">
+                    Brands can book you to film at their store or venue.
+                  </div>
+                </div>
+                <Switch
+                  id="onLocation"
+                  disabled={pending}
+                  checked={onLocationAvailable}
+                  onCheckedChange={(checked) => {
+                    setOnLocationAvailable(checked);
+                    markDirty();
+                  }}
+                />
+              </div>
+
               <div className="pe-field">
                 <label htmlFor="travelRadius">Travel radius (km)</label>
                 <input
@@ -1060,6 +1082,7 @@ function CreatorProfileUpdateFormContent({
                   }}
                   placeholder="How far you'll travel for on-location shoots."
                   aria-invalid={!!formErrors.travelRadius}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 />
                 {formErrors.travelRadius && (
                   <p
@@ -1070,26 +1093,6 @@ function CreatorProfileUpdateFormContent({
                   </p>
                 )}
               </div>
-            </div>
-
-            <div className="pe-switchrow">
-              <div>
-                <div className="pe-switchrow-title">
-                  Available for on-location shoots
-                </div>
-                <div className="pe-switchrow-desc">
-                  Brands can book you to film at their store or venue.
-                </div>
-              </div>
-              <Switch
-                id="onLocation"
-                disabled={pending}
-                checked={onLocationAvailable}
-                onCheckedChange={(checked) => {
-                  setOnLocationAvailable(checked);
-                  markDirty();
-                }}
-              />
             </div>
           </SectionCard>
         </motion.div>
@@ -1135,13 +1138,21 @@ function CreatorProfileUpdateFormContent({
                 <LanguageRows
                   allLanguages={facets.facetOptionsByDimension.LANGUAGE ?? []}
                   selected={facets.languageDrafts}
-                  disabled={pending}
-                  onToggle={(slug) => {
-                    facets.toggleLanguage(slug);
+                  disabled={pending || facets.facetOptionsQuery.isLoading}
+                  onAddLanguage={(slug) => {
+                    facets.addLanguage(slug);
                     markDirty();
                   }}
-                  onFluencyChange={(slug, fluency) => {
-                    facets.updateLanguageFluency(slug, fluency);
+                  onRemoveLanguage={(index) => {
+                    facets.removeLanguage(index);
+                    markDirty();
+                  }}
+                  onUpdateLanguageSlug={(index, slug) => {
+                    facets.updateLanguageSlug(index, slug);
+                    markDirty();
+                  }}
+                  onFluencyChange={(index, fluency) => {
+                    facets.updateLanguageFluency(index, fluency);
                     markDirty();
                   }}
                 />
@@ -1438,6 +1449,9 @@ function CreatorProfileUpdateFormContent({
               <PortfolioGrid
                 videos={portfolioQuery.data ?? []}
                 onEdit={(video) => openPortfolioDrawer(video)}
+                onDelete={(video) => {
+                  deletePortfolioMutation.mutate({ videoId: video.id });
+                }}
                 onAdd={() => openPortfolioDrawer(null)}
               />
             )}
@@ -1466,24 +1480,28 @@ function CreatorProfileUpdateFormContent({
         )}
         onSave={(form) => {
           if (pfEditingVideo) {
-            updatePortfolioMutation.mutate({
-              videoId: pfEditingVideo.id,
-              payload: form,
-              ...(adminMode && profileId ? { adminCreatorId: profileId } : {}),
-            });
+            updatePortfolioMutation.mutate(
+              {
+                videoId: pfEditingVideo.id,
+                payload: form,
+                ...(adminMode && profileId ? { adminCreatorId: profileId } : {}),
+              },
+              { onSuccess: closePortfolioDrawer }
+            );
           } else if (pfPendingVideoFile) {
-            createPortfolioMutation.mutate({
-              videoFile: pfPendingVideoFile,
-              thumbnailFile: pfPendingThumbFile,
-              visibility: form.visibilityStatus ?? "public",
-              metadataPatch: form,
-              ...(adminMode && profileId ? { adminCreatorId: profileId } : {}),
-            });
+            createPortfolioMutation.mutate(
+              {
+                videoFile: pfPendingVideoFile,
+                thumbnailFile: pfPendingThumbFile,
+                visibility: form.visibilityStatus ?? "public",
+                metadataPatch: form,
+                ...(adminMode && profileId ? { adminCreatorId: profileId } : {}),
+              },
+              { onSuccess: closePortfolioDrawer }
+            );
           } else {
             toast.error("Please select a video file first.");
-            return;
           }
-          closePortfolioDrawer();
         }}
         onDelete={(video) => {
           deletePortfolioMutation.mutate({ videoId: video.id });

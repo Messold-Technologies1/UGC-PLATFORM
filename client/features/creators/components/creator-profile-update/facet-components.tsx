@@ -80,21 +80,27 @@ export function LanguageRows({
   allLanguages,
   selected,
   disabled,
-  onToggle,
+  onAddLanguage,
+  onRemoveLanguage,
+  onUpdateLanguageSlug,
   onFluencyChange,
 }: {
   allLanguages: CreatorFacetOption[];
   selected: LanguageDraft[];
   disabled: boolean;
-  onToggle: (slug: string) => void;
-  onFluencyChange: (slug: string, fluency: CreatorLanguageFluency) => void;
+  onAddLanguage: (slug: string) => void;
+  onRemoveLanguage: (index: number) => void;
+  onUpdateLanguageSlug: (index: number, slug: string) => void;
+  onFluencyChange: (index: number, fluency: CreatorLanguageFluency) => void;
 }) {
-  const usedSlugs = new Set(selected.map((l) => l.slug));
+  const usedSlugs = new Set(selected.map((l) => l.slug).filter(Boolean));
   const availableLanguages = allLanguages.filter((l) => !usedSlugs.has(l.slug));
 
   function addLanguage() {
     if (availableLanguages.length > 0) {
-      onToggle(availableLanguages[0].slug);
+      onAddLanguage(availableLanguages[0].slug);
+    } else {
+      onAddLanguage("");
     }
   }
 
@@ -105,19 +111,18 @@ export function LanguageRows({
         Add each language you can create in, with fluency.
       </span>
       <div className="pe-lang-list">
-        {selected.map((lang) => (
-          <div className="pe-lang-row" key={lang.slug}>
+        {selected.map((lang, index) => (
+          <div className="pe-lang-row" key={index}>
             <div className="pe-select-wrap" style={{ flex: 1 }}>
               <Select
                 disabled={disabled}
-                value={lang.slug}
+                value={lang.slug === "" ? undefined : lang.slug}
                 onValueChange={(newSlug) => {
-                  onToggle(lang.slug);
-                  onToggle(newSlug);
+                  onUpdateLanguageSlug(index, newSlug);
                 }}
               >
                 <SelectTrigger className="h-[42px] rounded-[10px] border-[1.4px] text-[13.5px]">
-                  <SelectValue />
+                  <SelectValue placeholder="Select language" />
                 </SelectTrigger>
                 <SelectContent>
                   {allLanguages
@@ -140,7 +145,7 @@ export function LanguageRows({
                   type="button"
                   data-active={lang.fluency === fl.value}
                   disabled={disabled}
-                  onClick={() => onFluencyChange(lang.slug, fl.value)}
+                  onClick={() => onFluencyChange(index, fl.value)}
                 >
                   {fl.label}
                 </button>
@@ -151,8 +156,8 @@ export function LanguageRows({
               type="button"
               className="pe-lang-del"
               disabled={disabled}
-              onClick={() => onToggle(lang.slug)}
-              aria-label={`Remove ${lang.slug}`}
+              onClick={() => onRemoveLanguage(index)}
+              aria-label="Remove language"
             >
               <X size={15} />
             </button>

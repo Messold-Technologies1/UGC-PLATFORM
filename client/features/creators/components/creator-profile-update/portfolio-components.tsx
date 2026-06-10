@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useRef, useState, useEffect } from "react";
 import {
   Bookmark,
@@ -12,6 +11,7 @@ import {
   X,
   Film,
   Camera,
+  Trash2,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "./shared-components";
@@ -34,10 +34,12 @@ export type CreatorProfileUpdateFormProps = {
 export function PortfolioGrid({
   videos,
   onEdit,
+  onDelete,
   onAdd,
 }: {
   videos: PortfolioVideoApi[];
   onEdit: (video: PortfolioVideoApi) => void;
+  onDelete?: (video: PortfolioVideoApi) => void;
   onAdd: () => void;
 }) {
   const BG_GRADIENTS = [
@@ -52,10 +54,7 @@ export function PortfolioGrid({
   return (
     <div className="pe-pf-grid">
       {videos.map((video, idx) => (
-        <div
-          className="pe-pf-card"
-          key={video.id}
-        >
+        <div className="pe-pf-card" key={video.id}>
           <div className="pe-pf-reel">
             {video.videoUrl ? (
               <video
@@ -113,15 +112,42 @@ export function PortfolioGrid({
               {video.visibilityStatus}
             </span>
 
-            <div className="pe-pf-edit-overlay" style={{ pointerEvents: "none" }}>
-              <button 
-                type="button" 
+            <div
+              className="pe-pf-edit-overlay"
+              style={{
+                pointerEvents: "none",
+                display: "flex",
+                gap: "8px",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <button
+                type="button"
                 className="pe-pf-edit-btn"
                 onClick={() => onEdit(video)}
                 style={{ pointerEvents: "auto" }}
               >
                 <Pencil size={13} /> Edit
               </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  className="pe-pf-edit-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(video);
+                  }}
+                  style={{
+                    pointerEvents: "auto",
+                    width: "32px",
+                    padding: 0,
+                    justifyContent: "center",
+                  }}
+                >
+                  <Trash2 size={13} className="text-destructive" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -288,6 +314,7 @@ export function PortfolioEditDrawer({
   const [visibility, setVisibility] = useState<"public" | "private">(
     video?.visibilityStatus ?? "public",
   );
+  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setIndustry(video?.industryLabel ?? "");
@@ -296,6 +323,16 @@ export function PortfolioEditDrawer({
     setLanguage(video?.language ?? "");
     setVisibility(video?.visibilityStatus ?? "public");
   }, [video]);
+
+  useEffect(() => {
+    if (videoFile) {
+      const url = URL.createObjectURL(videoFile);
+      setLocalVideoUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setLocalVideoUrl(null);
+    }
+  }, [videoFile]);
 
   function handleSave() {
     onSave({
@@ -334,6 +371,8 @@ export function PortfolioEditDrawer({
                   src={video.videoUrl}
                   poster={video.thumbnailUrl ?? undefined}
                   controls
+                  controlsList="nodownload noplaybackrate"
+                  disablePictureInPicture
                   preload="metadata"
                   style={{
                     width: "100%",
@@ -355,10 +394,12 @@ export function PortfolioEditDrawer({
                     inset: 0,
                   }}
                 />
-              ) : videoFile ? (
+              ) : localVideoUrl ? (
                 <video
-                  src={URL.createObjectURL(videoFile)}
+                  src={localVideoUrl}
                   controls
+                  controlsList="nodownload noplaybackrate"
+                  disablePictureInPicture
                   preload="metadata"
                   style={{
                     width: "100%",
@@ -382,7 +423,15 @@ export function PortfolioEditDrawer({
               )}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
               <div>
                 <input
                   ref={videoInputRef}
@@ -395,7 +444,9 @@ export function PortfolioEditDrawer({
                     overflow: "hidden",
                     clip: "rect(0,0,0,0)",
                   }}
-                  onChange={(e) => onSelectVideoFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    onSelectVideoFile(e.target.files?.[0] ?? null)
+                  }
                 />
                 <button
                   type="button"
@@ -414,11 +465,19 @@ export function PortfolioEditDrawer({
                     cursor: "pointer",
                   }}
                   onClick={() => videoInputRef.current?.click()}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--muted)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "var(--card)")}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--muted)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "var(--card)")
+                  }
                 >
                   <Film size={16} />
-                  {videoFile ? videoFile.name : isCreate ? "Upload video" : "Replace video"}
+                  {videoFile
+                    ? videoFile.name
+                    : isCreate
+                      ? "Upload video"
+                      : "Replace video"}
                 </button>
               </div>
 
@@ -438,7 +497,9 @@ export function PortfolioEditDrawer({
                     overflow: "hidden",
                     clip: "rect(0,0,0,0)",
                   }}
-                  onChange={(e) => onSelectThumbFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    onSelectThumbFile(e.target.files?.[0] ?? null)
+                  }
                 />
                 <button
                   type="button"
@@ -457,11 +518,19 @@ export function PortfolioEditDrawer({
                     cursor: "pointer",
                   }}
                   onClick={() => thumbInputRef.current?.click()}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--muted)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "var(--card)")}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--muted)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "var(--card)")
+                  }
                 >
                   <Camera size={16} />
-                  {thumbFile ? thumbFile.name : isCreate ? "Upload thumbnail" : "Change thumbnail"}
+                  {thumbFile
+                    ? thumbFile.name
+                    : isCreate
+                      ? "Upload thumbnail"
+                      : "Change thumbnail"}
                 </button>
               </div>
             </div>

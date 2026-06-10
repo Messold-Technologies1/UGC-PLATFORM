@@ -123,7 +123,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     formTitle: "Log in to your brand workspace",
     formSub: "Welcome back. Pick up right where your campaigns left off.",
     signupCta: "Create a brand account",
-    signupLine: "New to GoCollab for brands?",
+    signupLine: "New to GoCollab as brands?",
     signupHref: "/register/brand",
     theme: {
       accent: "#5138ed",
@@ -171,7 +171,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     formTitle: "Log in to your creator studio",
     formSub: "Welcome back. Your next collab could be one login away.",
     signupCta: "Create a creator account",
-    signupLine: "New to GoCollab for creators?",
+    signupLine: "New to GoCollab as creators?",
     signupHref: "/register/creator",
     theme: {
       accent: "#ef3e51",
@@ -219,7 +219,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     formTitle: "Log in to your agency workspace",
     formSub: "Welcome back. All your clients, right where you left them.",
     signupCta: "Set up an agency account",
-    signupLine: "New to GoCollab for agencies?",
+    signupLine: "New to GoCollab as agencies?",
     signupHref: "/register/agency",
     theme: {
       accent: "#0e9384",

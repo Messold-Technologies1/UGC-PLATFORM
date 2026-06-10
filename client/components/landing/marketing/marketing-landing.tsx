@@ -10,8 +10,6 @@ import {
   Rocket,
   BadgeCheck,
   Star,
-  Filter,
-  ChevronDown,
   Play,
   ArrowRight,
   FileVideo,
@@ -36,7 +34,7 @@ import {
   BrandsVisual,
   CreatorsVisual,
 } from "@/components/landing/marketing/audience-cards";
-import { CreatorCard } from "@/components/landing/marketing/creator-card";
+import { CreatorListing } from "@/features/creators/components/creator-listing";
 import { CreatorNiche } from "@/components/landing/marketing/creator-niche";
 import {
   marketingShell,
@@ -56,69 +54,6 @@ const ACCENT_BG: Record<Accent, string> = {
   sky: "bg-sky",
   grape: "bg-grape",
 };
-
-const creators = [
-  {
-    image: MARKETING_CREATOR_IMAGES.skincare,
-    name: "Aanya Kapoor",
-    niches: ["Skincare", "Beauty", "Lifestyle"],
-    location: "Mumbai",
-    price: "₹4,500",
-    rating: 4.9,
-    delivery: "Delivers in 5 days",
-    badge: { tone: "lime" as const, label: "Verified" },
-  },
-  {
-    image: MARKETING_CREATOR_IMAGES.fashion,
-    name: "Kartikay Gupta",
-    niches: ["Fashion", "Streetwear", "Men's"],
-    location: "Delhi",
-    price: "₹7,000",
-    rating: 4.8,
-    delivery: "Delivers in 6 days",
-    badge: { tone: "pink" as const, label: "Hot Creator" },
-  },
-  {
-    image: MARKETING_CREATOR_IMAGES.food,
-    name: "Meher Singh",
-    niches: ["Food", "Recipes", "D2C"],
-    location: "Bangalore",
-    price: "₹999",
-    rating: 5.0,
-    delivery: "Delivers in 4 days",
-    badge: { tone: "sky" as const, label: "Ad Ready" },
-  },
-  {
-    image: MARKETING_CREATOR_IMAGES.fitness,
-    name: "Rohan Verma",
-    niches: ["Fitness", "Wellness", "Nutrition"],
-    location: "Pune",
-    price: "₹6,200",
-    rating: 4.7,
-    delivery: "Delivers in 7 days",
-    badge: { tone: "lime" as const, label: "Refund Safe" },
-  },
-  {
-    image: MARKETING_CREATOR_IMAGES.tech,
-    name: "Ishita Rao",
-    niches: ["Tech", "Gadgets", "Unboxing"],
-    location: "Hyderabad",
-    price: "₹8,500",
-    rating: 4.9,
-    delivery: "Delivers in 5 days",
-    badge: { tone: "grape" as const, label: "Featured" },
-  },
-  {
-    image: MARKETING_CREATOR_IMAGES.beauty,
-    name: "Priya Nair",
-    niches: ["Beauty", "Makeup", "GRWM"],
-    location: "Kochi",
-    price: "₹5,000",
-    rating: 4.8,
-    delivery: "Delivers in 6 days",
-    badge: { tone: "pink" as const, label: "Niche Match" },
-  },
-];
 
 const stats = [
   { v: "★", l: "Trusted by growing brands" },
@@ -547,64 +482,24 @@ export function MarketingLanding() {
         </div>
       </section>
 
-      {/* FEATURED CREATORS */}
+      {/* BROWSE CREATORS */}
       <section id="featured" className="border-border bg-secondary/50 border-y">
         <div className={`${marketingShell} ${marketingSectionPadY}`}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
-              <Sticker tone="sky">Featured Creators</Sticker>
+              <Sticker tone="sky">Browse Creators</Sticker>
               <h2 className="font-heading mt-4 text-4xl font-bold tracking-tight text-balance sm:text-5xl">
                 Creators your brand can actually use.
               </h2>
               <p className="text-muted-foreground mt-4 text-lg">
-                Strong content quality, clear pricing, and niche-specific
-                experience.
+                Search, filter, and preview real creators. Pick one and we&apos;ll
+                walk you through signup to place your first order.
               </p>
             </div>
-            <PillButton variant="primary" arrow href="/brand/creators">
-              Browse All Creators
-            </PillButton>
           </div>
 
-          {/* Filter bar */}
-          <div className="border-foreground shadow-pop bg-card mt-10 flex flex-col items-stretch gap-2 rounded-2xl border-2 p-3 md:flex-row">
-            <div className="flex flex-1 items-center gap-2 px-3">
-              <Search className="text-muted-foreground h-4 w-4" />
-              <input
-                type="search"
-                name="creator-search-placeholder"
-                readOnly
-                placeholder="Search creators by name, niche or vibe..."
-                className="placeholder:text-muted-foreground w-full bg-transparent py-2 text-sm outline-none"
-                aria-label="Search creators (browse to use filters)"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {["Niche", "Budget", "Location", "Language", "Content Type"].map(
-                (f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className="bg-secondary hover:bg-secondary/70 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium"
-                  >
-                    <Filter className="h-3.5 w-3.5" /> {f}{" "}
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                ),
-              )}
-              <button
-                type="button"
-                className="bg-foreground inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-background"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {creators.map((c) => (
-              <CreatorCard key={c.name} {...c} />
-            ))}
+          <div className="mt-10 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+            <CreatorListing landingPage />
           </div>
         </div>
       </section>

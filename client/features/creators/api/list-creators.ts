@@ -5,6 +5,7 @@ import type { CreatorsListResponse } from "./types";
 export type CreatorListApiFilters = {
   page?: number;
   limit?: number;
+  search?: string;
   city?: string;
   gender?: string;
   minAge?: number;
@@ -44,6 +45,9 @@ export function serializeCreatorListApiParams(
 
   if (filters.page) params.set("page", String(filters.page));
   if (filters.limit) params.set("limit", String(filters.limit));
+
+  const search = filters.search?.trim();
+  if (search) params.set("search", search);
 
   const city = filters.city?.trim();
   if (city) params.set("city", city);

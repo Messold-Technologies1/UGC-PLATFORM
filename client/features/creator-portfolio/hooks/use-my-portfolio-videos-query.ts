@@ -5,6 +5,7 @@ import {
 } from "../api/list-my-portfolio-videos";
 
 type UseMyPortfolioVideosQueryOptions = {
+  enabled?: boolean;
   staleTime?: number;
 };
 
@@ -14,6 +15,7 @@ export function useMyPortfolioVideosQuery(
   return useQuery({
     queryKey: portfolioMyVideosQueryKey,
     queryFn: listMyPortfolioVideos,
+    enabled: options?.enabled,
     staleTime: options?.staleTime,
   });
 }

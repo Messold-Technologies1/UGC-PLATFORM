@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { CreatorProfileUpdateForm } from "@/features/creators/components/creator-profile-update-form.lazy";
+import { CreatorProfileUpdateForm } from "@/features/creators/components/creator-profile-update/creator-profile-update-form.lazy";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -29,19 +29,19 @@ export default function CreatorSettingsProfilePage() {
 
   if (!user) return null;
 
-  if (!user.hasCreatorProfile) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Profile"
-          description="Complete creator onboarding from your workspace first."
-        />
-        <Button asChild>
-          <Link href="/creator/orders">Back to orders</Link>
-        </Button>
-      </div>
-    );
-  }
+  // if (!user.hasCreatorProfile) {
+  //   return (
+  //     <div className="space-y-6">
+  //       <PageHeader
+  //         title="Profile"
+  //         description="Complete creator onboarding from your workspace first."
+  //       />
+  //       <Button asChild>
+  //         <Link href="/creator/orders">Back to orders</Link>
+  //       </Button>
+  //     </div>
+  //   );
+  // }
 
   if (isLoading) {
     return (
@@ -68,10 +68,10 @@ export default function CreatorSettingsProfilePage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
+      {/* <PageHeader
         title="Profile"
         description="Update your display name, bio, packages, and how brands find you."
-      />
+      /> */}
 
       <CreatorProfileUpdateForm
         variant="settings"

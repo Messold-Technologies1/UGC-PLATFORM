@@ -14,6 +14,7 @@ export type UpdateCreatorProfilePayload = {
   displayName?: string;
   contactEmail?: string;
   phone?: string;
+  profileImageKey?: string;
   introVideoKey?: string;
   countryName?: string;
   stateName?: string;

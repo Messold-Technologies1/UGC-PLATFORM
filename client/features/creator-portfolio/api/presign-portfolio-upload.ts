@@ -21,13 +21,14 @@ export async function presignPortfolioUpload(
   payload: PresignPortfolioUploadPayload,
   options?: PortfolioApiRequestOptions,
 ): Promise<PresignPortfolioUploadResponse> {
-  const endpoint = options?.adminCreatorId
-    ? ENDPOINTS.ADMIN.CREATORS.PORTFOLIO_UPLOADS_PRESIGN(options.adminCreatorId)
-    : ENDPOINTS.CREATOR_PORTFOLIO.UPLOADS_PRESIGN;
+  const endpoint = ENDPOINTS.CREATOR_PORTFOLIO.UPLOADS_PRESIGN;
+  const finalPayload = options?.adminCreatorId
+    ? { ...payload, creatorId: options.adminCreatorId }
+    : payload;
 
   const { data } = await api.post<PresignPortfolioUploadResponse>(
     endpoint,
-    payload,
+    finalPayload,
   );
   return data;
 }

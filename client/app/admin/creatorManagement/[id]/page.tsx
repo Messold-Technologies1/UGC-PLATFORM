@@ -13,7 +13,7 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { CreatorProfileUpdateForm } from "@/features/creators/components/creator-profile-update-form.lazy";
+import { CreatorProfileUpdateForm } from "@/features/creators/components/creator-profile-update/creator-profile-update-form.lazy";
 import { CreatorPortfolioUploadForm } from "@/features/creator-portfolio/components/creator-portfolio-upload-form.lazy";
 import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
 

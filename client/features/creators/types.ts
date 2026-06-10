@@ -6,6 +6,7 @@ export interface Creator {
   reviewCount: number;
   startingPrice: number;
   ordersCompleted: number;
+  collaborationCount: number;
   thumbnail: string;
   previewVideoUrl?: string | null;
   introVideoUrl?: string | null;

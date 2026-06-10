@@ -17,13 +17,14 @@ export async function createPortfolioVideo(
   payload: CreatePortfolioVideoPayload,
   options?: PortfolioApiRequestOptions,
 ): Promise<PortfolioVideoApi> {
-  const endpoint = options?.adminCreatorId
-    ? ENDPOINTS.ADMIN.CREATORS.PORTFOLIO_VIDEOS(options.adminCreatorId)
-    : ENDPOINTS.CREATOR_PORTFOLIO.VIDEOS;
+  const endpoint = ENDPOINTS.CREATOR_PORTFOLIO.VIDEOS;
+  const finalPayload = options?.adminCreatorId
+    ? { ...payload, creatorId: options.adminCreatorId }
+    : payload;
 
   const { data } = await api.post<PortfolioVideoApi>(
     endpoint,
-    payload,
+    finalPayload,
   );
   return data;
 }

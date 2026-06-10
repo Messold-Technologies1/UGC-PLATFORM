@@ -195,6 +195,7 @@
 
 @layer base {
   :root {
+    --brand-gradient: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
     --radius: 0.625rem;
     --skeleton-color: #ece7dd;
     --skeleton-dark-color: #26221c;
@@ -1532,3 +1533,949 @@
 
 /* drawer footer: single Place order CTA */
 .dr-foot .om-place { flex: 1; height: 48px; font-size: 15px; }
+
+/* creator-profile-edit.css */
+/* =====================================================================
+   Creator Profile Edit — Design System Styles
+   Ported from GoCollab Design System / profile-edit / pe-edit.css
+   Scoped under .pe-scope to avoid global collisions.
+   Uses CSS custom properties defined in globals.css (oklch-based).
+   ===================================================================== */
+
+/* ── Scope container ── */
+.pe-scope {
+  --pe-shadow-sm: 0 1px 2px 0 rgb(24 19 19 / 0.05);
+  --pe-shadow-md: 0 6px 18px -8px rgb(24 19 19 / 0.12);
+  --pe-shadow-lg: 0 24px 50px -22px rgb(24 19 19 / 0.30);
+  --pe-radius-lg: 18px;
+}
+
+/* ── Page shell: sticky section nav + form column ── */
+.pe-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 0 120px;
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .pe-shell {
+    grid-template-columns: 1fr;
+  }
+  .pe-nav {
+    display: none;
+  }
+}
+
+/* ── Page header ── */
+.pe-page-head {
+  margin-bottom: 6px;
+}
+.pe-page-head h2 {
+  font-size: 26px;
+  margin-top: 0;
+}
+.pe-page-head p {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+/* ── Section nav (sticky sidebar) ── */
+.pe-nav {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pe-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
+  text-align: left;
+  width: 100%;
+}
+.pe-nav-link svg {
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+  flex-shrink: 0;
+}
+.pe-nav-link:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.pe-nav-link[data-active="true"] {
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+.pe-nav-link[data-active="true"] svg {
+  color: var(--primary);
+}
+.pe-nav-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.pe-nav-link[data-active="true"] .pe-nav-count {
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+
+/* ── Form column ── */
+.pe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* ── Section card ── */
+.pe-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--pe-radius-lg);
+  box-shadow: var(--pe-shadow-sm);
+  overflow: hidden;
+  scroll-margin-top: 80px;
+}
+.pe-card-head {
+  padding: 18px 22px 4px;
+}
+.pe-card-head h3 {
+  font-size: 16.5px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+}
+.pe-card-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in oklab, var(--primary) 11%, transparent);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.pe-card-head p {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin: 5px 0 0 39px;
+}
+.pe-card-body {
+  padding: 16px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Field grid ── */
+.pe-grid {
+  display: grid;
+  gap: 16px;
+}
+.pe-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+.pe-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.pe-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 620px) {
+  .pe-grid-2,
+  .pe-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .pe-grid-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Field wrapper ── */
+.pe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.pe-field > label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pe-field .pe-opt {
+  font-weight: 600;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.pe-field .pe-help {
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+}
+.pe-field-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+/* ── Input, textarea, select ── */
+.pe-input,
+.pe-textarea,
+.pe-native-select {
+  width: 100%;
+  border: 1.4px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 0 13px;
+  height: 42px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+.pe-textarea {
+  height: auto;
+  padding: 11px 13px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.pe-input:focus,
+.pe-textarea:focus,
+.pe-native-select:focus {
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent);
+}
+.pe-input::placeholder,
+.pe-textarea::placeholder {
+  color: var(--muted-foreground);
+}
+.pe-input:disabled,
+.pe-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Input with leading icon/prefix */
+.pe-input-wrap {
+  position: relative;
+}
+.pe-input-wrap .pe-lead {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+.pe-input-wrap .pe-input {
+  padding-left: 38px;
+}
+
+/* Native select */
+.pe-native-select {
+  appearance: none;
+  padding-right: 36px;
+  cursor: pointer;
+}
+.pe-select-wrap {
+  position: relative;
+}
+.pe-select-wrap .pe-chev {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
+
+/* ── Chip multiselect ── */
+.pe-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.pe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1.4px solid var(--border);
+  background: var(--card);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: all 0.13s;
+  cursor: pointer;
+}
+.pe-chip:hover {
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+}
+.pe-chip[data-selected="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.pe-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pe-chip-tick {
+  display: grid;
+  place-items: center;
+}
+
+/* ── Switch row ── */
+.pe-switchrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1.4px solid var(--border);
+  border-radius: 12px;
+}
+.pe-switchrow-title {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.pe-switchrow-desc {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-top: 2px;
+}
+
+/* ── Media: avatar + reel ── */
+.pe-media {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* ── Languages with fluency ── */
+.pe-lang-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pe-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pe-lang-row .pe-select-wrap {
+  flex: 1;
+}
+.pe-lang-flu {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--muted);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.pe-lang-flu button {
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s, box-shadow 0.14s;
+}
+.pe-lang-flu button[data-active="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--pe-shadow-sm);
+}
+.pe-lang-del {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1.4px solid var(--border);
+  background: var(--card);
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.14s, color 0.14s;
+}
+.pe-lang-del:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Add link */
+.pe-add-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--primary);
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.pe-add-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Package mini-editor ── */
+.pe-pkg {
+  border: 1.4px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.pe-pkg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pe-pkg-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--foreground);
+}
+.pe-pkg-del {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  background: none;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.pe-pkg-del:hover {
+  color: var(--primary);
+}
+
+/* ── Sticky save bar ── */
+.pe-savebar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: color-mix(in oklab, var(--card) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  border-top: 1px solid var(--border);
+  transform: translateY(110%);
+  transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.pe-savebar[data-visible="true"] {
+  transform: translateY(0);
+}
+.pe-savebar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 13px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pe-savebar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+.pe-savebar-msg {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.pe-savebar-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+}
+
+/* Save bar buttons */
+.pe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.14s, filter 0.14s;
+}
+.pe-btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--pe-shadow-sm);
+}
+.pe-btn-primary:hover {
+  filter: brightness(1.05);
+}
+.pe-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: none;
+}
+.pe-btn-ghost {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+.pe-btn-ghost:hover {
+  background: var(--muted);
+}
+
+/* ── Verified badge ── */
+.pe-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+/* ── Loading / error states ── */
+.pe-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  background: var(--card);
+  font-size: 13.5px;
+  color: var(--muted-foreground);
+}
+.pe-status-error {
+  border-color: var(--destructive);
+  color: var(--destructive);
+}
+
+/* ── Onboarding variant: flat layout (no sidebar/cards) ── */
+.pe-onboarding .pe-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.pe-onboarding .pe-card + .pe-card {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.pe-onboarding .pe-card-body {
+  padding: 16px 0 22px;
+}
+.pe-onboarding .pe-card-head {
+  padding: 18px 0 4px;
+}
+
+/* ── Portfolio grid ── */
+.pe-pf-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.pe-pf-card {
+  border: 1.4px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.pe-pf-card:hover {
+  box-shadow: var(--pe-shadow-md);
+  transform: translateY(-3px);
+}
+.pe-pf-add {
+  border: 1.6px dashed var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 230px;
+  color: var(--muted-foreground);
+  font-weight: 700;
+  font-size: 13px;
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+  cursor: pointer;
+}
+.pe-pf-add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 5%, transparent);
+}
+.pe-pf-add .pe-pf-plusbox {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1.4px solid var(--border);
+  display: grid;
+  place-items: center;
+}
+.pe-pf-reel {
+  position: relative;
+  aspect-ratio: 9/16;
+  display: grid;
+  place-items: center;
+}
+.pe-pf-reel .pe-pf-mono {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 800;
+  font-size: 30px;
+}
+.pe-pf-reel .pe-pf-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent 45%);
+}
+.pe-pf-vis {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+.pe-pf-vis[data-visibility="public"] {
+  background: rgba(21, 128, 61, 0.85);
+  color: #fff;
+}
+.pe-pf-vis[data-visibility="private"] {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+.pe-pf-dur {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+.pe-pf-edit-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.18s;
+  background: rgba(0, 0, 0, 0.28);
+}
+.pe-pf-card:hover .pe-pf-edit-overlay {
+  opacity: 1;
+}
+.pe-pf-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+  font-size: 12.5px;
+  border: none;
+  cursor: pointer;
+}
+.pe-pf-meta {
+  padding: 10px 11px 12px;
+}
+.pe-pf-ind {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: capitalize;
+}
+.pe-pf-desc {
+  font-size: 12px;
+  color: var(--foreground);
+  margin-top: 3px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pe-pf-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.pe-pf-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* ── Portfolio edit drawer ── */
+.pe-dr-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 14, 14, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 70;
+  opacity: 0;
+  transition: opacity 0.26s;
+  pointer-events: none;
+}
+.pe-dr-scrim[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.pe-dr {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(480px, 96vw);
+  z-index: 72;
+  background: var(--card);
+  box-shadow: var(--pe-shadow-lg);
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.27, 1);
+  display: flex;
+  flex-direction: column;
+}
+.pe-dr[data-open="true"] {
+  transform: translateX(0);
+}
+.pe-dr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.pe-dr-head h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.pe-dr-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  display: grid;
+  place-items: center;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.pe-dr-close:hover {
+  background: var(--muted);
+}
+.pe-dr-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pe-dr-foot {
+  border-top: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pe-dr-preview {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.pe-dr-thumb {
+  width: 92px;
+  flex-shrink: 0;
+  aspect-ratio: 9/16;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* ── Tag editor ── */
+.pe-tageditor {
+  border: 1.4px solid var(--border);
+  border-radius: 11px;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+.pe-tageditor[data-focus="true"] {
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent);
+}
+.pe-tagpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px 0 11px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
+  color: var(--foreground);
+}
+.pe-tagpill-x {
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: color-mix(in oklab, var(--primary) 15%, transparent);
+  color: var(--foreground);
+  cursor: pointer;
+}
+.pe-tagpill-x:hover {
+  background: var(--primary);
+  color: #fff;
+}
+.pe-taginput {
+  flex: 1;
+  min-width: 90px;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--foreground);
+  height: 28px;
+  padding: 0 4px;
+}
+.pe-tag-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.pe-tag-suggest-btn {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  border: 1px dashed var(--border);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.pe-tag-suggest-btn:hover {
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+  color: var(--foreground);
+}
+.pe-tag-suggest-btn[data-used="true"] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── Segmented control (visibility) ── */
+.pe-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--muted);
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  width: 100%;
+}
+.pe-seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.pe-seg button[data-active="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--pe-shadow-sm);
+}
+.pe-seg button[data-active="true"][data-variant="public"] svg {
+  color: #15803d;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .pe-scope * {
+    transition-duration: 0.01ms !important;
+  }
+}
+ 

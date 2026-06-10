@@ -150,8 +150,6 @@ export function buildListCreatorsWhere(
     clauses.push({
       OR: [
         { displayName: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
-        { bio: { contains: search, mode: 'insensitive' } },
       ],
     });
   }

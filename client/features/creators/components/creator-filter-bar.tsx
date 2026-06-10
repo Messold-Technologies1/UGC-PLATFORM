@@ -568,6 +568,7 @@ export interface CreatorFilterBarProps {
   isPending: boolean;
   onClear: () => void;
   categoryOptions: string[];
+  landingPage?: boolean;
 }
 
 export const CreatorFilterBar = memo(function CreatorFilterBar({
@@ -579,6 +580,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   isPending,
   onClear,
   categoryOptions,
+  landingPage,
 }: CreatorFilterBarProps) {
   const [localSearch, setLocalSearch] = useState(search);
   useEffect(() => {
@@ -762,6 +764,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     filters.canCreateWith.length +
     filters.aiContentPermission.length +
     filters.restrictions.length +
+    (landingPage && filters.gender ? 1 : 0) +
     (filters.ageGroup ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
     (filters.city ? 1 : 0) +
@@ -946,23 +949,25 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   />
                 </FilterPopover>
 
-                <FilterPopover
-                  id="gender"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="Gender"
-                  icon={<User className="size-[15px]" />}
-                  activeCount={genderCount}
-                >
-                  <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                    Gender
-                  </h5>
-                  <CheckboxRow
-                    items={GENDER_OPTIONS}
-                    selected={filters.gender}
-                    onToggle={(v) => commitField("gender", v)}
-                  />
-                </FilterPopover>
+                {!landingPage && (
+                  <FilterPopover
+                    id="gender"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Gender"
+                    icon={<User className="size-[15px]" />}
+                    activeCount={genderCount}
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Gender
+                    </h5>
+                    <CheckboxRow
+                      items={GENDER_OPTIONS}
+                      selected={filters.gender}
+                      onToggle={(v) => commitField("gender", v)}
+                    />
+                  </FilterPopover>
+                )}
 
                 <div className="mx-0.5 h-[26px] w-px bg-gray-200" aria-hidden />
 
@@ -999,6 +1004,19 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           </div>
                         );
                       },
+                    )}
+
+                    {landingPage && (
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Gender
+                        </h5>
+                        <CheckboxRow
+                          items={GENDER_OPTIONS}
+                          selected={filters.gender}
+                          onToggle={(v) => commitField("gender", v)}
+                        />
+                      </div>
                     )}
 
                     <div className="mb-4">

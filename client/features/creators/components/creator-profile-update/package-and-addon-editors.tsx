@@ -99,7 +99,14 @@ export function PackageEditor({
               aria-invalid={!!errors?.priceAmount}
             />
           </div>
-          {errors?.priceAmount && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{errors.priceAmount}</p>}
+          {errors?.priceAmount ? (
+            <p
+              className="pe-help text-destructive"
+              style={{ color: "var(--destructive)" }}
+            >
+              {errors.priceAmount}
+            </p>
+          ) : null}
         </div>
 
         <div className="pe-field">

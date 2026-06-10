@@ -1,8 +1,15 @@
+import { UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
 import { ApprovalStatus, RoleName } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
+
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn(),
+}));
 
 describe('AuthService', () => {
   const prisma = {
@@ -33,12 +40,14 @@ describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(() => {
+    jest.restoreAllMocks();
     prisma.user.findUnique.mockReset();
     prisma.user.update.mockReset();
     prisma.session.create.mockReset();
     jwt.sign.mockReset();
     jwt.verifyAsync.mockReset();
     config.get.mockClear();
+    jest.mocked(bcrypt.compare).mockReset();
 
     service = new AuthService(
       prisma as unknown as PrismaService,
@@ -46,6 +55,61 @@ describe('AuthService', () => {
       config as unknown as ConfigService,
       signupRegistration as any,
     );
+  });
+
+  it('logs in when the password is valid and the role matches the primary role', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash: 'hashed-password',
+      status: 'ACTIVE',
+      primaryRole: { name: RoleName.CREATOR },
+    });
+    jest.mocked(bcrypt.compare).mockResolvedValue(true as never);
+    jwt.sign
+      .mockReturnValueOnce('refresh-token')
+      .mockReturnValueOnce('access-token');
+    prisma.session.create.mockResolvedValue({ id: 'session-1' });
+    jest.spyOn(service, 'getMeForClient').mockResolvedValue({
+      id: 'user-1',
+      email: 'creator@example.com',
+      name: 'Creator User',
+      roles: ['CREATOR'],
+      primaryRole: 'CREATOR',
+      hasCreatorProfile: true,
+      hasBrandProfile: false,
+      hasAgencyProfile: false,
+      brandAccessRevoked: false,
+      activeBrandProfileId: null,
+      accessibleBrands: [],
+    });
+
+    const result = await service.login({
+      email: 'creator@example.com',
+      password: 'password123',
+      role: RoleName.CREATOR,
+    });
+
+    expect(result.accessToken).toBe('access-token');
+    expect(result.refreshToken).toBe('refresh-token');
+    expect(result.user.primaryRole).toBe('CREATOR');
+  });
+
+  it('rejects login when the role does not match the primary role', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      passwordHash: 'hashed-password',
+      status: 'ACTIVE',
+      primaryRole: { name: RoleName.BRAND },
+    });
+    jest.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+    await expect(
+      service.login({
+        email: 'brand@example.com',
+        password: 'password123',
+        role: RoleName.CREATOR,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('returns /auth/me data without session-scoped active workspace state', async () => {

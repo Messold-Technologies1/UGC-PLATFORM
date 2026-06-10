@@ -30,12 +30,14 @@ export function SectionCard({
   icon: IconCmp,
   title,
   desc,
+  headerNote,
   children,
 }: {
   id: string;
   icon: React.ComponentType<{ size?: number }>;
   title: string;
   desc: string;
+  headerNote?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -48,6 +50,14 @@ export function SectionCard({
           {title}
         </h3>
         <p>{desc}</p>
+        {headerNote ? (
+          <p
+            className="pe-card-head-note"
+            style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.45 }}
+          >
+            {headerNote}
+          </p>
+        ) : null}
       </div>
       <div className="pe-card-body">{children}</div>
     </section>

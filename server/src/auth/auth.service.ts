@@ -247,6 +247,12 @@ export class AuthService {
   ): Promise<AuthResult> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
+      select: {
+        id: true,
+        passwordHash: true,
+        status: true,
+        primaryRole: { select: { name: true } },
+      },
     });
     if (!user?.passwordHash) {
       throw new UnauthorizedException('Invalid email or password');
@@ -259,6 +265,10 @@ export class AuthService {
 
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Account is not active');
+    }
+
+    if (user.primaryRole?.name !== dto.role) {
+      throw new UnauthorizedException('Invalid role');
     }
 
     const { accessToken, refreshToken, expiresIn } =

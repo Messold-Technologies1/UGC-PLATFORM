@@ -3,6 +3,7 @@ import type { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import type { AuthService, MeUser } from './auth.service';
+import type { PasswordService } from './password.service';
 
 describe('AuthController', () => {
   const authService = {
@@ -17,6 +18,12 @@ describe('AuthController', () => {
     refresh: jest.fn(),
     logout: jest.fn(),
     getMeForClient: jest.fn(),
+  };
+
+  const passwordService = {
+    requestPasswordReset: jest.fn(),
+    resetPassword: jest.fn(),
+    changePassword: jest.fn(),
   };
 
   const config = {
@@ -54,6 +61,7 @@ describe('AuthController', () => {
     jest.clearAllMocks();
     controller = new AuthController(
       authService as unknown as AuthService,
+      passwordService as unknown as PasswordService,
       config as unknown as ConfigService,
     );
   });
@@ -108,6 +116,7 @@ describe('AuthController', () => {
       {
         email: user.email,
         password: 'password123',
+        role: 'CREATOR',
       },
       req,
       res,

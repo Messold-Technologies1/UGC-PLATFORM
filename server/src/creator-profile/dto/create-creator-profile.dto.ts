@@ -16,7 +16,6 @@ import {
   IsOptional,
   Matches,
   IsString,
-  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -192,21 +191,30 @@ export class CreateCreatorProfileDto {
   @MaxLength(500)
   instagramUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://youtube.com/@jane' })
+  @ApiPropertyOptional({
+    example: '@jane',
+    description: 'YouTube handle or profile URL (plain string).',
+  })
   @IsOptional()
-  @IsUrl({ require_protocol: true })
+  @IsString()
   @MaxLength(500)
   youtubeUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://tiktok.com/@jane' })
+  @ApiPropertyOptional({
+    example: '@jane',
+    description: 'TikTok handle or profile URL (plain string).',
+  })
   @IsOptional()
-  @IsUrl({ require_protocol: true })
+  @IsString()
   @MaxLength(500)
   tiktokUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://snapchat.com/add/jane' })
+  @ApiPropertyOptional({
+    example: '@jane',
+    description: 'Snapchat handle or profile URL (plain string).',
+  })
   @IsOptional()
-  @IsUrl({ require_protocol: true })
+  @IsString()
   @MaxLength(500)
   snapchatUrl?: string;
 

@@ -2,6 +2,7 @@
 import { SectionCard, PeSelectField, CatalogStatus } from "./shared-components";
 import { FacetChipSection, LanguageRows } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
+import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 
 import { motion, type Variants } from "framer-motion";
@@ -100,22 +101,10 @@ const NAV_ITEMS: NavItem[] = [
 
 const profileFormSchema = z.object({
   displayName: z.string().trim().min(1, "Display name is required"),
-  instagramUrl: z.union([
-    z.literal(""),
-    z.string().trim().url("Instagram URL must be a valid http(s) URL."),
-  ]),
-  youtubeUrl: z.union([
-    z.literal(""),
-    z.string().trim().url("YouTube URL must be a valid http(s) URL."),
-  ]),
-  tiktokUrl: z.union([
-    z.literal(""),
-    z.string().trim().url("TikTok URL must be a valid http(s) URL."),
-  ]),
-  snapchatUrl: z.union([
-    z.literal(""),
-    z.string().trim().url("Snapchat URL must be a valid http(s) URL."),
-  ]),
+  instagramUrl: z.string().trim(),
+  youtubeUrl: z.string().trim(),
+  tiktokUrl: z.string().trim(),
+  snapchatUrl: z.string().trim(),
   collaborationCount: z.coerce
     .number({ message: "Collaboration count must be a number." })
     .int("Collaboration count must be a whole number.")
@@ -1339,8 +1328,14 @@ function CreatorProfileUpdateFormContent({
             icon={Layers}
             title="Packages"
             desc="What brands can book. Set price, delivery and what's included."
+            headerNote="GoCollab takes 20% of the complete order value (base package + add-ons)."
           >
-            <div className="pe-grid pe-grid-1" style={{ gap: 24 }}>
+            <PackageEarningsBanner
+              packagePriceAmount={packages.packageDraft.priceAmount}
+              selectedAddOnSlugs={addOns.selectedAddOnSlugs}
+              addOnDrafts={addOns.addOnDrafts}
+            />
+            <div className="pe-grid pe-grid-1" style={{ gap: 24, marginTop: 16 }}>
               <PackageEditor
                 draft={packages.packageDraft}
                 disabled={pending}

@@ -562,6 +562,8 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
 export interface CreatorFilterBarProps {
   filters: Filters;
   onChange: (next: Filters) => void;
+  search: string;
+  onSearchChange: (next: string) => void;
   total: number;
   isPending: boolean;
   onClear: () => void;
@@ -571,11 +573,20 @@ export interface CreatorFilterBarProps {
 export const CreatorFilterBar = memo(function CreatorFilterBar({
   filters,
   onChange,
+  search,
+  onSearchChange,
   total,
   isPending,
   onClear,
   categoryOptions,
 }: CreatorFilterBarProps) {
+  const [localSearch, setLocalSearch] = useState(search);
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+  const debouncedSearchChange = useDebouncedCallback((value: string) => {
+    onSearchChange(value);
+  }, 300);
   const [mode, setMode] = useState<"smart" | "manual">("manual");
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [localCity, setLocalCity] = useState(filters.city);
@@ -831,11 +842,28 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search name, niche, city or language…"
-                    disabled
-                    aria-label="Creator search is currently unavailable"
-                    className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 disabled:opacity-100 disabled:cursor-default"
+                    placeholder="Search name, city or bio…"
+                    value={localSearch}
+                    onChange={(e) => {
+                      setLocalSearch(e.target.value);
+                      debouncedSearchChange(e.target.value);
+                    }}
+                    aria-label="Search creators by name, city or bio"
+                    className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-9 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200"
                   />
+                  {localSearch && (
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 flex size-[18px] -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground"
+                      onClick={() => {
+                        setLocalSearch("");
+                        onSearchChange("");
+                      }}
+                      aria-label="Clear search"
+                    >
+                      <X className="size-[12px]" />
+                    </button>
+                  )}
                 </div>
 
                 <FilterPopover

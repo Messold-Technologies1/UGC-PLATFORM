@@ -134,8 +134,10 @@ function EmptyBrowseState({ filters }: { filters: Filters }) {
 
 export function CreatorListing({
   initialData,
+  landingPage = false,
 }: {
   initialData?: CreatorsListResult;
+  landingPage?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -161,16 +163,17 @@ export function CreatorListing({
   );
 
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
+  const [search, setSearch] = useState<string>(() => parsedInitial.search);
 
-  const listingRef = useRef({ filters });
+  const listingRef = useRef({ filters, search });
 
   useEffect(() => {
-    listingRef.current = { filters };
-  }, [filters]);
+    listingRef.current = { filters, search };
+  }, [filters, search]);
 
   const syncUrlImmediate = useCallback(
-    (nextFilters: Filters) => {
-      const qs = serializeBrowseListingParams(nextFilters, "");
+    (nextFilters: Filters, nextSearch: string) => {
+      const qs = serializeBrowseListingParams(nextFilters, nextSearch);
       if (qs === searchParamsKey) return;
       const nextUrl = qs ? `?${qs}` : window.location.pathname;
       window.history.replaceState(null, "", nextUrl);
@@ -179,8 +182,9 @@ export function CreatorListing({
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: currentFilters } = listingRef.current;
-    syncUrlImmediate(currentFilters);
+    const { filters: currentFilters, search: currentSearch } =
+      listingRef.current;
+    syncUrlImmediate(currentFilters, currentSearch);
   }, 500);
 
   useEffect(() => {
@@ -198,12 +202,16 @@ export function CreatorListing({
       setFilters((previous) =>
         filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
       );
+      setSearch((previous) =>
+        previous === parsed.search ? previous : parsed.search,
+      );
     });
   }, [router, searchParamsKey]);
 
   const apiFilters = useMemo(
     () => ({
       limit: BROWSE_LIST_LIMIT,
+      search: search.trim() || undefined,
       city: filters.city || undefined,
       categories: filters.categories,
       gender: filters.gender || undefined,
@@ -236,7 +244,7 @@ export function CreatorListing({
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
-    [filters],
+    [filters, search],
   );
 
   const {
@@ -254,7 +262,8 @@ export function CreatorListing({
       initialData &&
       initialData.page === 1 &&
       initialData.limit === BROWSE_LIST_LIMIT &&
-      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS) &&
+      parsedInitial.search === ""
         ? initialData
         : undefined,
   });
@@ -277,10 +286,21 @@ export function CreatorListing({
     [debouncedPushUrl],
   );
 
+  const handleSearchChange = useCallback(
+    (next: string) => {
+      listingRef.current.search = next;
+      setSearch(next);
+      debouncedPushUrl();
+    },
+    [debouncedPushUrl],
+  );
+
   const handleResetFilters = useCallback(() => {
     listingRef.current.filters = DEFAULT_FILTERS;
+    listingRef.current.search = "";
     setFilters(DEFAULT_FILTERS);
-    syncUrlImmediate(DEFAULT_FILTERS);
+    setSearch("");
+    syncUrlImmediate(DEFAULT_FILTERS, "");
   }, [syncUrlImmediate]);
 
   const displayedCount = data?.pages.at(-1)?.total ?? 0;
@@ -319,6 +339,8 @@ export function CreatorListing({
       <CreatorFilterBar
         filters={filters}
         onChange={handleFiltersChange}
+        search={search}
+        onSearchChange={handleSearchChange}
         total={displayedCount}
         isPending={isPending && !data}
         onClear={handleResetFilters}
@@ -412,6 +434,7 @@ export function CreatorListing({
         open={drawerOpen}
         onClose={closeDrawer}
         creator={selectedCreator}
+        landingPage={landingPage}
       />
     </div>
   );

@@ -24,6 +24,7 @@ import {
 import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
@@ -232,19 +233,19 @@ export class CreatorProfileController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
-    summary: 'Get creator by creator profile id',
+    summary: 'Get creator by creator profile id (public)',
     description:
-      'Phone, verification flag, and Instagram URL are only present for the profile owner and admins; other authenticated users do not receive those properties.',
+      'Public discovery endpoint. Phone, verification flag, and Instagram URL are only present for the profile owner and admins; anonymous and other authenticated viewers do not receive those properties.',
   })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async getCreator(
     @Param('id', ParseUUIDPipe) id: string,
     @Req()
-    req: Request & { user: { id: string } },
+    req: Request & { user?: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.getCreatorById(req.user.id, id);
+    return this.creatorProfileService.getCreatorById(req.user?.id ?? null, id);
   }
 
   @Patch(':id')

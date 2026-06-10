@@ -289,7 +289,7 @@ export function MarketingLanding() {
               pages.
             </p>
             <div className="flex flex-wrap gap-3">
-              <PillButton variant="primary" arrow href="/brand/creators">
+              <PillButton variant="primary" arrow href="#featured">
                 Find Creators
               </PillButton>
               <PillButton variant="lime" arrow href="/register/creator">

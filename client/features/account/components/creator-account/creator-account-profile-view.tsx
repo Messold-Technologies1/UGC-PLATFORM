@@ -3,23 +3,15 @@
 import { useState, Fragment } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
-  Building2,
-  Calendar,
   CheckCircle,
   ClipboardList,
   ExternalLink,
-  Globe,
+  Video,
   Instagram,
-  Mail,
-  MapPin,
   MessageSquareText,
   Pencil,
-  Phone,
-  User,
   ShoppingBag,
   Star,
-  Video,
-  Sparkles,
   Wallet,
   Youtube,
 } from "lucide-react";
@@ -274,10 +266,21 @@ export function CreatorAccountProfileView({
                     {/* <Badge className="rounded-full border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100">
                       Top Creator
                     </Badge> */}
-                    <span className="text-muted-foreground">•</span>
+                   
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                       {locationString || "Location not set"}
                     </span>
+                    {profile.profileLanguages &&
+                      profile.profileLanguages.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            {profile.profileLanguages
+                              .map((language) => language.label)
+                              .join(", ")}
+                          </span>
+                        </>
+                      )}
                   </div>
 
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
@@ -393,7 +396,7 @@ export function CreatorAccountProfileView({
 
               <ul className="mt-4 space-y-3.5" aria-label="Creator highlights">
                 <li className="flex items-center gap-2.5 text-sm">
-                  <Phone className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  {/* <Phone className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
                     <strong className="text-foreground font-semibold">Phone:</strong>{" "}
                     {profile.phone ?? "Not specified"}
@@ -401,7 +404,7 @@ export function CreatorAccountProfileView({
                 </li>
 
                 <li className="flex items-center gap-2.5 text-sm">
-                  <Mail className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  {/* <Mail className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
                     <strong className="text-foreground font-semibold">Email:</strong>{" "}
                     {profile.contactEmail ?? "Not specified"}
@@ -409,7 +412,7 @@ export function CreatorAccountProfileView({
                 </li>
 
                 <li className="flex items-center gap-2.5 text-sm">
-                  <User className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  {/* <User className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
                     <strong className="text-foreground font-semibold">Gender:</strong>{" "}
                     {genderLabel ?? "Not specified"}
@@ -417,26 +420,15 @@ export function CreatorAccountProfileView({
                 </li>
 
                 <li className="flex items-center gap-2.5 text-sm">
-                  <Calendar className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  {/* <Calendar className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
                     <strong className="text-foreground font-semibold">Age:</strong>{" "}
                     {ageDisplay ?? "Not specified"}
                   </span>
                 </li>
-
-                {profile.profileLanguages && profile.profileLanguages.length > 0 && (
-                  <li className="flex items-center gap-2.5 text-sm">
-                    <Globe className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
-                    <span className="text-muted-foreground">
-                      <strong className="text-foreground font-semibold">Languages:</strong>{" "}
-                      {profile.profileLanguages.map(l => l.label).join(", ")}
-                    </span>
-                  </li>
-                )}
-                
                 {canCreateWith.length > 0 && (
                   <li className="flex items-center gap-2.5 text-sm">
-                    <Video className="size-5 shrink-0 text-purple-500" strokeWidth={2} />
+                    {/* <Video className="size-5 shrink-0 text-purple-500" strokeWidth={2} /> */}
                     <span className="text-muted-foreground">
                       <strong className="text-foreground font-semibold">Can create with:</strong>{" "}
                       {canCreateWith.map(f => f.label).join(", ")}
@@ -445,7 +437,7 @@ export function CreatorAccountProfileView({
                 )}
 
                 <li className="flex items-center gap-2.5 text-sm">
-                  <Building2 className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  {/* <Building2 className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
                     <strong className="text-foreground font-semibold">
                       Industry Experience:
@@ -459,30 +451,6 @@ export function CreatorAccountProfileView({
                       : "Not specified"}
                   </span>
                 </li>
-
-                <li className="flex items-center gap-2.5 text-sm">
-                  <Sparkles className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
-                  <span className="text-muted-foreground">
-                    <strong className="text-foreground font-semibold">Appearance:</strong>{" "}
-                    {appearanceFacets.length > 0
-                      ? appearanceFacets
-                          .map((facet) =>
-                            facet.label.replace(/\s*\/\s*/g, " & "),
-                          )
-                          .join(", ")
-                      : "Not specified"}
-                  </span>
-                </li>
-
-                {locationString && (
-                  <li className="flex items-center gap-2.5 text-sm">
-                    <MapPin className="size-4.5 shrink-0 text-blue-600" strokeWidth={2} />
-                    <span className="text-muted-foreground">
-                      <strong className="text-foreground font-semibold">Based in:</strong>{" "}
-                      {locationString}
-                    </span>
-                  </li>
-                )}
               </ul>
             </section>
 

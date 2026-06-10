@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { useLoginMutation } from "@/features/auth/hooks/use-login-mutation";
 import { useRegisterMutation } from "@/features/auth/hooks/use-register-mutation";
+import { useForgotPasswordMutation } from "@/features/auth/hooks/use-password-mutations";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import type { LoginRoleConfig } from "@/features/auth/lib/login-role-config";
 import {
@@ -66,10 +67,12 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
   const queryClient = useQueryClient();
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
+  const forgotMutation = useForgotPasswordMutation();
   const [activeTab, setActiveTab] = useState(mode);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [view, setView] = useState<"login" | "forgot" | "forgot-sent">("login");
   const pendingAuth =
     loginMutation.isPending || registerMutation.isPending || googleLoading;
 
@@ -81,6 +84,17 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
   const signupForm = useForm<SignupData>({
     resolver: zodResolver(signupSchema),
     defaultValues: { name: "", email: "", password: "" },
+  });
+
+  const forgotForm = useForm<{ email: string }>({
+    resolver: zodResolver(
+      z.object({
+        email: z
+          .email({ error: "Enter a valid email address" })
+          .min(1, "Email is required"),
+      }),
+    ),
+    defaultValues: { email: "" },
   });
   useEffect(() => {
     if (roleConfig) {
@@ -159,6 +173,28 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
     [registerMutation, queryClient, searchParams],
   );
 
+  const handleForgotPassword = useCallback(
+    (data: { email: string }) => {
+      forgotMutation.mutate(data.email, {
+        onSuccess: () => {
+          setView("forgot-sent");
+          toast.success("Check your email", {
+            description:
+              "If an account exists for that address, we sent reset instructions.",
+          });
+        },
+        onError: (error) => {
+          if (isAxiosError(error) && error.response) {
+            toast.error(error.response.data.message || "An error occurred");
+          } else {
+            toast.error("An unexpected error occurred");
+          }
+        },
+      });
+    },
+    [forgotMutation],
+  );
+
   if (roleConfig) {
     const TagIcon = roleConfig.icon;
 
@@ -186,202 +222,310 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
             Account types
           </Link>
         </div>
+
         <span className={styles.formTag}>
           <TagIcon size={13} aria-hidden="true" />
-          {roleConfig.tag}
+          {view === "login" ? roleConfig.tag : "Reset password"}
         </span>
-        <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
-          {roleConfig.formTitle}
-        </h2>
-        <p className="mt-[7px] text-[13.5px] text-muted-foreground">
-          {roleConfig.formSub}
-        </p>
-        <form
-          onSubmit={loginForm.handleSubmit(handleLogin)}
-          className="mt-[26px] flex flex-col gap-[15px]"
-          noValidate
-        >
-          <div className="flex flex-col gap-[7px]">
-            <Label
-              htmlFor="login-email"
-              className="text-[12.5px] font-bold"
+
+        {view === "login" && (
+          <>
+            <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
+              {roleConfig.formTitle}
+            </h2>
+            <p className="mt-[7px] text-[13.5px] text-muted-foreground">
+              {roleConfig.formSub}
+            </p>
+            <form
+              onSubmit={loginForm.handleSubmit(handleLogin)}
+              className="mt-[26px] flex flex-col gap-[15px]"
+              noValidate
             >
-              Email
-            </Label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Mail size={17} aria-hidden="true" />
-              </span>
-              <input
-                id="login-email"
-                type="email"
-                placeholder="you@company.com"
-                disabled={pendingAuth}
-                autoComplete="email"
-                className={cn(
-                  "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[14px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
-                  "placeholder:text-muted-foreground",
-                  "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
-                  loginForm.formState.errors.email && "border-destructive",
+              <div className="flex flex-col gap-[7px]">
+                <Label
+                  htmlFor="login-email"
+                  className="text-[12.5px] font-bold"
+                >
+                  Email
+                </Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <Mail size={17} aria-hidden="true" />
+                  </span>
+                  <input
+                    id="login-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    disabled={pendingAuth}
+                    autoComplete="email"
+                    className={cn(
+                      "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[14px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
+                      "placeholder:text-muted-foreground",
+                      "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
+                      loginForm.formState.errors.email && "border-destructive",
+                    )}
+                    {...loginForm.register("email")}
+                  />
+                </div>
+                {loginForm.formState.errors.email && (
+                  <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                    {loginForm.formState.errors.email.message}
+                  </p>
                 )}
-                {...loginForm.register("email")}
-              />
-            </div>
-            {loginForm.formState.errors.email && (
-              <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
-                {loginForm.formState.errors.email.message}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col gap-[7px]">
-            <Label
-              htmlFor="login-password"
-              className="text-[12.5px] font-bold"
-            >
-              Password
-            </Label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Lock size={16} aria-hidden="true" />
-              </span>
-              <input
-                id="login-password"
-                type={showLoginPassword ? "text" : "password"}
-                placeholder="Enter your password"
-                disabled={pendingAuth}
-                autoComplete="current-password"
-                className={cn(
-                  "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[44px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
-                  "placeholder:text-muted-foreground",
-                  "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
-                  loginForm.formState.errors.password && "border-destructive",
+              </div>
+              <div className="flex flex-col gap-[7px]">
+                <Label
+                  htmlFor="login-password"
+                  className="text-[12.5px] font-bold"
+                >
+                  Password
+                </Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <Lock size={16} aria-hidden="true" />
+                  </span>
+                  <input
+                    id="login-password"
+                    type={showLoginPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    disabled={pendingAuth}
+                    autoComplete="current-password"
+                    className={cn(
+                      "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[44px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
+                      "placeholder:text-muted-foreground",
+                      "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
+                      loginForm.formState.errors.password && "border-destructive",
+                    )}
+                    {...loginForm.register("password")}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex size-[34px] items-center justify-center rounded-[9px] border-0 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={() => setShowLoginPassword((v) => !v)}
+                    aria-label={
+                      showLoginPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showLoginPassword ? (
+                      <EyeOff size={17} aria-hidden="true" />
+                    ) : (
+                      <Eye size={17} aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+                {loginForm.formState.errors.password && (
+                  <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                    {loginForm.formState.errors.password.message}
+                  </p>
                 )}
-                {...loginForm.register("password")}
-              />
+              </div>
+              <div className="flex items-center justify-between gap-3 -mt-0.5">
+                <label className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground cursor-pointer select-none">
+                  <input type="checkbox" defaultChecked className="sr-only peer" />
+                  <span
+                    className={cn(
+                      "flex size-[18px] items-center justify-center rounded-[6px] border-[1.6px] border-border text-white transition-all",
+                      "peer-checked:bg-[var(--login-accent)] peer-checked:border-[var(--login-accent)]",
+                    )}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setView("forgot")}
+                  className="text-[13px] font-bold text-[var(--login-accent)] no-underline whitespace-nowrap hover:underline hover:underline-offset-[3px] cursor-pointer bg-transparent border-0 p-0"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex size-[34px] items-center justify-center rounded-[9px] border-0 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                onClick={() => setShowLoginPassword((v) => !v)}
-                aria-label={
-                  showLoginPassword ? "Hide password" : "Show password"
-                }
+                type="submit"
+                disabled={pendingAuth}
+                className={styles.submitBtn}
               >
-                {showLoginPassword ? (
-                  <EyeOff size={17} aria-hidden="true" />
+                {loginMutation.isPending ? (
+                  <>
+                    <span className={styles.spinner} />
+                    <span>Logging in…</span>
+                  </>
                 ) : (
-                  <Eye size={17} aria-hidden="true" />
+                  <>
+                    <span>Log in</span>
+                    <ArrowRight size={17} aria-hidden="true" />
+                  </>
                 )}
               </button>
-            </div>
-            {loginForm.formState.errors.password && (
-              <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
-                {loginForm.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-3 -mt-0.5">
-            <label className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground cursor-pointer select-none">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <span
-                className={cn(
-                  "flex size-[18px] items-center justify-center rounded-[6px] border-[1.6px] border-border text-white transition-all",
-                  "peer-checked:bg-[var(--login-accent)] peer-checked:border-[var(--login-accent)]",
-                )}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+            </form>
+            <div className={styles.formDivider}>
+              <span className={styles.formDividerLine} />
+              <span className={styles.formDividerText}>
+                {roleConfig.signupLine}
               </span>
-              Remember me
-            </label>
-            <Link
-              href="/forgot-password"
-              prefetch={false}
-              className="text-[13px] font-bold text-[var(--login-accent)] no-underline whitespace-nowrap hover:underline hover:underline-offset-[3px]"
-            >
-              Forgot password?
+              <span className={styles.formDividerLine} />
+            </div>
+            <Link href={roleConfig.signupHref} className={styles.formSecondary}>
+              <Plus size={16} aria-hidden="true" />
+              {roleConfig.signupCta}
             </Link>
-          </div>
-          <button
-            type="submit"
-            disabled={pendingAuth}
-            className={styles.submitBtn}
-          >
-            {loginMutation.isPending ? (
-              <>
-                <span className={styles.spinner} />
-                <span>Logging in…</span>
-              </>
-            ) : (
-              <>
-                <span>Log in</span>
-                <ArrowRight size={17} aria-hidden="true" />
-              </>
-            )}
-          </button>
-        </form>
-        <div className={styles.formDivider}>
-          <span className={styles.formDividerLine} />
-          <span className={styles.formDividerText}>
-            {roleConfig.signupLine}
-          </span>
-          <span className={styles.formDividerLine} />
-        </div>
-        <Link href={roleConfig.signupHref} className={styles.formSecondary}>
-          <Plus size={16} aria-hidden="true" />
-          {roleConfig.signupCta}
-        </Link>
-        <div className={styles.roleSwitch}>
-          <span className={styles.roleSwitchLabel}>
-            Not a {roleConfig.name.toLowerCase()}?
-          </span>
-          <span className={styles.roleSwitchLinks}>
-            {LOGIN_ROLES.filter((k) => k !== roleConfig.key).map((k) => {
-              const other = ROLE_CONFIGS[k];
-              return (
-                <Link
-                  key={k}
-                  href={`/login?role=${k}`}
-                  replace
-                  className={styles.roleSwitchLink}
-                  onClick={() => setRememberedRole(k)}
+            <div className={styles.roleSwitch}>
+              <span className={styles.roleSwitchLabel}>
+                Not a {roleConfig.name.toLowerCase()}?
+              </span>
+              <span className={styles.roleSwitchLinks}>
+                {LOGIN_ROLES.filter((k) => k !== roleConfig.key).map((k) => {
+                  const other = ROLE_CONFIGS[k];
+                  return (
+                    <Link
+                      key={k}
+                      href={`/login?role=${k}`}
+                      replace
+                      className={styles.roleSwitchLink}
+                      onClick={() => setRememberedRole(k)}
+                    >
+                      <span>Log in as {other.name}</span>
+                      <ArrowRight size={12} aria-hidden="true" />
+                    </Link>
+                  );
+                })}
+              </span>
+            </div>
+            <p className="mt-[22px] text-center text-[11.5px] text-muted-foreground leading-[1.55]">
+              By continuing, you agree to our{" "}
+              <Link
+                href="/terms"
+                prefetch={false}
+                className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/privacy"
+                prefetch={false}
+                className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </>
+        )}
+
+        {view === "forgot" && (
+          <>
+            <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
+              Reset your password
+            </h2>
+            <p className="mt-[7px] text-[13.5px] text-muted-foreground">
+              Enter your email and we&apos;ll send you a link to reset your
+              password.
+            </p>
+
+            <form
+              onSubmit={forgotForm.handleSubmit(handleForgotPassword)}
+              className="mt-[26px] flex flex-col gap-[15px]"
+              noValidate
+            >
+              <div className="flex flex-col gap-[7px]">
+                <Label
+                  htmlFor="forgot-email"
+                  className="text-[12.5px] font-bold"
                 >
-                  <span>Log in as {other.name}</span>
-                  <ArrowRight size={12} aria-hidden="true" />
-                </Link>
-              );
-            })}
-          </span>
-        </div>
-        <p className="mt-[22px] text-center text-[11.5px] text-muted-foreground leading-[1.55]">
-          By continuing, you agree to our{" "}
-          <Link
-            href="/terms"
-            prefetch={false}
-            className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          >
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link
-            href="/privacy"
-            prefetch={false}
-            className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          >
-            Privacy Policy
-          </Link>
-          .
-        </p>
+                  Email
+                </Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <Mail size={17} aria-hidden="true" />
+                  </span>
+                  <input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    disabled={forgotMutation.isPending}
+                    autoComplete="email"
+                    className={cn(
+                      "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[14px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
+                      "placeholder:text-muted-foreground",
+                      "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
+                      forgotForm.formState.errors.email && "border-destructive",
+                    )}
+                    {...forgotForm.register("email")}
+                  />
+                </div>
+                {forgotForm.formState.errors.email && (
+                  <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                    {forgotForm.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={forgotMutation.isPending}
+                className={styles.submitBtn}
+              >
+                {forgotMutation.isPending ? (
+                  <>
+                    <span className={styles.spinner} />
+                    <span>Sending…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Send reset link</span>
+                    <ArrowRight size={17} aria-hidden="true" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={() => setView("login")}
+              className="mt-[18px] flex items-center justify-center gap-[6px] w-full text-[13px] font-bold text-[var(--login-accent)] cursor-pointer bg-transparent border-0 p-0 hover:underline hover:underline-offset-[3px]"
+            >
+              <ArrowLeft size={14} aria-hidden="true" />
+              Back to login
+            </button>
+          </>
+        )}
+
+        {view === "forgot-sent" && (
+          <>
+            <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
+              Check your email
+            </h2>
+            <p className="mt-[7px] text-[13.5px] text-muted-foreground">
+              If an account exists for that email, we sent reset instructions.
+              The link expires in one hour.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setView("login");
+                forgotForm.reset();
+              }}
+              className={cn(styles.submitBtn, "mt-[26px]")}
+            >
+              <ArrowLeft size={17} aria-hidden="true" />
+              <span>Back to login</span>
+            </button>
+          </>
+        )}
       </div>
     );
   }
@@ -406,9 +550,6 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
             <TabsTrigger value="login" className="text-sm">
               Log in
             </TabsTrigger>
-            {/* <TabsTrigger value="signup" className="text-sm">
-              Sign up
-            </TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="login" className="mt-0">

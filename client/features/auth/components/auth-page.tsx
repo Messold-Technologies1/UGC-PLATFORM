@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthForm } from "./auth-form";
 
@@ -11,10 +11,7 @@ import {
   ROLE_CONFIGS,
   type LoginRole,
 } from "@/features/auth/lib/login-role-config";
-import { useAdminShortcut } from "@/hooks/use-admin-shortcut";
 import styles from "./login-page.module.css";
-
-const AdminLoginForm = lazy(() => import("./admin-login-form"));
 
 export function AuthPage() {
   return (
@@ -28,7 +25,6 @@ function LoginRouter() {
   const searchParams = useSearchParams();
   const roleParam = parseLoginRole(searchParams.get("role"));
   const [role, setRole] = useState<LoginRole>(roleParam ?? "brand");
-  const { showAdmin, closeAdmin } = useAdminShortcut();
 
   useEffect(() => {
     if (roleParam) {
@@ -65,13 +61,6 @@ function LoginRouter() {
           <AuthForm mode="login" roleConfig={config} />
         </div>
       </div>
-
-      {/* Hidden admin login — activated via Ctrl + Shift + K */}
-      {showAdmin && (
-        <Suspense fallback={null}>
-          <AdminLoginForm onClose={closeAdmin} />
-        </Suspense>
-      )}
     </div>
   );
 }

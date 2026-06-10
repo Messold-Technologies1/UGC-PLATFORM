@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   MapPin,
@@ -15,8 +15,6 @@ import {
   MessageCircle,
   ArrowRight,
   Check,
-  Instagram,
-  Youtube,
   ShieldCheck,
   Sparkles,
   Film,
@@ -39,16 +37,6 @@ interface PublicCreatorProfileProps {
 }
 
 const BRAND_RED = "#e63950";
-const TILE_GRADIENTS = [
-  "from-sky-400 via-cyan-400 to-emerald-400",
-  "from-rose-400 via-pink-500 to-fuchsia-500",
-  "from-violet-500 via-purple-500 to-indigo-500",
-  "from-amber-400 via-orange-500 to-rose-500",
-  "from-emerald-400 via-teal-500 to-cyan-500",
-  "from-indigo-500 via-blue-500 to-sky-500",
-  "from-fuchsia-500 via-pink-500 to-rose-500",
-  "from-lime-400 via-green-500 to-emerald-500",
-];
 
 const CATEGORY_PILL_TONES = [
   "bg-rose-100 text-rose-700",
@@ -370,14 +358,10 @@ export function PublicCreatorProfile({
               />
               {portfolioVideos.length > 0 ? (
                 <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
-                  {portfolioVideos.slice(0, 6).map((video, i) => (
+                  {portfolioVideos.slice(0, 6).map((video) => (
                     <PortfolioTile
                       key={video.id}
                       video={video}
-                      fallbackGradient={
-                        TILE_GRADIENTS[i % TILE_GRADIENTS.length]!
-                      }
-                      fallbackText={profile.displayName}
                       isPlayingElsewhere={playingPortfolioId !== null && playingPortfolioId !== video.id}
                       onPlay={() => setPlayingPortfolioId(video.id)}
                       onStop={() => setPlayingPortfolioId((prev) => prev === video.id ? null : prev)}
@@ -393,73 +377,107 @@ export function PublicCreatorProfile({
 
             {/* ABOUT SECTION */}
             <div>
-              <SectionTitle
-                icon={Layers}
-                title={`About ${firstName}`}
-              />
-              <div className="mt-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+              <SectionTitle icon={Layers} title={`About ${firstName}`} />
+              <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+                {profile.bio && (
+                  <div className="relative overflow-hidden border-b border-neutral-200 bg-gradient-to-br from-rose-50 via-amber-50 to-emerald-50 p-6">
+                    <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-rose-200/40 blur-2xl" />
+                    <div className="pointer-events-none absolute -bottom-12 -left-12 size-40 rounded-full bg-emerald-200/40 blur-2xl" />
+                    <div className="relative flex items-start gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-rose-500 shadow-sm ring-1 ring-rose-100">
+                        <Sparkles className="size-4" strokeWidth={2.5} />
+                      </span>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-neutral-500">
+                          Bio
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-neutral-800">
+                          {profile.bio}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-5 p-5 sm:grid-cols-2">
                   {contentCategories.length > 0 && (
-                    <DetailGroup
+                    <AboutGroup
+                      icon={Tag}
                       label="Content category"
+                      tone="rose"
                       items={contentCategories.map((f) => f.label)}
                     />
                   )}
-                  <DetailGroup
-                    label="Content formats"
-                    items={contentFormats.map((f) => f.label)}
-                  />
-                  <DetailGroup
-                    label="Style"
-                    items={contentStyles.map((f) => f.label)}
-                  />
-                  <DetailGroup
-                    label="Languages"
-                    items={languages.map((l) => ({
-                      label: l.label,
-                      sub: l.fluency
-                        ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
-                        : null,
-                    }))}
-                  />
-                  <DetailGroup
-                    label="Production"
-                    items={productionCapabilities.map((f) => f.label)}
-                  />
+                  {contentFormats.length > 0 && (
+                    <AboutGroup
+                      icon={Film}
+                      label="Content formats"
+                      tone="violet"
+                      items={contentFormats.map((f) => f.label)}
+                    />
+                  )}
+                  {contentStyles.length > 0 && (
+                    <AboutGroup
+                      icon={Sparkles}
+                      label="Style"
+                      tone="amber"
+                      items={contentStyles.map((f) => f.label)}
+                    />
+                  )}
+                  {languages.length > 0 && (
+                    <AboutGroup
+                      icon={Globe}
+                      label="Languages"
+                      tone="sky"
+                      items={languages.map((l) => ({
+                        label: l.label,
+                        sub: l.fluency
+                          ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
+                          : null,
+                      }))}
+                    />
+                  )}
+                  {productionCapabilities.length > 0 && (
+                    <AboutGroup
+                      icon={CheckCircle2}
+                      label="Production"
+                      tone="emerald"
+                      items={productionCapabilities.map((f) => f.label)}
+                    />
+                  )}
                   {categoryExperience.length > 0 && (
-                    <DetailGroup
+                    <AboutGroup
+                      icon={ShieldCheck}
                       label="Industry experience"
+                      tone="fuchsia"
                       items={categoryExperience.map((f) => f.label)}
                     />
                   )}
                   {canCreateWith.length > 0 && (
-                    <DetailGroup
+                    <AboutGroup
+                      icon={Users}
                       label="Can create with"
+                      tone="cyan"
                       items={canCreateWith.map((f) => f.label)}
                     />
                   )}
-                  <div className="flex items-center gap-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-                      On-location shoot
-                    </p>
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold",
-                        profile.onLocationAvailable
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-neutral-100 text-neutral-500",
-                      )}
-                    >
-                      <MapPinned className="size-3" />
-                      {profile.onLocationAvailable ? "Available" : "Not available"}
-                    </span>
-                  </div>
+                  <AboutGroup
+                    icon={MapPinned}
+                    label="On-location shoot"
+                    tone={profile.onLocationAvailable ? "emerald" : "neutral"}
+                    items={[
+                      profile.onLocationAvailable
+                        ? "Available"
+                        : "Not available",
+                    ]}
+                  />
                   {brandsWorkedWith.length > 0 && (
                     <div className="sm:col-span-2">
-                      <DetailGroup
+                      <AboutGroup
+                        icon={Sparkles}
                         label="Worked with"
+                        tone="lime"
                         items={brandsWorkedWith.map((b) => b.label)}
-                        pillClass="bg-white border border-neutral-200 text-neutral-700"
                       />
                     </div>
                   )}
@@ -556,13 +574,6 @@ export function PublicCreatorProfile({
               />
             )}
 
-            {(profile.instagramUrl || profile.youtubeUrl) && (
-              <SocialCard
-                name={firstName}
-                instagramUrl={profile.instagramUrl}
-                youtubeUrl={profile.youtubeUrl}
-              />
-            )}
           </aside>
         </div>
       </section>
@@ -778,32 +789,30 @@ function SectionTitle({
 
 function PortfolioTile({
   video,
-  fallbackGradient,
-  fallbackText,
   isPlayingElsewhere,
   onPlay,
   onStop,
 }: {
   video: PortfolioVideoApi;
-  fallbackGradient: string;
-  fallbackText: string;
   isPlayingElsewhere: boolean;
   onPlay: () => void;
   onStop: () => void;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
-  const initials = getInitials(fallbackText);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [duration, setDuration] = useState<string | null>(null);
 
   // Stop this tile when another starts playing
-  const prevElsewhere = useRef(false);
-  if (isPlayingElsewhere && !prevElsewhere.current && playing) {
-    const v = ref.current;
-    if (v) { v.pause(); v.currentTime = 0; }
-  }
-  prevElsewhere.current = isPlayingElsewhere;
+  useEffect(() => {
+    if (isPlayingElsewhere) {
+      const v = ref.current;
+      if (v && !v.paused) {
+        v.pause();
+        v.currentTime = 0;
+      }
+    }
+  }, [isPlayingElsewhere]);
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -827,20 +836,10 @@ function PortfolioTile({
 
   return (
     <div className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-neutral-900 shadow-sm ring-1 ring-neutral-200 transition hover:shadow-md">
-      {/* Gradient shown until playing */}
-      <div
-        className={cn(
-          "absolute inset-0 flex items-center justify-center bg-gradient-to-br font-display text-5xl font-bold text-white/90 transition-opacity duration-300",
-          fallbackGradient,
-          playing ? "opacity-0 pointer-events-none" : "opacity-100",
-        )}
-      >
-        {initials}
-      </div>
-
       <video
         ref={ref}
         src={video.videoUrl}
+        poster={video.thumbnailUrl ?? undefined}
         className="size-full object-cover"
         loop
         playsInline
@@ -913,21 +912,106 @@ function PortfolioTile({
   );
 }
 
-function DetailGroup({
+type AboutTone =
+  | "rose"
+  | "violet"
+  | "amber"
+  | "sky"
+  | "emerald"
+  | "fuchsia"
+  | "cyan"
+  | "lime"
+  | "neutral";
+
+const ABOUT_TONE: Record<
+  AboutTone,
+  { iconBg: string; iconText: string; pill: string; subText: string }
+> = {
+  rose: {
+    iconBg: "bg-rose-100",
+    iconText: "text-rose-600",
+    pill: "bg-rose-50 text-rose-700 ring-1 ring-rose-100",
+    subText: "text-rose-500",
+  },
+  violet: {
+    iconBg: "bg-violet-100",
+    iconText: "text-violet-600",
+    pill: "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
+    subText: "text-violet-500",
+  },
+  amber: {
+    iconBg: "bg-amber-100",
+    iconText: "text-amber-600",
+    pill: "bg-amber-50 text-amber-800 ring-1 ring-amber-100",
+    subText: "text-amber-600",
+  },
+  sky: {
+    iconBg: "bg-sky-100",
+    iconText: "text-sky-600",
+    pill: "bg-sky-50 text-sky-700 ring-1 ring-sky-100",
+    subText: "text-sky-500",
+  },
+  emerald: {
+    iconBg: "bg-emerald-100",
+    iconText: "text-emerald-600",
+    pill: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+    subText: "text-emerald-500",
+  },
+  fuchsia: {
+    iconBg: "bg-fuchsia-100",
+    iconText: "text-fuchsia-600",
+    pill: "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-100",
+    subText: "text-fuchsia-500",
+  },
+  cyan: {
+    iconBg: "bg-cyan-100",
+    iconText: "text-cyan-600",
+    pill: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100",
+    subText: "text-cyan-500",
+  },
+  lime: {
+    iconBg: "bg-lime-100",
+    iconText: "text-lime-700",
+    pill: "bg-lime-50 text-lime-800 ring-1 ring-lime-100",
+    subText: "text-lime-600",
+  },
+  neutral: {
+    iconBg: "bg-neutral-100",
+    iconText: "text-neutral-500",
+    pill: "bg-neutral-50 text-neutral-600 ring-1 ring-neutral-200",
+    subText: "text-neutral-400",
+  },
+};
+
+function AboutGroup({
+  icon: Icon,
   label,
+  tone,
   items,
-  pillClass,
 }: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   label: string;
+  tone: AboutTone;
   items: (string | { label: string; sub?: string | null })[];
-  pillClass?: string;
 }) {
   if (items.length === 0) return null;
+  const t = ABOUT_TONE[tone];
   return (
     <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-        {label}
-      </p>
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex size-6 items-center justify-center rounded-md",
+            t.iconBg,
+            t.iconText,
+          )}
+        >
+          <Icon className="size-3.5" strokeWidth={2.5} />
+        </span>
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+          {label}
+        </p>
+      </div>
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {items.map((it, i) => {
           const isObj = typeof it === "object";
@@ -937,13 +1021,13 @@ function DetailGroup({
             <span
               key={`${text}-${i}`}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium",
-                pillClass ?? "bg-neutral-100 text-neutral-700",
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                t.pill,
               )}
             >
               {text}
               {sub && (
-                <span className="text-[10px] font-medium text-neutral-500">
+                <span className={cn("text-[10px] font-medium", t.subText)}>
                   {sub}
                 </span>
               )}
@@ -1225,70 +1309,3 @@ function PriceChip({
   );
 }
 
-function SocialCard({
-  name,
-  instagramUrl,
-  youtubeUrl,
-}: {
-  name: string;
-  instagramUrl?: string | null;
-  youtubeUrl?: string | null;
-}) {
-  const items = [
-    instagramUrl
-      ? {
-          href: instagramUrl,
-          icon: Instagram,
-          label: instagramUrl
-            .replace(/^https?:\/\/(www\.)?instagram\.com\//, "@")
-            .replace(/\/$/, ""),
-          tone: "bg-gradient-to-br from-rose-500 via-fuchsia-500 to-violet-500",
-        }
-      : null,
-    youtubeUrl
-      ? {
-          href: youtubeUrl,
-          icon: Youtube,
-          label: `${name} on YouTube`,
-          tone: "bg-red-600",
-        }
-      : null,
-  ].filter((x): x is NonNullable<typeof x> => x !== null);
-
-  if (items.length === 0) return null;
-
-  return (
-    <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-neutral-900">
-        Find {name} elsewhere
-      </p>
-      <div className="mt-3 space-y-2">
-        {items.map((it) => {
-          const Icon = it.icon;
-          return (
-            <a
-              key={it.href}
-              href={it.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-xl border border-neutral-200 px-3 py-2.5 transition hover:border-neutral-300"
-            >
-              <span
-                className={cn(
-                  "flex size-8 items-center justify-center rounded-md text-white",
-                  it.tone,
-                )}
-              >
-                <Icon className="size-4" />
-              </span>
-              <span className="flex-1 truncate text-sm font-medium text-neutral-800">
-                {it.label}
-              </span>
-              <ArrowRight className="size-3.5 text-neutral-400" />
-            </a>
-          );
-        })}
-      </div>
-    </div>
-  );
-}

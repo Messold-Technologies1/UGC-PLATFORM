@@ -145,6 +145,17 @@ export function buildListCreatorsWhere(
     });
   }
 
+  const search = query.search?.trim();
+  if (search) {
+    clauses.push({
+      OR: [
+        { displayName: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+        { bio: { contains: search, mode: 'insensitive' } },
+      ],
+    });
+  }
+
   if (query.gender !== undefined) {
     clauses.push({ gender: query.gender });
   }

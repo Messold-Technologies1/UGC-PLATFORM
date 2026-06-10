@@ -1084,7 +1084,7 @@ export class CreatorProfileService {
   }
 
   async getCreatorById(
-    viewerUserId: string,
+    viewerUserId: string | null,
     id: string,
   ): Promise<CreatorProfileResponseDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
@@ -1103,8 +1103,9 @@ export class CreatorProfileService {
     ).creatorApproval;
     const status = approval?.status;
     const isApproved = status === ApprovalStatus.APPROVED;
-    const isOwner = profile.userId === viewerUserId;
-    const admin = await this.isAdminUser(viewerUserId);
+    const isOwner = viewerUserId !== null && profile.userId === viewerUserId;
+    const admin =
+      viewerUserId !== null && (await this.isAdminUser(viewerUserId));
 
     if (!isApproved && !isOwner && !admin) {
       throw new NotFoundException('Creator not found');

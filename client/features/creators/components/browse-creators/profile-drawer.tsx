@@ -26,6 +26,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import type { Creator } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
@@ -40,6 +41,13 @@ interface ProfileDrawerProps {
   onClose: () => void;
 
   creator: Creator | null;
+
+  /**
+   * When true, the "Place order" button redirects guests to the brand register
+   * page instead of opening the order/payment modal. Used by the public
+   * landing-page browse section.
+   */
+  landingPage?: boolean;
 }
 
 const TABS = [
@@ -604,7 +612,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   open,
   onClose,
   creator,
+  landingPage = false,
 }: ProfileDrawerProps) {
+  const router = useRouter();
   const lastCreatorRef = useRef(creator);
   const lastIdRef = useRef(creatorId);
   if (creator) lastCreatorRef.current = creator;
@@ -885,9 +895,13 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           </div>
           <button
             type="button"
-            className={`dr-btn dr-btn-primary flex-1 ${!profile || isProfileLoading || isProfileError ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={!profile || isProfileLoading || isProfileError}
+            className={`dr-btn dr-btn-primary flex-1 ${!landingPage && (!profile || isProfileLoading || isProfileError) ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={!landingPage && (!profile || isProfileLoading || isProfileError)}
             onClick={() => {
+              if (landingPage) {
+                router.push("/register/brand");
+                return;
+              }
               if (isProfileError) {
                 toast.error("Could not load creator packages. Try again.");
                 return;

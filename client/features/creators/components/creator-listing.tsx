@@ -10,9 +10,11 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
@@ -38,6 +40,7 @@ import {
 } from "../hooks/use-creators-list-query";
 
 const BROWSE_LIST_LIMIT = 24;
+const LANDING_PAGE_CREATOR_LIMIT = 10;
 
 const virtuosoGridComponents = {
   List: forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -208,9 +211,11 @@ export function CreatorListing({
     });
   }, [router, searchParamsKey]);
 
+  const listLimit = landingPage ? LANDING_PAGE_CREATOR_LIMIT : BROWSE_LIST_LIMIT;
+
   const apiFilters = useMemo(
     () => ({
-      limit: BROWSE_LIST_LIMIT,
+      limit: listLimit,
       search: search.trim() || undefined,
       city: filters.city || undefined,
       categories: filters.categories,
@@ -244,7 +249,7 @@ export function CreatorListing({
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
-    [filters, search],
+    [filters, search, listLimit],
   );
 
   const {
@@ -261,7 +266,7 @@ export function CreatorListing({
     initialData:
       initialData &&
       initialData.page === 1 &&
-      initialData.limit === BROWSE_LIST_LIMIT &&
+      initialData.limit === listLimit &&
       filtersEqual(parsedInitial.filters, DEFAULT_FILTERS) &&
       parsedInitial.search === ""
         ? initialData
@@ -271,6 +276,13 @@ export function CreatorListing({
   const creators = useMemo(
     () => data?.pages.flatMap((pageData) => pageData.creators) ?? [],
     [data?.pages],
+  );
+  const visibleCreators = useMemo(
+    () =>
+      landingPage
+        ? creators.slice(0, LANDING_PAGE_CREATOR_LIMIT)
+        : creators,
+    [creators, landingPage],
   );
   const { categoryOptions } = useMemo(
     () => deriveCreatorFilterOptions(creators),
@@ -305,11 +317,16 @@ export function CreatorListing({
 
   const displayedCount = data?.pages.at(-1)?.total ?? 0;
   const loadedCount = creators.length;
+  const showLandingLoadMore =
+    landingPage &&
+    (displayedCount > LANDING_PAGE_CREATOR_LIMIT ||
+      loadedCount > LANDING_PAGE_CREATOR_LIMIT ||
+      hasNextPage);
 
   const handleEndReached = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
+    if (landingPage || !hasNextPage || isFetchingNextPage) return;
     void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, landingPage]);
 
   if (isError && !data) {
     return (
@@ -345,6 +362,7 @@ export function CreatorListing({
         isPending={isPending && !data}
         onClear={handleResetFilters}
         categoryOptions={categoryOptions}
+        landingPage={landingPage}
       />
 
       <div className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6">
@@ -359,19 +377,21 @@ export function CreatorListing({
               </div>
             ))}
           </div>
-        ) : creators.length > 0 ? (
+        ) : visibleCreators.length > 0 ? (
           <div className="flex flex-col gap-4">
             <VirtuosoGrid
               useWindowScroll
-              totalCount={creators.length}
+              totalCount={visibleCreators.length}
               components={virtuosoGridComponents}
-              endReached={handleEndReached}
+              endReached={landingPage ? undefined : handleEndReached}
               increaseViewportBy={{ top: 800, bottom: 1200 }}
               computeItemKey={(index) =>
-                creators[index]?.id ? `${creators[index].id}-${index}` : index
+                visibleCreators[index]?.id
+                  ? `${visibleCreators[index].id}-${index}`
+                  : index
               }
               itemContent={(index) => {
-                const creator = creators[index];
+                const creator = visibleCreators[index];
                 if (!creator) return null;
 
                 return (
@@ -385,7 +405,13 @@ export function CreatorListing({
             />
 
             <div className="flex min-h-16 items-center justify-center pb-4 pt-2">
-              {isFetchingNextPage ? (
+              {landingPage ? (
+                showLandingLoadMore ? (
+                  <Button asChild size="lg" className="min-w-[180px] rounded-xl mt-6">
+                    <Link href="/register/brand">Load more</Link>
+                  </Button>
+                ) : null
+              ) : isFetchingNextPage ? (
                 <div
                   className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
                   aria-label="Loading more creators"

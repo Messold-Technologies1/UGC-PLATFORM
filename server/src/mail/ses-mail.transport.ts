@@ -16,19 +16,38 @@ export type SesSendParams = {
 @Injectable()
 export class SesMailTransport {
   private readonly logger = new Logger(SesMailTransport.name);
-  private readonly client: SESv2Client;
+  private readonly client: SESv2Client | null;
 
   constructor(private readonly config: ConfigService) {
+    const accessKeyId = this.config.get<string>('AWS_SES_ACCESS_KEY_ID')?.trim();
+    const secretAccessKey = this.config
+      .get<string>('AWS_SES_SECRET_ACCESS_KEY')
+      ?.trim();
+
+    if (!accessKeyId || !secretAccessKey) {
+      this.logger.warn(
+        'AWS_SES_ACCESS_KEY_ID / AWS_SES_SECRET_ACCESS_KEY not set; outbound email disabled',
+      );
+      this.client = null;
+      return;
+    }
+
     this.client = new SESv2Client({
       region: this.config.get<string>('AWS_REGION'),
       credentials: {
-        accessKeyId: this.config.get<string>('AWS_ACCESS_KEY_ID')!,
-        secretAccessKey: this.config.get<string>('AWS_SECRET_ACCESS_KEY')!,
+        accessKeyId,
+        secretAccessKey,
       },
     });
   }
 
   async send(params: SesSendParams): Promise<void> {
+    if (!this.client) {
+      throw new Error(
+        'AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY are required to send email',
+      );
+    }
+
     const from = this.config.get<string>('SES_FROM_EMAIL')?.trim();
     if (!from) {
       throw new Error('SES_FROM_EMAIL is not configured');

@@ -19,8 +19,8 @@ describe('StorageService', () => {
     getOrThrow: jest.fn((key: string) => {
       const map: Record<string, string> = {
         AWS_REGION: 'us-east-1',
-        AWS_ACCESS_KEY_ID: 'test',
-        AWS_SECRET_ACCESS_KEY: 'test',
+        AWS_S3_ACCESS_KEY_ID: 'test',
+        AWS_S3_SECRET_ACCESS_KEY: 'test',
         S3_BUCKET_NAME: 'bucket',
         CDN_BASE_URL: 'https://cdn.example.com/',
       };

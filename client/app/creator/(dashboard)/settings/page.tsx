@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { UserCircle, Bell, CreditCard, Shield } from "lucide-react";
+import { UserCircle, Bell, CreditCard } from "lucide-react";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -24,12 +24,6 @@ const sections = [
     icon: CreditCard,
     title: "Payout",
     description: "Configure your payout method and view payment history.",
-  },
-  {
-    icon: Shield,
-    title: "Security",
-    description:
-      "Manage your password, two-factor authentication, and sessions.",
   },
 ];
 

@@ -23,7 +23,10 @@ export class MailService {
   /** Returns true when outbound email is configured and enabled. */
   isEnabled(): boolean {
     if (this.config.get<string>('MAIL_ENABLED') === 'false') return false;
-    return Boolean(this.config.get<string>('SES_FROM_EMAIL')?.trim());
+    const from = this.config.get<string>('SES_FROM_EMAIL')?.trim();
+    const sesKey = this.config.get<string>('AWS_SES_ACCESS_KEY_ID')?.trim();
+    const sesSecret = this.config.get<string>('AWS_SES_SECRET_ACCESS_KEY')?.trim();
+    return Boolean(from && sesKey && sesSecret);
   }
 
   async send(params: SendMailParams): Promise<void> {

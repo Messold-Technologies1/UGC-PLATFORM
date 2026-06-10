@@ -16,6 +16,9 @@ export const ENDPOINTS = {
     SIGNUP_BRAND_PRONUNCIATION_PRESIGN:
       "/api/auth/signup/presign/brand-pronunciation",
     REFRESH: "/api/auth/refresh",
+    FORGOT_PASSWORD: "/api/auth/forgot-password",
+    RESET_PASSWORD: "/api/auth/reset-password",
+    CHANGE_PASSWORD: "/api/auth/password",
     ME: "/api/auth/me",
     LOGOUT: "/api/auth/logout",
   },

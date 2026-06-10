@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, LogOut, Video, UserRound } from "lucide-react";
+import { useState } from "react";
+import { Building2, LogOut, Shield, Video, UserRound } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -26,6 +27,7 @@ import {
   workspaceSetupHref,
 } from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
+import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
 
 function workspaceItemClass(isActive: boolean) {
   return cn(
@@ -63,6 +65,13 @@ export function NavbarProfileMenu({
     pathname === brandProfileHref || pathname.startsWith("/brand/");
   const isCreatorPath =
     pathname === creatorProfileHref || pathname.startsWith("/creator/");
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const showPasswordSecurity =
+    !pathname.startsWith("/admin") &&
+    (isBrandPath ||
+      isCreatorPath ||
+      activeWorkspace === "BRAND" ||
+      activeWorkspace === "CREATOR");
   const canContinueAsBrand = canSwitchToWorkspace(user, "BRAND");
   const canContinueAsCreator = canSwitchToWorkspace(user, "CREATOR");
   const canTryAsBrand = canSetUpWorkspace(user, "BRAND");
@@ -91,7 +100,8 @@ export function NavbarProfileMenu({
 
   if (onNavigate) {
     return (
-      <div className={cn("space-y-1", className)}>
+      <>
+        <div className={cn("space-y-1", className)}>
         <ThemeAppearancePanel className="mb-2" />
         <div
           className={cn(
@@ -219,6 +229,42 @@ export function NavbarProfileMenu({
             ) : null}
           </div>
         ) : null}
+        {!pathname.startsWith("/admin") && (
+          <>
+            <div
+              className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
+            >
+              <Link
+                href={
+                  activeWorkspace === "BRAND"
+                    ? brandProfileHref
+                    : creatorProfileHref
+                }
+                className={cn(
+                  accountMenuItemClass,
+                  "w-full",
+                  (pathname === brandProfileHref ||
+                    pathname === creatorProfileHref) &&
+                    "bg-accent/80 text-accent-foreground",
+                )}
+                onClick={wrapNavigate()}
+              >
+                <UserRound className="size-4 shrink-0" aria-hidden />
+                Profile
+              </Link>
+              {showPasswordSecurity ? (
+                <button
+                  type="button"
+                  className={cn(accountMenuItemClass, "w-full text-left")}
+                  onClick={wrapNavigate(() => setPasswordDialogOpen(true))}
+                >
+                  <Shield className="size-4 shrink-0" aria-hidden />
+                  Password &amp; security
+                </button>
+              ) : null}
+            </div>
+          </>
+        )}
         <div
           className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
         >
@@ -240,12 +286,18 @@ export function NavbarProfileMenu({
             {isLoggingOut ? "Logging out…" : "Log out"}
           </button>
         </div>
-      </div>
+        </div>
+        <ChangePasswordDialog
+          open={passwordDialogOpen}
+          onOpenChange={setPasswordDialogOpen}
+        />
+      </>
     );
   }
 
   return (
-    <div className={cn("relative", className)}>
+    <>
+      <div className={cn("relative", className)}>
       <div className="group relative">
         <button
           type="button"
@@ -403,24 +455,40 @@ export function NavbarProfileMenu({
                 </>
               ) : null}
               {!pathname.startsWith("/admin") && (
-                <Link
-                  href={
-                    activeWorkspace === "BRAND"
-                      ? brandProfileHref
-                      : creatorProfileHref
-                  }
-                  role="menuitem"
-                  className={cn(
-                    accountMenuItemClass,
-                    "w-full",
-                    (pathname === brandProfileHref ||
-                      pathname === creatorProfileHref) &&
-                      "bg-accent/80 text-accent-foreground",
-                  )}
-                >
-                  <UserRound className="size-4" aria-hidden />
-                  Profile
-                </Link>
+                <>
+                  <Link
+                    href={
+                      activeWorkspace === "BRAND"
+                        ? brandProfileHref
+                        : creatorProfileHref
+                    }
+                    role="menuitem"
+                    className={cn(
+                      accountMenuItemClass,
+                      "w-full",
+                      (pathname === brandProfileHref ||
+                        pathname === creatorProfileHref) &&
+                        "bg-accent/80 text-accent-foreground",
+                    )}
+                  >
+                    <UserRound className="size-4" aria-hidden />
+                    Profile
+                  </Link>
+                  {showPasswordSecurity ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={cn(
+                        accountMenuItemClass,
+                        "w-full text-left",
+                      )}
+                      onClick={() => setPasswordDialogOpen(true)}
+                    >
+                      <Shield className="size-4" aria-hidden />
+                      Password &amp; security
+                    </button>
+                  ) : null}
+                </>
               )}
               <div
                 className="my-1 h-px bg-border/60"
@@ -449,6 +517,11 @@ export function NavbarProfileMenu({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      <ChangePasswordDialog
+        open={passwordDialogOpen}
+        onOpenChange={setPasswordDialogOpen}
+      />
+    </>
   );
 }

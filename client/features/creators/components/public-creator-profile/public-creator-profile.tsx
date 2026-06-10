@@ -24,6 +24,8 @@ import {
   Users,
   Layers,
   Tag,
+  User,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
@@ -71,6 +73,164 @@ function formatINR(value: number): string {
 
 function handleFromName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ".");
+}
+
+type AboutTone =
+  | "rose"
+  | "violet"
+  | "amber"
+  | "sky"
+  | "emerald"
+  | "fuchsia"
+  | "cyan"
+  | "lime"
+  | "pink"
+  | "orange"
+  | "neutral";
+
+type AboutSectionDef = {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  label: string;
+  tone: AboutTone;
+  items: (string | { label: string; sub?: string | null })[];
+  wide?: boolean;
+};
+
+const ABOUT_TONE: Record<
+  AboutTone,
+  { iconBg: string; iconText: string; subText: string }
+> = {
+  rose: {
+    iconBg: "bg-rose-100",
+    iconText: "text-rose-600",
+    subText: "text-neutral-500",
+  },
+  violet: {
+    iconBg: "bg-violet-100",
+    iconText: "text-violet-600",
+    subText: "text-neutral-500",
+  },
+  amber: {
+    iconBg: "bg-amber-100",
+    iconText: "text-amber-600",
+    subText: "text-neutral-500",
+  },
+  sky: {
+    iconBg: "bg-sky-100",
+    iconText: "text-sky-600",
+    subText: "text-neutral-500",
+  },
+  emerald: {
+    iconBg: "bg-emerald-100",
+    iconText: "text-emerald-600",
+    subText: "text-neutral-500",
+  },
+  fuchsia: {
+    iconBg: "bg-fuchsia-100",
+    iconText: "text-fuchsia-600",
+    subText: "text-neutral-500",
+  },
+  cyan: {
+    iconBg: "bg-cyan-100",
+    iconText: "text-cyan-600",
+    subText: "text-neutral-500",
+  },
+  lime: {
+    iconBg: "bg-lime-100",
+    iconText: "text-lime-700",
+    subText: "text-neutral-500",
+  },
+  pink: {
+    iconBg: "bg-pink-100",
+    iconText: "text-pink-600",
+    subText: "text-neutral-500",
+  },
+  orange: {
+    iconBg: "bg-orange-100",
+    iconText: "text-orange-600",
+    subText: "text-neutral-500",
+  },
+  neutral: {
+    iconBg: "bg-neutral-100",
+    iconText: "text-neutral-500",
+    subText: "text-neutral-400",
+  },
+};
+
+function AboutSectionsGrid({
+  sections,
+}: {
+  sections: AboutSectionDef[];
+}) {
+  if (sections.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
+      {sections.map((section) => (
+        <AboutGroup key={section.label} {...section} />
+      ))}
+    </div>
+  );
+}
+
+function AboutGroup({
+  icon: Icon,
+  label,
+  tone,
+  items,
+  wide = false,
+}: AboutSectionDef) {
+  if (items.length === 0) return null;
+  const t = ABOUT_TONE[tone];
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-neutral-100 bg-neutral-50/50 p-4",
+        wide && "sm:col-span-2",
+      )}
+    >
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-lg",
+            t.iconBg,
+            t.iconText,
+          )}
+        >
+          <Icon className="size-3.5" strokeWidth={2.5} />
+        </span>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
+          {label}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {items.map((it, i) => {
+          const isObj = typeof it === "object";
+          const text = isObj ? it.label : it;
+          const sub = isObj ? it.sub : null;
+          return (
+            <span
+              key={`${text}-${i}`}
+              className="inline-flex max-w-full items-center gap-1 rounded-md border border-neutral-200/80 bg-white px-2.5 py-1 text-[11px] font-medium leading-snug text-neutral-700 shadow-sm"
+            >
+              <span>{text}</span>
+              {sub && (
+                <span
+                  className={cn(
+                    "shrink-0 text-[10px] font-normal",
+                    t.subText,
+                  )}
+                >
+                  {sub}
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function PublicCreatorProfile({
@@ -128,11 +288,128 @@ export function PublicCreatorProfile({
   const contentStyles = facetsByDim.CONTENT_STYLE ?? [];
   const productionCapabilities = facetsByDim.PRODUCTION_CAPABILITY ?? [];
   const categoryExperience = facetsByDim.CATEGORY_EXPERIENCE ?? [];
+  const appearance = facetsByDim.APPEARANCE ?? [];
+  const occupation = facetsByDim.OCCUPATION ?? [];
   const canCreateWith = facetsByDim.CAN_CREATE_WITH ?? [];
   const brandsWorkedWith =
     profile.highlights && profile.highlights.length > 0
       ? profile.highlights.map((h) => ({ slug: h, label: h }))
       : facetsByDim.BRANDS_WORKED_WITH ?? [];
+
+  const aboutSections = useMemo(() => {
+    const sections: AboutSectionDef[] = [];
+
+    if (contentCategories.length > 0) {
+      sections.push({
+        icon: Tag,
+        label: "Content category",
+        tone: "rose",
+        items: contentCategories.map((f) => f.label),
+        wide: contentCategories.length > 3,
+      });
+    }
+    if (contentFormats.length > 0) {
+      sections.push({
+        icon: Film,
+        label: "Content formats",
+        tone: "violet",
+        items: contentFormats.map((f) => f.label),
+      });
+    }
+    if (contentStyles.length > 0) {
+      sections.push({
+        icon: Sparkles,
+        label: "Style",
+        tone: "amber",
+        items: contentStyles.map((f) => f.label),
+      });
+    }
+    if (appearance.length > 0) {
+      sections.push({
+        icon: User,
+        label: "Appearance",
+        tone: "pink",
+        items: appearance.map((f) => f.label),
+      });
+    }
+    if (occupation.length > 0) {
+      sections.push({
+        icon: Briefcase,
+        label: "Occupation",
+        tone: "orange",
+        items: occupation.map((f) => f.label),
+      });
+    }
+    if (languages.length > 0) {
+      sections.push({
+        icon: Globe,
+        label: "Languages",
+        tone: "sky",
+        items: languages.map((l) => ({
+          label: l.label,
+          sub: l.fluency
+            ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
+            : null,
+        })),
+      });
+    }
+    if (productionCapabilities.length > 0) {
+      sections.push({
+        icon: CheckCircle2,
+        label: "Production",
+        tone: "emerald",
+        items: productionCapabilities.map((f) => f.label),
+      });
+    }
+    if (categoryExperience.length > 0) {
+      sections.push({
+        icon: ShieldCheck,
+        label: "Industry experience",
+        tone: "fuchsia",
+        items: categoryExperience.map((f) => f.label),
+        wide: categoryExperience.length > 2,
+      });
+    }
+    if (canCreateWith.length > 0) {
+      sections.push({
+        icon: Users,
+        label: "Can create with",
+        tone: "cyan",
+        items: canCreateWith.map((f) => f.label),
+      });
+    }
+    sections.push({
+      icon: MapPinned,
+      label: "On-location shoot",
+      tone: profile.onLocationAvailable ? "emerald" : "neutral",
+      items: [
+        profile.onLocationAvailable ? "Available" : "Not available",
+      ],
+    });
+    if (brandsWorkedWith.length > 0) {
+      sections.push({
+        icon: Sparkles,
+        label: "Worked with",
+        tone: "lime",
+        items: brandsWorkedWith.map((b) => b.label),
+        wide: true,
+      });
+    }
+
+    return sections;
+  }, [
+    appearance,
+    brandsWorkedWith,
+    canCreateWith,
+    categoryExperience,
+    contentCategories,
+    contentFormats,
+    contentStyles,
+    languages,
+    occupation,
+    productionCapabilities,
+    profile.onLocationAvailable,
+  ]);
 
   const packages = profile.packages ?? [];
   const addOns = profile.addOns ?? [];
@@ -196,14 +473,24 @@ export function PublicCreatorProfile({
   return (
     <div className="min-h-screen bg-white font-sans text-neutral-900 antialiased">
       {/* HEADER */}
-      <header className="border-b border-neutral-200/70 bg-white/95 backdrop-blur sticky top-0 z-40">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="flex size-7 items-center justify-center rounded-md bg-gradient-to-br from-rose-500 to-red-600 text-white">
-              <Sparkles className="size-3.5" strokeWidth={2.5} />
-            </span>
-            <span className="font-semibold tracking-tight text-neutral-900">
-              GoCollab
+      <header className="sticky top-0 z-40 overflow-visible border-b border-neutral-200/70 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between overflow-visible px-6 py-4">
+          <Link
+            href="/"
+            className="flex items-center gap-3 overflow-visible"
+          >
+            <span className="flex h-9 shrink-0 items-center overflow-visible sm:h-10">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static public asset; matches navbar brand mark */}
+              <img
+                src="/brand-logo.png"
+                alt="GoCollab"
+                width={688}
+                height={180}
+                className="h-16 w-auto max-w-[min(320px,calc(100vw-180px))] object-contain object-left sm:h-16 md:h-[4.5rem]"
+                loading="eager"
+                decoding="async"
+                draggable={false}
+              />
             </span>
             <span className="mx-2 h-4 w-px bg-neutral-300" />
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
@@ -236,7 +523,6 @@ export function PublicCreatorProfile({
               />
 
               <div className="flex min-w-0 flex-1 flex-col gap-3">
-                <p className="text-sm font-medium text-neutral-500">{handle}</p>
                 <h1 className="flex items-center gap-2 font-display text-4xl font-bold leading-tight tracking-tight text-neutral-900 sm:text-5xl">
                   <span className="truncate">{profile.displayName}</span>
                   <VerifiedBadge />
@@ -399,89 +685,7 @@ export function PublicCreatorProfile({
                   </div>
                 )}
 
-                <div className="grid gap-5 p-5 sm:grid-cols-2">
-                  {contentCategories.length > 0 && (
-                    <AboutGroup
-                      icon={Tag}
-                      label="Content category"
-                      tone="rose"
-                      items={contentCategories.map((f) => f.label)}
-                    />
-                  )}
-                  {contentFormats.length > 0 && (
-                    <AboutGroup
-                      icon={Film}
-                      label="Content formats"
-                      tone="violet"
-                      items={contentFormats.map((f) => f.label)}
-                    />
-                  )}
-                  {contentStyles.length > 0 && (
-                    <AboutGroup
-                      icon={Sparkles}
-                      label="Style"
-                      tone="amber"
-                      items={contentStyles.map((f) => f.label)}
-                    />
-                  )}
-                  {languages.length > 0 && (
-                    <AboutGroup
-                      icon={Globe}
-                      label="Languages"
-                      tone="sky"
-                      items={languages.map((l) => ({
-                        label: l.label,
-                        sub: l.fluency
-                          ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
-                          : null,
-                      }))}
-                    />
-                  )}
-                  {productionCapabilities.length > 0 && (
-                    <AboutGroup
-                      icon={CheckCircle2}
-                      label="Production"
-                      tone="emerald"
-                      items={productionCapabilities.map((f) => f.label)}
-                    />
-                  )}
-                  {categoryExperience.length > 0 && (
-                    <AboutGroup
-                      icon={ShieldCheck}
-                      label="Industry experience"
-                      tone="fuchsia"
-                      items={categoryExperience.map((f) => f.label)}
-                    />
-                  )}
-                  {canCreateWith.length > 0 && (
-                    <AboutGroup
-                      icon={Users}
-                      label="Can create with"
-                      tone="cyan"
-                      items={canCreateWith.map((f) => f.label)}
-                    />
-                  )}
-                  <AboutGroup
-                    icon={MapPinned}
-                    label="On-location shoot"
-                    tone={profile.onLocationAvailable ? "emerald" : "neutral"}
-                    items={[
-                      profile.onLocationAvailable
-                        ? "Available"
-                        : "Not available",
-                    ]}
-                  />
-                  {brandsWorkedWith.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <AboutGroup
-                        icon={Sparkles}
-                        label="Worked with"
-                        tone="lime"
-                        items={brandsWorkedWith.map((b) => b.label)}
-                      />
-                    </div>
-                  )}
-                </div>
+                <AboutSectionsGrid sections={aboutSections} />
               </div>
             </div>
 
@@ -907,133 +1111,6 @@ function PortfolioTile({
             }
           </button>
         )}
-      </div>
-    </div>
-  );
-}
-
-type AboutTone =
-  | "rose"
-  | "violet"
-  | "amber"
-  | "sky"
-  | "emerald"
-  | "fuchsia"
-  | "cyan"
-  | "lime"
-  | "neutral";
-
-const ABOUT_TONE: Record<
-  AboutTone,
-  { iconBg: string; iconText: string; pill: string; subText: string }
-> = {
-  rose: {
-    iconBg: "bg-rose-100",
-    iconText: "text-rose-600",
-    pill: "bg-rose-50 text-rose-700 ring-1 ring-rose-100",
-    subText: "text-rose-500",
-  },
-  violet: {
-    iconBg: "bg-violet-100",
-    iconText: "text-violet-600",
-    pill: "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
-    subText: "text-violet-500",
-  },
-  amber: {
-    iconBg: "bg-amber-100",
-    iconText: "text-amber-600",
-    pill: "bg-amber-50 text-amber-800 ring-1 ring-amber-100",
-    subText: "text-amber-600",
-  },
-  sky: {
-    iconBg: "bg-sky-100",
-    iconText: "text-sky-600",
-    pill: "bg-sky-50 text-sky-700 ring-1 ring-sky-100",
-    subText: "text-sky-500",
-  },
-  emerald: {
-    iconBg: "bg-emerald-100",
-    iconText: "text-emerald-600",
-    pill: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-    subText: "text-emerald-500",
-  },
-  fuchsia: {
-    iconBg: "bg-fuchsia-100",
-    iconText: "text-fuchsia-600",
-    pill: "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-100",
-    subText: "text-fuchsia-500",
-  },
-  cyan: {
-    iconBg: "bg-cyan-100",
-    iconText: "text-cyan-600",
-    pill: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100",
-    subText: "text-cyan-500",
-  },
-  lime: {
-    iconBg: "bg-lime-100",
-    iconText: "text-lime-700",
-    pill: "bg-lime-50 text-lime-800 ring-1 ring-lime-100",
-    subText: "text-lime-600",
-  },
-  neutral: {
-    iconBg: "bg-neutral-100",
-    iconText: "text-neutral-500",
-    pill: "bg-neutral-50 text-neutral-600 ring-1 ring-neutral-200",
-    subText: "text-neutral-400",
-  },
-};
-
-function AboutGroup({
-  icon: Icon,
-  label,
-  tone,
-  items,
-}: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  label: string;
-  tone: AboutTone;
-  items: (string | { label: string; sub?: string | null })[];
-}) {
-  if (items.length === 0) return null;
-  const t = ABOUT_TONE[tone];
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-md",
-            t.iconBg,
-            t.iconText,
-          )}
-        >
-          <Icon className="size-3.5" strokeWidth={2.5} />
-        </span>
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-          {label}
-        </p>
-      </div>
-      <div className="mt-2.5 flex flex-wrap gap-1.5">
-        {items.map((it, i) => {
-          const isObj = typeof it === "object";
-          const text = isObj ? it.label : it;
-          const sub = isObj ? it.sub : null;
-          return (
-            <span
-              key={`${text}-${i}`}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-                t.pill,
-              )}
-            >
-              {text}
-              {sub && (
-                <span className={cn("text-[10px] font-medium", t.subText)}>
-                  {sub}
-                </span>
-              )}
-            </span>
-          );
-        })}
       </div>
     </div>
   );

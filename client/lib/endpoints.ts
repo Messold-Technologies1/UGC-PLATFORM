@@ -38,6 +38,8 @@ export const ENDPOINTS = {
     SUGGESTIONS_RESTRICTIONS: "/api/creators/suggestions/restrictions",
     RATING_REVIEWS: (id: string) =>
       `/api/creators/${encodeURIComponent(id)}/rating-reviews`,
+    PUBLIC_PROFILE: (slug: string) =>
+      `/api/creators/public/${encodeURIComponent(slug)}`,
   },
   BRANDS: {
     PROFILE: "/api/brands/profile",
@@ -161,6 +163,10 @@ export function creatorPortfolioPublicVideosPath(creatorId: string): string {
 
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;
+}
+
+export function creatorsByPublicSlugPath(slug: string): string {
+  return `/api/creators/public/${encodeURIComponent(slug)}`;
 }
 
 export function suggestedCreatorsPath(id: string): string {

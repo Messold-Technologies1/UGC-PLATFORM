@@ -35,6 +35,7 @@ import { StatCard } from "./stat-card";
 import { PortfolioCard } from "./portfolio-card";
 import { DashboardPayoutDetails } from "./dashboard-payout-details";
 import { CreatorReviewsCard } from "./creator-reviews-card";
+import { creatorPublicProfilePath } from "@/features/creators/lib/creator-public-profile-url";
 
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -308,7 +309,7 @@ export function CreatorAccountProfileView({
                   <div className="flex items-center gap-3">
                     <Button variant="outline" size="lg" className="gap-2" asChild>
                       <Link
-                        href={`/c/${profile.id}`}
+                        href={creatorPublicProfilePath(profile.displayName)}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

@@ -21,6 +21,7 @@ export function PillButton({
   className,
   arrow = false,
   href,
+  onClick,
 }: {
   variant?: Variant;
   children: ReactNode;
@@ -28,6 +29,7 @@ export function PillButton({
   arrow?: boolean;
   /** When set, renders a Next.js link (recommended for landing CTAs). */
   href?: string;
+  onClick?: () => void;
 }) {
   const cls = cn(
     "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-semibold whitespace-nowrap transition-all duration-200",
@@ -43,14 +45,14 @@ export function PillButton({
 
   if (href) {
     return (
-      <Link href={href} className={cls}>
+      <Link href={href} className={cls} onClick={onClick}>
         {inner}
       </Link>
     );
   }
 
   return (
-    <button type="button" className={cls}>
+    <button type="button" className={cls} onClick={onClick}>
       {inner}
     </button>
   );

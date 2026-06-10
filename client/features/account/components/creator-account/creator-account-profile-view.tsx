@@ -3,32 +3,41 @@
 import { useState, Fragment } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
-  BarChart3,
+  Building2,
+  Calendar,
   CheckCircle,
   ClipboardList,
   ExternalLink,
   Globe,
   Instagram,
+  Mail,
   MapPin,
   MessageSquareText,
   Pencil,
+  Phone,
+  User,
   ShoppingBag,
   Star,
   Video,
-  Cpu,
+  Sparkles,
   Wallet,
   Youtube,
 } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { CreatorPayoutDetailsBanner } from "@/components/dashboard/creator-payout-details-banner";
-import { TikTokIcon, SnapchatIcon } from "@/components/icons/social-icons";
+import { SnapchatIcon } from "@/components/icons/social-icons";
+import { formatINR } from "@/lib/format-currency";
+import {
+  PLATFORM_FEE_RATE,
+  calculateOrderEarningsPreview,
+  genderOptions,
+} from "@/features/creators/hooks/creator-profile-form-utils";
 import { VerifiedBadge, GreenCheck } from "@/components/icons/status-icons";
 import { StatCard } from "./stat-card";
 import { PortfolioCard } from "./portfolio-card";
@@ -90,8 +99,15 @@ export function CreatorAccountProfileView({
   const displayTags = contentCategories.map((c) => c.label.replace(/\s*\/\s*/g, " & ")).slice(0, 3);
   const extraTagsCount = Math.max(0, contentCategories.length - 3);
 
-  const aiPermissions = profile.facetSelections?.filter(f => f.dimension === "AI_CONTENT_PERMISSION") || [];
   const canCreateWith = profile.facetSelections?.filter(f => f.dimension === "CAN_CREATE_WITH") || [];
+  const industryExperience =
+    profile.facetSelections?.filter(
+      (facet) => facet.dimension === "CATEGORY_EXPERIENCE",
+    ) ?? [];
+  const appearanceFacets =
+    profile.facetSelections?.filter(
+      (facet) => facet.dimension === "APPEARANCE",
+    ) ?? [];
 
   const statsList = [
     {
@@ -155,12 +171,6 @@ export function CreatorAccountProfileView({
       bgColor: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400",
     },
     {
-      platform: "TikTok",
-      url: profile.tiktokUrl,
-      icon: <TikTokIcon className="size-4" />,
-      bgColor: "bg-black",
-    },
-    {
       platform: "YouTube",
       url: profile.youtubeUrl,
       icon: <Youtube className="size-4" />,
@@ -180,21 +190,23 @@ export function CreatorAccountProfileView({
     url: p.url || undefined,
   }));
 
-  const languagesText = profile.profileLanguages?.length
-    ? profile.profileLanguages.map((l) => l.label).join(", ")
-    : "Not specified";
+  const genderLabel = profile.gender
+    ? (genderOptions.find((option) => option.value === profile.gender)?.label ??
+      profile.gender)
+    : null;
+  const ageDisplay =
+    profile.age ?? profile.ageRange ?? profile.ageGroup ?? null;
 
-  const profileDetails = [
-    { label: "Name", value: profile.displayName },
-    {
-      label: "Username",
-      value: profile.displayName.toLowerCase().replace(/\s+/g, "."),
-    },
-    { label: "Location", value: locationString || "Not specified" },
-    { label: "Languages", value: languagesText },
-    // { label: "Time Zone", value: profile.timezone || "Not specified" },
-    { label: "Member Since", value: profile.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "Not specified" },
-  ];
+  const primaryPackage = profile.packages[0];
+  const platformFeePercent = Math.round(PLATFORM_FEE_RATE * 100);
+  const packageEarningsPreview = primaryPackage
+    ? calculateOrderEarningsPreview({
+        packagePriceAmount: primaryPackage.priceAmount,
+        selectedAddOnPrices: (profile.addOns ?? []).map(
+          (addOn) => addOn.priceAmount,
+        ),
+      })
+    : null;
 
   const initials = profile.displayName
     .split(" ")
@@ -380,6 +392,38 @@ export function CreatorAccountProfileView({
               </div>
 
               <ul className="mt-4 space-y-3.5" aria-label="Creator highlights">
+                <li className="flex items-center gap-2.5 text-sm">
+                  <Phone className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground font-semibold">Phone:</strong>{" "}
+                    {profile.phone ?? "Not specified"}
+                  </span>
+                </li>
+
+                <li className="flex items-center gap-2.5 text-sm">
+                  <Mail className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground font-semibold">Email:</strong>{" "}
+                    {profile.contactEmail ?? "Not specified"}
+                  </span>
+                </li>
+
+                <li className="flex items-center gap-2.5 text-sm">
+                  <User className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground font-semibold">Gender:</strong>{" "}
+                    {genderLabel ?? "Not specified"}
+                  </span>
+                </li>
+
+                <li className="flex items-center gap-2.5 text-sm">
+                  <Calendar className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground font-semibold">Age:</strong>{" "}
+                    {ageDisplay ?? "Not specified"}
+                  </span>
+                </li>
+
                 {profile.profileLanguages && profile.profileLanguages.length > 0 && (
                   <li className="flex items-center gap-2.5 text-sm">
                     <Globe className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
@@ -400,19 +444,35 @@ export function CreatorAccountProfileView({
                   </li>
                 )}
 
-                {aiPermissions.length > 0 && (
-                  <li className="flex items-start gap-2.5 text-sm">
-                    <Cpu className="mt-0.5 size-5 shrink-0 text-emerald-600" strokeWidth={2} />
-                    <div className="flex flex-col gap-1">
-                      <strong className="text-foreground font-semibold">AI Training:</strong>
-                      <ul className="list-disc list-outside ml-4 text-muted-foreground space-y-0.5">
-                        {aiPermissions.map((f, i) => (
-                          <li key={i}>{f.label.replace(/^AI\s+/i, '').replace(/\s*\/\s*/g, " & ")}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </li>
-                )}
+                <li className="flex items-center gap-2.5 text-sm">
+                  <Building2 className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground font-semibold">
+                      Industry Experience:
+                    </strong>{" "}
+                    {industryExperience.length > 0
+                      ? industryExperience
+                          .map((facet) =>
+                            facet.label.replace(/\s*\/\s*/g, " & "),
+                          )
+                          .join(", ")
+                      : "Not specified"}
+                  </span>
+                </li>
+
+                <li className="flex items-center gap-2.5 text-sm">
+                  <Sparkles className="size-5 shrink-0 text-blue-600" strokeWidth={2} />
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground font-semibold">Appearance:</strong>{" "}
+                    {appearanceFacets.length > 0
+                      ? appearanceFacets
+                          .map((facet) =>
+                            facet.label.replace(/\s*\/\s*/g, " & "),
+                          )
+                          .join(", ")
+                      : "Not specified"}
+                  </span>
+                </li>
 
                 {locationString && (
                   <li className="flex items-center gap-2.5 text-sm">
@@ -480,6 +540,108 @@ export function CreatorAccountProfileView({
         >
           <motion.section
             variants={fadeInUp}
+            className="rounded-lg border border-border bg-card p-5 shadow-sm"
+            aria-label="Package pricing"
+          >
+            <h3 className="text-base font-bold">Package</h3>
+
+            {primaryPackage ? (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {primaryPackage.name}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold tracking-tight">
+                    {formatINR(Number(primaryPackage.priceAmount) || 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {primaryPackage.deliveryDays} day delivery ·{" "}
+                    {primaryPackage.videoLengthSeconds}s video ·{" "}
+                    {primaryPackage.maxRevisions} revisions
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold">Add-ons</h4>
+                  {(profile.addOns ?? []).length > 0 ? (
+                    <ul className="mt-2 space-y-2">
+                      {(profile.addOns ?? []).map((addOn) => (
+                        <li
+                          key={addOn.id}
+                          className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-medium">
+                              {addOn.name}
+                            </span>
+                            <span className="shrink-0 text-sm font-semibold">
+                              {formatINR(Number(addOn.priceAmount) || 0)}
+                            </span>
+                          </div>
+                          {addOn.description ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {addOn.description}
+                            </p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      No add-ons configured.
+                    </p>
+                  )}
+                </div>
+
+                {packageEarningsPreview ? (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
+                    <p className="text-muted-foreground">
+                      Order value
+                      {packageEarningsPreview.addOnsTotal > 0
+                        ? " (package + add-ons)"
+                        : ""}
+                      :{" "}
+                      <span className="font-medium text-foreground">
+                        {formatINR(packageEarningsPreview.orderTotal)}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      GoCollab fee ({platformFeePercent}%):{" "}
+                      <span className="font-medium text-foreground">
+                        {formatINR(packageEarningsPreview.platformFee)}
+                      </span>
+                    </p>
+                    <p className="mt-2 text-foreground">
+                      Estimated payout:{" "}
+                      <strong className="text-base">
+                        {formatINR(packageEarningsPreview.creatorEarnings)}
+                      </strong>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Set a valid package price to see your estimated payout.
+                  </p>
+                )}
+
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link href="/creator/settings/profile">Edit package</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  No package configured yet.
+                </p>
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link href="/creator/settings/profile">Set up package</Link>
+                </Button>
+              </div>
+            )}
+          </motion.section>
+
+          <motion.section
+            variants={fadeInUp}
             className="relative rounded-lg border border-border bg-card p-5 shadow-sm opacity-50 pointer-events-none select-none"
             aria-label="Social media links"
             aria-disabled="true"
@@ -511,9 +673,7 @@ export function CreatorAccountProfileView({
                       )}
                       aria-hidden="true"
                     >
-                      {link.platform === "TikTok" ? (
-                        <TikTokIcon className="size-4" />
-                      ) : link.platform === "Snapchat" ? (
+                      {link.platform === "Snapchat" ? (
                         <SnapchatIcon className="size-4" />
                       ) : (
                         link.icon
@@ -526,34 +686,6 @@ export function CreatorAccountProfileView({
                 );
               })}
             </nav>
-          </motion.section>
-
-          <motion.section
-            variants={fadeInUp}
-            className="rounded-lg border border-border bg-card p-5 shadow-sm"
-            aria-label="Profile details"
-          >
-            <h3 className="text-base font-bold">Profile Details</h3>
-            <dl className="mt-4 space-y-3.5">
-              {profileDetails.map((row) => (
-                <div
-                  key={row.label}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <dt className="text-muted-foreground">{row.label}</dt>
-                  <dd
-                    className={cn(
-                      "text-right ml-4",
-                      row.value === "Not specified"
-                        ? "text-muted-foreground italic opacity-80"
-                        : "font-medium text-foreground"
-                    )}
-                  >
-                    {row.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
           </motion.section>
 
           <motion.section

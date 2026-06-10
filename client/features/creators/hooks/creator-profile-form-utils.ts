@@ -34,6 +34,48 @@ export const PACKAGE_MAX_DELIVERY_DAYS = 30;
 export const PACKAGE_VIDEO_LENGTH_SECONDS = 60;
 export const PACKAGE_MAX_VIDEO_LENGTH_SECONDS = 60;
 export const PACKAGE_PRICE_STEP = 500;
+export const PLATFORM_FEE_RATE = 0.2;
+
+export type OrderEarningsPreview = {
+  packagePrice: number;
+  addOnsTotal: number;
+  orderTotal: number;
+  platformFee: number;
+  creatorEarnings: number;
+};
+
+export function calculateOrderEarningsPreview(params: {
+  packagePriceAmount: string;
+  selectedAddOnPrices: string[];
+}): OrderEarningsPreview | null {
+  const packageTrimmed = params.packagePriceAmount.trim();
+  if (!packageTrimmed) return null;
+
+  const packagePrice = Number(packageTrimmed);
+  if (!Number.isFinite(packagePrice) || packagePrice <= 0) return null;
+
+  let addOnsTotal = 0;
+  for (const price of params.selectedAddOnPrices) {
+    const trimmed = price.trim();
+    if (!trimmed) continue;
+    const amount = Number(trimmed);
+    if (Number.isFinite(amount) && amount > 0) {
+      addOnsTotal += amount;
+    }
+  }
+
+  const orderTotal = packagePrice + addOnsTotal;
+  const platformFee = Math.round(orderTotal * PLATFORM_FEE_RATE);
+  const creatorEarnings = orderTotal - platformFee;
+
+  return {
+    packagePrice,
+    addOnsTotal,
+    orderTotal,
+    platformFee,
+    creatorEarnings,
+  };
+}
 
 
 export const facetSections: Array<{

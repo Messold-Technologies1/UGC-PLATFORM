@@ -75,7 +75,7 @@ function getUploadErrorMessage(error: unknown): string {
   return "Something went wrong";
 }
 
-export function useCreatePortfolioVideoFlowMutation() {
+export function useCreatePortfolioVideoFlowMutation(options?: { preventRedirect?: boolean }) {
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -89,18 +89,21 @@ export function useCreatePortfolioVideoFlowMutation() {
       adminCreatorId,
     }: CreatePortfolioVideoFlowVariables) => {
       const requestOptions = adminCreatorId ? { adminCreatorId } : undefined;
-      const videoPresign = await presignPortfolioUpload(
-        {
-          kind: "video",
-          contentType: resolveVideoContentType(videoFile),
-          contentLength: videoFile.size,
-        },
-        requestOptions,
-      );
-      await putPortfolioFileToPresignedUrl(videoFile, videoPresign);
+      const uploadVideo = async () => {
+        const videoPresign = await presignPortfolioUpload(
+          {
+            kind: "video",
+            contentType: resolveVideoContentType(videoFile),
+            contentLength: videoFile.size,
+          },
+          requestOptions,
+        );
+        await putPortfolioFileToPresignedUrl(videoFile, videoPresign);
+        return videoPresign.key;
+      };
 
-      let thumbnailKey: string | undefined;
-      if (thumbnailFile) {
+      const uploadThumbnail = async () => {
+        if (!thumbnailFile) return undefined;
         const thumbnailPresign = await presignPortfolioUpload(
           {
             kind: "thumbnail",
@@ -110,21 +113,23 @@ export function useCreatePortfolioVideoFlowMutation() {
           requestOptions,
         );
         await putPortfolioFileToPresignedUrl(thumbnailFile, thumbnailPresign);
-        thumbnailKey = thumbnailPresign.key;
-      }
+        return thumbnailPresign.key;
+      };
+
+      const [videoKey, thumbnailKey] = await Promise.all([
+        uploadVideo(),
+        uploadThumbnail(),
+      ]);
 
       const created = await createPortfolioVideo(
         {
-          videoKey: videoPresign.key,
+          videoKey,
           thumbnailKey,
           visibilityStatus: visibility,
+          ...metadataPatch,
         },
         requestOptions,
       );
-
-      if (metadataPatch) {
-        await updatePortfolioVideo(created.id, metadataPatch, requestOptions);
-      }
 
       return created;
     },
@@ -150,7 +155,9 @@ export function useCreatePortfolioVideoFlowMutation() {
       await queryClient.invalidateQueries({
         queryKey: portfolioMyVideosQueryKey,
       });
-      router.push("/creator/portfolio");
+      if (!options?.preventRedirect) {
+        router.push("/creator/portfolio");
+      }
     },
     onError: (error) => {
       toast.error("Upload failed", {

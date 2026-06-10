@@ -59,20 +59,29 @@ export function useCreatorFacetsForm({
     [],
   );
 
-  const toggleLanguage = useCallback((slug: string) => {
+  const addLanguage = useCallback((slug: string) => {
+    setLanguageDrafts((current) => [...current, { slug, fluency: "FLUENT" }]);
+  }, []);
+
+  const removeLanguage = useCallback((index: number) => {
+    setLanguageDrafts((current) => current.filter((_, i) => i !== index));
+  }, []);
+
+  const updateLanguageSlug = useCallback((index: number, newSlug: string) => {
     setLanguageDrafts((current) => {
-      if (current.some((row) => row.slug === slug)) {
-        return current.filter((row) => row.slug !== slug);
-      }
-      return [...current, { slug, fluency: "FLUENT" }];
+      const next = [...current];
+      if (next[index]) next[index] = { ...next[index], slug: newSlug };
+      return next;
     });
   }, []);
 
   const updateLanguageFluency = useCallback(
-    (slug: string, fluency: CreatorLanguageFluency) => {
-      setLanguageDrafts((current) =>
-        current.map((row) => (row.slug === slug ? { ...row, fluency } : row)),
-      );
+    (index: number, fluency: CreatorLanguageFluency) => {
+      setLanguageDrafts((current) => {
+        const next = [...current];
+        if (next[index]) next[index] = { ...next[index], fluency };
+        return next;
+      });
     },
     [],
   );
@@ -83,7 +92,9 @@ export function useCreatorFacetsForm({
     selectedFacets,
     toggleFacet,
     languageDrafts,
-    toggleLanguage,
+    addLanguage,
+    removeLanguage,
+    updateLanguageSlug,
     updateLanguageFluency,
     selectedFacetCount,
   };

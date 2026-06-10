@@ -51,6 +51,7 @@ export function PackageEditor({
             disabled
             value={PACKAGE_NAME}
             readOnly
+            style={{ opacity: 0.9, color: "var(--foreground)" }}
           />
         </div>
 
@@ -62,6 +63,7 @@ export function PackageEditor({
             disabled
             value="1 Video"
             readOnly
+            style={{ opacity: 0.9, color: "var(--foreground)" }}
           />
         </div>
         <div className="pe-field">

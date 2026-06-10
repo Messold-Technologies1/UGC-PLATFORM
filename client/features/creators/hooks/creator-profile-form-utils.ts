@@ -163,10 +163,17 @@ export function createInitialSelectedFacets(
 export function createInitialLanguageDrafts(
   initialProfile?: CreatorProfileItemApi | null,
 ): LanguageDraft[] {
-  return (initialProfile?.profileLanguages ?? []).map((row) => ({
+  const existing = (initialProfile?.profileLanguages ?? []).map((row) => ({
     slug: row.slug,
     fluency: row.fluency,
   }));
+  if (existing.length === 0) {
+    return [
+      { slug: "", fluency: "NATIVE" },
+      { slug: "", fluency: "FLUENT" },
+    ];
+  }
+  return existing;
 }
 
 export function createInitialPackageDraft(

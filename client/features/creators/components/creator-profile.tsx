@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { ArrowLeft, Share2 } from "lucide-react";
 import { ProfileHeader } from "./profile-header";
 import { TrustStrip } from "./trust-strip";
+import { AddOnsSection } from "./add-ons-section";
 import type { CreatorProfile as CreatorProfileType, Review } from "../types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
@@ -185,6 +186,16 @@ export function CreatorProfile({
       </div>
 
       <div className="px-6 sm:px-8 lg:px-10">
+        {creator.addOns.length > 0 && (
+          <AddOnsSection
+            addOns={creator.addOns}
+            selectedAddOnIds={selectedAddOnIds}
+            onToggleAddOn={handleToggleAddOn}
+          />
+        )}
+      </div>
+
+      <div className="px-6 sm:px-8 lg:px-10 mt-8">
         <PortfolioTab
           creatorId={creator.id}
           initialVideos={initialPortfolioVideos}
@@ -195,14 +206,16 @@ export function CreatorProfile({
         <InfoCardsSection creator={creator} />
       </div>
 
-      <div className="px-6  mt-6 sm:px-8 lg:px-10">
-        <ReviewsTab
-          reviews={reviews}
-          overallRating={overallRating}
-          totalReviews={totalReviews}
-          isLoading={reviewsQuery.isLoading}
-        />
-      </div>
+      {totalReviews > 0 && (
+        <div className="px-6 mt-6 sm:px-8 lg:px-10">
+          <ReviewsTab
+            reviews={reviews}
+            overallRating={overallRating}
+            totalReviews={totalReviews}
+            isLoading={reviewsQuery.isLoading}
+          />
+        </div>
+      )}
 
       <div className="px-6 sm:px-8 lg:px-10">
         <SimilarCreatorsSection currentCreatorId={creator.id} />

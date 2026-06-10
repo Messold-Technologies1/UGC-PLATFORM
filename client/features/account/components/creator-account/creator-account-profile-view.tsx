@@ -7,7 +7,6 @@ import {
   ClipboardList,
   ExternalLink,
   Video,
-  Instagram,
   MessageSquareText,
   Pencil,
   ShoppingBag,
@@ -157,12 +156,6 @@ export function CreatorAccountProfileView({
 
   const allPlatforms = [
     {
-      platform: "Instagram",
-      url: profile.instagramUrl,
-      icon: <Instagram className="size-4" />,
-      bgColor: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400",
-    },
-    {
       platform: "YouTube",
       url: profile.youtubeUrl,
       icon: <Youtube className="size-4" />,
@@ -306,10 +299,16 @@ export function CreatorAccountProfileView({
 
                 <div className="flex shrink-0 flex-col justify-end gap-3 pb-1">
                   <div className="flex items-center gap-3">
-                    <Button variant="outline" size="lg" className="gap-2">
-                      <Pencil className="size-3.5" />
-                      Preview Public Profile
-                      <ExternalLink className="size-3.5 opacity-60" />
+                    <Button variant="outline" size="lg" className="gap-2" asChild>
+                      <Link
+                        href={`/brand/creators/${profile.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Pencil className="size-3.5" />
+                        Preview Public Profile
+                        <ExternalLink className="size-3.5 opacity-60" />
+                      </Link>
                     </Button>
                     <Button size="lg" className="gap-2" asChild>
                       <Link href="/creator/settings/profile">
@@ -494,10 +493,12 @@ export function CreatorAccountProfileView({
 
           <motion.div
             variants={fadeInUp}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            className={`grid grid-cols-1 gap-6 ${(profile.reviewCount ?? 0) > 0 ? "md:grid-cols-2" : ""}`}
           >
             <DashboardPayoutDetails />
-            <CreatorReviewsCard reviews={profile.topReviews} />
+            {(profile.reviewCount ?? 0) > 0 && (
+              <CreatorReviewsCard reviews={profile.topReviews} />
+            )}
           </motion.div>
         </motion.div>
 

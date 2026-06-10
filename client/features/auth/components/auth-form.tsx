@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ArrowLeft, Plus, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +26,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { useLoginMutation } from "@/features/auth/hooks/use-login-mutation";
 import { useRegisterMutation } from "@/features/auth/hooks/use-register-mutation";
-// import { ENDPOINTS } from "@/lib/endpoints";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import type { LoginRoleConfig } from "@/features/auth/lib/login-role-config";
+import {
+  LOGIN_ROLES,
+  ROLE_CONFIGS,
+  setRememberedRole,
+  clearRememberedRole,
+} from "@/features/auth/lib/login-role-config";
+import styles from "./login-page.module.css";
+
 
 const loginSchema = z.object({
   email: z
@@ -47,11 +55,13 @@ const signupSchema = z.object({
 type LoginData = z.infer<typeof loginSchema>;
 type SignupData = z.infer<typeof signupSchema>;
 
+
 interface AuthFormProps {
   mode: "login" | "signup";
+  roleConfig?: LoginRoleConfig;
 }
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, roleConfig }: AuthFormProps) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const loginMutation = useLoginMutation();
@@ -72,6 +82,14 @@ export function AuthForm({ mode }: AuthFormProps) {
     resolver: zodResolver(signupSchema),
     defaultValues: { name: "", email: "", password: "" },
   });
+  useEffect(() => {
+    if (roleConfig) {
+      document.title = `GoCollab — ${roleConfig.name} log in`;
+    }
+    return () => {
+      document.title = "GoCollab";
+    };
+  }, [roleConfig]);
 
   const handleLogin = useCallback(
     (data: LoginData) => {
@@ -131,11 +149,232 @@ export function AuthForm({ mode }: AuthFormProps) {
     [registerMutation, queryClient, searchParams],
   );
 
-  // const handleGoogleLogin = useCallback(() => {
-  //   setGoogleLoading(true);
-  //   window.location.replace(resolveApiUrl(ENDPOINTS.AUTH.GOOGLE));
-  // }, []);
+  if (roleConfig) {
+    const TagIcon = roleConfig.icon;
 
+    return (
+      <div className="w-full max-w-[392px]">
+        <div className={styles.mobileHead}>
+          <Link
+            href="/login"
+            className="inline-block -ml-2"
+            onClick={clearRememberedRole}
+          >
+            <img
+              src="/brand-logo.png"
+              alt="GoCollab"
+              className="h-16 sm:h-20 w-auto object-contain object-left"
+              draggable={false}
+            />
+          </Link>
+          <Link
+            href="/login"
+            className={styles.mobileHeadBack}
+            onClick={clearRememberedRole}
+          >
+            <ArrowLeft size={14} aria-hidden="true" />
+            Account types
+          </Link>
+        </div>
+        <span className={styles.formTag}>
+          <TagIcon size={13} aria-hidden="true" />
+          {roleConfig.tag}
+        </span>
+        <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
+          {roleConfig.formTitle}
+        </h2>
+        <p className="mt-[7px] text-[13.5px] text-muted-foreground">
+          {roleConfig.formSub}
+        </p>
+        <form
+          onSubmit={loginForm.handleSubmit(handleLogin)}
+          className="mt-[26px] flex flex-col gap-[15px]"
+          noValidate
+        >
+          <div className="flex flex-col gap-[7px]">
+            <Label
+              htmlFor="login-email"
+              className="text-[12.5px] font-bold"
+            >
+              Email
+            </Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Mail size={17} aria-hidden="true" />
+              </span>
+              <input
+                id="login-email"
+                type="email"
+                placeholder="you@company.com"
+                disabled={pendingAuth}
+                autoComplete="email"
+                className={cn(
+                  "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[14px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
+                  "placeholder:text-muted-foreground",
+                  "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
+                  loginForm.formState.errors.email && "border-destructive",
+                )}
+                {...loginForm.register("email")}
+              />
+            </div>
+            {loginForm.formState.errors.email && (
+              <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                {loginForm.formState.errors.email.message}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-[7px]">
+            <Label
+              htmlFor="login-password"
+              className="text-[12.5px] font-bold"
+            >
+              Password
+            </Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Lock size={16} aria-hidden="true" />
+              </span>
+              <input
+                id="login-password"
+                type={showLoginPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                disabled={pendingAuth}
+                autoComplete="current-password"
+                className={cn(
+                  "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[44px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
+                  "placeholder:text-muted-foreground",
+                  "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
+                  loginForm.formState.errors.password && "border-destructive",
+                )}
+                {...loginForm.register("password")}
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex size-[34px] items-center justify-center rounded-[9px] border-0 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setShowLoginPassword((v) => !v)}
+                aria-label={
+                  showLoginPassword ? "Hide password" : "Show password"
+                }
+              >
+                {showLoginPassword ? (
+                  <EyeOff size={17} aria-hidden="true" />
+                ) : (
+                  <Eye size={17} aria-hidden="true" />
+                )}
+              </button>
+            </div>
+            {loginForm.formState.errors.password && (
+              <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                {loginForm.formState.errors.password.message}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-3 -mt-0.5">
+            <label className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground cursor-pointer select-none">
+              <input type="checkbox" defaultChecked className="sr-only peer" />
+              <span
+                className={cn(
+                  "flex size-[18px] items-center justify-center rounded-[6px] border-[1.6px] border-border text-white transition-all",
+                  "peer-checked:bg-[var(--login-accent)] peer-checked:border-[var(--login-accent)]",
+                )}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+              Remember me
+            </label>
+            <Link
+              href="/forgot-password"
+              prefetch={false}
+              className="text-[13px] font-bold text-[var(--login-accent)] no-underline whitespace-nowrap hover:underline hover:underline-offset-[3px]"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <button
+            type="submit"
+            disabled={pendingAuth}
+            className={styles.submitBtn}
+          >
+            {loginMutation.isPending ? (
+              <>
+                <span className={styles.spinner} />
+                <span>Logging in…</span>
+              </>
+            ) : (
+              <>
+                <span>Log in</span>
+                <ArrowRight size={17} aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </form>
+        <div className={styles.formDivider}>
+          <span className={styles.formDividerLine} />
+          <span className={styles.formDividerText}>
+            {roleConfig.signupLine}
+          </span>
+          <span className={styles.formDividerLine} />
+        </div>
+        <Link href={roleConfig.signupHref} className={styles.formSecondary}>
+          <Plus size={16} aria-hidden="true" />
+          {roleConfig.signupCta}
+        </Link>
+        <div className={styles.roleSwitch}>
+          <span className={styles.roleSwitchLabel}>
+            Not a {roleConfig.name.toLowerCase()}?
+          </span>
+          <span className={styles.roleSwitchLinks}>
+            {LOGIN_ROLES.filter((k) => k !== roleConfig.key).map((k) => {
+              const other = ROLE_CONFIGS[k];
+              return (
+                <Link
+                  key={k}
+                  href={`/login?role=${k}`}
+                  replace
+                  className={styles.roleSwitchLink}
+                  onClick={() => setRememberedRole(k)}
+                >
+                  <span>Log in as {other.name}</span>
+                  <ArrowRight size={12} aria-hidden="true" />
+                </Link>
+              );
+            })}
+          </span>
+        </div>
+        <p className="mt-[22px] text-center text-[11.5px] text-muted-foreground leading-[1.55]">
+          By continuing, you agree to our{" "}
+          <Link
+            href="/terms"
+            prefetch={false}
+            className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            prefetch={false}
+            className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-full w-full flex-col items-center justify-center px-6 py-12 lg:px-16">
       <div className="w-full max-w-sm">
@@ -223,25 +462,6 @@ export function AuthForm({ mode }: AuthFormProps) {
                 )}
               </Button>
             </form>
-
-            {/* <Divider />
-
-            <div className="space-y-3">
-              <Button
-                variant="outline"
-                className="h-11 w-full"
-                size="lg"
-                disabled={pendingAuth}
-                onClick={handleGoogleLogin}
-              >
-                {googleLoading ? (
-                  <Spinner className="size-4" aria-hidden />
-                ) : (
-                  <GoogleIcon />
-                )}
-                Continue with Google
-              </Button>
-            </div> */}
           </TabsContent>
 
           <TabsContent value="signup" className="mt-0">
@@ -318,35 +538,24 @@ export function AuthForm({ mode }: AuthFormProps) {
                 )}
               </Button>
             </form>
-
-            {/* <Divider />
-
-            <div className="space-y-3">
-              <Button
-                variant="outline"
-                className="h-11 w-full"
-                size="lg"
-                disabled={pendingAuth}
-                onClick={handleGoogleLogin}
-              >
-                {googleLoading ? (
-                  <Spinner className="size-4" aria-hidden />
-                ) : (
-                  <GoogleIcon />
-                )}
-                Continue with Google
-              </Button>
-            </div> */}
           </TabsContent>
         </Tabs>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
           By continuing, you agree to our{" "}
-          <Link href="/terms" prefetch={false} className="underline hover:text-foreground">
+          <Link
+            href="/terms"
+            prefetch={false}
+            className="underline hover:text-foreground"
+          >
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" prefetch={false} className="underline hover:text-foreground">
+          <Link
+            href="/privacy"
+            prefetch={false}
+            className="underline hover:text-foreground"
+          >
             Privacy Policy
           </Link>
         </p>
@@ -440,36 +649,3 @@ function PasswordField({
     </div>
   );
 }
-
-// function Divider() {
-//   return (
-//     <div className="my-6 flex items-center gap-3">
-//       <div className="h-px flex-1 bg-border" />
-//       <span className="text-xs uppercase text-muted-foreground">or</span>
-//       <div className="h-px flex-1 bg-border" />
-//     </div>
-//   );
-// }
-
-// function GoogleIcon() {
-//   return (
-//     <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
-//       <path
-//         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-//         fill="#4285F4"
-//       />
-//       <path
-//         d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-//         fill="#34A853"
-//       />
-//       <path
-//         d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-//         fill="#FBBC05"
-//       />
-//       <path
-//         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-//         fill="#EA4335"
-//       />
-//     </svg>
-//   );
-// }

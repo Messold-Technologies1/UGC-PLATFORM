@@ -22,6 +22,9 @@ import {
   FileText,
   ChevronDown,
   MessageSquare,
+  Megaphone,
+  Camera,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -321,16 +324,56 @@ export function Navbar() {
               </>
             ) : (
               <>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="font-heading"
-                >
-                  <Link href="/login" prefetch>
-                    Log in
-                  </Link>
-                </Button>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-heading gap-1 rounded-full px-4"
+                    >
+                      Log in
+                      <ChevronDown className="size-3.5 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={16} className="w-56 p-2 rounded-2xl shadow-xl border-border/50">
+                    <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-1">
+                      Choose Account Type
+                    </div>
+                    <DropdownMenuItem asChild className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1">
+                      <Link href="/login?role=brand" prefetch className="flex items-center gap-3 w-full">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5138ed]/10 text-[#5138ed]">
+                          <Megaphone className="size-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm leading-none mb-1">Brand</span>
+                          <span className="text-[11px] text-muted-foreground leading-none">Hire creators</span>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1">
+                      <Link href="/login?role=creator" prefetch className="flex items-center gap-3 w-full">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ef3e51]/10 text-[#ef3e51]">
+                          <Camera className="size-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm leading-none mb-1">Creator</span>
+                          <span className="text-[11px] text-muted-foreground leading-none">Find work</span>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="rounded-xl p-2 focus:bg-accent cursor-pointer">
+                      <Link href="/login?role=agency" prefetch className="flex items-center gap-3 w-full">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0e9384]/10 text-[#0e9384]">
+                          <Building2 className="size-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm leading-none mb-1">Agency</span>
+                          <span className="text-[11px] text-muted-foreground leading-none">Manage talent</span>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
@@ -451,13 +494,35 @@ export function Navbar() {
                 </div>
               ) : (
                 <>
+                  <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    Log in
+                  </div>
                   <Link
-                    href="/login"
+                    href="/login?role=brand"
                     prefetch
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    Log in
+                    <Megaphone className="size-4 text-[#5138ed]" />
+                    As Brand
+                  </Link>
+                  <Link
+                    href="/login?role=creator"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Camera className="size-4 text-[#ef3e51]" />
+                    As Creator
+                  </Link>
+                  <Link
+                    href="/login?role=agency"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Building2 className="size-4 text-[#0e9384]" />
+                    As Agency
                   </Link>
                   <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
                     <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
@@ -480,15 +545,6 @@ export function Navbar() {
                     >
                       <Briefcase className="size-4 opacity-70" />
                       As a Brand
-                    </Link>
-                    <Link
-                      href="#"
-                      prefetch
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      <Users className="size-4 opacity-70" />
-                      As Agency
                     </Link>
                   </div>
                 </>

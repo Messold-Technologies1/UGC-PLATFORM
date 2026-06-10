@@ -389,7 +389,7 @@ export function BrandRegisterForm() {
             <p className="text-slate-500">
               Already have an account?{" "}
               <Link
-                href="/login"
+                href="/login?role=brand"
                 className="font-semibold text-slate-900 hover:underline dark:text-slate-50"
               >
                 Log in

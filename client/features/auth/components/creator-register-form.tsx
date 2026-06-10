@@ -614,7 +614,7 @@ export function CreatorRegisterForm() {
             <p className="text-slate-500">
               Already a creator?{" "}
               <Link
-                href="/login"
+                href="/login?role=creator"
                 className="font-semibold text-slate-900 hover:underline dark:text-slate-50"
               >
                 Log in

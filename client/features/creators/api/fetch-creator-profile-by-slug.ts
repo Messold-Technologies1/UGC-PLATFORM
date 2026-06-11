@@ -24,19 +24,28 @@ export const fetchCreatorProfileByPublicSlug = cache(
     const path = creatorsByPublicSlugPath(normalized);
     const url = `${env.apiUrl}${path}`;
 
-    const res = await fetch(url, {
-      headers: {
-        Accept: "application/json",
-        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      },
-      next: { revalidate: 3600 },
-    });
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+        },
+        next: { revalidate: 3600 },
+      });
 
-    if (!res.ok) {
-      return { ok: false, status: res.status };
+      if (!res.ok) {
+        return { ok: false, status: res.status };
+      }
+
+      const profile = (await res.json()) as CreatorProfileItemApi;
+      return { ok: true, profile };
+    } catch (error) {
+      console.error(
+        "[fetchCreatorProfileByPublicSlug] API unreachable:",
+        url,
+        error,
+      );
+      return { ok: false, status: 503 };
     }
-
-    const profile = (await res.json()) as CreatorProfileItemApi;
-    return { ok: true, profile };
   },
 );

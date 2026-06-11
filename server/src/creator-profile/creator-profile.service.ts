@@ -28,7 +28,10 @@ import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifie
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
-import { normalizeCreatorPublicProfileSlug } from './creator-public-slug.util';
+import {
+  allocateUniqueCreatorPublicSlug,
+  normalizeCreatorPublicProfileSlug,
+} from './creator-public-slug.util';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import { PendingCreatorApprovalListItemDto } from './dto/pending-creator-approval-list-item.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
@@ -303,6 +306,7 @@ export class CreatorProfileService {
       id: mapped.id,
       userId: mapped.userId,
       displayName: mapped.displayName,
+      publicSlug: mapped.publicSlug,
       phone: mapped.user?.phone ?? null,
       phoneVerified: mapped.user?.phoneVerified ?? false,
       introVideoUrl: mapped.introVideoUrl ?? null,
@@ -777,11 +781,16 @@ export class CreatorProfileService {
       slug,
     }));
     const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
+    const publicSlug = await allocateUniqueCreatorPublicSlug(
+      tx,
+      input.displayName,
+    );
 
     const creatorProfile = await tx.creatorProfile.create({
       data: {
         userId,
         displayName: input.displayName.trim(),
+        publicSlug,
         city: input.city.trim(),
         countryName: input.countryName.trim(),
         stateName: input.stateName.trim(),
@@ -1170,18 +1179,15 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    const matches = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT cp."id"
-      FROM "CreatorProfile" cp
-      WHERE LOWER(REGEXP_REPLACE(TRIM(cp."displayName"), '\\s+', '', 'g')) = ${normalized}
-      LIMIT 2
-    `;
-
-    if (matches.length !== 1) {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { publicSlug: normalized },
+      select: { id: true },
+    });
+    if (!profile) {
       throw new NotFoundException('Creator not found');
     }
 
-    return this.getCreatorById(viewerUserId, matches[0].id);
+    return this.getCreatorById(viewerUserId, profile.id);
   }
 
   private mapPendingCreatorApprovalListItem(

@@ -4,13 +4,13 @@ import { fetchWithOptionalSessionRefresh } from "@/lib/server-auth-fetch";
 import { creatorsByPublicSlugPath } from "@/lib/endpoints";
 import type { FetchCreatorProfileResult } from "./fetch-creator-profile";
 import type { CreatorProfileItemApi } from "./types";
-import { creatorPublicProfileSlug } from "../lib/creator-public-profile-url";
+import { normalizePublicProfileSlug } from "../lib/creator-public-profile-url";
 
 export const fetchCreatorProfileByPublicSlug = cache(
   async function fetchCreatorProfileByPublicSlug(
     slug: string,
   ): Promise<FetchCreatorProfileResult> {
-    const normalized = creatorPublicProfileSlug(slug);
+    const normalized = normalizePublicProfileSlug(slug);
     if (!normalized) {
       return { ok: false, status: 404 };
     }

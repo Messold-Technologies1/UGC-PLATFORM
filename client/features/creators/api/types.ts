@@ -99,6 +99,8 @@ export type CreatorProfileItemApi = {
   id: string;
   userId: string;
   displayName: string;
+  /** Unique public URL slug; may be absent until API migration is applied. */
+  publicSlug?: string;
   phone?: string | null;
   phoneVerified?: boolean;
   profileImageUrl?: string | null;

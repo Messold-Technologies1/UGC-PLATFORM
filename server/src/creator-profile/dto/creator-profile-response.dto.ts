@@ -134,6 +134,13 @@ export class CreatorProfileResponseDto {
   @ApiProperty({ example: 'Jane Doe' })
   displayName!: string;
 
+  @ApiProperty({
+    example: 'janedoe',
+    description:
+      'Unique public profile URL slug (lowercase, no spaces). May include a numeric suffix on collision (e.g. janedoe-4821).',
+  })
+  publicSlug!: string;
+
   @ApiPropertyOptional({
     example: '+919876543210',
     nullable: true,

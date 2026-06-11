@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { DM_Sans, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { BoneyardBootstrap } from "@/app/bones/bootstrap";
@@ -61,14 +62,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Analytics />
-      <SpeedInsights />
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeColorScript }} />
-      </head>
       <body
         className={`${inter.variable} ${dmSans.variable} font-sans antialiased flex min-h-svh flex-col`}
       >
+        <Script
+          id="ugc-theme-color-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeColorScript }}
+        />
         <GlobalVideoManager />
         <BoneyardBootstrap />
         <a
@@ -83,6 +84,8 @@ export default function RootLayout({
           </AppShellProviders>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

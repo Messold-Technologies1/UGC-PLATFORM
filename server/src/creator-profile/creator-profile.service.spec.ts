@@ -30,6 +30,7 @@ function createTxAsyncMock(): TxAsyncMock {
 interface TxMock {
   creatorProfile: {
     findUnique: TxAsyncMock;
+    findFirst: TxAsyncMock;
     create: TxAsyncMock;
     update: TxAsyncMock;
   };
@@ -75,6 +76,7 @@ describe('CreatorProfileService', () => {
   const txMock: TxMock = {
     creatorProfile: {
       findUnique: createTxAsyncMock(),
+      findFirst: createTxAsyncMock(),
       create: createTxAsyncMock(),
       update: createTxAsyncMock(),
     },
@@ -168,6 +170,7 @@ describe('CreatorProfileService', () => {
 
   beforeEach(() => {
     txMock.creatorProfile.findUnique.mockReset();
+    txMock.creatorProfile.findFirst.mockReset();
     txMock.creatorProfile.create.mockReset();
     txMock.creatorProfile.update.mockReset();
     txMock.creatorProfileFacetSelection.deleteMany.mockReset();
@@ -274,6 +277,7 @@ describe('CreatorProfileService', () => {
     const role = { id: 'role-creator' };
 
     txMock.creatorProfile.findUnique.mockResolvedValueOnce(null);
+    txMock.creatorProfile.findFirst.mockResolvedValue(null);
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
     txMock.creatorFacetOption.findUnique.mockResolvedValueOnce({
@@ -289,6 +293,13 @@ describe('CreatorProfileService', () => {
     );
 
     expect(id).toBe(profileId);
+    expect(txMock.creatorProfile.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          publicSlug: 'jane',
+        }),
+      }),
+    );
     expect(txMock.creatorProfileFacetSelection.deleteMany).toHaveBeenCalled();
     expect(txMock.creatorProfileFacetSelection.createMany).toHaveBeenCalled();
     expect(txMock.creatorProfileLanguage.deleteMany).not.toHaveBeenCalled();

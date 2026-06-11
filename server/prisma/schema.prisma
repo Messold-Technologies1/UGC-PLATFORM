@@ -282,6 +282,8 @@ model CreatorProfile {
   id                  String                      @id @default(uuid()) @db.Uuid
   userId              String                      @unique @db.Uuid
   displayName         String
+  /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
+  publicSlug          String                      @unique
   introVideoKey       String?
   introVideoUrl       String?
   profileImageKey     String?

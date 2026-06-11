@@ -218,7 +218,7 @@ export function CreatorAccountProfileView({
       animate="visible"
     >
       <CreatorPayoutDetailsBanner />
-      <div className="flex items-start gap-6">
+      <div className="flex flex-col lg:flex-row items-start gap-6">
         <motion.div
           className="min-w-0 flex-1 space-y-6"
           variants={staggerContainer}
@@ -369,7 +369,7 @@ export function CreatorAccountProfileView({
 
           <motion.div
             variants={fadeInUp}
-            className="grid grid-cols-[1fr_3fr] gap-6"
+            className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] xl:grid-cols-[1fr_3fr] gap-6"
           >
             <section
               className="rounded-lg border border-border bg-card p-6 shadow-sm"
@@ -525,7 +525,7 @@ export function CreatorAccountProfileView({
         </motion.div>
 
         <motion.aside
-          className="w-[300px] shrink-0 space-y-6"
+          className="w-full lg:w-[300px] shrink-0 space-y-6"
           variants={staggerContainer}
           aria-label="Profile sidebar"
         >

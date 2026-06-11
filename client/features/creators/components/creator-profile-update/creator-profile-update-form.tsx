@@ -728,16 +728,9 @@ function CreatorProfileUpdateFormContent({
             title="Photo & intro reel"
             desc="Your face and a short intro reel build instant trust."
           >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1px 1fr",
-                gap: 32,
-              }}
-            >
+            <div className="pe-media-grid">
               <div
                 style={{
-                  paddingRight: 8,
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
@@ -756,17 +749,10 @@ function CreatorProfileUpdateFormContent({
                 />
               </div>
 
-              <div
-                style={{
-                  width: 1,
-                  background: "var(--border)",
-                  alignSelf: "stretch",
-                }}
-              />
+              <div className="pe-media-divider" />
 
               <div
                 style={{
-                  paddingLeft: 8,
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",

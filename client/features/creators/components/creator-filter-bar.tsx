@@ -21,6 +21,17 @@ import { Switch } from "@/components/ui/switch";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import {
   useCreatorCategorySuggestionsQuery,
   useCreatorRestrictionSuggestionsQuery,
   useCreatorFacetOptionsQuery,
@@ -771,6 +782,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     (filters.industry ? 1 : 0) +
     (filters.portfolioTag ? 1 : 0);
 
+  const activeFilterCount = categoryCount + formatCount + langCount + genderCount + priceCount + moreCount;
+
   return (
     <div
       className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6]"
@@ -869,6 +882,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   )}
                 </div>
 
+                <div className="hidden xl:flex flex-wrap items-center gap-2.5">
                 <FilterPopover
                   id="category"
                   openId={openPopover}
@@ -1125,6 +1139,110 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     </button>
                   </div>
                 </FilterPopover>
+                </div>
+
+                <div className="flex xl:hidden">
+                  <Drawer>
+                    <DrawerTrigger asChild>
+                      <button className="inline-flex h-[44px] items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 text-[13.5px] font-semibold text-foreground shadow-sm transition-colors hover:bg-gray-50">
+                        <SlidersHorizontal className="size-[15px]" />
+                        Filters
+                        {activeFilterCount > 0 && (
+                          <span className="flex min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 py-px text-[11px] font-extrabold text-white">
+                            {activeFilterCount}
+                          </span>
+                        )}
+                      </button>
+                    </DrawerTrigger>
+                    <DrawerContent className="max-h-[90vh]">
+                      <DrawerHeader className="text-left pb-2">
+                        <DrawerTitle>Filters</DrawerTitle>
+                        <DrawerDescription>
+                          Refine your search to find the perfect creator.
+                        </DrawerDescription>
+                      </DrawerHeader>
+                      <div className="overflow-y-auto px-4 py-2 [scrollbar-width:thin] flex flex-col gap-6">
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Content Category</h5>
+                          {categoryItems.length > 0 && (
+                            <ChipGrid items={categoryItems} selected={filters.categories} onToggle={(slug) => toggleArrayField("categories", slug)} />
+                          )}
+                        </div>
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Content Format</h5>
+                          <ChipGrid items={getFacetItems("CONTENT_FORMAT")} selected={filters.contentFormat} onToggle={(slug) => toggleArrayField("contentFormat", slug)} />
+                        </div>
+                        <div>
+                          <PriceRangeBody minPrice={filters.minPrice} maxPrice={filters.maxPrice} onCommit={(min, max) => onChange({ ...filters, minPrice: min, maxPrice: max })} />
+                        </div>
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Language</h5>
+                          <ChipGrid items={getFacetItems("LANGUAGE")} selected={filters.language} onToggle={(slug) => toggleArrayField("language", slug)} />
+                        </div>
+                        {!landingPage && (
+                          <div>
+                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Gender</h5>
+                            <CheckboxRow items={GENDER_OPTIONS} selected={filters.gender} onToggle={(v) => commitField("gender", v)} />
+                          </div>
+                        )}
+                        <div className="h-px bg-gray-200" aria-hidden />
+                        {MORE_FACET_SECTIONS.map(({ dimension, label, filterKey }) => {
+                          const items = getFacetItems(dimension);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={dimension}>
+                              <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">{label}</h5>
+                              <ChipGrid items={items} selected={filters[filterKey] as string[]} onToggle={(slug) => toggleArrayField(filterKey as ArrayFilterKey, slug)} />
+                            </div>
+                          );
+                        })}
+                        {landingPage && (
+                          <div>
+                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Gender</h5>
+                            <CheckboxRow items={GENDER_OPTIONS} selected={filters.gender} onToggle={(v) => commitField("gender", v)} />
+                          </div>
+                        )}
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Age Group</h5>
+                          <CheckboxRow items={AGE_GROUP_OPTIONS} selected={filters.ageGroup} onToggle={(v) => commitField("ageGroup", v)} />
+                        </div>
+                        {restrictionNames.length > 0 && (
+                          <div>
+                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Restrictions</h5>
+                            <ChipGrid items={restrictionItems} selected={filters.restrictions} onToggle={(slug) => toggleArrayField("restrictions", slug)} />
+                          </div>
+                        )}
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Location</h5>
+                          <Input placeholder="e.g. Mumbai, Delhi, Bengaluru" value={localCity} onChange={(e) => { setLocalCity(e.target.value); debouncedCityChange(e.target.value); }} className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm" />
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+                          <div>
+                            <div className="text-[13px] font-semibold text-foreground">On-location shoots</div>
+                            <div className="text-[11.5px] text-muted-foreground">Films at your store or venue</div>
+                          </div>
+                          <Switch checked={filters.onLocationAvailable} onCheckedChange={(checked) => commitField("onLocationAvailable", checked)} />
+                        </div>
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Industry</h5>
+                          <Input placeholder="Search industry" value={localIndustry} onChange={(e) => { setLocalIndustry(e.target.value); debouncedIndustryChange(e.target.value); }} className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm" />
+                        </div>
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Portfolio Tag</h5>
+                          <Input placeholder="Search tag" value={localPortfolioTag} onChange={(e) => { setLocalPortfolioTag(e.target.value); debouncedPortfolioTagChange(e.target.value); }} className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm" />
+                        </div>
+                      </div>
+                      <DrawerFooter className="pt-4 border-t mt-2">
+                        <div className="flex gap-3 w-full">
+                          <Button variant="outline" className="flex-1 rounded-xl" onClick={onClear}>Reset</Button>
+                          <DrawerClose asChild>
+                            <Button className="flex-1 rounded-xl">Show {isPending ? "…" : total}</Button>
+                          </DrawerClose>
+                        </div>
+                      </DrawerFooter>
+                    </DrawerContent>
+                  </Drawer>
+                </div>
               </div>
 
               <AnimatePresence>

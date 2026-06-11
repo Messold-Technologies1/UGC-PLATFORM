@@ -261,18 +261,18 @@ export function CreatorPortfolioManager() {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <Button asChild className="gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
+              <Button asChild className="gap-2 w-full sm:w-auto">
                 <Link href="/creator/portfolio/upload">
                   <Plus className="size-4" />
                   Add New Work
                 </Link>
               </Button>
-              <Button variant="outline" className="gap-2 bg-background">
+              <Button variant="outline" className="gap-2 bg-background w-full sm:w-auto">
                 <Settings className="size-4" />
                 Manage Sections
               </Button>
-              <Button variant="outline" className="gap-2 bg-background" asChild>
+              <Button variant="outline" className="gap-2 bg-background w-full sm:w-auto" asChild>
                 <Link
                   href={publicProfilePath ?? "#"}
                   target="_blank"
@@ -580,7 +580,7 @@ export function CreatorPortfolioManager() {
                   Add More
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[70vw] max-w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
                 <DialogTitle className="sr-only">Add New Work</DialogTitle>
                 <CreatorPortfolioUploadForm
                   isOverlay

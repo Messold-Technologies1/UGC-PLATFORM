@@ -29,7 +29,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/providers/auth-provider";
+import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import { OrderModal } from "../browse-creators/order-modal";
@@ -241,8 +241,8 @@ export function PublicCreatorProfile({
   profile,
   initialPortfolioVideos,
 }: PublicCreatorProfileProps) {
-  const { user } = useAuth();
-  const isBrand = user?.roles?.includes("BRAND") ?? false;
+  const { data: meUser } = useMeQuery();
+  const isBrand = meUser?.roles?.includes("BRAND") ?? false;
   const router = useRouter();
   const [orderOpen, setOrderOpen] = useState(false);
 

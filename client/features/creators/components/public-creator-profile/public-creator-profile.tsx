@@ -29,7 +29,11 @@ import {
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMeQuery } from "@/features/auth/hooks/use-me-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  authMeQueryKey,
+  fetchAuthMe,
+} from "@/features/auth/hooks/use-me-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import type { CreatorProfileItemApi } from "../../api/types";
@@ -239,7 +243,15 @@ export function PublicCreatorProfile({
   profile,
   initialPortfolioVideos,
 }: PublicCreatorProfileProps) {
-  const { data: meUser } = useMeQuery();
+  // Always re-fetch auth on mount so a user who just logged in is detected
+  // immediately without needing a manual page reload.
+  const { data: meUser } = useQuery({
+    queryKey: authMeQueryKey,
+    queryFn: fetchAuthMe,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
   const isBrand = meUser?.roles?.includes("BRAND") ?? false;
   const router = useRouter();
 
@@ -247,6 +259,13 @@ export function PublicCreatorProfile({
   // Logged-in brands go to the authenticated creator page which has the full
   // OrderModal + Razorpay checkout inside AuthProvider context
   const brandBookHref = `/brand/creators/${profile.id}`;
+
+  // Auto-redirect brand users as soon as auth is confirmed — no click needed
+  useEffect(() => {
+    if (isBrand) {
+      router.replace(brandBookHref);
+    }
+  }, [isBrand, brandBookHref, router]);
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,

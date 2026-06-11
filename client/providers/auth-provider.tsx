@@ -59,11 +59,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       
     } finally {
+      let redirectPath = "/login";
+      if (user?.primaryRole) {
+        if (user.primaryRole === "ADMIN") {
+          redirectPath = "/admin/login";
+        } else {
+          redirectPath = `/login?role=${user.primaryRole.toLowerCase()}`;
+        }
+      }
+
       disconnectSocket();
       queryClient.setQueryData(authMeQueryKey, null);
       queryClient.clear();
       beginClientNavigation();
-      router.replace("/");
+      router.replace(redirectPath);
       logoutStartedRef.current = false;
       setIsLoggingOut(false);
     }

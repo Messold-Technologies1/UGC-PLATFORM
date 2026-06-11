@@ -96,7 +96,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     eyebrow: "For Brands",
     tag: "Brand login",
     headline: ["Launch UGC that", "actually converts."],
-    sub: "Discover vetted creators, brief them in minutes, and get scroll-stopping videos that are ready for paid — all in one place.",
+    sub: "Discover vetted creators, brief them in minutes, and get\nscroll-stopping videos that are ready for paid — all in one place.",
     bullets: [
       {
         icon: Search,

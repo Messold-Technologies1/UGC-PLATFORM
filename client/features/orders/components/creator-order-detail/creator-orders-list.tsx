@@ -150,7 +150,7 @@ export function CreatorOrdersList() {
                 const displayId = `#${order.id.substring(0, 5).toUpperCase()}`;
 
                 const categories = "Skincare • Product Demo";
-                const isNew = order.status === "BRIEF_SUBMISSION_PENDING";
+                const isNew = order.status === "BRIEF_SUBMISSION_PENDING" || order.status === "BRIEF_SUBMITTED";
                 const formattedDate = (dateString?: string | null) => {
                   if (!dateString) return "";
                   return new Intl.DateTimeFormat("en-GB", {
@@ -205,12 +205,12 @@ export function CreatorOrdersList() {
                             <span className="font-bold text-sm text-foreground">
                               {displayId}
                             </span>
-                            {isNew && (
+                            {isNew && !isNarrowLayout && (
                               <Badge
                                 variant="secondary"
                                 className="bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0"
                               >
-                                New
+                                New Request
                               </Badge>
                             )}
                           </div>
@@ -221,22 +221,20 @@ export function CreatorOrdersList() {
                             <span className="text-xs text-muted-foreground truncate">
                               {order.packageNameSnapshot || "UGC Video (60s)"}
                             </span>
-                            {activeTab !== "new" && (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "w-fit max-w-full rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
-                                  STATUS_COLORS[order.status as string] ||
-                                    "bg-muted text-muted-foreground",
-                                )}
-                              >
-                                <span className="truncate">
-                                  {STATUS_LABELS[
-                                    order.status as keyof typeof STATUS_LABELS
-                                  ] || order.status}
-                                </span>
-                              </Badge>
-                            )}
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "w-fit max-w-full rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
+                                STATUS_COLORS[order.status as string] ||
+                                  "bg-muted text-muted-foreground",
+                              )}
+                            >
+                              <span className="truncate">
+                                {STATUS_LABELS[
+                                  order.status as keyof typeof STATUS_LABELS
+                                ] || order.status}
+                              </span>
+                            </Badge>
                           </div>
                         </div>
 
@@ -291,7 +289,7 @@ export function CreatorOrdersList() {
                                   variant="secondary"
                                   className="bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0 shrink-0"
                                 >
-                                  New
+                                  New Request
                                 </Badge>
                               )}
                             </div>
@@ -307,22 +305,18 @@ export function CreatorOrdersList() {
                           </div>
 
                           <div className="flex flex-col gap-2 min-w-[140px] xl:min-w-[180px] items-start">
-                            {activeTab !== "new" ? (
-                              <Badge
-                                variant="secondary"
-                                className={cn(
-                                  "bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0",
-                                  STATUS_COLORS[order.status as string] ||
-                                    "bg-muted text-muted-foreground",
-                                )}
-                              >
-                                {STATUS_LABELS[
-                                  order.status as keyof typeof STATUS_LABELS
-                                ] || order.status}
-                              </Badge>
-                            ) : (
-                              <div className="h-5" />
-                            )}
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                "bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0",
+                                STATUS_COLORS[order.status as string] ||
+                                  "bg-muted text-muted-foreground",
+                              )}
+                            >
+                              {STATUS_LABELS[
+                                order.status as keyof typeof STATUS_LABELS
+                              ] || order.status}
+                            </Badge>
                             <span className="text-[13px] text-muted-foreground font-medium">
                               {deliveryText}
                             </span>
@@ -354,7 +348,7 @@ export function CreatorOrdersList() {
                 );
               })}
 
-            {isPaginatedTab && (
+            {isPaginatedTab && !(activeTab === "new" && Boolean(selectedOrderId)) && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 whitespace-nowrap">

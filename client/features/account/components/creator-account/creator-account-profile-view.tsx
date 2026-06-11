@@ -62,6 +62,7 @@ export function CreatorAccountProfileView({
   videos: PortfolioVideoApi[];
 }) {
   const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
 
   let displayVideos = [...videos];
   if (profile.introVideoUrl) {
@@ -89,8 +90,9 @@ export function CreatorAccountProfileView({
     .join(", ");
 
   const contentCategories = profile.facetSelections?.filter(f => f.dimension === "CONTENT_CATEGORY").slice(0, 7) || [];
-  const displayTags = contentCategories.map((c) => c.label.replace(/\s*\/\s*/g, " & ")).slice(0, 3);
-  const extraTagsCount = Math.max(0, contentCategories.length - 3);
+  const allTags = contentCategories.map((c) => c.label.replace(/\s*\/\s*/g, " & "));
+  const displayTags = tagsExpanded ? allTags : allTags.slice(0, 3);
+  const extraTagsCount = tagsExpanded ? 0 : Math.max(0, allTags.length - 3);
 
   const canCreateWith = profile.facetSelections?.filter(f => f.dimension === "CAN_CREATE_WITH") || [];
   const industryExperience =
@@ -288,21 +290,35 @@ export function CreatorAccountProfileView({
                     {profile.bio || "No bio provided."}
                   </p>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {displayTags.map((tag: string) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-blue-200 hover:bg-blue-50/50 shadow-sm"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {extraTagsCount > 0 && (
-                      <span className="rounded-full border border-border bg-muted/30 px-3.5 py-1.5 text-sm font-medium text-muted-foreground shadow-sm">
-                        +{extraTagsCount}
-                      </span>
-                    )}
-                  </div>
+                  <motion.div layout className="mt-4 flex flex-wrap items-center gap-2">
+                    <AnimatePresence>
+                      {displayTags.map((tag: string, index: number) => (
+                        <motion.span
+                          layout
+                          key={tag}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2, delay: index >= 3 ? (index - 3) * 0.05 : 0 }}
+                          className="rounded-full border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-blue-200 hover:bg-blue-50/50 shadow-sm"
+                        >
+                          {tag}
+                        </motion.span>
+                      ))}
+                      {extraTagsCount > 0 && (
+                        <motion.button
+                          layout
+                          key="expand-button"
+                          type="button"
+                          onClick={() => setTagsExpanded(true)}
+                          exit={{ opacity: 0, scale: 0.8, width: 0, padding: 0, margin: 0, overflow: "hidden" }}
+                          transition={{ duration: 0.2 }}
+                          className="rounded-full border border-border bg-muted/30 px-3.5 py-1.5 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          +{extraTagsCount}
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
                 </div>
 
                 <div className="flex shrink-0 flex-col justify-end gap-3 pb-1">

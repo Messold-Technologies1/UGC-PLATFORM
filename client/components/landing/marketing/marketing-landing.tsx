@@ -289,7 +289,15 @@ export function MarketingLanding() {
               pages.
             </p>
             <div className="flex flex-wrap gap-3">
-              <PillButton variant="primary" arrow href="#featured">
+              <PillButton
+                variant="primary"
+                arrow
+                onClick={() =>
+                  document
+                    .getElementById("featured")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
                 Find Creators
               </PillButton>
               <PillButton variant="lime" arrow href="/register/creator">

@@ -68,7 +68,7 @@ import type {
 } from "@/features/briefs/api/types";
 import { useBriefFieldOptionsQuery } from "@/features/briefs/hooks/use-brief-field-options-query";
 
-import { OrderProgressSteps } from "@/features/briefs/components/order-progress-steps";
+
 import { PaymentSuccessBanner } from "@/features/briefs/components/payment-success-banner";
 import { OrderSummaryCard } from "@/features/briefs/components/order-summary-card";
 import { WhatsNextTimeline } from "@/features/briefs/components/whats-next-timeline";
@@ -696,7 +696,7 @@ function CreateBriefPageContent() {
 
   return (
     <div className="min-h-screen bg-white">
-      <OrderProgressSteps currentStep={1} />
+
       <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8">
         {showBanner && (
           <PaymentSuccessBanner

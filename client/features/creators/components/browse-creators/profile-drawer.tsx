@@ -824,33 +824,44 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               <span style={{ opacity: 0.4 }}>·</span>
               <Globe size={14} /> {c.languages.join(", ")}
             </div>
+
             <div className="dr-stats">
               {c.reviewCount > 0 ? (
                 <div className="dr-stat">
                   <div className="v">
-                    <Star size={16} style={{ color: "#f5a623" }} fill="#f5a623" />{" "}
+                    <Star
+                      size={16}
+                      style={{ color: "#f5a623" }}
+                      fill="#f5a623"
+                    />{" "}
                     {c.rating.toFixed(1)}
                   </div>
                   <div className="k">{c.reviewCount} reviews</div>
                 </div>
-              ) : (
+              ) : (profileApi?.collaborationCount ?? c.collaborationCount ?? 0) > 0 ? (
                 <div className="dr-stat">
                   <div className="v">
-                    {profileApi?.collaborationCount ?? c.collaborationCount ?? 0}
+                    {profileApi?.collaborationCount ??
+                      c.collaborationCount ??
+                      0}
                   </div>
                   <div className="k">Collaborations</div>
                 </div>
-              )}
-              <div className="dr-stat">
-                <div className="v">
-                  {profileApi?.completedOrders ?? c.ordersCompleted ?? 0}
+              ) : null}
+              {(profileApi?.completedOrders ?? c.ordersCompleted ?? 0) > 0 && (
+                <div className="dr-stat">
+                  <div className="v">
+                    {profileApi?.completedOrders ?? c.ordersCompleted ?? 0}
+                  </div>
+                  <div className="k">Orders completed</div>
                 </div>
-                <div className="k">Orders completed</div>
-              </div>
-              <div className="dr-stat">
-                <div className="v">{c.deliveryDays} days</div>
-                <div className="k">Delivery time</div>
-              </div>
+              )}
+              {(c.reviewCount > 0 || (profileApi?.collaborationCount ?? c.collaborationCount ?? 0) > 0) && (
+                <div className="dr-stat">
+                  <div className="v">{c.deliveryDays} days</div>
+                  <div className="k">Delivery time</div>
+                </div>
+              )}
             </div>
           </div>
           <div className="dr-tabs">
@@ -896,7 +907,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           <button
             type="button"
             className={`dr-btn dr-btn-primary flex-1 ${!landingPage && (!profile || isProfileLoading || isProfileError) ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={!landingPage && (!profile || isProfileLoading || isProfileError)}
+            disabled={
+              !landingPage && (!profile || isProfileLoading || isProfileError)
+            }
             onClick={() => {
               if (landingPage) {
                 router.push("/register/brand");

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   MapPin,
   Globe,
@@ -28,8 +29,11 @@ import {
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/providers/auth-provider";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
+import { OrderModal } from "../browse-creators/order-modal";
+import type { CreatorProfile } from "../../types";
 import type { CreatorProfileItemApi } from "../../api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 
@@ -237,7 +241,74 @@ export function PublicCreatorProfile({
   profile,
   initialPortfolioVideos,
 }: PublicCreatorProfileProps) {
+  const { user } = useAuth();
+  const isBrand = user?.roles?.includes("BRAND") ?? false;
+  const router = useRouter();
+  const [orderOpen, setOrderOpen] = useState(false);
+
   const bookHref = "/register/brand";
+
+  // Adapter: maps CreatorProfileItemApi → CreatorProfile for OrderModal
+  const creatorForModal = useMemo<CreatorProfile>(() => ({
+    id: profile.id,
+    name: profile.displayName,
+    location: [profile.city, profile.countryName].filter(Boolean).join(", "),
+    rating: toNumber(profile.avgRating),
+    reviewCount: profile.reviewCount ?? 0,
+    startingPrice: toNumber(profile.packages?.[0]?.priceAmount),
+    ordersCompleted: profile.totalOrders ?? profile.completedOrders ?? 0,
+    collaborationCount: profile.collaborationCount ?? 0,
+    thumbnail: profile.profileImageUrl ?? "",
+    previewVideoUrl: profile.introVideoUrl ?? null,
+    introVideoUrl: profile.introVideoUrl ?? null,
+    previewVideoThumbnail: profile.profileImageUrl ?? null,
+    tags: (profile.facetSelections ?? [])
+      .filter((f) => f.dimension === "CONTENT_CATEGORY")
+      .map((f) => f.label),
+    available: true,
+    storeVisit: profile.onLocationAvailable ?? false,
+    travelAvailable: false,
+    gender: (profile.gender as "male" | "female" | "other") ?? "other",
+    category:
+      (profile.facetSelections ?? []).find(
+        (f) => f.dimension === "CONTENT_CATEGORY",
+      )?.label ?? "",
+    categories: (profile.facetSelections ?? [])
+      .filter((f) => f.dimension === "CONTENT_CATEGORY")
+      .map((f) => f.label),
+    languages: (profile.profileLanguages ?? []).map((l) => l.label),
+    profileLanguages: (profile.profileLanguages ?? []).map((l) => ({
+      label: l.label,
+      fluency: l.fluency,
+    })),
+    deliveryDays: profile.packages?.[0]?.deliveryDays ?? 7,
+    bio: profile.bio ?? "",
+    personaTags: (profile.personaTags ?? []).map((t) => t.tag),
+    restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
+    travelRadiusKm: profile.travelRadius ?? null,
+    facetSelections: (profile.facetSelections ?? []).map((f) => ({
+      dimension: f.dimension,
+      slug: f.slug,
+      label: f.label,
+    })),
+    packages: (profile.packages ?? []).map((p) => ({
+      id: p.id,
+      tier: "standard" as const,
+      label: p.name,
+      price: toNumber(p.priceAmount),
+      deliveryDays: p.deliveryDays,
+      revisions: p.maxRevisions,
+      features: p.deliverables ?? [],
+      videoLengthSeconds: p.videoLengthSeconds ?? undefined,
+    })),
+    addOns: (profile.addOns ?? []).map((a) => ({
+      id: a.id,
+      label: a.name,
+      price: toNumber(a.priceAmount),
+      description: a.description ?? null,
+    })),
+    reviews: [],
+  }), [profile]);
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,
@@ -463,6 +534,14 @@ export function PublicCreatorProfile({
 
   const [playingPortfolioId, setPlayingPortfolioId] = useState<string | null>(null);
 
+  const handleBookClick = () => {
+    if (isBrand) {
+      setOrderOpen(true);
+    } else {
+      router.push(bookHref);
+    }
+  };
+
   const handle = `@${handleFromName(profile.displayName)}`;
   const firstName = profile.displayName.split(" ")[0] || profile.displayName;
   const initials = getInitials(profile.displayName);
@@ -497,13 +576,14 @@ export function PublicCreatorProfile({
               Creator Profile
             </span>
           </Link>
-          <Link
-            href={bookHref}
+          <button
+            type="button"
+            onClick={handleBookClick}
             className="hidden items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 sm:inline-flex"
           >
             Book {firstName}
             <ArrowRight className="size-3.5" />
-          </Link>
+          </button>
         </div>
       </header>
 
@@ -571,21 +651,23 @@ export function PublicCreatorProfile({
                 )}
 
                 <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <Link
-                    href={bookHref}
+                  <button
+                    type="button"
+                    onClick={handleBookClick}
                     className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
                     style={{ backgroundColor: BRAND_RED }}
                   >
                     <Zap className="size-4 fill-white" strokeWidth={0} />
-                    Book me on GoCollab
-                  </Link>
-                  <Link
-                    href={bookHref}
+                    {isBrand ? `Book ${firstName}` : "Book me on GoCollab"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBookClick}
                     className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:border-neutral-400"
                   >
                     <MessageCircle className="size-4" />
-                    Message
-                  </Link>
+                    {isBrand ? "Place order" : "Message"}
+                  </button>
                 </div>
 
                 {collabCount > 0 && (
@@ -774,7 +856,7 @@ export function PublicCreatorProfile({
                 selectedAddOns={selectedAddOns}
                 onToggleAddOn={toggleAddOn}
                 totalPrice={totalPrice}
-                bookHref={bookHref}
+                onBook={handleBookClick}
               />
             )}
 
@@ -795,14 +877,15 @@ export function PublicCreatorProfile({
               get ad-ready videos delivered on time.
             </p>
           </div>
-          <Link
-            href={bookHref}
+          <button
+            type="button"
+            onClick={handleBookClick}
             className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
             style={{ backgroundColor: BRAND_RED }}
           >
             <Zap className="size-4 fill-white" strokeWidth={0} />
             Place order with {firstName}
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -827,6 +910,15 @@ export function PublicCreatorProfile({
           </nav>
         </div>
       </footer>
+
+      {/* ORDER MODAL — only mounts when user is a logged-in brand */}
+      {isBrand && (
+        <OrderModal
+          creator={creatorForModal}
+          open={orderOpen}
+          onClose={() => setOrderOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1199,7 +1291,7 @@ interface PricingCardProps {
   selectedAddOns: Set<string>;
   onToggleAddOn: (id: string) => void;
   totalPrice: number;
-  bookHref: string;
+  onBook: () => void;
 }
 
 function PricingCard({
@@ -1211,7 +1303,7 @@ function PricingCard({
   selectedAddOns,
   onToggleAddOn,
   totalPrice,
-  bookHref,
+  onBook,
 }: PricingCardProps) {
   const basePrice = toNumber(selectedPackage.priceAmount);
 
@@ -1352,14 +1444,15 @@ function PricingCard({
             {formatINR(totalPrice)}
           </p>
         </div>
-        <Link
-          href={bookHref}
+        <button
+          type="button"
+          onClick={onBook}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           style={{ backgroundColor: BRAND_RED }}
         >
           <Zap className="size-4 fill-white" strokeWidth={0} />
           Place order · {formatINR(totalPrice)}
-        </Link>
+        </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500">
           <ShieldCheck className="size-3" />
           Secure checkout on{" "}

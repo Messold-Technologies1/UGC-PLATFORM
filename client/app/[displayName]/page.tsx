@@ -4,7 +4,8 @@ import { fetchPublicPortfolioVideosByCreatorIdServer } from "@/features/creator-
 import { fetchCreatorProfileByPublicSlug } from "@/features/creators/api/fetch-creator-profile-by-slug";
 import { PublicCreatorProfile } from "@/features/creators/components/public-creator-profile/public-creator-profile";
 
-export const revalidate = 3600;
+// Auth-aware (owner can view pending profile); never statically cache this route.
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ displayName: string }>;
@@ -33,6 +34,9 @@ export default async function PublicCreatorProfileByDisplayNamePage({
   const result = await fetchCreatorProfileByPublicSlug(displayName);
 
   if (!result.ok) {
+    if (result.status === 503) {
+      throw new Error("Unable to load creator profile. Please try again.");
+    }
     notFound();
   }
 

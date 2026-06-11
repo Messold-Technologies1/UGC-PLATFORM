@@ -1,6 +1,6 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { env } from "@/lib/env";
+import { fetchWithOptionalSessionRefresh } from "@/lib/server-auth-fetch";
 import { creatorsByPublicSlugPath } from "@/lib/endpoints";
 import type { FetchCreatorProfileResult } from "./fetch-creator-profile";
 import type { CreatorProfileItemApi } from "./types";
@@ -15,23 +15,11 @@ export const fetchCreatorProfileByPublicSlug = cache(
       return { ok: false, status: 404 };
     }
 
-    const cookieStore = await cookies();
-    const cookieHeader = cookieStore
-      .getAll()
-      .map((c) => `${c.name}=${c.value}`)
-      .join("; ");
-
     const path = creatorsByPublicSlugPath(normalized);
     const url = `${env.apiUrl}${path}`;
 
     try {
-      const res = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-        },
-        next: { revalidate: 3600 },
-      });
+      const res = await fetchWithOptionalSessionRefresh(url);
 
       if (!res.ok) {
         return { ok: false, status: res.status };

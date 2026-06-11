@@ -282,6 +282,8 @@ model CreatorProfile {
   id                  String                      @id @default(uuid()) @db.Uuid
   userId              String                      @unique @db.Uuid
   displayName         String
+  /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
+  publicSlug          String                      @unique
   introVideoKey       String?
   introVideoUrl       String?
   profileImageKey     String?
@@ -322,6 +324,7 @@ model CreatorProfile {
   orderDeliveries     OrderDelivery[]
   payoutDetails       CreatorPayoutDetails?
   ratingReviews       CreatorRatingReview[]
+  wishlistEntries     BrandWishlistCreator[]
 
   @@index([city])
   @@index([countryName])
@@ -781,10 +784,43 @@ model BrandProfile {
   agencyLastActiveFor Agency?                 @relation("AgencyLastActiveBrand")
   orders          Order[]
   briefs          Brief[]
+  wishlists       BrandWishlist[]
   brandCategories BrandProfileBrandCategory[]
   ratingReviews   CreatorRatingReview[]
 
   @@index([agencyId])
+}
+
+model BrandWishlist {
+  id           String    @id @default(uuid()) @db.Uuid
+  brandId      String    @db.Uuid
+  name         String
+  shareToken   String?   @unique
+  shareEnabled Boolean   @default(false)
+  sharedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  brand    BrandProfile           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  creators BrandWishlistCreator[]
+
+  @@unique([brandId, name])
+  @@index([brandId, createdAt])
+}
+
+model BrandWishlistCreator {
+  id         String   @id @default(uuid()) @db.Uuid
+  wishlistId String   @db.Uuid
+  creatorId  String   @db.Uuid
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  wishlist BrandWishlist  @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  creator  CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, creatorId])
+  @@index([creatorId])
+  @@index([wishlistId, sortOrder])
 }
 
 model BrandProfileBrandCategory {

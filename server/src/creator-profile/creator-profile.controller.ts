@@ -235,9 +235,9 @@ export class CreatorProfileController {
   @Get('public/:slug')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
-    summary: 'Get creator by public profile slug (display name)',
+    summary: 'Get creator by public profile slug',
     description:
-      'Public discovery endpoint keyed by a slug derived from displayName (lowercase, spaces removed). Same visibility rules as GET /creators/:id.',
+      'Public discovery endpoint keyed by the creator publicSlug (unique; base from display name with optional numeric suffix on collision). Same visibility rules as GET /creators/:id.',
   })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async getCreatorByPublicSlug(

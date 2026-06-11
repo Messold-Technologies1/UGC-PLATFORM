@@ -35,7 +35,7 @@ import { StatCard } from "./stat-card";
 import { PortfolioCard } from "./portfolio-card";
 import { DashboardPayoutDetails } from "./dashboard-payout-details";
 import { CreatorReviewsCard } from "./creator-reviews-card";
-import { creatorPublicProfilePath } from "@/features/creators/lib/creator-public-profile-url";
+import { creatorPublicProfilePathForProfile } from "@/features/creators/lib/creator-public-profile-url";
 
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -63,6 +63,7 @@ export function CreatorAccountProfileView({
 }) {
   const [aboutExpanded, setAboutExpanded] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  const publicProfilePath = creatorPublicProfilePathForProfile(profile);
 
   let displayVideos = [...videos];
   if (profile.introVideoUrl) {
@@ -325,9 +326,13 @@ export function CreatorAccountProfileView({
                   <div className="flex items-center gap-3">
                     <Button variant="outline" size="lg" className="gap-2" asChild>
                       <Link
-                        href={creatorPublicProfilePath(profile.displayName)}
+                        href={publicProfilePath ?? "#"}
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-disabled={!publicProfilePath}
+                        className={
+                          !publicProfilePath ? "pointer-events-none opacity-50" : undefined
+                        }
                       >
                         <Pencil className="size-3.5" />
                         Preview Public Profile

@@ -41,9 +41,9 @@ import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-v
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import {
-  creatorPublicProfileDisplayUrl,
-  creatorPublicProfilePath,
-  creatorPublicProfileUrl,
+  creatorPublicProfileDisplayUrlForProfile,
+  creatorPublicProfilePathForProfile,
+  creatorPublicProfileUrlForProfile,
 } from "@/features/creators/lib/creator-public-profile-url";
 import { toast } from "sonner";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -93,25 +93,25 @@ export function CreatorPortfolioManager() {
 
   const videos = videosQuery.data ?? [];
   const loading = videosQuery.isPending;
-  const publicProfileDisplayUrl = profileQuery.data?.displayName
-    ? creatorPublicProfileDisplayUrl(profileQuery.data.displayName)
+  const publicProfileDisplayUrl = profileQuery.data
+    ? creatorPublicProfileDisplayUrlForProfile(profileQuery.data)
     : null;
-  const publicProfilePath = profileQuery.data?.displayName
-    ? creatorPublicProfilePath(profileQuery.data.displayName)
+  const publicProfilePath = profileQuery.data
+    ? creatorPublicProfilePathForProfile(profileQuery.data)
     : null;
 
   const handleCopyPublicProfileLink = useCallback(async () => {
-    if (!profileQuery.data?.displayName) return;
+    if (!profileQuery.data) return;
+    const url = creatorPublicProfileUrlForProfile(profileQuery.data);
+    if (!url) return;
 
     try {
-      await navigator.clipboard.writeText(
-        creatorPublicProfileUrl(profileQuery.data.displayName),
-      );
+      await navigator.clipboard.writeText(url);
       toast.success("Public profile link copied");
     } catch {
       toast.error("Could not copy link");
     }
-  }, [profileQuery.data?.displayName]);
+  }, [profileQuery.data]);
 
   const availableCategories = useMemo(() => {
     const categories = new Set<string>();

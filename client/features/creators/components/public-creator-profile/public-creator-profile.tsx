@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   MapPin,
   Globe,
@@ -28,6 +29,11 @@ import {
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import {
+  authMeQueryKey,
+  fetchAuthMe,
+} from "@/features/auth/hooks/use-me-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import type { CreatorProfileItemApi } from "../../api/types";
@@ -237,7 +243,23 @@ export function PublicCreatorProfile({
   profile,
   initialPortfolioVideos,
 }: PublicCreatorProfileProps) {
+  // Always re-fetch auth on mount so a user who just logged in is detected
+  // immediately without needing a manual page reload.
+  const { data: meUser } = useQuery({
+    queryKey: authMeQueryKey,
+    queryFn: fetchAuthMe,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const isBrand = meUser?.roles?.includes("BRAND") ?? false;
+  const router = useRouter();
+
   const bookHref = "/register/brand";
+  // Logged-in brands go to the authenticated creator page which has the full
+  // OrderModal + Razorpay checkout inside AuthProvider context
+  const brandBookHref = `/brand/creators/${profile.id}`;
+
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,
@@ -463,6 +485,10 @@ export function PublicCreatorProfile({
 
   const [playingPortfolioId, setPlayingPortfolioId] = useState<string | null>(null);
 
+  const handleBookClick = () => {
+    router.push(isBrand ? brandBookHref : bookHref);
+  };
+
   const handle = `@${handleFromName(profile.displayName)}`;
   const firstName = profile.displayName.split(" ")[0] || profile.displayName;
   const initials = getInitials(profile.displayName);
@@ -497,13 +523,14 @@ export function PublicCreatorProfile({
               Creator Profile
             </span>
           </Link>
-          <Link
-            href={bookHref}
+          <button
+            type="button"
+            onClick={handleBookClick}
             className="hidden items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 sm:inline-flex"
           >
             Book {firstName}
             <ArrowRight className="size-3.5" />
-          </Link>
+          </button>
         </div>
       </header>
 
@@ -571,21 +598,23 @@ export function PublicCreatorProfile({
                 )}
 
                 <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <Link
-                    href={bookHref}
+                  <button
+                    type="button"
+                    onClick={handleBookClick}
                     className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
                     style={{ backgroundColor: BRAND_RED }}
                   >
                     <Zap className="size-4 fill-white" strokeWidth={0} />
-                    Book me on GoCollab
-                  </Link>
-                  <Link
-                    href={bookHref}
+                    {isBrand ? `Book ${firstName}` : "Book me on GoCollab"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBookClick}
                     className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:border-neutral-400"
                   >
                     <MessageCircle className="size-4" />
-                    Message
-                  </Link>
+                    {isBrand ? "Place order" : "Message"}
+                  </button>
                 </div>
 
                 {collabCount > 0 && (
@@ -774,7 +803,7 @@ export function PublicCreatorProfile({
                 selectedAddOns={selectedAddOns}
                 onToggleAddOn={toggleAddOn}
                 totalPrice={totalPrice}
-                bookHref={bookHref}
+                onBook={handleBookClick}
               />
             )}
 
@@ -795,14 +824,15 @@ export function PublicCreatorProfile({
               get ad-ready videos delivered on time.
             </p>
           </div>
-          <Link
-            href={bookHref}
+          <button
+            type="button"
+            onClick={handleBookClick}
             className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
             style={{ backgroundColor: BRAND_RED }}
           >
             <Zap className="size-4 fill-white" strokeWidth={0} />
             Place order with {firstName}
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -827,6 +857,7 @@ export function PublicCreatorProfile({
           </nav>
         </div>
       </footer>
+
     </div>
   );
 }
@@ -1199,7 +1230,7 @@ interface PricingCardProps {
   selectedAddOns: Set<string>;
   onToggleAddOn: (id: string) => void;
   totalPrice: number;
-  bookHref: string;
+  onBook: () => void;
 }
 
 function PricingCard({
@@ -1211,7 +1242,7 @@ function PricingCard({
   selectedAddOns,
   onToggleAddOn,
   totalPrice,
-  bookHref,
+  onBook,
 }: PricingCardProps) {
   const basePrice = toNumber(selectedPackage.priceAmount);
 
@@ -1352,14 +1383,15 @@ function PricingCard({
             {formatINR(totalPrice)}
           </p>
         </div>
-        <Link
-          href={bookHref}
+        <button
+          type="button"
+          onClick={onBook}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           style={{ backgroundColor: BRAND_RED }}
         >
           <Zap className="size-4 fill-white" strokeWidth={0} />
           Place order · {formatINR(totalPrice)}
-        </Link>
+        </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500">
           <ShieldCheck className="size-3" />
           Secure checkout on{" "}

@@ -27,25 +27,30 @@ export const fetchCreatorProfileById = cache(async function fetchCreatorProfileB
   const path = creatorsByIdPath(id);
   const url = `${env.apiUrl}${path}`;
 
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
-    next: { revalidate: 3600 },
-  });
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+      next: { revalidate: 3600 },
+    });
 
-  if (!res.ok) {
-    console.error("FETCH ERROR", res.status, url);
-    try {
-      const text = await res.text();
-      console.error("FETCH ERROR BODY:", text);
-    } catch(e) {
-      console.error("FETCH ERROR BODY PARSE ERROR", e);
+    if (!res.ok) {
+      console.error("FETCH ERROR", res.status, url);
+      try {
+        const text = await res.text();
+        console.error("FETCH ERROR BODY:", text);
+      } catch (e) {
+        console.error("FETCH ERROR BODY PARSE ERROR", e);
+      }
+      return { ok: false, status: res.status };
     }
-    return { ok: false, status: res.status };
-  }
 
-  const profile = (await res.json()) as CreatorProfileItemApi;
-  return { ok: true, profile };
+    const profile = (await res.json()) as CreatorProfileItemApi;
+    return { ok: true, profile };
+  } catch (error) {
+    console.error("[fetchCreatorProfileById] API unreachable:", url, error);
+    return { ok: false, status: 503 };
+  }
 });

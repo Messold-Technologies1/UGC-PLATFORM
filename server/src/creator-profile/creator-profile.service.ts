@@ -858,6 +858,40 @@ export class CreatorProfileService {
     };
   }
 
+  /** Approved creators only; preserves caller order and skips missing/unapproved ids. */
+  async getApprovedPublicListItemsByIds(
+    orderedCreatorIds: string[],
+  ): Promise<CreatorPublicListItemDto[]> {
+    const uniqueIds = [...new Set(orderedCreatorIds.filter(Boolean))];
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    const profiles = await this.prisma.creatorProfile.findMany({
+      where: {
+        id: { in: uniqueIds },
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      },
+      include: creatorProfileWithRelationsInclude as any,
+    });
+
+    const byId = new Map(profiles.map((profile) => [profile.id, profile]));
+    const orderedProfiles = orderedCreatorIds
+      .map((id) => byId.get(id))
+      .filter((profile): profile is (typeof profiles)[number] => !!profile);
+
+    const orderCountsByCreatorId = await this.countCreatorOrdersBatch(
+      orderedProfiles.map((profile) => profile.id),
+    );
+
+    return orderedProfiles.map((profile) =>
+      this.mapCreatorPublicListItemDto(
+        profile,
+        orderCountsByCreatorId.get(profile.id),
+      ),
+    );
+  }
+
   async listSuggestedCreators(
     anchorCreatorId: string,
   ): Promise<SuggestedCreatorsResponseDto> {

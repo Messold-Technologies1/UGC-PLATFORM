@@ -1,4 +1,5 @@
 "use client";
+import "./profile-edit.css";
 import { SectionCard, PeSelectField, CatalogStatus } from "./shared-components";
 import { FacetChipSection, LanguageRows } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
@@ -499,7 +500,29 @@ function CreatorProfileUpdateFormContent({
         addOns: builtAddOns,
       };
 
-      submitCreatorProfileMutation.mutate({ payload });
+      let finalPayload = { ...payload };
+
+      if (initialProfile && mode === "update") {
+        if (finalPayload.displayName === initialProfile.displayName) delete finalPayload.displayName;
+        if (finalPayload.bio === (initialProfile.bio || undefined)) delete finalPayload.bio;
+        if (finalPayload.gender === (initialProfile.gender || undefined)) delete finalPayload.gender;
+        if (finalPayload.dateOfBirth === (initialProfile.dateOfBirth || undefined)) delete finalPayload.dateOfBirth;
+        if (finalPayload.shippingAddress === (initialProfile.shippingAddress || undefined)) delete finalPayload.shippingAddress;
+        if (finalPayload.instagramUrl === (initialProfile.instagramUrl || undefined)) delete finalPayload.instagramUrl;
+        if (finalPayload.youtubeUrl === (initialProfile.youtubeUrl || undefined)) delete finalPayload.youtubeUrl;
+        if (finalPayload.tiktokUrl === (initialProfile.tiktokUrl || undefined)) delete finalPayload.tiktokUrl;
+        if (finalPayload.snapchatUrl === (initialProfile.snapchatUrl || undefined)) delete finalPayload.snapchatUrl;
+        if (finalPayload.contentVolume === (initialProfile.contentVolume || undefined)) delete finalPayload.contentVolume;
+        if (finalPayload.collaborationCount === initialProfile.collaborationCount) delete finalPayload.collaborationCount;
+        if (finalPayload.travelRadius === (initialProfile.travelRadius || undefined)) delete finalPayload.travelRadius;
+        if (finalPayload.onLocationAvailable === initialProfile.onLocationAvailable) delete finalPayload.onLocationAvailable;
+        if (finalPayload.contactEmail === (initialProfile.contactEmail || undefined)) delete finalPayload.contactEmail;
+        if (finalPayload.countryName === (initialProfile.countryName || undefined)) delete finalPayload.countryName;
+        if (finalPayload.stateName === (initialProfile.stateName || undefined)) delete finalPayload.stateName;
+        if (finalPayload.city === (initialProfile.city || undefined)) delete finalPayload.city;
+      }
+
+      submitCreatorProfileMutation.mutate({ payload: finalPayload });
     },
     [
       addOns,

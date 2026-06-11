@@ -1,5 +1,7 @@
 "use client";
 
+import "./browse-creators/browse-creators.css";
+
 import {
   forwardRef,
   type HTMLAttributes,

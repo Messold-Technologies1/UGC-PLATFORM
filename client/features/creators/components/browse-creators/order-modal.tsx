@@ -1,5 +1,7 @@
 "use client";
 
+import "./order-modal.css";
+
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -20,10 +22,7 @@ function inr(n: number): string {
   return "₹" + n.toLocaleString("en-IN");
 }
 
-function etaLabel(days: number): string {
-  const d = new Date(Date.now() + days * 864e5);
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-}
+
 
 const PackageCard = React.memo(function PackageCard({
   pkg,

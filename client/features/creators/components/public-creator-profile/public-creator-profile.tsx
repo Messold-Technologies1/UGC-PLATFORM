@@ -32,8 +32,6 @@ import { cn } from "@/lib/utils";
 import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
-import { OrderModal } from "../browse-creators/order-modal";
-import type { CreatorProfile } from "../../types";
 import type { CreatorProfileItemApi } from "../../api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 
@@ -244,71 +242,11 @@ export function PublicCreatorProfile({
   const { data: meUser } = useMeQuery();
   const isBrand = meUser?.roles?.includes("BRAND") ?? false;
   const router = useRouter();
-  const [orderOpen, setOrderOpen] = useState(false);
 
   const bookHref = "/register/brand";
-
-  // Adapter: maps CreatorProfileItemApi → CreatorProfile for OrderModal
-  const creatorForModal = useMemo<CreatorProfile>(() => ({
-    id: profile.id,
-    name: profile.displayName,
-    location: [profile.city, profile.countryName].filter(Boolean).join(", "),
-    rating: toNumber(profile.avgRating),
-    reviewCount: profile.reviewCount ?? 0,
-    startingPrice: toNumber(profile.packages?.[0]?.priceAmount),
-    ordersCompleted: profile.totalOrders ?? profile.completedOrders ?? 0,
-    collaborationCount: profile.collaborationCount ?? 0,
-    thumbnail: profile.profileImageUrl ?? "",
-    previewVideoUrl: profile.introVideoUrl ?? null,
-    introVideoUrl: profile.introVideoUrl ?? null,
-    previewVideoThumbnail: profile.profileImageUrl ?? null,
-    tags: (profile.facetSelections ?? [])
-      .filter((f) => f.dimension === "CONTENT_CATEGORY")
-      .map((f) => f.label),
-    available: true,
-    storeVisit: profile.onLocationAvailable ?? false,
-    travelAvailable: false,
-    gender: (profile.gender as "male" | "female" | "other") ?? "other",
-    category:
-      (profile.facetSelections ?? []).find(
-        (f) => f.dimension === "CONTENT_CATEGORY",
-      )?.label ?? "",
-    categories: (profile.facetSelections ?? [])
-      .filter((f) => f.dimension === "CONTENT_CATEGORY")
-      .map((f) => f.label),
-    languages: (profile.profileLanguages ?? []).map((l) => l.label),
-    profileLanguages: (profile.profileLanguages ?? []).map((l) => ({
-      label: l.label,
-      fluency: l.fluency,
-    })),
-    deliveryDays: profile.packages?.[0]?.deliveryDays ?? 7,
-    bio: profile.bio ?? "",
-    personaTags: (profile.personaTags ?? []).map((t) => t.tag),
-    restrictions: (profile.restrictions ?? []).map((r) => r.restriction),
-    travelRadiusKm: profile.travelRadius ?? null,
-    facetSelections: (profile.facetSelections ?? []).map((f) => ({
-      dimension: f.dimension,
-      slug: f.slug,
-      label: f.label,
-    })),
-    packages: (profile.packages ?? []).map((p) => ({
-      id: p.id,
-      tier: "standard" as const,
-      label: p.name,
-      price: toNumber(p.priceAmount),
-      deliveryDays: p.deliveryDays,
-      revisions: p.maxRevisions,
-      features: p.deliverables ?? [],
-      videoLengthSeconds: p.videoLengthSeconds ?? undefined,
-    })),
-    addOns: (profile.addOns ?? []).map((a) => ({
-      id: a.id,
-      label: a.name,
-      price: toNumber(a.priceAmount),
-      description: a.description ?? null,
-    })),
-    reviews: [],
-  }), [profile]);
+  // Logged-in brands go to the authenticated creator page which has the full
+  // OrderModal + Razorpay checkout inside AuthProvider context
+  const brandBookHref = `/brand/creators/${profile.id}`;
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,
@@ -535,11 +473,7 @@ export function PublicCreatorProfile({
   const [playingPortfolioId, setPlayingPortfolioId] = useState<string | null>(null);
 
   const handleBookClick = () => {
-    if (isBrand) {
-      setOrderOpen(true);
-    } else {
-      router.push(bookHref);
-    }
+    router.push(isBrand ? brandBookHref : bookHref);
   };
 
   const handle = `@${handleFromName(profile.displayName)}`;
@@ -911,14 +845,6 @@ export function PublicCreatorProfile({
         </div>
       </footer>
 
-      {/* ORDER MODAL — only mounts when user is a logged-in brand */}
-      {isBrand && (
-        <OrderModal
-          creator={creatorForModal}
-          open={orderOpen}
-          onClose={() => setOrderOpen(false)}
-        />
-      )}
     </div>
   );
 }

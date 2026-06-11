@@ -22,10 +22,8 @@ import {
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { useLoginMutation } from "@/features/auth/hooks/use-login-mutation";
-import { useRegisterMutation } from "@/features/auth/hooks/use-register-mutation";
 import { useForgotPasswordMutation } from "@/features/auth/hooks/use-password-mutations";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import type { LoginRoleConfig } from "@/features/auth/lib/login-role-config";
@@ -45,45 +43,26 @@ const loginSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-const signupSchema = z.object({
-  name: z.string().min(1, "Full name is required"),
-  email: z
-    .email({ error: "Enter a valid email address" })
-    .min(1, "Email is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
 type LoginData = z.infer<typeof loginSchema>;
-type SignupData = z.infer<typeof signupSchema>;
 
 
 interface AuthFormProps {
-  mode: "login" | "signup";
   roleConfig?: LoginRoleConfig;
 }
 
-export function AuthForm({ mode, roleConfig }: AuthFormProps) {
+export function AuthForm({ roleConfig }: AuthFormProps) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const loginMutation = useLoginMutation();
-  const registerMutation = useRegisterMutation();
   const forgotMutation = useForgotPasswordMutation();
-  const [activeTab, setActiveTab] = useState(mode);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [view, setView] = useState<"login" | "forgot" | "forgot-sent">("login");
-  const pendingAuth =
-    loginMutation.isPending || registerMutation.isPending || googleLoading;
+  const pendingAuth = loginMutation.isPending || googleLoading;
 
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
-  });
-
-  const signupForm = useForm<SignupData>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { name: "", email: "", password: "" },
   });
 
   const forgotForm = useForm<{ email: string }>({
@@ -139,38 +118,6 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
       });
     },
     [loginMutation, queryClient, searchParams],
-  );
-
-  const handleSignup = useCallback(
-    (data: SignupData) => {
-      registerMutation.mutate(
-        {
-          name: data.name,
-          email: data.email,
-          password: data.password,
-        },
-        {
-          onSuccess: async (result) => {
-            toast.success("Account created!", {
-              description: "Let's get your profile set up.",
-            });
-            queryClient.setQueryData(authMeQueryKey, result.user);
-            const callback = searchParams.get("callbackUrl");
-            const target = resolveImmediatePostAuthPath(result.user, callback);
-            beginClientNavigation();
-            window.location.replace(target);
-          },
-          onError: (error) => {
-            if (isAxiosError(error) && error.response) {
-              toast.error(error.response.data.message || "An error occurred");
-            } else {
-              toast.error("An unexpected error occurred");
-            }
-          },
-        },
-      );
-    },
-    [registerMutation, queryClient, searchParams],
   );
 
   const handleForgotPassword = useCallback(
@@ -319,8 +266,8 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
                   </p>
                 )}
               </div>
-              <div className="flex items-center justify-between gap-3 -mt-0.5">
-                <label className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground cursor-pointer select-none">
+              <div className="flex items-center justify-end gap-3 -mt-0.5">
+                {/* <label className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground cursor-pointer select-none">
                   <input type="checkbox" defaultChecked className="sr-only peer" />
                   <span
                     className={cn(
@@ -343,7 +290,7 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
                     </svg>
                   </span>
                   Remember me
-                </label>
+                </label> */}
                 <button
                   type="button"
                   onClick={() => setView("forgot")}
@@ -537,160 +484,68 @@ export function AuthForm({ mode, roleConfig }: AuthFormProps) {
         </h1>
         <p className="mt-2 text-muted-foreground">{SITE_DESCRIPTION}</p>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(val) => {
-            setActiveTab(val as "login" | "signup");
-            setShowLoginPassword(false);
-            setShowSignupPassword(false);
-          }}
-          className="mt-8 w-full"
-        >
-          <TabsList className="w-full grid grid-cols-1 h-11 mb-6">
-            <TabsTrigger value="login" className="text-sm">
-              Log in
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="login" className="mt-0">
-            <form
-              onSubmit={loginForm.handleSubmit(handleLogin)}
-              className="space-y-4"
-            >
-              <div className="space-y-1.5">
-                <Label htmlFor="login-email">Email</Label>
-                <Input
-                  id="login-email"
-                  type="email"
-                  placeholder="you@company.com"
-                  disabled={pendingAuth}
-                  autoComplete="email"
-                  className="h-10"
-                  {...loginForm.register("email")}
-                />
-                {loginForm.formState.errors.email && (
-                  <p className="text-sm text-destructive">
-                    {loginForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <PasswordField
-                id="login-password"
-                label="Password"
-                placeholder="Enter your password"
-                autoComplete="current-password"
+        <div className="mt-8 w-full">
+          <form
+            onSubmit={loginForm.handleSubmit(handleLogin)}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="login-email">Email</Label>
+              <Input
+                id="login-email"
+                type="email"
+                placeholder="you@company.com"
                 disabled={pendingAuth}
-                show={showLoginPassword}
-                onToggleShow={() => setShowLoginPassword((v) => !v)}
-                registration={loginForm.register("password")}
-                errorMessage={loginForm.formState.errors.password?.message}
+                autoComplete="email"
+                className="h-10"
+                {...loginForm.register("email")}
               />
+              {loginForm.formState.errors.email && (
+                <p className="text-sm text-destructive">
+                  {loginForm.formState.errors.email.message}
+                </p>
+              )}
+            </div>
 
-              <div className="flex justify-end">
-                <Link
-                  href="/forgot-password"
-                  prefetch={false}
-                  className="text-sm text-muted-foreground underline hover:text-foreground"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+            <PasswordField
+              id="login-password"
+              label="Password"
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              disabled={pendingAuth}
+              show={showLoginPassword}
+              onToggleShow={() => setShowLoginPassword((v) => !v)}
+              registration={loginForm.register("password")}
+              errorMessage={loginForm.formState.errors.password?.message}
+            />
 
-              <Button
-                type="submit"
-                disabled={pendingAuth}
-                className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
-                size="lg"
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                prefetch={false}
+                className="text-sm text-muted-foreground underline hover:text-foreground"
               >
-                {loginMutation.isPending ? (
-                  <>
-                    <Spinner className="size-4" aria-hidden />
-                    Logging in…
-                  </>
-                ) : (
-                  "Log in"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
+                Forgot password?
+              </Link>
+            </div>
 
-          <TabsContent value="signup" className="mt-0">
-            <form
-              onSubmit={signupForm.handleSubmit(handleSignup)}
-              className="space-y-4"
+            <Button
+              type="submit"
+              disabled={pendingAuth}
+              className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
+              size="lg"
             >
-              <div className="space-y-1.5">
-                <Label htmlFor="signup-name">Full name</Label>
-                <Input
-                  id="signup-name"
-                  type="text"
-                  placeholder="Your full name"
-                  disabled={pendingAuth}
-                  autoComplete="name"
-                  className="h-10"
-                  {...signupForm.register("name")}
-                />
-                {signupForm.formState.errors.name && (
-                  <p className="text-sm text-destructive">
-                    {signupForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="you@company.com"
-                  disabled={pendingAuth}
-                  autoComplete="email"
-                  className="h-10"
-                  {...signupForm.register("email")}
-                />
-                {signupForm.formState.errors.email && (
-                  <p className="text-sm text-destructive">
-                    {signupForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <PasswordField
-                id="signup-password"
-                label="Password"
-                placeholder="Create a password"
-                autoComplete="new-password"
-                disabled={pendingAuth}
-                show={showSignupPassword}
-                onToggleShow={() => setShowSignupPassword((v) => !v)}
-                registration={signupForm.register("password")}
-                errorMessage={signupForm.formState.errors.password?.message}
-                hint={
-                  <p className="text-xs text-muted-foreground">
-                    Must be at least 8 characters
-                  </p>
-                }
-              />
-
-              <Button
-                type="submit"
-                disabled={pendingAuth}
-                className="h-11 w-full bg-foreground text-background hover:bg-foreground/80 cursor-pointer"
-                size="lg"
-              >
-                {registerMutation.isPending ? (
-                  <>
-                    <Spinner className="size-4" aria-hidden />
-                    Creating account…
-                  </>
-                ) : (
-                  "Create account"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+              {loginMutation.isPending ? (
+                <>
+                  <Spinner className="size-4" aria-hidden />
+                  Logging in…
+                </>
+              ) : (
+                "Log in"
+              )}
+            </Button>
+          </form>
+        </div>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
           By continuing, you agree to our{" "}

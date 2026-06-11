@@ -19,8 +19,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 // import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useAcceptBriefMutation } from "../../hooks/use-accept-brief-mutation";
 
 interface CreatorOrderNewRequestPanelProps {
   selectedOrderId: string;
@@ -54,6 +56,12 @@ export function CreatorOrderNewRequestPanel({
   isLoading,
   onClose,
 }: CreatorOrderNewRequestPanelProps) {
+  const acceptBriefMutation = useAcceptBriefMutation({
+    onSuccess: () => {
+      onClose();
+    },
+  });
+
   const [timeLeft, setTimeLeft] = useState<{
     hours: number;
     minutes: number;
@@ -145,16 +153,17 @@ export function CreatorOrderNewRequestPanel({
           <div className="flex items-center gap-2">
             {hasBrief && (
               <>
-                <Button className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-10 px-5 rounded-lg shadow-sm">
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Accept Order
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold h-10 px-4 rounded-lg"
+                <Button 
+                  onClick={() => acceptBriefMutation.mutate({ orderId: selectedOrderId })}
+                  disabled={acceptBriefMutation.isPending}
+                  className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-10 px-5 rounded-lg shadow-sm"
                 >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Decline
+                  {acceptBriefMutation.isPending ? (
+                    <Spinner className="w-4 h-4 mr-2" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                  )}
+                  {acceptBriefMutation.isPending ? "Accepting..." : "Accept Order"}
                 </Button>
               </>
             )}

@@ -232,6 +232,25 @@ export class CreatorProfileController {
     return this.creatorProfileService.listSuggestedCreators(id);
   }
 
+  @Get('public/:slug')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get creator by public profile slug (display name)',
+    description:
+      'Public discovery endpoint keyed by a slug derived from displayName (lowercase, spaces removed). Same visibility rules as GET /creators/:id.',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async getCreatorByPublicSlug(
+    @Param('slug') slug: string,
+    @Req()
+    req: Request & { user?: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.getCreatorByPublicSlug(
+      req.user?.id ?? null,
+      slug,
+    );
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({

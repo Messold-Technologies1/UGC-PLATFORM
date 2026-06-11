@@ -39,6 +39,13 @@ import { CreatorPortfolioTagsModal } from "./creator-portfolio-tags-modal";
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
+import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
+import {
+  creatorPublicProfileDisplayUrl,
+  creatorPublicProfilePath,
+  creatorPublicProfileUrl,
+} from "@/features/creators/lib/creator-public-profile-url";
+import { toast } from "sonner";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Doughnut } from "react-chartjs-2";
 import {
@@ -82,9 +89,29 @@ export function CreatorPortfolioManager() {
   const videosQuery = useMyPortfolioVideosQuery({
     staleTime: 5 * 60_000,
   });
+  const profileQuery = useCreatorProfileMeQuery();
 
   const videos = videosQuery.data ?? [];
   const loading = videosQuery.isPending;
+  const publicProfileDisplayUrl = profileQuery.data?.displayName
+    ? creatorPublicProfileDisplayUrl(profileQuery.data.displayName)
+    : null;
+  const publicProfilePath = profileQuery.data?.displayName
+    ? creatorPublicProfilePath(profileQuery.data.displayName)
+    : null;
+
+  const handleCopyPublicProfileLink = useCallback(async () => {
+    if (!profileQuery.data?.displayName) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        creatorPublicProfileUrl(profileQuery.data.displayName),
+      );
+      toast.success("Public profile link copied");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  }, [profileQuery.data?.displayName]);
 
   const availableCategories = useMemo(() => {
     const categories = new Set<string>();
@@ -246,7 +273,13 @@ export function CreatorPortfolioManager() {
                 Manage Sections
               </Button>
               <Button variant="outline" className="gap-2 bg-background" asChild>
-                <Link href="#">
+                <Link
+                  href={publicProfilePath ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-disabled={!publicProfilePath}
+                  className={!publicProfilePath ? "pointer-events-none opacity-50" : undefined}
+                >
                   View my public profile <ExternalLink className="size-4" />
                 </Link>
               </Button>
@@ -693,12 +726,16 @@ export function CreatorPortfolioManager() {
             </h3>
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 bg-muted rounded-lg px-3 py-2 text-xs font-medium text-primary truncate border border-border/50">
-                letscollab.com/@riyasharma
+                {publicProfileDisplayUrl ?? "Set your display name to get a link"}
               </div>
               <Button
+                type="button"
                 variant="outline"
                 size="icon"
                 className="shrink-0 size-9 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
+                onClick={() => void handleCopyPublicProfileLink()}
+                disabled={!publicProfileDisplayUrl}
+                aria-label="Copy public profile link"
               >
                 <Copy className="size-4" />
               </Button>

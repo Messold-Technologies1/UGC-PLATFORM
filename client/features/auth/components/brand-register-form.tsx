@@ -38,7 +38,6 @@ import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immedi
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
 
-// const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -134,12 +133,12 @@ function brandSignupErrorMessage(error: unknown, fallback: string): string {
   return readApiErrorMessage(error) ?? fallback;
 }
 
-function normalizePhoneForSignup(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  if (!trimmed.startsWith("+")) return trimmed;
-  return `+${trimmed.replace(/\D/g, "")}`;
-}
+// function normalizePhoneForSignup(raw: string): string {
+//   const trimmed = raw.trim();
+//   if (!trimmed) return "";
+//   if (!trimmed.startsWith("+")) return trimmed;
+//   return `+${trimmed.replace(/\D/g, "")}`;
+// }
 
 function normalizeOptionalText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();

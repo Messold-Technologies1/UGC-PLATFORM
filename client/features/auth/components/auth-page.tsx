@@ -58,7 +58,7 @@ function LoginRouter() {
       <div className={styles.authGrid}>
         <LoginHero config={config} />
         <div className={styles.formWrap}>
-          <AuthForm mode="login" roleConfig={config} />
+          <AuthForm roleConfig={config} />
         </div>
       </div>
     </div>

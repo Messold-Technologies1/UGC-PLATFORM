@@ -28,6 +28,7 @@ import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifie
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
+import { normalizeCreatorPublicProfileSlug } from './creator-public-slug.util';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import { PendingCreatorApprovalListItemDto } from './dto/pending-creator-approval-list-item.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
@@ -1124,6 +1125,29 @@ export class CreatorProfileService {
       return dto;
     }
     return this.redactCreatorContactForViewer(dto);
+  }
+
+  async getCreatorByPublicSlug(
+    viewerUserId: string | null,
+    slug: string,
+  ): Promise<CreatorProfileResponseDto> {
+    const normalized = normalizeCreatorPublicProfileSlug(slug);
+    if (!normalized) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    const matches = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT cp."id"
+      FROM "CreatorProfile" cp
+      WHERE LOWER(REGEXP_REPLACE(TRIM(cp."displayName"), '\\s+', '', 'g')) = ${normalized}
+      LIMIT 2
+    `;
+
+    if (matches.length !== 1) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    return this.getCreatorById(viewerUserId, matches[0].id);
   }
 
   private mapPendingCreatorApprovalListItem(

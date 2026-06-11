@@ -260,12 +260,6 @@ export function PublicCreatorProfile({
   // OrderModal + Razorpay checkout inside AuthProvider context
   const brandBookHref = `/brand/creators/${profile.id}`;
 
-  // Auto-redirect brand users as soon as auth is confirmed — no click needed
-  useEffect(() => {
-    if (isBrand) {
-      router.replace(brandBookHref);
-    }
-  }, [isBrand, brandBookHref, router]);
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,

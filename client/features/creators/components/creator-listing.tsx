@@ -20,8 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
-import { CreatorCardSkeleton } from "./creator-card";
-import { ReelCard } from "./browse-creators/reel-card";
+import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
 import type { Creator } from "../types";
 import { CreatorFilterBar } from "./creator-filter-bar";
@@ -397,7 +396,7 @@ export function CreatorListing({
                 if (!creator) return null;
 
                 return (
-                  <ReelCard
+                  <CreatorCard
                     creator={creator}
                     index={index}
                     onOpen={openDrawer}

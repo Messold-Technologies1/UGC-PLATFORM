@@ -25,9 +25,6 @@ export class WishlistDto {
   @ApiPropertyOptional()
   sharedAt?: Date | null;
 
-  @ApiProperty({ type: [String] })
-  creatorIds!: string[];
-
   @ApiProperty()
   createdAt!: Date;
 

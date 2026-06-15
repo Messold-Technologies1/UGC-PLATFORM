@@ -35,6 +35,7 @@ export interface WishlistShareResponse {
 export interface PublicWishlistBrand {
   brandName: string;
   logoUrl?: string | null;
+  contactFullName?: string | null;
 }
 
 export interface PublicWishlistResponse {

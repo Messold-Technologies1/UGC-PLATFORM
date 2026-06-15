@@ -235,6 +235,7 @@ export class WishlistsService {
       id: wishlist.id,
       name: wishlist.name,
       creatorCount: wishlist._count.creators,
+      creatorIds: wishlist.creators.map((wc: { creatorId: string }) => wc.creatorId),
       shareEnabled: wishlist.shareEnabled,
       shareToken: wishlist.shareToken ?? null,
       sharedAt: wishlist.sharedAt ?? null,
@@ -428,7 +429,7 @@ export class WishlistsService {
       where: { shareToken: params.shareToken, shareEnabled: true },
       include: {
         brand: {
-          select: { brandName: true, logoUrl: true },
+          select: { brandName: true, logoUrl: true , contactFullName: true},
         },
         creators: {
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -453,6 +454,7 @@ export class WishlistsService {
       brand: {
         brandName: wishlist.brand.brandName ?? '',
         logoUrl: (wishlist.brand as any).logoUrl ?? null,
+        contactFullName: wishlist.brand.contactFullName ?? null,
       },
       creators,
     };

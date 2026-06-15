@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Wand2, X, Plus, Check, Loader2 } from "lucide-react";
+import { Share2, Wand2, X, Plus, Check, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
@@ -14,7 +14,8 @@ import type { Creator } from "@/features/creators/types";
 import { WishlistSidebar } from "@/features/wishlists/components/wishlist-sidebar";
 import { useWishlistsQuery } from "@/features/wishlists/hooks/use-wishlists-query";
 import { useWishlistDetailQuery } from "@/features/wishlists/hooks/use-wishlist-detail-query";
-import { useToggleWishlistShareMutation } from "@/features/wishlists/hooks/use-toggle-wishlist-share-mutation";
+import { useEnableWishlistShareMutation } from "@/features/wishlists/hooks/use-enable-wishlist-share-mutation";
+import { useDisableWishlistShareMutation } from "@/features/wishlists/hooks/use-disable-wishlist-share-mutation";
 import { useUpdateWishlistMutation } from "@/features/wishlists/hooks/use-update-wishlist-mutation";
 import "@/features/creators/components/browse-creators/browse-creators.css";
 
@@ -33,7 +34,8 @@ export default function WishlistDetailPage() {
   const wishlists = allData?.items ?? [];
 
   const { data: wishlist, isLoading: detailLoading } = useWishlistDetailQuery(id);
-  const shareMutation = useToggleWishlistShareMutation(id);
+  const enableShareMutation = useEnableWishlistShareMutation(id);
+  const disableShareMutation = useDisableWishlistShareMutation(id);
   const updateMutation = useUpdateWishlistMutation(id);
 
   const [editing, setEditing] = useState(false);
@@ -80,16 +82,31 @@ export default function WishlistDetailPage() {
 
   async function handleShare() {
     try {
-      const res = await shareMutation.mutateAsync();
-      if (res.shareEnabled && res.shareToken) {
-        const url = `${window.location.origin}/wishlists/share/${res.shareToken}`;
+      if (wishlist?.shareEnabled && wishlist.shareToken) {
+        // Already shared — just copy the link
+        const url = `${window.location.origin}/wishlists/share/${wishlist.shareToken}`;
         await navigator.clipboard.writeText(url);
         toast.success("Share link copied to clipboard");
       } else {
-        toast.success("Sharing disabled");
+        // Enable sharing
+        const res = await enableShareMutation.mutateAsync();
+        if (res.shareEnabled && res.shareToken) {
+          const url = `${window.location.origin}/wishlists/share/${res.shareToken}`;
+          await navigator.clipboard.writeText(url);
+          toast.success("Sharing enabled — link copied to clipboard");
+        }
       }
     } catch {
-      toast.error("Failed to update share settings");
+      toast.error("Failed to enable sharing");
+    }
+  }
+
+  async function handleMakePrivate() {
+    try {
+      await disableShareMutation.mutateAsync();
+      toast.success("Wishlist is now private");
+    } catch {
+      toast.error("Failed to disable sharing");
     }
   }
 
@@ -168,20 +185,58 @@ export default function WishlistDetailPage() {
                     Add creators
                   </Link>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-9 rounded-xl"
-                  onClick={handleShare}
-                  disabled={shareMutation.isPending}
-                  title={wishlist.shareEnabled ? "Copy share link" : "Share"}
-                >
-                  {shareMutation.isPending ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <Share2 size={15} />
-                  )}
-                </Button>
+
+                {wishlist.shareEnabled ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 rounded-xl gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                      onClick={handleShare}
+                      disabled={enableShareMutation.isPending}
+                      title="Copy share link"
+                    >
+                      {enableShareMutation.isPending ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Share2 size={14} />
+                      )}
+                      Copy link
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 rounded-xl gap-1.5 border-gray-300 text-gray-600 hover:bg-gray-50"
+                      onClick={handleMakePrivate}
+                      disabled={disableShareMutation.isPending}
+                      title="Make private"
+                    >
+                      {disableShareMutation.isPending ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Lock size={14} />
+                      )}
+                      Make private
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl gap-1.5"
+                    onClick={handleShare}
+                    disabled={enableShareMutation.isPending}
+                    title="Share this wishlist"
+                  >
+                    {enableShareMutation.isPending ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Share2 size={14} />
+                    )}
+                    Share
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="icon"

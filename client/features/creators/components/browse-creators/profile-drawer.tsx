@@ -9,6 +9,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { OrderModal } from "./order-modal";
+import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import {
   X,
   MapPin,
@@ -904,6 +905,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               ₹{c.startingPrice.toLocaleString("en-IN")}
             </div>
           </div>
+          {!landingPage && activeId && (
+            <SaveToWishlistButton creatorId={activeId} />
+          )}
           <button
             type="button"
             className={`dr-btn dr-btn-primary flex-1 ${!landingPage && (!profile || isProfileLoading || isProfileError) ? "opacity-50 cursor-not-allowed" : ""}`}

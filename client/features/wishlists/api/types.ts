@@ -1,12 +1,23 @@
-export interface Wishlist {
-  id: string;
+export interface WishlistCreatorPackage {
   name: string;
-  creatorCount: number;
-  shareEnabled: boolean;
-  shareToken?: string | null;
-  sharedAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  priceAmount: string;
+  deliveryDays: number;
+  basicEditing?: boolean;
+}
+
+export interface WishlistCreatorPortfolioVideo {
+  id: string;
+  creatorId: string;
+  videoUrl: string;
+  thumbnailUrl?: string | null;
+  industryLabel?: string | null;
+  tags: string[];
+}
+
+export interface WishlistCreatorFacet {
+  dimension: string;
+  slug: string;
+  label: string;
 }
 
 export interface WishlistCreator {
@@ -17,7 +28,22 @@ export interface WishlistCreator {
   city?: string | null;
   avgRating?: string | null;
   reviewCount?: number;
-  packages?: { name: string; priceAmount: string; deliveryDays: number }[];
+  languages?: string[];
+  facetSelections?: WishlistCreatorFacet[];
+  packages?: WishlistCreatorPackage[];
+  portfolioVideos?: WishlistCreatorPortfolioVideo[];
+}
+
+export interface Wishlist {
+  id: string;
+  name: string;
+  creatorCount: number;
+  creatorIds: string[];
+  shareEnabled: boolean;
+  shareToken?: string | null;
+  sharedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WishlistDetail extends Wishlist {

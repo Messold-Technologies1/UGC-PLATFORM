@@ -41,6 +41,7 @@ export interface PublicWishlistBrand {
 export interface PublicWishlistResponse {
   id: string;
   name: string;
+  sharedAt?: string | null;
   brand: PublicWishlistBrand;
   creators: WishlistCreator[];
 }

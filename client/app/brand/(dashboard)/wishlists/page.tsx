@@ -18,11 +18,11 @@ export default function WishlistsPage() {
   }, [isLoading, wishlists, router]);
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-64px)] bg-gray-50">
-      <div className="w-[300px] shrink-0 p-4 overflow-y-auto">
+    <div className="flex bg-gray-50">
+      <aside className="sticky top-24 z-10 w-[300px] shrink-0 self-start p-4 max-h-[calc(100dvh-7rem)] overflow-y-auto">
         <WishlistSidebar wishlists={wishlists} activeId={null} isLoading={isLoading} />
-      </div>
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+      </aside>
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-12rem)]">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-white shadow-sm mb-4">
           <Heart className="size-6 text-rose-400" />
         </div>

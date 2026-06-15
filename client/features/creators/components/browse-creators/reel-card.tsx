@@ -10,7 +10,10 @@ import {
   tagColor,
   formatReelDuration,
 } from "@/lib/utils";
-import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
+import {
+  SaveToWishlistButton,
+  shouldSuppressCreatorCardNavigation,
+} from "@/features/wishlists/components/save-to-wishlist-button";
 import { useAuth } from "@/providers/auth-provider";
 
 export interface ReelCardProps {
@@ -55,9 +58,17 @@ export const ReelCard = memo(function ReelCard({
     }
   }, [hasVideo]);
 
-  const handleArticleClick = useCallback(() => {
-    onOpen(creator);
-  }, [creator, onOpen]);
+  const handleArticleClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (shouldSuppressCreatorCardNavigation()) return;
+
+      const target = e.target as HTMLElement;
+      if (target.closest("button, a, [data-save-wishlist]")) return;
+
+      onOpen(creator);
+    },
+    [creator, onOpen],
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -158,7 +169,12 @@ export const ReelCard = memo(function ReelCard({
         </div>
 
         {isBrand && (
-          <SaveToWishlistButton creatorId={creator.id} creatorName={creator.name} variant="icon" />
+          <SaveToWishlistButton
+            creatorId={creator.id}
+            creatorName={creator.name}
+            creatorImageUrl={creator.thumbnail}
+            variant="icon"
+          />
         )}
         {hasVideo && (
           <button

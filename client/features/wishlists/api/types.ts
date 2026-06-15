@@ -1,38 +1,6 @@
-export interface WishlistCreatorPackage {
-  name: string;
-  priceAmount: string;
-  deliveryDays: number;
-  basicEditing?: boolean;
-}
+import type { CreatorPublicListItemApi } from "@/features/creators/api/types";
 
-export interface WishlistCreatorPortfolioVideo {
-  id: string;
-  creatorId: string;
-  videoUrl: string;
-  thumbnailUrl?: string | null;
-  industryLabel?: string | null;
-  tags: string[];
-}
-
-export interface WishlistCreatorFacet {
-  dimension: string;
-  slug: string;
-  label: string;
-}
-
-export interface WishlistCreator {
-  id: string;
-  name: string;
-  profileImageUrl?: string | null;
-  introVideoUrl?: string | null;
-  city?: string | null;
-  avgRating?: string | null;
-  reviewCount?: number;
-  languages?: string[];
-  facetSelections?: WishlistCreatorFacet[];
-  packages?: WishlistCreatorPackage[];
-  portfolioVideos?: WishlistCreatorPortfolioVideo[];
-}
+export type WishlistCreator = CreatorPublicListItemApi;
 
 export interface Wishlist {
   id: string;
@@ -62,4 +30,16 @@ export interface WishlistShareResponse {
   shareEnabled: boolean;
   shareToken: string;
   sharedAt?: string | null;
+}
+
+export interface PublicWishlistBrand {
+  brandName: string;
+  logoUrl?: string | null;
+}
+
+export interface PublicWishlistResponse {
+  id: string;
+  name: string;
+  brand: PublicWishlistBrand;
+  creators: WishlistCreator[];
 }

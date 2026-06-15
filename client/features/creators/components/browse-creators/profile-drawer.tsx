@@ -906,7 +906,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             </div>
           </div>
           {!landingPage && activeId && (
-            <SaveToWishlistButton creatorId={activeId} creatorName={c?.name ?? ""} />
+            <SaveToWishlistButton
+              creatorId={activeId}
+              creatorName={c?.name ?? ""}
+              creatorImageUrl={c?.thumbnail}
+            />
           )}
           <button
             type="button"

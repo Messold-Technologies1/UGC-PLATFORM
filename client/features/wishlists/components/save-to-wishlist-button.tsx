@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Heart, Plus, Check, Loader2, ArrowRight, X } from "lucide-react";
 import { toast } from "sonner";
@@ -49,16 +50,40 @@ function pickGradient(name: string) {
   return AVATAR_GRADIENTS[sum % AVATAR_GRADIENTS.length]!;
 }
 
+function isValidImageUrl(url?: string | null): url is string {
+  return (
+    typeof url === "string" &&
+    (url.startsWith("http://") || url.startsWith("https://"))
+  );
+}
+
+let suppressCreatorCardNavigationUntil = 0;
+
+export function shouldSuppressCreatorCardNavigation() {
+  return Date.now() < suppressCreatorCardNavigationUntil;
+}
+
+function suppressCreatorCardNavigationBriefly() {
+  suppressCreatorCardNavigationUntil = Date.now() + 400;
+}
+
 interface SaveToWishlistButtonProps {
   creatorId: string;
   creatorName: string;
+  creatorImageUrl?: string | null;
   variant?: "icon" | "full";
 }
 
-export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" }: SaveToWishlistButtonProps) {
+export function SaveToWishlistButton({
+  creatorId,
+  creatorName,
+  creatorImageUrl,
+  variant = "full",
+}: SaveToWishlistButtonProps) {
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
+  const [imageError, setImageError] = useState(false);
 
   const { data, isLoading } = useWishlistsQuery();
   const wishlists: Wishlist[] = data?.items ?? [];
@@ -67,7 +92,14 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
   const removeMutation = useRemoveWishlistCreatorMutation();
   const createMutation = useCreateWishlistMutation();
 
-  const isBusy = addMutation.isPending || removeMutation.isPending || createMutation.isPending;
+  const isTriggerBusy = addMutation.isPending || removeMutation.isPending || createMutation.isPending;
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      suppressCreatorCardNavigationBriefly();
+    }
+  }
 
   function isInWishlist(wishlist: Wishlist) {
     return wishlist.creatorIds?.includes(creatorId) ?? false;
@@ -109,11 +141,18 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
   const initials = getInitials(creatorName);
   const gradient = pickGradient(creatorName);
   const isSaved = savedCount > 0;
+  const showProfileImage = isValidImageUrl(creatorImageUrl) && !imageError;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [creatorId, creatorImageUrl]);
 
   const trigger =
     variant === "icon" ? (
       <button
         type="button"
+        data-save-wishlist
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -122,7 +161,7 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
         className="absolute top-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-white/90 shadow backdrop-blur-sm transition-all hover:scale-110"
         aria-label="Save to wishlist"
       >
-        {isBusy ? (
+        {isTriggerBusy ? (
           <Loader2 size={13} className="animate-spin text-rose-500" />
         ) : (
           <Heart
@@ -132,37 +171,58 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
         )}
       </button>
     ) : (
-      <Button
-        variant="outline"
-        className="dr-btn dr-btn-secondary flex-1 gap-2"
-        onClick={() => setOpen(true)}
+      <button
+        type="button"
+        data-save-wishlist
+        className="dr-btn dr-btn-wishlist"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        aria-label="Save to wishlist"
       >
-        {isBusy ? (
-          <Loader2 size={15} className="animate-spin" />
+        {isTriggerBusy ? (
+          <Loader2 size={18} className="animate-spin text-rose-500" />
         ) : (
-          <Heart size={15} className={isSaved ? "fill-rose-500 text-rose-500" : ""} />
+          <Heart size={18} className="fill-rose-500 text-rose-500" />
         )}
-        Save
-      </Button>
+      </button>
     );
 
   return (
     <>
       {trigger}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl gap-0">
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
+          className="z-82 max-w-md gap-0 overflow-hidden rounded-3xl p-0"
+          overlayClassName="z-80"
+          showCloseButton={false}
+        >
           <DialogTitle className="sr-only">Save to Wishlist</DialogTitle>
 
           {/* Header */}
           <div className="flex items-center gap-3 p-5 pb-4">
-            <div
-              className={cn(
-                "size-12 rounded-xl bg-gradient-to-br flex items-center justify-center text-white font-bold text-lg shrink-0",
-                gradient
+            <div className="size-12 shrink-0 overflow-hidden rounded-xl">
+              {showProfileImage ? (
+                <Image
+                  src={creatorImageUrl}
+                  alt={creatorName}
+                  width={48}
+                  height={48}
+                  className="size-full object-cover"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "flex size-full items-center justify-center bg-gradient-to-br text-lg font-bold text-white",
+                    gradient,
+                  )}
+                >
+                  {initials}
+                </div>
               )}
-            >
-              {initials}
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -172,7 +232,7 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
             </div>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
               className="ml-auto size-7 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground transition-colors shrink-0"
             >
               <X size={14} />
@@ -229,6 +289,11 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
               wishlists.map((w, i) => {
                 const saved = isInWishlist(w);
                 const color = ACCENT_COLORS[i % ACCENT_COLORS.length]!;
+                const isAddingThis =
+                  addMutation.isPending && addMutation.variables?.wishlistId === w.id;
+                const isRemovingThis =
+                  removeMutation.isPending && removeMutation.variables?.wishlistId === w.id;
+                const isRowBusy = isAddingThis || isRemovingThis;
                 return (
                   <div
                     key={w.id}
@@ -252,9 +317,9 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
                         size="sm"
                         className="bg-rose-500 hover:bg-rose-600 text-white rounded-full gap-1 h-8 px-3 shrink-0"
                         onClick={() => handleToggle(w)}
-                        disabled={isBusy}
+                        disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
                       >
-                        {removeMutation.isPending ? (
+                        {isRemovingThis ? (
                           <Loader2 size={12} className="animate-spin" />
                         ) : (
                           <Check size={12} />
@@ -267,9 +332,9 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
                         variant="outline"
                         className="rounded-full gap-1 h-8 px-3 shrink-0"
                         onClick={() => handleToggle(w)}
-                        disabled={isBusy}
+                        disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
                       >
-                        {addMutation.isPending ? (
+                        {isAddingThis ? (
                           <Loader2 size={12} className="animate-spin" />
                         ) : (
                           <Plus size={12} />
@@ -287,7 +352,7 @@ export function SaveToWishlistButton({ creatorId, creatorName, variant = "full" 
           <div className="border-t border-border/40 px-5 py-3">
             <Link
               href="/brand/wishlists"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
               className="text-sm font-medium text-rose-500 hover:underline flex items-center gap-1"
             >
               View all wishlists

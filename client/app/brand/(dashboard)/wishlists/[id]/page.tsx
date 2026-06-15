@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Share2, Wand2, X, Plus, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
+import { ReelCard } from "@/features/creators/components/browse-creators/reel-card";
+import { ProfileDrawer } from "@/features/creators/components/browse-creators/profile-drawer";
+import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-to-creator";
+import type { Creator } from "@/features/creators/types";
 import { WishlistSidebar } from "@/features/wishlists/components/wishlist-sidebar";
-import { WishlistCreatorCard } from "@/features/wishlists/components/wishlist-creator-card";
 import { useWishlistsQuery } from "@/features/wishlists/hooks/use-wishlists-query";
 import { useWishlistDetailQuery } from "@/features/wishlists/hooks/use-wishlist-detail-query";
 import { useToggleWishlistShareMutation } from "@/features/wishlists/hooks/use-toggle-wishlist-share-mutation";
 import { useUpdateWishlistMutation } from "@/features/wishlists/hooks/use-update-wishlist-mutation";
+import "@/features/creators/components/browse-creators/browse-creators.css";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -34,6 +38,24 @@ export default function WishlistDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
+  const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
+
+  const openDrawer = useCallback((creator: Creator) => {
+    setSelectedCreator(creator);
+    setDrawerCreatorId(creator.id);
+    setDrawerOpen(true);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+  }, []);
+
+  const listingCreators = useMemo(
+    () => wishlist?.creators.map(mapProfileToListingCreator) ?? [],
+    [wishlist?.creators],
+  );
 
   function startEdit() {
     setEditName(wishlist?.name ?? "");
@@ -71,13 +93,6 @@ export default function WishlistDetailPage() {
     }
   }
 
-  const minPrice = wishlist?.creators
-    .flatMap((c) => c.packages ?? [])
-    .reduce((min, p) => {
-      const v = Number(p.priceAmount);
-      return v < min ? v : min;
-    }, Infinity);
-
   const totalPrice = wishlist?.creators
     .map((c) => {
       if (!c.packages || c.packages.length === 0) return 0;
@@ -86,21 +101,19 @@ export default function WishlistDetailPage() {
     .reduce((a, b) => a + b, 0);
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] bg-gray-50">
-      {/* Left sidebar */}
-      <div className="w-[300px] shrink-0 p-4 overflow-y-auto">
+    <div className="flex bg-gray-50">
+      <aside className="sticky top-24 z-10 w-[300px] shrink-0 self-start p-4 max-h-[calc(100dvh-7rem)] overflow-y-auto">
         <WishlistSidebar wishlists={wishlists} activeId={id} isLoading={listsLoading} />
-      </div>
+      </aside>
 
-      {/* Right panel */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 min-w-0">
+      <div className="flex-1 px-6 py-6 min-w-0">
         {detailLoading ? (
           <div className="space-y-4">
-            <Skeleton className="h-8 w-56 rounded-xl" />
-            <Skeleton className="h-4 w-72 rounded-lg" />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-8">
+            <div className="h-8 w-56 rounded-xl bg-muted animate-pulse" />
+            <div className="h-4 w-72 rounded-lg bg-muted animate-pulse" />
+            <div className="reelgrid browse-redesign-scope mt-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="rounded-2xl" style={{ aspectRatio: "10/14" }} />
+                <CreatorCardSkeleton key={i} appearance="browse" />
               ))}
             </div>
           </div>
@@ -108,9 +121,7 @@ export default function WishlistDetailPage() {
           <p className="text-muted-foreground">Wishlist not found.</p>
         ) : (
           <>
-            {/* Header row */}
             <div className="flex items-start justify-between gap-4 mb-1">
-              {/* Editable name */}
               {editing ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <input
@@ -147,7 +158,6 @@ export default function WishlistDetailPage() {
                 </h1>
               )}
 
-              {/* Action buttons */}
               <div className="flex items-center gap-2 shrink-0">
                 <Button
                   className="gap-2 rounded-full bg-gray-900 hover:bg-gray-800 text-white h-9 text-sm"
@@ -194,7 +204,6 @@ export default function WishlistDetailPage() {
               </div>
             </div>
 
-            {/* Metadata */}
             <p className="text-sm text-muted-foreground mb-5 flex items-center gap-1.5 flex-wrap">
               <span>{wishlist.creatorCount} creator{wishlist.creatorCount !== 1 ? "s" : ""}</span>
               {totalPrice !== undefined && totalPrice > 0 && (
@@ -209,8 +218,7 @@ export default function WishlistDetailPage() {
 
             <hr className="border-border/40 mb-6" />
 
-            {/* Creator grid */}
-            {wishlist.creators.length === 0 ? (
+            {listingCreators.length === 0 ? (
               <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white px-6 py-12 text-center">
                 <p className="font-semibold">No creators saved yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -223,13 +231,13 @@ export default function WishlistDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {wishlist.creators.map((c, i) => (
-                  <WishlistCreatorCard
-                    key={c.id}
-                    creator={c}
-                    wishlistId={id}
-                    index={i}
+              <div className="reelgrid browse-redesign-scope !mt-0">
+                {listingCreators.map((creator, index) => (
+                  <ReelCard
+                    key={creator.id}
+                    creator={creator}
+                    index={index}
+                    onOpen={openDrawer}
                   />
                 ))}
               </div>
@@ -237,6 +245,13 @@ export default function WishlistDetailPage() {
           </>
         )}
       </div>
+
+      <ProfileDrawer
+        creatorId={drawerCreatorId}
+        open={drawerOpen}
+        onClose={closeDrawer}
+        creator={selectedCreator}
+      />
     </div>
   );
 }

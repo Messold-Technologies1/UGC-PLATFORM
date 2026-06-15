@@ -93,8 +93,8 @@
   right: 11px;
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+
+  gap: 4px;
 }
 .rcard .reel .vchip {
   display: inline-flex;
@@ -836,6 +836,17 @@
 }
 .dr-btn-ghost:hover {
   background: var(--muted);
+}
+.dr-btn-wishlist {
+  width: 42px;
+  min-width: 42px;
+  padding: 0;
+  flex-shrink: 0;
+  background: #fff5f5;
+  border-color: #fecdd3;
+}
+.dr-btn-wishlist:hover {
+  background: #ffe4e6;
 }
 
 .dr-skeleton-bar {

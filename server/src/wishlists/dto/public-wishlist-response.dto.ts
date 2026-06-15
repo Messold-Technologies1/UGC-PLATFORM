@@ -7,6 +7,9 @@ export class PublicWishlistBrandDto {
 
   @ApiPropertyOptional()
   logoUrl?: string | null;
+
+  @ApiPropertyOptional()
+  contactFullName?: string | null;
 }
 
 export class PublicWishlistResponseDto {

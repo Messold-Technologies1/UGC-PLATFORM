@@ -22,6 +22,7 @@ import { BriefsModule } from './briefs/briefs.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
+import { WishlistsModule } from './wishlists/wishlists.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { MailModule } from './mail/mail.module';
     WebhooksModule,
     JobsModule,
     RealtimeModule,
+    WishlistsModule,
   ],
   controllers: [AppController],
   providers: [

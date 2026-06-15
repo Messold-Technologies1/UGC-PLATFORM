@@ -24,6 +24,7 @@ import {
   Baby,
   PawPrint,
   User,
+  Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,8 @@ import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-rev
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import { mapProfileItemToCreatorProfile } from "../../api/map-profile-to-creator";
 import { tagColor } from "@/lib/utils";
+import { useAuth } from "@/providers/auth-provider";
+import { SaveToWishlistModal } from "@/features/wishlists/components/save-to-wishlist-modal";
 
 interface ProfileDrawerProps {
   creatorId: string | null;
@@ -615,6 +618,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   landingPage = false,
 }: ProfileDrawerProps) {
   const router = useRouter();
+  const { user } = useAuth();
+  const isBrand = user?.roles?.includes("BRAND") ?? false;
+  const [wishlistOpen, setWishlistOpen] = useState(false);
   const lastCreatorRef = useRef(creator);
   const lastIdRef = useRef(creatorId);
   if (creator) lastCreatorRef.current = creator;
@@ -753,14 +759,26 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
         aria-modal="true"
         aria-label={`${c.name} profile`}
       >
-        <button
-          type="button"
-          className="dr-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <X size={18} />
-        </button>
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+          {isBrand && c && (
+            <button
+              type="button"
+              onClick={() => setWishlistOpen(true)}
+              className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-pink-500"
+              aria-label={`Save ${c.name} to wishlist`}
+            >
+              <Heart size={16} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="dr-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         <div className="drawer-scroll" ref={scrollRef}>
           {(validPortfolioTiles.length > 0 || showIntro) && (
@@ -933,6 +951,15 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
         isLoading={isProfileLoading}
         onClose={() => setOrderOpen(false)}
       />
+
+      {wishlistOpen && c && (
+        <SaveToWishlistModal
+          open={wishlistOpen}
+          onClose={() => setWishlistOpen(false)}
+          creatorId={c.id}
+          creatorName={c.name}
+        />
+      )}
     </>
   );
 });

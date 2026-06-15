@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, Star, MapPin, CheckCircle, ArrowRight, Volume2, VolumeX } from "lucide-react";
+import { Play, Star, MapPin, CheckCircle, ArrowRight, Volume2, VolumeX, Heart } from "lucide-react";
 import type { Creator } from "../../types";
 import {
   getInitials,
@@ -15,12 +15,14 @@ export interface ReelCardProps {
   creator: Creator;
   index: number;
   onOpen: (creator: Creator) => void;
+  onWishlist?: (creator: Creator) => void;
 }
 
 export const ReelCard = memo(function ReelCard({
   creator,
   index,
   onOpen,
+  onWishlist,
 }: ReelCardProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [g1, g2] = posterColor(index);
@@ -78,6 +80,14 @@ export const ReelCard = memo(function ReelCard({
     setIsMuted((prev) => !prev);
   }, []);
 
+  const handleWishlist = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onWishlist?.(creator);
+    },
+    [creator, onWishlist],
+  );
+
   return (
     <article
       className="rcard"
@@ -134,6 +144,17 @@ export const ReelCard = memo(function ReelCard({
             {creator.rating.toFixed(1)}
           </span>
         </div>
+
+        {onWishlist && (
+          <button
+            type="button"
+            onClick={handleWishlist}
+            className="absolute top-2 right-2 z-20 flex size-7 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+            aria-label={`Save ${creator.name} to wishlist`}
+          >
+            <Heart size={14} />
+          </button>
+        )}
 
         <div className="play">
           <div className="pb">

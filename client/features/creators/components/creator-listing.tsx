@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { CreatorCardSkeleton } from "./creator-card";
 import { ReelCard } from "./browse-creators/reel-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
+import { SaveToWishlistModal } from "@/features/wishlists/components/save-to-wishlist-modal";
+import { useAuth } from "@/providers/auth-provider";
 import type { Creator } from "../types";
 import { CreatorFilterBar } from "./creator-filter-bar";
 import {
@@ -147,14 +149,22 @@ export function CreatorListing({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const { user } = useAuth();
+  const isBrand = !landingPage && (user?.roles?.includes("BRAND") ?? false);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
+  const [wishlistCreator, setWishlistCreator] = useState<Creator | null>(null);
 
   const openDrawer = useCallback((creator: Creator) => {
     setSelectedCreator(creator);
     setDrawerCreatorId(creator.id);
     setDrawerOpen(true);
+  }, []);
+
+  const openWishlistModal = useCallback((creator: Creator) => {
+    setWishlistCreator(creator);
   }, []);
 
   const closeDrawer = useCallback(() => {
@@ -401,6 +411,7 @@ export function CreatorListing({
                     creator={creator}
                     index={index}
                     onOpen={openDrawer}
+                    onWishlist={isBrand ? openWishlistModal : undefined}
                   />
                 );
               }}
@@ -464,6 +475,15 @@ export function CreatorListing({
         creator={selectedCreator}
         landingPage={landingPage}
       />
+
+      {wishlistCreator && (
+        <SaveToWishlistModal
+          open={!!wishlistCreator}
+          onClose={() => setWishlistCreator(null)}
+          creatorId={wishlistCreator.id}
+          creatorName={wishlistCreator.name}
+        />
+      )}
     </div>
   );
 }

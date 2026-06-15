@@ -158,7 +158,7 @@ export const ReelCard = memo(function ReelCard({
         </div>
 
         {isBrand && (
-          <SaveToWishlistButton creatorId={creator.id} variant="icon" />
+          <SaveToWishlistButton creatorId={creator.id} creatorName={creator.name} variant="icon" />
         )}
         {hasVideo && (
           <button

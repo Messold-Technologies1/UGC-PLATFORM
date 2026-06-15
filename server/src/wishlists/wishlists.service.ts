@@ -142,7 +142,10 @@ export class WishlistsService {
 
     const rows = await this.prisma.brandWishlist.findMany({
       where: { brandId: brand.id },
-      include: { _count: { select: { creators: true } } },
+      include: {
+        _count: { select: { creators: true } },
+        creators: { select: { creatorId: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -150,6 +153,7 @@ export class WishlistsService {
       id: w.id,
       name: w.name,
       creatorCount: w._count.creators,
+      creatorIds: w.creators.map((c: any) => c.creatorId),
       shareEnabled: w.shareEnabled,
       shareToken: w.shareToken ?? null,
       sharedAt: w.sharedAt ?? null,

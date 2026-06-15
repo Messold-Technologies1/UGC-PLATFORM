@@ -8,6 +8,8 @@ import {
   toggleCreatorInWishlist,
   fetchCreatorWishlistStatus,
   enableWishlistShare,
+  disableWishlistShare,
+  fetchPublicWishlist,
 } from "../api/wishlist-api";
 
 export const wishlistsQueryKey = ["wishlists"] as const;
@@ -107,5 +109,27 @@ export function useEnableWishlistShareMutation() {
       void qc.invalidateQueries({ queryKey: wishlistDetailQueryKey(wishlistId) });
       void qc.invalidateQueries({ queryKey: wishlistsQueryKey });
     },
+  });
+}
+
+export function useDisableWishlistShareMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (wishlistId: string) => disableWishlistShare(wishlistId),
+    onSuccess: (_, wishlistId) => {
+      void qc.invalidateQueries({ queryKey: wishlistDetailQueryKey(wishlistId) });
+      void qc.invalidateQueries({ queryKey: wishlistsQueryKey });
+    },
+  });
+}
+
+export const publicWishlistQueryKey = (token: string) =>
+  ["wishlists", "public", token] as const;
+
+export function usePublicWishlistQuery(shareToken: string) {
+  return useQuery({
+    queryKey: publicWishlistQueryKey(shareToken),
+    queryFn: () => fetchPublicWishlist(shareToken),
+    staleTime: 5 * 60_000,
   });
 }

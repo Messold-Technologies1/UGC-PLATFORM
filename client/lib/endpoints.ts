@@ -166,6 +166,7 @@ export const ENDPOINTS = {
     CREATOR_STATUS: (creatorId: string) =>
       `/api/wishlists/creator-status/${encodeURIComponent(creatorId)}`,
     SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    UNSHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
     PUBLIC: (shareToken: string) =>
       `/api/wishlists/public/${encodeURIComponent(shareToken)}`,
   },

@@ -228,4 +228,21 @@ export class WishlistsController {
       wishlistId,
     });
   }
+
+  @Delete(':wishlistId/share')
+  @ApiBearerAuth()
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Disable sharing (make wishlist private)' })
+  async unshare(
+    @Param('wishlistId') wishlistId: string,
+    @Req() req: AuthedRequest,
+  ): Promise<{ shareEnabled: boolean }> {
+    return this.wishlists.disableShare({
+      actorUserId: req.user.id,
+      brandProfileId: readBrandProfileIdFromRequest(req),
+      wishlistId,
+    });
+  }
 }

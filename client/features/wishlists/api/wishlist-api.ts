@@ -72,3 +72,22 @@ export async function enableWishlistShare(
   );
   return data;
 }
+
+export async function disableWishlistShare(
+  wishlistId: string,
+): Promise<{ shareEnabled: boolean }> {
+  const { data } = await api.delete<{ shareEnabled: boolean }>(
+    ENDPOINTS.WISHLISTS.UNSHARE(wishlistId),
+  );
+  return data;
+}
+
+export async function fetchPublicWishlist(shareToken: string): Promise<{
+  id: string;
+  name: string;
+  brand: { brandName: string; logoUrl?: string | null };
+  creators: import("@/features/creators/api/types").CreatorPublicListItemApi[];
+}> {
+  const { data } = await api.get(ENDPOINTS.WISHLISTS.PUBLIC(shareToken));
+  return data;
+}

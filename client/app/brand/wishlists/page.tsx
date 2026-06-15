@@ -10,13 +10,10 @@ import {
   Pencil,
   Trash2,
   Share2,
-  Heart,
-  Star,
-  MapPin,
-  ArrowRight,
   Check,
   Loader2,
   X,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,13 +24,15 @@ import {
   useDeleteWishlistMutation,
   useToggleCreatorWishlistMutation,
   useEnableWishlistShareMutation,
+  useDisableWishlistShareMutation,
 } from "@/features/wishlists/hooks/use-wishlists-query";
 import type { WishlistApi } from "@/features/wishlists/api/types";
 import { ProfileDrawer } from "@/features/creators/components/browse-creators/profile-drawer";
+import { ReelCard } from "@/features/creators/components/browse-creators/reel-card";
 import type { Creator } from "@/features/creators/types";
 import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-to-creator";
 import type { CreatorPublicListItemApi } from "@/features/creators/api/types";
-import { getInitials, posterColor } from "@/lib/utils";
+import { SaveToWishlistModal } from "@/features/wishlists/components/save-to-wishlist-modal";
 
 const DOT_COLORS = [
   "#ef4444",
@@ -48,121 +47,49 @@ function dotColor(index: number): string {
   return DOT_COLORS[index % DOT_COLORS.length]!;
 }
 
-function WishlistCreatorCard({
+function WishlistReelCard({
   creator,
+  index,
   wishlistId,
-  creatorIndex,
-  onView,
+  onOpen,
 }: {
   creator: CreatorPublicListItemApi;
+  index: number;
   wishlistId: string;
-  creatorIndex: number;
-  onView: (creator: Creator) => void;
+  onOpen: (creator: Creator) => void;
 }) {
   const toggleMutation = useToggleCreatorWishlistMutation();
-  const [g1, g2] = posterColor(creatorIndex);
-  const minPrice = creator.packages
-    .map((p) => Number(p.priceAmount))
-    .filter((n) => !isNaN(n) && n > 0)
-    .sort((a, b) => a - b)[0];
-  const rating = creator.avgRating ? Number(creator.avgRating) : null;
-  const location = [creator.city, creator.countryName].filter(Boolean).join(", ");
+  const [wishlistCreator, setWishlistCreator] = useState<Creator | null>(null);
+  const mapped = mapProfileToListingCreator(creator);
 
-  const handleRemove = () => {
+  const handleWishlist = useCallback(() => {
+    // On the wishlists page the heart removes from this list directly
     toggleMutation.mutate(
       { wishlistId, creatorId: creator.id },
       {
-        onSuccess: () => toast.success(`Removed from wishlist`),
+        onSuccess: () => toast.success("Removed from wishlist"),
         onError: () => toast.error("Failed to remove"),
       },
     );
-  };
-
-  const handleView = () => {
-    onView(mapProfileToListingCreator(creator));
-  };
+  }, [toggleMutation, wishlistId, creator.id]);
 
   return (
-    <div className="relative flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100">
-      {/* Thumbnail area */}
-      <div
-        className="relative h-36 shrink-0"
-        style={{ background: `linear-gradient(155deg, ${g1}, ${g2})` }}
-      >
-        {creator.profileImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={creator.profileImageUrl}
-            alt={creator.name}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-3xl font-bold text-white/80">
-              {getInitials(creator.name)}
-            </span>
-          </div>
-        )}
-
-        {rating !== null && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
-            <Star size={10} fill="#ffd24a" color="#ffd24a" />
-            {rating.toFixed(1)}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleRemove}
-          disabled={toggleMutation.isPending}
-          className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-red-500/90 text-white hover:bg-red-600"
-          aria-label="Remove from wishlist"
-        >
-          {toggleMutation.isPending ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Heart size={12} fill="white" />
-          )}
-        </button>
-      </div>
-
-      {/* Info */}
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <p className="font-semibold text-sm text-gray-900 truncate">
-          {creator.name}
-        </p>
-        {location && (
-          <p className="flex items-center gap-1 text-xs text-gray-400">
-            <MapPin size={11} /> {location}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1">
-          {creator.facetSelections
-            ?.filter((f) => f.dimension === "CONTENT_CATEGORY")
-            .slice(0, 2)
-            .map((f) => (
-              <span
-                key={f.slug}
-                className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600"
-              >
-                {f.label}
-              </span>
-            ))}
-        </div>
-        <div className="mt-auto flex items-center justify-between pt-2 border-t border-gray-100">
-          <span className="text-sm font-semibold text-gray-900">
-            {minPrice ? `₹${minPrice.toLocaleString("en-IN")}` : "—"}
-          </span>
-          <button
-            type="button"
-            onClick={handleView}
-            className="flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700"
-          >
-            View <ArrowRight size={12} />
-          </button>
-        </div>
-      </div>
-    </div>
+    <>
+      <ReelCard
+        creator={mapped}
+        index={index}
+        onOpen={onOpen}
+        onWishlist={handleWishlist}
+      />
+      {wishlistCreator && (
+        <SaveToWishlistModal
+          open={!!wishlistCreator}
+          onClose={() => setWishlistCreator(null)}
+          creatorId={wishlistCreator.id}
+          creatorName={wishlistCreator.name}
+        />
+      )}
+    </>
   );
 }
 
@@ -225,9 +152,11 @@ export default function WishlistsPage() {
   const updateMutation = useUpdateWishlistMutation();
   const deleteMutation = useDeleteWishlistMutation();
   const shareMutation = useEnableWishlistShareMutation();
+  const unshareMutation = useDisableWishlistShareMutation();
 
   const wishlists = data?.items ?? [];
-  const selected = wishlists.find((w) => w.id === selectedId) ?? wishlists[0] ?? null;
+  const selected =
+    wishlists.find((w) => w.id === selectedId) ?? wishlists[0] ?? null;
   const activeId = selected?.id ?? null;
 
   const { data: detail, isLoading: detailLoading } =
@@ -270,6 +199,16 @@ export default function WishlistsPage() {
 
   const handleShare = () => {
     if (!selected) return;
+    if (selected.shareEnabled && selected.shareToken) {
+      // Already shared — just copy the link
+      const url = `${window.location.origin}/wishlists/share/${selected.shareToken}`;
+      void navigator.clipboard
+        .writeText(url)
+        .then(() =>
+          toast.success(`Share link for "${selected.name}" copied`),
+        );
+      return;
+    }
     shareMutation.mutate(selected.id, {
       onSuccess: (result) => {
         const url = `${window.location.origin}/wishlists/share/${result.shareToken}`;
@@ -278,6 +217,14 @@ export default function WishlistsPage() {
         });
       },
       onError: () => toast.error("Failed to generate share link"),
+    });
+  };
+
+  const handleMakePrivate = () => {
+    if (!selected) return;
+    unshareMutation.mutate(selected.id, {
+      onSuccess: () => toast.success(`"${selected.name}" is now private`),
+      onError: () => toast.error("Failed to make private"),
     });
   };
 
@@ -328,9 +275,7 @@ export default function WishlistsPage() {
                 type="button"
                 onClick={() => handleSelect(w)}
                 className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-gray-50 ${
-                  (selectedId ?? wishlists[0]?.id) === w.id
-                    ? "bg-pink-50"
-                    : ""
+                  (selectedId ?? wishlists[0]?.id) === w.id ? "bg-pink-50" : ""
                 }`}
               >
                 <span
@@ -361,7 +306,7 @@ export default function WishlistsPage() {
       </aside>
 
       {/* Main panel */}
-      <main className="flex flex-1 flex-col overflow-hidden bg-[#f9f9fb]">
+      <main className="flex flex-1 flex-col overflow-hidden bg-[#f4f4f5]">
         {!selected && !isLoading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
             <div className="flex size-14 items-center justify-center rounded-2xl bg-pink-50">
@@ -384,7 +329,7 @@ export default function WishlistsPage() {
         ) : selected ? (
           <>
             {/* Panel header */}
-            <div className="flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4 shrink-0">
               <div>
                 {editingName ? (
                   <div className="flex items-center gap-2">
@@ -426,34 +371,77 @@ export default function WishlistsPage() {
                 <p className="mt-0.5 text-xs text-gray-400">
                   {selected.creatorCount} creator
                   {selected.creatorCount !== 1 ? "s" : ""}
-                  {minPrice ? ` · from ₹${minPrice.toLocaleString("en-IN")} total` : ""}
+                  {minPrice
+                    ? ` · from ₹${minPrice.toLocaleString("en-IN")} total`
+                    : ""}
                   {" · created "}
                   {formatDistanceToNow(new Date(selected.createdAt), {
                     addSuffix: true,
                   })}
+                  {selected.shareEnabled && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                      <Share2 size={10} /> Shared
+                    </span>
+                  )}
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <Link
                   href="/brand/creators"
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                 >
                   <Plus size={13} /> Add creators
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  disabled={shareMutation.isPending}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                  title="Copy share link"
-                >
-                  <Share2 size={13} />
-                </button>
+
+                {/* Share / Make private toggle */}
+                {selected.shareEnabled ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      disabled={shareMutation.isPending}
+                      className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+                      title="Copy share link"
+                    >
+                      <Share2 size={13} /> Copy link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleMakePrivate}
+                      disabled={unshareMutation.isPending}
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      title="Make private"
+                    >
+                      {unshareMutation.isPending ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Lock size={13} />
+                      )}{" "}
+                      Make private
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    disabled={shareMutation.isPending}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    title="Share wishlist"
+                  >
+                    {shareMutation.isPending ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Share2 size={13} />
+                    )}{" "}
+                    Share
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleStartEdit}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                   title="Rename"
                 >
                   <Pencil size={13} />
@@ -494,15 +482,16 @@ export default function WishlistsPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                <div className="reelgrid browse-redesign-scope">
                   {detail.creators.map((creator, index) => (
-                    <WishlistCreatorCard
-                      key={creator.id}
-                      creator={creator}
-                      wishlistId={activeId!}
-                      creatorIndex={index}
-                      onView={openDrawer}
-                    />
+                    <div key={creator.id} className="min-w-0 h-full">
+                      <WishlistReelCard
+                        creator={creator}
+                        index={index}
+                        wishlistId={activeId!}
+                        onOpen={openDrawer}
+                      />
+                    </div>
                   ))}
                 </div>
               )}

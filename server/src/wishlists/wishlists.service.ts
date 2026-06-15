@@ -380,6 +380,20 @@ export class WishlistsService {
     };
   }
 
+  async disableShare(params: {
+    actorUserId: string;
+    brandProfileId?: string;
+    wishlistId: string;
+  }): Promise<{ shareEnabled: boolean }> {
+    const brandId = await this.resolveBrandId(params);
+    await this.loadOwnedWishlist(brandId, params.wishlistId);
+    await this.prisma.brandWishlist.update({
+      where: { id: params.wishlistId },
+      data: { shareEnabled: false },
+    });
+    return { shareEnabled: false };
+  }
+
   async getPublicWishlist(
     shareToken: string,
   ): Promise<PublicWishlistResponseDto> {

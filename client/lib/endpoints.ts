@@ -118,6 +118,8 @@ export const ENDPOINTS = {
     REMOVE_CREATOR: (wishlistId: string, creatorId: string) =>
       `/api/wishlists/${encodeURIComponent(wishlistId)}/creators/${encodeURIComponent(creatorId)}`,
     TOGGLE_SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    UNSHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
     PUBLIC: (shareToken: string) => `/api/wishlists/public/${encodeURIComponent(shareToken)}`,
   },
   CHATS: {

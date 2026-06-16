@@ -14,7 +14,7 @@ import {
   SaveToWishlistButton,
   shouldSuppressCreatorCardNavigation,
 } from "@/features/wishlists/components/save-to-wishlist-button";
-import { useAuth } from "@/providers/auth-provider";
+import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 
 export interface ReelCardProps {
   creator: Creator;
@@ -27,8 +27,9 @@ export const ReelCard = memo(function ReelCard({
   index,
   onOpen,
 }: ReelCardProps) {
-  const { user } = useAuth();
-  const isBrand = user?.roles?.includes("BRAND") || user?.roles?.includes("AGENCY");
+  const { data: meUser } = usePublicAuthUser();
+  const isBrand =
+    meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY");
   const [isMuted, setIsMuted] = useState(true);
   const [g1, g2] = posterColor(index);
   const tags = creator.tags.slice(0, 2);

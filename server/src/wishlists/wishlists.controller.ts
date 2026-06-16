@@ -32,6 +32,8 @@ import { AddWishlistCreatorDto } from './dto/add-wishlist-creator.dto';
 import { WishlistDto, WishlistDetailDto } from './dto/wishlist.dto';
 import { WishlistShareResponseDto } from './dto/wishlist-share-response.dto';
 import { PublicWishlistResponseDto } from './dto/public-wishlist-response.dto';
+import { ImportSharedWishlistDto } from './dto/import-shared-wishlist.dto';
+import { ImportSharedWishlistResponseDto } from './dto/import-shared-wishlist-response.dto';
 import { CreateWishlistResponseDto } from './dto/create-wishlist-response.dto';
 import { ListWishlistsResponseDto } from './dto/list-wishlists-response.dto';
 
@@ -74,6 +76,24 @@ export class WishlistsController {
     @Param('shareToken') shareToken: string,
   ): Promise<PublicWishlistResponseDto> {
     return this.wishlistsService.getPublicWishlist({ shareToken });
+  }
+
+  @Post('public/:shareToken/import')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Import creators from a shared shortlist into your brand wishlists' })
+  @ApiCreatedResponse({ type: ImportSharedWishlistResponseDto })
+  async importFromShare(
+    @Param('shareToken') shareToken: string,
+    @Body() dto: ImportSharedWishlistDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<ImportSharedWishlistResponseDto> {
+    return this.wishlistsService.importFromShare({
+      ...brandActorParams(req),
+      shareToken,
+      dto,
+    });
   }
 
   @Get(':id')

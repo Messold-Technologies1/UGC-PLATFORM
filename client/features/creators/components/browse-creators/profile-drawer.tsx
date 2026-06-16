@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import type { Creator } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
@@ -616,6 +617,8 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   landingPage = false,
 }: ProfileDrawerProps) {
   const router = useRouter();
+  const { data: meUser } = usePublicAuthUser({ enabled: landingPage });
+  const isBrand = meUser?.roles?.includes("BRAND") ?? false;
   const lastCreatorRef = useRef(creator);
   const lastIdRef = useRef(creatorId);
   if (creator) lastCreatorRef.current = creator;
@@ -920,7 +923,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             }
             onClick={() => {
               if (landingPage) {
-                router.push("/register/brand");
+                router.push(
+                  isBrand && activeId
+                    ? `/brand/creators/${activeId}`
+                    : "/register/brand",
+                );
                 return;
               }
               if (isProfileError) {

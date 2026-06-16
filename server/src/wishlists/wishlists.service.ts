@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import crypto from 'crypto';
 import { BrandAccessService } from '../brand-access/brand-access.service';
@@ -12,6 +13,8 @@ import type { UpdateWishlistDto } from './dto/update-wishlist.dto';
 import type { WishlistDto, WishlistDetailDto } from './dto/wishlist.dto';
 import type { WishlistShareResponseDto } from './dto/wishlist-share-response.dto';
 import type { PublicWishlistResponseDto } from './dto/public-wishlist-response.dto';
+import type { ImportSharedWishlistDto } from './dto/import-shared-wishlist.dto';
+import type { ImportSharedWishlistResponseDto } from './dto/import-shared-wishlist-response.dto';
 import type { CreatorPublicListItemDto } from '../creator-profile/dto/creator-public-list-item.dto';
 import { PortfolioVisibilityStatus } from '@prisma/client';
 
@@ -450,13 +453,128 @@ export class WishlistsService {
 
     return {
       id: wishlist.id,
+      brandId: wishlist.brandId,
       name: wishlist.name,
+      sharedAt: wishlist.sharedAt ?? null,
       brand: {
         brandName: wishlist.brand.brandName ?? '',
         logoUrl: (wishlist.brand as any).logoUrl ?? null,
         contactFullName: wishlist.brand.contactFullName ?? null,
       },
       creators,
+    };
+  }
+
+  async importFromShare(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    shareToken: string;
+    dto: ImportSharedWishlistDto;
+  }): Promise<ImportSharedWishlistResponseDto> {
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const source = await this.prisma.brandWishlist.findFirst({
+      where: { shareToken: params.shareToken, shareEnabled: true },
+      include: {
+        creators: {
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: { creatorId: true },
+        },
+      },
+    });
+
+    if (!source) {
+      throw new NotFoundException('Wishlist not found or sharing is disabled');
+    }
+
+    if (source.brandId === brand.id) {
+      throw new ConflictException('This shortlist already belongs to your brand');
+    }
+
+    const creatorIds = source.creators.map((row) => row.creatorId);
+    if (creatorIds.length === 0) {
+      throw new BadRequestException('This shortlist has no creators to import');
+    }
+
+    const hasWishlistId = typeof params.dto.wishlistId === 'string' && params.dto.wishlistId.length > 0;
+    const hasName = typeof params.dto.name === 'string' && params.dto.name.trim().length > 0;
+
+    if (hasWishlistId === hasName) {
+      throw new BadRequestException('Provide either wishlistId or name');
+    }
+
+    let targetWishlistId: string;
+    let existingCreatorIds = new Set<string>();
+
+    if (hasWishlistId) {
+      const target = await this.prisma.brandWishlist.findUnique({
+        where: { id: params.dto.wishlistId },
+        include: {
+          creators: { select: { creatorId: true, sortOrder: true } },
+        },
+      });
+      if (!target) throw new NotFoundException('Wishlist not found');
+      if (target.brandId !== brand.id) {
+        throw new ForbiddenException('Not your wishlist');
+      }
+      targetWishlistId = target.id;
+      existingCreatorIds = new Set(target.creators.map((row) => row.creatorId));
+    } else {
+      const name = params.dto.name!.trim();
+      try {
+        const created = await this.prisma.brandWishlist.create({
+          data: {
+            brandId: brand.id,
+            name,
+            creators: {
+              create: creatorIds.map((creatorId, idx) => ({
+                creatorId,
+                sortOrder: idx,
+              })),
+            },
+          },
+          select: { id: true },
+        });
+        return {
+          wishlistId: created.id,
+          addedCount: creatorIds.length,
+          skippedCount: 0,
+        };
+      } catch (err: any) {
+        if (err?.code === 'P2002') {
+          throw new ConflictException('A wishlist with that name already exists');
+        }
+        throw err;
+      }
+    }
+
+    const toAdd = creatorIds.filter((id) => !existingCreatorIds.has(id));
+    const skippedCount = creatorIds.length - toAdd.length;
+
+    if (toAdd.length > 0) {
+      const maxSortOrder = await this.prisma.brandWishlistCreator.aggregate({
+        where: { wishlistId: targetWishlistId },
+        _max: { sortOrder: true },
+      });
+      const startOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
+
+      await this.prisma.brandWishlistCreator.createMany({
+        data: toAdd.map((creatorId, idx) => ({
+          wishlistId: targetWishlistId,
+          creatorId,
+          sortOrder: startOrder + idx,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return {
+      wishlistId: targetWishlistId,
+      addedCount: toAdd.length,
+      skippedCount,
     };
   }
 }

@@ -40,8 +40,15 @@ export interface PublicWishlistBrand {
 
 export interface PublicWishlistResponse {
   id: string;
+  brandId: string;
   name: string;
   sharedAt?: string | null;
   brand: PublicWishlistBrand;
   creators: WishlistCreator[];
+}
+
+export interface ImportSharedWishlistResponse {
+  wishlistId: string;
+  addedCount: number;
+  skippedCount: number;
 }

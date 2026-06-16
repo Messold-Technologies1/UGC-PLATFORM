@@ -121,6 +121,8 @@ export const ENDPOINTS = {
     SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
     UNSHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
     PUBLIC: (shareToken: string) => `/api/wishlists/public/${encodeURIComponent(shareToken)}`,
+    IMPORT_SHARED: (shareToken: string) =>
+      `/api/wishlists/public/${encodeURIComponent(shareToken)}/import`,
   },
   CHATS: {
     CREATOR: "/api/chats/creator",

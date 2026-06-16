@@ -57,3 +57,16 @@ export function useMeQuery() {
     retry: false,
   });
 }
+
+/** Public pages (shared shortlists, creator profiles) — always re-fetch on mount. */
+export function usePublicAuthUser(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: authMeQueryKey,
+    queryFn: fetchAuthMe,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    retry: false,
+    enabled: options?.enabled ?? true,
+  });
+}

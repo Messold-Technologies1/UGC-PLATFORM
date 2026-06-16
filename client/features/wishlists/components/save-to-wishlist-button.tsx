@@ -11,6 +11,11 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  extendCreatorCardNavigationSuppress,
+  registerWishlistOverlayClose,
+  registerWishlistOverlayOpen,
+} from "../lib/suppress-creator-card-navigation";
 import { useWishlistsQuery } from "../hooks/use-wishlists-query";
 import { useCreateWishlistMutation } from "../hooks/use-create-wishlist-mutation";
 import { useAddWishlistCreatorMutation } from "../hooks/use-add-wishlist-creator-mutation";
@@ -57,16 +62,6 @@ function isValidImageUrl(url?: string | null): url is string {
   );
 }
 
-let suppressCreatorCardNavigationUntil = 0;
-
-export function shouldSuppressCreatorCardNavigation() {
-  return Date.now() < suppressCreatorCardNavigationUntil;
-}
-
-function suppressCreatorCardNavigationBriefly() {
-  suppressCreatorCardNavigationUntil = Date.now() + 400;
-}
-
 interface SaveToWishlistButtonProps {
   creatorId: string;
   creatorName: string;
@@ -94,11 +89,14 @@ export function SaveToWishlistButton({
 
   const isTriggerBusy = addMutation.isPending || removeMutation.isPending || createMutation.isPending;
 
+  useEffect(() => {
+    if (!open) return;
+    registerWishlistOverlayOpen();
+    return () => registerWishlistOverlayClose();
+  }, [open]);
+
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) {
-      suppressCreatorCardNavigationBriefly();
-    }
   }
 
   function isInWishlist(wishlist: Wishlist) {
@@ -108,6 +106,7 @@ export function SaveToWishlistButton({
   const savedCount = wishlists.filter(isInWishlist).length;
 
   async function handleToggle(wishlist: Wishlist) {
+    extendCreatorCardNavigationSuppress();
     if (isInWishlist(wishlist)) {
       try {
         await removeMutation.mutateAsync({ wishlistId: wishlist.id, creatorId });
@@ -128,8 +127,10 @@ export function SaveToWishlistButton({
   async function handleCreate() {
     const name = newName.trim();
     if (!name) return;
+    extendCreatorCardNavigationSuppress();
     try {
       await createMutation.mutateAsync({ name, creatorIds: [creatorId] });
+      extendCreatorCardNavigationSuppress();
       toast.success(`Created wishlist "${name}"`);
       setNewName("");
       setShowCreate(false);
@@ -156,6 +157,7 @@ export function SaveToWishlistButton({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          extendCreatorCardNavigationSuppress();
           setOpen(true);
         }}
         className="absolute top-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-white/90 shadow backdrop-blur-sm transition-all hover:scale-110"
@@ -177,6 +179,7 @@ export function SaveToWishlistButton({
         className="dr-btn dr-btn-wishlist"
         onClick={(e) => {
           e.stopPropagation();
+          extendCreatorCardNavigationSuppress();
           setOpen(true);
         }}
         aria-label="Save to wishlist"
@@ -198,6 +201,8 @@ export function SaveToWishlistButton({
           className="z-82 max-w-md gap-0 overflow-hidden rounded-3xl p-0"
           overlayClassName="z-80"
           showCloseButton={false}
+          onPointerDownOutside={() => extendCreatorCardNavigationSuppress()}
+          onInteractOutside={() => extendCreatorCardNavigationSuppress()}
         >
           <DialogTitle className="sr-only">Save to Wishlist</DialogTitle>
 

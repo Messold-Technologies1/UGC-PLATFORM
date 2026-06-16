@@ -10,10 +10,8 @@ import {
   tagColor,
   formatReelDuration,
 } from "@/lib/utils";
-import {
-  SaveToWishlistButton,
-  shouldSuppressCreatorCardNavigation,
-} from "@/features/wishlists/components/save-to-wishlist-button";
+import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
+import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 
 export interface ReelCardProps {
@@ -73,6 +71,7 @@ export const ReelCard = memo(function ReelCard({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (shouldSuppressCreatorCardNavigation()) return;
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         onOpen(creator);

@@ -48,7 +48,7 @@ export function ImportSharedWishlistDialog({
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState(`${shortlistName} (copy)`);
 
-  const { data, isLoading } = useWishlistsQuery();
+  const { data, isLoading } = useWishlistsQuery({ enabled: open });
   const wishlists: Wishlist[] = data?.items ?? [];
   const importMutation = useImportSharedWishlistMutation(shareToken);
 

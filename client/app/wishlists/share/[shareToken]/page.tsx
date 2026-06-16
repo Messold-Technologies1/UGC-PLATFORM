@@ -536,7 +536,7 @@ export default function PublicWishlistPage({
         landingPage
       />
 
-      {data ? (
+      {data && importOpen ? (
         <ImportSharedWishlistDialog
           open={importOpen}
           onOpenChange={setImportOpen}

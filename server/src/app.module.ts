@@ -22,6 +22,7 @@ import { BriefsModule } from './briefs/briefs.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { MailModule } from './mail/mail.module';
     ]),
     PrismaModule,
     MailModule,
+    WhatsAppModule,
     BrandAccessModule,
     StorageModule,
     HealthModule,

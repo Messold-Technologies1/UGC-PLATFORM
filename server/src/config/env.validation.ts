@@ -61,4 +61,14 @@ export const envValidationSchema = Joi.object({
     .default(10_000),
   /** Dev only: skip SNS signature verification on POST /api/webhooks/ses */
   SES_SNS_SKIP_SIGNATURE_VERIFY: Joi.string().valid('true', 'false').optional(),
+
+  // WhatsApp (Meta Cloud API) — optional until WhatsApp notifications are enabled
+  WHATSAPP_ENABLED: Joi.string().valid('true', 'false').optional(),
+  WHATSAPP_ACCESS_TOKEN: Joi.string().min(1).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: Joi.string().min(1).optional(),
+  WHATSAPP_SEND_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .max(120_000)
+    .default(10_000),
 });

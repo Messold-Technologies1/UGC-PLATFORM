@@ -46,6 +46,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
+import { OrderWhatsAppNotifier } from '../whatsapp/order-whatsapp.notifier';
 import { StorageService } from '../storage/storage.service';
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 
@@ -199,6 +200,7 @@ export class OrdersService {
     private readonly razorpay: RazorpayService,
     private readonly orderRealtime: OrderRealtimeNotifier,
     private readonly orderMail: OrderMailNotifier,
+    private readonly orderWhatsApp: OrderWhatsAppNotifier,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
   ) {}
@@ -707,6 +709,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyBriefSubmitted(order.id, now);
+    this.orderWhatsApp.notifyBriefSubmitted(order.id, now);
   }
 
   async acceptBrief(params: {
@@ -784,6 +787,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyBriefAccepted(order.id, deliveryDeadlineAt);
+    this.orderWhatsApp.notifyBriefAccepted(order.id, deliveryDeadlineAt);
 
     return {
       orderId: updated.id,
@@ -855,6 +859,11 @@ export class OrdersService {
     });
 
     this.orderMail.notifyProductShipped(order.id, {
+      courierName,
+      trackingId,
+      dispatchedAt,
+    });
+    this.orderWhatsApp.notifyProductShipped(order.id, {
       courierName,
       trackingId,
       dispatchedAt,
@@ -936,6 +945,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyProductReceived(order.id, deliveryDeadlineAt);
+    this.orderWhatsApp.notifyProductReceived(order.id, deliveryDeadlineAt);
 
     return {
       orderId: updated.id,
@@ -1197,6 +1207,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyRevisionRequested(order.id, trimmedNote);
+    this.orderWhatsApp.notifyRevisionRequested(order.id, trimmedNote);
     void this.orderRealtime.emitOrderRevisionRequested({
       orderId: order.id,
       revisionNumber: newRevisionNumber,
@@ -2036,6 +2047,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyContentAccepted(order.id);
+    this.orderWhatsApp.notifyContentAccepted(order.id);
   }
 
   async openDispute(params: {
@@ -2174,6 +2186,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
+    this.orderWhatsApp.notifyOrderRejected(order.id, params.resolutionNotes);
   }
 
   /**
@@ -2276,6 +2289,7 @@ export class OrdersService {
     });
 
     this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+    this.orderWhatsApp.notifyOrderRefunded(order.id, refundedAt);
 
     return order.id;
   }

@@ -25,6 +25,7 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
+import { CreatorProfileWhatsAppNotifier } from '../whatsapp/creator-profile-whatsapp.notifier';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
@@ -134,6 +135,7 @@ export class CreatorProfileService {
     private readonly creatorPackageService: CreatorPackageService,
     private readonly storage: StorageService,
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
+    private readonly creatorProfileWhatsApp: CreatorProfileWhatsAppNotifier,
     private readonly creatorReviews: CreatorReviewsService,
   ) {}
 
@@ -1319,6 +1321,7 @@ export class CreatorProfileService {
     }
 
     this.creatorProfileMail.notifyApproved(creatorProfileId);
+    this.creatorProfileWhatsApp.notifyApproved(creatorProfileId);
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -1362,6 +1365,7 @@ export class CreatorProfileService {
     }
 
     this.creatorProfileMail.notifyRejected(creatorProfileId, rejectionReason);
+    this.creatorProfileWhatsApp.notifyRejected(creatorProfileId, rejectionReason);
 
     return this.mapCreatorProfileResponseDto(updated);
   }

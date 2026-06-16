@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Share2, Wand2, X, Plus, Check, Loader2, Lock } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Share2, Pencil, X, Plus, Check, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
@@ -12,6 +12,7 @@ import { ProfileDrawer } from "@/features/creators/components/browse-creators/pr
 import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-to-creator";
 import type { Creator } from "@/features/creators/types";
 import { WishlistSidebar } from "@/features/wishlists/components/wishlist-sidebar";
+import { DeleteWishlistDialog } from "@/features/wishlists/components/delete-wishlist-dialog";
 import { useWishlistsQuery } from "@/features/wishlists/hooks/use-wishlists-query";
 import { useWishlistDetailQuery } from "@/features/wishlists/hooks/use-wishlist-detail-query";
 import { useEnableWishlistShareMutation } from "@/features/wishlists/hooks/use-enable-wishlist-share-mutation";
@@ -29,6 +30,7 @@ function timeAgo(dateStr: string) {
 
 export default function WishlistDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
 
   const { data: allData, isLoading: listsLoading } = useWishlistsQuery();
   const wishlists = allData?.items ?? [];
@@ -40,6 +42,7 @@ export default function WishlistDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
@@ -241,20 +244,20 @@ export default function WishlistDetailPage() {
                   variant="outline"
                   size="icon"
                   className="size-9 rounded-xl"
-                  disabled
-                  title="Smart suggestions (coming soon)"
+                  title="Rename wishlist"
+                  onClick={startEdit}
+                  disabled={editing || updateMutation.isPending}
                 >
-                  <Wand2 size={15} />
+                  <Pencil size={15} />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   className="size-9 rounded-xl"
-                  asChild
+                  title="Delete this wishlist"
+                  onClick={() => setDeleteOpen(true)}
                 >
-                  <Link href="/brand/wishlists">
-                    <X size={15} />
-                  </Link>
+                  <X size={15} />
                 </Button>
               </div>
             </div>
@@ -307,6 +310,20 @@ export default function WishlistDetailPage() {
         onClose={closeDrawer}
         creator={selectedCreator}
       />
+
+      {wishlist ? (
+        <DeleteWishlistDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          wishlistId={wishlist.id}
+          wishlistName={wishlist.name}
+          creatorCount={wishlist.creatorCount}
+          onDeleted={() => {
+            toast.success("Wishlist deleted");
+            router.push("/brand/wishlists");
+          }}
+        />
+      ) : null}
     </div>
   );
 }

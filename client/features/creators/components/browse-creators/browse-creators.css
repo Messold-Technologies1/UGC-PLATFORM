@@ -24,6 +24,20 @@
   grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
 }
 
+@media (max-width: 1023px) {
+  .reelgrid {
+    gap: 12px;
+    margin-top: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .reelgrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .rcard {
   display: flex;
   flex-direction: column;
@@ -202,9 +216,8 @@
 }
 .rcard .ftags {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 5px;
-  overflow: hidden;
   min-height: 20px;
 }
 .rcard .ftag {

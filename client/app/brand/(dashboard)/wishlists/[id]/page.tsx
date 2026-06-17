@@ -7,6 +7,13 @@ import { Share2, Pencil, X, Plus, Check, Loader2, Lock, UserMinus } from "lucide
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -128,12 +135,12 @@ export default function WishlistDetailPage() {
     .reduce((a, b) => a + b, 0);
 
   return (
-    <div className="flex bg-gray-50">
-      <aside className="sticky top-24 z-10 w-[300px] shrink-0 self-start p-4 max-h-[calc(100dvh-7rem)] overflow-y-auto">
+    <div className="flex flex-col bg-gray-50 lg:flex-row">
+      <aside className="hidden lg:sticky lg:top-24 lg:z-10 lg:block lg:w-[300px] lg:shrink-0 lg:self-start lg:p-4 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
         <WishlistSidebar wishlists={wishlists} activeId={id} isLoading={listsLoading} />
       </aside>
 
-      <div className="flex-1 px-6 py-6 min-w-0">
+      <div className="flex-1 min-w-0 w-full px-4 py-4 sm:px-6 sm:py-6">
         {detailLoading ? (
           <div className="space-y-4">
             <div className="h-8 w-56 rounded-xl bg-muted animate-pulse" />
@@ -148,14 +155,31 @@ export default function WishlistDetailPage() {
           <p className="text-muted-foreground">Wishlist not found.</p>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4 mb-1">
+            {!listsLoading && wishlists.length > 0 ? (
+              <div className="mb-4 lg:hidden">
+                <Select value={id} onValueChange={(wishlistId) => router.push(`/brand/wishlists/${wishlistId}`)}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white shadow-sm">
+                    <SelectValue placeholder="Switch wishlist" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wishlists.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.name} ({w.creatorCount})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-1">
               {editing ? (
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <input
                     autoFocus
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="text-2xl font-bold border-b-2 border-rose-400 bg-transparent outline-none min-w-0 w-full"
+                    className="text-xl sm:text-2xl font-bold border-b-2 border-rose-400 bg-transparent outline-none min-w-0 w-full"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") saveEdit();
                       if (e.key === "Escape") setEditing(false);
@@ -177,7 +201,7 @@ export default function WishlistDetailPage() {
                 </div>
               ) : (
                 <h1
-                  className="text-2xl font-bold tracking-tight cursor-pointer hover:opacity-75 transition-opacity min-w-0 truncate"
+                  className="text-xl sm:text-2xl font-bold tracking-tight cursor-pointer hover:opacity-75 transition-opacity min-w-0 truncate flex-1"
                   onClick={startEdit}
                   title="Click to rename"
                 >
@@ -185,7 +209,7 @@ export default function WishlistDetailPage() {
                 </h1>
               )}
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto pb-0.5 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
                 {/* Add creators */}
                 <Tooltip>
                   <TooltipTrigger asChild>

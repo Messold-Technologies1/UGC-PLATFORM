@@ -100,14 +100,14 @@ function PublicWishlistHero({
   const subtitle = buildSubtitle(data.creators);
 
   return (
-    <section className="border-b border-gray-200/80 py-10 lg:py-12">
-      <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
-        <div className="max-w-xl">
-          <div className="mb-6 inline-flex max-w-full items-center gap-2.5 rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm">
+    <section className="border-b border-gray-200/80 py-6 sm:py-10 lg:py-12">
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+        <div className="min-w-0 max-w-xl w-full">
+          <div className="mb-5 flex w-full max-w-full items-start gap-2.5 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm sm:mb-6 sm:rounded-full sm:items-center">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-500 text-xs font-bold text-white">
               {getInitials(sharerName)}
             </div>
-            <p className="text-sm leading-snug text-gray-600">
+            <p className="min-w-0 text-sm leading-snug text-gray-600">
               <span className="font-semibold text-gray-900">{sharerName}</span>
               {" at "}
               <span className="font-semibold text-gray-900">{data.brand.brandName}</span>
@@ -122,7 +122,7 @@ function PublicWishlistHero({
             </span>
           </div>
 
-          <h1 className="mb-3 text-4xl font-black tracking-tight text-gray-900 sm:text-[2.65rem] sm:leading-[1.05]">
+          <h1 className="mb-3 text-2xl font-black tracking-tight text-gray-900 sm:text-4xl sm:leading-[1.05] lg:text-[2.65rem]">
             {data.name}
           </h1>
 
@@ -159,11 +159,11 @@ function PublicWishlistHero({
             )}
           </p>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <button
               type="button"
               onClick={onOrderCreators}
-              className="inline-flex items-center gap-2 rounded-full bg-rose-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-rose-600"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-rose-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-rose-600 sm:w-auto"
             >
               <Zap size={15} />
               {orderLabel}
@@ -171,21 +171,21 @@ function PublicWishlistHero({
             <button
               type="button"
               onClick={onShare}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto"
             >
               <Share2 size={14} />
               Share
             </button>
           </div>
 
-          <p className="mt-5 flex items-center gap-1.5 text-xs text-gray-400">
+          <p className="mt-4 flex items-start gap-1.5 text-xs leading-relaxed text-gray-400 sm:mt-5 sm:items-center">
             <Lock size={12} className="shrink-0" />
             You&apos;re viewing a read-only shortlist · no account needed to browse
           </p>
         </div>
 
         {data.creators.length > 0 ? (
-          <div className="flex shrink-0 items-center justify-center self-center lg:self-auto">
+          <div className="hidden w-full min-w-0 items-center justify-center self-center overflow-hidden lg:flex lg:w-auto lg:self-auto">
             <HeroCardFan creators={data.creators} />
           </div>
         ) : null}
@@ -275,8 +275,8 @@ function HeroCardFan({ creators }: { creators: WishlistCreator[] }) {
 
   return (
     <div
-      className="flex items-end justify-center px-2 py-4"
-      style={{ minWidth: 440, minHeight: 260 }}
+      className="flex w-full max-w-full items-end justify-center overflow-hidden px-2 py-4"
+      style={{ minHeight: 220 }}
       onMouseLeave={() => setActiveIndex(null)}
     >
       {shown.map((creator, index) => (
@@ -391,48 +391,55 @@ export default function PublicWishlistPage({
   const getStartedHref = meUser ? "/brand/creators" : registerHref;
 
   return (
-    <div className="min-h-screen" style={{ background: "#f5f5f3" }}>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-white p-3">
-        <div className="relative mx-auto flex h-12 max-w-7xl items-center justify-between overflow-visible px-4 sm:px-6">
-          <Link href="/" prefetch className="z-10 flex shrink-0 items-center overflow-visible py-1 select-none">
+    <div className="min-h-screen overflow-x-hidden" style={{ background: "#f5f5f3" }}>
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-white">
+        <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between gap-3 px-3 py-2 sm:min-h-12 sm:gap-3 sm:px-6 sm:py-0">
+          <Link
+            href="/"
+            prefetch
+            className="z-10 flex min-w-0 flex-1 items-center overflow-visible py-0.5 select-none"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- static public asset; matches navbar brand mark */}
             <img
               src="/brand-logo.png"
               alt={`${SITE_NAME} home`}
               width={688}
               height={160}
-              className="h-17.25 max-h-none w-auto max-w-[min(428px,calc(100vw-144px))] object-contain object-left sm:h-21.25 sm:max-w-[min(490px,calc(100vw-208px))] md:h-26 md:max-w-[min(548px,calc(100vw-300px))]"
+              className="h-11 w-auto max-w-[calc(100vw-7.5rem)] object-contain object-left sm:h-12 sm:max-w-[min(280px,calc(100vw-14rem))] md:h-14 md:max-w-[min(340px,calc(100vw-18rem))]"
               loading="eager"
               decoding="async"
               draggable={false}
             />
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button
+              type="button"
               onClick={handleCopyLink}
-              className="flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              aria-label="Copy link"
+              className="flex size-9 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-4 sm:py-2 sm:text-sm sm:font-medium"
             >
               <Share2 size={14} />
-              Copy link
+              <span className="hidden sm:inline">Copy link</span>
             </button>
             <Link
               href={canUseBrand ? "/brand/wishlists" : loginHref}
-              className="rounded-full px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
+              className="hidden rounded-full px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:text-gray-900 min-[400px]:inline-flex sm:px-4"
             >
               {canUseBrand ? "My wishlists" : "Sign in"}
             </Link>
             <Link
               href={getStartedHref}
-              className="rounded-full bg-rose-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-rose-600"
+              className="rounded-full bg-rose-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-rose-600 sm:px-4 sm:text-sm"
             >
-              Get started free
+              <span className="sm:hidden">Start</span>
+              <span className="hidden sm:inline">Get started free</span>
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 pt-16 md:px-10 md:pt-28">
+      <main className="mx-auto w-full max-w-7xl px-4 pt-[4.75rem] sm:px-6 sm:pt-20 md:px-10 md:pt-28">
         {isLoading ? (
           <div className="flex min-h-[400px] items-center justify-center">
             <Spinner className="size-8 text-rose-500" />
@@ -463,10 +470,10 @@ export default function PublicWishlistPage({
             />
 
             {/* ── Creator grid ── */}
-            <section className="pb-16 pt-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-5">
+            <section className="pb-12 pt-6 sm:pb-16 sm:pt-8">
+              <h2 className="mb-4 text-base font-bold text-gray-900 sm:mb-5 sm:text-lg">
                 The shortlist{" "}
-                <span className="text-gray-400 font-normal">{data.creators.length} creators</span>
+                <span className="font-normal text-gray-400">{data.creators.length} creators</span>
               </h2>
 
               {data.creators.length === 0 ? (
@@ -488,25 +495,25 @@ export default function PublicWishlistPage({
             </section>
 
             {/* ── Bottom CTA ── */}
-            <section className="mb-12 rounded-3xl bg-gray-900 px-8 py-12 flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight mb-1.5">
+            <section className="mb-10 flex flex-col items-start justify-between gap-5 rounded-2xl bg-gray-900 px-5 py-8 sm:mb-12 sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-8 sm:py-12">
+              <div className="min-w-0">
+                <h2 className="mb-1.5 text-xl font-black tracking-tight text-white sm:text-2xl">
                   Build your own creator shortlist
                 </h2>
-                <p className="text-gray-400 text-sm max-w-md">
+                <p className="max-w-md text-sm text-gray-400">
                   Browse 2,400+ vetted Indian UGC creators, save them into campaigns like this one, and order in a few clicks.
                 </p>
               </div>
               <Link
                 href={getStartedHref}
-                className="shrink-0 flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-gray-900 hover:bg-gray-100 transition-colors"
+                className="flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-gray-900 transition-colors hover:bg-gray-100 sm:w-auto"
               >
                 Get started free →
               </Link>
             </section>
 
             {/* ── Footer ── */}
-            <footer className="flex flex-col items-start gap-4 pb-10 text-xs text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+            <footer className="flex flex-col items-start gap-4 pb-8 text-xs text-gray-400 sm:flex-row sm:items-center sm:justify-between sm:pb-10">
               <Link href="/" prefetch className="inline-flex shrink-0 items-center">
                 {/* eslint-disable-next-line @next/next/no-img-element -- footer brand mark matches site footer */}
                 <img

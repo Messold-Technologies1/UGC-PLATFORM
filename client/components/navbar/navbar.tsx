@@ -334,7 +334,9 @@ export function Navbar() {
                 <span data-tour="nav-notifications" className="inline-flex">
                   <NotificationDropdown />
                 </span>
-                <NavbarProfileMenu />
+                <span data-tour="nav-profile" className="inline-flex">
+                  <NavbarProfileMenu />
+                </span>
               </>
             ) : (
               <>

@@ -21,7 +21,9 @@ export function PostLoginSetupShell({
 }) {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col bg-background text-foreground">
-      <div className={dashboardContentClass[role]}>{children}</div>
+      <div data-tour="dashboard-content" className={dashboardContentClass[role]}>
+        {children}
+      </div>
     </div>
   );
 }

@@ -265,6 +265,10 @@ function CreatorProfileUpdateFormContent({
   const [isDirty, setIsDirty] = useState(false);
   const markDirty = useCallback(() => setIsDirty(true), []);
 
+  const contactEmailDisplay = adminMode
+    ? (initialProfile?.contactEmail?.trim() ?? "")
+    : (user?.email ?? "");
+
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
@@ -468,7 +472,7 @@ function CreatorProfileUpdateFormContent({
           }));
 
       const payload: UpdateCreatorProfilePayload = {
-        contactEmail: user?.email ?? "",
+        contactEmail: contactEmailDisplay,
         profileImageKey: profileImage.profileImageRemoved
           ? ""
           : (profileImage.pendingProfileImageKey ?? undefined),
@@ -549,6 +553,9 @@ function CreatorProfileUpdateFormContent({
       submitCreatorProfileMutation,
       travelRadius,
       adminMode,
+      contactEmailDisplay,
+      initialProfile,
+      user?.email,
     ],
   );
   const handleDiscard = useCallback(() => {
@@ -860,7 +867,7 @@ function CreatorProfileUpdateFormContent({
                   </p>
                 )}
               </div>
-              {user?.email ? (
+              {contactEmailDisplay || adminMode ? (
                 <div className="pe-field">
                   <label htmlFor="contactEmail">Contact email</label>
                   <div className="pe-input-wrap">
@@ -871,7 +878,7 @@ function CreatorProfileUpdateFormContent({
                       id="contactEmail"
                       className="pe-input"
                       type="email"
-                      value={user.email}
+                      value={contactEmailDisplay}
                       readOnly
                       disabled
                     />

@@ -83,11 +83,11 @@ export function LoginRolePicker() {
 
         <p className={styles.pickerTerms}>
           Protected by reCAPTCHA ·{" "}
-          <Link href="/terms" prefetch={false} className={styles.pickerTermsLink}>
+          <Link href="/legal/terms" prefetch={false} className={styles.pickerTermsLink}>
             Terms
           </Link>{" "}
           ·{" "}
-          <Link href="/privacy" prefetch={false} className={styles.pickerTermsLink}>
+          <Link href="/legal/privacy" prefetch={false} className={styles.pickerTermsLink}>
             Privacy
           </Link>
         </p>

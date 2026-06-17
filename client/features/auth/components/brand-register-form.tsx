@@ -1026,14 +1026,14 @@ export function BrandRegisterForm() {
             >
               I agree to the{" "}
               <Link
-                href="/terms"
+                href="/legal/terms"
                 className="font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
-                Brand Terms
+                Terms of Service
               </Link>
               {", "}
               <Link
-                href="/privacy"
+                href="/legal/privacy"
                 className="font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
                 Privacy Policy

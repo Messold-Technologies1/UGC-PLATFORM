@@ -369,7 +369,7 @@ function AdminLoginFormInner() {
           <p className="mt-[22px] text-center text-[11.5px] text-muted-foreground leading-[1.55]">
             By continuing, you agree to our{" "}
             <Link
-              href="/terms"
+              href="/legal/terms"
               prefetch={false}
               className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
@@ -377,7 +377,7 @@ function AdminLoginFormInner() {
             </Link>{" "}
             and{" "}
             <Link
-              href="/privacy"
+              href="/legal/privacy"
               prefetch={false}
               className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >

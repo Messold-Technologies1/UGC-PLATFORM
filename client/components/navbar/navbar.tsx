@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   Briefcase,
   UserCheck,
+  UserX,
   Settings,
   Package,
   Activity,
@@ -83,6 +84,12 @@ const roleConfigs: Record<string, NavItem[]> = {
           label: "Creator Approval",
           icon: UserCheck,
           description: "Review and approve new creator applications.",
+        },
+        {
+          href: "/admin/rejectedProfiles",
+          label: "Rejected Profiles",
+          icon: UserX,
+          description: "View rejected creator applications.",
         },
         {
           href: "/admin/creatorManagement",

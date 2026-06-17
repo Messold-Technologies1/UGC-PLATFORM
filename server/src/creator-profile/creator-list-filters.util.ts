@@ -148,9 +148,7 @@ export function buildListCreatorsWhere(
   const search = query.search?.trim();
   if (search) {
     clauses.push({
-      OR: [
-        { displayName: { contains: search, mode: 'insensitive' } },
-      ],
+      displayName: { contains: search, mode: 'insensitive' },
     });
   }
 
@@ -335,5 +333,16 @@ export function buildCreatorListRelationsInclude(
       select: portfolioSelect,
     },
     stats: { select: { avgRating: true, reviewCount: true } },
+  };
+}
+
+/** Admin pending/rejected queues: search by creator display name only. */
+export function buildAdminCreatorApprovalSearchWhere(
+  search?: string,
+): Prisma.CreatorProfileWhereInput | undefined {
+  const q = search?.trim();
+  if (!q) return undefined;
+  return {
+    displayName: { contains: q, mode: 'insensitive' },
   };
 }

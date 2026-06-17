@@ -23,6 +23,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
+import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
 import {
   PendingApprovalsQueryDto,
   RejectCreatorProfileDto,
@@ -50,6 +51,17 @@ export class AdminCreatorController {
     @Query() query: PendingApprovalsQueryDto,
   ): Promise<PendingCreatorsListResponseDto> {
     return this.creatorProfileService.listPendingCreatorApprovals(query);
+  }
+
+  @Get('rejected-approvals')
+  @ApiOperation({
+    summary: 'List rejected creator profiles (most recently rejected first)',
+  })
+  @ApiOkResponse({ type: RejectedCreatorsListResponseDto })
+  async listRejectedApprovals(
+    @Query() query: PendingApprovalsQueryDto,
+  ): Promise<RejectedCreatorsListResponseDto> {
+    return this.creatorProfileService.listRejectedCreatorApprovals(query);
   }
 
   @Patch(':id/approve')

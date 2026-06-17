@@ -4,6 +4,7 @@ import {
   PortfolioVisibilityStatus,
 } from '@prisma/client';
 import {
+  buildAdminCreatorApprovalSearchWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
   buildPortfolioVideoMatchWhere,
@@ -202,6 +203,18 @@ describe('creator-list-filters.util', () => {
           ],
         },
         take: 1,
+      });
+    });
+  });
+
+  describe('buildAdminCreatorApprovalSearchWhere', () => {
+    it('returns undefined for blank search', () => {
+      expect(buildAdminCreatorApprovalSearchWhere('   ')).toBeUndefined();
+    });
+
+    it('matches display name only', () => {
+      expect(buildAdminCreatorApprovalSearchWhere('jane')).toEqual({
+        displayName: { contains: 'jane', mode: 'insensitive' },
       });
     });
   });

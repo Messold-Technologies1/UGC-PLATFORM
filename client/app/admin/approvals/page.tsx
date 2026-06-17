@@ -22,20 +22,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 
 export default function AdminDashboardPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(6);
+  const [search, setSearch] = useState("");
   const [selectedCreator, setSelectedCreator] =
     useState<PendingCreatorApprovalListItemDto | null>(null);
 
-  const { data, isLoading } = usePendingApprovalsQuery({ page, limit });
+  const { data, isLoading, isFetching } = usePendingApprovalsQuery({
+    page,
+    limit,
+    search: search.trim() || undefined,
+  });
 
   const openDrawer = (creator: PendingCreatorApprovalListItemDto) =>
     setSelectedCreator(creator);
   const closeDrawer = () => setSelectedCreator(null);
 
   const creators = data?.items || [];
+  const searchLoading = isFetching && !isLoading;
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit) || 1;
   const showingStart = creators.length === 0 ? 0 : (page - 1) * limit + 1;
@@ -56,21 +63,21 @@ export default function AdminDashboardPage() {
 
         </section>
 
-        <div className="flex items-center justify-end px-2">
-          {/* <div className="flex items-center space-x-2">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mr-2">
-              Sort:
-            </span>
-            <button className="px-4 py-2 rounded-full bg-accent/50 border border-border/50 text-xs font-bold hover:bg-accent transition-all">
-              Newest
-            </button>
-            <button className="px-4 py-2 rounded-full border border-border/50 text-xs font-medium text-muted-foreground hover:text-foreground transition-all">
-              Followers
-            </button>
-          </div> */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
+          <AdminCreatorListSearch
+            value={search}
+            isLoading={searchLoading}
+            onChange={(next) => {
+              setSearch(next);
+              setPage(1);
+            }}
+          />
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="relative grid grid-cols-1 gap-4">
+          {searchLoading ? (
+            <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl bg-background/40 backdrop-blur-[1px]" />
+          ) : null}
           {isLoading &&
             Array.from({ length: limit }).map((_, i) => (
               <div
@@ -106,7 +113,9 @@ export default function AdminDashboardPage() {
             ))}
           {!isLoading && creators.length === 0 && (
             <div className="py-20 text-center text-muted-foreground">
-              No pending approvals at the moment.
+              {search.trim()
+                ? "No pending approvals match your search."
+                : "No pending approvals at the moment."}
             </div>
           )}
           {creators.map((creator, i) => (

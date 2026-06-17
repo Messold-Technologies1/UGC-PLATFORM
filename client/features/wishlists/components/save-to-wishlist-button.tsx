@@ -7,6 +7,11 @@ import { Heart, Plus, Check, Loader2, ArrowRight, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogTitle,
@@ -318,34 +323,48 @@ export function SaveToWishlistButton({
                       </p>
                     </div>
                     {saved ? (
-                      <Button
-                        size="sm"
-                        className="bg-rose-500 hover:bg-rose-600 text-white rounded-full gap-1 h-8 px-3 shrink-0"
-                        onClick={() => handleToggle(w)}
-                        disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
-                      >
-                        {isRemovingThis ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Check size={12} />
-                        )}
-                        Saved
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            className="bg-rose-500 hover:bg-rose-600 text-white rounded-full size-8 shrink-0"
+                            onClick={() => handleToggle(w)}
+                            disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
+                            aria-label={`Remove from ${w.name}`}
+                          >
+                            {isRemovingThis ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Check size={12} />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>
+                          Saved — click to remove
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-full gap-1 h-8 px-3 shrink-0"
-                        onClick={() => handleToggle(w)}
-                        disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
-                      >
-                        {isAddingThis ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Plus size={12} />
-                        )}
-                        Add
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="rounded-full size-8 shrink-0"
+                            onClick={() => handleToggle(w)}
+                            disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
+                            aria-label={`Add to ${w.name}`}
+                          >
+                            {isAddingThis ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Plus size={12} />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>
+                          Add to wishlist
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                 );

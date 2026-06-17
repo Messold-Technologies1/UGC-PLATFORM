@@ -3,9 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Share2, Pencil, X, Plus, Check, Loader2, Lock } from "lucide-react";
+import { Share2, Pencil, X, Plus, Check, Loader2, Lock, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
 import { ReelCard } from "@/features/creators/components/browse-creators/reel-card";
 import { ProfileDrawer } from "@/features/creators/components/browse-creators/profile-drawer";
@@ -13,6 +18,7 @@ import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-
 import type { Creator } from "@/features/creators/types";
 import { WishlistSidebar } from "@/features/wishlists/components/wishlist-sidebar";
 import { DeleteWishlistDialog } from "@/features/wishlists/components/delete-wishlist-dialog";
+import { RemoveCreatorsDialog } from "@/features/wishlists/components/remove-creators-dialog";
 import { useWishlistsQuery } from "@/features/wishlists/hooks/use-wishlists-query";
 import { useWishlistDetailQuery } from "@/features/wishlists/hooks/use-wishlist-detail-query";
 import { useEnableWishlistShareMutation } from "@/features/wishlists/hooks/use-enable-wishlist-share-mutation";
@@ -43,6 +49,7 @@ export default function WishlistDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [removeCreatorsOpen, setRemoveCreatorsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
@@ -179,86 +186,138 @@ export default function WishlistDetailPage() {
               )}
 
               <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  className="gap-2 rounded-full bg-gray-900 hover:bg-gray-800 text-white h-9 text-sm"
-                  asChild
-                >
-                  <Link href="/brand/creators">
-                    <Plus size={15} />
-                    Add creators
-                  </Link>
-                </Button>
+                {/* Add creators */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 rounded-xl"
+                      asChild
+                      aria-label="Add creators"
+                    >
+                      <Link href="/brand/creators">
+                        <Plus size={15} />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>Browse and add creators</TooltipContent>
+                </Tooltip>
 
-                {wishlist.shareEnabled ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 rounded-xl gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                      onClick={handleShare}
-                      disabled={enableShareMutation.isPending}
-                      title="Copy share link"
-                    >
-                      {enableShareMutation.isPending ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Share2 size={14} />
-                      )}
-                      Copy link
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 rounded-xl gap-1.5 border-gray-300 text-gray-600 hover:bg-gray-50"
-                      onClick={handleMakePrivate}
-                      disabled={disableShareMutation.isPending}
-                      title="Make private"
-                    >
-                      {disableShareMutation.isPending ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Lock size={14} />
-                      )}
-                      Make private
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-xl gap-1.5"
-                    onClick={handleShare}
-                    disabled={enableShareMutation.isPending}
-                    title="Share this wishlist"
-                  >
-                    {enableShareMutation.isPending ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Share2 size={14} />
-                    )}
-                    Share
-                  </Button>
+                {/* Remove creators */}
+                {listingCreators.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-9 rounded-xl text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => setRemoveCreatorsOpen(true)}
+                        aria-label="Remove creators"
+                      >
+                        <UserMinus size={15} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>Remove creators</TooltipContent>
+                  </Tooltip>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-9 rounded-xl"
-                  title="Rename wishlist"
-                  onClick={startEdit}
-                  disabled={editing || updateMutation.isPending}
-                >
-                  <Pencil size={15} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-9 rounded-xl"
-                  title="Delete this wishlist"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <X size={15} />
-                </Button>
+                {/* Share / Copy link / Make private */}
+                {wishlist.shareEnabled ? (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-9 rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          onClick={handleShare}
+                          disabled={enableShareMutation.isPending}
+                          aria-label="Copy share link"
+                        >
+                          {enableShareMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Share2 size={14} />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent sideOffset={6}>Copy share link</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-9 rounded-xl"
+                          onClick={handleMakePrivate}
+                          disabled={disableShareMutation.isPending}
+                          aria-label="Make private"
+                        >
+                          {disableShareMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Lock size={14} />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent sideOffset={6}>Make private</TooltipContent>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-9 rounded-xl"
+                        onClick={handleShare}
+                        disabled={enableShareMutation.isPending}
+                        aria-label="Share wishlist"
+                      >
+                        {enableShareMutation.isPending ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Share2 size={14} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>Share wishlist</TooltipContent>
+                  </Tooltip>
+                )}
+
+                {/* Rename */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 rounded-xl"
+                      onClick={startEdit}
+                      disabled={editing || updateMutation.isPending}
+                      aria-label="Rename wishlist"
+                    >
+                      <Pencil size={15} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>Rename wishlist</TooltipContent>
+                </Tooltip>
+
+                {/* Delete */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 rounded-xl"
+                      onClick={() => setDeleteOpen(true)}
+                      aria-label="Delete wishlist"
+                    >
+                      <X size={15} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>Delete wishlist</TooltipContent>
+                </Tooltip>
               </div>
             </div>
 
@@ -312,17 +371,26 @@ export default function WishlistDetailPage() {
       />
 
       {wishlist ? (
-        <DeleteWishlistDialog
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          wishlistId={wishlist.id}
-          wishlistName={wishlist.name}
-          creatorCount={wishlist.creatorCount}
-          onDeleted={() => {
-            toast.success("Wishlist deleted");
-            router.push("/brand/wishlists");
-          }}
-        />
+        <>
+          <DeleteWishlistDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            wishlistId={wishlist.id}
+            wishlistName={wishlist.name}
+            creatorCount={wishlist.creatorCount}
+            onDeleted={() => {
+              toast.success("Wishlist deleted");
+              router.push("/brand/wishlists");
+            }}
+          />
+          <RemoveCreatorsDialog
+            open={removeCreatorsOpen}
+            onOpenChange={setRemoveCreatorsOpen}
+            wishlistId={wishlist.id}
+            wishlistName={wishlist.name}
+            creators={wishlist.creators}
+          />
+        </>
       ) : null}
     </div>
   );

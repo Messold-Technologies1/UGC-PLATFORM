@@ -610,7 +610,7 @@ function CreatorProfileUpdateFormContent({
       >
         {isSettings ? (
           <div className="pe-shell">
-            <nav className="pe-nav">
+            <nav className="pe-nav" data-tour="creator-profile-edit-nav">
               {NAV_ITEMS.map((item) => {
                 const IconCmp = item.icon;
                 const count =
@@ -731,6 +731,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="media"
+            tourId="creator-profile-edit-media"
             icon={Camera}
             title="Photo & intro reel"
             desc="Your face and a short intro reel build instant trust."
@@ -798,6 +799,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="basics"
+            tourId="creator-profile-edit-basics"
             icon={User}
             title="Basic details"
             desc="Name, contact and the bio brands read first."
@@ -1119,6 +1121,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="niche"
+            tourId="creator-profile-edit-niche"
             icon={Sparkles}
             title="Niche & content"
             desc="The facets that decide which briefs you show up for."
@@ -1355,6 +1358,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="packages"
+            tourId="creator-profile-edit-packages"
             icon={Layers}
             title="Packages"
             desc="What brands can book. Set price, delivery and what's included."
@@ -1452,6 +1456,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="portfolio"
+            tourId="creator-profile-edit-portfolio"
             icon={Film}
             title="Portfolio"
             desc="Manage your reels. Edit each video's tags, industry, language and visibility."

@@ -36,6 +36,35 @@ const NAV = {
   creatorPortfolio: '[data-tour="nav-creator-portfolio"]',
 } as const;
 
+const CREATOR_ORDERS_TABS = '[data-tour="creator-orders-tabs"]';
+const CREATOR_ORDERS_TAB = {
+  all: '[data-tour="creator-orders-tab-all"]',
+  new: '[data-tour="creator-orders-tab-new"]',
+  active: '[data-tour="creator-orders-tab-active"]',
+  revisions: '[data-tour="creator-orders-tab-revisions"]',
+  delivered: '[data-tour="creator-orders-tab-delivered"]',
+  completed: '[data-tour="creator-orders-tab-completed"]',
+  cancelled: '[data-tour="creator-orders-tab-cancelled"]',
+} as const;
+
+const CREATOR_PROFILE = {
+  overview: '[data-tour="creator-profile-overview"]',
+  preview: '[data-tour="creator-profile-preview"]',
+  edit: '[data-tour="creator-profile-edit"]',
+  stats: '[data-tour="creator-profile-stats"]',
+  portfolio: '[data-tour="creator-profile-portfolio"]',
+  package: '[data-tour="creator-profile-package"]',
+} as const;
+
+const CREATOR_PROFILE_EDIT = {
+  nav: '[data-tour="creator-profile-edit-nav"]',
+  media: '[data-tour="creator-profile-edit-media"]',
+  basics: '[data-tour="creator-profile-edit-basics"]',
+  niche: '[data-tour="creator-profile-edit-niche"]',
+  packages: '[data-tour="creator-profile-edit-packages"]',
+  portfolio: '[data-tour="creator-profile-edit-portfolio"]',
+} as const;
+
 interface TourRoute {
   /** Returns true when this tour should run for the given pathname. */
   match: (pathname: string) => boolean;
@@ -330,15 +359,69 @@ const CREATOR_ROUTES: TourRoute[] = [
   {
     match: (p) => p === "/creator/orders",
     definition: {
-      tour: "creator-orders",
+      tour: "creator-orders-v2",
       steps: [
         {
-          icon: "📦",
-          title: "Your orders",
+          icon: "📂",
+          title: "Order tabs",
           content:
-            "Every collaboration you take on shows here. Track each from brief to delivery.",
-          selector: NAV.creatorOrders,
+            "Your orders are grouped by status. Use these tabs to jump between new requests, active work, and completed collaborations.",
+          selector: CREATOR_ORDERS_TABS,
           side: "bottom",
+        },
+        {
+          icon: "📋",
+          title: "All Orders",
+          content:
+            "See every collaboration in one list. Search by order ID or brand from here.",
+          selector: CREATOR_ORDERS_TAB.all,
+          side: "bottom-left",
+        },
+        {
+          icon: "✨",
+          title: "New Requests",
+          content:
+            "Incoming briefs from brands land here. Review requirements and accept or decline each request.",
+          selector: CREATOR_ORDERS_TAB.new,
+          side: "bottom-left",
+        },
+        {
+          icon: "🎬",
+          title: "Active",
+          content:
+            "Orders you're working on right now — from product receipt through content creation.",
+          selector: CREATOR_ORDERS_TAB.active,
+          side: "bottom-left",
+        },
+        {
+          icon: "🔄",
+          title: "Revisions",
+          content:
+            "When a brand asks for changes, those orders appear here until you resubmit.",
+          selector: CREATOR_ORDERS_TAB.revisions,
+          side: "bottom",
+        },
+        {
+          icon: "📤",
+          title: "Delivered",
+          content:
+            "Content you've submitted and is waiting for brand review.",
+          selector: CREATOR_ORDERS_TAB.delivered,
+          side: "bottom",
+        },
+        {
+          icon: "✅",
+          title: "Completed",
+          content: "Finished collaborations and payout-ready orders.",
+          selector: CREATOR_ORDERS_TAB.completed,
+          side: "bottom-right",
+        },
+        {
+          icon: "🚫",
+          title: "Cancelled",
+          content: "Declined, refunded, or disputed orders are kept here for your records.",
+          selector: CREATOR_ORDERS_TAB.cancelled,
+          side: "bottom-right",
         },
         {
           icon: "💬",
@@ -400,15 +483,23 @@ const CREATOR_ROUTES: TourRoute[] = [
   {
     match: (p) => p.startsWith("/creator/portfolio"),
     definition: {
-      tour: "creator-portfolio",
+      tour: "creator-portfolio-v2",
       steps: [
         {
           icon: "🎬",
           title: "Your portfolio",
           content:
-            "Upload your best work so brands can see exactly what you create.",
-          selector: NAV.creatorPortfolio,
-          side: "bottom",
+            "Upload and organize your best work here so brands can see what you create.",
+          selector: '[data-tour="creator-portfolio-header"]',
+          side: "bottom-left",
+        },
+        {
+          icon: "➕",
+          title: "Add new work",
+          content:
+            "Upload videos and tag them by industry so the right brands can find you.",
+          selector: '[data-tour="creator-portfolio-upload"]',
+          side: "bottom-left",
         },
       ],
     },
@@ -432,15 +523,55 @@ const CREATOR_ROUTES: TourRoute[] = [
   {
     match: (p) => p.startsWith("/creator/account"),
     definition: {
-      tour: "creator-account",
+      tour: "creator-account-v3",
       steps: [
         {
           icon: "👤",
-          title: "Your profile",
+          title: "Your public profile",
           content:
-            "This is what brands see. Manage your account and profile from this menu.",
-          selector: PROFILE,
-          side: "bottom-right",
+            "This is how brands see you — photo, bio, categories, and location.",
+          selector: CREATOR_PROFILE.overview,
+          side: "bottom-left",
+        },
+        {
+          icon: "🔗",
+          title: "Preview public profile",
+          content:
+            "Open your live public page in a new tab to see exactly what brands see when they discover you.",
+          selector: CREATOR_PROFILE.preview,
+          side: "bottom-left",
+        },
+        {
+          icon: "✏️",
+          title: "Edit profile",
+          content:
+            "Update your details, packages, and portfolio anytime from here.",
+          selector: CREATOR_PROFILE.edit,
+          side: "bottom-left",
+        },
+        {
+          icon: "📊",
+          title: "Performance stats",
+          content:
+            "Track your orders, earnings, and ratings at a glance.",
+          selector: CREATOR_PROFILE.stats,
+          side: "bottom",
+        },
+        {
+          icon: "🎬",
+          title: "Top portfolio",
+          content:
+            "Your best work is highlighted here. Manage the full library from Portfolio.",
+          selector: CREATOR_PROFILE.portfolio,
+          side: "bottom",
+        },
+        {
+          icon: "💰",
+          title: "Your package",
+          content:
+            "Brands see your starting price and add-ons. Edit pricing here or in profile settings.",
+          selector: CREATOR_PROFILE.package,
+          side: "bottom-left",
         },
       ],
     },
@@ -448,14 +579,54 @@ const CREATOR_ROUTES: TourRoute[] = [
   {
     match: (p) => p.startsWith("/creator/settings/profile"),
     definition: {
-      tour: "creator-settings-profile",
+      tour: "creator-settings-profile-v3",
       steps: [
         {
-          icon: "✏️",
-          title: "Edit your profile",
+          icon: "🧭",
+          title: "Profile sections",
           content:
-            "Update your display name, bio, profile picture, and social links.",
-          selector: HEADER,
+            "Jump between sections using this menu as you update your profile.",
+          selector: CREATOR_PROFILE_EDIT.nav,
+          side: "right",
+        },
+        {
+          icon: "📸",
+          title: "Photo & intro reel",
+          content:
+            "Upload a profile photo and short intro video — brands see these first.",
+          selector: CREATOR_PROFILE_EDIT.media,
+          side: "bottom-left",
+        },
+        {
+          icon: "📝",
+          title: "Basic details",
+          content:
+            "Set your display name, contact info, and the bio brands read first.",
+          selector: CREATOR_PROFILE_EDIT.basics,
+          side: "bottom-left",
+        },
+        {
+          icon: "✨",
+          title: "Niche & content",
+          content:
+            "Choose your content categories, style, and languages — this controls which brand briefs you match with.",
+          selector: CREATOR_PROFILE_EDIT.niche,
+          side: "bottom-left",
+        },
+        {
+          icon: "📦",
+          title: "Packages",
+          content:
+            "Set your base package price, delivery time, and optional add-ons.",
+          selector: CREATOR_PROFILE_EDIT.packages,
+          side: "bottom",
+        },
+        {
+          icon: "🎬",
+          title: "Portfolio",
+          content:
+            "Add and manage showcase videos that appear on your public profile.",
+          selector: CREATOR_PROFILE_EDIT.portfolio,
           side: "bottom",
         },
       ],

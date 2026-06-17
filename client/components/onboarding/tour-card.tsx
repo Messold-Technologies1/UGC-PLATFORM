@@ -1,9 +1,12 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { useOnborda, type CardComponentProps } from "onborda";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const VIEWPORT_MARGIN = 16;
 
 /**
  * Branded card rendered by Onborda for every tour step. Styling intentionally
@@ -19,12 +22,41 @@ export function TourCard({
   arrow,
 }: CardComponentProps) {
   const { closeOnborda } = useOnborda();
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
 
+  useLayoutEffect(() => {
+    if (!step) return;
+    const card = cardRef.current?.closest(
+      '[data-name="onborda-card"]',
+    ) as HTMLElement | null;
+    if (!card) return;
+
+    card.style.marginLeft = "";
+    card.style.marginRight = "";
+
+    const rect = card.getBoundingClientRect();
+    const overflowLeft = VIEWPORT_MARGIN - rect.left;
+    const overflowRight = rect.right - (window.innerWidth - VIEWPORT_MARGIN);
+
+    if (overflowLeft > 0) {
+      card.style.marginLeft = `${overflowLeft}px`;
+    } else if (overflowRight > 0) {
+      card.style.marginRight = `${overflowRight}px`;
+    }
+  }, [currentStep, step]);
+
+  if (!step) {
+    return null;
+  }
+
   return (
-    <div className="relative w-[320px] max-w-[88vw] rounded-2xl border border-border/60 bg-card text-card-foreground shadow-2xl shadow-black/10">
+    <div
+      ref={cardRef}
+      className="relative w-[320px] max-w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-border/60 bg-card text-card-foreground shadow-2xl shadow-black/10"
+    >
       <div className="flex items-start justify-between gap-3 px-5 pt-5">
         <div className="flex items-center gap-2">
           {step.icon ? (

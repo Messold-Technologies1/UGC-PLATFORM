@@ -74,10 +74,14 @@ export function CreatorOrdersTabs({
   }, [allItems, activeTab, totalCount]);
 
   return (
-    <div className="flex items-center gap-2 sm:gap-6 border-b border-border/40 overflow-x-auto pb-px scrollbar-hide">
+    <div
+      data-tour="creator-orders-tabs"
+      className="flex items-center gap-2 sm:gap-6 border-b border-border/40 overflow-x-auto pb-px scrollbar-hide"
+    >
       {dynamicTabs.map((tab) => (
         <button
           key={tab.id}
+          data-tour={`creator-orders-tab-${tab.id}`}
           onClick={() => onTabChange(tab.id)}
           className={cn(
             "flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors px-1",

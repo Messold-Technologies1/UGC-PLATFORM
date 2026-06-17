@@ -242,7 +242,10 @@ export function CreatorPortfolioManager() {
     <div className="space-y-6">
       <div className="flex flex-col xl:flex-row gap-8 items-start">
         <div className="flex-1 w-full space-y-6 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-2">
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-2"
+            data-tour="creator-portfolio-header"
+          >
             <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab("all")}
@@ -263,7 +266,7 @@ export function CreatorPortfolioManager() {
 
             <div className="flex items-center gap-3 shrink-0">
               <Button asChild className="gap-2">
-                <Link href="/creator/portfolio/upload">
+                <Link href="/creator/portfolio/upload" data-tour="creator-portfolio-upload">
                   <Plus className="size-4" />
                   Add New Work
                 </Link>

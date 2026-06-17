@@ -50,13 +50,19 @@ function OnboardingInner({
 }) {
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
-  const { startOnborda } = useOnborda();
+  const { startOnborda, closeOnborda } = useOnborda();
 
   const userId = user?.id ?? "anon";
   // Onborda resolves the active tour by name from this array, so it always
   // holds exactly the (visibility-filtered) tour for the current page.
   const [tours, setTours] = useState<TourDefinition[]>([]);
   const pendingStartRef = useRef<string | null>(null);
+
+  // Dismiss any in-flight tour when the route changes so step indices reset.
+  useEffect(() => {
+    closeOnborda();
+    pendingStartRef.current = null;
+  }, [pathname, closeOnborda]);
 
   useEffect(() => {
     if (isLoading || !pathname) return;
@@ -83,6 +89,9 @@ function OnboardingInner({
         if (attempts < maxAttempts) {
           attempts += 1;
           timer = setTimeout(resolveOnce, 150);
+        } else {
+          setTours([]);
+          pendingStartRef.current = null;
         }
         return;
       }

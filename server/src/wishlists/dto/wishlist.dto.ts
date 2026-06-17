@@ -11,6 +11,9 @@ export class WishlistDto {
   @ApiProperty({ example: 5 })
   creatorCount!: number;
 
+  @ApiProperty({ type: [String] })
+  creatorIds!: string[];
+
   @ApiProperty()
   shareEnabled!: boolean;
 

@@ -25,6 +25,7 @@ import {
   Megaphone,
   Camera,
   Building2,
+  Heart,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
     { href: "/brand/messages", label: "Messages", icon: MessageSquare },
     { href: "/brand/briefs", label: "Briefs", icon: FileText },
+    { href: "/brand/wishlists", label: "Wishlists", icon: Heart },
   ],
   creator: [
     { href: "/creator/orders", label: "Orders", icon: ShoppingCart },

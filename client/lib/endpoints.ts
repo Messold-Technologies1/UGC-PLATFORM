@@ -108,6 +108,22 @@ export const ENDPOINTS = {
     RATING_REVIEW: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/rating-review`,
   },
+  WISHLISTS: {
+    LIST: "/api/wishlists",
+    CREATE: "/api/wishlists",
+    DETAIL: (id: string) => `/api/wishlists/${encodeURIComponent(id)}`,
+    UPDATE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}`,
+    DELETE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}`,
+    ADD_CREATOR: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/creators`,
+    REMOVE_CREATOR: (wishlistId: string, creatorId: string) =>
+      `/api/wishlists/${encodeURIComponent(wishlistId)}/creators/${encodeURIComponent(creatorId)}`,
+    TOGGLE_SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    UNSHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    PUBLIC: (shareToken: string) => `/api/wishlists/public/${encodeURIComponent(shareToken)}`,
+    IMPORT_SHARED: (shareToken: string) =>
+      `/api/wishlists/public/${encodeURIComponent(shareToken)}/import`,
+  },
   CHATS: {
     CREATOR: "/api/chats/creator",
     BRAND: "/api/chats/brand",

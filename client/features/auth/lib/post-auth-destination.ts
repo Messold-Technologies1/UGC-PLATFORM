@@ -7,6 +7,11 @@ const CREATOR_FALLBACK = "/creator/account";
 const BRAND_FALLBACK = "/brand/creators";
 const ADMIN_FALLBACK = "/admin";
 
+/** Paths where post-login should return the user (public browsing, not workspace). */
+export function isPublicPostAuthContinuePath(path: string): boolean {
+  return path.startsWith("/wishlists/share/");
+}
+
 function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
   if (r === "ADMIN") return "admin";
   if (r === "CREATOR") return "creator";
@@ -96,6 +101,7 @@ export function postAuthDestinationForRole(
     return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
   }
   const path = callbackUrl.split("?")[0] ?? callbackUrl;
+  if (isPublicPostAuthContinuePath(path)) return callbackUrl;
   if (role === "admin" && path.startsWith("/admin")) return callbackUrl;
   if (role === "brand" && path.startsWith("/brand")) return callbackUrl;
   if (role === "creator" && path.startsWith("/creator")) return callbackUrl;

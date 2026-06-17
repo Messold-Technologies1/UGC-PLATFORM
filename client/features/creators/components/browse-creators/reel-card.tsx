@@ -30,7 +30,7 @@ export const ReelCard = memo(function ReelCard({
     meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY");
   const [isMuted, setIsMuted] = useState(true);
   const [g1, g2] = posterColor(index);
-  const tags = creator.tags.slice(0, 2);
+  const tags = creator.categories.slice(0, 2);
   const reelDuration = formatReelDuration(index);
   const initials = getInitials(creator.name);
   const verified = creator.rating >= 4.8;

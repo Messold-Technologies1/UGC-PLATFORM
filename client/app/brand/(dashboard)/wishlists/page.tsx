@@ -12,17 +12,23 @@ export default function WishlistsPage() {
   const wishlists = data?.items ?? [];
 
   useEffect(() => {
-    if (!isLoading && wishlists.length > 0) {
-      router.replace(`/brand/wishlists/${wishlists[0]!.id}`);
+    const media = window.matchMedia("(min-width: 1024px)");
+    function maybeRedirect() {
+      if (!isLoading && wishlists.length > 0 && media.matches) {
+        router.replace(`/brand/wishlists/${wishlists[0]!.id}`);
+      }
     }
+    maybeRedirect();
+    media.addEventListener("change", maybeRedirect);
+    return () => media.removeEventListener("change", maybeRedirect);
   }, [isLoading, wishlists, router]);
 
   return (
-    <div className="flex bg-gray-50">
-      <aside className="sticky top-24 z-10 w-[300px] shrink-0 self-start p-4 max-h-[calc(100dvh-7rem)] overflow-y-auto">
+    <div className="flex flex-col bg-gray-50 lg:flex-row min-h-[calc(100dvh-7rem)]">
+      <aside className="w-full p-4 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
         <WishlistSidebar wishlists={wishlists} activeId={null} isLoading={isLoading} />
       </aside>
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-12rem)]">
+      <div className="hidden lg:flex flex-1 flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-12rem)]">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-white shadow-sm mb-4">
           <Heart className="size-6 text-rose-400" />
         </div>

@@ -3,10 +3,12 @@ import type { Step } from "onborda";
 /**
  * Onborda product tours for the brand and creator workspaces.
  *
- * Each route maps to a single self-contained tour whose steps anchor to
- * `[data-tour="..."]` elements rendered on (or shared across) that page. The
- * runtime filters out any step whose target is missing or not visible, so it is
- * safe to optimistically reference navbar items that only exist on desktop.
+ * Each route maps to a single self-contained tour whose steps anchor to small,
+ * concrete `[data-tour="..."]` elements (navbar items, page headers, primary
+ * CTAs). We deliberately avoid anchoring to the full-page content wrapper — that
+ * would spotlight the entire viewport and the card would float over the whole
+ * page. The runtime filters out any step whose target is missing or not visible
+ * (e.g. the desktop navbar on mobile) before the tour starts.
  */
 
 export type TourScope = "brand" | "creator";
@@ -17,10 +19,10 @@ export interface TourDefinition {
   steps: Step[];
 }
 
-// Shared, layout-level anchors available on every dashboard page.
-const CONTENT = '[data-tour="dashboard-content"]';
+// Shared, layout-level anchors available across dashboard pages.
 const HEADER = '[data-tour="page-header"]';
 const NOTIFICATIONS = '[data-tour="nav-notifications"]';
+const PROFILE = '[data-tour="nav-profile"]';
 
 // Role navigation anchors (desktop navbar).
 const NAV = {
@@ -51,10 +53,8 @@ const BRAND_ROUTES: TourRoute[] = [
           title: "Build your brief",
           content:
             "Fill in product details, content requirements, and shoot preferences. Everything is saved as a reusable brief you can attach to orders.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandBriefs,
+          side: "bottom",
         },
       ],
     },
@@ -69,10 +69,8 @@ const BRAND_ROUTES: TourRoute[] = [
           title: "Brief details",
           content:
             "Review everything captured in this brief. Reuse it whenever you create a new order.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandBriefs,
+          side: "bottom",
         },
       ],
     },
@@ -111,10 +109,8 @@ const BRAND_ROUTES: TourRoute[] = [
           title: "Creator profile",
           content:
             "Explore the creator's portfolio, stats, and pricing — then start an order or save them to a wishlist.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandCreators,
+          side: "bottom",
         },
       ],
     },
@@ -128,11 +124,9 @@ const BRAND_ROUTES: TourRoute[] = [
           icon: "🔍",
           title: "Discover creators",
           content:
-            "Browse and filter vetted creators to collaborate with. Click any card to open a full profile.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+            "This is the Creators marketplace — browse and filter vetted creators, then open any profile to learn more.",
+          selector: NAV.brandCreators,
+          side: "bottom",
         },
         {
           icon: "📦",
@@ -155,7 +149,7 @@ const BRAND_ROUTES: TourRoute[] = [
           content:
             "New applications, messages, and updates all show up here.",
           selector: NOTIFICATIONS,
-          side: "bottom",
+          side: "bottom-right",
         },
       ],
     },
@@ -170,10 +164,8 @@ const BRAND_ROUTES: TourRoute[] = [
           title: "Your orders",
           content:
             "Every collaboration you start lives here. Track each one from briefing through delivery.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandOrders,
+          side: "bottom",
         },
         {
           icon: "💬",
@@ -195,10 +187,8 @@ const BRAND_ROUTES: TourRoute[] = [
           title: "Order details",
           content:
             "Track this collaboration's progress and review deliverables as the creator submits them.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandOrders,
+          side: "bottom",
         },
       ],
     },
@@ -212,10 +202,8 @@ const BRAND_ROUTES: TourRoute[] = [
           icon: "💬",
           title: "Messages",
           content: "All of your conversations with creators in one place.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandMessages,
+          side: "bottom",
         },
       ],
     },
@@ -230,10 +218,8 @@ const BRAND_ROUTES: TourRoute[] = [
           title: "Wishlists",
           content:
             "Organize creators into shortlists so your team can collaborate on who to hire.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.brandWishlists,
+          side: "bottom",
         },
       ],
     },
@@ -271,11 +257,9 @@ const BRAND_ROUTES: TourRoute[] = [
           icon: "🏢",
           title: "Your brand profile",
           content:
-            "Keep your brand details up to date — creators see this when you reach out.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+            "Keep your brand details up to date — creators see this when you reach out. Manage account options from this menu.",
+          selector: PROFILE,
+          side: "bottom-right",
         },
       ],
     },
@@ -309,10 +293,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           title: "Welcome to your dashboard",
           content:
             "Your activity, earnings, and recent updates at a glance.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: '[data-tour="creator-dashboard-header"]',
+          side: "bottom",
         },
         {
           icon: "📦",
@@ -340,7 +322,7 @@ const CREATOR_ROUTES: TourRoute[] = [
           title: "Notifications",
           content: "Invites, messages, and payout updates appear here.",
           selector: NOTIFICATIONS,
-          side: "bottom",
+          side: "bottom-right",
         },
       ],
     },
@@ -355,10 +337,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           title: "Your orders",
           content:
             "Every collaboration you take on shows here. Track each from brief to delivery.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.creatorOrders,
+          side: "bottom",
         },
         {
           icon: "💬",
@@ -380,10 +360,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           title: "Order details",
           content:
             "Everything about this collaboration — the brief, status, and your deliverables.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.creatorOrders,
+          side: "bottom",
         },
       ],
     },
@@ -397,10 +375,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           icon: "💬",
           title: "Messages",
           content: "All of your brand conversations in one place.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.creatorMessages,
+          side: "bottom",
         },
       ],
     },
@@ -415,10 +391,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           title: "Add to your portfolio",
           content:
             "Upload media and add details to showcase this piece of work.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.creatorPortfolio,
+          side: "bottom",
         },
       ],
     },
@@ -433,10 +407,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           title: "Your portfolio",
           content:
             "Upload your best work so brands can see exactly what you create.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+          selector: NAV.creatorPortfolio,
+          side: "bottom",
         },
       ],
     },
@@ -466,11 +438,9 @@ const CREATOR_ROUTES: TourRoute[] = [
           icon: "👤",
           title: "Your profile",
           content:
-            "This is what brands see. Keep it polished to win more work.",
-          selector: CONTENT,
-          side: "top",
-          pointerPadding: 8,
-          pointerRadius: 16,
+            "This is what brands see. Manage your account and profile from this menu.",
+          selector: PROFILE,
+          side: "bottom-right",
         },
       ],
     },

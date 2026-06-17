@@ -41,7 +41,10 @@ export function CreatorDashboard() {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Page header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div
+        data-tour="creator-dashboard-header"
+        className="flex items-center justify-between gap-4 flex-wrap"
+      >
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold">

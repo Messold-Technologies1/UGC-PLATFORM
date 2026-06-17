@@ -341,7 +341,7 @@ function BrandProfileUpdateFormContent({
               This is how your brand appears across the platform.
             </p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
+          <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="brandName">Brand name *</Label>
@@ -381,8 +381,7 @@ function BrandProfileUpdateFormContent({
                 />
               </div>
             </div>
-            <div className="space-y-2 sm:w-[140px]">
-              <Label>Brand logo</Label>
+            <div className="space-y-2">
               <BrandLogoField
                 previewUrl={logo.logoPreviewUrl}
                 accept={LOGO_ACCEPT}

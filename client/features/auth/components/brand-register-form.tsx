@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
 import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
@@ -88,6 +89,46 @@ const brandSignupSchema = z
 
 type BrandSignupData = z.infer<typeof brandSignupSchema>;
 
+const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
+  email: "Email",
+  password: "Password (at least 8 characters)",
+  contactFullName: "Full name",
+  contactEmail: "Contact email",
+  contactPhone: "Phone number",
+  brandName: "Brand name",
+  productType: "Product type",
+  categories: "At least one category",
+  termsAccepted: "Terms acceptance",
+};
+
+function getBrandSignupBlockers(
+  values: BrandSignupData,
+  ctx: {
+    hasLogo: boolean;
+  },
+): string[] {
+  const blockers: string[] = [];
+
+  const parsed = brandSignupSchema.safeParse(values);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof BrandSignupData | undefined;
+      const label = key ? SIGNUP_FIELD_LABELS[key] : undefined;
+      if (label && !blockers.includes(label)) blockers.push(label);
+    }
+  }
+  return blockers;
+}
+
+function isBrandSignupReady(
+  values: BrandSignupData,
+  ctx: {
+    hasLogo: boolean;
+  },
+): boolean {
+  return getBrandSignupBlockers(values, ctx).length === 0;
+}
+
 const BRAND_CATEGORIES = [
   { slug: "APPAREL_AND_FASHION", label: "Apparel & Fashion" },
   { slug: "ELECTRONICS_AND_GADGETS", label: "Electronics" },
@@ -100,7 +141,7 @@ const BRAND_CATEGORIES = [
   { slug: "OTHER", label: "Other" },
 ];
 
-type SubmitStatus = "idle" | "uploading" | "registering";
+
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -184,11 +225,13 @@ export function BrandRegisterForm() {
     useState<string | null>(null);
   const [pronunciationAudioPreviewUrl, setPronunciationAudioPreviewUrl] =
     useState<string | null>(null);
-  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
+  const [isUploading, setIsUploading] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<AuthUser | null>(null);
 
   const form = useForm<BrandSignupData>({
     resolver: zodResolver(brandSignupSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       email: "",
       password: "",
@@ -206,8 +249,41 @@ export function BrandRegisterForm() {
 
   // const normalizedPhone = normalizePhoneForSignup(phoneInput);
 
-  const pendingSubmit = submitStatus !== "idle";
+  const registerBrandMutation = useMutation({
+    mutationKey: ["auth", "register", "brand"],
+    mutationFn: registerBrand,
+    onSuccess: (result) => {
+      setRegisteredUser(result.user);
+      toast.success("Brand profile created");
+      queryClient.setQueryData(authMeQueryKey, result.user);
+      const callback = searchParams.get("callbackUrl");
+      const target = resolveImmediatePostAuthPath(result.user, callback);
+      beginClientNavigation();
+      window.location.replace(target);
+    },
+    onError: (error) => {
+      toast.error(
+        brandSignupErrorMessage(
+          error,
+          "Could not create brand profile. Please try again.",
+        ),
+      );
+    },
+  });
+
+  const pendingSubmit = registerBrandMutation.isPending || isUploading;
   const pendingAny = pendingSubmit;
+
+  const signupFormValues = form.watch();
+  const hasLogo = Boolean(logoFile || logoTempKey);
+  const signupBlockers = useMemo(
+    () =>
+      getBrandSignupBlockers(signupFormValues, {
+        hasLogo,
+      }),
+    [signupFormValues, hasLogo],
+  );
+  const isSignupComplete = signupBlockers.length === 0;
 
   useEffect(() => {
     return () => {
@@ -290,27 +366,27 @@ export function BrandRegisterForm() {
   );
 
   const onSubmit = async (data: BrandSignupData) => {
+    if (registeredUser) {
+      toast.success("Profile already created");
+      queryClient.setQueryData(authMeQueryKey, registeredUser);
+      const callback = searchParams.get("callbackUrl");
+      const target = resolveImmediatePostAuthPath(registeredUser, callback);
+      beginClientNavigation();
+      window.location.replace(target);
+      return;
+    }
+
     try {
       const email = data.email.trim().toLowerCase();
 
-      if (registeredUser) {
-        toast.success("Profile already created");
-        queryClient.setQueryData(authMeQueryKey, registeredUser);
-        const callback = searchParams.get("callbackUrl");
-        const target = resolveImmediatePostAuthPath(registeredUser, callback);
-        beginClientNavigation();
-        window.location.replace(target);
-        return;
-      }
-
-      setSubmitStatus("uploading");
+      setIsUploading(true);
       const [logoKey, brandPronunciationAudioKey] = await Promise.all([
         uploadLogo(email),
         uploadPronunciationAudio(email),
       ]);
+      setIsUploading(false);
 
-      setSubmitStatus("registering");
-      const result = await registerBrand({
+      registerBrandMutation.mutate({
         email,
         password: data.password,
         contactFullName: data.contactFullName.trim(),
@@ -331,24 +407,14 @@ export function BrandRegisterForm() {
           ? { otherCategoryLabel: data.otherCategoryLabel?.trim() }
           : {}),
       });
-
-      setRegisteredUser(result.user);
-
-      toast.success("Brand profile created");
-      queryClient.setQueryData(authMeQueryKey, result.user);
-      const callback = searchParams.get("callbackUrl");
-      const target = resolveImmediatePostAuthPath(result.user, callback);
-      beginClientNavigation();
-      window.location.replace(target);
     } catch (error) {
+      setIsUploading(false);
       toast.error(
         brandSignupErrorMessage(
           error,
-          "Could not create brand profile. Please try again.",
+          "Could not upload assets. Please try again.",
         ),
       );
-    } finally {
-      setSubmitStatus("idle");
     }
   };
 
@@ -617,7 +683,7 @@ export function BrandRegisterForm() {
                 <BrandPronunciationAudioField
                   disabled={pendingAny || Boolean(registeredUser)}
                   uploading={
-                    submitStatus === "uploading" &&
+                    isUploading &&
                     Boolean(pronunciationAudioBlob)
                   }
                   audioUrl={pronunciationAudioPreviewUrl}
@@ -1048,29 +1114,46 @@ export function BrandRegisterForm() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <Button
-            type="submit"
-            disabled={pendingAny}
-            className="h-11 flex-1 rounded-full bg-[#F2F2F2] text-[15px] font-bold text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-          >
-            {submitStatus === "uploading"
-              ? "Uploading assets..."
-              : submitStatus === "registering"
-                ? "Creating profile..."
-                : registeredUser
-                  ? "Redirecting..."
-                  : "Create my brand profile ->"}
-          </Button>
-
-          <div className="text-right text-[11px] text-[#8B8489] leading-tight">
-            Looking for Brands? <br />
-            <Link
-              href="/register/creator"
-              className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
+        <div className="flex flex-col gap-2">
+          {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Still needed: {signupBlockers.join(" · ")}
+            </p>
+          ) : null}
+          <div className="flex items-center gap-6">
+            <Button
+              type="submit"
+              disabled={!isSignupComplete || pendingAny}
+              className={cn(
+                "h-11 flex-1 rounded-full text-[15px] font-bold transition-colors",
+                isSignupComplete
+                  ? "bg-[#3e76ef] text-white hover:bg-[#2d5cc5] disabled:opacity-70 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
+                  : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
+              )}
             >
-              Sign up as a creator
-            </Link>
+              {pendingSubmit ? (
+                <>
+                  <Spinner className="size-4" aria-hidden />
+                  {isUploading
+                    ? "Uploading assets..."
+                    : "Creating profile..."}
+                </>
+              ) : registeredUser ? (
+                "Redirecting..."
+              ) : (
+                <>Create my brand profile &rarr;</>
+              )}
+            </Button>
+
+            <div className="text-right text-[11px] text-[#8B8489] leading-tight">
+              Looking for Brands? <br />
+              <Link
+                href="/register/creator"
+                className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
+              >
+                Sign up as a creator
+              </Link>
+            </div>
           </div>
         </div>
       </div>

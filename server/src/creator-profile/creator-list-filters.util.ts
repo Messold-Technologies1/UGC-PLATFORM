@@ -1,5 +1,4 @@
 import {
-  ApprovalStatus,
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
   Prisma,
@@ -118,7 +117,11 @@ export function buildPortfolioVideoMatchWhere(
 }
 
 export type BuildListCreatorsWhereOptions = {
-  /** When true (default), only creators with APPROVED approval appear in discovery lists. */
+  /**
+   * When true (default), only listed creators appear in discovery lists.
+   * `isListed` is the denormalized gate = (approval APPROVED) AND completeProfile,
+   * so a single indexed predicate replaces the approval join + completeness check.
+   */
   requireApproved?: boolean;
 };
 
@@ -133,9 +136,7 @@ export function buildListCreatorsWhere(
   const clauses: Prisma.CreatorProfileWhereInput[] = [];
 
   if (requireApproved) {
-    clauses.push({
-      creatorApproval: { status: ApprovalStatus.APPROVED },
-    });
+    clauses.push({ isListed: true });
   }
 
   const city = query.city?.trim();

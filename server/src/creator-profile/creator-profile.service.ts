@@ -54,6 +54,7 @@ import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
+import { recomputeCreatorListingState } from './creator-listing-state.util';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -327,13 +328,14 @@ export class CreatorProfileService {
       contactEmail: mapped.contactEmail ?? null,
       instagramUrl: mapped.instagramUrl ?? null,
       youtubeUrl: mapped.youtubeUrl ?? null,
-      tiktokUrl: mapped.tiktokUrl ?? null,
       snapchatUrl: mapped.snapchatUrl ?? null,
       contentVolume: mapped.contentVolume ?? null,
       collaborationCount: mapped.collaborationCount ?? 0,
       travelRadius: mapped.travelRadius ?? null,
       onLocationAvailable: mapped.onLocationAvailable,
       approvalStatus: mapped.creatorApproval?.status,
+      completeProfile: mapped.completeProfile ?? false,
+      isListed: mapped.isListed ?? false,
       rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
       profileLanguages: (mapped.profileLanguages ?? []).map((row: any) => ({
         id: row.id,
@@ -461,7 +463,6 @@ export class CreatorProfileService {
       contactEmail: _contactEmail,
       instagramUrl: _instagramUrl,
       youtubeUrl: _youtubeUrl,
-      tiktokUrl: _tiktokUrl,
       snapchatUrl: _snapchatUrl,
       ...rest
     } = dto;
@@ -883,7 +884,7 @@ export class CreatorProfileService {
     const profiles = await this.prisma.creatorProfile.findMany({
       where: {
         id: { in: uniqueIds },
-        creatorApproval: { status: ApprovalStatus.APPROVED },
+        isListed: true,
       },
       include: creatorProfileWithRelationsInclude as any,
     });
@@ -944,7 +945,7 @@ export class CreatorProfileService {
       where: {
         AND: [
           { id: { not: anchorCreatorId } },
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             facetSelections: {
               some: {
@@ -1365,6 +1366,9 @@ export class CreatorProfileService {
       },
     });
 
+    // Approval can flip isListed true (if the profile is already complete).
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
+
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
       include: creatorProfileWithRelationsInclude as any,
@@ -1407,6 +1411,9 @@ export class CreatorProfileService {
         rejectionReason: rejectionReason?.trim() || null,
       },
     });
+
+    // Rejection must clear isListed so the creator drops out of discovery.
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
 
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
@@ -1554,9 +1561,6 @@ export class CreatorProfileService {
         if (dto.youtubeUrl !== undefined) {
           data.youtubeUrl = dto.youtubeUrl?.trim() || null;
         }
-        if (dto.tiktokUrl !== undefined) {
-          data.tiktokUrl = dto.tiktokUrl?.trim() || null;
-        }
         if (dto.snapchatUrl !== undefined) {
           data.snapchatUrl = dto.snapchatUrl?.trim() || null;
         }
@@ -1658,6 +1662,9 @@ export class CreatorProfileService {
             });
           }
         }
+
+        // Latch completeProfile / recompute isListed after all writes land.
+        await recomputeCreatorListingState(tx, creatorProfileId);
 
         const updated = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },

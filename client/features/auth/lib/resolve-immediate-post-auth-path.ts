@@ -25,6 +25,15 @@ export function resolveImmediatePostAuthPath(
     return "/creator/under-review";
   }
 
+  // Approved but not yet live: send them to finish their profile and go live.
+  if (
+    user.primaryRole === "CREATOR" &&
+    user.creatorApprovalStatus === "APPROVED" &&
+    user.creatorProfileComplete === false
+  ) {
+    return "/creator/settings/profile";
+  }
+
   if (canUseWorkspaceRole(user, user.primaryRole)) {
     return pathAfterWorkspaceSelection(
       user,

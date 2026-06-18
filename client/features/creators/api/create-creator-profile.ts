@@ -60,7 +60,6 @@ export type CreateCreatorProfilePayload = {
   shippingAddress?: string;
   instagramUrl?: string;
   youtubeUrl?: string;
-  tiktokUrl?: string;
   snapchatUrl?: string;
   contentVolume?: CreatorContentVolumeBucket;
   collaborationCount?: number;

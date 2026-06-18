@@ -5,6 +5,15 @@ import { FacetChipSection, LanguageRows } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
+import { GoLiveBanner } from "./go-live-banner";
+import {
+  computeGoLiveMissing,
+  type GoLiveSnapshot,
+} from "@/features/creators/lib/go-live-requirements";
+import {
+  useCreatorProfileDraft,
+  type CreatorProfileDraftFields,
+} from "@/features/creators/hooks/use-creator-profile-draft";
 
 import { motion, type Variants } from "framer-motion";
 
@@ -32,6 +41,7 @@ import {
   Instagram,
   Youtube,
   Ghost,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -104,7 +114,6 @@ const profileFormSchema = z.object({
   displayName: z.string().trim().min(1, "Display name is required"),
   instagramUrl: z.string().trim(),
   youtubeUrl: z.string().trim(),
-  tiktokUrl: z.string().trim(),
   snapchatUrl: z.string().trim(),
   collaborationCount: z.coerce
     .number({ message: "Collaboration count must be a number." })
@@ -269,12 +278,17 @@ function CreatorProfileUpdateFormContent({
     ? (initialProfile?.contactEmail?.trim() ?? "")
     : (user?.email ?? "");
 
+  // Set after the draft hook runs (declared below); lets the save handler clear
+  // the local draft without a declaration-order cycle.
+  const clearDraftRef = useRef<() => void>(() => {});
+
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
     adminMode,
     onSuccess: async () => {
       setIsDirty(false);
+      clearDraftRef.current();
       await onSuccess();
     },
   });
@@ -309,9 +323,6 @@ function CreatorProfileUpdateFormContent({
   const [youtubeUrl, setYoutubeUrl] = useState(
     () => initialProfile?.youtubeUrl?.trim() ?? "",
   );
-  const [tiktokUrl, setTiktokUrl] = useState(
-    () => initialProfile?.tiktokUrl?.trim() ?? "",
-  );
   const [snapchatUrl, setSnapchatUrl] = useState(
     () => initialProfile?.snapchatUrl?.trim() ?? "",
   );
@@ -338,6 +349,121 @@ function CreatorProfileUpdateFormContent({
   );
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
+
+  // One-way Go-Live latch from the server. Once true the profile is live and the
+  // button reverts to a normal "Save changes" (edits no longer gated).
+  const completeProfile = Boolean(initialProfile?.completeProfile);
+
+  const goLiveSnapshot = useMemo<GoLiveSnapshot>(() => {
+    const selectedFacetDimensions = Object.entries(facets.selectedFacets)
+      .filter(([, values]) => Array.isArray(values) && values.length > 0)
+      .map(([dimension]) => dimension);
+    const pkg = packages.packageDraft;
+    const hasPackage =
+      pkg.priceAmount.trim() !== "" &&
+      Number(pkg.videoLengthSeconds) > 0 &&
+      Number(pkg.deliveryDays) > 0;
+    const publicVideoCount = (portfolioQuery.data ?? []).filter(
+      (video) => video.visibilityStatus === "public",
+    ).length;
+    return {
+      hasPhoto: Boolean(profileImage.profileImagePreviewUrl),
+      hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
+      displayName,
+      contactEmail: contactEmailDisplay,
+      bio,
+      countryName: location.countryName ?? "",
+      stateName: location.stateName ?? "",
+      city: location.city ?? "",
+      gender,
+      dateOfBirth,
+      shippingAddress,
+      selectedFacetDimensions,
+      languageCount: facets.languageDrafts.length,
+      hasPackage,
+      publicVideoCount,
+    };
+  }, [
+    facets.selectedFacets,
+    facets.languageDrafts,
+    packages.packageDraft,
+    portfolioQuery.data,
+    profileImage.profileImagePreviewUrl,
+    introVideo.introVideoPreviewUrl,
+    displayName,
+    contactEmailDisplay,
+    bio,
+    location.countryName,
+    location.stateName,
+    location.city,
+    gender,
+    dateOfBirth,
+    shippingAddress,
+  ]);
+
+  const goLiveMissing = useMemo(
+    () => computeGoLiveMissing(goLiveSnapshot),
+    [goLiveSnapshot],
+  );
+
+  // Keep unsaved free-text progress in localStorage until the creator goes live.
+  const draftValues = useMemo<CreatorProfileDraftFields>(
+    () => ({
+      displayName,
+      bio,
+      gender,
+      dateOfBirth,
+      shippingAddress,
+      instagramUrl,
+      youtubeUrl,
+      snapchatUrl,
+      contentVolume,
+      collaborationCount,
+      travelRadius,
+      onLocationAvailable,
+    }),
+    [
+      displayName,
+      bio,
+      gender,
+      dateOfBirth,
+      shippingAddress,
+      instagramUrl,
+      youtubeUrl,
+      snapchatUrl,
+      contentVolume,
+      collaborationCount,
+      travelRadius,
+      onLocationAvailable,
+    ],
+  );
+
+  const applyDraft = useCallback((draft: CreatorProfileDraftFields) => {
+    setDisplayName(draft.displayName);
+    setBio(draft.bio);
+    setGender(draft.gender as CreatorGender | "");
+    setDateOfBirth(draft.dateOfBirth);
+    setShippingAddress(draft.shippingAddress);
+    setInstagramUrl(draft.instagramUrl);
+    setYoutubeUrl(draft.youtubeUrl);
+    setSnapchatUrl(draft.snapchatUrl);
+    setContentVolume(draft.contentVolume as CreatorContentVolumeBucket | "");
+    setCollaborationCount(draft.collaborationCount);
+    setTravelRadius(draft.travelRadius);
+    setOnLocationAvailable(draft.onLocationAvailable);
+    setIsDirty(true);
+  }, []);
+
+  const { clearDraft } = useCreatorProfileDraft({
+    enabled: variant === "settings" && !adminMode && !completeProfile,
+    userId: user?.id,
+    profileId,
+    values: draftValues,
+    apply: applyDraft,
+  });
+  useEffect(() => {
+    clearDraftRef.current = clearDraft;
+  }, [clearDraft]);
 
   useEffect(() => {
     if (variant !== "settings") return;
@@ -379,6 +505,15 @@ function CreatorProfileUpdateFormContent({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
+      // Go-Live gate: until the profile is live, block the save (no API call)
+      // unless every requirement is met, and tell the creator what's missing.
+      if (!completeProfile && goLiveMissing.length > 0) {
+        toast.error(
+          `Complete your profile to go live. Still needed: ${goLiveMissing.join(", ")}.`,
+        );
+        return;
+      }
+
       if (introVideo.uploadingIntroVideo) {
         toast.error("Wait for uploads to finish before saving your profile.");
         return;
@@ -407,7 +542,6 @@ function CreatorProfileUpdateFormContent({
         displayName,
         instagramUrl,
         youtubeUrl,
-        tiktokUrl,
         snapchatUrl,
         collaborationCount,
         travelRadius,
@@ -445,7 +579,6 @@ function CreatorProfileUpdateFormContent({
 
       const instagram = parsedData.instagramUrl || undefined;
       const youtube = parsedData.youtubeUrl || undefined;
-      const tiktok = parsedData.tiktokUrl || undefined;
       const snapchat = parsedData.snapchatUrl || undefined;
       const radius =
         parsedData.travelRadius === "" ? undefined : parsedData.travelRadius;
@@ -492,7 +625,6 @@ function CreatorProfileUpdateFormContent({
         shippingAddress: shippingAddress.trim() || undefined,
         instagramUrl: instagram,
         youtubeUrl: youtube,
-        tiktokUrl: tiktok,
         snapchatUrl: snapchat,
         contentVolume: contentVolume || undefined,
         collaborationCount: parsedData.collaborationCount,
@@ -514,7 +646,6 @@ function CreatorProfileUpdateFormContent({
         if (finalPayload.shippingAddress === (initialProfile.shippingAddress || undefined)) delete finalPayload.shippingAddress;
         if (finalPayload.instagramUrl === (initialProfile.instagramUrl || undefined)) delete finalPayload.instagramUrl;
         if (finalPayload.youtubeUrl === (initialProfile.youtubeUrl || undefined)) delete finalPayload.youtubeUrl;
-        if (finalPayload.tiktokUrl === (initialProfile.tiktokUrl || undefined)) delete finalPayload.tiktokUrl;
         if (finalPayload.snapchatUrl === (initialProfile.snapchatUrl || undefined)) delete finalPayload.snapchatUrl;
         if (finalPayload.contentVolume === (initialProfile.contentVolume || undefined)) delete finalPayload.contentVolume;
         if (finalPayload.collaborationCount === initialProfile.collaborationCount) delete finalPayload.collaborationCount;
@@ -539,7 +670,6 @@ function CreatorProfileUpdateFormContent({
       gender,
       instagramUrl,
       youtubeUrl,
-      tiktokUrl,
       snapchatUrl,
       profileImage,
       introVideo,
@@ -556,6 +686,8 @@ function CreatorProfileUpdateFormContent({
       contactEmailDisplay,
       initialProfile,
       user?.email,
+      completeProfile,
+      goLiveMissing,
     ],
   );
   const handleDiscard = useCallback(() => {
@@ -608,6 +740,11 @@ function CreatorProfileUpdateFormContent({
         animate="visible"
         onSubmit={(event) => void handleSubmit(event)}
       >
+        {isSettings && !completeProfile ? (
+          <div className="mb-4">
+            <GoLiveBanner missing={goLiveMissing} />
+          </div>
+        ) : null}
         {isSettings ? (
           <div className="pe-shell">
             <nav className="pe-nav" data-tour="creator-profile-edit-nav">
@@ -656,7 +793,11 @@ function CreatorProfileUpdateFormContent({
                 <span className="pe-savebar-dot" />
               )}
               <span className="pe-savebar-msg">
-                {pending ? "Saving changes..." : "You have unsaved changes"}
+                {pending
+                  ? "Saving changes..."
+                  : completeProfile
+                    ? "You have unsaved changes"
+                    : "Finish your profile to go live"}
               </span>
               <div className="pe-savebar-actions">
                 <button
@@ -681,12 +822,17 @@ function CreatorProfileUpdateFormContent({
                   {pending ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
-                      Saving…
+                      {completeProfile ? "Saving…" : "Going live…"}
                     </>
-                  ) : (
+                  ) : completeProfile ? (
                     <>
                       <Check size={16} />
                       Save changes
+                    </>
+                  ) : (
+                    <>
+                      <Rocket size={16} />
+                      Go Live
                     </>
                   )}
                 </button>

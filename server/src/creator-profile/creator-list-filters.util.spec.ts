@@ -1,5 +1,4 @@
 import {
-  ApprovalStatus,
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
 } from '@prisma/client';
@@ -61,13 +60,13 @@ describe('creator-list-filters.util', () => {
   });
 
   describe('buildListCreatorsWhere', () => {
-    it('requires APPROVED approval when no other filters', () => {
+    it('requires listed creators when no other filters', () => {
       expect(buildListCreatorsWhere({})).toEqual({
-        creatorApproval: { status: ApprovalStatus.APPROVED },
+        isListed: true,
       });
     });
 
-    it('omits approval filter when requireApproved is false', () => {
+    it('omits listing filter when requireApproved is false', () => {
       expect(buildListCreatorsWhere({}, { requireApproved: false })).toEqual(
         {},
       );
@@ -79,7 +78,7 @@ describe('creator-list-filters.util', () => {
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             facetSelections: {
               some: {
@@ -101,7 +100,7 @@ describe('creator-list-filters.util', () => {
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           { city: { contains: 'Kolkata', mode: 'insensitive' } },
           {
             portfolioVideos: {
@@ -128,7 +127,7 @@ describe('creator-list-filters.util', () => {
       const q: ListCreatorsQueryDto = { minPrice: 100, maxPrice: 500 };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             packages: {
               some: {
@@ -144,7 +143,7 @@ describe('creator-list-filters.util', () => {
       const q: ListCreatorsQueryDto = { minPrice: 50 };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             packages: {
               some: {
@@ -160,7 +159,7 @@ describe('creator-list-filters.util', () => {
       const q: ListCreatorsQueryDto = { maxPrice: 1000 };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             packages: {
               some: {

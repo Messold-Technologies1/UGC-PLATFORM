@@ -33,6 +33,13 @@ export class MeUserDto {
   })
   creatorApprovalStatus?: ApprovalStatus | null;
 
+  @ApiPropertyOptional({
+    description:
+      "Creator's one-way Go-Live latch. Included when the user has the CREATOR role.",
+    example: false,
+  })
+  creatorProfileComplete?: boolean;
+
   @ApiProperty()
   hasBrandProfile!: boolean;
 

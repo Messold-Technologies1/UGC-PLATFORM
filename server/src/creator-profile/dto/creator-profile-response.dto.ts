@@ -218,12 +218,6 @@ export class CreatorProfileResponseDto {
     description:
       'Omitted when the viewer is not the profile owner or an admin.',
   })
-  tiktokUrl?: string | null;
-
-  @ApiPropertyOptional({
-    description:
-      'Omitted when the viewer is not the profile owner or an admin.',
-  })
   snapchatUrl?: string | null;
 
   @ApiPropertyOptional({ enum: CreatorContentVolumeBucket })
@@ -266,6 +260,20 @@ export class CreatorProfileResponseDto {
     example: ApprovalStatus.APPROVED,
   })
   approvalStatus?: ApprovalStatus;
+
+  @ApiProperty({
+    description:
+      'One-way latch: true once the creator has met every Go-Live requirement.',
+    example: false,
+  })
+  completeProfile!: boolean;
+
+  @ApiProperty({
+    description:
+      'Discovery gate = approved AND completeProfile. Brands only see listed creators.',
+    example: false,
+  })
+  isListed!: boolean;
 
   @ApiPropertyOptional({
     example: 'Does not meet guidelines.',

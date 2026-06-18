@@ -19,6 +19,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { OrderChatModule } from './order-chat/order-chat.module';
 import { ChatsModule } from './chats/chats.module';
 import { BriefsModule } from './briefs/briefs.module';
+import { WishlistsModule } from './wishlists/wishlists.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
@@ -50,6 +51,7 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
     AgencyModule,
     OrdersModule,
     BriefsModule,
+    WishlistsModule,
     OrderChatModule,
     ChatsModule,
     WebhooksModule,

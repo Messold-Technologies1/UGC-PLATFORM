@@ -140,7 +140,7 @@ export function SimilarCreatorsSection({
           {creators.map((c) => (
             <Link
               key={c.id}
-              href={`/brand/creators/${c.id}`}
+              href={`/brand/creators?creatorId=${c.id}`}
               className="flex min-w-[240px] max-w-[260px] shrink-0 gap-3 rounded-xl border border-border bg-card p-3 hover:shadow-md transition-shadow"
             >
               <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">

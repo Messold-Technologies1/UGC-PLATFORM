@@ -9,6 +9,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { OrderModal } from "./order-modal";
+import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import {
   X,
   MapPin,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import type { Creator } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
@@ -615,12 +617,13 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   landingPage = false,
 }: ProfileDrawerProps) {
   const router = useRouter();
+  const { data: meUser } = usePublicAuthUser({ enabled: landingPage });
+  const isBrand = meUser?.roles?.includes("BRAND") ?? false;
   const lastCreatorRef = useRef(creator);
   const lastIdRef = useRef(creatorId);
   if (creator) lastCreatorRef.current = creator;
   if (creatorId) lastIdRef.current = creatorId;
 
-  const c = creator || lastCreatorRef.current;
   const activeId = creatorId || lastIdRef.current;
 
   const [tab, setTab] = useState<TabId>("overview");
@@ -691,6 +694,8 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     [profileApi],
   );
 
+  const c = creator || lastCreatorRef.current || profile;
+
   const portfolioVideos = useMemo(() => {
     return rawPortfolioVideos.filter((v) => {
       if (
@@ -733,10 +738,25 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     [portfolioTiles, failedVideos],
   );
 
-  if (!c) return null;
+  if (!c) {
+    if (isProfileLoading && open) {
+      return (
+        <>
+          <div className={`browse-scrim${open ? " show" : ""}`} onClick={onClose} aria-hidden="true" />
+          <div className={`browse-drawer${open ? " show" : ""}`} role="dialog" aria-modal="true">
+            <button type="button" className="dr-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+            <div className="drawer-scroll" ref={scrollRef}>
+               <div className="dr-section" style={{ paddingTop: 18 }}><SkeletonBlock height={200} /><SkeletonBlock height={100} style={{marginTop: 20}} /></div>
+            </div>
+          </div>
+        </>
+      );
+    }
+    return null;
+  }
 
   const verified = c.rating >= 4.8;
-  const profileUrl = `/brand/creators/${c.id}`;
+  const profileUrl = `/brand/creators?creatorId=${c.id}`;
 
   const showIntro = !!c.introVideoUrl && !introFailed;
 
@@ -904,6 +924,13 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               ₹{c.startingPrice.toLocaleString("en-IN")}
             </div>
           </div>
+          {!landingPage && activeId && (
+            <SaveToWishlistButton
+              creatorId={activeId}
+              creatorName={c?.name ?? ""}
+              creatorImageUrl={c?.thumbnail}
+            />
+          )}
           <button
             type="button"
             className={`dr-btn dr-btn-primary flex-1 ${!landingPage && (!profile || isProfileLoading || isProfileError) ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -912,7 +939,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             }
             onClick={() => {
               if (landingPage) {
-                router.push("/register/brand");
+                router.push(
+                  isBrand && activeId
+                    ? `/brand/creators?creatorId=${activeId}`
+                    : "/register/brand",
+                );
                 return;
               }
               if (isProfileError) {

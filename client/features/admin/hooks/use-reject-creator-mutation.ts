@@ -26,6 +26,21 @@ export function useRejectCreatorMutation() {
         }
       );
 
+      // Optimistically remove from rejected list if re-rejecting
+      queryClient.setQueriesData(
+        { queryKey: ["admin", "rejected-approvals"] },
+        (oldData: { items: { id: string }[]; total: number } | undefined) => {
+          if (!oldData) return oldData;
+          const nextItems = oldData.items.filter((c) => c.id !== id);
+          if (nextItems.length === oldData.items.length) return oldData;
+          return {
+            ...oldData,
+            items: nextItems,
+            total: Math.max(0, oldData.total - 1),
+          };
+        },
+      );
+
       // Also optimistically remove from the main creators list if they are there
       queryClient.setQueriesData(
         { queryKey: ["creators", "list"] },
@@ -59,6 +74,9 @@ export function useRejectCreatorMutation() {
     onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: ["admin", "pending-approvals"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "rejected-approvals"],
       });
       void queryClient.invalidateQueries({
         queryKey: ["creators", "list"],

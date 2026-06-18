@@ -74,7 +74,7 @@ export function CreatorProfileCard({
           className="flex-1 rounded-xl text-sm font-semibold h-11"
           asChild
         >
-          <Link href={`/brand/creators/${creator.id}`}>
+          <Link href={`/brand/creators?creatorId=${creator.id}`}>
             View Profile
           </Link>
         </Button>

@@ -158,7 +158,22 @@ export function CreatorListing({
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
-  }, []);
+    if (searchParams.has("creatorId")) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("creatorId");
+      const qs = nextParams.toString();
+      const nextUrl = qs ? `?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const cid = searchParams.get("creatorId");
+    if (cid && cid !== drawerCreatorId) {
+      setDrawerCreatorId(cid);
+      setDrawerOpen(true);
+    }
+  }, [searchParams]);
   const searchParamsKey = searchParams.toString();
 
   const parsedInitial = useMemo(
@@ -366,7 +381,10 @@ export function CreatorListing({
         landingPage={landingPage}
       />
 
-      <div className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6">
+      <div
+        className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6"
+        {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
+      >
         {isPending && !data ? (
           <div
             className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"

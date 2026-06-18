@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min, MaxLength } from 'class-validator';
 
 export class PendingApprovalsQueryDto {
   @ApiPropertyOptional({ example: 1 })
@@ -17,6 +17,15 @@ export class PendingApprovalsQueryDto {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @ApiPropertyOptional({
+    example: 'jane',
+    description: 'Search by creator display name',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
 }
 
 export class RejectCreatorProfileDto {

@@ -1,0 +1,9 @@
+/* Onborda overlay needs a higher stacking context than sticky navbars (z-50),
+   but must keep its original positioning so spotlight coordinates stay correct. */
+[data-name="onborda-overlay"] {
+  z-index: 1000 !important;
+}
+
+[data-name="onborda-pointer"] {
+  z-index: 1001 !important;
+}

@@ -12,6 +12,9 @@ import {
   tagColor,
   formatReelDuration,
 } from "@/lib/utils";
+import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
+import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
+import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 
 export interface CreatorCardProps {
   creator: Creator;
@@ -24,9 +27,12 @@ export const CreatorCard = memo(function CreatorCard({
   index,
   onOpen,
 }: CreatorCardProps) {
+  const { data: meUser } = usePublicAuthUser();
+  const isBrand =
+    meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY");
   const [isMuted, setIsMuted] = useState(true);
   const [g1, g2] = posterColor(index);
-  const tags = creator.tags.slice(0, 2);
+  const tags = (creator.categories?.length ? creator.categories : creator.tags).slice(0, 2);
   const reelDuration = formatReelDuration(index);
   const initials = getInitials(creator.name);
   const verified = creator.rating >= 4.8;
@@ -53,12 +59,21 @@ export const CreatorCard = memo(function CreatorCard({
     }
   }, [hasVideo]);
 
-  const handleArticleClick = useCallback(() => {
-    onOpen(creator);
-  }, [creator, onOpen]);
+  const handleArticleClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (shouldSuppressCreatorCardNavigation()) return;
+
+      const target = e.target as HTMLElement;
+      if (target.closest("button, a, [data-save-wishlist]")) return;
+
+      onOpen(creator);
+    },
+    [creator, onOpen],
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (shouldSuppressCreatorCardNavigation()) return;
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         onOpen(creator);
@@ -155,6 +170,14 @@ export const CreatorCard = memo(function CreatorCard({
           </div>
         </div>
 
+        {isBrand && (
+          <SaveToWishlistButton
+            creatorId={creator.id}
+            creatorName={creator.name}
+            creatorImageUrl={creator.thumbnail}
+            variant="icon"
+          />
+        )}
         {hasVideo && (
           <button
             type="button"

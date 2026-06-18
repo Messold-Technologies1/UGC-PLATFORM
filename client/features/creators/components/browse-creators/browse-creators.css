@@ -32,6 +32,20 @@
   }
 }
 
+@media (max-width: 1023px) {
+  .reelgrid {
+    gap: 12px;
+    margin-top: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .reelgrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .rcard {
   display: flex;
   flex-direction: column;
@@ -101,8 +115,8 @@
   right: 11px;
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+
+  gap: 4px;
 }
 .rcard .reel .vchip {
   display: inline-flex;
@@ -210,9 +224,8 @@
 }
 .rcard .ftags {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 5px;
-  overflow: hidden;
   min-height: 20px;
 }
 .rcard .ftag {
@@ -844,6 +857,17 @@
 }
 .dr-btn-ghost:hover {
   background: var(--muted);
+}
+.dr-btn-wishlist {
+  width: 42px;
+  min-width: 42px;
+  padding: 0;
+  flex-shrink: 0;
+  background: #fff5f5;
+  border-color: #fecdd3;
+}
+.dr-btn-wishlist:hover {
+  background: #ffe4e6;
 }
 
 .dr-skeleton-bar {

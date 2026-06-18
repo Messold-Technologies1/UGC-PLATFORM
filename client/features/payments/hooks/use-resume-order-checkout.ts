@@ -78,10 +78,10 @@ export function useResumeOrderCheckout(orderId: string, packageName: string) {
             queryKey: brandOrderDetailsQueryOptions(paidOrderId).queryKey,
           });
           toast.success("Payment successful", {
-            description: "Redirecting to brief creation...",
+            description: "Redirecting to order details...",
           });
           router.replace(
-            `/brand/briefs/create?orderId=${encodeURIComponent(paidOrderId)}`,
+            `/brand/orders/${encodeURIComponent(paidOrderId)}`,
           );
           router.refresh();
         },

@@ -26,10 +26,10 @@ const columns = [
   {
     title: "Legal",
     links: [
-      { href: "/privacy", label: "Privacy" },
-      { href: "/terms", label: "Terms" },
-      { href: "/terms", label: "Refund Policy" },
-      { href: "/terms", label: "Creator Guidelines" },
+      { href: "/legal/privacy", label: "Privacy Policy" },
+      { href: "/legal/terms", label: "Terms of Service" },
+      { href: "/legal/terms#refunds-cancellations-and-disputes", label: "Refund Policy" },
+      { href: "/legal/terms#brand-content-product-claims-and-regulated-categories", label: "Creator Guidelines" },
     ],
   },
 ];

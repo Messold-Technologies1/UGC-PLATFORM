@@ -169,6 +169,7 @@ interface CreatorOrdersDetailsPanelProps {
   selectedOrderId: string;
   selectedItem: any;
   onClose: () => void;
+  onTabChange: (tabId: string) => void;
   activeTab: string;
 }
 
@@ -176,6 +177,7 @@ export function CreatorOrdersDetailsPanel({
   selectedOrderId,
   selectedItem,
   onClose,
+  onTabChange,
   activeTab,
 }: CreatorOrdersDetailsPanelProps) {
   const { data: detailsData, isLoading: isLoadingDetails } =
@@ -187,6 +189,12 @@ export function CreatorOrdersDetailsPanel({
     selectedOrderId,
     { enabled: Boolean(selectedOrderId) },
   );
+
+  const [previewStepId, setPreviewStepId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewStepId(null);
+  }, [selectedOrderId, activeTab]);
 
   const isLoadingRightPanel = isLoadingDetails || isLoadingBrief;
 
@@ -201,15 +209,10 @@ export function CreatorOrdersDetailsPanel({
         briefData={briefData}
         isLoading={isLoadingRightPanel}
         onClose={onClose}
+        onAccepted={() => onTabChange("active")}
       />
     );
   }
-
-  const [previewStepId, setPreviewStepId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPreviewStepId(null);
-  }, [selectedOrderId, activeTab]);
 
   const orderStatus = selectedItem?.order?.status as string;
 

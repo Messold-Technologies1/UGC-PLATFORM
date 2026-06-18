@@ -33,7 +33,14 @@ function getProfileLanguages(profile: ListingProfileApi): string[] {
   return trimStringArray(profile.languages);
 }
 
-function getProfileCategories(profile: ListingProfileApi): string[] {
+function getContentCategoryLabels(profile: ListingProfileApi): string[] {
+  const fromFacets = trimStringArray(
+    (profile.facetSelections ?? [])
+      .filter((facet) => facet.dimension === "CONTENT_CATEGORY")
+      .map((facet) => facet.label),
+  );
+  if (fromFacets.length > 0) return fromFacets;
+
   if (isCreatorProfileItemApi(profile)) {
     return trimStringArray(
       (profile.categories ?? []).map((item) => item?.category),
@@ -42,13 +49,8 @@ function getProfileCategories(profile: ListingProfileApi): string[] {
   return trimStringArray(profile.categories);
 }
 
-function getProfilePersonaTags(profile: ListingProfileApi): string[] {
-  if (isCreatorProfileItemApi(profile)) {
-    return trimStringArray(
-      (profile.personaTags ?? []).map((item) => item?.tag),
-    );
-  }
-  return trimStringArray(profile.personaTags);
+function getProfileCategories(profile: ListingProfileApi): string[] {
+  return getContentCategoryLabels(profile);
 }
 
 function getFirstPortfolioVideo(profile: ListingProfileApi) {
@@ -92,23 +94,7 @@ function parseRating(value: string | number | null | undefined): number {
 }
 
 function buildTags(profile: ListingProfileApi): string[] {
-  const fromCategories = getProfileCategories(profile);
-  const fromPersona = getProfilePersonaTags(profile);
-  const firstPortfolioVideo = getFirstPortfolioVideo(profile);
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const t of [
-    ...fromCategories,
-    ...fromPersona,
-    ...trimStringArray(firstPortfolioVideo?.tags),
-  ]) {
-    const key = t.trim();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(key);
-    if (out.length >= 6) break;
-  }
-  return out;
+  return getContentCategoryLabels(profile);
 }
 
 export function mapProfileToListingCreator(

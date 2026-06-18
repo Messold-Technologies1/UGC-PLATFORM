@@ -228,6 +228,7 @@ export function CreatorAccountProfileView({
             variants={fadeInUp}
             className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
             aria-label="Profile overview"
+            data-tour="creator-profile-overview"
           >
             {/* <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-slate-100">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_40%,rgba(255,255,255,0.4),transparent_50%)]" />
@@ -329,6 +330,7 @@ export function CreatorAccountProfileView({
                         href={publicProfilePath ?? "#"}
                         target="_blank"
                         rel="noopener noreferrer"
+                        data-tour="creator-profile-preview"
                         aria-disabled={!publicProfilePath}
                         className={
                           !publicProfilePath ? "pointer-events-none opacity-50" : undefined
@@ -340,7 +342,7 @@ export function CreatorAccountProfileView({
                       </Link>
                     </Button>
                     <Button size="lg" className="gap-2" asChild>
-                      <Link href="/creator/settings/profile">
+                      <Link href="/creator/settings/profile" data-tour="creator-profile-edit">
                         <Pencil className="size-3.5" />
                         Edit Profile
                       </Link>
@@ -356,6 +358,7 @@ export function CreatorAccountProfileView({
             variants={fadeInUp}
             className="flex flex-col md:flex-row rounded-xl border border-border bg-card shadow-sm overflow-hidden"
             aria-label="Performance metrics"
+            data-tour="creator-profile-stats"
           >
             {statsList.map((stat, i) => (
               <Fragment key={stat.label}>
@@ -485,6 +488,7 @@ export function CreatorAccountProfileView({
             <section
               className="rounded-lg border border-border bg-card p-6 shadow-sm"
               aria-label="Top portfolio items"
+              data-tour="creator-profile-portfolio"
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold">Top Portfolio</h3>
@@ -538,6 +542,7 @@ export function CreatorAccountProfileView({
             variants={fadeInUp}
             className="rounded-lg border border-border bg-card p-5 shadow-sm"
             aria-label="Package pricing"
+            data-tour="creator-profile-package"
           >
             <h3 className="text-base font-bold">Package</h3>
 

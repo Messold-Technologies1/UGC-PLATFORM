@@ -25,6 +25,7 @@ import {
 } from "@/components/landing/marketing/marketing-layout";
 import { PillButton } from "@/components/landing/marketing/pill-button";
 
+
 type Creator = {
   name: string;
   rating: number;

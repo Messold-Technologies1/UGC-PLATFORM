@@ -265,6 +265,10 @@ function CreatorProfileUpdateFormContent({
   const [isDirty, setIsDirty] = useState(false);
   const markDirty = useCallback(() => setIsDirty(true), []);
 
+  const contactEmailDisplay = adminMode
+    ? (initialProfile?.contactEmail?.trim() ?? "")
+    : (user?.email ?? "");
+
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
@@ -468,7 +472,7 @@ function CreatorProfileUpdateFormContent({
           }));
 
       const payload: UpdateCreatorProfilePayload = {
-        contactEmail: user?.email ?? "",
+        contactEmail: contactEmailDisplay,
         profileImageKey: profileImage.profileImageRemoved
           ? ""
           : (profileImage.pendingProfileImageKey ?? undefined),
@@ -549,6 +553,9 @@ function CreatorProfileUpdateFormContent({
       submitCreatorProfileMutation,
       travelRadius,
       adminMode,
+      contactEmailDisplay,
+      initialProfile,
+      user?.email,
     ],
   );
   const handleDiscard = useCallback(() => {
@@ -603,7 +610,7 @@ function CreatorProfileUpdateFormContent({
       >
         {isSettings ? (
           <div className="pe-shell">
-            <nav className="pe-nav">
+            <nav className="pe-nav" data-tour="creator-profile-edit-nav">
               {NAV_ITEMS.map((item) => {
                 const IconCmp = item.icon;
                 const count =
@@ -724,6 +731,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="media"
+            tourId="creator-profile-edit-media"
             icon={Camera}
             title="Photo & intro reel"
             desc="Your face and a short intro reel build instant trust."
@@ -777,6 +785,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="basics"
+            tourId="creator-profile-edit-basics"
             icon={User}
             title="Basic details"
             desc="Name, contact and the bio brands read first."
@@ -846,7 +855,7 @@ function CreatorProfileUpdateFormContent({
                   </p>
                 )}
               </div>
-              {user?.email ? (
+              {contactEmailDisplay || adminMode ? (
                 <div className="pe-field">
                   <label htmlFor="contactEmail">Contact email</label>
                   <div className="pe-input-wrap">
@@ -857,7 +866,7 @@ function CreatorProfileUpdateFormContent({
                       id="contactEmail"
                       className="pe-input"
                       type="email"
-                      value={user.email}
+                      value={contactEmailDisplay}
                       readOnly
                       disabled
                     />
@@ -1098,6 +1107,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="niche"
+            tourId="creator-profile-edit-niche"
             icon={Sparkles}
             title="Niche & content"
             desc="The facets that decide which briefs you show up for."
@@ -1334,6 +1344,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="packages"
+            tourId="creator-profile-edit-packages"
             icon={Layers}
             title="Packages"
             desc="What brands can book. Set price, delivery and what's included."
@@ -1431,6 +1442,7 @@ function CreatorProfileUpdateFormContent({
         <motion.div variants={itemVariants}>
           <SectionCard
             id="portfolio"
+            tourId="creator-profile-edit-portfolio"
             icon={Film}
             title="Portfolio"
             desc="Manage your reels. Edit each video's tags, industry, language and visibility."

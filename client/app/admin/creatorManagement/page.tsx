@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { useCreatorsListQuery } from "@/features/creators/hooks/use-creators-list-query";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
+import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 import type { Creator } from "@/features/creators/types";
 
 const CREATOR_MANAGEMENT_FIXTURE_TOTAL = 15;
@@ -77,67 +78,52 @@ const CREATOR_MANAGEMENT_FIXTURE_ITEMS: Creator[] = [
 
 function CreatorManagementLoadingShell({ limit }: { limit: number }) {
   return (
-    <div className="space-y-8">
-      <section className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
-          <div>
-            <h2 className="text-xl font-headline font-semibold">
-              Creators
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              All registered creators on the platform.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {Array.from({ length: limit }).map((_, index) => (
-            <div
-              key={index}
-              className="glass-panel p-5 rounded-2xl border border-border/10 bg-card/10 flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
-                <div className="flex items-center gap-4 min-w-[280px]">
-                  <Skeleton className="size-14 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-40" />
-                    <Skeleton className="h-4 w-28" />
-                  </div>
-                </div>
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                  <div className="flex flex-col space-y-1">
-                    <Skeleton className="h-3 w-16 mb-1" />
-                    <Skeleton className="h-4 w-12" />
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <Skeleton className="h-3 w-16 mb-1" />
-                    <div className="flex -space-x-2">
-                      <Skeleton className="h-8 w-8 rounded-lg border-2 border-background" />
-                      <Skeleton className="h-8 w-8 rounded-lg border-2 border-background" />
-                      <Skeleton className="h-8 w-8 rounded-lg border-2 border-background" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <Skeleton className="h-3 w-16 mb-1" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <Skeleton className="h-3 w-20 mb-1" />
-                    <Skeleton className="h-4 w-16" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 min-w-[160px]">
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <div className="flex space-x-1">
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                  </div>
-                </div>
+    <div className="grid grid-cols-1 gap-4">
+      {Array.from({ length: limit }).map((_, index) => (
+        <div
+          key={index}
+          className="glass-panel p-5 rounded-2xl border border-border/10 bg-card/10 flex flex-col md:flex-row md:items-center justify-between gap-4"
+        >
+          <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
+            <div className="flex items-center gap-4 min-w-[280px]">
+              <Skeleton className="size-14 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-28" />
               </div>
             </div>
-          ))}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-center">
+              <div className="flex flex-col space-y-1">
+                <Skeleton className="h-3 w-16 mb-1" />
+                <Skeleton className="h-4 w-12" />
+              </div>
+              <div className="flex flex-col space-y-1">
+                <Skeleton className="h-3 w-16 mb-1" />
+                <div className="flex -space-x-2">
+                  <Skeleton className="h-8 w-8 rounded-lg border-2 border-background" />
+                  <Skeleton className="h-8 w-8 rounded-lg border-2 border-background" />
+                  <Skeleton className="h-8 w-8 rounded-lg border-2 border-background" />
+                </div>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <Skeleton className="h-3 w-16 mb-1" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <div className="flex flex-col space-y-1">
+                <Skeleton className="h-3 w-20 mb-1" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 min-w-[160px]">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <div className="flex space-x-1">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
+      ))}
     </div>
   );
 }
@@ -149,6 +135,8 @@ interface CreatorManagementContentProps {
   limit: number;
   totalPages: number;
   rejectPending: boolean;
+  search: string;
+  searchLoading?: boolean;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
   onSelectReject: (creator: Creator) => void;
@@ -162,6 +150,8 @@ function CreatorManagementContent({
   limit,
   totalPages,
   rejectPending,
+  search,
+  searchLoading = false,
   onPageChange,
   onLimitChange,
   onSelectReject,
@@ -200,21 +190,15 @@ function CreatorManagementContent({
   return (
     <>
       <section className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
-          <div>
-            <h2 className="text-xl font-headline font-semibold">
-              Creators
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              All registered creators on the platform.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
+        <div className="relative grid grid-cols-1 gap-4">
+          {searchLoading ? (
+            <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl bg-background/40 backdrop-blur-[1px]" />
+          ) : null}
           {items.length === 0 ? (
             <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
-              No creators found.
+              {search.trim()
+                ? "No approved creators match your search."
+                : "No creators found."}
             </div>
           ) : (
             items.map((creator) => {
@@ -486,15 +470,21 @@ function CreatorManagementPageInner() {
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState("");
   const [creatorToReject, setCreatorToReject] = useState<Creator | null>(null);
 
-  const { data, isLoading, isError } = useCreatorsListQuery({ 
-    filters: { page, limit } 
+  const { data, isLoading, isFetching, isError } = useCreatorsListQuery({ 
+    filters: {
+      page,
+      limit,
+      search: search.trim() || undefined,
+    },
   });
   const rejectCreatorMutation = useRejectCreatorMutation();
 
   const items = data?.creators ?? [];
   const total = data?.total ?? 0;
+  const searchLoading = isFetching && !isLoading;
   const previewItems = isLoading ? CREATOR_MANAGEMENT_FIXTURE_ITEMS : items;
   const previewTotal = isLoading ? CREATOR_MANAGEMENT_FIXTURE_TOTAL : total;
   const previewTotalPages = Math.max(1, Math.ceil(previewTotal / limit));
@@ -516,19 +506,33 @@ function CreatorManagementPageInner() {
   return (
     <>
       <div className="p-8 space-y-8">
-      <section className="space-y-4">
-        <h1 className="text-4xl font-headline font-bold">Creator Management</h1>
-        <p className="max-w-3xl text-muted-foreground font-body">
-          Review and manage all creators currently active on the platform.
-        </p>
-      </section>
+ 
 
       {isError && !isLoading ? (
         <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
           We could not load the creators list right now. Try again shortly.
         </div>
       ) : (
-        <BoneyardSkeleton
+        <>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-headline font-semibold">Creators</h2>
+              <p className="text-sm text-muted-foreground">
+                All approved creators on the platform.
+              </p>
+            </div>
+            <AdminCreatorListSearch
+              value={search}
+              isLoading={searchLoading}
+              onChange={(next) => {
+                setSearch(next);
+                setPage(1);
+              }}
+              className="relative w-full sm:max-w-sm"
+            />
+          </div>
+
+          <BoneyardSkeleton
           name="admin-creator-management"
           loading={isLoading}
           fallback={<CreatorManagementLoadingShell limit={limit} />}
@@ -543,6 +547,8 @@ function CreatorManagementPageInner() {
                 Math.ceil(CREATOR_MANAGEMENT_FIXTURE_TOTAL / limit),
               )}
               rejectPending={false}
+              search={search}
+              searchLoading={searchLoading}
               onPageChange={() => {}}
               onLimitChange={() => {}}
               onSelectReject={() => {}}
@@ -558,12 +564,15 @@ function CreatorManagementPageInner() {
             limit={limit}
             totalPages={previewTotalPages}
             rejectPending={rejectCreatorMutation.isPending}
+            search={search}
+            searchLoading={searchLoading}
             onPageChange={setPage}
             onLimitChange={setLimit}
             onSelectReject={setCreatorToReject}
             highlightedCreatorId={highlightedCreatorId}
           />
         </BoneyardSkeleton>
+        </>
       )}
     </div>
 
@@ -579,7 +588,24 @@ function CreatorManagementPageInner() {
 
 export default function CreatorManagementPage() {
   return (
-    <Suspense fallback={<CreatorManagementLoadingShell limit={10} />}>
+    <Suspense
+      fallback={
+        <div className="space-y-8 p-8">
+          <section className="space-y-4">
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-5 w-96" />
+          </section>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+            <Skeleton className="h-10 w-full max-w-sm rounded-xl" />
+          </div>
+          <CreatorManagementLoadingShell limit={10} />
+        </div>
+      }
+    >
       <CreatorManagementPageInner />
     </Suspense>
   );

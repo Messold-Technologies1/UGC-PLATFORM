@@ -56,6 +56,7 @@ function isPublicBrowsingPath(pathname: string) {
   if (pathname === "/login" || pathname === "/signup") return true;
   if (pathname.startsWith("/auth/")) return true;
   if (pathname.startsWith("/creators/")) return true;
+  if (pathname.startsWith("/wishlists/share/")) return true;
   return false;
 }
 

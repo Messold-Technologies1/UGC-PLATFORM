@@ -353,7 +353,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
             <p className="mt-[22px] text-center text-[11.5px] text-muted-foreground leading-[1.55]">
               By continuing, you agree to our{" "}
               <Link
-                href="/terms"
+                href="/legal/terms"
                 prefetch={false}
                 className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
               >
@@ -361,7 +361,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
               </Link>{" "}
               and{" "}
               <Link
-                href="/privacy"
+                href="/legal/privacy"
                 prefetch={false}
                 className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
               >
@@ -550,7 +550,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
         <p className="mt-8 text-center text-xs text-muted-foreground">
           By continuing, you agree to our{" "}
           <Link
-            href="/terms"
+            href="/legal/terms"
             prefetch={false}
             className="underline hover:text-foreground"
           >
@@ -558,7 +558,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
           </Link>{" "}
           and{" "}
           <Link
-            href="/privacy"
+            href="/legal/privacy"
             prefetch={false}
             className="underline hover:text-foreground"
           >

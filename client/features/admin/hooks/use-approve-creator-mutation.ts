@@ -27,6 +27,18 @@ export function useApproveCreatorMutation() {
         }
       );
 
+      queryClient.setQueriesData(
+        { queryKey: ["admin", "rejected-approvals"] },
+        (oldData: { items: { id: string }[]; total: number } | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            items: oldData.items.filter((c) => c.id !== id),
+            total: Math.max(0, oldData.total - 1),
+          };
+        },
+      );
+
       // Optimistically inject the new creator into the creators list cache
       let pendingCreator: any;
       for (const [key, oldData] of previousQueries) {
@@ -95,6 +107,9 @@ export function useApproveCreatorMutation() {
     onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: ["admin", "pending-approvals"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "rejected-approvals"],
       });
       void queryClient.invalidateQueries({
         queryKey: ["creators", "list"],

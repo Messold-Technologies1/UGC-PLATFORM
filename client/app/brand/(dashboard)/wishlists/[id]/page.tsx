@@ -136,7 +136,7 @@ export default function WishlistDetailPage() {
 
   return (
     <div className="flex flex-col bg-gray-50 lg:flex-row">
-      <aside className="hidden lg:sticky lg:top-24 lg:z-10 lg:block lg:w-[300px] lg:shrink-0 lg:self-start lg:p-4 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+      <aside className="w-full p-4 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
         <WishlistSidebar wishlists={wishlists} activeId={id} isLoading={listsLoading} />
       </aside>
 
@@ -156,7 +156,7 @@ export default function WishlistDetailPage() {
         ) : (
           <>
             {!listsLoading && wishlists.length > 0 ? (
-              <div className="mb-4 lg:hidden">
+              <div className="mb-4 lg:hidden" data-tour="brand-wishlists-mobile-switch">
                 <Select value={id} onValueChange={(wishlistId) => router.push(`/brand/wishlists/${wishlistId}`)}>
                   <SelectTrigger className="h-10 rounded-xl bg-white shadow-sm">
                     <SelectValue placeholder="Switch wishlist" />
@@ -204,6 +204,7 @@ export default function WishlistDetailPage() {
                   className="text-xl sm:text-2xl font-bold tracking-tight cursor-pointer hover:opacity-75 transition-opacity min-w-0 truncate flex-1"
                   onClick={startEdit}
                   title="Click to rename"
+                  data-tour="brand-wishlists-title"
                 >
                   {wishlist.name}
                 </h1>
@@ -220,7 +221,7 @@ export default function WishlistDetailPage() {
                       asChild
                       aria-label="Add creators"
                     >
-                      <Link href="/brand/creators">
+                      <Link href="/brand/creators" data-tour="brand-wishlists-add-creators">
                         <Plus size={15} />
                       </Link>
                     </Button>
@@ -238,6 +239,7 @@ export default function WishlistDetailPage() {
                         className="size-9 rounded-xl text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                         onClick={() => setRemoveCreatorsOpen(true)}
                         aria-label="Remove creators"
+                        data-tour="brand-wishlists-remove-creators"
                       >
                         <UserMinus size={15} />
                       </Button>
@@ -258,6 +260,7 @@ export default function WishlistDetailPage() {
                           onClick={handleShare}
                           disabled={enableShareMutation.isPending}
                           aria-label="Copy share link"
+                          data-tour="brand-wishlists-share"
                         >
                           {enableShareMutation.isPending ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -277,6 +280,7 @@ export default function WishlistDetailPage() {
                           onClick={handleMakePrivate}
                           disabled={disableShareMutation.isPending}
                           aria-label="Make private"
+                          data-tour="brand-wishlists-make-private"
                         >
                           {disableShareMutation.isPending ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -298,6 +302,7 @@ export default function WishlistDetailPage() {
                         onClick={handleShare}
                         disabled={enableShareMutation.isPending}
                         aria-label="Share wishlist"
+                        data-tour="brand-wishlists-share"
                       >
                         {enableShareMutation.isPending ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -320,6 +325,7 @@ export default function WishlistDetailPage() {
                       onClick={startEdit}
                       disabled={editing || updateMutation.isPending}
                       aria-label="Rename wishlist"
+                      data-tour="brand-wishlists-rename"
                     >
                       <Pencil size={15} />
                     </Button>
@@ -336,6 +342,7 @@ export default function WishlistDetailPage() {
                       className="size-9 rounded-xl"
                       onClick={() => setDeleteOpen(true)}
                       aria-label="Delete wishlist"
+                      data-tour="brand-wishlists-delete"
                     >
                       <X size={15} />
                     </Button>
@@ -360,7 +367,10 @@ export default function WishlistDetailPage() {
             <hr className="border-border/40 mb-6" />
 
             {listingCreators.length === 0 ? (
-              <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white px-6 py-12 text-center">
+              <div
+                className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white px-6 py-12 text-center"
+                data-tour="brand-wishlists-creators"
+              >
                 <p className="font-semibold">No creators saved yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Browse creators and save them to this wishlist.
@@ -372,7 +382,7 @@ export default function WishlistDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div className="reelgrid browse-redesign-scope !mt-0">
+              <div className="reelgrid browse-redesign-scope !mt-0" data-tour="brand-wishlists-creators">
                 {listingCreators.map((creator, index) => (
                   <ReelCard
                     key={creator.id}

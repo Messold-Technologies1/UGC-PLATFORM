@@ -17,6 +17,8 @@ export interface TourDefinition {
   /** Unique tour id, used as the Onborda tour name and the persistence key. */
   tour: string;
   steps: Step[];
+  /** When set, auto-start waits until this anchor is mounted (e.g. async page content). */
+  readySelector?: string;
 }
 
 // Shared, layout-level anchors available across dashboard pages.
@@ -65,6 +67,28 @@ const CREATOR_PROFILE_EDIT = {
   portfolio: '[data-tour="creator-profile-edit-portfolio"]',
 } as const;
 
+const BRAND_WISHLISTS = {
+  sidebar: '[data-tour="brand-wishlists-sidebar"]',
+  create: '[data-tour="brand-wishlists-create"]',
+  list: '[data-tour="brand-wishlists-list"]',
+  browse: '[data-tour="brand-wishlists-browse"]',
+  empty: '[data-tour="brand-wishlists-empty"]',
+  mobileSwitch: '[data-tour="brand-wishlists-mobile-switch"]',
+  title: '[data-tour="brand-wishlists-title"]',
+  addCreators: '[data-tour="brand-wishlists-add-creators"]',
+  removeCreators: '[data-tour="brand-wishlists-remove-creators"]',
+  share: '[data-tour="brand-wishlists-share"]',
+  makePrivate: '[data-tour="brand-wishlists-make-private"]',
+  rename: '[data-tour="brand-wishlists-rename"]',
+  delete: '[data-tour="brand-wishlists-delete"]',
+  creators: '[data-tour="brand-wishlists-creators"]',
+} as const;
+
+const BRAND_CREATORS = {
+  filters: '[data-tour="brand-creators-filters"]',
+  grid: '[data-tour="brand-creators-grid"]',
+} as const;
+
 interface TourRoute {
   /** Returns true when this tour should run for the given pathname. */
   match: (pathname: string) => boolean;
@@ -72,62 +96,6 @@ interface TourRoute {
 }
 
 const BRAND_ROUTES: TourRoute[] = [
-  {
-    match: (p) => p.startsWith("/brand/briefs/create"),
-    definition: {
-      tour: "brand-briefs-create",
-      steps: [
-        {
-          icon: "🧩",
-          title: "Build your brief",
-          content:
-            "Fill in product details, content requirements, and shoot preferences. Everything is saved as a reusable brief you can attach to orders.",
-          selector: NAV.brandBriefs,
-          side: "bottom",
-        },
-      ],
-    },
-  },
-  {
-    match: (p) => /^\/brand\/briefs\/[^/]+$/.test(p),
-    definition: {
-      tour: "brand-brief-detail",
-      steps: [
-        {
-          icon: "📄",
-          title: "Brief details",
-          content:
-            "Review everything captured in this brief. Reuse it whenever you create a new order.",
-          selector: NAV.brandBriefs,
-          side: "bottom",
-        },
-      ],
-    },
-  },
-  {
-    match: (p) => p === "/brand/briefs",
-    definition: {
-      tour: "brand-briefs",
-      steps: [
-        {
-          icon: "📝",
-          title: "Campaign briefs",
-          content:
-            "Save reusable briefs that describe exactly what you need from creators.",
-          selector: '[data-tour="brand-briefs-heading"]',
-          side: "bottom",
-        },
-        {
-          icon: "➕",
-          title: "Create a brief",
-          content:
-            "Start a new brief here — you can attach it to orders whenever you hire a creator.",
-          selector: '[data-tour="brand-briefs-create"]',
-          side: "left",
-        },
-      ],
-    },
-  },
   {
     match: (p) => /^\/brand\/creators\/[^/]+$/.test(p),
     definition: {
@@ -147,38 +115,23 @@ const BRAND_ROUTES: TourRoute[] = [
   {
     match: (p) => p === "/brand/creators",
     definition: {
-      tour: "brand-creators",
+      tour: "brand-creators-v2",
       steps: [
         {
           icon: "🔍",
-          title: "Discover creators",
+          title: "Search & filters",
           content:
-            "This is the Creators marketplace — browse and filter vetted creators, then open any profile to learn more.",
-          selector: NAV.brandCreators,
+            "Use Smart search AI or manual filters to find creators. Search by name, city, or bio, then refine with category, format, price, language, and more.",
+          selector: BRAND_CREATORS.filters,
           side: "bottom",
         },
         {
-          icon: "📦",
-          title: "Track your orders",
+          icon: "🎬",
+          title: "Creator cards",
           content:
-            "Once you hire a creator, manage every collaboration from here.",
-          selector: NAV.brandOrders,
-          side: "bottom",
-        },
-        {
-          icon: "💬",
-          title: "Stay in touch",
-          content: "Chat directly with creators about your campaigns.",
-          selector: NAV.brandMessages,
-          side: "bottom",
-        },
-        {
-          icon: "🔔",
-          title: "Notifications",
-          content:
-            "New applications, messages, and updates all show up here.",
-          selector: NOTIFICATIONS,
-          side: "bottom-right",
+            "Browse video previews, save creators to a wishlist, and open any card to view their full profile or start an order.",
+          selector: BRAND_CREATORS.grid,
+          side: "top",
         },
       ],
     },
@@ -233,22 +186,135 @@ const BRAND_ROUTES: TourRoute[] = [
           content: "All of your conversations with creators in one place.",
           selector: NAV.brandMessages,
           side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 14,
         },
       ],
     },
   },
   {
-    match: (p) => p.startsWith("/brand/wishlists"),
+    match: (p) => /^\/brand\/wishlists\/[^/]+$/.test(p),
     definition: {
-      tour: "brand-wishlists",
+      tour: "brand-wishlists-v3",
+      readySelector: BRAND_WISHLISTS.title,
       steps: [
         {
-          icon: "❤️",
-          title: "Wishlists",
+          icon: "📁",
+          title: "Wishlist sidebar",
           content:
-            "Organize creators into shortlists so your team can collaborate on who to hire.",
-          selector: NAV.brandWishlists,
+            "All your shortlists live here. Switch between lists and see how many creators you've saved in each.",
+          selector: BRAND_WISHLISTS.sidebar,
+          side: "right",
+        },
+        {
+          icon: "➕",
+          title: "Create a wishlist",
+          content:
+            "Start a new shortlist for a campaign, launch, or team review.",
+          selector: BRAND_WISHLISTS.create,
+          side: "left",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "📋",
+          title: "Your wishlists",
+          content:
+            "Open any list to view saved creators, pricing, and collaboration options.",
+          selector: BRAND_WISHLISTS.list,
+          side: "right",
+        },
+        {
+          icon: "🔍",
+          title: "Browse creators",
+          content:
+            "Jump back to the marketplace to discover and save more creators.",
+          selector: BRAND_WISHLISTS.browse,
+          side: "right",
+        },
+        {
+          icon: "📱",
+          title: "Switch wishlists",
+          content:
+            "On mobile, use this dropdown to jump between your wishlists.",
+          selector: BRAND_WISHLISTS.mobileSwitch,
+          side: "bottom-left",
+        },
+        {
+          icon: "✏️",
+          title: "Wishlist name",
+          content:
+            "Click the title to rename this list anytime.",
+          selector: BRAND_WISHLISTS.title,
+          side: "bottom-left",
+        },
+        {
+          icon: "➕",
+          title: "Add creators",
+          content:
+            "Browse the marketplace and save creators to this wishlist.",
+          selector: BRAND_WISHLISTS.addCreators,
           side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "➖",
+          title: "Remove creators",
+          content:
+            "Remove creators you no longer want in this shortlist.",
+          selector: BRAND_WISHLISTS.removeCreators,
+          side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "🔗",
+          title: "Share wishlist",
+          content:
+            "Generate a share link so teammates can review your shortlist.",
+          selector: BRAND_WISHLISTS.share,
+          side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "🔒",
+          title: "Make private",
+          content:
+            "Disable sharing and revoke public access to this list.",
+          selector: BRAND_WISHLISTS.makePrivate,
+          side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "📝",
+          title: "Rename wishlist",
+          content:
+            "Quickly rename this list without clicking the title.",
+          selector: BRAND_WISHLISTS.rename,
+          side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "🗑️",
+          title: "Delete wishlist",
+          content:
+            "Permanently delete this list and all saved creators in it.",
+          selector: BRAND_WISHLISTS.delete,
+          side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 12,
+        },
+        {
+          icon: "🎬",
+          title: "Saved creators",
+          content:
+            "Open any creator card to preview their profile and start an order.",
+          selector: BRAND_WISHLISTS.creators,
+          side: "top",
         },
       ],
     },
@@ -399,7 +465,9 @@ const CREATOR_ROUTES: TourRoute[] = [
           content:
             "When a brand asks for changes, those orders appear here until you resubmit.",
           selector: CREATOR_ORDERS_TAB.revisions,
-          side: "bottom",
+          side: "bottom-left",
+          pointerPadding: 10,
+          pointerRadius: 12,
         },
         {
           icon: "📤",
@@ -407,7 +475,9 @@ const CREATOR_ROUTES: TourRoute[] = [
           content:
             "Content you've submitted and is waiting for brand review.",
           selector: CREATOR_ORDERS_TAB.delivered,
-          side: "bottom",
+          side: "bottom-left",
+          pointerPadding: 10,
+          pointerRadius: 12,
         },
         {
           icon: "✅",
@@ -422,13 +492,6 @@ const CREATOR_ROUTES: TourRoute[] = [
           content: "Declined, refunded, or disputed orders are kept here for your records.",
           selector: CREATOR_ORDERS_TAB.cancelled,
           side: "bottom-right",
-        },
-        {
-          icon: "💬",
-          title: "Coordinate with brands",
-          content: "Message the brand to clarify requirements as you work.",
-          selector: NAV.creatorMessages,
-          side: "bottom",
         },
       ],
     },
@@ -460,6 +523,8 @@ const CREATOR_ROUTES: TourRoute[] = [
           content: "All of your brand conversations in one place.",
           selector: NAV.creatorMessages,
           side: "bottom",
+          pointerPadding: 10,
+          pointerRadius: 14,
         },
       ],
     },
@@ -500,6 +565,38 @@ const CREATOR_ROUTES: TourRoute[] = [
             "Upload videos and tag them by industry so the right brands can find you.",
           selector: '[data-tour="creator-portfolio-upload"]',
           side: "bottom-left",
+        },
+        {
+          icon: "⚡️",
+          title: "Boost your visibility",
+          content:
+            "Creators with 10+ portfolio pieces get more inbound orders. Use this card to see progress and add more work quickly.",
+          selector: '[data-tour="creator-portfolio-boost"]',
+          side: "left",
+        },
+        {
+          icon: "🗂️",
+          title: "Portfolio cards",
+          content:
+            "These are the videos brands will browse. Keep your best work at the top and tag each piece clearly.",
+          selector: '[data-tour="creator-portfolio-cards"]',
+          side: "top",
+        },
+        {
+          icon: "🏷️",
+          title: "Edit tags",
+          content:
+            "Add/edit tags on each video to improve search & discovery. This helps brands find you for the right briefs.",
+          selector: '[data-tour="creator-portfolio-edit-tags"]',
+          side: "top",
+        },
+        {
+          icon: "💡",
+          title: "Tips to get more orders",
+          content:
+            "Follow these quick tips to increase your chances of getting booked.",
+          selector: '[data-tour="creator-portfolio-tips"]',
+          side: "left",
         },
       ],
     },

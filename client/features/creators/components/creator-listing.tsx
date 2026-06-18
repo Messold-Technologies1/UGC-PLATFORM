@@ -367,7 +367,10 @@ export function CreatorListing({
         landingPage={landingPage}
       />
 
-      <div className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6">
+      <div
+        className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6"
+        {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
+      >
         {isPending && !data ? (
           <div
             className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"

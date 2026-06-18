@@ -382,8 +382,11 @@ export function CreatorPortfolioManager() {
                   No videos match your selected filters.
                 </div>
               ) : (
-                <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {displayedVideos.slice(0, visibleCount).map((v) => {
+                <div
+                  className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  data-tour="creator-portfolio-cards"
+                >
+                  {displayedVideos.slice(0, visibleCount).map((v, index) => {
                     const cardTitle =
                       v.description?.trim() || "Portfolio video";
                     const createdLabel = new Date(
@@ -416,6 +419,7 @@ export function CreatorPortfolioManager() {
                       <div
                         key={v.id}
                         className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:shadow-md"
+                        data-tour={index === 0 ? "creator-portfolio-card" : undefined}
                       >
                         <div
                           className="relative aspect-video overflow-hidden bg-muted w-full rounded-t-lg group"
@@ -500,6 +504,9 @@ export function CreatorPortfolioManager() {
                                 size="sm"
                                 className="flex-1 border-2 border-dotted border-muted-foreground/40 bg-transparent text-muted-foreground hover:border-muted-foreground hover:bg-transparent text-xs h-8 justify-start px-2"
                                 onClick={() => setEditingTagsVideo(v)}
+                                data-tour={
+                                  index === 0 ? "creator-portfolio-edit-tags" : undefined
+                                }
                               >
                                 <Plus className="size-3 mr-1.5" />
                                 {v.tags && v.tags.length > 0 ? "edit tags" : "add tags for better search"}
@@ -547,7 +554,10 @@ export function CreatorPortfolioManager() {
         </div>
 
         <div className="w-full xl:w-[320px] 2xl:w-[340px] shrink-0 space-y-6">
-          <div className="rounded-lg border border-border bg-background p-5">
+          <div
+            className="rounded-lg border border-border bg-background p-5"
+            data-tour="creator-portfolio-boost"
+          >
             <div className="flex items-center gap-2 mb-3">
               <Zap className="size-4 text-amber-500 fill-amber-500" />
               <h3 className="font-semibold text-sm text-foreground">
@@ -660,7 +670,10 @@ export function CreatorPortfolioManager() {
             </Link>
           </div>
 
-          <div className="rounded-lg border border-border bg-background p-5">
+          <div
+            className="rounded-lg border border-border bg-background p-5"
+            data-tour="creator-portfolio-tips"
+          >
             <h3 className="font-semibold text-sm mb-5">
               Tips to get more orders
             </h3>

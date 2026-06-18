@@ -7,8 +7,28 @@ import { Onborda, OnbordaProvider, useOnborda, type Step } from "onborda";
 import { useAuth } from "@/providers/auth-provider";
 import { resolveTour, type TourDefinition, type TourScope } from "./tours";
 import { TourCard } from "./tour-card";
+import "./onboarding.css";
 
 const STORAGE_PREFIX = "onborda:v1";
+const TALL_SECTION_HEIGHT = 500;
+const TOUR_CARD_WIDTH = 320;
+const VIEWPORT_MARGIN = 16;
+
+const BOTTOM_SIDES = new Set(["bottom", "bottom-left", "bottom-right"]);
+
+/** Navbar anchors are small pills — never auto-flip them to a side placement. */
+function isNavAnchor(selector: string) {
+  return /\[data-tour="nav-[^"]+"\]/.test(selector);
+}
+
+/** Tab buttons and similar compact controls should keep their configured side. */
+function isCompactAnchor(selector: string) {
+  return (
+    isNavAnchor(selector) ||
+    /\[data-tour="[^"]*-tab-[^"]+"\]/.test(selector) ||
+    selector.includes("creator-orders-tabs")
+  );
+}
 
 function seenKey(userId: string, tour: string) {
   return `${STORAGE_PREFIX}:${userId}:${tour}`;
@@ -39,6 +59,33 @@ function isVisible(element: Element | null): boolean {
 
 function visibleSteps(steps: Step[]): Step[] {
   return steps.filter((step) => isVisible(document.querySelector(step.selector)));
+}
+
+/** Tall targets push bottom-placed cards off-screen — prefer a side placement instead. */
+function resolveStepSide(step: Step): Step["side"] {
+  const side = step.side ?? "bottom";
+  if (!BOTTOM_SIDES.has(side) || isCompactAnchor(step.selector)) return side;
+
+  const element = document.querySelector(step.selector);
+  if (!element) return side;
+
+  const { height, left, right } = element.getBoundingClientRect();
+  if (height <= TALL_SECTION_HEIGHT) return side;
+
+  const cardWidth = TOUR_CARD_WIDTH + 25;
+  const roomOnRight = window.innerWidth - right - VIEWPORT_MARGIN;
+  const roomOnLeft = left - VIEWPORT_MARGIN;
+
+  if (roomOnRight >= cardWidth) return "right";
+  if (roomOnLeft >= cardWidth) return "left";
+  return "right";
+}
+
+function prepareSteps(steps: Step[]): Step[] {
+  return visibleSteps(steps).map((step) => ({
+    ...step,
+    side: resolveStepSide(step),
+  }));
 }
 
 function OnboardingInner({
@@ -84,21 +131,28 @@ function OnboardingInner({
         return;
       }
 
-      const steps = visibleSteps(definition.steps);
-      if (steps.length === 0) {
+      const steps = prepareSteps(definition.steps);
+      const waitingForReady =
+        !!definition.readySelector &&
+        !document.querySelector(definition.readySelector);
+
+      if (steps.length === 0 || waitingForReady) {
         if (attempts < maxAttempts) {
           attempts += 1;
           timer = setTimeout(resolveOnce, 150);
         } else {
-          setTours([]);
-          pendingStartRef.current = null;
+          setTours(steps.length > 0 ? [{ tour: definition.tour, steps }] : []);
+          if (steps.length > 0 && !hasSeenTour(userId, definition.tour)) {
+            pendingStartRef.current = definition.tour;
+          } else {
+            pendingStartRef.current = null;
+          }
         }
         return;
       }
 
       setTours([{ tour: definition.tour, steps }]);
       if (!hasSeenTour(userId, definition.tour)) {
-        markTourSeen(userId, definition.tour);
         pendingStartRef.current = definition.tour;
       }
     };
@@ -116,8 +170,9 @@ function OnboardingInner({
     if (pending && tours.some((tour) => tour.tour === pending)) {
       pendingStartRef.current = null;
       startOnborda(pending);
+      markTourSeen(userId, pending);
     }
-  }, [tours, startOnborda]);
+  }, [tours, startOnborda, userId]);
 
   const replayTour = useCallback(() => {
     const current = tours[0];
@@ -137,7 +192,7 @@ function OnboardingInner({
           type="button"
           onClick={replayTour}
           aria-label="Replay page tour"
-          className="fixed bottom-5 right-5 z-40 flex size-11 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground shadow-lg shadow-black/10 transition-colors hover:bg-muted hover:text-foreground"
+          className="fixed bottom-5 right-5 z-[1010] flex size-11 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground shadow-lg shadow-black/10 transition-colors hover:bg-muted hover:text-foreground"
         >
           <HelpCircle className="size-5" />
         </button>

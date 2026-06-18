@@ -41,22 +41,14 @@ import {
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
+import {
+  formatDuration,
+  formatLocation,
+  formatTone,
+  formatContentType,
+} from "../lib/format-enums";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 
-function formatEnumLabel(value: string | string[] | null | undefined) {
-  if (!value) return "N/A";
-  const values = Array.isArray(value) ? value : [value];
-  if (values.length === 0) return "N/A";
-
-  return values
-    .map((item) =>
-      item
-        .split("_")
-        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-        .join(" "),
-    )
-    .join(", ");
-}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
@@ -154,7 +146,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   return (
     <>
       <div
-        className={`mx-auto p-6 md:p-10 ${isFromOrder ? "max-w-[1400px]" : "max-w-5xl"}`}
+        className={`mx-auto p-4 sm:p-6 md:p-8 ${isFromOrder ? "w-full" : "w-full"}`}
       >
         <div className={isFromOrder ? "flex gap-0 lg:items-start" : ""}>
           <div className="flex-1 min-w-0 flex flex-col gap-8">
@@ -193,15 +185,14 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
-              <Card className="lg:col-span-3">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <ImageIcon className="size-5 text-primary" />
-                    Brand
+              <Card className="lg:col-span-3 overflow-hidden border-border/60 shadow-sm">
+                <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <ImageIcon className="size-4" />
+                    </div>
+                    Brand Details
                   </CardTitle>
-                  <CardDescription>
-                    Brand identity and pronunciation details.
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   <DetailRow label="Brand Name" value={brief.brandName} />
@@ -243,15 +234,14 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Package className="size-5 text-primary" />
-                    Product
+              <Card className="lg:col-span-2 overflow-hidden border-border/60 shadow-sm">
+                <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <Package className="size-4" />
+                    </div>
+                    Product Info
                   </CardTitle>
-                  <CardDescription>
-                    Core product details saved with this brief.
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-6 md:grid-cols-2">
                   <DetailRow label="Product name" value={brief.productName} />
@@ -276,28 +266,27 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Video className="size-5 text-primary" />
-                    Creative
+              <Card className="overflow-hidden border-border/60 shadow-sm">
+                <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      <Video className="size-4" />
+                    </div>
+                    Creative Needs
                   </CardTitle>
-                  <CardDescription>
-                    Format, tone, and shoot setting.
-                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-5">
+                <CardContent className="space-y-5 pt-6">
                   <DetailRow
                     label="Duration"
-                    value={formatEnumLabel(brief.durationBucket)}
+                    value={formatDuration(brief.durationBucket)}
                   />
                   <DetailRow
                     label="Tone"
-                    value={formatEnumLabel(brief.toneStyle)}
+                    value={formatTone(brief.toneStyle?.[0])}
                   />
                   <DetailRow
                     label="Location"
-                    value={formatEnumLabel(brief.shootLocationKind)}
+                    value={formatLocation(brief.shootLocationKind)}
                   />
                   {brief.shootLocationAddress ? (
                     <div className="flex gap-2 rounded-xl border border-border/40 bg-muted/20 p-3 text-sm">
@@ -309,14 +298,16 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <FileText className="size-5 text-primary" />
-                  References and Notes
+            <Card className="overflow-hidden border-border/60 shadow-sm">
+              <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <FileText className="size-4" />
+                  </div>
+                  References & Notes
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 pt-6">
                 <div className="space-y-2">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                     Key points
@@ -511,9 +502,9 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
             <p className="text-sm font-semibold text-foreground">
               {brief.productName || "Untitled Project"}
             </p>
-            {brief.contentType && (
+            {brief.contentType && brief.contentType.length > 0 && (
               <Badge variant="outline" className="text-[10px] uppercase">
-                {formatEnumLabel(brief.contentType)}
+                {formatContentType(brief.contentType[0])}
               </Badge>
             )}
             {brief.brandName && (

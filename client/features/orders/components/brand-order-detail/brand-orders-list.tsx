@@ -94,7 +94,7 @@ export function BrandOrdersList() {
   return (
     <div
       id="brand-orders-page"
-      className="mx-auto max-w-[1140px] px-6 py-10 pb-24"
+      className="px-6 py-10 pb-24"
     >
       <OrderStatusTab
         activeTab={activeTab}

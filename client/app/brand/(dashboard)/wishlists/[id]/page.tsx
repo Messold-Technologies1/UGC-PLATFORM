@@ -19,7 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
-import { ReelCard } from "@/features/creators/components/browse-creators/reel-card";
+import { CreatorCard } from "@/features/creators/components/creator-card";
 import { ProfileDrawer } from "@/features/creators/components/browse-creators/profile-drawer";
 import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-to-creator";
 import type { Creator } from "@/features/creators/types";
@@ -374,7 +374,7 @@ export default function WishlistDetailPage() {
             ) : (
               <div className="reelgrid browse-redesign-scope !mt-0">
                 {listingCreators.map((creator, index) => (
-                  <ReelCard
+                  <CreatorCard
                     key={creator.id}
                     creator={creator}
                     index={index}

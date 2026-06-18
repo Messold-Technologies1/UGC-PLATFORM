@@ -11,7 +11,7 @@ import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import { Spinner } from "@/components/ui/spinner";
 import { SITE_NAME } from "@/config/site";
-import { ReelCard } from "@/features/creators/components/browse-creators/reel-card";
+import { CreatorCard } from "@/features/creators/components/creator-card";
 import { ProfileDrawer } from "@/features/creators/components/browse-creators/profile-drawer";
 import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-to-creator";
 import type { Creator } from "@/features/creators/types";
@@ -318,7 +318,7 @@ export default function PublicWishlistPage({
   const openDrawer = useCallback(
     (creator: Creator) => {
       if (canUseBrand) {
-        router.push(`/brand/creators/${creator.id}`);
+        router.push(`/brand/creators?creatorId=${creator.id}`);
         return;
       }
       setSelectedCreator(creator);
@@ -483,7 +483,7 @@ export default function PublicWishlistPage({
               ) : (
                 <div className="reelgrid browse-redesign-scope">
                   {listingCreators.map((creator, index) => (
-                    <ReelCard
+                    <CreatorCard
                       key={creator.id}
                       creator={creator}
                       index={index}

@@ -158,7 +158,22 @@ export function CreatorListing({
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
-  }, []);
+    if (searchParams.has("creatorId")) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("creatorId");
+      const qs = nextParams.toString();
+      const nextUrl = qs ? `?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const cid = searchParams.get("creatorId");
+    if (cid && cid !== drawerCreatorId) {
+      setDrawerCreatorId(cid);
+      setDrawerOpen(true);
+    }
+  }, [searchParams]);
   const searchParamsKey = searchParams.toString();
 
   const parsedInitial = useMemo(

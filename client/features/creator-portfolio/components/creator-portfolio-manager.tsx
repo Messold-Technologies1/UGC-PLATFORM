@@ -242,7 +242,10 @@ export function CreatorPortfolioManager() {
     <div className="space-y-6">
       <div className="flex flex-col xl:flex-row gap-8 items-start">
         <div className="flex-1 w-full space-y-6 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-2">
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-2"
+            data-tour="creator-portfolio-header"
+          >
             <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab("all")}
@@ -261,18 +264,18 @@ export function CreatorPortfolioManager() {
               </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
-              <Button asChild className="gap-2 w-full sm:w-auto">
-                <Link href="/creator/portfolio/upload">
+            <div className="flex items-center gap-3 shrink-0">
+              <Button asChild className="gap-2">
+                <Link href="/creator/portfolio/upload" data-tour="creator-portfolio-upload">
                   <Plus className="size-4" />
                   Add New Work
                 </Link>
               </Button>
-              <Button variant="outline" className="gap-2 bg-background w-full sm:w-auto">
+              <Button variant="outline" className="gap-2 bg-background">
                 <Settings className="size-4" />
                 Manage Sections
               </Button>
-              <Button variant="outline" className="gap-2 bg-background w-full sm:w-auto" asChild>
+              <Button variant="outline" className="gap-2 bg-background" asChild>
                 <Link
                   href={publicProfilePath ?? "#"}
                   target="_blank"
@@ -379,8 +382,11 @@ export function CreatorPortfolioManager() {
                   No videos match your selected filters.
                 </div>
               ) : (
-                <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {displayedVideos.slice(0, visibleCount).map((v) => {
+                <div
+                  className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  data-tour="creator-portfolio-cards"
+                >
+                  {displayedVideos.slice(0, visibleCount).map((v, index) => {
                     const cardTitle =
                       v.description?.trim() || "Portfolio video";
                     const createdLabel = new Date(
@@ -413,6 +419,7 @@ export function CreatorPortfolioManager() {
                       <div
                         key={v.id}
                         className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:shadow-md"
+                        data-tour={index === 0 ? "creator-portfolio-card" : undefined}
                       >
                         <div
                           className="relative aspect-video overflow-hidden bg-muted w-full rounded-t-lg group"
@@ -497,6 +504,9 @@ export function CreatorPortfolioManager() {
                                 size="sm"
                                 className="flex-1 border-2 border-dotted border-muted-foreground/40 bg-transparent text-muted-foreground hover:border-muted-foreground hover:bg-transparent text-xs h-8 justify-start px-2"
                                 onClick={() => setEditingTagsVideo(v)}
+                                data-tour={
+                                  index === 0 ? "creator-portfolio-edit-tags" : undefined
+                                }
                               >
                                 <Plus className="size-3 mr-1.5" />
                                 {v.tags && v.tags.length > 0 ? "edit tags" : "add tags for better search"}
@@ -544,7 +554,10 @@ export function CreatorPortfolioManager() {
         </div>
 
         <div className="w-full xl:w-[320px] 2xl:w-[340px] shrink-0 space-y-6">
-          <div className="rounded-lg border border-border bg-background p-5">
+          <div
+            className="rounded-lg border border-border bg-background p-5"
+            data-tour="creator-portfolio-boost"
+          >
             <div className="flex items-center gap-2 mb-3">
               <Zap className="size-4 text-amber-500 fill-amber-500" />
               <h3 className="font-semibold text-sm text-foreground">
@@ -580,7 +593,7 @@ export function CreatorPortfolioManager() {
                   Add More
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[70vw] max-w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
                 <DialogTitle className="sr-only">Add New Work</DialogTitle>
                 <CreatorPortfolioUploadForm
                   isOverlay
@@ -657,7 +670,10 @@ export function CreatorPortfolioManager() {
             </Link>
           </div>
 
-          <div className="rounded-lg border border-border bg-background p-5">
+          <div
+            className="rounded-lg border border-border bg-background p-5"
+            data-tour="creator-portfolio-tips"
+          >
             <h3 className="font-semibold text-sm mb-5">
               Tips to get more orders
             </h3>

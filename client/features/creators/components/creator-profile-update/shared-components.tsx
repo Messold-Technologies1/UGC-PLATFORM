@@ -31,6 +31,7 @@ export function SectionCard({
   title,
   desc,
   headerNote,
+  tourId,
   children,
 }: {
   id: string;
@@ -38,10 +39,15 @@ export function SectionCard({
   title: string;
   desc: string;
   headerNote?: string;
+  tourId?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="pe-card" id={`pe-section-${id}`}>
+    <section
+      className="pe-card"
+      id={`pe-section-${id}`}
+      data-tour={tourId}
+    >
       <div className="pe-card-head">
         <h3>
           <span className="pe-card-icon">

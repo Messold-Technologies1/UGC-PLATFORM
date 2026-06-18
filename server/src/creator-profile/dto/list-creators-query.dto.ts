@@ -85,7 +85,7 @@ export class ListCreatorsQueryDto {
   @ApiPropertyOptional({
     example: 'aanya',
     description:
-      'Free-text search across creator display name, city, and bio (case-insensitive substring).',
+      'Free-text search by creator display name (case-insensitive substring).',
   })
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))

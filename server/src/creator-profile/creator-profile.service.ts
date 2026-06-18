@@ -35,6 +35,9 @@ import {
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
 import { PendingCreatorApprovalListItemDto } from './dto/pending-creator-approval-list-item.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
+import { RejectedCreatorApprovalListItemDto } from './dto/rejected-creator-approval-list-item.dto';
+import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
+import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
 import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import type {
   CreatorPublicListItemDto,
@@ -43,6 +46,7 @@ import type {
 import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
+  buildAdminCreatorApprovalSearchWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
@@ -1251,16 +1255,19 @@ export class CreatorProfileService {
     };
   }
 
-  async listPendingCreatorApprovals(query: {
-    page?: number;
-    limit?: number;
-  }): Promise<PendingCreatorsListResponseDto> {
+  async listPendingCreatorApprovals(
+    query: PendingApprovalsQueryDto,
+  ): Promise<PendingCreatorsListResponseDto> {
     const page = query.page ?? 1;
     const limit = Math.min(query.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
+    const searchClause = buildAdminCreatorApprovalSearchWhere(query.search);
     const where: Prisma.CreatorProfileWhereInput = {
-      creatorApproval: { status: ApprovalStatus.PENDING },
+      AND: [
+        { creatorApproval: { status: ApprovalStatus.PENDING } },
+        ...(searchClause ? [searchClause] : []),
+      ],
     };
 
     const [total, items] = await this.prisma.$transaction([
@@ -1276,6 +1283,54 @@ export class CreatorProfileService {
 
     return {
       items: items.map((p) => this.mapPendingCreatorApprovalListItem(p)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  private mapRejectedCreatorApprovalListItem(
+    profile: CreatorProfileWithRelations,
+  ): RejectedCreatorApprovalListItemDto {
+    const base = this.mapPendingCreatorApprovalListItem(profile);
+    return {
+      ...base,
+      approvalStatus: ApprovalStatus.REJECTED,
+      rejectionReason: profile.creatorApproval?.rejectionReason ?? null,
+      rejectedAt: profile.creatorApproval?.approvedAt ?? null,
+    };
+  }
+
+  async listRejectedCreatorApprovals(
+    query: PendingApprovalsQueryDto,
+  ): Promise<RejectedCreatorsListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+
+    const searchClause = buildAdminCreatorApprovalSearchWhere(query.search);
+    const where: Prisma.CreatorProfileWhereInput = {
+      AND: [
+        { creatorApproval: { status: ApprovalStatus.REJECTED } },
+        ...(searchClause ? [searchClause] : []),
+      ],
+    };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.creatorProfile.count({ where }),
+      this.prisma.creatorProfile.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy: {
+          creatorApproval: { approvedAt: 'desc' },
+        },
+        include: pendingCreatorApprovalInclude as any,
+      }),
+    ]);
+
+    return {
+      items: items.map((p) => this.mapRejectedCreatorApprovalListItem(p)),
       total,
       page,
       limit,

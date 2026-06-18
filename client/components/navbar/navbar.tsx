@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   Briefcase,
   UserCheck,
+  UserX,
   Settings,
   Package,
   Activity,
@@ -51,6 +52,8 @@ interface NavItem {
   href?: string;
   label: string;
   icon: LucideIcon;
+  /** Stable anchor id for product tours (Onborda). */
+  tourId?: string;
   match?: (p: string) => boolean;
   children?: {
     href: string;
@@ -62,16 +65,16 @@ interface NavItem {
 
 const roleConfigs: Record<string, NavItem[]> = {
   brand: [
-    { href: "/brand/creators", label: "Creators", icon: Users },
-    { href: "/brand/orders", label: "Orders", icon: ShoppingCart },
-    { href: "/brand/messages", label: "Messages", icon: MessageSquare },
-    { href: "/brand/briefs", label: "Briefs", icon: FileText },
-    { href: "/brand/wishlists", label: "Wishlists", icon: Heart },
+    { href: "/brand/creators", label: "Creators", icon: Users, tourId: "nav-brand-creators" },
+    { href: "/brand/orders", label: "Orders", icon: ShoppingCart, tourId: "nav-brand-orders" },
+    { href: "/brand/messages", label: "Messages", icon: MessageSquare, tourId: "nav-brand-messages" },
+    { href: "/brand/briefs", label: "Briefs", icon: FileText, tourId: "nav-brand-briefs" },
+    { href: "/brand/wishlists", label: "Wishlists", icon: Heart, tourId: "nav-brand-wishlists" },
   ],
   creator: [
-    { href: "/creator/orders", label: "Orders", icon: ShoppingCart },
-    { href: "/creator/messages", label: "Messages", icon: MessageSquare },
-    { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase },
+    { href: "/creator/orders", label: "Orders", icon: ShoppingCart, tourId: "nav-creator-orders" },
+    { href: "/creator/messages", label: "Messages", icon: MessageSquare, tourId: "nav-creator-messages" },
+    { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase, tourId: "nav-creator-portfolio" },
   ],
   admin: [
     {
@@ -83,6 +86,12 @@ const roleConfigs: Record<string, NavItem[]> = {
           label: "Creator Approval",
           icon: UserCheck,
           description: "Review and approve new creator applications.",
+        },
+        {
+          href: "/admin/rejectedProfiles",
+          label: "Rejected Profiles",
+          icon: UserX,
+          description: "View rejected creator applications.",
         },
         {
           href: "/admin/creatorManagement",
@@ -257,6 +266,7 @@ export function Navbar() {
                       key={item.href || item.label}
                       href={item.href || "#"}
                       prefetch
+                      data-tour={item.tourId}
                       className={cn(
                         "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
                         isActive
@@ -321,8 +331,12 @@ export function Navbar() {
                 {(pathname === "/brand" || pathname.startsWith("/brand/")) && (
                   <BrandSwitcher />
                 )}
-                <NotificationDropdown />
-                <NavbarProfileMenu />
+                <span data-tour="nav-notifications" className="inline-flex">
+                  <NotificationDropdown />
+                </span>
+                <span data-tour="nav-profile" className="inline-flex">
+                  <NavbarProfileMenu />
+                </span>
               </>
             ) : (
               <>

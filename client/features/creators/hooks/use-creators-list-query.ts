@@ -58,10 +58,12 @@ export function useCreatorsListQuery({
   filters,
   initialData,
   enabled,
+  keepPreviousData = false,
 }: {
   filters?: CreatorListApiFilters;
   initialData?: CreatorsListResult;
   enabled?: boolean;
+  keepPreviousData?: boolean;
 } = {}) {
   return useQuery({
     queryKey: creatorsListQueryKey(filters),
@@ -73,7 +75,9 @@ export function useCreatorsListQuery({
         }
       : {}),
     ...(enabled !== undefined ? { enabled } : {}),
-    placeholderData: (previousData) => previousData,
+    placeholderData: keepPreviousData
+      ? (previousData) => previousData
+      : undefined,
     staleTime: initialData ? 5 * 60_000 : 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

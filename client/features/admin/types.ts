@@ -183,6 +183,20 @@ export interface PendingCreatorsListResponseDto {
 export interface PendingApprovalsQueryDto {
   page?: number;
   limit?: number;
+  search?: string;
+}
+
+export interface RejectedCreatorApprovalListItemDto
+  extends PendingCreatorApprovalListItemDto {
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
+}
+
+export interface RejectedCreatorsListResponseDto {
+  items: RejectedCreatorApprovalListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface AdminBrandsQueryDto {

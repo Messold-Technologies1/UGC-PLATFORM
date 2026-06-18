@@ -12,7 +12,7 @@ export default function BrandCampaignsPage() {
         title="Campaigns"
         description="Create and manage your UGC campaigns"
       >
-        <Button size="sm" className="gap-1.5 bg-foreground border-0 text-background hover:opacity-90">
+        <Button data-tour="brand-campaigns-create" size="sm" className="gap-1.5 bg-foreground border-0 text-background hover:opacity-90">
           <Plus className="size-3.5" />
           New Campaign
         </Button>

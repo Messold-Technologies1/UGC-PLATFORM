@@ -46,7 +46,10 @@ export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSide
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-border/40 flex flex-col gap-3">
+    <div
+      className="bg-white rounded-2xl p-4 shadow-sm border border-border/40 flex flex-col gap-3"
+      data-tour="brand-wishlists-sidebar"
+    >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -62,6 +65,7 @@ export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSide
           onClick={() => setShowCreate((v) => !v)}
           className="size-8 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shrink-0"
           aria-label="New wishlist"
+          data-tour="brand-wishlists-create"
         >
           <Plus size={16} />
         </button>
@@ -97,7 +101,7 @@ export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSide
       )}
 
       {/* Wishlist list */}
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5" data-tour="brand-wishlists-list">
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2 size={20} className="animate-spin text-muted-foreground" />
@@ -146,6 +150,7 @@ export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSide
       {/* Browse creators button */}
       <Link
         href="/brand/creators"
+        data-tour="brand-wishlists-browse"
         className="flex items-center justify-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors mt-1"
       >
         <Users size={14} />

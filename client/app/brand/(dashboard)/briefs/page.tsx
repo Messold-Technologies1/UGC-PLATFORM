@@ -14,7 +14,7 @@ export default function BriefsPage() {
   return (
     <div className="flex flex-col gap-8 w-full px-4 sm:px-6 md:px-8 py-6 lg:py-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+        <div data-tour="brand-briefs-heading">
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             My Briefs
           </h1>
@@ -24,6 +24,7 @@ export default function BriefsPage() {
         </div>
         <Button
           asChild
+          data-tour="brand-briefs-create"
           className="rounded-xl font-bold shadow-sm transition-all hover:opacity-90"
         >
           <Link href="/brand/briefs/create">

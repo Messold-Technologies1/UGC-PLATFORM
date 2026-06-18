@@ -142,6 +142,7 @@ export const ENDPOINTS = {
   ADMIN: {
     CREATORS: {
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
+      REJECTED_APPROVALS: "/api/admin/creators/rejected-approvals",
       APPROVE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) =>

@@ -44,7 +44,7 @@ export default function AdminCreatorEditPage() {
           description="We could not load the creator profile. It may have been deleted or doesn't exist."
         />
         <Button asChild>
-          <Link href="/admin/creatorManagement">Back to Creators</Link>
+          <Link href="/admin/creators">Back to Creators</Link>
         </Button>
       </div>
     );
@@ -52,10 +52,8 @@ export default function AdminCreatorEditPage() {
 
   return (
     <div className="space-y-8 p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <PageHeader
-          title={`Creator: ${profile.displayName || "Unknown"}`}
-        />
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <PageHeader title={`Creator: ${profile.displayName || "Unknown"}`} />
         <Dialog open={isUploadOverlayOpen} onOpenChange={setIsUploadOverlayOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2">
@@ -63,7 +61,7 @@ export default function AdminCreatorEditPage() {
               Add Portfolio
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-[70vw] max-w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] w-[70vw] max-w-[70vw] overflow-y-auto sm:max-w-[70vw]">
             <DialogTitle className="sr-only">Add Portfolio Video</DialogTitle>
             <CreatorPortfolioUploadForm
               isOverlay
@@ -82,7 +80,7 @@ export default function AdminCreatorEditPage() {
         adminMode={true}
         initialProfile={profile}
         onSuccess={() => {
-          router.push(`/admin/creatorManagement?highlightedCreatorId=${profile.id}`);
+          router.push(`/admin/creators?highlightedCreatorId=${profile.id}`);
         }}
       />
     </div>

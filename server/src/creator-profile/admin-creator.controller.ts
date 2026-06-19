@@ -28,6 +28,11 @@ import {
   PendingApprovalsQueryDto,
   RejectCreatorProfileDto,
 } from './dto/admin-creator-approval.dto';
+import {
+  AdminCreatorsListQueryDto,
+  AdminCreatorsListResponseDto,
+  AdminCreatorSegmentCountsDto,
+} from './dto/admin-creator-list.dto';
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { AdminCreatorPayoutDetailsDto } from './dto/admin-creator-payout-details.dto';
@@ -41,6 +46,25 @@ export class AdminCreatorController {
     private readonly creatorProfileService: CreatorProfileService,
     private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
   ) {}
+
+  @Get('segment-counts')
+  @ApiOperation({ summary: 'Counts for each admin creator list segment' })
+  @ApiOkResponse({ type: AdminCreatorSegmentCountsDto })
+  async getSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
+    return this.creatorProfileService.getAdminCreatorSegmentCounts();
+  }
+
+  @Get()
+  @ApiOperation({
+    summary:
+      'List creators for admin (segment: approved, non_approved, incomplete, listed)',
+  })
+  @ApiOkResponse({ type: AdminCreatorsListResponseDto })
+  async listCreators(
+    @Query() query: AdminCreatorsListQueryDto,
+  ): Promise<AdminCreatorsListResponseDto> {
+    return this.creatorProfileService.listAdminCreators(query);
+  }
 
   @Get('pending-approvals')
   @ApiOperation({

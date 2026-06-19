@@ -112,6 +112,12 @@ export function useApproveCreatorMutation() {
         queryKey: ["admin", "rejected-approvals"],
       });
       void queryClient.invalidateQueries({
+        queryKey: ["admin", "creators"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin", "creators", "segment-counts"],
+      });
+      void queryClient.invalidateQueries({
         queryKey: ["creators", "list"],
       });
     },

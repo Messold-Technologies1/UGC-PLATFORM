@@ -38,6 +38,13 @@ import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-resp
 import { RejectedCreatorApprovalListItemDto } from './dto/rejected-creator-approval-list-item.dto';
 import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
 import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
+import {
+  AdminCreatorListItemDto,
+  AdminCreatorListSegment,
+  AdminCreatorsListQueryDto,
+  AdminCreatorsListResponseDto,
+  AdminCreatorSegmentCountsDto,
+} from './dto/admin-creator-list.dto';
 import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import type {
   CreatorPublicListItemDto,
@@ -47,6 +54,7 @@ import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
   buildAdminCreatorApprovalSearchWhere,
+  buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
@@ -108,6 +116,32 @@ const pendingCreatorApprovalInclude = {
       createdAt: true,
     },
   },
+} as const;
+
+/** Include for admin unified creator list (all segments). */
+const adminCreatorListInclude = {
+  user: { select: { phone: true, phoneVerified: true } },
+  facetSelections: { include: { option: true } },
+  creatorApproval: true,
+  packages: {
+    orderBy: { priceAmount: 'asc' as const },
+    take: 1,
+    select: { priceAmount: true },
+  },
+  portfolioVideos: {
+    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    orderBy: { createdAt: 'asc' as const },
+    take: 20,
+    select: {
+      id: true,
+      creatorId: true,
+      videoUrl: true,
+      thumbnailUrl: true,
+      tags: { select: { tag: true } },
+      createdAt: true,
+    },
+  },
+  stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
 
 /**
@@ -1253,6 +1287,94 @@ export class CreatorProfileService {
       approvalStatus:
         profile.creatorApproval?.status ?? ApprovalStatus.PENDING,
       submittedAt: profile.createdAt,
+    };
+  }
+
+  private mapAdminCreatorListItem(
+    profile: CreatorProfileWithRelations,
+  ): AdminCreatorListItemDto {
+    const base = this.mapPendingCreatorApprovalListItem(profile);
+    const startingPkg = profile.packages?.[0];
+
+    return {
+      ...base,
+      profileImageUrl: profile.profileImageUrl ?? null,
+      completeProfile: profile.completeProfile ?? false,
+      isListed: profile.isListed ?? false,
+      rejectionReason: profile.creatorApproval?.rejectionReason ?? null,
+      rejectedAt:
+        base.approvalStatus === ApprovalStatus.REJECTED
+          ? (profile.creatorApproval?.approvedAt ?? null)
+          : null,
+      approvedAt:
+        base.approvalStatus === ApprovalStatus.APPROVED
+          ? (profile.creatorApproval?.approvedAt ?? null)
+          : null,
+      avgRating: profile.stats?.avgRating?.toString() ?? null,
+      reviewCount: profile.stats?.reviewCount ?? 0,
+      startingPrice: startingPkg?.priceAmount?.toString?.() ?? null,
+      onLocationAvailable: !!profile.onLocationAvailable,
+    };
+  }
+
+  async listAdminCreators(
+    query: AdminCreatorsListQueryDto,
+  ): Promise<AdminCreatorsListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+
+    const where = buildAdminCreatorsListWhere(query.segment, query.search);
+
+    const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
+      query.segment === AdminCreatorListSegment.PENDING
+        ? [{ createdAt: 'asc' }]
+        : query.segment === AdminCreatorListSegment.NON_APPROVED
+          ? [{ creatorApproval: { approvedAt: 'desc' } }]
+          : [{ createdAt: 'desc' }];
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.creatorProfile.count({ where }),
+      this.prisma.creatorProfile.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+        include: adminCreatorListInclude as any,
+      }),
+    ]);
+
+    return {
+      items: items.map((p) => this.mapAdminCreatorListItem(p)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getAdminCreatorSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
+    const segments = [
+      AdminCreatorListSegment.PENDING,
+      AdminCreatorListSegment.APPROVED,
+      AdminCreatorListSegment.NON_APPROVED,
+      AdminCreatorListSegment.INCOMPLETE,
+      AdminCreatorListSegment.LISTED,
+    ] as const;
+
+    const counts = await this.prisma.$transaction(
+      segments.map((segment) =>
+        this.prisma.creatorProfile.count({
+          where: buildAdminCreatorsListWhere(segment),
+        }),
+      ),
+    );
+
+    return {
+      pending: counts[0],
+      approved: counts[1],
+      nonApproved: counts[2],
+      incomplete: counts[3],
+      listed: counts[4],
     };
   }
 

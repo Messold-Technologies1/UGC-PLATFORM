@@ -1,13 +1,16 @@
 import {
+  ApprovalStatus,
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
 } from '@prisma/client';
 import {
   buildAdminCreatorApprovalSearchWhere,
+  buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
   buildPortfolioVideoMatchWhere,
 } from './creator-list-filters.util';
+import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 
 describe('creator-list-filters.util', () => {
@@ -214,6 +217,52 @@ describe('creator-list-filters.util', () => {
     it('matches display name only', () => {
       expect(buildAdminCreatorApprovalSearchWhere('jane')).toEqual({
         displayName: { contains: 'jane', mode: 'insensitive' },
+      });
+    });
+  });
+
+  describe('buildAdminCreatorsListWhere', () => {
+    it('filters pending creators', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.PENDING)).toEqual({
+        creatorApproval: { status: ApprovalStatus.PENDING },
+      });
+    });
+
+    it('filters approved creators', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.APPROVED)).toEqual({
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      });
+    });
+
+    it('filters rejected creators for non_approved segment', () => {
+      expect(
+        buildAdminCreatorsListWhere(AdminCreatorListSegment.NON_APPROVED),
+      ).toEqual({
+        creatorApproval: { status: ApprovalStatus.REJECTED },
+      });
+    });
+
+    it('filters incomplete profiles for approved creators only', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.INCOMPLETE)).toEqual({
+        completeProfile: false,
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      });
+    });
+
+    it('filters listed creators', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED)).toEqual({
+        isListed: true,
+      });
+    });
+
+    it('combines segment with search', () => {
+      expect(
+        buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED, 'jane'),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { displayName: { contains: 'jane', mode: 'insensitive' } },
+        ],
       });
     });
   });

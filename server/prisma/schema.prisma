@@ -337,6 +337,8 @@ model CreatorProfile {
   @@index([gender])
   @@index([onLocationAvailable])
   @@index([isListed])
+  @@index([completeProfile])
+  @@index([completeProfile, isListed])
   @@index([createdAt])
 }
 

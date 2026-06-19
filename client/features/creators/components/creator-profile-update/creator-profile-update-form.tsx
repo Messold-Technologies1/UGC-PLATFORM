@@ -880,6 +880,7 @@ function CreatorProfileUpdateFormContent({
             tourId="creator-profile-edit-media"
             icon={Camera}
             title="Photo & intro reel"
+            required
             desc="Your face and a short intro reel build instant trust."
           >
             <div
@@ -987,7 +988,12 @@ function CreatorProfileUpdateFormContent({
 
             <div className="pe-grid pe-grid-2">
               <div className="pe-field">
-                <label htmlFor="displayName">Display name</label>
+                <label htmlFor="displayName">
+                  Display name
+                  <span className="pe-required" aria-label="required" title="Required to go live">
+                    {" "}*
+                  </span>
+                </label>
                 <input
                   id="displayName"
                   className="pe-input"
@@ -1017,7 +1023,12 @@ function CreatorProfileUpdateFormContent({
               </div>
               {contactEmailDisplay || adminMode ? (
                 <div className="pe-field">
-                  <label htmlFor="contactEmail">Contact email</label>
+                  <label htmlFor="contactEmail">
+                    Contact email
+                    <span className="pe-required" aria-label="required" title="Required to go live">
+                      {" "}*
+                    </span>
+                  </label>
                   <div className="pe-input-wrap">
                     <span className="pe-lead">
                       <MessageSquare size={15} />
@@ -1038,6 +1049,9 @@ function CreatorProfileUpdateFormContent({
             <div className="pe-field">
               <label htmlFor="bio">
                 Bio
+                <span className="pe-required" aria-label="required" title="Required to go live">
+                  {" "}*
+                </span>
                 <span className="pe-field-count">{bio.length}/200</span>
               </label>
               <textarea
@@ -1083,6 +1097,7 @@ function CreatorProfileUpdateFormContent({
                 <PeSelectField
                   id="country"
                   label="Country"
+                  required
                   value={location.countryCode}
                   placeholder="Select country"
                   disabled={pending}
@@ -1101,6 +1116,7 @@ function CreatorProfileUpdateFormContent({
               <PeSelectField
                 id="state"
                 label="State"
+                required
                 value={location.stateCode}
                 placeholder={
                   location.countryCode ? "Select state" : "Select country first"
@@ -1123,6 +1139,7 @@ function CreatorProfileUpdateFormContent({
               <PeSelectField
                 id="city"
                 label="City"
+                required
                 value={location.city}
                 placeholder={
                   location.stateCode ? "Select city" : "Select state first"
@@ -1145,6 +1162,7 @@ function CreatorProfileUpdateFormContent({
               <PeSelectField
                 id="gender"
                 label="Gender"
+                required
                 value={gender}
                 placeholder="Select gender"
                 disabled={pending}
@@ -1156,7 +1174,12 @@ function CreatorProfileUpdateFormContent({
                 }}
               />
               <div className="pe-field">
-                <label htmlFor="dateOfBirth">Date of birth</label>
+                <label htmlFor="dateOfBirth">
+                  Date of birth
+                  <span className="pe-required" aria-label="required" title="Required to go live">
+                    {" "}*
+                  </span>
+                </label>
                 <div style={{ position: "relative" }}>
                   <input
                     id="dateOfBirth"
@@ -1191,7 +1214,9 @@ function CreatorProfileUpdateFormContent({
             <div className="pe-field">
               <label htmlFor="shippingAddress">
                 Shipping address
-                <span className="pe-opt">optional</span>
+                <span className="pe-required" aria-label="required" title="Required to go live">
+                  {" "}*
+                </span>
               </label>
               <textarea
                 id="shippingAddress"
@@ -1282,6 +1307,12 @@ function CreatorProfileUpdateFormContent({
             {!facets.facetOptionsQuery.isLoading &&
             !facets.facetOptionsQuery.isError ? (
               <>
+                <p className="pe-section-required-note">
+                  <span className="pe-required">*</span>
+                  Content format, content category, category experience and at
+                  least one language are required to go live.
+                </p>
+
                 {facetSections.map((section) => {
                   const options =
                     facets.facetOptionsByDimension[section.dimension] ?? [];
@@ -1292,6 +1323,7 @@ function CreatorProfileUpdateFormContent({
                     <FacetChipSection
                       key={section.dimension}
                       label={section.label}
+                      required={section.required}
                       options={options}
                       selected={selected}
                       disabled={pending}
@@ -1507,6 +1539,7 @@ function CreatorProfileUpdateFormContent({
             tourId="creator-profile-edit-packages"
             icon={Layers}
             title="Packages"
+            required
             desc="What brands can book. Set price, delivery and what's included."
             headerNote="GoCollab takes 20% of the complete order value (base package + add-ons)."
           >
@@ -1605,7 +1638,8 @@ function CreatorProfileUpdateFormContent({
             tourId="creator-profile-edit-portfolio"
             icon={Film}
             title="Portfolio"
-            desc="Manage your reels. Edit each video's tags, industry, language and visibility."
+            required
+            desc="Manage your reels. Edit each video's tags, industry, language and visibility. At least 3 videos are required to go live."
           >
             {portfolioQuery.isLoading ? (
               <CatalogStatus

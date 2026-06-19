@@ -48,19 +48,32 @@ describe('evaluateProfileCompleteness', () => {
       selectedFacetDimensions: [CreatorFacetDimension.CONTENT_FORMAT],
     });
     expect(result.complete).toBe(false);
-    // All required dimensions except the one selected should be reported.
-    expect(result.missing).toContain('Appearance');
-    expect(result.missing).toContain('Occupation');
+    // Required dimensions not selected should be reported.
+    expect(result.missing).toContain('Content category');
+    expect(result.missing).toContain('Category experience');
     expect(result.missing).not.toContain('Content format');
   });
 
-  it('does not require LIFE_STYLE or AI_CONTENT_PERMISSION', () => {
-    expect(REQUIRED_FACET_DIMENSIONS).not.toContain(
+  it('requires exactly content format, content category and category experience', () => {
+    expect(REQUIRED_FACET_DIMENSIONS).toEqual([
+      CreatorFacetDimension.CONTENT_FORMAT,
+      CreatorFacetDimension.CONTENT_CATEGORY,
+      CreatorFacetDimension.CATEGORY_EXPERIENCE,
+    ]);
+  });
+
+  it('does not require appearance, content style, capabilities, occupation, lifestyle or AI permission', () => {
+    for (const dimension of [
+      CreatorFacetDimension.APPEARANCE,
+      CreatorFacetDimension.CONTENT_STYLE,
+      CreatorFacetDimension.CAPABILITY,
+      CreatorFacetDimension.OCCUPATION,
+      CreatorFacetDimension.CAN_CREATE_WITH,
       CreatorFacetDimension.LIFE_STYLE,
-    );
-    expect(REQUIRED_FACET_DIMENSIONS).not.toContain(
       CreatorFacetDimension.AI_CONTENT_PERMISSION,
-    );
+    ]) {
+      expect(REQUIRED_FACET_DIMENSIONS).not.toContain(dimension);
+    }
   });
 
   it('requires at least three portfolio videos', () => {

@@ -5,17 +5,14 @@ export const MIN_PORTFOLIO_VIDEOS = 3;
 
 /**
  * Facet dimensions a creator must have at least one selection in before going
- * live. LIFE_STYLE and AI_CONTENT_PERMISSION are intentionally excluded.
+ * live. Only these three niche facets are required; all other facet dimensions
+ * (appearance, content style, capabilities, lifestyle, occupation, can-create-with,
+ * AI permission) are optional. Languages are required separately.
  */
 export const REQUIRED_FACET_DIMENSIONS: CreatorFacetDimension[] = [
   CreatorFacetDimension.CONTENT_FORMAT,
-  CreatorFacetDimension.APPEARANCE,
-  CreatorFacetDimension.CONTENT_STYLE,
-  CreatorFacetDimension.CAPABILITY,
   CreatorFacetDimension.CONTENT_CATEGORY,
   CreatorFacetDimension.CATEGORY_EXPERIENCE,
-  CreatorFacetDimension.CAN_CREATE_WITH,
-  CreatorFacetDimension.OCCUPATION,
 ];
 
 const FACET_LABELS: Record<CreatorFacetDimension, string> = {

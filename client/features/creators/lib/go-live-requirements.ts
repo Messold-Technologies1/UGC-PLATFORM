@@ -9,16 +9,15 @@
 
 export const MIN_PORTFOLIO_VIDEOS = 3;
 
-/** Facet dimensions that must have at least one selection. */
+/**
+ * Facet dimensions that must have at least one selection. Only these three niche
+ * facets are required; all other dimensions are optional. Keep in sync with the
+ * server (`creator-profile-completeness.util.ts`).
+ */
 export const REQUIRED_FACET_DIMENSIONS = [
   "CONTENT_FORMAT",
-  "APPEARANCE",
-  "CONTENT_STYLE",
-  "CAPABILITY",
   "CONTENT_CATEGORY",
   "CATEGORY_EXPERIENCE",
-  "CAN_CREATE_WITH",
-  "OCCUPATION",
 ] as const;
 
 const FACET_LABELS: Record<string, string> = {

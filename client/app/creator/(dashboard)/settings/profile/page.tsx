@@ -67,7 +67,7 @@ export default function CreatorSettingsProfilePage() {
   const loaded = profile;
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       {/* <PageHeader
         title="Profile"
         description="Update your display name, bio, packages, and how brands find you."

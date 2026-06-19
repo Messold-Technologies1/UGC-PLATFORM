@@ -19,7 +19,7 @@ export function StatCard({ stat }: { stat: StatItem }) {
   return (
     <motion.div
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
-      className="group flex items-start gap-4 p-6 transition-colors bg-card"
+      className="group flex items-start gap-3 p-4 transition-colors bg-card sm:gap-4 sm:p-6"
     >
       <div
         className={cn(

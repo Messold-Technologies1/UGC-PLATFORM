@@ -774,6 +774,34 @@ function CreatorProfileUpdateFormContent({
               })}
             </nav>
 
+            <nav
+              className="pe-nav-mobile"
+              aria-label="Profile sections"
+            >
+              {NAV_ITEMS.map((item) => {
+                const count =
+                  item.id === "niche"
+                    ? navCounts.niche
+                    : item.id === "portfolio"
+                      ? navCounts.portfolio
+                      : null;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="pe-nav-mobile-link"
+                    data-active={activeSection === item.id}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                    {count != null ? (
+                      <span className="pe-nav-mobile-count">{count}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+
             <div className="pe-form">{renderFormSections()}</div>
           </div>
         ) : (
@@ -883,21 +911,8 @@ function CreatorProfileUpdateFormContent({
             required
             desc="Your face and a short intro reel build instant trust."
           >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1px 1fr",
-                gap: 32,
-              }}
-            >
-              <div
-                style={{
-                  paddingRight: 8,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
+            <div className="pe-media-split">
+              <div className="pe-media-split-col">
                 <CreatorProfileImageField
                   imagePreviewUrl={profileImage.profileImagePreviewUrl}
                   accept={PROFILE_IMAGE_ACCEPT}
@@ -911,22 +926,9 @@ function CreatorProfileUpdateFormContent({
                 />
               </div>
 
-              <div
-                style={{
-                  width: 1,
-                  background: "var(--border)",
-                  alignSelf: "stretch",
-                }}
-              />
+              <div className="pe-media-split-divider" aria-hidden="true" />
 
-              <div
-                style={{
-                  paddingLeft: 8,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
+              <div className="pe-media-split-col">
                 <CreatorProfileIntroVideoField
                   videoPreviewUrl={introVideo.introVideoPreviewUrl}
                   accept={INTRO_VIDEO_ACCEPT}

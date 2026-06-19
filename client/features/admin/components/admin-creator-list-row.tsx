@@ -149,7 +149,12 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
         <Badge variant="secondary">Pending</Badge>
       ) : null}
       {creator.approvalStatus === "REJECTED" ? (
-        <Badge variant="destructive">Rejected</Badge>
+        <Badge
+          variant="outline"
+          className="border-destructive/30 bg-destructive/10 text-destructive"
+        >
+          Rejected
+        </Badge>
       ) : null}
       {creator.approvalStatus === "APPROVED" ? (
         <Badge className="border-green-500/20 bg-green-500/10 text-green-700 hover:bg-green-500/20">

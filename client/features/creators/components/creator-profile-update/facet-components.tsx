@@ -35,17 +35,24 @@ export function FacetChipSection({
   selected,
   disabled,
   onToggle,
+  required,
 }: {
   label: string;
   options: CreatorFacetOption[];
   selected: string[];
   disabled: boolean;
   onToggle: (slug: string) => void;
+  required?: boolean;
 }) {
   return (
     <div className="pe-field">
       <label>
         {label.replaceAll('/', '|')}
+        {required ? (
+          <span className="pe-required" aria-label="required" title="Required to go live">
+            {' '}*
+          </span>
+        ) : null}
         {selected.length > 0 ? (
           <span className="pe-field-count">{selected.length}</span>
         ) : null}
@@ -106,7 +113,12 @@ export function LanguageRows({
 
   return (
     <div className="pe-field">
-      <label>Languages</label>
+      <label>
+        Languages
+        <span className="pe-required" aria-label="required" title="Required to go live">
+          {' '}*
+        </span>
+      </label>
       <span className="pe-help">
         Add each language you can create in, with fluency.
       </span>

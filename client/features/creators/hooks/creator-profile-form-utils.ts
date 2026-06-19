@@ -81,14 +81,20 @@ export function calculateOrderEarningsPreview(params: {
 export const facetSections: Array<{
   dimension: Exclude<CreatorFacetDimension, "LANGUAGE">;
   label: string;
+  /** Required to go live (shown with a * in the editor). */
+  required?: boolean;
 }> = [
-  { dimension: "CONTENT_FORMAT", label: "Content format" },
+  { dimension: "CONTENT_FORMAT", label: "Content format", required: true },
   { dimension: "APPEARANCE", label: "Appearance" },
   { dimension: "CONTENT_STYLE", label: "Content style" },
   { dimension: "CAPABILITY", label: "Capabilities" },
   { dimension: "LIFE_STYLE", label: "Lifestyle" },
-  { dimension: "CONTENT_CATEGORY", label: "Content category" },
-  { dimension: "CATEGORY_EXPERIENCE", label: "Category experience" },
+  { dimension: "CONTENT_CATEGORY", label: "Content category", required: true },
+  {
+    dimension: "CATEGORY_EXPERIENCE",
+    label: "Category experience",
+    required: true,
+  },
   { dimension: "OCCUPATION", label: "Occupation" },
   { dimension: "CAN_CREATE_WITH", label: "Can create with" },
   { dimension: "AI_CONTENT_PERMISSION", label: "AI content permission" },

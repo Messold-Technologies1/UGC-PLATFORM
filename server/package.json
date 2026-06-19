@@ -23,7 +23,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:backfill:creator-approvals": "ts-node prisma/backfill-creator-approvals.ts",
-    "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts"
+    "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
+    "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

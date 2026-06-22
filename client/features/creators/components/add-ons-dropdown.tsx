@@ -76,6 +76,12 @@ export const AddOnsDropdown = memo(function AddOnsDropdown({
                       {addon.description}
                     </span>
                   )}
+                  {addon.deliveryDays != null && (
+                    <span className="text-xs font-medium text-primary mt-0.5">
+                      Delivery in {addon.deliveryDays} day
+                      {addon.deliveryDays === 1 ? "" : "s"}
+                    </span>
+                  )}
                 </div>
               </DropdownMenuCheckboxItem>
             );

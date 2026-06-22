@@ -187,6 +187,12 @@ export const PackagesTab = memo(function PackagesTab({
                           {addon.description}
                         </span>
                       ) : null}
+                      {addon.deliveryDays != null ? (
+                        <span className="mt-0.5 block text-xs font-medium text-primary">
+                          Delivery in {addon.deliveryDays} day
+                          {addon.deliveryDays === 1 ? "" : "s"}
+                        </span>
+                      ) : null}
                     </span>
                   </label>
                 </li>

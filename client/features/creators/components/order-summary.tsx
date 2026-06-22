@@ -79,7 +79,14 @@ export const OrderSummary = memo(function OrderSummary({
                   key={addon.id}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="font-medium">{addon.label}</span>
+                  <span className="font-medium">
+                    {addon.label}
+                    {addon.deliveryDays != null ? (
+                      <span className="ml-1 text-xs font-normal text-primary">
+                        ({addon.deliveryDays}d delivery)
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="font-semibold text-muted-foreground">
                     +₹{addon.price.toLocaleString("en-IN")}
                   </span>

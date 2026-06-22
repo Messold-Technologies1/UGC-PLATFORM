@@ -137,7 +137,7 @@ export default function WishlistDetailPage() {
     }
   }
 
-  const totalPrice = wishlist?.creators
+  const totalPrice = (wishlist?.creators ?? [])
     .map((c) => {
       if (!c.packages || c.packages.length === 0) return 0;
       return Math.min(...c.packages.map((p) => Number(p.priceAmount)));
@@ -145,8 +145,8 @@ export default function WishlistDetailPage() {
     .reduce((a, b) => a + b, 0);
 
   return (
-    <div className="flex flex-col bg-gray-50 lg:flex-row">
-      <aside className="w-full p-4 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+    <div className="flex flex-col bg-gray-50 lg:flex-row flex-1 border-t border-gray-200/60 mt-3 lg:mt-4">
+      <aside className="w-full pl-4 sm:pl-6 lg:pl-8 xl:pl-10 2xl:pl-12 pr-4 pt-6 pb-6 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
         <WishlistSidebar
           wishlists={wishlists}
           activeId={id}
@@ -154,7 +154,7 @@ export default function WishlistDetailPage() {
         />
       </aside>
 
-      <div className="flex-1 min-w-0 w-full px-4 py-4 sm:px-6 sm:py-6">
+      <div className="flex-1 min-w-0 w-full pr-4 sm:pr-6 lg:pr-8 xl:pr-10 2xl:pr-12 pl-4 pt-6 pb-6">
         {detailLoading ? (
           <div className="space-y-4">
             <div className="h-8 w-56 rounded-xl bg-muted animate-pulse" />

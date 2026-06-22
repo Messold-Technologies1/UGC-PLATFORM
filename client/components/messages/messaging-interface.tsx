@@ -483,7 +483,7 @@ function MessagingInterfaceContent({
   };
 
   return (
-    <div className="w-full px-4 py-4 sm:px-6 md:px-8 md:py-6 flex flex-col">
+    <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 md:py-5 flex flex-col">
       <div className="flex gap-6">
         <div className="flex min-w-0 flex-1 flex-col pr-2">
           <div className="relative flex h-[calc(100vh-200px)] min-h-[500px] max-h-[800px] min-w-0 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-background shadow-xl shadow-slate-200/40 dark:shadow-none">

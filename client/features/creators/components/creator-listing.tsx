@@ -382,7 +382,10 @@ export function CreatorListing({
       />
 
       <div
-        className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6"
+        className={cn(
+          "flex-1 bg-[#f4f4f5] px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-10 pt-6",
+          landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8" : ""
+        )}
         {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
       >
         {isPending && !data ? (

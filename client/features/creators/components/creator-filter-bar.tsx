@@ -786,7 +786,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 
   return (
     <div
-      className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6]"
+      className={cn(
+        "sticky top-0 z-40 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6]",
+        landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12" : ""
+      )}
       role="search"
       aria-label="Creator filters"
       {...(!landingPage ? { "data-tour": "brand-creators-filters" } : {})}

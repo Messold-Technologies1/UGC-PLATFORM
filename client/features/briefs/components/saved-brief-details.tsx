@@ -146,7 +146,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   return (
     <>
       <div
-        className={`mx-auto p-4 sm:p-6 md:p-8 ${isFromOrder ? "w-full" : "w-full"}`}
+        className={`w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8`}
       >
         <div className={isFromOrder ? "flex gap-0 lg:items-start" : ""}>
           <div className="flex-1 min-w-0 flex flex-col gap-8">

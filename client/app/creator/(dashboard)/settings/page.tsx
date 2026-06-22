@@ -29,7 +29,7 @@ const sections = [
 
 export default function CreatorSettingsPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pt-4 lg:pt-5">
       <PageHeader
         title="Settings"
         description="Manage your creator profile and preferences"

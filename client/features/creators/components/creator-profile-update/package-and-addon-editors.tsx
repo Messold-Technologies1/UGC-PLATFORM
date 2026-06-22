@@ -11,6 +11,7 @@ import {
   PACKAGE_MAX_VIDEO_LENGTH_SECONDS,
   PACKAGE_MIN_DELIVERY_DAYS,
   normalizeWholeNumberInput,
+  addOnDeliveryDaysError,
   type PackageDraft,
   type AddOnDraft,
 } from "@/features/creators/hooks/creator-profile-form-utils";
@@ -197,6 +198,7 @@ export function AddOnCatalogEditor({
   disabled,
   onToggle,
   onDraftChange,
+  packageDeliveryDays,
 }: {
   options: CreatorAddOnOption[];
   selectedSlugs: string[];
@@ -205,6 +207,7 @@ export function AddOnCatalogEditor({
   disabled: boolean;
   onToggle: (option: CreatorAddOnOption) => void;
   onDraftChange: (slug: string, patch: Partial<AddOnDraft>) => void;
+  packageDeliveryDays: number | null;
 }) {
   return (
     <div>
@@ -339,6 +342,61 @@ export function AddOnCatalogEditor({
                         placeholder="Optional"
                       />
                     </div>
+                    {option.affectsDeliveryDays ? (
+                      (() => {
+                        const deliveryError = addOnDeliveryDaysError(
+                          option,
+                          draft.deliveryDays,
+                          packageDeliveryDays,
+                        );
+                        return (
+                          <div className="pe-field">
+                            <label htmlFor={`addon-delivery-${option.slug}`}>
+                              Delivery in (days)
+                              <span
+                                className="pe-required"
+                                aria-label="required"
+                                title="Required"
+                              >
+                                {" "}
+                                *
+                              </span>
+                            </label>
+                            <input
+                              id={`addon-delivery-${option.slug}`}
+                              className="pe-input"
+                              disabled={disabled}
+                              inputMode="numeric"
+                              value={draft.deliveryDays ?? ""}
+                              onChange={(e) =>
+                                onDraftChange(option.slug, {
+                                  deliveryDays: normalizeWholeNumberInput(
+                                    e.target.value,
+                                  ),
+                                })
+                              }
+                              placeholder={
+                                packageDeliveryDays
+                                  ? `Less than ${packageDeliveryDays}`
+                                  : "e.g. 3"
+                              }
+                              aria-invalid={!!deliveryError}
+                            />
+                            <span className="pe-help">
+                              Must be faster than your standard delivery time.
+                            </span>
+                            {deliveryError ? (
+                              <p
+                                className="pe-help text-destructive"
+                                style={{ color: "var(--destructive)" }}
+                              >
+                                {deliveryError}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })()
+                    ) : null}
                   </div>
                 ) : null}
               </div>

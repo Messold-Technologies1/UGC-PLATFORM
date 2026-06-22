@@ -83,6 +83,12 @@ const AddOnRow = React.memo(function AddOnRow({
         {addOn.description ? (
           <span className="om-addon-desc">{addOn.description}</span>
         ) : null}
+        {addOn.deliveryDays != null ? (
+          <span className="om-addon-desc">
+            Delivery in {addOn.deliveryDays} day
+            {addOn.deliveryDays === 1 ? "" : "s"}
+          </span>
+        ) : null}
       </span>
     </label>
   );

@@ -223,9 +223,14 @@ function CreatorProfileUpdateFormContent({
     enabled: Boolean(user),
   });
   const packages = useCreatorPackagesForm({ initialProfile });
+  const packageDeliveryDays = (() => {
+    const raw = Number(packages.packageDraft.deliveryDays);
+    return Number.isInteger(raw) && raw > 0 ? raw : null;
+  })();
   const addOns = useCreatorAddOnsForm({
     initialProfile,
     enabled: Boolean(user),
+    packageDeliveryDays,
   });
   const myPortfolioQuery = useMyPortfolioVideosQuery({
     enabled: !adminMode,
@@ -1607,6 +1612,7 @@ function CreatorProfileUpdateFormContent({
                 drafts={addOns.addOnDrafts}
                 unmatchedNames={addOns.hydratedAddOns.unmatchedNames}
                 disabled={pending}
+                packageDeliveryDays={packageDeliveryDays}
                 onToggle={(option) => {
                   addOns.toggleAddOn(option);
                   markDirty();

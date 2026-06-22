@@ -13,7 +13,7 @@ export function DashboardPageHeaderSkeleton() {
 export function CreatorsBrowserLoadingShell() {
   return (
     <div
-      className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8 -mt-6"
+      className="flex w-full min-w-0 flex-col lg:flex-row lg:items-start gap-8"
       aria-busy="true"
       aria-label="Loading creators"
     >

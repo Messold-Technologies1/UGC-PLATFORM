@@ -3,7 +3,16 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Share2, Pencil, X, Plus, Check, Loader2, Lock, UserMinus } from "lucide-react";
+import {
+  Share2,
+  Pencil,
+  X,
+  Plus,
+  Check,
+  Loader2,
+  Lock,
+  UserMinus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +57,8 @@ export default function WishlistDetailPage() {
   const { data: allData, isLoading: listsLoading } = useWishlistsQuery();
   const wishlists = allData?.items ?? [];
 
-  const { data: wishlist, isLoading: detailLoading } = useWishlistDetailQuery(id);
+  const { data: wishlist, isLoading: detailLoading } =
+    useWishlistDetailQuery(id);
   const enableShareMutation = useEnableWishlistShareMutation(id);
   const disableShareMutation = useDisableWishlistShareMutation(id);
   const updateMutation = useUpdateWishlistMutation(id);
@@ -137,7 +147,11 @@ export default function WishlistDetailPage() {
   return (
     <div className="flex flex-col bg-gray-50 lg:flex-row">
       <aside className="w-full p-4 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
-        <WishlistSidebar wishlists={wishlists} activeId={id} isLoading={listsLoading} />
+        <WishlistSidebar
+          wishlists={wishlists}
+          activeId={id}
+          isLoading={listsLoading}
+        />
       </aside>
 
       <div className="flex-1 min-w-0 w-full px-4 py-4 sm:px-6 sm:py-6">
@@ -156,8 +170,16 @@ export default function WishlistDetailPage() {
         ) : (
           <>
             {!listsLoading && wishlists.length > 0 ? (
-              <div className="mb-4 lg:hidden" data-tour="brand-wishlists-mobile-switch">
-                <Select value={id} onValueChange={(wishlistId) => router.push(`/brand/wishlists/${wishlistId}`)}>
+              <div
+                className="mb-4 lg:hidden"
+                data-tour="brand-wishlists-mobile-switch"
+              >
+                <Select
+                  value={id}
+                  onValueChange={(wishlistId) =>
+                    router.push(`/brand/wishlists/${wishlistId}`)
+                  }
+                >
                   <SelectTrigger className="h-10 rounded-xl bg-white shadow-sm">
                     <SelectValue placeholder="Switch wishlist" />
                   </SelectTrigger>
@@ -221,12 +243,17 @@ export default function WishlistDetailPage() {
                       asChild
                       aria-label="Add creators"
                     >
-                      <Link href="/brand/creators" data-tour="brand-wishlists-add-creators">
+                      <Link
+                        href="/brand/creators"
+                        data-tour="brand-wishlists-add-creators"
+                      >
                         <Plus size={15} />
                       </Link>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent sideOffset={6}>Browse and add creators</TooltipContent>
+                  <TooltipContent sideOffset={6}>
+                    Browse and add creators
+                  </TooltipContent>
                 </Tooltip>
 
                 {/* Remove creators */}
@@ -244,7 +271,9 @@ export default function WishlistDetailPage() {
                         <UserMinus size={15} />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Remove creators</TooltipContent>
+                    <TooltipContent sideOffset={6}>
+                      Remove creators
+                    </TooltipContent>
                   </Tooltip>
                 )}
 
@@ -269,7 +298,9 @@ export default function WishlistDetailPage() {
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent sideOffset={6}>Copy share link</TooltipContent>
+                      <TooltipContent sideOffset={6}>
+                        Copy share link
+                      </TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -289,7 +320,9 @@ export default function WishlistDetailPage() {
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent sideOffset={6}>Make private</TooltipContent>
+                      <TooltipContent sideOffset={6}>
+                        Make private
+                      </TooltipContent>
                     </Tooltip>
                   </>
                 ) : (
@@ -311,7 +344,9 @@ export default function WishlistDetailPage() {
                         )}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Share wishlist</TooltipContent>
+                    <TooltipContent sideOffset={6}>
+                      Share wishlist
+                    </TooltipContent>
                   </Tooltip>
                 )}
 
@@ -330,7 +365,9 @@ export default function WishlistDetailPage() {
                       <Pencil size={15} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent sideOffset={6}>Rename wishlist</TooltipContent>
+                  <TooltipContent sideOffset={6}>
+                    Rename wishlist
+                  </TooltipContent>
                 </Tooltip>
 
                 {/* Delete */}
@@ -347,13 +384,18 @@ export default function WishlistDetailPage() {
                       <X size={15} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent sideOffset={6}>Delete wishlist</TooltipContent>
+                  <TooltipContent sideOffset={6}>
+                    Delete wishlist
+                  </TooltipContent>
                 </Tooltip>
               </div>
             </div>
 
             <p className="text-sm text-muted-foreground mb-5 flex items-center gap-1.5 flex-wrap">
-              <span>{wishlist.creatorCount} creator{wishlist.creatorCount !== 1 ? "s" : ""}</span>
+              <span>
+                {wishlist.creatorCount} creator
+                {wishlist.creatorCount !== 1 ? "s" : ""}
+              </span>
               {totalPrice !== undefined && totalPrice > 0 && (
                 <>
                   <span className="opacity-40">·</span>
@@ -382,7 +424,10 @@ export default function WishlistDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div className="reelgrid browse-redesign-scope !mt-0" data-tour="brand-wishlists-creators">
+              <div
+                className="reelgrid browse-redesign-scope !mt-0"
+                data-tour="brand-wishlists-creators"
+              >
                 {listingCreators.map((creator, index) => (
                   <CreatorCard
                     key={creator.id}

@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import type { PostAuthRole } from "@/features/auth/lib/post-auth-destination";
 
 const dashboardMainColumnClass =
-  "w-full max-w-none px-4 pt-4 pb-8 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
+  "w-full max-w-none px-4 pb-8 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
 
 const dashboardContentClass: Record<PostAuthRole, string> = {
   creator: dashboardMainColumnClass,

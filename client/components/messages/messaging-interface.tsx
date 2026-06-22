@@ -96,7 +96,10 @@ function initials(value: string) {
 }
 
 function colorForId(id: string) {
-  const total = Array.from(id).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const total = Array.from(id).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0,
+  );
   return AVATAR_COLORS[total % AVATAR_COLORS.length];
 }
 
@@ -151,7 +154,11 @@ function mapBrandChat(
       displayName: item.creator.displayName,
       city: item.creator.city,
     },
-    isChatLocked: item.isChatLocked || ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(item.status.toUpperCase()),
+    isChatLocked:
+      item.isChatLocked ||
+      ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(
+        item.status.toUpperCase(),
+      ),
   };
 }
 
@@ -181,7 +188,11 @@ function mapCreatorChat(
       updatedAt: item.updatedAt,
     },
     brand: item.brand,
-    isChatLocked: item.isChatLocked || ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(item.status.toUpperCase()),
+    isChatLocked:
+      item.isChatLocked ||
+      ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(
+        item.status.toUpperCase(),
+      ),
   };
 }
 
@@ -413,16 +424,20 @@ function MessagingInterfaceContent({
   role,
 }: MessagingInterfaceProps & { initialOrderId: string | null }) {
   const { user } = useAuth();
-  const [selectedConversationId, setSelectedConversationId] =
-    useState<string | null>(initialOrderId);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(initialOrderId);
   const [inboxTab, setInboxTab] = useState<"all" | "unread">("all");
 
   const brandChatsQuery = useBrandChatsInfiniteQuery(CHATS_INBOX_PAGE_SIZE, {
     enabled: role === "brand",
   });
-  const creatorChatsQuery = useCreatorChatsInfiniteQuery(CHATS_INBOX_PAGE_SIZE, {
-    enabled: role === "creator",
-  });
+  const creatorChatsQuery = useCreatorChatsInfiniteQuery(
+    CHATS_INBOX_PAGE_SIZE,
+    {
+      enabled: role === "creator",
+    },
+  );
 
   const conversations = useMemo(() => {
     const viewerUserId = user?.id;
@@ -446,11 +461,12 @@ function MessagingInterfaceContent({
       ? selectedConversationId
       : selectedConversationExists
         ? selectedConversationId
-        : conversations[0]?.id ?? null;
+        : (conversations[0]?.id ?? null);
   const selectedConversation =
     listSelectedId != null
-      ? conversations.find((conversation) => conversation.id === listSelectedId) ??
-        null
+      ? (conversations.find(
+          (conversation) => conversation.id === listSelectedId,
+        ) ?? null)
       : null;
   const activeChatsQuery =
     role === "brand" ? brandChatsQuery : creatorChatsQuery;
@@ -539,11 +555,13 @@ function MessagingInterfaceInner(props: MessagingInterfaceProps) {
 
 export function MessagingInterface(props: MessagingInterfaceProps) {
   return (
-    <Suspense fallback={
-      <div className="flex h-[500px] w-full items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex h-[500px] w-full items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
+      }
+    >
       <MessagingInterfaceInner {...props} />
     </Suspense>
   );

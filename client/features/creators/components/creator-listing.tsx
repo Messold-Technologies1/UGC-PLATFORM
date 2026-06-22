@@ -368,7 +368,7 @@ export function CreatorListing({
   }
 
   return (
-    <div className="flex flex-1 w-full min-w-0 flex-col -mt-6">
+    <div className="flex flex-1 w-full min-w-0 flex-col">
       <CreatorFilterBar
         filters={filters}
         onChange={handleFiltersChange}

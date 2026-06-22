@@ -14,6 +14,8 @@ interface CreatorDeliveryAssetsCardProps {
   orderId: string;
   title: string;
   emptyLabel: string;
+  action?: React.ReactNode;
+  hideEmptyState?: boolean;
 }
 
 function formatDateTime(value?: string | null): string | null {
@@ -93,6 +95,8 @@ export function CreatorDeliveryAssetsCard({
   orderId,
   title,
   emptyLabel,
+  action,
+  hideEmptyState,
 }: CreatorDeliveryAssetsCardProps) {
   const { data, isLoading } = useGetCreatorOrderDeliveriesQuery(orderId, {
     enabled: Boolean(orderId),
@@ -107,6 +111,7 @@ export function CreatorDeliveryAssetsCard({
       <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
         <h3 className="font-bold text-sm mb-4">{title}</h3>
         <Skeleton className="h-36 w-full rounded-lg" />
+        {action}
       </div>
     );
   }
@@ -148,14 +153,16 @@ export function CreatorDeliveryAssetsCard({
             ))}
           </div>
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
+      ) : !hideEmptyState ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center flex-1">
           <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center mb-3">
             <FileVideo className="w-5 h-5 text-muted-foreground/50" />
           </div>
           <p className="text-sm text-muted-foreground">{emptyLabel}</p>
         </div>
-      )}
+      ) : null}
+
+      {action}
     </div>
   );
 }

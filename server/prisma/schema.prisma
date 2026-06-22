@@ -301,12 +301,17 @@ model CreatorProfile {
   /// Optional Google Drive folder/file link shared at signup (viewer access).
   driveLink           String?
   youtubeUrl          String?
-  tiktokUrl           String?
   snapchatUrl         String?
   contentVolume       CreatorContentVolumeBucket?
   collaborationCount  Int                         @default(0)
   travelRadius        Int?
   onLocationAvailable Boolean                     @default(false)
+  /// One-way latch: set true the first time the creator meets every Go-Live
+  /// requirement. Never reverts — later edits/deletions do not clear it.
+  completeProfile     Boolean                     @default(false)
+  /// Derived discovery gate = (approval APPROVED) AND completeProfile.
+  /// Brands only ever see creators where this is true.
+  isListed            Boolean                     @default(false)
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
@@ -331,6 +336,9 @@ model CreatorProfile {
   @@index([dateOfBirth])
   @@index([gender])
   @@index([onLocationAvailable])
+  @@index([isListed])
+  @@index([completeProfile])
+  @@index([completeProfile, isListed])
   @@index([createdAt])
 }
 

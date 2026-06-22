@@ -10,6 +10,7 @@ import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
 import { PresignPortfolioUploadDto } from './dto/presign-portfolio-upload.dto';
 import { UpdatePortfolioVideoDto } from './dto/update-portfolio-video.dto';
 import { PortfolioVideoResponseDto } from './dto/portfolio-video-response.dto';
+import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
 
 function normalizeList(values: string[] | undefined): string[] {
   if (!values) return [];
@@ -195,6 +196,11 @@ export class CreatorPortfolioService {
       include: { tags: true },
     });
 
+    // A new public video may complete the ≥3-videos rule → latch completeProfile.
+    if (visibility === PortfolioVisibilityStatus.PUBLIC) {
+      await recomputeCreatorListingState(this.prisma, profile.id);
+    }
+
     return this.mapVideo(created);
   }
 
@@ -361,6 +367,9 @@ export class CreatorPortfolioService {
         } as any,
         include: { tags: true },
       });
+
+      // Flipping a video to public may complete the ≥3-videos rule.
+      await recomputeCreatorListingState(tx, profile.id);
 
       return this.mapVideo(updated);
     });

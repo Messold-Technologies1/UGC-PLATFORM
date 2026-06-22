@@ -118,7 +118,6 @@ export type CreatorProfileItemApi = {
   contactEmail?: string | null;
   instagramUrl?: string | null;
   youtubeUrl?: string | null;
-  tiktokUrl?: string | null;
   snapchatUrl?: string | null;
   contentVolume?: CreatorContentVolumeBucket | string | null;
   collaborationCount?: number;
@@ -142,6 +141,10 @@ export type CreatorProfileItemApi = {
   totalEarnings?: number;
   responseRate?: number;
   topReviews?: CreatorRatingReviewApi[];
+  /** One-way Go-Live latch: true once every requirement has been met. */
+  completeProfile?: boolean;
+  /** Discovery gate = approved AND completeProfile. */
+  isListed?: boolean;
 };
 
 export type SuggestedCreatorContentCategoryApi = {

@@ -158,7 +158,7 @@ export default function RejectedCreatorRow({
             Review
           </button>
           <Button variant="ghost" size="icon" className="size-9" asChild>
-            <Link href={`/admin/creatorManagement/${creator.id}`}>
+            <Link href={`/admin/creators/${creator.id}`}>
               <Pencil className="size-4" />
             </Link>
           </Button>

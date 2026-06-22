@@ -5,6 +5,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
+import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import {
   ageGroupToAgeRange,
   dateOfBirthRangeForAgeFilter,
@@ -118,7 +119,11 @@ export function buildPortfolioVideoMatchWhere(
 }
 
 export type BuildListCreatorsWhereOptions = {
-  /** When true (default), only creators with APPROVED approval appear in discovery lists. */
+  /**
+   * When true (default), only listed creators appear in discovery lists.
+   * `isListed` is the denormalized gate = (approval APPROVED) AND completeProfile,
+   * so a single indexed predicate replaces the approval join + completeness check.
+   */
   requireApproved?: boolean;
 };
 
@@ -133,9 +138,7 @@ export function buildListCreatorsWhere(
   const clauses: Prisma.CreatorProfileWhereInput[] = [];
 
   if (requireApproved) {
-    clauses.push({
-      creatorApproval: { status: ApprovalStatus.APPROVED },
-    });
+    clauses.push({ isListed: true });
   }
 
   const city = query.city?.trim();
@@ -345,4 +348,45 @@ export function buildAdminCreatorApprovalSearchWhere(
   return {
     displayName: { contains: q, mode: 'insensitive' },
   };
+}
+
+/** Admin unified creator list segments. */
+export function buildAdminCreatorsListWhere(
+  segment: AdminCreatorListSegment,
+  search?: string,
+): Prisma.CreatorProfileWhereInput {
+  const searchClause = buildAdminCreatorApprovalSearchWhere(search);
+
+  let segmentClause: Prisma.CreatorProfileWhereInput;
+  switch (segment) {
+    case AdminCreatorListSegment.PENDING:
+      segmentClause = {
+        creatorApproval: { status: ApprovalStatus.PENDING },
+      };
+      break;
+    case AdminCreatorListSegment.APPROVED:
+      segmentClause = {
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      };
+      break;
+    case AdminCreatorListSegment.NON_APPROVED:
+      segmentClause = {
+        creatorApproval: { status: ApprovalStatus.REJECTED },
+      };
+      break;
+    case AdminCreatorListSegment.INCOMPLETE:
+      segmentClause = {
+        completeProfile: false,
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      };
+      break;
+    case AdminCreatorListSegment.LISTED:
+      segmentClause = { isListed: true };
+      break;
+    default:
+      segmentClause = {};
+  }
+
+  if (!searchClause) return segmentClause;
+  return { AND: [segmentClause, searchClause] };
 }

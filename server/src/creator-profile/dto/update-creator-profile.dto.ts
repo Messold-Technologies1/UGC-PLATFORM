@@ -131,15 +131,6 @@ export class UpdateCreatorProfileDto {
 
   @ApiPropertyOptional({
     example: '@jane',
-    description: 'TikTok handle or profile URL (plain string).',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  tiktokUrl?: string;
-
-  @ApiPropertyOptional({
-    example: '@jane',
     description: 'Snapchat handle or profile URL (plain string).',
   })
   @IsOptional()

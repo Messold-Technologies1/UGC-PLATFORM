@@ -5,10 +5,12 @@ import {
 } from '@prisma/client';
 import {
   buildAdminCreatorApprovalSearchWhere,
+  buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
   buildPortfolioVideoMatchWhere,
 } from './creator-list-filters.util';
+import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 
 describe('creator-list-filters.util', () => {
@@ -61,13 +63,13 @@ describe('creator-list-filters.util', () => {
   });
 
   describe('buildListCreatorsWhere', () => {
-    it('requires APPROVED approval when no other filters', () => {
+    it('requires listed creators when no other filters', () => {
       expect(buildListCreatorsWhere({})).toEqual({
-        creatorApproval: { status: ApprovalStatus.APPROVED },
+        isListed: true,
       });
     });
 
-    it('omits approval filter when requireApproved is false', () => {
+    it('omits listing filter when requireApproved is false', () => {
       expect(buildListCreatorsWhere({}, { requireApproved: false })).toEqual(
         {},
       );
@@ -79,7 +81,7 @@ describe('creator-list-filters.util', () => {
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             facetSelections: {
               some: {
@@ -101,7 +103,7 @@ describe('creator-list-filters.util', () => {
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           { city: { contains: 'Kolkata', mode: 'insensitive' } },
           {
             portfolioVideos: {
@@ -128,7 +130,7 @@ describe('creator-list-filters.util', () => {
       const q: ListCreatorsQueryDto = { minPrice: 100, maxPrice: 500 };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             packages: {
               some: {
@@ -144,7 +146,7 @@ describe('creator-list-filters.util', () => {
       const q: ListCreatorsQueryDto = { minPrice: 50 };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             packages: {
               some: {
@@ -160,7 +162,7 @@ describe('creator-list-filters.util', () => {
       const q: ListCreatorsQueryDto = { maxPrice: 1000 };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             packages: {
               some: {
@@ -215,6 +217,52 @@ describe('creator-list-filters.util', () => {
     it('matches display name only', () => {
       expect(buildAdminCreatorApprovalSearchWhere('jane')).toEqual({
         displayName: { contains: 'jane', mode: 'insensitive' },
+      });
+    });
+  });
+
+  describe('buildAdminCreatorsListWhere', () => {
+    it('filters pending creators', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.PENDING)).toEqual({
+        creatorApproval: { status: ApprovalStatus.PENDING },
+      });
+    });
+
+    it('filters approved creators', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.APPROVED)).toEqual({
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      });
+    });
+
+    it('filters rejected creators for non_approved segment', () => {
+      expect(
+        buildAdminCreatorsListWhere(AdminCreatorListSegment.NON_APPROVED),
+      ).toEqual({
+        creatorApproval: { status: ApprovalStatus.REJECTED },
+      });
+    });
+
+    it('filters incomplete profiles for approved creators only', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.INCOMPLETE)).toEqual({
+        completeProfile: false,
+        creatorApproval: { status: ApprovalStatus.APPROVED },
+      });
+    });
+
+    it('filters listed creators', () => {
+      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED)).toEqual({
+        isListed: true,
+      });
+    });
+
+    it('combines segment with search', () => {
+      expect(
+        buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED, 'jane'),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { displayName: { contains: 'jane', mode: 'insensitive' } },
+        ],
       });
     });
   });

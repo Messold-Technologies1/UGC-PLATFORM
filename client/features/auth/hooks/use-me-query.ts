@@ -22,6 +22,8 @@ export type AuthUser = {
   hasCreatorProfile: boolean;
   /** Set when `roles` includes CREATOR; null if no creator profile yet. */
   creatorApprovalStatus?: CreatorApprovalStatus | null;
+  /** Creator's one-way Go-Live latch. Drives the post-login redirect to finish setup. */
+  creatorProfileComplete?: boolean;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
   brandAccessRevoked: boolean;

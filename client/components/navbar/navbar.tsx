@@ -15,11 +15,8 @@ import {
   Users,
   ShoppingCart,
   Briefcase,
-  UserCheck,
-  UserX,
   Settings,
   Package,
-  Activity,
   FileText,
   ChevronDown,
   MessageSquare,
@@ -77,42 +74,9 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase, tourId: "nav-creator-portfolio" },
   ],
   admin: [
-    {
-      label: "Activity",
-      icon: Activity,
-      children: [
-        {
-          href: "/admin/approvals",
-          label: "Creator Approval",
-          icon: UserCheck,
-          description: "Review and approve new creator applications.",
-        },
-        {
-          href: "/admin/rejectedProfiles",
-          label: "Rejected Profiles",
-          icon: UserX,
-          description: "View rejected creator applications.",
-        },
-        {
-          href: "/admin/creatorManagement",
-          label: "Creator Management",
-          icon: Users,
-          description: "Manage existing creators and their profiles.",
-        },
-        {
-          href: "/admin/brandManagement",
-          label: "Brand Management",
-          icon: Users,
-          description: "Manage brand accounts and settings.",
-        },
-        {
-          href: "/admin/orderManagement",
-          label: "Order Management",
-          icon: Package,
-          description: "Oversee platform orders and transactions.",
-        },
-      ],
-    },
+    { href: "/admin/creators", label: "Creators", icon: Users },
+    { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
+    { href: "/admin/orderManagement", label: "Orders", icon: Package },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
 };

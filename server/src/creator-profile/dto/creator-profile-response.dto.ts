@@ -306,9 +306,6 @@ export class CreatorProfileResponseDto {
   @ApiProperty({ type: () => [CreatorAddOnResponseDto] })
   addOns!: CreatorAddOnResponseDto[];
 
-  @ApiPropertyOptional({ type: () => CreatorPortfolioVideoPreviewResponseDto })
-  firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
-
   @ApiProperty({
     type: () => [CreatorTopReviewDto],
     description: 'Top-rated brand reviews (up to 3), highest rating first.',

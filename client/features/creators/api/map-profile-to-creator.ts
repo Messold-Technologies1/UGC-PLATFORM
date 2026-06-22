@@ -54,9 +54,10 @@ function getProfileCategories(profile: ListingProfileApi): string[] {
 }
 
 function getFirstPortfolioVideo(profile: ListingProfileApi) {
-  return isCreatorProfileItemApi(profile)
-    ? (profile.firstPortfolioVideo ?? null)
-    : (profile.portfolioVideos?.[0] ?? null);
+  if (isCreatorProfileItemApi(profile)) {
+    return null;
+  }
+  return profile.portfolioVideos?.[0] ?? null;
 }
 
 function getTravelRadius(profile: ListingProfileApi): number | null {

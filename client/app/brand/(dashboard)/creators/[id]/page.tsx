@@ -7,30 +7,13 @@ import {
   isCreatorProfileUuid,
 } from "@/features/creators/api/fetch-creator-profile";
 import { mapProfileItemToCreatorProfile } from "@/features/creators/api/map-profile-to-creator";
-import type { CreatorProfileItemApi } from "@/features/creators/api/types";
-import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { fetchPublicPortfolioVideosByCreatorIdServer } from "@/features/creator-portfolio/api/fetch-public-portfolio-videos.server";
 import { Button } from "@/components/ui/button";
 
 export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ id: string }>;
-}
-
-function mapFirstPortfolioVideoToInitialVideos(
-  profile: CreatorProfileItemApi,
-): PortfolioVideoApi[] | undefined {
-  const video = profile.firstPortfolioVideo;
-  if (!video) return undefined;
-
-  return [
-    {
-      ...video,
-      language: null,
-      description: null,
-      visibilityStatus: "public",
-    },
-  ];
 }
 
 export async function generateMetadata({
@@ -60,17 +43,20 @@ export default async function CreatorProfilePage({ params }: PageProps) {
     notFound();
   }
 
-  const result = await fetchCreatorProfileById(id);
-  
+  const [result, initialPortfolioVideos] = await Promise.all([
+    fetchCreatorProfileById(id),
+    fetchPublicPortfolioVideosByCreatorIdServer(id),
+  ]);
+
   if (result.ok) {
     const creator = mapProfileItemToCreatorProfile(result.profile);
     return (
       <CreatorProfile
         key={id}
         creator={creator}
-        initialPortfolioVideos={mapFirstPortfolioVideoToInitialVideos(
-          result.profile,
-        )}
+        initialPortfolioVideos={
+          initialPortfolioVideos.length > 0 ? initialPortfolioVideos : undefined
+        }
       />
     );
   }

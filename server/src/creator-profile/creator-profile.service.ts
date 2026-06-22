@@ -321,13 +321,6 @@ export class CreatorProfileService {
     topReviews: CreatorTopReviewDto[] = [],
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
-    const first = (mapped.portfolioVideos ?? [])[0] ?? null;
-    const firstPortfolioVideo = first
-      ? {
-          ...first,
-          tags: (first.tags ?? []).map((t: any) => t.tag).filter(Boolean),
-        }
-      : null;
 
     const dob: Date | null = mapped.dateOfBirth
       ? new Date(mapped.dateOfBirth)
@@ -409,7 +402,6 @@ export class CreatorProfileService {
         description: a.description ?? null,
         deliveryDays: a.deliveryDays ?? null,
       })),
-      firstPortfolioVideo,
       avgRating: mapped.stats?.avgRating?.toString() ?? null,
       reviewCount: mapped.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,

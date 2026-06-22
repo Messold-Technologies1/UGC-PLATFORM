@@ -679,6 +679,29 @@
   border-radius: 7px;
 }
 
+.pkg-addons {
+  margin-top: 22px;
+}
+.pkg-addons h4 {
+  margin-bottom: 0;
+}
+.pkg-addons-hint {
+  margin: 4px 0 12px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.pkg-addon .pkg-price {
+  font-size: 15px;
+}
+.pkg-addon-desc {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
 .pfgrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

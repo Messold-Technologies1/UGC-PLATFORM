@@ -744,9 +744,9 @@ function CreateBriefPageContent() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-0 pt-6 sm:pt-8 pb-0 flex-1 flex flex-col">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 lg:py-4 flex-1 flex flex-col">
         {showBanner && (
-          <div className="max-w-[1240px] mx-auto px-0 lg:px-6 mb-6">
+          <div className="w-full px-0 lg:px-6 mb-6">
             <PaymentSuccessBanner
               orderId={orderId}
               creatorName={creatorName}

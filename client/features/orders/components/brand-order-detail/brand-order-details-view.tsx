@@ -53,7 +53,7 @@ interface BrandOrderDetailsViewProps {
 
 function BrandOrderDetailsSkeleton() {
   return (
-    <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+    <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
       <div className="space-y-2">
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-8 w-56" />
@@ -115,7 +115,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
   if (isError || !data) {
     return (
-      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8">
         <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-8">
           <div className="flex items-start gap-4">
             <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
@@ -191,7 +191,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
   if (showCompletedUI) {
     return (
-      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
         <OrderPageHeader
           orderId={orderId}
           paidAt={order.paidAt}
@@ -239,7 +239,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
   if (showDeliveredUI) {
     return (
-      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
         <OrderPageHeader
           orderId={orderId}
           paidAt={order.paidAt}
@@ -288,7 +288,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
   if (showInProgressUI) {
     return (
-      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
         <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
         
         <OrderProgressStepper 
@@ -331,7 +331,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   }
 
   return (
-    <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
+    <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
       <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
 
       <OrderProgressStepper 

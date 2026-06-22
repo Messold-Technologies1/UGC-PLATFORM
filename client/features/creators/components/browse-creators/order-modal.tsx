@@ -83,6 +83,12 @@ const AddOnRow = React.memo(function AddOnRow({
         {addOn.description ? (
           <span className="om-addon-desc">{addOn.description}</span>
         ) : null}
+        {addOn.deliveryDays != null ? (
+          <span className="om-addon-desc">
+            Delivery in {addOn.deliveryDays} day
+            {addOn.deliveryDays === 1 ? "" : "s"}
+          </span>
+        ) : null}
       </span>
     </label>
   );
@@ -290,10 +296,12 @@ const OrderModalContent = React.memo(function OrderModalContent({
             <div
               className="om-ava"
               style={{
-                background: `linear-gradient(135deg, ${gradA}, ${gradB})`,
+                background: creator.thumbnail
+                  ? `url(${creator.thumbnail}) center/cover no-repeat`
+                  : `linear-gradient(135deg, ${gradA}, ${gradB})`,
               }}
             >
-              {initials}
+              {creator.thumbnail ? null : initials}
             </div>
             <div>
               <div className="om-title">Place order</div>

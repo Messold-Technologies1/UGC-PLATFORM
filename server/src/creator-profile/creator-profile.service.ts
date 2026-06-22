@@ -39,6 +39,13 @@ import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-resp
 import { RejectedCreatorApprovalListItemDto } from './dto/rejected-creator-approval-list-item.dto';
 import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
 import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
+import {
+  AdminCreatorListItemDto,
+  AdminCreatorListSegment,
+  AdminCreatorsListQueryDto,
+  AdminCreatorsListResponseDto,
+  AdminCreatorSegmentCountsDto,
+} from './dto/admin-creator-list.dto';
 import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import type {
   CreatorPublicListItemDto,
@@ -48,6 +55,7 @@ import { CreatorSuggestionItemDto } from './dto/creator-suggestion-item.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import {
   buildAdminCreatorApprovalSearchWhere,
+  buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
@@ -55,6 +63,7 @@ import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
+import { recomputeCreatorListingState } from './creator-listing-state.util';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -108,6 +117,32 @@ const pendingCreatorApprovalInclude = {
       createdAt: true,
     },
   },
+} as const;
+
+/** Include for admin unified creator list (all segments). */
+const adminCreatorListInclude = {
+  user: { select: { phone: true, phoneVerified: true } },
+  facetSelections: { include: { option: true } },
+  creatorApproval: true,
+  packages: {
+    orderBy: { priceAmount: 'asc' as const },
+    take: 1,
+    select: { priceAmount: true },
+  },
+  portfolioVideos: {
+    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    orderBy: { createdAt: 'asc' as const },
+    take: 20,
+    select: {
+      id: true,
+      creatorId: true,
+      videoUrl: true,
+      thumbnailUrl: true,
+      tags: { select: { tag: true } },
+      createdAt: true,
+    },
+  },
+  stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
 
 /**
@@ -288,13 +323,6 @@ export class CreatorProfileService {
     topReviews: CreatorTopReviewDto[] = [],
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
-    const first = (mapped.portfolioVideos ?? [])[0] ?? null;
-    const firstPortfolioVideo = first
-      ? {
-          ...first,
-          tags: (first.tags ?? []).map((t: any) => t.tag).filter(Boolean),
-        }
-      : null;
 
     const dob: Date | null = mapped.dateOfBirth
       ? new Date(mapped.dateOfBirth)
@@ -329,13 +357,14 @@ export class CreatorProfileService {
       contactEmail: mapped.contactEmail ?? null,
       instagramUrl: mapped.instagramUrl ?? null,
       youtubeUrl: mapped.youtubeUrl ?? null,
-      tiktokUrl: mapped.tiktokUrl ?? null,
       snapchatUrl: mapped.snapchatUrl ?? null,
       contentVolume: mapped.contentVolume ?? null,
       collaborationCount: mapped.collaborationCount ?? 0,
       travelRadius: mapped.travelRadius ?? null,
       onLocationAvailable: mapped.onLocationAvailable,
       approvalStatus: mapped.creatorApproval?.status,
+      completeProfile: mapped.completeProfile ?? false,
+      isListed: mapped.isListed ?? false,
       rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
       profileLanguages: (mapped.profileLanguages ?? []).map((row: any) => ({
         id: row.id,
@@ -373,8 +402,8 @@ export class CreatorProfileService {
               ? String(a.priceAmount)
               : '0',
         description: a.description ?? null,
+        deliveryDays: a.deliveryDays ?? null,
       })),
-      firstPortfolioVideo,
       avgRating: mapped.stats?.avgRating?.toString() ?? null,
       reviewCount: mapped.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
@@ -463,7 +492,6 @@ export class CreatorProfileService {
       contactEmail: _contactEmail,
       instagramUrl: _instagramUrl,
       youtubeUrl: _youtubeUrl,
-      tiktokUrl: _tiktokUrl,
       snapchatUrl: _snapchatUrl,
       ...rest
     } = dto;
@@ -472,9 +500,20 @@ export class CreatorProfileService {
 
   private async normalizeCreatorAddOns(
     tx: PrismaTransactionClient,
-    addOns: { slug: string; priceAmount: string; description?: string }[],
+    addOns: {
+      slug: string;
+      priceAmount: string;
+      description?: string;
+      deliveryDays?: number;
+    }[],
+    packageDeliveryDays: number | null,
   ): Promise<
-    { name: string; priceAmount: Prisma.Decimal; description: string | null }[]
+    {
+      name: string;
+      priceAmount: Prisma.Decimal;
+      description: string | null;
+      deliveryDays: number | null;
+    }[]
   > {
     const options = (await (tx as any).creatorAddOnOption.findMany({
       select: {
@@ -483,6 +522,7 @@ export class CreatorProfileService {
         fixedPrice: true,
         minPrice: true,
         stepPrice: true,
+        affectsDeliveryDays: true,
       },
     })) as Array<{
       slug: string;
@@ -490,6 +530,7 @@ export class CreatorProfileService {
       fixedPrice: number | null;
       minPrice: number | null;
       stepPrice: number | null;
+      affectsDeliveryDays: boolean;
     }>;
     const bySlug = new Map<string, (typeof options)[number]>(
       options.map((o) => [o.slug, o]),
@@ -523,10 +564,35 @@ export class CreatorProfileService {
         }
       }
 
+      // Delivery-affecting add-ons (Faster Delivery) require a deliveryDays that
+      // is a positive integer and strictly faster than the package. Non-delivery
+      // add-ons never carry deliveryDays.
+      let deliveryDays: number | null = null;
+      if (rule.affectsDeliveryDays) {
+        const d = a.deliveryDays;
+        if (d == null || !Number.isInteger(d) || d < 1) {
+          throw new BadRequestException(
+            `"${rule.name}" requires a delivery time of at least 1 day.`,
+          );
+        }
+        if (packageDeliveryDays == null) {
+          throw new BadRequestException(
+            `Set up your package before adding "${rule.name}".`,
+          );
+        }
+        if (d >= packageDeliveryDays) {
+          throw new BadRequestException(
+            `"${rule.name}" must be faster than your standard delivery time of ${packageDeliveryDays} day(s).`,
+          );
+        }
+        deliveryDays = d;
+      }
+
       return {
         name: rule.name,
         priceAmount: new Prisma.Decimal(String(n)),
         description: a.description ?? null,
+        deliveryDays,
       };
     });
   }
@@ -750,6 +816,7 @@ export class CreatorProfileService {
         fixedPrice: true,
         minPrice: true,
         stepPrice: true,
+        affectsDeliveryDays: true,
       },
     });
     return { options };
@@ -885,7 +952,7 @@ export class CreatorProfileService {
     const profiles = await this.prisma.creatorProfile.findMany({
       where: {
         id: { in: uniqueIds },
-        creatorApproval: { status: ApprovalStatus.APPROVED },
+        isListed: true,
       },
       include: creatorProfileWithRelationsInclude as any,
     });
@@ -946,7 +1013,7 @@ export class CreatorProfileService {
       where: {
         AND: [
           { id: { not: anchorCreatorId } },
-          { creatorApproval: { status: ApprovalStatus.APPROVED } },
+          { isListed: true },
           {
             facetSelections: {
               some: {
@@ -1257,6 +1324,94 @@ export class CreatorProfileService {
     };
   }
 
+  private mapAdminCreatorListItem(
+    profile: CreatorProfileWithRelations,
+  ): AdminCreatorListItemDto {
+    const base = this.mapPendingCreatorApprovalListItem(profile);
+    const startingPkg = profile.packages?.[0];
+
+    return {
+      ...base,
+      profileImageUrl: profile.profileImageUrl ?? null,
+      completeProfile: profile.completeProfile ?? false,
+      isListed: profile.isListed ?? false,
+      rejectionReason: profile.creatorApproval?.rejectionReason ?? null,
+      rejectedAt:
+        base.approvalStatus === ApprovalStatus.REJECTED
+          ? (profile.creatorApproval?.approvedAt ?? null)
+          : null,
+      approvedAt:
+        base.approvalStatus === ApprovalStatus.APPROVED
+          ? (profile.creatorApproval?.approvedAt ?? null)
+          : null,
+      avgRating: profile.stats?.avgRating?.toString() ?? null,
+      reviewCount: profile.stats?.reviewCount ?? 0,
+      startingPrice: startingPkg?.priceAmount?.toString?.() ?? null,
+      onLocationAvailable: !!profile.onLocationAvailable,
+    };
+  }
+
+  async listAdminCreators(
+    query: AdminCreatorsListQueryDto,
+  ): Promise<AdminCreatorsListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+
+    const where = buildAdminCreatorsListWhere(query.segment, query.search);
+
+    const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
+      query.segment === AdminCreatorListSegment.PENDING
+        ? [{ createdAt: 'asc' }]
+        : query.segment === AdminCreatorListSegment.NON_APPROVED
+          ? [{ creatorApproval: { approvedAt: 'desc' } }]
+          : [{ createdAt: 'desc' }];
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.creatorProfile.count({ where }),
+      this.prisma.creatorProfile.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+        include: adminCreatorListInclude as any,
+      }),
+    ]);
+
+    return {
+      items: items.map((p) => this.mapAdminCreatorListItem(p)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getAdminCreatorSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
+    const segments = [
+      AdminCreatorListSegment.PENDING,
+      AdminCreatorListSegment.APPROVED,
+      AdminCreatorListSegment.NON_APPROVED,
+      AdminCreatorListSegment.INCOMPLETE,
+      AdminCreatorListSegment.LISTED,
+    ] as const;
+
+    const counts = await this.prisma.$transaction(
+      segments.map((segment) =>
+        this.prisma.creatorProfile.count({
+          where: buildAdminCreatorsListWhere(segment),
+        }),
+      ),
+    );
+
+    return {
+      pending: counts[0],
+      approved: counts[1],
+      nonApproved: counts[2],
+      incomplete: counts[3],
+      listed: counts[4],
+    };
+  }
+
   async listPendingCreatorApprovals(
     query: PendingApprovalsQueryDto,
   ): Promise<PendingCreatorsListResponseDto> {
@@ -1367,6 +1522,9 @@ export class CreatorProfileService {
       },
     });
 
+    // Approval can flip isListed true (if the profile is already complete).
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
+
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
       include: creatorProfileWithRelationsInclude as any,
@@ -1410,6 +1568,9 @@ export class CreatorProfileService {
         rejectionReason: rejectionReason?.trim() || null,
       },
     });
+
+    // Rejection must clear isListed so the creator drops out of discovery.
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
 
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
@@ -1558,9 +1719,6 @@ export class CreatorProfileService {
         if (dto.youtubeUrl !== undefined) {
           data.youtubeUrl = dto.youtubeUrl?.trim() || null;
         }
-        if (dto.tiktokUrl !== undefined) {
-          data.tiktokUrl = dto.tiktokUrl?.trim() || null;
-        }
         if (dto.snapchatUrl !== undefined) {
           data.snapchatUrl = dto.snapchatUrl?.trim() || null;
         }
@@ -1648,9 +1806,16 @@ export class CreatorProfileService {
             where: { creatorId: creatorProfileId },
           });
           if (dto.addOns.length > 0) {
+            // Packages are upserted earlier in this transaction, so this reflects
+            // the delivery time that will be in effect for the Faster Delivery check.
+            const pkg = await tx.creatorPackage.findFirst({
+              where: { creatorId: creatorProfileId },
+              select: { deliveryDays: true },
+            });
             const normalizedAddOns = await this.normalizeCreatorAddOns(
               tx,
               dto.addOns as any,
+              pkg?.deliveryDays ?? null,
             );
             await tx.creatorAddOn.createMany({
               data: normalizedAddOns.map((addOn) => ({
@@ -1658,10 +1823,14 @@ export class CreatorProfileService {
                 name: addOn.name,
                 priceAmount: addOn.priceAmount,
                 description: addOn.description,
+                deliveryDays: addOn.deliveryDays,
               })),
             });
           }
         }
+
+        // Latch completeProfile / recompute isListed after all writes land.
+        await recomputeCreatorListingState(tx, creatorProfileId);
 
         const updated = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },
@@ -1710,9 +1879,14 @@ export class CreatorProfileService {
         });
 
         if (payload.length > 0) {
+          const pkg = await (tx as any).creatorPackage.findFirst({
+            where: { creatorId: creatorProfileId },
+            select: { deliveryDays: true },
+          });
           const normalizedAddOns = await this.normalizeCreatorAddOns(
             tx,
             payload as any,
+            pkg?.deliveryDays ?? null,
           );
           await (tx as any).creatorAddOn.createMany({
             data: normalizedAddOns.map((addOn) => ({
@@ -1720,6 +1894,7 @@ export class CreatorProfileService {
               name: addOn.name,
               priceAmount: addOn.priceAmount,
               description: addOn.description,
+              deliveryDays: addOn.deliveryDays,
             })),
           });
         }

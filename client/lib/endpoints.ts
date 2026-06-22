@@ -141,6 +141,8 @@ export const ENDPOINTS = {
   },
   ADMIN: {
     CREATORS: {
+      LIST: "/api/admin/creators",
+      SEGMENT_COUNTS: "/api/admin/creators/segment-counts",
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
       REJECTED_APPROVALS: "/api/admin/creators/rejected-approvals",
       APPROVE: (id: string) =>

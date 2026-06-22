@@ -32,6 +32,7 @@ export function SectionCard({
   desc,
   headerNote,
   tourId,
+  required = false,
   children,
 }: {
   id: string;
@@ -40,6 +41,7 @@ export function SectionCard({
   desc: string;
   headerNote?: string;
   tourId?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -54,6 +56,11 @@ export function SectionCard({
             <IconCmp size={17} />
           </span>
           {title}
+          {required ? (
+            <span className="pe-required" aria-label="required" title="Required to go live">
+              {" "}*
+            </span>
+          ) : null}
         </h3>
         <p>{desc}</p>
         {headerNote ? (
@@ -80,6 +87,7 @@ export function PeSelectField({
   allowClear = false,
   onChange,
   help,
+  required = false,
 }: {
   id: string;
   label: string;
@@ -90,12 +98,20 @@ export function PeSelectField({
   allowClear?: boolean;
   onChange: (value: string) => void;
   help?: string;
+  required?: boolean;
 }) {
   const selectValue = value || (allowClear ? SELECT_NONE : "");
 
   return (
     <div className="pe-field">
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>
+        {label}
+        {required ? (
+          <span className="pe-required" aria-label="required" title="Required to go live">
+            {" "}*
+          </span>
+        ) : null}
+      </label>
       <Select
         disabled={disabled}
         value={selectValue}

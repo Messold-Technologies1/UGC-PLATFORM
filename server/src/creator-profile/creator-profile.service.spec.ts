@@ -67,6 +67,7 @@ interface TxMock {
   };
   creatorPackage: {
     createMany: TxAsyncMock;
+    findFirst: TxAsyncMock;
   };
 }
 
@@ -113,6 +114,7 @@ describe('CreatorProfileService', () => {
     },
     creatorPackage: {
       createMany: createTxAsyncMock(),
+      findFirst: createTxAsyncMock(),
     },
   };
 
@@ -346,7 +348,6 @@ describe('CreatorProfileService', () => {
       contactEmail: 'jane@example.com',
       instagramUrl: null,
       youtubeUrl: null,
-      tiktokUrl: null,
       snapchatUrl: null,
       contentVolume: null,
       collaborationCount: 0,
@@ -403,7 +404,6 @@ describe('CreatorProfileService', () => {
       contactEmail: 'jane@example.com',
       instagramUrl: 'https://instagram.com/jane',
       youtubeUrl: 'https://youtube.com/@jane',
-      tiktokUrl: null,
       snapchatUrl: null,
       contentVolume: null,
       collaborationCount: 0,

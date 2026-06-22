@@ -137,6 +137,11 @@ export const SidebarPricingCard = memo(function SidebarPricingCard({
                       />
                       <span className="text-sm text-foreground">
                         {addon.label}:
+                        {addon.deliveryDays != null ? (
+                          <span className="ml-1 text-xs font-medium text-primary">
+                            ({addon.deliveryDays}d delivery)
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                     <span className="text-sm font-medium text-foreground">

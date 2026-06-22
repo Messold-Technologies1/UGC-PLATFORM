@@ -4,7 +4,7 @@ import { CreatorAccountProfile } from "@/features/account/components/creator-acc
 
 export default function CreatorAccountPage() {
   return (
-    <div>
+    <div className="pt-4 lg:pt-5">
       <CreatorAccountProfile />
     </div>
   );

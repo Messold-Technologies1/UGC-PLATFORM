@@ -137,7 +137,6 @@ export interface CreatorProfileResponseDto {
   restrictions: CreatorRestrictionResponseDto[];
   packages: CreatorPackageResponseDto[];
   addOns: CreatorAddOnResponseDto[];
-  firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
 }
 
 export interface CreatorsListResponseDto {
@@ -184,6 +183,45 @@ export interface PendingApprovalsQueryDto {
   page?: number;
   limit?: number;
   search?: string;
+}
+
+export type AdminCreatorListSegment =
+  | "pending"
+  | "approved"
+  | "non_approved"
+  | "incomplete"
+  | "listed";
+
+export interface AdminCreatorsListQueryDto extends PendingApprovalsQueryDto {
+  segment: AdminCreatorListSegment;
+}
+
+export interface AdminCreatorSegmentCountsDto {
+  pending: number;
+  approved: number;
+  nonApproved: number;
+  incomplete: number;
+  listed: number;
+}
+
+export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemDto {
+  profileImageUrl?: string | null;
+  completeProfile: boolean;
+  isListed: boolean;
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
+  approvedAt?: string | null;
+  avgRating?: string | null;
+  reviewCount?: number;
+  startingPrice?: string | null;
+  onLocationAvailable: boolean;
+}
+
+export interface AdminCreatorsListResponseDto {
+  items: AdminCreatorListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface RejectedCreatorApprovalListItemDto

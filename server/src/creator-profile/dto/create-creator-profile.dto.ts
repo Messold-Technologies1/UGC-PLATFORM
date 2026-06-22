@@ -121,6 +121,17 @@ export class CreatorAddOnCreateDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description:
+      'Only for delivery-affecting add-ons (Faster Delivery): promised delivery in days. Backend enforces 1 <= deliveryDays < package deliveryDays.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  deliveryDays?: number;
 }
 
 export class CreateCreatorProfileDto {
@@ -199,15 +210,6 @@ export class CreateCreatorProfileDto {
   @IsString()
   @MaxLength(500)
   youtubeUrl?: string;
-
-  @ApiPropertyOptional({
-    example: '@jane',
-    description: 'TikTok handle or profile URL (plain string).',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  tiktokUrl?: string;
 
   @ApiPropertyOptional({
     example: '@jane',

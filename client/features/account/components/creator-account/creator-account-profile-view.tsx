@@ -219,9 +219,9 @@ export function CreatorAccountProfileView({
       animate="visible"
     >
       <CreatorPayoutDetailsBanner />
-      <div className="flex flex-col lg:flex-row items-start gap-6">
+      <div className="flex flex-col items-start gap-6 xl:flex-row">
         <motion.div
-          className="min-w-0 flex-1 space-y-6"
+          className="min-w-0 w-full flex-1 space-y-6"
           variants={staggerContainer}
         >
           <motion.section
@@ -239,18 +239,18 @@ export function CreatorAccountProfileView({
               <div className="absolute bottom-0 right-64 h-20 w-10 rounded-t-lg bg-white/10" />
             </div> */}
 
-            <div className="p-6">
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="relative z-10 shrink-0">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col gap-6 sm:flex-row">
+                <div className="relative z-10 mx-auto shrink-0 sm:mx-0">
                   {profile.profileImageUrl ? (
                     <img
                       src={profile.profileImageUrl}
                       alt={profile.displayName}
-                      className="size-28 rounded-full border-4 border-white object-cover shadow-lg ring-1 ring-border bg-white"
+                      className="size-24 rounded-full border-4 border-white object-cover shadow-lg ring-1 ring-border bg-white sm:size-28"
                     />
                   ) : (
                     <div
-                      className="flex size-28 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-violet-400 to-fuchsia-400 text-3xl font-bold text-white shadow-lg ring-1 ring-border"
+                      className="flex size-24 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-violet-400 to-fuchsia-400 text-2xl font-bold text-white shadow-lg ring-1 ring-border sm:size-28 sm:text-3xl"
                       aria-label={`${profile.displayName} avatar`}
                     >
                       {initials}
@@ -258,16 +258,16 @@ export function CreatorAccountProfileView({
                   )}
                 </div>
 
-                <div className="flex flex-1 flex-col md:flex-row md:items-stretch justify-between gap-6">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-2xl font-bold tracking-tight">
+                <div className="flex min-w-0 flex-1 flex-col justify-between gap-6 xl:flex-row xl:items-stretch">
+                <div className="min-w-0 flex-1 text-center sm:text-left">
+                  <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start">
+                    <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
                       {profile.displayName}
                     </h2>
                     <VerifiedBadge />
                   </div>
 
-                  <div className="mt-1.5 flex items-center gap-2 text-sm">
+                  <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm sm:justify-start">
                     {/* <Badge className="rounded-full border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100">
                       Top Creator
                     </Badge> */}
@@ -292,7 +292,7 @@ export function CreatorAccountProfileView({
                     {profile.bio || "No bio provided."}
                   </p>
 
-                  <motion.div layout className="mt-4 flex flex-wrap items-center gap-2">
+                  <motion.div layout className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                     <AnimatePresence>
                       {displayTags.map((tag: string, index: number) => (
                         <motion.span
@@ -323,9 +323,9 @@ export function CreatorAccountProfileView({
                   </motion.div>
                 </div>
 
-                <div className="flex shrink-0 flex-col justify-end gap-3 pb-1">
-                  <div className="flex items-center gap-3">
-                    <Button variant="outline" size="lg" className="gap-2" asChild>
+                <div className="flex w-full shrink-0 flex-col justify-end gap-3 pb-1 xl:w-auto">
+                  <div className="flex flex-col gap-2 sm:flex-row xl:flex-row xl:items-center xl:gap-3">
+                    <Button variant="outline" size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
                       <Link
                         href={publicProfilePath ?? "#"}
                         target="_blank"
@@ -341,7 +341,7 @@ export function CreatorAccountProfileView({
                         <ExternalLink className="size-3.5 opacity-60" />
                       </Link>
                     </Button>
-                    <Button size="lg" className="gap-2" asChild>
+                    <Button size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
                       <Link href="/creator/settings/profile" data-tour="creator-profile-edit">
                         <Pencil className="size-3.5" />
                         Edit Profile
@@ -356,20 +356,17 @@ export function CreatorAccountProfileView({
 
           <motion.section
             variants={fadeInUp}
-            className="flex flex-col md:flex-row rounded-xl border border-border bg-card shadow-sm overflow-hidden"
+            className="grid grid-cols-2 divide-x divide-y overflow-hidden rounded-xl border border-border bg-card shadow-sm xl:flex xl:flex-row xl:divide-x-0 xl:divide-y-0"
             aria-label="Performance metrics"
             data-tour="creator-profile-stats"
           >
             {statsList.map((stat, i) => (
               <Fragment key={stat.label}>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <StatCard stat={stat} />
                 </div>
                 {i < statsList.length - 1 && (
-                  <Separator orientation="vertical" className="hidden md:block h-auto my-6" />
-                )}
-                {i < statsList.length - 1 && (
-                  <Separator orientation="horizontal" className="md:hidden" />
+                  <Separator orientation="vertical" className="hidden h-auto my-6 xl:block" />
                 )}
               </Fragment>
             ))}
@@ -377,10 +374,10 @@ export function CreatorAccountProfileView({
 
           <motion.div
             variants={fadeInUp}
-            className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] xl:grid-cols-[1fr_3fr] gap-6"
+            className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]"
           >
             <section
-              className="rounded-lg border border-border bg-card p-6 shadow-sm"
+              className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6"
               aria-label="About the creator"
             >
               <h3 className="text-lg font-bold">About Me</h3>
@@ -486,7 +483,7 @@ export function CreatorAccountProfileView({
             </section>
 
             <section
-              className="rounded-lg border border-border bg-card p-6 shadow-sm"
+              className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6"
               aria-label="Top portfolio items"
               data-tour="creator-profile-portfolio"
             >
@@ -504,10 +501,14 @@ export function CreatorAccountProfileView({
                 <div
                   className={cn(
                     "mt-5 grid gap-4",
-                    topVideos.length === 1 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-                    topVideos.length === 2 && "grid-cols-2 lg:grid-cols-4",
-                    topVideos.length === 3 && "grid-cols-3",
-                    topVideos.length >= 4 && "grid-cols-4"
+                    topVideos.length === 1 &&
+                      "grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2",
+                    topVideos.length === 2 &&
+                      "grid-cols-1 sm:grid-cols-2 xl:grid-cols-2",
+                    topVideos.length === 3 &&
+                      "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+                    topVideos.length >= 4 &&
+                      "grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
                   )}
                 >
                   {topVideos.map((video) => (
@@ -526,7 +527,7 @@ export function CreatorAccountProfileView({
 
           <motion.div
             variants={fadeInUp}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            className="grid grid-cols-1 gap-6 sm:grid-cols-2"
           >
             <DashboardPayoutDetails />
             <CreatorReviewsCard reviews={profile.topReviews} />
@@ -534,7 +535,7 @@ export function CreatorAccountProfileView({
         </motion.div>
 
         <motion.aside
-          className="w-full lg:w-[300px] shrink-0 space-y-6"
+          className="w-full shrink-0 space-y-6 xl:w-[300px]"
           variants={staggerContainer}
           aria-label="Profile sidebar"
         >
@@ -582,6 +583,12 @@ export function CreatorAccountProfileView({
                           {addOn.description ? (
                             <p className="mt-1 text-xs text-muted-foreground">
                               {addOn.description}
+                            </p>
+                          ) : null}
+                          {addOn.deliveryDays != null ? (
+                            <p className="mt-1 text-xs font-medium text-primary">
+                              Delivery in {addOn.deliveryDays} day
+                              {addOn.deliveryDays === 1 ? "" : "s"}
                             </p>
                           ) : null}
                         </li>

@@ -47,6 +47,8 @@ export type MeUser = {
   accessibleBrands: MeBrandSummary[];
   /** Present when `roles` includes CREATOR; null if no creator profile yet. */
   creatorApprovalStatus?: ApprovalStatus | null;
+  /** Creator's one-way Go-Live latch. Drives the post-login redirect to finish setup. */
+  creatorProfileComplete?: boolean;
 };
 
 export interface AuthResult {
@@ -74,6 +76,7 @@ type MeLookupUser = {
   userRoles: Array<{ role: { name: RoleName | null } }>;
   creatorProfile: {
     id: string;
+    completeProfile: boolean;
     creatorApproval: { status: ApprovalStatus } | null;
   } | null;
   brandProfile: { id: string; brandName: string; logoUrl: string | null } | null;
@@ -552,6 +555,7 @@ export class AuthService {
         creatorProfile: {
           select: {
             id: true,
+            completeProfile: true,
             creatorApproval: { select: { status: true } },
           },
         },
@@ -633,6 +637,7 @@ export class AuthService {
     };
 
     if (roles.includes('CREATOR')) {
+      me.creatorProfileComplete = user.creatorProfile?.completeProfile ?? false;
       me.creatorApprovalStatus = user.creatorProfile
         ? (user.creatorProfile.creatorApproval?.status ??
           ApprovalStatus.PENDING)

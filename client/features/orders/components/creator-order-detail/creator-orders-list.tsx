@@ -73,7 +73,7 @@ export function CreatorOrdersList() {
   }, [allItems, selectedOrderId]);
 
   return (
-    <div className="w-full mx-auto space-y-8 pb-4 pt-2">
+    <div className="w-full mx-auto space-y-8 pb-4 pt-4 lg:pt-5">
       <CreatorOrdersTabs
         activeTab={activeTab}
         onTabChange={(tabId) => {

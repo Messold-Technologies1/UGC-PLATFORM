@@ -64,6 +64,8 @@ export interface AddOn {
   label: string;
   price: number;
   description?: string | null;
+  /** Promised delivery in days for Faster Delivery; null otherwise. */
+  deliveryDays?: number | null;
 }
 
 export interface Review {

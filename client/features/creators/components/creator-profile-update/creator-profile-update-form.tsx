@@ -5,6 +5,15 @@ import { FacetChipSection, LanguageRows } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
+import { GoLiveBanner } from "./go-live-banner";
+import {
+  computeGoLiveMissing,
+  type GoLiveSnapshot,
+} from "@/features/creators/lib/go-live-requirements";
+import {
+  useCreatorProfileDraft,
+  type CreatorProfileDraftFields,
+} from "@/features/creators/hooks/use-creator-profile-draft";
 
 import { motion, type Variants } from "framer-motion";
 
@@ -32,6 +41,7 @@ import {
   Instagram,
   Youtube,
   Ghost,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -104,7 +114,6 @@ const profileFormSchema = z.object({
   displayName: z.string().trim().min(1, "Display name is required"),
   instagramUrl: z.string().trim(),
   youtubeUrl: z.string().trim(),
-  tiktokUrl: z.string().trim(),
   snapchatUrl: z.string().trim(),
   collaborationCount: z.coerce
     .number({ message: "Collaboration count must be a number." })
@@ -214,9 +223,14 @@ function CreatorProfileUpdateFormContent({
     enabled: Boolean(user),
   });
   const packages = useCreatorPackagesForm({ initialProfile });
+  const packageDeliveryDays = (() => {
+    const raw = Number(packages.packageDraft.deliveryDays);
+    return Number.isInteger(raw) && raw > 0 ? raw : null;
+  })();
   const addOns = useCreatorAddOnsForm({
     initialProfile,
     enabled: Boolean(user),
+    packageDeliveryDays,
   });
   const myPortfolioQuery = useMyPortfolioVideosQuery({
     enabled: !adminMode,
@@ -269,12 +283,17 @@ function CreatorProfileUpdateFormContent({
     ? (initialProfile?.contactEmail?.trim() ?? "")
     : (user?.email ?? "");
 
+  // Set after the draft hook runs (declared below); lets the save handler clear
+  // the local draft without a declaration-order cycle.
+  const clearDraftRef = useRef<() => void>(() => {});
+
   const submitCreatorProfileMutation = useSubmitCreatorProfileMutation({
     mode,
     profileId,
     adminMode,
     onSuccess: async () => {
       setIsDirty(false);
+      clearDraftRef.current();
       await onSuccess();
     },
   });
@@ -309,9 +328,6 @@ function CreatorProfileUpdateFormContent({
   const [youtubeUrl, setYoutubeUrl] = useState(
     () => initialProfile?.youtubeUrl?.trim() ?? "",
   );
-  const [tiktokUrl, setTiktokUrl] = useState(
-    () => initialProfile?.tiktokUrl?.trim() ?? "",
-  );
   const [snapchatUrl, setSnapchatUrl] = useState(
     () => initialProfile?.snapchatUrl?.trim() ?? "",
   );
@@ -338,6 +354,121 @@ function CreatorProfileUpdateFormContent({
   );
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
+
+  // One-way Go-Live latch from the server. Once true the profile is live and the
+  // button reverts to a normal "Save changes" (edits no longer gated).
+  const completeProfile = Boolean(initialProfile?.completeProfile);
+
+  const goLiveSnapshot = useMemo<GoLiveSnapshot>(() => {
+    const selectedFacetDimensions = Object.entries(facets.selectedFacets)
+      .filter(([, values]) => Array.isArray(values) && values.length > 0)
+      .map(([dimension]) => dimension);
+    const pkg = packages.packageDraft;
+    const hasPackage =
+      pkg.priceAmount.trim() !== "" &&
+      Number(pkg.videoLengthSeconds) > 0 &&
+      Number(pkg.deliveryDays) > 0;
+    const publicVideoCount = (portfolioQuery.data ?? []).filter(
+      (video) => video.visibilityStatus === "public",
+    ).length;
+    return {
+      hasPhoto: Boolean(profileImage.profileImagePreviewUrl),
+      hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
+      displayName,
+      contactEmail: contactEmailDisplay,
+      bio,
+      countryName: location.countryName ?? "",
+      stateName: location.stateName ?? "",
+      city: location.city ?? "",
+      gender,
+      dateOfBirth,
+      shippingAddress,
+      selectedFacetDimensions,
+      languageCount: facets.languageDrafts.length,
+      hasPackage,
+      publicVideoCount,
+    };
+  }, [
+    facets.selectedFacets,
+    facets.languageDrafts,
+    packages.packageDraft,
+    portfolioQuery.data,
+    profileImage.profileImagePreviewUrl,
+    introVideo.introVideoPreviewUrl,
+    displayName,
+    contactEmailDisplay,
+    bio,
+    location.countryName,
+    location.stateName,
+    location.city,
+    gender,
+    dateOfBirth,
+    shippingAddress,
+  ]);
+
+  const goLiveMissing = useMemo(
+    () => computeGoLiveMissing(goLiveSnapshot),
+    [goLiveSnapshot],
+  );
+
+  // Keep unsaved free-text progress in localStorage until the creator goes live.
+  const draftValues = useMemo<CreatorProfileDraftFields>(
+    () => ({
+      displayName,
+      bio,
+      gender,
+      dateOfBirth,
+      shippingAddress,
+      instagramUrl,
+      youtubeUrl,
+      snapchatUrl,
+      contentVolume,
+      collaborationCount,
+      travelRadius,
+      onLocationAvailable,
+    }),
+    [
+      displayName,
+      bio,
+      gender,
+      dateOfBirth,
+      shippingAddress,
+      instagramUrl,
+      youtubeUrl,
+      snapchatUrl,
+      contentVolume,
+      collaborationCount,
+      travelRadius,
+      onLocationAvailable,
+    ],
+  );
+
+  const applyDraft = useCallback((draft: CreatorProfileDraftFields) => {
+    setDisplayName(draft.displayName);
+    setBio(draft.bio);
+    setGender(draft.gender as CreatorGender | "");
+    setDateOfBirth(draft.dateOfBirth);
+    setShippingAddress(draft.shippingAddress);
+    setInstagramUrl(draft.instagramUrl);
+    setYoutubeUrl(draft.youtubeUrl);
+    setSnapchatUrl(draft.snapchatUrl);
+    setContentVolume(draft.contentVolume as CreatorContentVolumeBucket | "");
+    setCollaborationCount(draft.collaborationCount);
+    setTravelRadius(draft.travelRadius);
+    setOnLocationAvailable(draft.onLocationAvailable);
+    setIsDirty(true);
+  }, []);
+
+  const { clearDraft } = useCreatorProfileDraft({
+    enabled: variant === "settings" && !adminMode && !completeProfile,
+    userId: user?.id,
+    profileId,
+    values: draftValues,
+    apply: applyDraft,
+  });
+  useEffect(() => {
+    clearDraftRef.current = clearDraft;
+  }, [clearDraft]);
 
   useEffect(() => {
     if (variant !== "settings") return;
@@ -379,6 +510,15 @@ function CreatorProfileUpdateFormContent({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
+      // Go-Live gate: until the profile is live, block the save (no API call)
+      // unless every requirement is met, and tell the creator what's missing.
+      if (!completeProfile && goLiveMissing.length > 0) {
+        toast.error(
+          `Complete your profile to go live. Still needed: ${goLiveMissing.join(", ")}.`,
+        );
+        return;
+      }
+
       if (introVideo.uploadingIntroVideo) {
         toast.error("Wait for uploads to finish before saving your profile.");
         return;
@@ -407,7 +547,6 @@ function CreatorProfileUpdateFormContent({
         displayName,
         instagramUrl,
         youtubeUrl,
-        tiktokUrl,
         snapchatUrl,
         collaborationCount,
         travelRadius,
@@ -445,7 +584,6 @@ function CreatorProfileUpdateFormContent({
 
       const instagram = parsedData.instagramUrl || undefined;
       const youtube = parsedData.youtubeUrl || undefined;
-      const tiktok = parsedData.tiktokUrl || undefined;
       const snapchat = parsedData.snapchatUrl || undefined;
       const radius =
         parsedData.travelRadius === "" ? undefined : parsedData.travelRadius;
@@ -492,7 +630,6 @@ function CreatorProfileUpdateFormContent({
         shippingAddress: shippingAddress.trim() || undefined,
         instagramUrl: instagram,
         youtubeUrl: youtube,
-        tiktokUrl: tiktok,
         snapchatUrl: snapchat,
         contentVolume: contentVolume || undefined,
         collaborationCount: parsedData.collaborationCount,
@@ -514,7 +651,6 @@ function CreatorProfileUpdateFormContent({
         if (finalPayload.shippingAddress === (initialProfile.shippingAddress || undefined)) delete finalPayload.shippingAddress;
         if (finalPayload.instagramUrl === (initialProfile.instagramUrl || undefined)) delete finalPayload.instagramUrl;
         if (finalPayload.youtubeUrl === (initialProfile.youtubeUrl || undefined)) delete finalPayload.youtubeUrl;
-        if (finalPayload.tiktokUrl === (initialProfile.tiktokUrl || undefined)) delete finalPayload.tiktokUrl;
         if (finalPayload.snapchatUrl === (initialProfile.snapchatUrl || undefined)) delete finalPayload.snapchatUrl;
         if (finalPayload.contentVolume === (initialProfile.contentVolume || undefined)) delete finalPayload.contentVolume;
         if (finalPayload.collaborationCount === initialProfile.collaborationCount) delete finalPayload.collaborationCount;
@@ -539,7 +675,6 @@ function CreatorProfileUpdateFormContent({
       gender,
       instagramUrl,
       youtubeUrl,
-      tiktokUrl,
       snapchatUrl,
       profileImage,
       introVideo,
@@ -556,6 +691,8 @@ function CreatorProfileUpdateFormContent({
       contactEmailDisplay,
       initialProfile,
       user?.email,
+      completeProfile,
+      goLiveMissing,
     ],
   );
   const handleDiscard = useCallback(() => {
@@ -608,6 +745,11 @@ function CreatorProfileUpdateFormContent({
         animate="visible"
         onSubmit={(event) => void handleSubmit(event)}
       >
+        {isSettings && !completeProfile ? (
+          <div className="mb-4">
+            <GoLiveBanner missing={goLiveMissing} />
+          </div>
+        ) : null}
         {isSettings ? (
           <div className="pe-shell">
             <nav className="pe-nav" data-tour="creator-profile-edit-nav">
@@ -637,6 +779,34 @@ function CreatorProfileUpdateFormContent({
               })}
             </nav>
 
+            <nav
+              className="pe-nav-mobile"
+              aria-label="Profile sections"
+            >
+              {NAV_ITEMS.map((item) => {
+                const count =
+                  item.id === "niche"
+                    ? navCounts.niche
+                    : item.id === "portfolio"
+                      ? navCounts.portfolio
+                      : null;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="pe-nav-mobile-link"
+                    data-active={activeSection === item.id}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                    {count != null ? (
+                      <span className="pe-nav-mobile-count">{count}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+
             <div className="pe-form">{renderFormSections()}</div>
           </div>
         ) : (
@@ -656,7 +826,11 @@ function CreatorProfileUpdateFormContent({
                 <span className="pe-savebar-dot" />
               )}
               <span className="pe-savebar-msg">
-                {pending ? "Saving changes..." : "You have unsaved changes"}
+                {pending
+                  ? "Saving changes..."
+                  : completeProfile
+                    ? "You have unsaved changes"
+                    : "Finish your profile to go live"}
               </span>
               <div className="pe-savebar-actions">
                 <button
@@ -681,12 +855,17 @@ function CreatorProfileUpdateFormContent({
                   {pending ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
-                      Saving…
+                      {completeProfile ? "Saving…" : "Going live…"}
                     </>
-                  ) : (
+                  ) : completeProfile ? (
                     <>
                       <Check size={16} />
                       Save changes
+                    </>
+                  ) : (
+                    <>
+                      <Rocket size={16} />
+                      Go Live
                     </>
                   )}
                 </button>
@@ -734,16 +913,11 @@ function CreatorProfileUpdateFormContent({
             tourId="creator-profile-edit-media"
             icon={Camera}
             title="Photo & intro reel"
+            required
             desc="Your face and a short intro reel build instant trust."
           >
-            <div className="pe-media-grid">
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
+            <div className="pe-media-split">
+              <div className="pe-media-split-col">
                 <CreatorProfileImageField
                   imagePreviewUrl={profileImage.profileImagePreviewUrl}
                   accept={PROFILE_IMAGE_ACCEPT}
@@ -757,15 +931,9 @@ function CreatorProfileUpdateFormContent({
                 />
               </div>
 
-              <div className="pe-media-divider" />
+              <div className="pe-media-split-divider" aria-hidden="true" />
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
+              <div className="pe-media-split-col">
                 <CreatorProfileIntroVideoField
                   videoPreviewUrl={introVideo.introVideoPreviewUrl}
                   accept={INTRO_VIDEO_ACCEPT}
@@ -827,7 +995,12 @@ function CreatorProfileUpdateFormContent({
 
             <div className="pe-grid pe-grid-2">
               <div className="pe-field">
-                <label htmlFor="displayName">Display name</label>
+                <label htmlFor="displayName">
+                  Display name
+                  <span className="pe-required" aria-label="required" title="Required to go live">
+                    {" "}*
+                  </span>
+                </label>
                 <input
                   id="displayName"
                   className="pe-input"
@@ -857,7 +1030,12 @@ function CreatorProfileUpdateFormContent({
               </div>
               {contactEmailDisplay || adminMode ? (
                 <div className="pe-field">
-                  <label htmlFor="contactEmail">Contact email</label>
+                  <label htmlFor="contactEmail">
+                    Contact email
+                    <span className="pe-required" aria-label="required" title="Required to go live">
+                      {" "}*
+                    </span>
+                  </label>
                   <div className="pe-input-wrap">
                     <span className="pe-lead">
                       <MessageSquare size={15} />
@@ -878,6 +1056,9 @@ function CreatorProfileUpdateFormContent({
             <div className="pe-field">
               <label htmlFor="bio">
                 Bio
+                <span className="pe-required" aria-label="required" title="Required to go live">
+                  {" "}*
+                </span>
                 <span className="pe-field-count">{bio.length}/200</span>
               </label>
               <textarea
@@ -923,6 +1104,7 @@ function CreatorProfileUpdateFormContent({
                 <PeSelectField
                   id="country"
                   label="Country"
+                  required
                   value={location.countryCode}
                   placeholder="Select country"
                   disabled={pending}
@@ -941,6 +1123,7 @@ function CreatorProfileUpdateFormContent({
               <PeSelectField
                 id="state"
                 label="State"
+                required
                 value={location.stateCode}
                 placeholder={
                   location.countryCode ? "Select state" : "Select country first"
@@ -963,6 +1146,7 @@ function CreatorProfileUpdateFormContent({
               <PeSelectField
                 id="city"
                 label="City"
+                required
                 value={location.city}
                 placeholder={
                   location.stateCode ? "Select city" : "Select state first"
@@ -985,6 +1169,7 @@ function CreatorProfileUpdateFormContent({
               <PeSelectField
                 id="gender"
                 label="Gender"
+                required
                 value={gender}
                 placeholder="Select gender"
                 disabled={pending}
@@ -996,7 +1181,12 @@ function CreatorProfileUpdateFormContent({
                 }}
               />
               <div className="pe-field">
-                <label htmlFor="dateOfBirth">Date of birth</label>
+                <label htmlFor="dateOfBirth">
+                  Date of birth
+                  <span className="pe-required" aria-label="required" title="Required to go live">
+                    {" "}*
+                  </span>
+                </label>
                 <div style={{ position: "relative" }}>
                   <input
                     id="dateOfBirth"
@@ -1031,7 +1221,9 @@ function CreatorProfileUpdateFormContent({
             <div className="pe-field">
               <label htmlFor="shippingAddress">
                 Shipping address
-                <span className="pe-opt">optional</span>
+                <span className="pe-required" aria-label="required" title="Required to go live">
+                  {" "}*
+                </span>
               </label>
               <textarea
                 id="shippingAddress"
@@ -1122,6 +1314,12 @@ function CreatorProfileUpdateFormContent({
             {!facets.facetOptionsQuery.isLoading &&
             !facets.facetOptionsQuery.isError ? (
               <>
+                <p className="pe-section-required-note">
+                  <span className="pe-required">*</span>
+                  Content format, content category, category experience and at
+                  least one language are required to go live.
+                </p>
+
                 {facetSections.map((section) => {
                   const options =
                     facets.facetOptionsByDimension[section.dimension] ?? [];
@@ -1132,6 +1330,7 @@ function CreatorProfileUpdateFormContent({
                     <FacetChipSection
                       key={section.dimension}
                       label={section.label}
+                      required={section.required}
                       options={options}
                       selected={selected}
                       disabled={pending}
@@ -1347,6 +1546,7 @@ function CreatorProfileUpdateFormContent({
             tourId="creator-profile-edit-packages"
             icon={Layers}
             title="Packages"
+            required
             desc="What brands can book. Set price, delivery and what's included."
             headerNote="GoCollab takes 20% of the complete order value (base package + add-ons)."
           >
@@ -1412,6 +1612,7 @@ function CreatorProfileUpdateFormContent({
                 drafts={addOns.addOnDrafts}
                 unmatchedNames={addOns.hydratedAddOns.unmatchedNames}
                 disabled={pending}
+                packageDeliveryDays={packageDeliveryDays}
                 onToggle={(option) => {
                   addOns.toggleAddOn(option);
                   markDirty();
@@ -1445,7 +1646,8 @@ function CreatorProfileUpdateFormContent({
             tourId="creator-profile-edit-portfolio"
             icon={Film}
             title="Portfolio"
-            desc="Manage your reels. Edit each video's tags, industry, language and visibility."
+            required
+            desc="Manage your reels. Edit each video's tags, industry, language and visibility. At least 3 videos are required to go live."
           >
             {portfolioQuery.isLoading ? (
               <CatalogStatus

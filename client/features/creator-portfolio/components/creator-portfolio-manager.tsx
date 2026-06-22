@@ -239,7 +239,7 @@ export function CreatorPortfolioManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-4 lg:pt-5">
       <div className="flex flex-col xl:flex-row gap-8 items-start">
         <div className="flex-1 w-full space-y-6 min-w-0">
           <div

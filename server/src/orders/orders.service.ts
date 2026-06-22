@@ -311,6 +311,14 @@ export class OrdersService {
       }
     }
 
+    // A purchased delivery-affecting add-on (Faster Delivery) overrides the
+    // package delivery time. min() is defensive against any data drift.
+    const fasterAddOn = addOnRows.find((a) => a.deliveryDays != null);
+    const effectiveDeliveryDays =
+      fasterAddOn?.deliveryDays != null
+        ? Math.min(pkg.deliveryDays, fasterAddOn.deliveryDays)
+        : pkg.deliveryDays;
+
     const packageAmountPaise = toPaise(pkg.priceAmount);
     const addOnsTotalDecimal =
       addOnRows.length > 0
@@ -334,6 +342,7 @@ export class OrdersService {
       name: a.name,
       priceAmount: a.priceAmount.toString(),
       description: a.description ?? null,
+      deliveryDays: a.deliveryDays ?? null,
     }));
     const sortedAddOnIds = [...addOnIdList].sort();
 
@@ -420,7 +429,7 @@ export class OrdersService {
           deliverablesSnapshot:
             pkg.deliverables as unknown as Prisma.InputJsonValue,
           priceAmountSnapshot: pkg.priceAmount,
-          deliveryDaysSnapshot: pkg.deliveryDays,
+          deliveryDaysSnapshot: effectiveDeliveryDays,
           maxRevisionsSnapshot: pkg.maxRevisions,
           addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
           addOnsTotalSnapshot: addOnsTotalDecimal,
@@ -461,7 +470,7 @@ export class OrdersService {
           pkg.deliverables as unknown as Prisma.InputJsonValue,
         priceAmountSnapshot: pkg.priceAmount,
         currency: 'INR',
-        deliveryDaysSnapshot: pkg.deliveryDays,
+        deliveryDaysSnapshot: effectiveDeliveryDays,
         maxRevisionsSnapshot: pkg.maxRevisions,
         addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
         addOnsTotalSnapshot: addOnsTotalDecimal,

@@ -1,7 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { addOnPriceError, type AddOnDraft } from "./creator-profile-form-utils";
+import {
+  addOnDeliveryDaysError,
+  addOnPriceError,
+  type AddOnDraft,
+} from "./creator-profile-form-utils";
 import { useCreatorAddOnOptionsQuery } from "./use-creator-suggestion-queries";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
 import type { CreatorAddOnCreatePayload } from "@/features/creators/api/create-creator-profile";
@@ -10,11 +14,14 @@ import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 export type UseCreatorAddOnsFormOptions = {
   initialProfile?: CreatorProfileItemApi | null;
   enabled: boolean;
+  /** Current package delivery time, for the Faster Delivery cross-field check. */
+  packageDeliveryDays: number | null;
 };
 
 export function useCreatorAddOnsForm({
   initialProfile,
   enabled,
+  packageDeliveryDays,
 }: UseCreatorAddOnsFormOptions) {
   const addOnOptionsQuery = useCreatorAddOnOptionsQuery({
     enabled,
@@ -58,6 +65,8 @@ export function useCreatorAddOnsForm({
       nextDrafts[option.slug] = {
         priceAmount: String(Math.round(Number(addOn.priceAmount))),
         description: addOn.description?.trim() ?? "",
+        deliveryDays:
+          addOn.deliveryDays != null ? String(addOn.deliveryDays) : "",
       };
     }
 
@@ -93,6 +102,7 @@ export function useCreatorAddOnsForm({
           [option.slug]: {
             priceAmount: String(option.fixedPrice ?? option.minPrice ?? 0),
             description: "",
+            deliveryDays: "",
           },
         };
       });
@@ -135,17 +145,37 @@ export function useCreatorAddOnsForm({
         return null;
       }
 
+      let deliveryDays: number | undefined;
+      if (option.affectsDeliveryDays) {
+        const deliveryError = addOnDeliveryDaysError(
+          option,
+          draft.deliveryDays,
+          packageDeliveryDays,
+        );
+        if (deliveryError) {
+          toast.error(deliveryError);
+          return null;
+        }
+        deliveryDays = Number((draft.deliveryDays ?? "").trim());
+      }
+
       out.push({
         slug,
         priceAmount: price,
         ...(draft.description.trim()
           ? { description: draft.description.trim() }
           : {}),
+        ...(deliveryDays != null ? { deliveryDays } : {}),
       });
     }
 
     return out;
-  }, [addOnOptions, effectiveAddOnDrafts, effectiveSelectedAddOnSlugs]);
+  }, [
+    addOnOptions,
+    effectiveAddOnDrafts,
+    effectiveSelectedAddOnSlugs,
+    packageDeliveryDays,
+  ]);
 
   return {
     addOnOptionsQuery,

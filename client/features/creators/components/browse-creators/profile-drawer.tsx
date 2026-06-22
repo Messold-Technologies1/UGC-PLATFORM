@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
-import type { Creator } from "../../types";
+import type { Creator, AddOn } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
@@ -358,6 +358,7 @@ const PackagesTab = React.memo(function PackagesTab({
   }
 
   const packages = profile.packages;
+  const addOns = profile.addOns ?? [];
   const creatorFirstName = profile.name.split(" ")[0];
 
   return (
@@ -417,7 +418,36 @@ const PackagesTab = React.memo(function PackagesTab({
         </p>
       )}
 
-      <div
+      {addOns.length > 0 ? (
+        <div className="pkg-addons">
+          <SectionHeading>Add-ons</SectionHeading>
+          <p className="pkg-addons-hint">
+            Optional extras you can include when placing an order
+          </p>
+          {addOns.map((addon: AddOn) => (
+            <div key={addon.id} className="pkg pkg-addon">
+              <div className="pkg-top">
+                <div className="pkg-name">{addon.label}</div>
+                <div className="pkg-price">
+                  +₹{addon.price.toLocaleString("en-IN")}
+                </div>
+              </div>
+              {addon.description ? (
+                <p className="pkg-addon-desc">{addon.description}</p>
+              ) : null}
+              {addon.deliveryDays != null ? (
+                <div className="pkg-meta">
+                  <span>
+                    <Clock size={13} /> {addon.deliveryDays} day delivery
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* <div
         style={{
           marginTop: 14,
           padding: "13px 15px",
@@ -434,7 +464,7 @@ const PackagesTab = React.memo(function PackagesTab({
         <Zap size={16} style={{ color: "var(--primary)", flexShrink: 0 }} />
         Need something custom? Send a brief and {creatorFirstName} will quote
         within 24h.
-      </div>
+      </div> */}
     </div>
   );
 });

@@ -67,6 +67,7 @@ interface TxMock {
   };
   creatorPackage: {
     createMany: TxAsyncMock;
+    findFirst: TxAsyncMock;
   };
 }
 
@@ -113,6 +114,7 @@ describe('CreatorProfileService', () => {
     },
     creatorPackage: {
       createMany: createTxAsyncMock(),
+      findFirst: createTxAsyncMock(),
     },
   };
 

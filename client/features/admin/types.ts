@@ -137,7 +137,6 @@ export interface CreatorProfileResponseDto {
   restrictions: CreatorRestrictionResponseDto[];
   packages: CreatorPackageResponseDto[];
   addOns: CreatorAddOnResponseDto[];
-  firstPortfolioVideo?: CreatorPortfolioVideoPreviewResponseDto | null;
 }
 
 export interface CreatorsListResponseDto {

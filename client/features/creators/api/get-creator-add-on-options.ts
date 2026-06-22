@@ -8,6 +8,8 @@ export type CreatorAddOnOption = {
   fixedPrice?: number | null;
   minPrice?: number | null;
   stepPrice?: number | null;
+  /** When true, this add-on takes a deliveryDays input (Faster Delivery). */
+  affectsDeliveryDays?: boolean;
 };
 
 export type CreatorAddOnOptionsResponse = {

@@ -81,6 +81,7 @@ export class OrderDetailsPublicDto {
     name: string;
     priceAmount: string;
     description: string | null;
+    deliveryDays?: number | null;
   }>;
 
   @ApiPropertyOptional({ example: '199.00' })

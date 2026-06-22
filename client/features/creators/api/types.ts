@@ -35,6 +35,8 @@ export type CreatorProfileAddOnApi = {
   name: string;
   priceAmount: string;
   description?: string | null;
+  /** Promised delivery in days for Faster Delivery; null otherwise. */
+  deliveryDays?: number | null;
 };
 
 export type CreatorProfileFacetSelectionApi = {
@@ -133,7 +135,6 @@ export type CreatorProfileItemApi = {
   restrictions?: CreatorProfileRestrictionApi[];
   packages: CreatorProfilePackageApi[];
   addOns?: CreatorProfileAddOnApi[];
-  firstPortfolioVideo?: CreatorPortfolioVideoPreviewApi | null;
   timezone?: string | null;
   highlights?: string[];
   createdAt?: string;

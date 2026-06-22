@@ -54,9 +54,10 @@ function getProfileCategories(profile: ListingProfileApi): string[] {
 }
 
 function getFirstPortfolioVideo(profile: ListingProfileApi) {
-  return isCreatorProfileItemApi(profile)
-    ? (profile.firstPortfolioVideo ?? null)
-    : (profile.portfolioVideos?.[0] ?? null);
+  if (isCreatorProfileItemApi(profile)) {
+    return null;
+  }
+  return profile.portfolioVideos?.[0] ?? null;
 }
 
 function getTravelRadius(profile: ListingProfileApi): number | null {
@@ -195,6 +196,7 @@ function mapApiAddOns(
     label: addOn.name,
     price: Math.round(Number.parseFloat(addOn.priceAmount)) || 0,
     description: addOn.description ?? null,
+    deliveryDays: addOn.deliveryDays ?? null,
   }));
 }
 

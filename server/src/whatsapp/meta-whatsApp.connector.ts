@@ -6,6 +6,7 @@ export type MetaWhatsAppSendParams = {
   templateName: string;
   languageCode: string;
   bodyParameters: string[];
+  buttonParameters?: string[];
 };
 
 type MetaApiErrorResponse = {
@@ -51,6 +52,33 @@ export class MetaWhatsAppConnector {
       );
     }
 
+    const components: any[] = [];
+    if (params.bodyParameters.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: params.bodyParameters.map((text) => ({
+          type: 'text',
+          text,
+        })),
+      });
+    }
+
+    if (params.buttonParameters && params.buttonParameters.length > 0) {
+      params.buttonParameters.forEach((text, index) => {
+        components.push({
+          type: 'button',
+          sub_type: 'url',
+          index: index.toString(),
+          parameters: [
+            {
+              type: 'text',
+              text,
+            },
+          ],
+        });
+      });
+    }
+
     const body = {
       messaging_product: 'whatsapp',
       to: params.to,
@@ -58,18 +86,7 @@ export class MetaWhatsAppConnector {
       template: {
         name: params.templateName,
         language: { code: params.languageCode },
-        components:
-          params.bodyParameters.length > 0
-            ? [
-                {
-                  type: 'body',
-                  parameters: params.bodyParameters.map((text) => ({
-                    type: 'text',
-                    text,
-                  })),
-                },
-              ]
-            : [],
+        components,
       },
     };
 

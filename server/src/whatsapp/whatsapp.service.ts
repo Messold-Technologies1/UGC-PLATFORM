@@ -47,6 +47,7 @@ export class WhatsAppService {
           templateName: params.templateKey,
           languageCode: 'en',
           bodyParameters: params.variables,
+          buttonParameters: params.buttonVariables,
         }),
         this.sendTimeoutMs,
         `WhatsApp send template=${params.templateKey}`,

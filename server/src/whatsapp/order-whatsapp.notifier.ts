@@ -17,6 +17,7 @@ const orderWhatsAppSelect = {
     select: {
       id: true,
       brandName: true,
+      contactPhone: true,
       userId: true,
       agency: { select: { ownerUserId: true } },
     },
@@ -24,7 +25,7 @@ const orderWhatsAppSelect = {
   creator: {
     select: {
       displayName: true,
-      user: { select: { name: true, phone: true, phoneVerified: true } },
+      user: { select: { name: true, phone: true } },
     },
   },
 } as const;
@@ -53,6 +54,7 @@ export class OrderWhatsAppNotifier {
         order,
         WhatsAppTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR,
         [order.brand.brandName, order.packageNameSnapshot],
+        [order.id],
       );
     });
   }
@@ -69,6 +71,7 @@ export class OrderWhatsAppNotifier {
         order,
         WhatsAppTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND,
         [order.creator.displayName, order.id],
+        [order.id],
       );
     });
   }
@@ -93,6 +96,7 @@ export class OrderWhatsAppNotifier {
           params.courierName,
           params.trackingId ?? 'N/A',
         ],
+        [order.id],
       );
     });
   }
@@ -113,6 +117,7 @@ export class OrderWhatsAppNotifier {
           order.id,
           this.formatDate(deliveryDeadlineAt),
         ],
+        [order.id],
       );
     });
   }
@@ -135,6 +140,7 @@ export class OrderWhatsAppNotifier {
           String(order.revisionCount),
           String(revisionsRemaining),
         ],
+        [order.id],
       );
     });
   }
@@ -148,6 +154,7 @@ export class OrderWhatsAppNotifier {
         order,
         WhatsAppTemplateKey.ORDER_CONTENT_ACCEPTED_FOR_CREATOR,
         [order.brand.brandName, order.packageNameSnapshot],
+        [order.id],
       );
     });
   }
@@ -164,12 +171,14 @@ export class OrderWhatsAppNotifier {
         order,
         WhatsAppTemplateKey.ORDER_REJECTED_FOR_BRAND,
         [order.creator.displayName, order.packageNameSnapshot],
+        [order.id],
       );
 
       await this.sendToCreator(
         order,
         WhatsAppTemplateKey.ORDER_REJECTED_FOR_CREATOR,
         [order.brand.brandName, order.packageNameSnapshot],
+        [order.id],
       );
     });
   }
@@ -213,48 +222,59 @@ export class OrderWhatsAppNotifier {
     order: OrderWhatsAppRow,
     templateKey: WhatsAppTemplateKey,
     variables: string[],
+    buttonVariables?: string[],
   ): Promise<void> {
     const phone = await this.resolveBrandPhone(order);
     if (!phone) {
       this.logger.debug(
-        `skip whatsapp ${templateKey}: no verified phone for brand on order ${order.id}`,
+        `skip whatsapp ${templateKey}: no phone found for brand on order ${order.id}`,
       );
       return;
     }
-    await this.whatsapp.send({ to: phone, templateKey, variables });
+    await this.whatsapp.send({ to: phone, templateKey, variables, buttonVariables });
   }
 
   private async sendToCreator(
     order: OrderWhatsAppRow,
     templateKey: WhatsAppTemplateKey,
     variables: string[],
+    buttonVariables?: string[],
   ): Promise<void> {
     const phone = this.creatorPhone(order);
     if (!phone) {
       this.logger.debug(
-        `skip whatsapp ${templateKey}: no verified phone for creator on order ${order.id}`,
+        `skip whatsapp ${templateKey}: no phone found for creator on order ${order.id}`,
       );
       return;
     }
-    await this.whatsapp.send({ to: phone, templateKey, variables });
+    await this.whatsapp.send({ to: phone, templateKey, variables, buttonVariables });
   }
 
   private async resolveBrandPhone(
     order: OrderWhatsAppRow,
   ): Promise<string | null> {
+    if (order.brand.contactPhone?.trim()) {
+      return order.brand.contactPhone.trim();
+    }
+
     const brandUserId =
       await this.brandAccess.resolveBrandActorUserIdForProfile(order.brand.id);
     const user = await this.prisma.user.findUnique({
       where: { id: brandUserId },
-      select: { phone: true, phoneVerified: true },
+      select: { phone: true },
     });
-    if (!user?.phoneVerified || !user.phone?.trim()) return null;
+    if (!user?.phone?.trim()) {
+      this.logger.debug(
+        `skip whatsapp: no phone or contactPhone found for brand on order ${order.id}`,
+      );
+      return null;
+    }
     return user.phone.trim();
   }
 
   private creatorPhone(order: OrderWhatsAppRow): string | null {
-    const { phone, phoneVerified } = order.creator.user;
-    if (!phoneVerified || !phone?.trim()) return null;
+    const { phone } = order.creator.user;
+    if (!phone?.trim()) return null;
     return phone.trim();
   }
 

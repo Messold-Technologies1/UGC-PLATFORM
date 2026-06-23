@@ -17,4 +17,5 @@ export type SendWhatsAppParams = {
   to: string;
   templateKey: WhatsAppTemplateKey;
   variables: string[];
+  buttonVariables?: string[];
 };

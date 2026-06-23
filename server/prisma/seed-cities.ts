@@ -1,9 +1,17 @@
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
-import { City, State } from 'country-state-city';
-import {
-  CITY_ALIAS_GROUPS,
-  STATE_ALIAS_GROUPS,
-} from './data/india-location-aliases';
+// Default import + destructure: works whether ts-node runs this as CommonJS or
+// ESM (a named ESM import from this CJS package may fail to link under ESM).
+import csc from 'country-state-city';
+
+const { City, State } = csc;
+
+/** A set of equivalent place spellings (one canonical + its aliases). */
+interface CityAliasGroup {
+  state: string;
+  names: string[];
+}
 
 const prisma = new PrismaClient();
 const COUNTRY = 'IN';
@@ -80,70 +88,122 @@ async function main(): Promise<void> {
     `[seed-cities] upserted ${stateCount} states, inserted ${cityCount} new cities`,
   );
 
-  // --- Attach state aliases ---
-  let stateAliasUpdates = 0;
-  for (const group of STATE_ALIAS_GROUPS) {
+  // Merge hand-curated groups (authoritative) with the broad generated dataset.
+  // Both are loaded as JSON via fs — the seed has zero relative module imports,
+  // so it runs identically under CommonJS and ESM ts-node. Union semantics below
+  // mean a place accumulates aliases from EVERY group that names it, so
+  // regenerating the dataset never drops a curated alias and the two sources
+  // reinforce each other instead of overwriting.
+  const curated = loadGroupsFile<{
+    stateGroups: string[][];
+    cityGroups: CityAliasGroup[];
+  }>('india-location-aliases.json', { stateGroups: [], cityGroups: [] });
+  const generatedStateGroups = loadGroupsFile<string[][]>(
+    'india-state-aliases.generated.json',
+    [],
+  );
+  const generatedCityGroups = loadGroupsFile<CityAliasGroup[]>(
+    'india-city-aliases.generated.json',
+    [],
+  );
+
+  const allStateGroups = [...curated.stateGroups, ...generatedStateGroups];
+  const allCityGroups = [...curated.cityGroups, ...generatedCityGroups];
+
+  // --- State aliases (union per canonical catalog name) ---
+  const stateAliasByName = new Map<string, Set<string>>();
+  let stateGroupsUnmatched = 0;
+  for (const group of allStateGroups) {
     const present = group.filter((n) => stateNameSet.has(n));
     if (present.length === 0) {
-      console.warn(
-        `[seed-cities] state alias group has no catalog match: ${group.join(' | ')}`,
-      );
+      stateGroupsUnmatched += 1;
       continue;
     }
     for (const canonical of present) {
-      const aliases = dedupeNormalized(
-        group.filter((n) => n !== canonical),
-      );
-      await prisma.state.update({
-        where: { countryCode_name: { countryCode: COUNTRY, name: canonical } },
-        data: { aliasesNormalized: aliases },
-      });
-      stateAliasUpdates += 1;
+      const set = stateAliasByName.get(canonical) ?? new Set<string>();
+      for (const alias of normalizedOthers(group, canonical)) set.add(alias);
+      stateAliasByName.set(canonical, set);
     }
   }
+  for (const [name, set] of stateAliasByName) {
+    await prisma.state.update({
+      where: { countryCode_name: { countryCode: COUNTRY, name } },
+      data: { aliasesNormalized: Array.from(set) },
+    });
+  }
 
-  // --- Attach city aliases ---
-  let cityAliasUpdates = 0;
-  for (const group of CITY_ALIAS_GROUPS) {
+  // --- City aliases (union per canonical catalog name, scoped by state) ---
+  const cityAliasByKey = new Map<
+    string,
+    { stateName: string; name: string; set: Set<string> }
+  >();
+  let cityGroupsUnmatched = 0;
+  for (const group of allCityGroups) {
     const stateCities = citiesByState.get(group.state);
     if (!stateCities) {
-      console.warn(
-        `[seed-cities] city alias group references unknown state "${group.state}": ${group.names.join(' | ')}`,
-      );
+      cityGroupsUnmatched += 1;
       continue;
     }
     const present = group.names.filter((n) => stateCities.has(n));
     if (present.length === 0) {
-      console.warn(
-        `[seed-cities] city alias group has no catalog match in ${group.state}: ${group.names.join(' | ')}`,
-      );
+      cityGroupsUnmatched += 1;
       continue;
     }
     for (const canonical of present) {
-      const aliases = dedupeNormalized(
-        group.names.filter((n) => n !== canonical),
-      );
-      await prisma.city.update({
-        where: {
-          countryCode_stateName_name: {
-            countryCode: COUNTRY,
-            stateName: group.state,
-            name: canonical,
-          },
-        },
-        data: { aliasesNormalized: aliases },
-      });
-      cityAliasUpdates += 1;
+      const key = `${group.state} ${canonical}`;
+      const entry = cityAliasByKey.get(key) ?? {
+        stateName: group.state,
+        name: canonical,
+        set: new Set<string>(),
+      };
+      for (const alias of normalizedOthers(group.names, canonical)) {
+        entry.set.add(alias);
+      }
+      cityAliasByKey.set(key, entry);
     }
+  }
+  for (const { stateName, name, set } of cityAliasByKey.values()) {
+    await prisma.city.update({
+      where: {
+        countryCode_stateName_name: {
+          countryCode: COUNTRY,
+          stateName,
+          name,
+        },
+      },
+      data: { aliasesNormalized: Array.from(set) },
+    });
   }
 
   console.log(
-    `[seed-cities] applied aliases to ${stateAliasUpdates} states, ${cityAliasUpdates} cities`,
+    `[seed-cities] aliases applied to ${stateAliasByName.size} states, ` +
+      `${cityAliasByKey.size} cities (curated ${curated.stateGroups.length}/${curated.cityGroups.length} ` +
+      `+ generated ${generatedStateGroups.length}/${generatedCityGroups.length}; ` +
+      `${stateGroupsUnmatched}/${cityGroupsUnmatched} groups unmatched)`,
   );
 }
 
-function dedupeNormalized(names: string[]): string[] {
-  return Array.from(new Set(names.map(normalize)));
+/** Lowercased aliases for a group, excluding the canonical member itself. */
+function normalizedOthers(members: string[], canonical: string): string[] {
+  const canon = normalize(canonical);
+  return Array.from(
+    new Set(members.map(normalize).filter((n) => n !== canon)),
+  );
+}
+
+/**
+ * Loads an alias-groups JSON file from prisma/data. Returns `fallback` (with a
+ * warning) when absent, so the seed still runs without the generated dataset.
+ * Path is resolved from process.cwd() (the npm-script runs from the server root)
+ * rather than __dirname, which is undefined under ESM ts-node.
+ */
+function loadGroupsFile<T>(fileName: string, fallback: T): T {
+  const path = join(process.cwd(), 'prisma', 'data', fileName);
+  if (!existsSync(path)) {
+    console.warn(`[seed-cities] alias file missing: ${fileName}`);
+    return fallback;
+  }
+  return JSON.parse(readFileSync(path, 'utf8')) as T;
 }
 
 main()

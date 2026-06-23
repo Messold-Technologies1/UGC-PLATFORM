@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Leaf,
   Sparkles,
@@ -13,6 +14,7 @@ import {
   Cpu,
   Home,
   Play,
+  Pause,
   Star,
   MapPin,
   ChevronLeft,
@@ -25,6 +27,7 @@ import {
 } from "@/components/landing/marketing/marketing-layout";
 import { PillButton } from "@/components/landing/marketing/pill-button";
 
+
 type Creator = {
   name: string;
   rating: number;
@@ -33,6 +36,7 @@ type Creator = {
   types: string;
   badge: string;
   image: string;
+  video?: string;
 };
 
 const NICHES: {
@@ -54,6 +58,7 @@ const NICHES: {
         types: "UGC Ads | Product Demo",
         badge: "Health & Wellness",
         image: img.fitness,
+        video: "/1.mp4",
       },
       {
         name: "Anaya",
@@ -63,6 +68,7 @@ const NICHES: {
         types: "Wellness Reel | Supplement Review",
         badge: "Health & Wellness",
         image: img.skincare,
+        video: "/2.mp4",
       },
       {
         name: "Kabir",
@@ -72,6 +78,7 @@ const NICHES: {
         types: "Fitness UGC | Product Demo",
         badge: "Health & Wellness",
         image: img.fitness,
+        video: "/3.mp4",
       },
       {
         name: "Mira",
@@ -81,6 +88,7 @@ const NICHES: {
         types: "Yoga Reel | Self-Care",
         badge: "Health & Wellness",
         image: img.beauty,
+        video: "/4.mp4",
       },
       {
         name: "Tanya",
@@ -90,6 +98,7 @@ const NICHES: {
         types: "Nutrition Demo",
         badge: "Health & Wellness",
         image: img.food,
+        video: "/5.mp4",
       },
     ],
   },
@@ -520,53 +529,75 @@ function ReelCard({
   active?: boolean;
   partial?: boolean;
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    if (active) {
+      videoRef.current?.play().catch(() => {});
+    } else {
+      videoRef.current?.pause();
+    }
+  }, [active]);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  };
+
   return (
     <div
       className={[
-        "relative shrink-0 overflow-hidden rounded-[32px] transition-all duration-500",
+        "group relative shrink-0 overflow-hidden rounded-[32px] transition-all duration-500",
         active
-          ? "aspect-[9/16] w-[280px] scale-100 shadow-2xl ring-2 ring-background sm:w-[320px]"
+          ? "z-50 aspect-[9/16] w-[280px] scale-100 shadow-2xl ring-2 ring-background sm:w-[320px]"
           : partial
-            ? "aspect-[9/16] w-[160px] opacity-70 sm:w-[200px]"
-            : "aspect-[9/16] w-[200px] opacity-90 sm:w-[240px]",
+            ? "z-30 aspect-[9/16] w-[160px] opacity-70 sm:w-[200px]"
+            : "z-10 aspect-[9/16] w-[200px] opacity-90 sm:w-[240px]",
       ].join(" ")}
     >
-      <Image
-        src={c.image}
-        alt={`${c.name} – ${c.badge}`}
-        fill
-        sizes="(max-width: 768px) 280px, 320px"
-        className="object-cover"
-      />
-      <div className="from-black/10 absolute inset-0 bg-gradient-to-b via-transparent to-black/70" />
-
-      <div className="text-foreground absolute top-3 left-3 rounded-full bg-background/90 px-3 py-1 text-[11px] font-semibold backdrop-blur">
-        {c.badge}
-      </div>
-
-      {active ? (
+      {c.video ? (
         <>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-background bg-background/95 shadow-2xl">
-              <Play className="fill-foreground text-foreground ml-0.5 h-6 w-6" />
+          <video
+            ref={videoRef}
+            src={c.video}
+            loop
+            muted
+            playsInline
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          {active && (
+            <div 
+              onClick={togglePlay}
+              className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-black/20 cursor-pointer"
+            >
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-background bg-background/95 shadow-2xl transition-transform hover:scale-110">
+                {isPlaying ? (
+                  <Pause className="fill-foreground text-foreground h-6 w-6" />
+                ) : (
+                  <Play className="fill-foreground text-foreground ml-0.5 h-6 w-6" />
+                )}
+              </div>
             </div>
-          </div>
-
-          <div className="border-background/40 text-foreground absolute inset-x-3 bottom-3 rounded-2xl border bg-background/85 p-3 backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <h4 className="font-heading text-base leading-none font-bold">{c.name}</h4>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold">
-                <Star className="fill-foreground h-3 w-3" /> {c.rating.toFixed(1)}
-              </span>
-            </div>
-            <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-foreground/70">
-              <MapPin className="h-3 w-3" /> {c.location}
-            </div>
-            <div className="mt-1.5 text-xs font-semibold">Starting from {c.price}</div>
-            <div className="mt-1 text-[11px] text-foreground/70">{c.types}</div>
-          </div>
+          )}
         </>
-      ) : null}
+      ) : (
+        <Image
+          src={c.image}
+          alt={`${c.name} – ${c.badge}`}
+          fill
+          sizes="(max-width: 768px) 280px, 320px"
+          className="object-cover"
+        />
+      )}
     </div>
   );
 }
@@ -627,19 +658,39 @@ export function CreatorNiche() {
         </div>
 
         <div className="relative mt-12">
-          <div className="hidden items-center justify-center gap-4 md:flex lg:gap-6">
-            {visible.map((v, i) => (
-              <ReelCard
-                key={`${niche.id}-${i}`}
-                c={v.c}
-                active={v.active}
-                partial={v.partial}
-              />
-            ))}
+          <div className="hidden items-center justify-center gap-4 md:flex lg:gap-6 overflow-hidden py-4 px-4 min-h-[600px]">
+            <AnimatePresence mode="popLayout">
+              {visible.map((v) => (
+                <motion.div
+                  key={v.c.name}
+                  layout
+                  transition={{ duration: 0.4, ease: "easeInOut" }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                >
+                  <ReelCard
+                    c={v.c}
+                    active={v.active}
+                    partial={v.partial}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
 
-          <div className="flex items-center justify-center md:hidden">
-            <ReelCard c={list[centerIdx]} active />
+          <div className="flex items-center justify-center md:hidden overflow-hidden py-4">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={list[centerIdx].name}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+              >
+                <ReelCard c={list[centerIdx]} active />
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <div className="mt-8 flex items-center justify-center gap-3">

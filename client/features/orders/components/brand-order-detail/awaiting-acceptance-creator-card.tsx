@@ -101,7 +101,7 @@ export function AwaitingAcceptanceCreatorCard({
             className="rounded-lg text-sm font-semibold h-10 px-5"
             asChild
           >
-            <Link href={`/brand/creators/${creator.id}`}>View Profile</Link>
+            <Link href={`/brand/creators?creatorId=${creator.id}`}>View Profile</Link>
           </Button>
           <Button
             variant="outline"

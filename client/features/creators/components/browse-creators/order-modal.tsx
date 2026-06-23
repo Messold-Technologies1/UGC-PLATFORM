@@ -296,10 +296,12 @@ const OrderModalContent = React.memo(function OrderModalContent({
             <div
               className="om-ava"
               style={{
-                background: `linear-gradient(135deg, ${gradA}, ${gradB})`,
+                background: creator.thumbnail
+                  ? `url(${creator.thumbnail}) center/cover no-repeat`
+                  : `linear-gradient(135deg, ${gradA}, ${gradB})`,
               }}
             >
-              {initials}
+              {creator.thumbnail ? null : initials}
             </div>
             <div>
               <div className="om-title">Place order</div>

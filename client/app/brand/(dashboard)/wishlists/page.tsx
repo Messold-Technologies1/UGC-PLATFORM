@@ -24,11 +24,18 @@ export default function WishlistsPage() {
   }, [isLoading, wishlists, router]);
 
   return (
-    <div className="flex flex-col bg-gray-50 lg:flex-row min-h-[calc(100dvh-7rem)]">
-      <aside className="w-full p-4 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
-        <WishlistSidebar wishlists={wishlists} activeId={null} isLoading={isLoading} />
+    <div className="flex flex-col bg-gray-50 lg:flex-row min-h-[calc(100dvh-7rem)] flex-1 border-t border-gray-200/60 overflow-hidden mt-3 lg:mt-4">
+      <aside className="w-full pl-4 sm:pl-6 lg:pl-8 xl:pl-10 2xl:pl-12 pr-4 pt-6 pb-6 lg:sticky lg:top-24 lg:z-10 lg:w-[300px] lg:shrink-0 lg:self-start lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+        <WishlistSidebar
+          wishlists={wishlists}
+          activeId={null}
+          isLoading={isLoading}
+        />
       </aside>
-      <div className="hidden lg:flex flex-1 flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-12rem)]" data-tour="brand-wishlists-empty">
+      <div
+        className="hidden lg:flex flex-1 flex-col items-center justify-center text-center px-6 min-h-[calc(100vh-12rem)]"
+        data-tour="brand-wishlists-empty"
+      >
         <div className="flex size-14 items-center justify-center rounded-2xl bg-white shadow-sm mb-4">
           <Heart className="size-6 text-rose-400" />
         </div>

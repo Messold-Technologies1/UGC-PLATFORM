@@ -248,7 +248,7 @@ export function PublicCreatorProfile({
   const bookHref = "/register/brand";
   // Logged-in brands go to the authenticated creator page which has the full
   // OrderModal + Razorpay checkout inside AuthProvider context
-  const brandBookHref = `/brand/creators/${profile.id}`;
+  const brandBookHref = `/brand/creators?creatorId=${profile.id}`;
 
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {

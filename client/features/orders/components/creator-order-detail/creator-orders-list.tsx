@@ -66,15 +66,14 @@ export function CreatorOrdersList() {
   const total = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const paginatedItems = filteredItems.slice((page - 1) * limit, page * limit);
-  const isPaginatedTab = activeTab === "all" || activeTab === "new";
-  const displayItems = isPaginatedTab ? paginatedItems : filteredItems;
+  const displayItems = paginatedItems;
 
   const selectedItem = useMemo(() => {
     return allItems.find((item) => item.order.id === selectedOrderId);
   }, [allItems, selectedOrderId]);
 
   return (
-    <div className="w-full mx-auto space-y-8 pb-4 pt-2">
+    <div className="w-full mx-auto space-y-8 pb-4 pt-4 lg:pt-5">
       <CreatorOrdersTabs
         activeTab={activeTab}
         onTabChange={(tabId) => {
@@ -102,7 +101,12 @@ export function CreatorOrdersList() {
             isCompact={Boolean(selectedOrderId)}
           />
 
-          <div className="space-y-3">
+          <div
+            className={cn(
+              "space-y-3",
+              selectedOrderId && activeTab !== "all" && "max-h-[calc(100vh-200px)] overflow-y-auto pr-1 scrollbar-thin"
+            )}
+          >
             {isLoading &&
               Array.from({ length: limit }).map((_, i) => (
                 <div
@@ -348,7 +352,7 @@ export function CreatorOrdersList() {
                 );
               })}
 
-            {isPaginatedTab && !(activeTab === "new" && Boolean(selectedOrderId)) && (
+            {(activeTab === "all" || !selectedOrderId) && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 whitespace-nowrap">
@@ -487,6 +491,10 @@ export function CreatorOrdersList() {
             selectedItem={selectedItem}
             activeTab={activeTab}
             onClose={() => setSelectedOrderId(null)}
+            onTabChange={(tabId) => {
+              setActiveTab(tabId);
+              setPage(1);
+            }}
           />
         )}
       </div>

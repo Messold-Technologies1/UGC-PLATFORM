@@ -1,19 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
   ArrowRight,
-  Check,
-  Lock,
-  // UploadCloud,
+  Check,
   Smartphone,
   MessageSquare,
   Megaphone,
   Box,
   FileText,
+  Pen,
   FileEdit,
   Sparkles,
   Video,
@@ -31,7 +29,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +57,7 @@ import {
   putProductImageToPresignedUrl,
 } from "@/features/briefs/api/presign-brief-product-image-upload";
 import type {
+  Brief,
   BriefContentType,
   BriefDurationBucket,
   BriefFieldOptionsResponse,
@@ -68,10 +67,9 @@ import type {
 } from "@/features/briefs/api/types";
 import { useBriefFieldOptionsQuery } from "@/features/briefs/hooks/use-brief-field-options-query";
 
-
 import { PaymentSuccessBanner } from "@/features/briefs/components/payment-success-banner";
-import { OrderSummaryCard } from "@/features/briefs/components/order-summary-card";
-import { WhatsNextTimeline } from "@/features/briefs/components/whats-next-timeline";
+import { ExistingBriefsSidebar } from "@/features/briefs/components/existing-briefs-sidebar";
+import styles from "@/features/briefs/components/brief-studio.module.css";
 
 const shootLocationKinds = [
   "CREATOR_OWN_SETUP",
@@ -670,6 +668,56 @@ function CreateBriefPageContent() {
     });
   };
 
+  const watchProductName = useWatch({
+    control: form.control,
+    name: "productName",
+  });
+
+  const applyTemplate = useCallback(
+    (brief: Brief) => {
+      const opts = { shouldDirty: true, shouldValidate: true } as const;
+
+      form.setValue("brandName", brief.brandName ?? "", opts);
+      form.setValue("industry", brief.industry ?? "", opts);
+      form.setValue("brandLogoUrl", brief.brandLogoUrl ?? "", opts);
+
+      form.setValue("productName", brief.productName ?? "", opts);
+      form.setValue("productDescription", brief.productDescription ?? "", opts);
+      form.setValue("productPageUrl", brief.productPageUrl ?? "", opts);
+      form.setValue(
+        "willShipPhysicalProductToCreator",
+        brief.willShipPhysicalProductToCreator ?? false,
+        opts,
+      );
+      if (brief.shootLocationKind) {
+        form.setValue("shootLocationKind", brief.shootLocationKind, opts);
+      }
+      form.setValue("shootLocationAddress", brief.shootLocationAddress ?? "", opts);
+      if (brief.durationBucket) {
+        form.setValue("durationBucket", brief.durationBucket, opts);
+      }
+      if (brief.contentType && brief.contentType.length > 0) {
+        form.setValue("contentType", brief.contentType, opts);
+      }
+      if (brief.toneStyle && brief.toneStyle.length > 0) {
+        form.setValue("toneStyle", brief.toneStyle, opts);
+      }
+      form.setValue("keyNoteToInclude", brief.keyNoteToInclude ?? "", opts);
+      form.setValue("ctaNote", brief.ctaNote ?? "", opts);
+      form.setValue(
+        "referenceLinks",
+        (brief.referenceLinks ?? []).join("\n"),
+        opts,
+      );
+      form.setValue("finalNotes", brief.finalNotes ?? "", opts);
+
+      toast.success(
+        `Loaded "${brief.productName || "brief"}" into the form`,
+      );
+    },
+    [form],
+  );
+
   const scriptOptions = [
     {
       id: "BRAND_PROVIDED" as const,
@@ -695,43 +743,51 @@ function CreateBriefPageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-
-      <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8">
+    <div className="flex-1 flex flex-col">
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 lg:py-4 flex-1 flex flex-col">
         {showBanner && (
-          <PaymentSuccessBanner
-            orderId={orderId}
-            creatorName={creatorName}
-            onDismiss={() => setShowBanner(false)}
-          />
+          <div className="w-full px-0 lg:px-6 mb-6">
+            <PaymentSuccessBanner
+              orderId={orderId}
+              creatorName={creatorName}
+              onDismiss={() => setShowBanner(false)}
+            />
+          </div>
         )}
 
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_360px]">
-          <div className="space-y-8 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-                  Tell {creatorName ?? "the creator"} what you need
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  The more details you share, the better the content will be.
-                </p>
+        <div className={styles.studio} style={{ paddingTop: 0 }}>
+          
+          <section className={`${styles.panel} ${styles.leftPanel}`}>
+            <div className={styles.panelHead}>
+              <div className={styles.panelHeadIconPrimary}>
+                <Pen size={19} />
               </div>
-              {/* <p className="text-xs text-muted-foreground whitespace-nowrap">
-                All fields marked <span className="text-destructive">*</span>{" "}
-                are required
-              </p> */}
+              <div>
+                <h2 className={styles.panelHeadTitle}>New brief</h2>
+                <div className={styles.panelHeadSub}>
+                  {watchProductName?.trim() || "Untitled brief"} · draft
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.panelHeadAction}
+                onClick={() => {
+                  form.reset(createBriefDefaultValues);
+                  toast.info("Form cleared");
+                }}
+              >
+                Clear
+              </button>
             </div>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Lock className="size-4" />
+            <div className={styles.panelBody}>
+              <form onSubmit={form.handleSubmit(onSubmit)} id="brief-form" className="space-y-0">
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionTitle}>
+                    <span className={styles.formSectionNum}>1</span>
+                    Product Details
                   </div>
-                  <h2 className="text-lg font-bold">Product Details</h2>
-                </div>
-                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+                  <div className="space-y-6">
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2 min-w-0">
                       <Label
@@ -1019,19 +1075,15 @@ function CreateBriefPageContent() {
                       }
                     />
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    2.
                   </div>
-                  <h2 className="text-lg font-bold">
-                    What should the video include?
-                  </h2>
                 </div>
-                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionTitle}>
+                    <span className={styles.formSectionNum}>2</span>
+                    What should the video include?
+                  </div>
+                  <div className="space-y-6">
                   <p className="text-sm text-muted-foreground">
                     Select all that apply
                   </p>
@@ -1190,17 +1242,15 @@ function CreateBriefPageContent() {
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    3.
                   </div>
-                  <h2 className="text-lg font-bold">Content Style & Tone</h2>
                 </div>
-                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionTitle}>
+                    <span className={styles.formSectionNum}>3</span>
+                    Content Style & Tone
+                  </div>
+                  <div className="space-y-6">
                   <p className="text-sm text-muted-foreground">
                     Choose the style that best matches your brand
                   </p>
@@ -1232,8 +1282,7 @@ function CreateBriefPageContent() {
                       Key points to include in the video{" "}
                       <span className="text-destructive">*</span>
                     </Label>
-                    <Textarea
-                      // placeholder="- Brightens dull skin\n- Reduces dark spots\n- Lightweight & non-sticky\n- Suitable for all skin types\n- Use daily for best results"
+                    <Textarea
                       className="min-h-[120px] resize-y rounded-lg bg-white"
                       {...form.register("keyNoteToInclude")}
                     />
@@ -1260,46 +1309,24 @@ function CreateBriefPageContent() {
                       </p>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    4.
                   </div>
-                  <h2 className="text-lg font-bold">
-                    References & Inspiration{" "}
-                    <span className="text-muted-foreground font-normal text-sm">
-                      (optional)
-                    </span>
-                  </h2>
                 </div>
-                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
-                  {/* <p className="text-sm text-muted-foreground">
-                    Add links or upload examples you like (Instagram, TikTok,
-                    YouTube, Drive, etc.)
-                  </p>
 
-                  <div className="border-2 border-dashed border-border/60 rounded-xl p-8 sm:p-10 flex flex-col items-center justify-center text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
-                    <UploadCloud className="size-8 text-muted-foreground mb-3" />
-                    <p className="text-sm font-medium">
-                      Drag & drop files here or{" "}
-                      <span className="text-primary font-bold">browse</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Supports: JPG, PNG, MP4, MOV (Max 500MB)
-                    </p>
-                  </div> */}
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionTitle}>
+                    <span className={styles.formSectionNum}>4</span>
+                    References & Inspiration
+                    <span className="text-[11px] font-600 text-muted-foreground ml-1">(optional)</span>
+                  </div>
+                  <div className="space-y-6">
+                  
                   <div className="space-y-3 min-w-0">
                     <Label
                       htmlFor="newReferenceLink"
                       className="text-xs font-semibold text-foreground/80"
                     >
                       Add Reference Links{" "}
-                      {/* <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span> */}
+                      
                     </Label>
                     <div className="flex gap-2">
                       <Input
@@ -1353,17 +1380,15 @@ function CreateBriefPageContent() {
                       </p>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    5.
                   </div>
-                  <h2 className="text-lg font-bold">Script</h2>
                 </div>
-                <CardContent className="space-y-6 px-6 sm:px-8 py-6">
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionTitle}>
+                    <span className={styles.formSectionNum}>5</span>
+                    Script
+                  </div>
+                  <div className="space-y-6">
                   <p className="text-sm text-muted-foreground">
                     How would you like the script for this video?
                   </p>
@@ -1437,18 +1462,15 @@ function CreateBriefPageContent() {
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-              <Card className="rounded-2xl border-border/40 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border/10">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    6.
                   </div>
-                  <h2 className="text-lg font-bold">
-                    Any do&apos;s and don&apos;ts?
-                  </h2>
                 </div>
-                <CardContent className="space-y-4 px-6 sm:px-8 py-6">
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionTitle}>
+                    <span className={styles.formSectionNum}>6</span>
+                    Any do&apos;s and don&apos;ts?
+                  </div>
+                  <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
                     Tell the creator anything specific to keep in mind.
                   </p>
@@ -1465,71 +1487,9 @@ function CreateBriefPageContent() {
                       </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between pt-4 gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  disabled={
-                    isSubmitting ||
-                    isUploadPending ||
-                    isSubmittingBrief ||
-                    Boolean(savedBriefId)
-                  }
-                  className="rounded-xl font-bold bg-white text-foreground"
-                >
-                  <FileText className="mr-2 size-4" /> Save as draft
-                </Button>
-
-                <div className="flex items-center gap-4 justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => router.back()}
-                    disabled={isSubmitting || isSubmittingBrief}
-                    className="rounded-xl font-semibold"
-                  >
-                    <ArrowLeft className="mr-2 size-4" /> Back
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      isSubmitting ||
-                      isUploadPending ||
-                      isSubmittingBrief ||
-                      Boolean(savedBriefId)
-                    }
-                    className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90 h-11 bg-primary text-primary-foreground"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Spinner className="mr-2 size-4" aria-hidden />
-                        Saving Brief...
-                      </>
-                    ) : isProductImageUploadPending ? (
-                      <>
-                        <Spinner className="mr-2 size-4" aria-hidden />
-                        Uploading Image...
-                      </>
-                    ) : isPronunciationUploadPending ? (
-                      <>
-                        <Spinner className="mr-2 size-4" aria-hidden />
-                        Uploading Audio...
-                      </>
-                    ) : (
-                      <>
-                        {savedBriefId ? "Brief Saved" : "Save Brief"}
-                        {!savedBriefId && !isSubmitting && !isUploadPending && (
-                          <ArrowRight className="ml-2 size-4" />
-                        )}
-                      </>
-                    )}
-                  </Button>
+                  </div>
                 </div>
-              </div>
+
               {savedBriefId && isFromOrder && (
                 <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
@@ -1561,24 +1521,64 @@ function CreateBriefPageContent() {
                   </Button>
                 </div>
               )}
-
-              <div className="flex sm:justify-end">
-                <p className="text-xs text-muted-foreground mt-2">
-                  You can edit the brief later if needed
-                </p>
-              </div>
-            </form>
-          </div>
-          <div className="w-full lg:w-[360px]">
-            <div className="sticky top-8 space-y-6">
-              <OrderSummaryCard
-                orderData={orderData}
-                creatorData={creatorData}
-                isLoading={isFromOrder && isOrderLoading}
-              />
-              <WhatsNextTimeline creatorName={creatorName} />
+              </form>
             </div>
-          </div>
+
+            <div className={styles.panelFoot}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveDraft}
+                disabled={
+                  isSubmitting ||
+                  isUploadPending ||
+                  isSubmittingBrief ||
+                  Boolean(savedBriefId)
+                }
+                className="rounded-xl font-bold bg-white text-foreground"
+              >
+                <FileText className="mr-2 size-4" /> Save as draft
+              </Button>
+              <div className={styles.panelFootSpacer} />
+              <Button
+                type="submit"
+                form="brief-form"
+                disabled={
+                  isSubmitting ||
+                  isUploadPending ||
+                  isSubmittingBrief ||
+                  Boolean(savedBriefId)
+                }
+                className="rounded-xl font-bold px-8 shadow-sm transition-all hover:opacity-90 h-11 bg-primary text-primary-foreground"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Spinner className="mr-2 size-4" aria-hidden />
+                    Saving Brief...
+                  </>
+                ) : isProductImageUploadPending ? (
+                  <>
+                    <Spinner className="mr-2 size-4" aria-hidden />
+                    Uploading Image...
+                  </>
+                ) : isPronunciationUploadPending ? (
+                  <>
+                    <Spinner className="mr-2 size-4" aria-hidden />
+                    Uploading Audio...
+                  </>
+                ) : (
+                  <>
+                    {savedBriefId ? "Brief Saved" : "Create brief"}
+                    {!savedBriefId && !isSubmitting && !isUploadPending && (
+                      <ArrowRight className="ml-2 size-4" />
+                    )}
+                  </>
+                )}
+              </Button>
+            </div>
+          </section>
+
+          <ExistingBriefsSidebar onUseTemplate={applyTemplate} />
         </div>
       </div>
     </div>

@@ -65,7 +65,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/brand/creators", label: "Creators", icon: Users, tourId: "nav-brand-creators" },
     { href: "/brand/orders", label: "Orders", icon: ShoppingCart, tourId: "nav-brand-orders" },
     { href: "/brand/messages", label: "Messages", icon: MessageSquare, tourId: "nav-brand-messages" },
-    { href: "/brand/briefs", label: "Briefs", icon: FileText, tourId: "nav-brand-briefs" },
+    { href: "/brand/briefs/create", label: "Briefs", icon: FileText, tourId: "nav-brand-briefs" },
     { href: "/brand/wishlists", label: "Wishlists", icon: Heart, tourId: "nav-brand-wishlists" },
   ],
   creator: [

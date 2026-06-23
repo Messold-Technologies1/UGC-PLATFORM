@@ -1,354 +1,224 @@
-import React, { memo } from "react";
+"use client";
+
+import React, { memo, useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import {
-  MapPin,
-  Star,
-  ShoppingBag,
-  Play,
-  Pause,
-  // MoveRight,
-  Truck,
-  Wand2,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Play, Star, MapPin, CheckCircle, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import type { Creator } from "../types";
+import {
+  getInitials,
+  posterColor,
+  tagColor,
+  formatReelDuration,
+} from "@/lib/utils";
+import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
+import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
+import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 
-interface CreatorCardProps {
+export interface CreatorCardProps {
   creator: Creator;
-  variant?: "featured" | "listing";
-
-  appearance?: "standard" | "browse";
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  index: number;
+  onOpen: (creator: Creator) => void;
 }
 
 export const CreatorCard = memo(function CreatorCard({
   creator,
-  variant = "listing",
-  appearance = "standard",
+  index,
+  onOpen,
 }: CreatorCardProps) {
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = React.useState(false);
+  const { data: meUser } = usePublicAuthUser();
+  const isBrand =
+    meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY");
+  const [isMuted, setIsMuted] = useState(true);
+  const [g1, g2] = posterColor(index);
+  const tags = (creator.categories?.length ? creator.categories : creator.tags).slice(0, 2);
+  const reelDuration = formatReelDuration(index);
+  const initials = getInitials(creator.name);
+  const verified = creator.rating >= 4.8;
+  const locationLabel = creator.location || "Location not set";
 
-  const profileUrl = `/brand/creators/${creator.id}`;
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const handleTogglePlay = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play().catch(() => {});
-      }
-    }
-  };
-
-  const isFeatured = variant === "featured";
-  const isBrowse = appearance === "browse" && !isFeatured;
-  const browseTags = creator.tags.slice(0, 3);
-  const standardTags = creator.tags.slice(0, 3);
-  const hasPreviewVideo =
+  const hasVideo =
     typeof creator.previewVideoUrl === "string" &&
     (creator.previewVideoUrl.startsWith("http://") ||
       creator.previewVideoUrl.startsWith("https://"));
-  const previewPoster = creator.previewVideoThumbnail || creator.thumbnail;
-  const mediaAlt = `${creator.name}'s content`;
-  const locationLabel = creator.location || "Location not set";
-  const categoryLabel = creator.category || "General";
+  const hasImage = Boolean(creator.thumbnail);
 
-  if (isBrowse) {
-    return (
-      <article
-        className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-lg border-foreground/90 bg-card shadow-pop transition-all duration-300 hover:-translate-y-1 hover:shadow-hard",
-        )}
-      >
-        <div className="relative aspect-10/11 overflow-hidden bg-muted">
-          {hasPreviewVideo ? (
-            <div
-              className="relative size-full cursor-pointer"
-              onClick={handleTogglePlay}
-            >
-              <video
-                ref={videoRef}
-                key={creator.previewVideoUrl}
-                src={creator.previewVideoUrl ?? undefined}
-                poster={previewPoster}
-                className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                muted
-                loop
-                playsInline
-                preload="metadata"
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-              />
-              <div
-                className={cn(
-                  "absolute inset-0 z-10 flex items-center justify-center bg-black/20 transition-opacity",
-                  isPlaying
-                    ? "opacity-0 group-hover:opacity-100"
-                    : "opacity-100",
-                )}
-              >
-                <div className="flex size-14 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/50">
-                  {isPlaying ? (
-                    <Pause className="size-6 fill-white" />
-                  ) : (
-                    <Play className="ml-1 size-6 fill-white" />
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : creator.thumbnail ? (
-            <Image
-              src={creator.thumbnail}
-              alt={mediaAlt}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, (max-width: 1536px) 25vw, 20vw"
-              priority
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted text-4xl font-bold text-muted-foreground/50 transition-transform duration-500 group-hover:scale-[1.03]">
-              {getInitials(creator.name)}
-            </div>
-          )}
-          <div className="absolute bottom-3 left-3 rounded-sm bg-black/60 px-2.5 py-1 text-sm font-bold text-white backdrop-blur-sm">
-            ₹{creator.startingPrice.toLocaleString("en-IN")}
-          </div>
-        </div>
+  const handleMouseEnter = useCallback(() => {
+    if (hasVideo && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, [hasVideo]);
 
-        <div className="flex flex-1 flex-col p-4 sm:p-3">
-          <h3 className="text-[15px] sm:text-base font-bold text-foreground tracking-tight truncate">
-            {creator.name}
-          </h3>
-          
-          <div className="mt-0.5 flex items-center text-xs text-muted-foreground truncate">
-            <span className="truncate">{locationLabel}</span>
-            {creator.languages && creator.languages.length > 0 && (
-              <>
-                <span className="mx-1.5">•</span>
-                <span>{creator.languages.join(", ")}</span>
-              </>
-            )}
-          </div>
+  const handleMouseLeave = useCallback(() => {
+    if (hasVideo && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  }, [hasVideo]);
 
-          <div className="mt-2.5 flex flex-wrap gap-1.5 h-[22px] overflow-hidden">
-            {browseTags.map((tag, i) => {
-              const lowerTag = tag.toLowerCase();
-              let specificClass = "";
-              if (lowerTag.includes("beauty")) specificClass = "bg-[#fce7f3] text-[#be185d]";
-              else if (lowerTag.includes("casual") || lowerTag.includes("talk to camera")) specificClass = "bg-[#e0f2fe] text-[#0369a1]";
-              else if (lowerTag.includes("product demo") || lowerTag.includes("unboxing")) specificClass = "bg-[#ede9fe] text-[#5b21b6]";
-              else if (lowerTag.includes("fitness")) specificClass = "bg-[#ffedd5] text-[#c2410c]";
-              else if (lowerTag.includes("ad ready") || lowerTag.includes("skincare")) specificClass = "bg-[#dcfce7] text-[#15803d]";
-              else if (lowerTag.includes("aesthetic")) specificClass = "bg-[#ccfbf1] text-[#0f766e]";
-              else if (lowerTag.includes("tech")) specificClass = "bg-[#f3e8ff] text-[#7e22ce]";
-              else {
-                const colors = [
-                  "bg-fuchsia-100 text-fuchsia-700",
-                  "bg-blue-100 text-blue-700",
-                  "bg-indigo-100 text-indigo-700",
-                  "bg-orange-100 text-orange-700",
-                  "bg-emerald-100 text-emerald-700",
-                  "bg-teal-100 text-teal-700",
-                  "bg-purple-100 text-purple-700",
-                ];
-                specificClass = colors[i % colors.length]!;
-              }
+  const handleArticleClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (shouldSuppressCreatorCardNavigation()) return;
 
-              return (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium border-none", specificClass)}
-                >
-                  {tag}
-                </Badge>
-              );
-            })}
-          </div>
+      const target = e.target as HTMLElement;
+      if (target.closest("button, a, [data-save-wishlist]")) return;
 
-          <div className="mt-3.5 flex flex-col gap-2.5 text-[13px] text-muted-foreground font-medium">
-            <div className="flex items-center gap-3">
-              <ShoppingBag className="size-4 shrink-0 text-muted-foreground/70" />
-              <span>{creator.ordersCompleted} completed orders</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Truck className="size-4 shrink-0 text-muted-foreground/70" />
-              <span>Delivery in {creator.deliveryDays || 5} days</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Wand2 className={cn("size-4 shrink-0", creator.basicEditing ? "text-muted-foreground/70" : "text-muted-foreground/40")} />
-              <span className={!creator.basicEditing ? "text-muted-foreground/70" : ""}>
-                {creator.basicEditing ? "Basic editing included" : "Basic editing not included"}
-              </span>
-            </div>
-          </div>
+      onOpen(creator);
+    },
+    [creator, onOpen],
+  );
 
-          <div className="mt-auto w-full pt-6 flex justify-center">
-            <Button
-              asChild
-              variant="outline"
-              className="w-full text-sm font-semibold rounded-md border-border/60 bg-[#111] text-white hover:bg-muted"
-            >
-              <Link href={profileUrl}>
-                View Profile
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </article>
-    );
-  }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (shouldSuppressCreatorCardNavigation()) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onOpen(creator);
+      }
+    },
+    [creator, onOpen],
+  );
+
+  const handleViewClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onOpen(creator);
+    },
+    [creator, onOpen],
+  );
+
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted((prev) => !prev);
+  }, []);
 
   return (
-    <Card interactive="emphasized">
-      <div className="relative aspect-4/5 overflow-hidden bg-muted">
-        {hasPreviewVideo ? (
-          <div
-            className="relative size-full cursor-pointer"
-            onClick={handleTogglePlay}
-          >
-            <video
-              ref={videoRef}
-              key={creator.previewVideoUrl}
-              src={creator.previewVideoUrl ?? undefined}
-              poster={previewPoster}
-              className="size-full object-cover"
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
-            <div
-              className={cn(
-                "absolute inset-0 z-10 flex items-center justify-center bg-black/20 transition-opacity",
-                isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100",
-              )}
-            >
-              <div className="flex size-14 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-black/60">
-                {isPlaying ? (
-                  <Pause className="size-6 fill-white" />
-                ) : (
-                  <Play className="ml-1 size-6 fill-white" />
-                )}
-              </div>
-            </div>
-          </div>
-        ) : creator.thumbnail ? (
+    <article
+      className="rcard"
+      onClick={handleArticleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      role="button"
+      tabIndex={0}
+      aria-label={`View ${creator.name}'s profile`}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="reel">
+        {hasVideo ? (
+          <video
+            ref={videoRef}
+            src={creator.previewVideoUrl!}
+            poster={creator.previewVideoThumbnail || creator.thumbnail}
+            className="real-media"
+            muted={isMuted}
+            loop
+            playsInline
+            preload="metadata"
+          />
+        ) : hasImage ? (
           <Image
             src={creator.thumbnail}
-            alt={mediaAlt}
+            alt={`${creator.name}'s content`}
             fill
-            className="object-cover"
-            sizes={
-              isFeatured
-                ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-            }
-            priority
+            className="real-media"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-muted text-4xl font-bold text-muted-foreground/50">
-            {getInitials(creator.name)}
+          <div
+            className="ip"
+            style={{
+              background: `linear-gradient(155deg, ${g1}, ${g2})`,
+            }}
+          >
+            <span className="mono">{initials}</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/20 to-black/5" />
-        <div className="absolute left-3 top-3 right-3 flex items-start justify-end gap-2">
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-white backdrop-blur-sm">
-            <Star className="size-3 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-medium">{creator.rating}</span>
-            <span className="text-[10px] text-white/70">
-              ({creator.reviewCount})
-            </span>
+
+        <div className="scrim" />
+
+        <div className="scrubline">
+          <i />
+        </div>
+        <div className="top">
+          <span className="vchip">
+            <Play size={10} /> {reelDuration}
+          </span>
+          <span className="vchip">
+            <Star size={10} style={{ color: "#ffd24a" }} />{" "}
+            {creator.rating.toFixed(1)}
+          </span>
+        </div>
+
+        <div className="play">
+          <div className="pb">
+            <Play size={18} />
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-          <p className="line-clamp-2 text-lg font-semibold leading-6">
+
+        <div className="who">
+          <div className="nm">
             {creator.name}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
-              <MapPin className="size-3 shrink-0" />
-              <span className="line-clamp-1">{locationLabel}</span>
-            </span>
-            <span className="rounded-full bg-white/12 px-2.5 py-1 backdrop-blur-sm">
-              {categoryLabel}
-            </span>
+            {verified ? <CheckCircle size={14} className="vf" /> : null}
+          </div>
+          <div className="lc">
+            <MapPin size={11} /> {locationLabel}
+            <span style={{ opacity: 0.5 }}>·</span>
+            {creator.languages.slice(0, 2).join(", ")}
           </div>
         </div>
+
+        {isBrand && (
+          <SaveToWishlistButton
+            creatorId={creator.id}
+            creatorName={creator.name}
+            creatorImageUrl={creator.thumbnail}
+            variant="icon"
+          />
+        )}
+        {hasVideo && (
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            className="absolute bottom-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+            aria-label={isMuted ? "Unmute video" : "Mute video"}
+          >
+            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+        )}
       </div>
 
-      <CardContent className="p-4">
-        {!isFeatured && (
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant="outline"
-              className="border-border/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-            >
-              <ShoppingBag className="mr-1 size-3" />
-              {creator.ordersCompleted} orders
-            </Badge>
-            {creator.travelAvailable && (
-              <Badge
-                variant="outline"
-                className="border-border/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+      <div className="foot">
+        <div className="ftags">
+          {tags.map((tag) => {
+            const [bg, fg] = tagColor(tag);
+            return (
+              <span
+                key={tag}
+                className="ftag"
+                style={{ background: bg, color: fg }}
               >
-                Travels
-              </Badge>
-            )}
-            {creator.storeVisit && (
-              <Badge
-                variant="outline"
-                className="border-border/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-              >
-                On-location
-              </Badge>
-            )}
-          </div>
-        )}
-
-        {!isFeatured && creator.tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1">
-            {standardTags.map((tag) => (
-              <Badge key={tag} variant="muted" className="px-1.5 py-0 text-xs">
                 {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Starting from
-            </p>
-            <p className="text-sm font-bold">
-              ₹{creator.startingPrice.toLocaleString("en-IN")}
-            </p>
-          </div>
-          <Button asChild size="sm" variant="outline" className="text-xs">
-            <Link href={profileUrl}>View Profile</Link>
-          </Button>
+              </span>
+            );
+          })}
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="fbottom">
+          <div className="fprice">
+            <b>₹{creator.startingPrice.toLocaleString("en-IN")}</b>
+            <small>
+              {creator.ordersCompleted} orders · {creator.deliveryDays}d
+            </small>
+          </div>
+          <button type="button" className="fview" onClick={handleViewClick}>
+            View <ArrowRight size={14} />
+          </button>
+        </div>
+      </div>
+    </article>
   );
 });
 

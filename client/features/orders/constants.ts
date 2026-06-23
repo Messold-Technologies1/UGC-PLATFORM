@@ -31,3 +31,129 @@ export const STATUS_LABELS: Record<string, string> = {
   REJECTED: "Rejected",
   REFUNDED: "Refunded",
 };
+
+export const STATUS_TAB_GROUPS: Record<string, string[]> = {
+  all: [],
+  brief: ["BRIEF_SUBMISSION_PENDING"],
+  payment: ["PENDING_PAYMENT"],
+  progress: [
+    "BRIEF_SUBMITTED",
+    "BRIEF_ACCEPTED",
+    "PRODUCT_SHIPPED",
+    "PRODUCT_RECEIVED",
+  ],
+  review: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
+  completed: ["ACCEPTED", "CREATOR_PAYMENT_DONE", "DISPUTED", "REJECTED", "REFUNDED"],
+};
+
+export const STATUS_TABS = [
+  { key: "all", label: "All" },
+  { key: "brief", label: "Brief Required" },
+  { key: "payment", label: "Awaiting Payment" },
+  { key: "progress", label: "In Progress" },
+  { key: "review", label: "In Review" },
+  { key: "completed", label: "Completed" },
+] as const;
+
+export const STATUS_PILL_STYLE: Record<
+  string,
+  { dot: string; bg: string; text: string }
+> = {
+  PENDING_PAYMENT: {
+    dot: "bg-[#ef3e51]",
+    bg: "bg-[#ef3e51]/10",
+    text: "text-[#ef3e51]",
+  },
+  BRIEF_SUBMISSION_PENDING: {
+    dot: "bg-[#c4811a]",
+    bg: "bg-[#c4811a]/10",
+    text: "text-[#c4811a]",
+  },
+  BRIEF_SUBMITTED: {
+    dot: "bg-[#0aa2d4]",
+    bg: "bg-[#0aa2d4]/10",
+    text: "text-[#0479a8]",
+  },
+  BRIEF_ACCEPTED: {
+    dot: "bg-[#0aa2d4]",
+    bg: "bg-[#0aa2d4]/10",
+    text: "text-[#0479a8]",
+  },
+  PRODUCT_SHIPPED: {
+    dot: "bg-[#0aa2d4]",
+    bg: "bg-[#0aa2d4]/10",
+    text: "text-[#0479a8]",
+  },
+  PRODUCT_RECEIVED: {
+    dot: "bg-[#0aa2d4]",
+    bg: "bg-[#0aa2d4]/10",
+    text: "text-[#0479a8]",
+  },
+  DELIVERED: {
+    dot: "bg-[#8b5cf6]",
+    bg: "bg-[#8b5cf6]/10",
+    text: "text-[#6d3bd6]",
+  },
+  REVISION_REQUESTED: {
+    dot: "bg-[#8b5cf6]",
+    bg: "bg-[#8b5cf6]/10",
+    text: "text-[#6d3bd6]",
+  },
+  REVISION_SUBMITTED: {
+    dot: "bg-[#8b5cf6]",
+    bg: "bg-[#8b5cf6]/10",
+    text: "text-[#6d3bd6]",
+  },
+  ACCEPTED: {
+    dot: "bg-[#1a9a5b]",
+    bg: "bg-[#1a9a5b]/10",
+    text: "text-[#1a9a5b]",
+  },
+  CREATOR_PAYMENT_DONE: {
+    dot: "bg-[#1a9a5b]",
+    bg: "bg-[#1a9a5b]/10",
+    text: "text-[#1a9a5b]",
+  },
+  DISPUTED: {
+    dot: "bg-[#ef3e51]",
+    bg: "bg-[#ef3e51]/10",
+    text: "text-[#ef3e51]",
+  },
+  REJECTED: {
+    dot: "bg-[#ef3e51]",
+    bg: "bg-[#ef3e51]/10",
+    text: "text-[#ef3e51]",
+  },
+  REFUNDED: {
+    dot: "bg-slate-400",
+    bg: "bg-slate-400/10",
+    text: "text-slate-500",
+  },
+};
+
+export const SPINE_COLOR: Record<string, string> = {
+  brief: "#c4811a",
+  payment: "#ef3e51",
+  progress: "#0aa2d4",
+  review: "#8b5cf6",
+  completed: "#1a9a5b",
+};
+
+export function getStatusGroup(status: string): string {
+  for (const [group, statuses] of Object.entries(STATUS_TAB_GROUPS)) {
+    if (group === "all") continue;
+    if (statuses.includes(status)) return group;
+  }
+  return "completed";
+}
+
+
+export const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #ff5da2, #ef3e51)",
+  "linear-gradient(135deg, #8b5cf6, #62d6ff)",
+  "linear-gradient(135deg, #0aa2d4, #1a9a5b)",
+  "linear-gradient(135deg, #ef3e51, #c4811a)",
+  "linear-gradient(135deg, #6d3bd6, #ff5da2)",
+  "linear-gradient(135deg, #1a9a5b, #62d6ff)",
+] as const;
+

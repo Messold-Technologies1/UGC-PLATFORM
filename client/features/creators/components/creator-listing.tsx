@@ -20,8 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
-import { CreatorCardSkeleton } from "./creator-card";
-import { ReelCard } from "./browse-creators/reel-card";
+import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
 import type { Creator } from "../types";
 import { CreatorFilterBar } from "./creator-filter-bar";
@@ -159,7 +158,22 @@ export function CreatorListing({
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
-  }, []);
+    if (searchParams.has("creatorId")) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("creatorId");
+      const qs = nextParams.toString();
+      const nextUrl = qs ? `?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const cid = searchParams.get("creatorId");
+    if (cid && cid !== drawerCreatorId) {
+      setDrawerCreatorId(cid);
+      setDrawerOpen(true);
+    }
+  }, [searchParams]);
   const searchParamsKey = searchParams.toString();
 
   const parsedInitial = useMemo(
@@ -354,7 +368,7 @@ export function CreatorListing({
   }
 
   return (
-    <div className="flex flex-1 w-full min-w-0 flex-col -mt-6">
+    <div className="flex flex-1 w-full min-w-0 flex-col">
       <CreatorFilterBar
         filters={filters}
         onChange={handleFiltersChange}
@@ -368,12 +382,15 @@ export function CreatorListing({
       />
 
       <div
-        className="flex-1 bg-[#f4f4f5] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 -mb-8 pb-10 pt-6"
+        className={cn(
+          "flex-1 bg-[#f4f4f5] px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-10 pt-6",
+          landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8" : ""
+        )}
         {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
       >
         {isPending && !data ? (
           <div
-            className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+            className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
             aria-label="Loading creators"
           >
             {Array.from({ length: 10 }, (_, index) => (
@@ -400,7 +417,7 @@ export function CreatorListing({
                 if (!creator) return null;
 
                 return (
-                  <ReelCard
+                  <CreatorCard
                     creator={creator}
                     index={index}
                     onOpen={openDrawer}
@@ -418,7 +435,7 @@ export function CreatorListing({
                 ) : null
               ) : isFetchingNextPage ? (
                 <div
-                  className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                  className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
                   aria-label="Loading more creators"
                 >
                   {Array.from({ length: 4 }, (_, index) => (

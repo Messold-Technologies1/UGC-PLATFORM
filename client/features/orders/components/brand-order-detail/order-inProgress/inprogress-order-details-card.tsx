@@ -156,16 +156,16 @@ export function InprogressOrderDetailsCard({
               {durationBucket}
             </span>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3 self-start mt-1">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Key className="size-3.5" />
               </div>
-              <span className="text-sm font-semibold text-muted-foreground">
+              <span className="text-sm font-semibold text-muted-foreground mt-1">
                 Key Points
               </span>
             </div>
-            <span className="text-sm font-medium text-foreground">
-              {scriptSummary?.label ?? "5 key points"}
+            <span className="text-sm font-medium text-foreground whitespace-pre-wrap self-start mt-2">
+              {brief?.keyNoteToInclude || "Not specified"}
             </span>
           </div>
 

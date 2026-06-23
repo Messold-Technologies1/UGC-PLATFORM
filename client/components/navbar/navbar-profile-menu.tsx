@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, LogOut, Shield, Video, UserRound } from "lucide-react";
+import { LogOut, Shield, UserRound } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -15,27 +15,13 @@ import {
   getDisplayNameFromUser,
   getInitialsFromUser,
 } from "@/lib/account-user";
-import { beginClientNavigation } from "@/lib/client-navigation-state";
-import { ThemeAppearancePanel } from "@/components/theme-appearance-panel";
 import { Spinner } from "@/components/ui/spinner";
-import { useWorkspaceNavigation } from "@/features/auth/hooks/use-workspace-navigation";
 import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import {
-  canSetUpWorkspace,
-  canSwitchToWorkspace,
   workspaceAccountHref,
-  workspaceSetupHref,
 } from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
-
-function workspaceItemClass(isActive: boolean) {
-  return cn(
-    accountMenuItemClass,
-    "text-left",
-    isActive && "bg-foreground/5 dark:bg-white/[0.08]",
-  );
-}
 
 export function NavbarProfileMenu({
   onNavigate,
@@ -45,7 +31,6 @@ export function NavbarProfileMenu({
   className?: string;
 }) {
   const { user, logout, isLoggingOut } = useAuth();
-  const { goWorkspace, switchingWorkspaceRole } = useWorkspaceNavigation();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -72,37 +57,16 @@ export function NavbarProfileMenu({
       isCreatorPath ||
       activeWorkspace === "BRAND" ||
       activeWorkspace === "CREATOR");
-  const canContinueAsBrand = canSwitchToWorkspace(user, "BRAND");
-  const canContinueAsCreator = canSwitchToWorkspace(user, "CREATOR");
-  const canTryAsBrand = canSetUpWorkspace(user, "BRAND");
-  const canTryAsCreator = canSetUpWorkspace(user, "CREATOR");
-  const isAdmin = user.roles?.includes("ADMIN");
-  const showProfiles =
-    !isAdmin &&
-    (canContinueAsBrand ||
-      canContinueAsCreator ||
-      canTryAsBrand ||
-      canTryAsCreator);
-  const profileSectionLabel =
-    canContinueAsBrand || canContinueAsCreator ? "Continue As" : "Try As";
-  const switchingToBrand = switchingWorkspaceRole === "BRAND";
-  const switchingToCreator = switchingWorkspaceRole === "CREATOR";
 
   const wrapNavigate = (fn?: () => void) => () => {
     onNavigate?.();
     fn?.();
   };
 
-  const navigateToSetup = (href: string) => {
-    beginClientNavigation();
-    router.push(href);
-  };
-
   if (onNavigate) {
     return (
       <>
         <div className={cn("space-y-1", className)}>
-        <ThemeAppearancePanel className="mb-2" />
         <div
           className={cn(
             "mb-2 flex items-center gap-3 rounded-xl px-3 py-2.5",
@@ -126,109 +90,6 @@ export function NavbarProfileMenu({
             </p>
           </div>
         </div>
-        {showProfiles ? (
-          <div
-            className={cn("space-y-0.5 rounded-xl p-1", accountMenuGlassPanel)}
-          >
-            <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {profileSectionLabel}
-            </p>
-            {canContinueAsBrand || canTryAsBrand ? (
-              <button
-                type="button"
-                className={cn(
-                  workspaceItemClass(
-                    canContinueAsBrand &&
-                      (isBrandPath || activeWorkspace === "BRAND"),
-                  ),
-                  "w-full",
-                )}
-                disabled={
-                  isLoggingOut || (canContinueAsBrand && switchingToBrand)
-                }
-                onClick={wrapNavigate(() => {
-                  if (canContinueAsBrand) {
-                    void goWorkspace("BRAND", {
-                      redirectIfCurrent: true,
-                      targetHref: brandProfileHref,
-                    });
-                    return;
-                  }
-
-                  navigateToSetup(
-                    workspaceSetupHref("BRAND", brandProfileHref),
-                  );
-                })}
-              >
-                {canContinueAsBrand && switchingToBrand ? (
-                  <Spinner className="size-4 shrink-0" aria-hidden />
-                ) : (
-                  <Building2 className="size-4" />
-                )}
-                <span className="flex flex-1 items-center justify-between gap-2">
-                  {canContinueAsBrand
-                    ? switchingToBrand
-                      ? "Switching to Brand…"
-                      : "As Brand"
-                    : "Try As Brand"}
-                  {canContinueAsBrand && !switchingToBrand && isBrandPath ? (
-                    <span className="text-[10px] font-medium text-primary">
-                      Open
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            ) : null}
-            {canContinueAsCreator || canTryAsCreator ? (
-              <button
-                type="button"
-                className={cn(
-                  workspaceItemClass(
-                    canContinueAsCreator &&
-                      (isCreatorPath || activeWorkspace === "CREATOR"),
-                  ),
-                  "w-full",
-                )}
-                disabled={
-                  isLoggingOut || (canContinueAsCreator && switchingToCreator)
-                }
-                onClick={wrapNavigate(() => {
-                  if (canContinueAsCreator) {
-                    void goWorkspace("CREATOR", {
-                      redirectIfCurrent: true,
-                      targetHref: creatorProfileHref,
-                    });
-                    return;
-                  }
-
-                  navigateToSetup(
-                    workspaceSetupHref("CREATOR", creatorProfileHref),
-                  );
-                })}
-              >
-                {canContinueAsCreator && switchingToCreator ? (
-                  <Spinner className="size-4 shrink-0" aria-hidden />
-                ) : (
-                  <Video className="size-4" />
-                )}
-                <span className="flex flex-1 items-center justify-between gap-2">
-                  {canContinueAsCreator
-                    ? switchingToCreator
-                      ? "Switching to Creator…"
-                      : "As Creator"
-                    : "Try As Creator"}
-                  {canContinueAsCreator &&
-                  !switchingToCreator &&
-                  isCreatorPath ? (
-                    <span className="text-[10px] font-medium text-primary">
-                      Open
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
         {!pathname.startsWith("/admin") && (
           <>
             <div
@@ -339,121 +200,7 @@ export function NavbarProfileMenu({
               "shadow-xl",
             )}
           >
-            <ThemeAppearancePanel className="border-0 bg-transparent shadow-none backdrop-blur-none backdrop-saturate-100 rounded-none border-b border-border/50" />
             <div className={cn("p-1")}>
-              {showProfiles ? (
-                <>
-                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {profileSectionLabel}
-                  </p>
-                  {canContinueAsBrand || canTryAsBrand ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className={cn(
-                        workspaceItemClass(
-                          canContinueAsBrand &&
-                            (isBrandPath || activeWorkspace === "BRAND"),
-                        ),
-                        "w-full",
-                      )}
-                      disabled={
-                        isLoggingOut || (canContinueAsBrand && switchingToBrand)
-                      }
-                      onClick={() => {
-                        if (canContinueAsBrand) {
-                          void goWorkspace("BRAND", {
-                            redirectIfCurrent: true,
-                            targetHref: brandProfileHref,
-                          });
-                          return;
-                        }
-
-                        navigateToSetup(
-                          workspaceSetupHref("BRAND", brandProfileHref),
-                        );
-                      }}
-                    >
-                      {canContinueAsBrand && switchingToBrand ? (
-                        <Spinner className="size-4 shrink-0" aria-hidden />
-                      ) : (
-                        <Building2 className="size-4" />
-                      )}
-                      <span className="flex flex-1 items-center justify-between gap-2">
-                        {canContinueAsBrand
-                          ? switchingToBrand
-                            ? "Switching to Brand…"
-                            : "As Brand"
-                          : "Try As Brand"}
-                        {canContinueAsBrand &&
-                        !switchingToBrand &&
-                        isBrandPath ? (
-                          <span className="text-[10px] font-medium text-primary">
-                            Open
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  ) : null}
-                  {canContinueAsCreator || canTryAsCreator ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className={cn(
-                        workspaceItemClass(
-                          canContinueAsCreator &&
-                            (isCreatorPath || activeWorkspace === "CREATOR"),
-                        ),
-                        "w-full",
-                      )}
-                      disabled={
-                        isLoggingOut ||
-                        (canContinueAsCreator && switchingToCreator)
-                      }
-                      onClick={() => {
-                        if (canContinueAsCreator) {
-                          void goWorkspace("CREATOR", {
-                            redirectIfCurrent: true,
-                            targetHref: creatorProfileHref,
-                          });
-                          return;
-                        }
-
-                        navigateToSetup(
-                          workspaceSetupHref("CREATOR", creatorProfileHref),
-                        );
-                      }}
-                    >
-                      {canContinueAsCreator && switchingToCreator ? (
-                        <Spinner className="size-4 shrink-0" aria-hidden />
-                      ) : (
-                        <Video className="size-4" />
-                      )}
-                      <span className="flex flex-1 items-center justify-between gap-2">
-                        {canContinueAsCreator
-                          ? switchingToCreator
-                            ? "Switching to Creator…"
-                            : "As Creator"
-                          : "Try As Creator"}
-                        {canContinueAsCreator &&
-                        !switchingToCreator &&
-                        isCreatorPath ? (
-                          <span className="text-[10px] font-medium text-primary">
-                            Open
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  ) : null}
-                  {showProfiles ? (
-                    <div
-                      className="my-1 h-px bg-border/60"
-                      role="separator"
-                      aria-hidden
-                    />
-                  ) : null}
-                </>
-              ) : null}
               {!pathname.startsWith("/admin") && (
                 <>
                   <Link

@@ -15,6 +15,8 @@ import { useMarkProductReceivedMutation } from "../../hooks/use-mark-product-rec
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
+import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
+import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
 interface CreatorOrderActivePanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -387,41 +389,60 @@ function InProgressContent({
   briefData: any;
   selectedItem: any;
 }) {
-  const draftInputRef = useRef<HTMLInputElement>(null);
-  const finalInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
 
   const [pendingUpload, setPendingUpload] = useState<{
-    type: "draft" | "final";
     files: File[];
   } | null>(null);
+
+  const [previewAssets, setPreviewAssets] = useState<CarouselAsset[]>([]);
+
+  useEffect(() => {
+    if (!pendingUpload || pendingUpload.files.length === 0) {
+      setPreviewAssets([]);
+      return;
+    }
+    const assets = pendingUpload.files.map((file, i) => {
+      const url = URL.createObjectURL(file);
+      const isVideo = file.type.startsWith("video/");
+      return {
+        id: `local-${i}-${file.name}`,
+        type: isVideo ? "video" : "image",
+        full: url,
+        thumb: url,
+      } as CarouselAsset;
+    });
+    setPreviewAssets(assets);
+
+    return () => {
+      assets.forEach((a) => URL.revokeObjectURL(a.full));
+    };
+  }, [pendingUpload]);
 
   const deadline = selectedItem.order.deliveryDeadlineAt;
   const remaining = daysLeft(deadline);
 
-  function handleFileSelect(type: "draft" | "final") {
-    return (event: React.ChangeEvent<HTMLInputElement>) => {
-      const fileList = event.target.files;
-      if (!fileList || fileList.length === 0 || !isCurrentStep) return;
+  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const fileList = event.target.files;
+    if (!fileList || fileList.length === 0 || !isCurrentStep) return;
 
-      const validFiles = Array.from(fileList).filter(isSupportedFile);
+    const validFiles = Array.from(fileList).filter(isSupportedFile);
 
-      if (validFiles.length === 0) {
-        toast.error("Please upload valid video or image files.");
-        return;
-      }
+    if (validFiles.length === 0) {
+      toast.error("Please upload valid video or image files.");
+      return;
+    }
 
-      if (validFiles.some((f) => f.size > 250_000_000)) {
-        toast.error("Each file must be 250 MB or smaller.");
-        return;
-      }
+    if (validFiles.some((f) => f.size > 250_000_000)) {
+      toast.error("Each file must be 250 MB or smaller.");
+      return;
+    }
 
-      setPendingUpload({ type, files: validFiles });
+    setPendingUpload({ files: validFiles });
 
-      if (draftInputRef.current) draftInputRef.current.value = "";
-      if (finalInputRef.current) finalInputRef.current.value = "";
-    };
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleConfirmUpload() {
@@ -439,124 +460,100 @@ function InProgressContent({
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
-      <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
-        <h3 className="font-bold text-sm mb-4">Your Progress</h3>
-
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Draft Status</span>
-            <span className="font-medium text-muted-foreground/60">
-              Not Uploaded
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Final Video</span>
-            <span className="font-medium text-muted-foreground/60">
-              Not Uploaded
-            </span>
-          </div>
-        </div>
-
-        {isCurrentStep && (
-          <>
-            <input
-              type="file"
-              ref={draftInputRef}
-              className="hidden"
-              accept="video/*,image/*"
-              multiple
-              onChange={handleFileSelect("draft")}
-            />
-            <input
-              type="file"
-              ref={finalInputRef}
-              className="hidden"
-              accept="video/*,image/*"
-              multiple
-              onChange={handleFileSelect("final")}
-            />
-
-            {pendingUpload ? (
-              <div className="mt-4 p-4 rounded-lg border border-border/50 bg-muted/30 space-y-3 text-sm">
-                <div className="font-medium text-foreground">
-                  Ready to upload {pendingUpload.files.length} file(s) for{" "}
-                  {pendingUpload.type === "draft" ? "Draft" : "Final Video"}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-9 rounded-lg border-border/50"
-                    disabled={isUploading}
-                    onClick={() => setPendingUpload(null)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="flex-1 h-9 rounded-lg font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
-                    disabled={isUploading}
-                    onClick={handleConfirmUpload}
-                  >
-                    {isUploading ? (
-                      <>
-                        <Spinner className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3.5 h-3.5 mr-1.5" />
-                        Confirm Upload
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
+      <CreatorDeliveryAssetsCard
+        orderId={selectedOrderId}
+        title="Your Progress"
+        emptyLabel="No files uploaded yet."
+        hideEmptyState={Boolean(pendingUpload)}
+        action={
+          <div className="mt-auto">
+            {isCurrentStep && (
               <>
-                <Button
-                  className="w-full mt-4 rounded-lg h-10 font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
-                  disabled={isUploading}
-                  onClick={() => draftInputRef.current?.click()}
-                >
-                  <Upload className="w-4 h-4 mr-1.5" />
-                  Select Draft
-                </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="video/*,image/*"
+                  multiple
+                  onChange={handleFileSelect}
+                />
 
-                <Button
-                  variant="outline"
-                  className="w-full mt-2 rounded-lg h-10 font-semibold border-border/50 gap-1.5"
-                  disabled={isUploading}
-                  onClick={() => finalInputRef.current?.click()}
-                >
-                  <FileVideo className="w-4 h-4" />
-                  Select Final Video
-                </Button>
+                {pendingUpload ? (
+                  <div className="mt-4 p-4 rounded-lg border border-border/50 bg-muted/30 space-y-3 text-sm">
+                    {previewAssets.length > 0 && (
+                      <ThumbnailsCarousel
+                        assets={previewAssets}
+                        itemGroupClassName="aspect-auto h-36 rounded-lg"
+                      />
+                    )}
+                    <div className="font-medium text-foreground">
+                      Ready to upload {pendingUpload.files.length} file(s)
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-9 rounded-lg border-border/50"
+                        disabled={isUploading}
+                        onClick={() => setPendingUpload(null)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="flex-1 h-9 rounded-lg font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
+                        disabled={isUploading}
+                        onClick={handleConfirmUpload}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Spinner className="w-3.5 h-3.5 mr-1.5" aria-hidden />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5 mr-1.5" />
+                            Confirm Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    className="w-full mt-4 rounded-lg h-10 font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm gap-1.5"
+                    disabled={isUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Select Content
+                  </Button>
+                )}
               </>
             )}
-          </>
-        )}
 
-        <div className="mt-auto pt-4 border-t border-border/40 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Due Date</span>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">{fmtDate(deadline)}</span>
-            {remaining !== null && (
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full border-0",
-                  remaining <= 3
-                    ? "bg-red-500/10 text-red-600"
-                    : remaining <= 7
-                      ? "bg-amber-500/10 text-amber-600"
-                      : "bg-emerald-500/10 text-emerald-600",
+            <div className={cn("flex items-center justify-between", isCurrentStep ? "mt-4 pt-4 border-t border-border/40" : "mt-4 pt-4 border-t border-border/40")}>
+              <span className="text-sm text-muted-foreground">Due Date</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">{fmtDate(deadline)}</span>
+                {remaining !== null && (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[10px] font-bold px-2 py-0.5 rounded-full border-0",
+                      remaining <= 3
+                        ? "bg-red-500/10 text-red-600"
+                        : remaining <= 7
+                          ? "bg-amber-500/10 text-amber-600"
+                          : "bg-emerald-500/10 text-emerald-600",
+                    )}
+                  >
+                    {remaining} day{remaining !== 1 ? "s" : ""} left
+                  </Badge>
                 )}
-              >
-                {remaining} day{remaining !== 1 ? "s" : ""} left
-              </Badge>
-            )}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
         <h3 className="font-bold text-sm mb-4">Quick Tips</h3>

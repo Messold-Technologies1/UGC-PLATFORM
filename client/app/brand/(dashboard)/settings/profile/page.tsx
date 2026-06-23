@@ -21,7 +21,7 @@ export default function BrandSettingsProfilePage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex min-h-[40vh] items-center justify-center pt-4 lg:pt-5">
         <Spinner className="size-8 text-muted-foreground" />
       </div>
     );
@@ -31,7 +31,7 @@ export default function BrandSettingsProfilePage() {
 
   if (user.brandAccessRevoked || profileState?.kind === "revoked") {
     return (
-      <div className="space-y-8">
+      <div className="space-y-8 pt-4 lg:pt-5">
         <PageHeader
           title="Brand Access Removed"
           description="Your brand access has been removed by admin."
@@ -42,7 +42,7 @@ export default function BrandSettingsProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex min-h-[40vh] items-center justify-center pt-4 lg:pt-5">
         <Spinner className="size-8 text-muted-foreground" />
       </div>
     );
@@ -50,7 +50,7 @@ export default function BrandSettingsProfilePage() {
 
   if (isError) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pt-4 lg:pt-5">
         <PageHeader
           title="Profile"
           description="We could not load your brand profile. Try again shortly."
@@ -63,7 +63,7 @@ export default function BrandSettingsProfilePage() {
   const initialProfile = hasExistingProfile ? profileState.profile : null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pt-4 lg:pt-5">
       <PageHeader
         title="Profile"
         description="Update your company details and logo."

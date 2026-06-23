@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { AppShellProviders } from "@/providers/app-providers";
 import { GlobalVideoManager } from "@/components/global-video-manager";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { TawkToChat } from "@/components/tawk-to";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
@@ -86,6 +87,7 @@ export default function RootLayout({
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />
+        <TawkToChat />
       </body>
     </html>
   );

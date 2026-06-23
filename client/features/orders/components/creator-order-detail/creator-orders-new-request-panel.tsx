@@ -31,6 +31,7 @@ interface CreatorOrderNewRequestPanelProps {
   briefData: any;
   isLoading: boolean;
   onClose: () => void;
+  onAccepted?: () => void;
 }
 
 function formatEnumLabel(value?: string | string[] | null) {
@@ -55,10 +56,15 @@ export function CreatorOrderNewRequestPanel({
   briefData,
   isLoading,
   onClose,
+  onAccepted,
 }: CreatorOrderNewRequestPanelProps) {
   const acceptBriefMutation = useAcceptBriefMutation({
     onSuccess: () => {
-      onClose();
+      if (onAccepted) {
+        onAccepted();
+      } else {
+        onClose();
+      }
     },
   });
 

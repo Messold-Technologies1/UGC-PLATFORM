@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { BrandAvatar, StatusBadge } from "@/features/creator-ui";
 import {
   MSG_STATUS_COLORS,
   MSG_STATUS_LABELS,
@@ -35,7 +34,9 @@ export function MessagesConversationList({ conversations, selectedId, onSelect }
                 : "border-l-2 border-l-transparent"
             )}
           >
-            <BrandAvatar initials={c.brandInitials} bgClass={c.brandBgClass} size="md" />
+            <div className={cn("size-10 rounded-full flex items-center justify-center font-bold text-white shrink-0", c.brandBgClass)}>
+              {c.brandInitials}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1 mb-0.5">
                 <span className="text-sm font-bold text-foreground truncate">{c.brandName}</span>
@@ -44,9 +45,9 @@ export function MessagesConversationList({ conversations, selectedId, onSelect }
                 </span>
               </div>
               <div className="mb-1">
-                <StatusBadge colorClass={MSG_STATUS_COLORS[c.status]}>
+                <span className={cn("px-2 py-0.5 text-[10px] uppercase font-bold rounded-full", MSG_STATUS_COLORS[c.status])}>
                   {MSG_STATUS_LABELS[c.status]}
-                </StatusBadge>
+                </span>
               </div>
               <p className="text-xs text-muted-foreground truncate">{c.lastMessage}</p>
             </div>

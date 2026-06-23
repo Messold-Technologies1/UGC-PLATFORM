@@ -20,6 +20,7 @@ const TOC_ITEMS: TocItem[] = [
   { id: "creator-profiles-and-public-information", label: "Creator Profiles" },
   { id: "brand-and-agency-briefs", label: "Brand & Agency Briefs" },
   { id: "uploaded-content-and-deliverables", label: "Uploaded Content" },
+  { id: "platform-promotional-usage-rights", label: "Promotional Usage Rights" },
   { id: "dispute-and-refund-review-data", label: "Dispute & Refund Data" },
   { id: "cookies-and-tracking", label: "Cookies & Tracking" },
   { id: "marketing-communications", label: "Marketing" },
@@ -278,8 +279,21 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
+          <section id="platform-promotional-usage-rights" className={sectionClass}>
+            <h2 className={h2Class}>9. Platform Promotional Usage Rights</h2>
+            <p className={pClass}>
+              By uploading, submitting, or delivering content through LetsCollab, including videos, images, testimonials, campaign deliverables, portfolio samples, or other creative assets, you grant LetsCollab and Messold Technologies a non-exclusive, worldwide, royalty-free license to use, display, reproduce, publish, showcase, and promote such content on the LetsCollab platform, including but not limited to the homepage, creator profiles, case studies, marketing materials, social media channels, presentations, advertisements, emails, and other areas of the platform for the purpose of promoting LetsCollab and its services.
+            </p>
+            <p className={pClass}>
+              This license does not transfer ownership of the content to LetsCollab. The creator or rightful owner retains all ownership rights in the content. LetsCollab will make reasonable efforts to attribute content to the relevant creator, brand, or agency where appropriate.
+            </p>
+            <p className={pClass}>
+              If a brand, agency, or creator believes certain content should not be used for promotional purposes due to confidentiality obligations or other legitimate concerns, they may submit a written request to LetsCollab for review.
+            </p>
+          </section>
+
           <section id="dispute-and-refund-review-data" className={sectionClass}>
-            <h2 className={h2Class}>9. Dispute and Refund Review Data</h2>
+            <h2 className={h2Class}>10. Dispute and Refund Review Data</h2>
             <p className={pClass}>
               If you request a dispute review, refund, cancellation, or payment release review, we may collect and review:
             </p>
@@ -295,7 +309,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="cookies-and-tracking" className={sectionClass}>
-            <h2 className={h2Class}>10. Cookies and Tracking Technologies</h2>
+            <h2 className={h2Class}>11. Cookies and Tracking Technologies</h2>
             <p className={pClass}>We may use cookies, pixels, tags, and similar technologies to:</p>
             <ul className={ulClass}>
               <li>Keep users logged in and remember preferences</li>
@@ -309,7 +323,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="marketing-communications" className={sectionClass}>
-            <h2 className={h2Class}>11. Marketing Communications</h2>
+            <h2 className={h2Class}>12. Marketing Communications</h2>
             <p className={pClass}>We may send you emails, SMS, WhatsApp messages, push notifications, or other communications related to:</p>
             <ul className={ulClass}>
               <li>Account updates, order updates, platform updates</li>
@@ -323,7 +337,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="data-security" className={sectionClass}>
-            <h2 className={h2Class}>12. Data Security</h2>
+            <h2 className={h2Class}>13. Data Security</h2>
             <p className={pClass}>
               We take reasonable technical and organisational measures to protect personal information against unauthorised access, loss, misuse, disclosure, alteration, or destruction.
             </p>
@@ -341,7 +355,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="data-retention" className={sectionClass}>
-            <h2 className={h2Class}>13. Data Retention</h2>
+            <h2 className={h2Class}>14. Data Retention</h2>
             <p className={pClass}>
               We retain personal information only for as long as necessary for the purposes described in this Privacy Policy, including:
             </p>
@@ -359,7 +373,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="your-rights" className={sectionClass}>
-            <h2 className={h2Class}>14. Your Rights</h2>
+            <h2 className={h2Class}>15. Your Rights</h2>
             <p className={pClass}>Depending on applicable law, you may have the right to:</p>
             <ul className={ulClass}>
               <li>Access your personal information</li>
@@ -384,7 +398,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="account-deletion" className={sectionClass}>
-            <h2 className={h2Class}>15. Account Deletion</h2>
+            <h2 className={h2Class}>16. Account Deletion</h2>
             <p className={pClass}>
               You may request deletion of your account by contacting us at{" "}
               <a href="mailto:support@gocollab.io" className="text-primary underline underline-offset-2 hover:text-primary/80">support@gocollab.io</a>.
@@ -399,7 +413,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="childrens-privacy" className={sectionClass}>
-            <h2 className={h2Class}>16. Children&apos;s Privacy</h2>
+            <h2 className={h2Class}>17. Children&apos;s Privacy</h2>
             <p className={pClass}>
               GoCollab is not intended for users below the age of 18 years, unless permitted by applicable law and with appropriate consent from a parent or legal guardian.
             </p>
@@ -409,7 +423,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="international-data-transfers" className={sectionClass}>
-            <h2 className={h2Class}>17. International Data Transfers</h2>
+            <h2 className={h2Class}>18. International Data Transfers</h2>
             <p className={pClass}>
               Your information may be stored or processed in countries other than your country of residence, depending on our hosting, payment, analytics, and service providers.
             </p>
@@ -419,7 +433,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="third-party-links" className={sectionClass}>
-            <h2 className={h2Class}>18. Third-Party Links</h2>
+            <h2 className={h2Class}>19. Third-Party Links</h2>
             <p className={pClass}>
               GoCollab may contain links to third-party websites, social media profiles, payment gateways, portfolio links, or external tools.
             </p>
@@ -429,7 +443,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="third-party-integrations" className={sectionClass}>
-            <h2 className={h2Class}>19. Third-Party Integrations</h2>
+            <h2 className={h2Class}>20. Third-Party Integrations</h2>
             <p className={pClass}>
               GoCollab may integrate with third-party tools such as payment providers, analytics platforms, communication tools, video hosting services, or social platforms.
             </p>
@@ -439,7 +453,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="user-responsibilities" className={sectionClass}>
-            <h2 className={h2Class}>20. User Responsibilities</h2>
+            <h2 className={h2Class}>21. User Responsibilities</h2>
             <p className={pClass}>You agree to:</p>
             <ul className={ulClass}>
               <li>Provide accurate and updated information</li>
@@ -455,7 +469,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="changes-to-this-privacy-policy" className={sectionClass}>
-            <h2 className={h2Class}>21. Changes to This Privacy Policy</h2>
+            <h2 className={h2Class}>22. Changes to This Privacy Policy</h2>
             <p className={pClass}>We may update this Privacy Policy from time to time. If we make material changes, we may notify users through:</p>
             <ul className={ulClass}>
               <li>Email</li>
@@ -469,7 +483,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section id="grievance-officer-contact" className={sectionClass}>
-            <h2 className={h2Class}>22. Grievance Officer / Contact Us</h2>
+            <h2 className={h2Class}>23. Grievance Officer / Contact Us</h2>
             <p className={pClass}>
               For privacy questions, complaints, account deletion requests, data access requests, or grievance redressal, contact:
             </p>

@@ -331,7 +331,7 @@ export function MarketingLanding() {
             <div className="animate-float absolute top-0 left-4 w-[44%] rotate-[-6deg] [--tw-rotate:-6deg]">
               <div className="border-foreground shadow-hard bg-card overflow-hidden rounded-2xl border-2">
                 <Image
-                  src={MARKETING_CREATOR_IMAGES.skincare}
+                  src="/1.jpg"
                   alt="Skincare creator"
                   width={512}
                   height={704}
@@ -347,7 +347,7 @@ export function MarketingLanding() {
             <div className="animate-float-delayed absolute top-12 right-0 w-[46%] rotate-[5deg] [--tw-rotate:5deg]">
               <div className="border-foreground shadow-hard bg-card overflow-hidden rounded-2xl border-2">
                 <Image
-                  src={MARKETING_CREATOR_IMAGES.fashion}
+                  src="/3.jpg"
                   alt="Fashion creator"
                   width={512}
                   height={704}
@@ -363,7 +363,7 @@ export function MarketingLanding() {
             <div className="animate-float-delayed absolute bottom-0 left-0 w-[44%] rotate-[4deg] [--tw-rotate:4deg]">
               <div className="border-foreground shadow-hard bg-card overflow-hidden rounded-2xl border-2">
                 <Image
-                  src={MARKETING_CREATOR_IMAGES.food}
+                  src="/2.jpg"
                   alt="Food creator"
                   width={512}
                   height={704}
@@ -379,7 +379,7 @@ export function MarketingLanding() {
             <div className="animate-float absolute right-6 bottom-8 w-[42%] rotate-[-5deg] [--tw-rotate:-5deg]">
               <div className="border-foreground shadow-hard bg-card overflow-hidden rounded-2xl border-2">
                 <Image
-                  src={MARKETING_CREATOR_IMAGES.tech}
+                  src="/4.jpg"
                   alt="Tech creator"
                   width={512}
                   height={704}

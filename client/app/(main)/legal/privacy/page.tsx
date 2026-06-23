@@ -282,13 +282,13 @@ export default function PrivacyPolicyPage() {
           <section id="platform-promotional-usage-rights" className={sectionClass}>
             <h2 className={h2Class}>9. Platform Promotional Usage Rights</h2>
             <p className={pClass}>
-              By uploading, submitting, or delivering content through GoCollab, including videos, images, testimonials, campaign deliverables, portfolio samples, or other creative assets, you grant GoCollab and Messold Technologies a non-exclusive, worldwide, royalty-free license to use, display, reproduce, publish, showcase, and promote such content on the GoCollab platform, including but not limited to the homepage, creator profiles, case studies, marketing materials, social media channels, presentations, advertisements, emails, and other areas of the platform for the purpose of promoting GoCollab and its services.
+              By uploading, submitting, or delivering content through LetsCollab, including videos, images, testimonials, campaign deliverables, portfolio samples, or other creative assets, you grant LetsCollab and Messold Technologies a non-exclusive, worldwide, royalty-free license to use, display, reproduce, publish, showcase, and promote such content on the LetsCollab platform, including but not limited to the homepage, creator profiles, case studies, marketing materials, social media channels, presentations, advertisements, emails, and other areas of the platform for the purpose of promoting LetsCollab and its services.
             </p>
             <p className={pClass}>
-              This license does not transfer ownership of the content to GoCollab. The creator or rightful owner retains all ownership rights in the content. GoCollab will make reasonable efforts to attribute content to the relevant creator, brand, or agency where appropriate.
+              This license does not transfer ownership of the content to LetsCollab. The creator or rightful owner retains all ownership rights in the content. LetsCollab will make reasonable efforts to attribute content to the relevant creator, brand, or agency where appropriate.
             </p>
             <p className={pClass}>
-              If a brand, agency, or creator believes certain content should not be used for promotional purposes due to confidentiality obligations or other legitimate concerns, they may submit a written request to GoCollab for review.
+              If a brand, agency, or creator believes certain content should not be used for promotional purposes due to confidentiality obligations or other legitimate concerns, they may submit a written request to LetsCollab for review.
             </p>
           </section>
 

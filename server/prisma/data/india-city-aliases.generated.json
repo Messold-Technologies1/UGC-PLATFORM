@@ -1,0 +1,1066 @@
+[
+  {
+    "state": "Delhi",
+    "names": [
+      "Delhi",
+      "Dehli",
+      "Dilli"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Kolkata",
+      "Calcutta",
+      "Howrah"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Mumbai",
+      "Bombay"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Bengaluru",
+      "Bangalore"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Chennai",
+      "Madras"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Pune",
+      "Poona",
+      "Puna"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Kanpur",
+      "Cawnpore"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Coimbatore",
+      "Kovai"
+    ]
+  },
+  {
+    "state": "Andhra Pradesh",
+    "names": [
+      "Visakhapatnam",
+      "Vizag"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Vadodara",
+      "Baroda"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Varanasi",
+      "Kashi",
+      "Banaras",
+      "Benaras"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Jabalpur",
+      "Jubbulpore"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Allahabad",
+      "Ilahabad",
+      "Prayag"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Tiruchirappalli",
+      "Trichy",
+      "Tiruchi",
+      "Trichinopoly"
+    ]
+  },
+  {
+    "state": "Assam",
+    "names": [
+      "Guwahati",
+      "Gauhati"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Tirupur",
+      "Tiruppur"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Thiruvananthapuram",
+      "Trivandrum"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Hubli",
+      "Hubballi",
+      "Hubli-Dharwad"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Aligarh",
+      "Allygurh"
+    ]
+  },
+  {
+    "state": "Haryana",
+    "names": [
+      "Gurgaon",
+      "Guru Gram"
+    ]
+  },
+  {
+    "state": "Chhattisgarh",
+    "names": [
+      "Durg",
+      "Durg - Bhilai"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Mysore",
+      "Mysuru"
+    ]
+  },
+  {
+    "state": "Odisha",
+    "names": [
+      "Bhubaneswar",
+      "Bhubaneshwar"
+    ]
+  },
+  {
+    "state": "Punjab",
+    "names": [
+      "Jalandhar",
+      "Jullundur"
+    ]
+  },
+  {
+    "state": "Puducherry",
+    "names": [
+      "Pondicherry",
+      "Puducherry",
+      "Pondy"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Amravati",
+      "Ambanagari"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Kochi",
+      "Cochin"
+    ]
+  },
+  {
+    "state": "Odisha",
+    "names": [
+      "Rourkela",
+      "Raurkela"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Gulbarga",
+      "Kalaburagi"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Mangalore",
+      "Mangaluru"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Tirunelveli",
+      "Nellai",
+      "Tinnevelly"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Belgaum",
+      "Belagavi",
+      "Belgaon",
+      "Venugrama"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Calicut",
+      "Kozhikode"
+    ]
+  },
+  {
+    "state": "Andhra Pradesh",
+    "names": [
+      "Rajamahendravaram",
+      "Rajahmundry"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Tuticorin",
+      "Thoothukudi"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Bellary",
+      "Ballari"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Sagar",
+      "Saugor"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Budaun",
+      "Badaun"
+    ]
+  },
+  {
+    "state": "Odisha",
+    "names": [
+      "Berhampur",
+      "Brahmapur"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Ahmednagar",
+      "Ahmadnagar"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Kollam",
+      "Quilon",
+      "Desinganadu",
+      "Coulao"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Bardhaman",
+      "Burdwan"
+    ]
+  },
+  {
+    "state": "Andhra Pradesh",
+    "names": [
+      "Kadapa",
+      "Cuddapah"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Bijapur",
+      "Vijayapur"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Thrissur",
+      "Trichur",
+      "Thiru Siva Peroor"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Malda",
+      "English Bazar",
+      "Ingraj Bazar"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Shimoga",
+      "Shivamogga"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Purnia",
+      "Purnea"
+    ]
+  },
+  {
+    "state": "Haryana",
+    "names": [
+      "Hisar",
+      "Hissar"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Tumkur",
+      "Tumakuru"
+    ]
+  },
+  {
+    "state": "Puducherry",
+    "names": [
+      "Ozhukarai",
+      "Uzhavarkarai"
+    ]
+  },
+  {
+    "state": "Haryana",
+    "names": [
+      "Sonipat",
+      "Sonepat"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Gudiyatham",
+      "Gudiyattam",
+      "Gudiyettram"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Shantipur",
+      "Santipur"
+    ]
+  },
+  {
+    "state": "Punjab",
+    "names": [
+      "Bathinda",
+      "Bhatinda"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Mau",
+      "Maunath Bhanjan"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Ratlam",
+      "Ratnapuri"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Hapur",
+      "Haripur"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Arrah",
+      "Ara"
+    ]
+  },
+  {
+    "state": "Uttarakhand",
+    "names": [
+      "Haldwani",
+      "Kathgodam"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Kannur",
+      "Cannanore"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Nagercoil",
+      "Nagerkovil"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Thanjavur",
+      "Tanjore"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Katni",
+      "Murwara",
+      "Mudwara"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Chhapra",
+      "Chapra"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Hospet",
+      "Hosapete"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Bhusawal",
+      "Bhusaval"
+    ]
+  },
+  {
+    "state": "Odisha",
+    "names": [
+      "Puri",
+      "Jagannath Puri"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Morbi",
+      "Morvi"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Khambhat",
+      "Cambay"
+    ]
+  },
+  {
+    "state": "Odisha",
+    "names": [
+      "Balasore",
+      "Baleshwar"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Nabadwip",
+      "Naodah",
+      "Navadvip"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Alappuzha",
+      "Alleppey"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Alappuzha",
+      "Alleppey"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Gadag",
+      "Betgeri",
+      "Betageri",
+      "Betigeri"
+    ]
+  },
+  {
+    "state": "Himachal Pradesh",
+    "names": [
+      "Shimla",
+      "Simla"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Komarapalayam",
+      "Kumarapalayam"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Midnapore",
+      "Medinipur"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Bharuch",
+      "Broach"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Udupi",
+      "Udipi",
+      "Odipu"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Kanchipuram",
+      "Kanchi",
+      "Kancheepuram"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Vapi",
+      "Wapi"
+    ]
+  },
+  {
+    "state": "Telangana",
+    "names": [
+      "Mahbubnagar",
+      "Palamoor"
+    ]
+  },
+  {
+    "state": "Haryana",
+    "names": [
+      "Thanesar",
+      "Thaneswar",
+      "Sthanishvara"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Barabanki",
+      "Nawabganj"
+    ]
+  },
+  {
+    "state": "Rajasthan",
+    "names": [
+      "Chittorgarh",
+      "Chittaurgarh",
+      "Chittor"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Porbandar",
+      "Porbander"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Sasaram",
+      "Sahsaram"
+    ]
+  },
+  {
+    "state": "Punjab",
+    "names": [
+      "Mohali",
+      "Ajitgarh",
+      "Sahibzada Ajit Singh Nagar"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Tiruvannamalai",
+      "Thiruvannamalai",
+      "Trinomali",
+      "Trinomalee"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Harihar",
+      "Harihara",
+      "Hurryhur"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Mandsaur",
+      "Mandsour"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Ankleshwar",
+      "Ankleshvar"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Kumbakonam",
+      "Coombaconum"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Dehri",
+      "Dehri on Sone"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Kamptee",
+      "Kamthi"
+    ]
+  },
+  {
+    "state": "Rajasthan",
+    "names": [
+      "Dholpur",
+      "Dhaulpur"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Gondia",
+      "Gondiya"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Darjeeling",
+      "Darjiling"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Palakkad",
+      "Palghat"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Neemuch",
+      "Nimach"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Purulia",
+      "Puruliya"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Jangipur",
+      "Jahangirpur"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Ghazipur",
+      "Ghazeepore",
+      "Ghazipour",
+      "Gauspur"
+    ]
+  },
+  {
+    "state": "Jharkhand",
+    "names": [
+      "Medininagar",
+      "Daltonganj"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Dahod",
+      "Dohad"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Chikkamagallooru",
+      "Chikmagalur"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Chikmagalur",
+      "Chikkamagaluru"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Jetpur",
+      "Jetpur Navagadh",
+      "Kathi"
+    ]
+  },
+  {
+    "state": "Punjab",
+    "names": [
+      "Muktasar",
+      "Sri Muktsar Sahib"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Bijnor",
+      "Bijnaur",
+      "Bijnour"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Kothamangalam",
+      "Kotamangalam"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Valsad",
+      "Bulsar"
+    ]
+  },
+  {
+    "state": "Goa",
+    "names": [
+      "Panaji",
+      "Panjim"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Achalpur",
+      "Ellichpur",
+      "Illychpur",
+      "Paratwada"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Osmanabad",
+      "Usmanabad"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Deesa",
+      "Disa"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Bangaon",
+      "Bongaon"
+    ]
+  },
+  {
+    "state": "Punjab",
+    "names": [
+      "Firozpur",
+      "Ferozpur"
+    ]
+  },
+  {
+    "state": "Andhra Pradesh",
+    "names": [
+      "Tadipatri",
+      "Tadpatri"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Cooch Behar",
+      "Koch Bihar"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Ranebennuru",
+      "Ranibennur"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Jamalpur",
+      "Monghyr"
+    ]
+  },
+  {
+    "state": "Maharashtra",
+    "names": [
+      "Barshi",
+      "Barsi"
+    ]
+  },
+  {
+    "state": "Telangana",
+    "names": [
+      "Miryalaguda",
+      "Miryalguda"
+    ]
+  },
+  {
+    "state": "Madhya Pradesh",
+    "names": [
+      "Betul",
+      "Badnur"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Nagapattinam",
+      "Nagapatnam",
+      "Negapatam"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Jehanabad",
+      "Jahanabad"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Malappuram",
+      "Malapuram"
+    ]
+  },
+  {
+    "state": "Goa",
+    "names": [
+      "Vasco",
+      "Vasco da Gama"
+    ]
+  },
+  {
+    "state": "Bihar",
+    "names": [
+      "Lakhisarai",
+      "Luckeesarai"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Viluppuram",
+      "Villupuram",
+      "Vizhupuram"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Ramanagara",
+      "Shamserabad"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Kovilpatti",
+      "Covilpatti"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Bhadohi",
+      "Sant Ravidas Nagar"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Thalassery",
+      "Tellicherry"
+    ]
+  },
+  {
+    "state": "West Bengal",
+    "names": [
+      "Kanthi",
+      "Contai"
+    ]
+  },
+  {
+    "state": "Kerala",
+    "names": [
+      "Ponnani",
+      "Ponani",
+      "Paniyani"
+    ]
+  },
+  {
+    "state": "Uttar Pradesh",
+    "names": [
+      "Pratapgarh",
+      "Bela Pratapgarh"
+    ]
+  },
+  {
+    "state": "Tamil Nadu",
+    "names": [
+      "Ooty",
+      "Ootacamund",
+      "Udhagamandalam",
+      "Udhagai"
+    ]
+  },
+  {
+    "state": "Goa",
+    "names": [
+      "Margao",
+      "Madgaon"
+    ]
+  },
+  {
+    "state": "Odisha",
+    "names": [
+      "Jeypore",
+      "Jaypur"
+    ]
+  },
+  {
+    "state": "Gujarat",
+    "names": [
+      "Mehsana",
+      "Mahesana"
+    ]
+  },
+  {
+    "state": "Rajasthan",
+    "names": [
+      "Karauli",
+      "Karoli",
+      "Kerowlee"
+    ]
+  },
+  {
+    "state": "Telangana",
+    "names": [
+      "Kothagudem",
+      "Kottagudem"
+    ]
+  },
+  {
+    "state": "Karnataka",
+    "names": [
+      "Bagalkot",
+      "Bagalkote"
+    ]
+  }
+]

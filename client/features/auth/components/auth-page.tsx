@@ -24,18 +24,41 @@ export function AuthPage() {
 function LoginRouter() {
   const searchParams = useSearchParams();
   const roleParam = parseLoginRole(searchParams.get("role"));
-  const [role, setRole] = useState<LoginRole>(roleParam ?? "brand");
+  const callbackUrl = searchParams.get("callbackUrl");
+
+  const [role, setRole] = useState<LoginRole>(() => {
+    if (roleParam) return roleParam;
+    if (callbackUrl) {
+      const path = callbackUrl.split("?")[0];
+      if (path.startsWith("/creator")) return "creator";
+      if (path.startsWith("/brand")) return "brand";
+    }
+    const remembered = getRememberedRole();
+    if (remembered) return remembered;
+    return "brand";
+  });
 
   useEffect(() => {
     if (roleParam) {
       setRole(roleParam);
-    } else {
-      const remembered = getRememberedRole();
-      if (remembered) {
-        setRole(remembered);
+      return;
+    }
+    if (callbackUrl) {
+      const path = callbackUrl.split("?")[0];
+      if (path.startsWith("/creator")) {
+        setRole("creator");
+        return;
+      }
+      if (path.startsWith("/brand")) {
+        setRole("brand");
+        return;
       }
     }
-  }, [roleParam]);
+    const remembered = getRememberedRole();
+    if (remembered) {
+      setRole(remembered);
+    }
+  }, [roleParam, callbackUrl]);
 
   const config = ROLE_CONFIGS[role];
 

@@ -260,6 +260,21 @@
   margin-top: 1px;
   white-space: nowrap;
 }
+.rcard .fprice small.fmeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  white-space: normal;
+}
+.rcard .fmeta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.rcard .fmeta-fast {
+  color: var(--primary);
+}
 .rcard .fview {
   height: 36px;
   padding: 0 12px;

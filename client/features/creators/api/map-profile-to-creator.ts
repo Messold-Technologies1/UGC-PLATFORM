@@ -94,6 +94,35 @@ function parseRating(value: string | number | null | undefined): number {
   return Number.isFinite(rating) ? rating : 0;
 }
 
+function getFasterDeliveryFromProfile(profile: ListingProfileApi): {
+  hasFasterDelivery: boolean;
+  fasterDeliveryDays: number | null;
+} {
+  if ("hasFasterDelivery" in profile && profile.hasFasterDelivery != null) {
+    return {
+      hasFasterDelivery: profile.hasFasterDelivery,
+      fasterDeliveryDays: profile.fasterDeliveryDays ?? null,
+    };
+  }
+
+  const addOns = isCreatorProfileItemApi(profile)
+    ? profile.addOns
+    : undefined;
+  const fasterDeliveryAddOn = addOns?.find(
+    (addOn) =>
+      addOn.name === "Faster Delivery" ||
+      (typeof addOn.deliveryDays === "number" && addOn.deliveryDays >= 1),
+  );
+
+  return {
+    hasFasterDelivery: fasterDeliveryAddOn != null,
+    fasterDeliveryDays:
+      typeof fasterDeliveryAddOn?.deliveryDays === "number"
+        ? fasterDeliveryAddOn.deliveryDays
+        : null,
+  };
+}
+
 function buildTags(profile: ListingProfileApi): string[] {
   return getContentCategoryLabels(profile);
 }
@@ -119,6 +148,7 @@ export function mapProfileToListingCreator(
     trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
   const industryLabel =
     trimString(firstPortfolioVideo?.industryLabel) || undefined;
+  const fasterDelivery = getFasterDeliveryFromProfile(profile);
 
   return {
     id: profile.id,
@@ -127,7 +157,7 @@ export function mapProfileToListingCreator(
     rating: parseRating(profile.avgRating),
     reviewCount: profile.reviewCount ?? 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
-    ordersCompleted: (profile as any).completedOrders ?? 0,
+    ordersCompleted: profile.completedOrders ?? 0,
     collaborationCount: profile.collaborationCount ?? 0,
     thumbnail,
     previewVideoUrl,
@@ -161,6 +191,8 @@ export function mapProfileToListingCreator(
       }
       return true;
     })(),
+    hasFasterDelivery: fasterDelivery.hasFasterDelivery,
+    fasterDeliveryDays: fasterDelivery.fasterDeliveryDays,
   };
 }
 

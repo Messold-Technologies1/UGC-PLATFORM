@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import type { LoginRoleConfig } from "@/features/auth/lib/login-role-config";
-import { clearRememberedRole } from "@/features/auth/lib/login-role-config";
+import { AuthLogoLink } from "./auth-logo-link";
 import styles from "./login-page.module.css";
 
 interface LoginHeroProps {
@@ -26,19 +25,7 @@ export function LoginHero({ config }: LoginHeroProps) {
       <div className={styles.grain} aria-hidden="true" />
 
       <div className={styles.heroTop}>
-        <Link
-          href="/login"
-          className="inline-block -ml-4"
-          onClick={clearRememberedRole}
-        >
-          <img
-            src="/brand-logo.png"
-            alt="GoCollab"
-            className="h-24 md:h-32 w-auto object-contain object-left"
-            draggable={false}
-          />
-        </Link>
-
+        <AuthLogoLink className="-ml-4" imageClassName="h-24 md:h-32" />
       </div>
 
       <div className={styles.heroMid}>

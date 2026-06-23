@@ -155,4 +155,16 @@ export class CreatorPublicListItemDto {
 
   @ApiProperty({ type: () => [CreatorPublicListPortfolioVideoDto] })
   portfolioVideos!: CreatorPublicListPortfolioVideoDto[];
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the creator offers a Faster Delivery add-on',
+  })
+  hasFasterDelivery!: boolean;
+
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Promised delivery days when Faster Delivery add-on is enabled',
+  })
+  fasterDeliveryDays?: number | null;
 }

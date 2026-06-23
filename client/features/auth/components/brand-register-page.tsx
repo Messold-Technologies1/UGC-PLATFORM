@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { Search, ClipboardList, ShieldCheck, MonitorPlay } from "lucide-react";
+import { AuthLogoLink } from "./auth-logo-link";
 import { BrandRegisterForm } from "./brand-register-form";
 
 export function BrandRegisterPage() {
@@ -34,11 +34,7 @@ export function BrandRegisterPage() {
         />
         <div className="relative z-10 flex flex-col h-full">
           <div className="-mt-10 mb-6">
-            <img
-              src="/brand-logo.png"
-              alt="UGCull"
-              className="h-32 w-auto object-contain object-left"
-            />
+            <AuthLogoLink imageClassName="h-32" />
           </div>
 
           <h1 className="text-[42px] font-extrabold tracking-tight mb-5 leading-[1.1]">
@@ -159,6 +155,9 @@ export function BrandRegisterPage() {
       </div>
 
       <div className="flex flex-col h-dvh bg-[#fdfcfb] dark:bg-slate-950 overflow-hidden">
+        <div className="lg:hidden px-6 pt-4 pb-2">
+          <AuthLogoLink imageClassName="h-16" />
+        </div>
         <BrandRegisterForm />
       </div>
     </div>

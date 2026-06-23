@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { Sparkles, Wallet, Target, CheckCircle2 } from "lucide-react";
+import { AuthLogoLink } from "./auth-logo-link";
 import { CreatorRegisterForm } from "./creator-register-form";
 
 export function CreatorRegisterPage() {
@@ -34,11 +34,7 @@ export function CreatorRegisterPage() {
         />
         <div className="relative z-10">
           <div className="-mt-10 mb-6">
-            <img
-              src="/brand-logo.png"
-              alt="UGCull"
-              className="h-32 w-auto object-contain object-left"
-            />
+            <AuthLogoLink imageClassName="h-32" />
           </div>
 
           {/* <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-semibold shadow-sm mb-6">
@@ -181,6 +177,9 @@ export function CreatorRegisterPage() {
       </div>
 
       <div className="flex flex-col h-dvh bg-[#fdfcfb] dark:bg-slate-950 overflow-hidden">
+        <div className="lg:hidden px-6 pt-4 pb-2">
+          <AuthLogoLink imageClassName="h-16" />
+        </div>
         <CreatorRegisterForm />
       </div>
     </div>

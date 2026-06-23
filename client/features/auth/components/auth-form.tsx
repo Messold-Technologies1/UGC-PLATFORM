@@ -33,6 +33,7 @@ import {
   setRememberedRole,
   clearRememberedRole,
 } from "@/features/auth/lib/login-role-config";
+import { AuthLogoLink } from "./auth-logo-link";
 import styles from "./login-page.module.css";
 
 
@@ -148,18 +149,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
     return (
       <div className="w-full max-w-[392px]">
         <div className={styles.mobileHead}>
-          <Link
-            href="/login"
-            className="inline-block -ml-2"
-            onClick={clearRememberedRole}
-          >
-            <img
-              src="/brand-logo.png"
-              alt="GoCollab"
-              className="h-16 sm:h-20 w-auto object-contain object-left"
-              draggable={false}
-            />
-          </Link>
+          <AuthLogoLink className="-ml-2" imageClassName="h-16 sm:h-20" />
           <Link
             href="/login"
             className={styles.mobileHeadBack}

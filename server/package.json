@@ -28,7 +28,8 @@
     "prisma:seed:cities": "ts-node prisma/seed-cities.ts",
     "prisma:seed:ai-search-creators": "ts-node prisma/seed-ai-search-test-creators.ts",
     "prisma:backfill:seed-media-s3": "ts-node prisma/backfill-seed-portfolio-videos-to-s3.ts",
-    "prisma:backfill:seed-portfolio-s3": "npm run prisma:backfill:seed-media-s3"
+    "prisma:backfill:seed-portfolio-s3": "npm run prisma:backfill:seed-media-s3",
+    "data:gen:aliases": "ts-node prisma/scripts/generate-india-location-aliases.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

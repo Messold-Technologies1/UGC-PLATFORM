@@ -2,7 +2,7 @@ const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || "PASTE_YOUR_ACCESS_TOK
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || "PASTE_YOUR_PHONE_NUMBER_ID_HERE";
 
 
-const RECIPIENT_NUMBER = "918420366408"; 
+const RECIPIENT_NUMBER = "919113439550"; 
 const TEMPLATE_NAME = "order_brief_submitted_v2";
 
 async function testWhatsApp() {

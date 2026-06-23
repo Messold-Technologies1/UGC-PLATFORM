@@ -27,7 +27,7 @@ export function LoginHero({ config }: LoginHeroProps) {
 
       <div className={styles.heroTop}>
         <Link
-          href="/login"
+          href={`/login${typeof window !== "undefined" && new URLSearchParams(window.location.search).get("callbackUrl") ? `?callbackUrl=${encodeURIComponent(new URLSearchParams(window.location.search).get("callbackUrl")!)}` : ""}`}
           className="inline-block -ml-4"
           onClick={clearRememberedRole}
         >

@@ -1,6 +1,9 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { State } from 'country-state-city';
+// Default import + destructure so this runs under both CommonJS and ESM ts-node.
+import csc from 'country-state-city';
+
+const { State } = csc;
 
 /**
  * One-off DEV generator for broad city/state alias coverage.
@@ -15,7 +18,7 @@ import { State } from 'country-state-city';
  * Output: committed JSON alias GROUPS (same shape the seed consumes), so the
  * seed stays offline/self-contained on Railway. Re-run with:
  *   npx ts-node prisma/scripts/generate-india-location-aliases.ts
- * Curated overrides in prisma/data/india-location-aliases.ts are merged on top
+ * Curated overrides in prisma/data/india-location-aliases.json are merged on top
  * by the seed (unioned), so hand-fixes always survive a regenerate.
  */
 
@@ -24,7 +27,9 @@ const CITIES_URL =
 const STATES_URL =
   'https://raw.githubusercontent.com/sandeepbaid/indian-cities-states-list/master/src/states.csv';
 
-const DATA_DIR = join(__dirname, '..', 'data');
+// process.cwd() (server root when run via npm) rather than __dirname, which is
+// undefined under ESM ts-node.
+const DATA_DIR = join(process.cwd(), 'prisma', 'data');
 
 /** Parse one CSV line, honoring double-quoted fields with embedded commas. */
 function parseCsvLine(line: string): string[] {

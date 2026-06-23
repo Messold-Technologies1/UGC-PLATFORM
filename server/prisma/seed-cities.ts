@@ -1,12 +1,17 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
-import { City, State } from 'country-state-city';
-import {
-  CityAliasGroup,
-  CITY_ALIAS_GROUPS,
-  STATE_ALIAS_GROUPS,
-} from './data/india-location-aliases';
+// Default import + destructure: works whether ts-node runs this as CommonJS or
+// ESM (a named ESM import from this CJS package may fail to link under ESM).
+import csc from 'country-state-city';
+
+const { City, State } = csc;
+
+/** A set of equivalent place spellings (one canonical + its aliases). */
+interface CityAliasGroup {
+  state: string;
+  names: string[];
+}
 
 const prisma = new PrismaClient();
 const COUNTRY = 'IN';
@@ -84,18 +89,26 @@ async function main(): Promise<void> {
   );
 
   // Merge hand-curated groups (authoritative) with the broad generated dataset.
-  // Union semantics below mean a place accumulates aliases from EVERY group that
-  // names it, so regenerating the dataset never drops a curated alias and the
-  // two sources reinforce each other instead of overwriting.
-  const generatedStateGroups = loadGeneratedGroups<string[][]>(
+  // Both are loaded as JSON via fs — the seed has zero relative module imports,
+  // so it runs identically under CommonJS and ESM ts-node. Union semantics below
+  // mean a place accumulates aliases from EVERY group that names it, so
+  // regenerating the dataset never drops a curated alias and the two sources
+  // reinforce each other instead of overwriting.
+  const curated = loadGroupsFile<{
+    stateGroups: string[][];
+    cityGroups: CityAliasGroup[];
+  }>('india-location-aliases.json', { stateGroups: [], cityGroups: [] });
+  const generatedStateGroups = loadGroupsFile<string[][]>(
     'india-state-aliases.generated.json',
+    [],
   );
-  const generatedCityGroups = loadGeneratedGroups<CityAliasGroup[]>(
+  const generatedCityGroups = loadGroupsFile<CityAliasGroup[]>(
     'india-city-aliases.generated.json',
+    [],
   );
 
-  const allStateGroups = [...STATE_ALIAS_GROUPS, ...generatedStateGroups];
-  const allCityGroups = [...CITY_ALIAS_GROUPS, ...generatedCityGroups];
+  const allStateGroups = [...curated.stateGroups, ...generatedStateGroups];
+  const allCityGroups = [...curated.cityGroups, ...generatedCityGroups];
 
   // --- State aliases (union per canonical catalog name) ---
   const stateAliasByName = new Map<string, Set<string>>();
@@ -164,7 +177,7 @@ async function main(): Promise<void> {
 
   console.log(
     `[seed-cities] aliases applied to ${stateAliasByName.size} states, ` +
-      `${cityAliasByKey.size} cities (curated ${STATE_ALIAS_GROUPS.length}/${CITY_ALIAS_GROUPS.length} ` +
+      `${cityAliasByKey.size} cities (curated ${curated.stateGroups.length}/${curated.cityGroups.length} ` +
       `+ generated ${generatedStateGroups.length}/${generatedCityGroups.length}; ` +
       `${stateGroupsUnmatched}/${cityGroupsUnmatched} groups unmatched)`,
   );
@@ -179,15 +192,16 @@ function normalizedOthers(members: string[], canonical: string): string[] {
 }
 
 /**
- * Loads a committed generated-alias file. Returns an empty list (with a warning)
- * when absent, so the seed still runs on the curated groups alone — e.g. before
- * anyone runs prisma/scripts/generate-india-location-aliases.ts.
+ * Loads an alias-groups JSON file from prisma/data. Returns `fallback` (with a
+ * warning) when absent, so the seed still runs without the generated dataset.
+ * Path is resolved from process.cwd() (the npm-script runs from the server root)
+ * rather than __dirname, which is undefined under ESM ts-node.
  */
-function loadGeneratedGroups<T>(fileName: string): T {
-  const path = join(__dirname, 'data', fileName);
+function loadGroupsFile<T>(fileName: string, fallback: T): T {
+  const path = join(process.cwd(), 'prisma', 'data', fileName);
   if (!existsSync(path)) {
-    console.warn(`[seed-cities] generated alias file missing: ${fileName}`);
-    return [] as unknown as T;
+    console.warn(`[seed-cities] alias file missing: ${fileName}`);
+    return fallback;
   }
   return JSON.parse(readFileSync(path, 'utf8')) as T;
 }

@@ -1,5 +1,5 @@
 export enum WhatsAppTemplateKey {
-  ORDER_BRIEF_SUBMITTED_FOR_CREATOR = 'order_brief_submitted',
+  ORDER_BRIEF_SUBMITTED_FOR_CREATOR = 'order_brief_submitted_v2',
   ORDER_BRIEF_ACCEPTED_FOR_BRAND = 'order_brief_accepted',
   ORDER_PRODUCT_SHIPPED_FOR_CREATOR = 'order_product_shipped',
   ORDER_PRODUCT_RECEIVED_FOR_BRAND = 'order_product_received',

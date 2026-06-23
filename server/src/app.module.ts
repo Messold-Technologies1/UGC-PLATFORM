@@ -23,6 +23,7 @@ import { WishlistsModule } from './wishlists/wishlists.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
+import { CitiesModule } from './cities/cities.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { MailModule } from './mail/mail.module';
     StorageModule,
     HealthModule,
     AuthModule,
+    CitiesModule,
     CreatorProfileModule,
     CreatorPortfolioModule,
     BrandProfileModule,

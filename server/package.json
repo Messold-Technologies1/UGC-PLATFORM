@@ -24,7 +24,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:backfill:creator-approvals": "ts-node prisma/backfill-creator-approvals.ts",
     "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
-    "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts"
+    "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts",
+    "prisma:seed:cities": "ts-node prisma/seed-cities.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -49,6 +50,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
     "cookie-parser": "^1.4.7",
+    "country-state-city": "^3.2.1",
     "handlebars": "^4.7.9",
     "helmet": "^8.1.0",
     "joi": "^18.0.2",

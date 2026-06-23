@@ -342,6 +342,47 @@ model CreatorProfile {
   @@index([createdAt])
 }
 
+/// Canonical Indian states for AI-search location resolution. Names mirror the
+/// `country-state-city` catalog (the same vocabulary creators select at signup),
+/// so a creator's stored `CreatorProfile.stateName` always matches a row here.
+/// `aliasesNormalized` holds lowercased alternate spellings (e.g. "orissa" for
+/// Odisha) so a brand's free-typed query still resolves to the canonical name.
+/// Standalone reference data — no FK from CreatorProfile (kept removable).
+model State {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String
+  countryCode       String
+  aliasesNormalized String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  cities City[]
+
+  @@unique([countryCode, name])
+  @@index([aliasesNormalized], type: Gin)
+}
+
+/// Canonical Indian cities for AI-search location resolution. See `State`.
+/// `aliasesNormalized` (e.g. "bombay" for Mumbai, "bangalore" for Bengaluru)
+/// lets the resolver expand a brand's query to the canonical name before the
+/// hard filter runs, so a creator stored as "Mumbai" is never missed.
+model City {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String
+  stateId           String   @db.Uuid
+  stateName         String
+  countryCode       String
+  aliasesNormalized String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  state State @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  @@unique([countryCode, stateName, name])
+  @@index([name])
+  @@index([aliasesNormalized], type: Gin)
+}
+
 model CreatorFacetOption {
   id        String                @id @default(uuid()) @db.Uuid
   dimension CreatorFacetDimension

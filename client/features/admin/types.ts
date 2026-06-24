@@ -339,3 +339,21 @@ export interface AdminOrderRefundResponseDto {
   refundId: string;
   refundStatus: string;
 }
+
+// ─── Legal Pages ─────────────────────────────────────────────────
+export type {
+  LegalPageResponse,
+  LegalSectionResponse,
+  LegalDraftStatus,
+  LegalPageDraftResponse,
+  DraftSectionData,
+  AdminLegalPageListItem,
+  AdminLegalPageListResponse,
+  AdminLegalPageDetailResponse,
+  SaveDraftInput,
+  CreateLegalPageInput,
+  RejectDraftInput,
+  LegalPageVersionListItem,
+  LegalPageVersionListResponse,
+  LegalPageVersionDetail,
+} from "./types/legal-pages";

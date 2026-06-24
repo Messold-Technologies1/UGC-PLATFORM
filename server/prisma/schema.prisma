@@ -1022,3 +1022,58 @@ model EmailSuppression {
 
   @@index([reason])
 }
+
+// ─── Legal Pages (Dynamic, Admin-Editable) ─────────────────────────
+
+enum LegalDraftStatus {
+  DRAFT
+  IN_REVIEW
+}
+
+/// Top-level container for a legal page (Privacy Policy, Terms of Service, etc.).
+/// The `slug` is the URL identifier used by the public-facing page.
+/// Live content is stored in related `LegalSection` rows.
+model LegalPage {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique
+  title         String
+  description   String
+  effectiveDate String
+  sections      Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?  @db.Uuid
+
+  // Draft State
+  draftStatus        LegalDraftStatus?
+  draftTitle         String?
+  draftDescription   String?
+  draftEffectiveDate String?
+  draftSections      Json?
+  draftChangeNote    String?
+  draftCreatedBy     String?           @db.Uuid
+  draftReviewNote    String?
+  draftCreatedAt     DateTime?
+  draftUpdatedAt     DateTime?
+
+  versions LegalPageVersion[]
+
+  @@index([slug])
+}
+
+
+
+/// Immutable snapshot created each time a draft is published. Captures the
+/// entire page state (meta + sections) so admins can review history.
+model LegalPageVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  pageId     String   @db.Uuid
+  snapshot   Json
+  changedBy  String   @db.Uuid
+  changeNote String?
+  createdAt  DateTime @default(now())
+
+  page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, createdAt])
+}

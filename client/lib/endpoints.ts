@@ -139,6 +139,10 @@ export const ENDPOINTS = {
     SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
     SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
   },
+  LEGAL_PAGES: {
+    BY_SLUG: (slug: string) =>
+      `/api/legal-pages/${encodeURIComponent(slug)}`,
+  },
   ADMIN: {
     CREATORS: {
       LIST: "/api/admin/creators",
@@ -168,6 +172,24 @@ export const ENDPOINTS = {
         `/api/admin/orders/${encodeURIComponent(id)}/reject`,
       REFUND: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/refund`,
+    },
+    LEGAL_PAGES: {
+      LIST: "/api/admin/legal-pages",
+      CREATE: "/api/admin/legal-pages",
+      BY_SLUG: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}`,
+      DRAFT: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/draft`,
+      SUBMIT_REVIEW: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/submit-review`,
+      PUBLISH: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/publish`,
+      REJECT_DRAFT: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/reject-draft`,
+      PREVIEW: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/preview`,
+      VERSIONS: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions`,
     },
   },
 } as const;

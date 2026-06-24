@@ -77,6 +77,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/admin/creators", label: "Creators", icon: Users },
     { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
     { href: "/admin/orderManagement", label: "Orders", icon: Package },
+    { href: "/admin/legal", label: "Legal", icon: FileText },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
 };

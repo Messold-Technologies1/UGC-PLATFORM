@@ -2,8 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LegalDraftStatus } from '@prisma/client';
 import { LegalSectionResponseDto } from './legal-page-response.dto';
 
-// ─── Draft Section (within the JSON blob) ────────────────────────
-
 export class DraftSectionDto {
   @ApiProperty({ example: 'who-this-policy-applies-to' })
   anchorId!: string;
@@ -20,8 +18,6 @@ export class DraftSectionDto {
   @ApiProperty({ example: 0 })
   sortOrder!: number;
 }
-
-// ─── Draft Response ──────────────────────────────────────────────
 
 export class LegalPageDraftResponseDto {
   @ApiProperty({ example: 'uuid' })
@@ -61,8 +57,6 @@ export class LegalPageDraftResponseDto {
   updatedAt!: Date;
 }
 
-// ─── Admin page list item ────────────────────────────────────────
-
 export class AdminLegalPageListItemDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -94,8 +88,6 @@ export class AdminLegalPageListResponseDto {
   @ApiProperty({ type: [AdminLegalPageListItemDto] })
   pages!: AdminLegalPageListItemDto[];
 }
-
-// ─── Admin page detail ───────────────────────────────────────────
 
 export class AdminLegalPageDetailResponseDto {
   @ApiProperty({ example: 'uuid' })

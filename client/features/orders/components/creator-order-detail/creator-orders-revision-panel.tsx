@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
+import { useGetOrderRevisionsQuery } from "../../hooks/use-get-order-revisions-query";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
@@ -90,8 +91,22 @@ function buildRevisionSteps(order: any): StepDef[] {
   }));
 }
 
-function RevisionNotesCard({ order }: { order: any }) {
+function RevisionNotesCard({ order, orderId }: { order: any; orderId: string }) {
+  const { data: revisionsData, isLoading } = useGetOrderRevisionsQuery(orderId);
+
   const revisionNotes = useMemo(() => {
+    if (revisionsData?.items && revisionsData.items.length > 0) {
+      const latest = [...revisionsData.items].sort(
+        (a, b) => b.revisionNumber - a.revisionNumber
+      )[0];
+      if (latest.note && typeof latest.note === "string") {
+        return latest.note
+          .split(/\n/)
+          .map((s: string) => s.replace(/^\d+\.\s*/, "").trim())
+          .filter(Boolean);
+      }
+    }
+
     if (order?.revisionNotes && Array.isArray(order.revisionNotes)) {
       return order.revisionNotes as string[];
     }
@@ -110,7 +125,7 @@ function RevisionNotesCard({ order }: { order: any }) {
     return [
       "Please review the brand's feedback in the chat and make the requested changes.",
     ];
-  }, [order]);
+  }, [order, revisionsData]);
 
   const requestedDate = fmtDateTime(order?.updatedAt);
 
@@ -123,11 +138,18 @@ function RevisionNotesCard({ order }: { order: any }) {
       </p>
 
       <ol className="space-y-2.5 text-sm list-decimal list-inside">
-        {revisionNotes.map((note: string, idx: number) => (
-          <li key={idx} className="text-foreground/80 leading-relaxed pl-0.5">
-            {note}
-          </li>
-        ))}
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground mt-2">
+            <Spinner className="w-4 h-4 text-primary" />
+            <span>Loading revision notes...</span>
+          </div>
+        ) : (
+          revisionNotes.map((note: string, idx: number) => (
+            <li key={idx} className="text-foreground/80 leading-relaxed pl-0.5">
+              {note}
+            </li>
+          ))
+        )}
       </ol>
 
       {requestedDate && (
@@ -312,7 +334,7 @@ export function CreatorOrderRevisionPanel({
       steps={steps}
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
-        <RevisionNotesCard order={order} />
+        <RevisionNotesCard order={order} orderId={selectedOrderId} />
         <PreviousSubmissionCard orderId={selectedOrderId} />
         <UploadRevisedVideoCard orderId={selectedOrderId} />
       </div>

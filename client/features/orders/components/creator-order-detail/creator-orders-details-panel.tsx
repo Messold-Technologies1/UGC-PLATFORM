@@ -125,7 +125,7 @@ function buildTimelineSteps(
     label: "Delivered",
     desc: order?.deliveredAt
       ? formatTs(order.deliveredAt)!
-      : "Submit the final content for review",
+      : "Submit the content for review",
     status: order?.deliveredAt ? "completed" : "pending",
   });
 

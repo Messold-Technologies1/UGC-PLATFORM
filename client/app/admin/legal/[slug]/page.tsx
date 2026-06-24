@@ -50,7 +50,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function AdminLegalPageEditor() {
   const params = useParams();
   const router = useRouter();
-  const slug = (Array.isArray(params.slug) ? params.slug[0] : params.slug) || "";
+  const slug =
+    (Array.isArray(params.slug) ? params.slug[0] : params.slug) || "";
 
   const { data: page, isLoading, isError } = useAdminLegalPageDetailQuery(slug);
   const { data: versionsData } = useAdminLegalPageVersionsQuery(slug);
@@ -72,13 +73,12 @@ export default function AdminLegalPageEditor() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Initialize form state
   useEffect(() => {
     if (!page) return;
 
@@ -86,14 +86,19 @@ export default function AdminLegalPageEditor() {
       setTitle(page.draft.title);
       setDescription(page.draft.description);
       setEffectiveDate(page.draft.effectiveDate);
-      setSections(page.draft.sections.map((s: any) => ({ ...s, _id: crypto.randomUUID() })));
+      setSections(
+        page.draft.sections.map((s: any) => ({
+          ...s,
+          _id: crypto.randomUUID(),
+        })),
+      );
       setChangeNote(page.draft.changeNote || "");
       setIsEditingDraft(true);
     } else {
       setTitle(page.title);
       setDescription(page.description);
       setEffectiveDate(page.effectiveDate);
-      // Map live sections to draft section data (omit db id)
+
       setSections(
         page.sections.map((s) => ({
           anchorId: s.anchorId,
@@ -141,7 +146,18 @@ export default function AdminLegalPageEditor() {
   const draftStatus = page.draft?.status;
   const isReviewMode = draftStatus === "IN_REVIEW";
 
-  // Section Management
+  const handlePreview = () => {
+    const previewData = {
+      title,
+      description,
+      effectiveDate,
+      sections,
+      updatedAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem("legal-preview-data", JSON.stringify(previewData));
+    router.push(`/admin/legal/${page.slug}/preview`);
+  };
+
   const addSection = () => {
     setSections([
       ...sections,
@@ -191,7 +207,6 @@ export default function AdminLegalPageEditor() {
     setSections(newSections);
   };
 
-  // Actions
   const handleSaveDraft = async () => {
     const sectionsToSave = sections.map(({ _id, ...rest }) => rest);
     await saveDraftMutation.mutateAsync({
@@ -204,7 +219,6 @@ export default function AdminLegalPageEditor() {
   };
 
   const handleSubmitReview = async () => {
-    // Save draft first to ensure latest changes are caught
     const sectionsToSave = sections.map(({ _id, ...rest }) => rest);
     await saveDraftMutation.mutateAsync({
       title,
@@ -241,19 +255,17 @@ export default function AdminLegalPageEditor() {
 
         <div className="flex items-center gap-2">
           {page.draft && (
-            <Link
-              href={`/admin/legal/${page.slug}/preview`}
-              target="_blank"
+            <button
+              onClick={handlePreview}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted transition-colors"
             >
               <Eye className="size-4" />
               Preview
-            </Link>
+            </button>
           )}
         </div>
       </div>
 
-      {/* Status Banner */}
       {draftStatus === "IN_REVIEW" && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start sm:items-center gap-4">
           <AlertCircle className="size-5 text-amber-500 mt-0.5 sm:mt-0" />
@@ -307,7 +319,9 @@ export default function AdminLegalPageEditor() {
           </div>
           <button
             onClick={() => {
-              if (window.confirm("Are you sure you want to discard this draft?")) {
+              if (
+                window.confirm("Are you sure you want to discard this draft?")
+              ) {
                 discardMutation.mutateAsync();
               }
             }}
@@ -321,7 +335,6 @@ export default function AdminLegalPageEditor() {
       )}
 
       <div className="space-y-6">
-        {/* Page Metadata */}
         <section className="glass-panel rounded-2xl border border-border/50 p-6 space-y-4">
           <h2 className="text-lg font-bold">Page Metadata</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -365,12 +378,13 @@ export default function AdminLegalPageEditor() {
           </div>
         </section>
 
-        {/* Sections */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold">Content Sections</h2>
-              <p className="text-sm text-muted-foreground">{sections.length} section{sections.length !== 1 && 's'}</p>
+              <p className="text-sm text-muted-foreground">
+                {sections.length} section{sections.length !== 1 && "s"}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -392,7 +406,6 @@ export default function AdminLegalPageEditor() {
             onDragCancel={handleDragCancel}
           >
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-              {/* Left Column: Editors */}
               <div className="lg:col-span-2 space-y-6">
                 {sections.map((section, index) => (
                   <div
@@ -428,7 +441,9 @@ export default function AdminLegalPageEditor() {
                         <input
                           type="text"
                           value={section.title}
-                          onChange={(e) => updateSection(index, { title: e.target.value })}
+                          onChange={(e) =>
+                            updateSection(index, { title: e.target.value })
+                          }
                           placeholder="e.g. Data Collection"
                           disabled={isReviewMode || anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 disabled:opacity-60"
@@ -441,7 +456,9 @@ export default function AdminLegalPageEditor() {
                         <input
                           type="text"
                           value={section.tocLabel}
-                          onChange={(e) => updateSection(index, { tocLabel: e.target.value })}
+                          onChange={(e) =>
+                            updateSection(index, { tocLabel: e.target.value })
+                          }
                           placeholder="Short name for sidebar"
                           disabled={isReviewMode || anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 disabled:opacity-60"
@@ -454,7 +471,13 @@ export default function AdminLegalPageEditor() {
                         <input
                           type="text"
                           value={section.anchorId}
-                          onChange={(e) => updateSection(index, { anchorId: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                          onChange={(e) =>
+                            updateSection(index, {
+                              anchorId: e.target.value
+                                .toLowerCase()
+                                .replace(/[^a-z0-9-]/g, "-"),
+                            })
+                          }
                           disabled={isReviewMode || anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 font-mono disabled:opacity-60"
                         />
@@ -467,7 +490,9 @@ export default function AdminLegalPageEditor() {
                       </label>
                       <RichTextEditor
                         value={section.content}
-                        onChange={(html) => updateSection(index, { content: html })}
+                        onChange={(html) =>
+                          updateSection(index, { content: html })
+                        }
                         disabled={isReviewMode || anyPending}
                       />
                     </div>
@@ -475,7 +500,6 @@ export default function AdminLegalPageEditor() {
                 ))}
               </div>
 
-              {/* Right Column: Sticky Sidebar */}
               <div className="lg:col-span-1 sticky top-24 space-y-4">
                 <div className="glass-panel rounded-2xl border border-border/50 p-6">
                   <h3 className="font-bold text-lg mb-6 text-foreground flex items-center justify-between">
@@ -503,8 +527,12 @@ export default function AdminLegalPageEditor() {
             <DragOverlay>
               {activeId ? (
                 <TocItem
-                  title={sections.find(s => s._id === activeId)?.tocLabel || sections.find(s => s._id === activeId)?.title || ""}
-                  index={sections.findIndex(s => s._id === activeId)}
+                  title={
+                    sections.find((s) => s._id === activeId)?.tocLabel ||
+                    sections.find((s) => s._id === activeId)?.title ||
+                    ""
+                  }
+                  index={sections.findIndex((s) => s._id === activeId)}
                   isOverlay
                 />
               ) : null}
@@ -512,7 +540,6 @@ export default function AdminLegalPageEditor() {
           </DndContext>
         </section>
 
-        {/* Version History */}
         {versionsData && versionsData.versions.length > 0 && (
           <section className="glass-panel rounded-2xl border border-border/50 p-6 space-y-4">
             <div className="flex items-center gap-2 mb-2">
@@ -521,14 +548,25 @@ export default function AdminLegalPageEditor() {
             </div>
             <div className="space-y-3">
               {versionsData.versions.map((v) => (
-                <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border/30 bg-background/50">
+                <div
+                  key={v.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border/30 bg-background/50"
+                >
                   <div>
                     <p className="font-semibold text-sm">Published version</p>
-                    {v.changeNote && <p className="text-sm text-muted-foreground italic mt-0.5">&quot;{v.changeNote}&quot;</p>}
+                    {v.changeNote && (
+                      <p className="text-sm text-muted-foreground italic mt-0.5">
+                        &quot;{v.changeNote}&quot;
+                      </p>
+                    )}
                   </div>
                   <div className="text-right text-xs text-muted-foreground mt-2 sm:mt-0">
-                    <p>{format(new Date(v.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
-                    <p className="mt-0.5" title={`Admin ID: ${v.changedBy}`}>by Admin</p>
+                    <p>
+                      {format(new Date(v.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                    <p className="mt-0.5" title={`Admin ID: ${v.changedBy}`}>
+                      by Admin
+                    </p>
                   </div>
                 </div>
               ))}
@@ -536,7 +574,6 @@ export default function AdminLegalPageEditor() {
           </section>
         )}
 
-        {/* Bottom Actions */}
         <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-md border-t border-border p-4 z-40">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex-1 max-w-sm">
@@ -549,7 +586,7 @@ export default function AdminLegalPageEditor() {
                 className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 disabled:opacity-60"
               />
             </div>
-            
+
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSaveDraft}

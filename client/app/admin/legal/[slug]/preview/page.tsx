@@ -6,8 +6,7 @@ import { LegalPageHeader } from "@/components/legal/legal-page-header";
 import { TableOfContents, type TocItem } from "@/components/legal/table-of-contents";
 import { LegalSectionRenderer } from "@/components/legal/legal-section-renderer";
 import type { LegalPageResponse } from "@/features/admin/types/legal-pages";
-import { ENDPOINTS } from "@/lib/endpoints";
-import api from "@/lib/api";
+
 import Link from "next/link";
 import { ArrowLeft, Eye } from "lucide-react";
 
@@ -19,17 +18,16 @@ export default function AdminLegalPagePreview() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    async function fetchPreview() {
-      try {
-        const res = await api.get<LegalPageResponse>(
-          ENDPOINTS.ADMIN.LEGAL_PAGES.PREVIEW(slug)
-        );
-        setPage(res.data);
-      } catch {
+    try {
+      const data = sessionStorage.getItem("legal-preview-data");
+      if (data) {
+        setPage(JSON.parse(data));
+      } else {
         setError(true);
       }
+    } catch {
+      setError(true);
     }
-    fetchPreview();
   }, [slug]);
 
   if (!page && !error) {

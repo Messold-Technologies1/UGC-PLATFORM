@@ -105,6 +105,8 @@ export const ENDPOINTS = {
     ACCEPT: (id: string) => `/api/orders/${encodeURIComponent(id)}/accept`,
     REQUEST_REVISION: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions/request`,
+    REVISIONS: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/revisions`,
     RATING_REVIEW: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/rating-review`,
   },
@@ -186,8 +188,6 @@ export const ENDPOINTS = {
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/publish`,
       REJECT_DRAFT: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/reject-draft`,
-      PREVIEW: (slug: string) =>
-        `/api/admin/legal-pages/${encodeURIComponent(slug)}/preview`,
       VERSIONS: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions`,
     },

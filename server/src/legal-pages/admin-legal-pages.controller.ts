@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Post,
   Put,
   Req,
@@ -14,7 +13,6 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -30,12 +28,10 @@ import {
   AdminLegalPageListResponseDto,
   AdminLegalPageDetailResponseDto,
   LegalPageDraftResponseDto,
-  LegalPageResponseDto,
   LegalPageVersionListResponseDto,
-  LegalPageVersionDetailResponseDto,
 } from './dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
-import { CreateLegalPageDto } from './dto/create-legal-page.dto';
+
 import { RejectDraftDto } from './dto/reject-draft.dto';
 
 @ApiTags('Admin - Legal Pages')
@@ -45,24 +41,11 @@ import { RejectDraftDto } from './dto/reject-draft.dto';
 export class AdminLegalPagesController {
   constructor(private readonly legalPagesService: LegalPagesService) {}
 
-  // ─── Pages ───────────────────────────────────────────────────
-
   @Get()
   @ApiOperation({ summary: 'List all legal pages with draft status' })
   @ApiOkResponse({ type: AdminLegalPageListResponseDto })
   async listPages(): Promise<AdminLegalPageListResponseDto> {
     return this.legalPagesService.getAllPages();
-  }
-
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new legal page' })
-  @ApiCreatedResponse({ type: AdminLegalPageDetailResponseDto })
-  async createPage(
-    @Body() dto: CreateLegalPageDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<AdminLegalPageDetailResponseDto> {
-    return this.legalPagesService.createPage(dto, req.user.id);
   }
 
   @Get(':slug')
@@ -76,8 +59,6 @@ export class AdminLegalPagesController {
   ): Promise<AdminLegalPageDetailResponseDto> {
     return this.legalPagesService.getPageForAdmin(slug);
   }
-
-  // ─── Draft Lifecycle ─────────────────────────────────────────
 
   @Put(':slug/draft')
   @ApiOperation({
@@ -148,22 +129,6 @@ export class AdminLegalPagesController {
     return this.legalPagesService.discardDraft(slug, req.user.id);
   }
 
-  // ─── Draft Preview ───────────────────────────────────────────
-
-  @Get(':slug/preview')
-  @ApiOperation({
-    summary: 'Preview draft as it would appear on the public page',
-  })
-  @ApiParam({ name: 'slug', example: 'privacy-policy' })
-  @ApiOkResponse({ type: LegalPageResponseDto })
-  async getDraftPreview(
-    @Param('slug') slug: string,
-  ): Promise<LegalPageResponseDto> {
-    return this.legalPagesService.getDraftPreview(slug);
-  }
-
-  // ─── Version History ─────────────────────────────────────────
-
   @Get(':slug/versions')
   @ApiOperation({ summary: 'List past published versions of a legal page' })
   @ApiParam({ name: 'slug', example: 'privacy-policy' })
@@ -172,14 +137,5 @@ export class AdminLegalPagesController {
     @Param('slug') slug: string,
   ): Promise<LegalPageVersionListResponseDto> {
     return this.legalPagesService.getVersionHistory(slug);
-  }
-
-  @Get('versions/:versionId')
-  @ApiOperation({ summary: 'Get a single version snapshot by ID' })
-  @ApiOkResponse({ type: LegalPageVersionDetailResponseDto })
-  async getVersion(
-    @Param('versionId', ParseUUIDPipe) versionId: string,
-  ): Promise<LegalPageVersionDetailResponseDto> {
-    return this.legalPagesService.getVersion(versionId);
   }
 }

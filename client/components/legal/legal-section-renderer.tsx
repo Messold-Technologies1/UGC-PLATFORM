@@ -8,12 +8,6 @@ const sectionClass = "scroll-mt-24 mb-12 last:mb-0";
 const h2Class =
   "text-xl font-bold tracking-tight sm:text-2xl mb-4 pb-3 border-b border-border";
 
-/**
- * Renders an ordered list of legal-page sections with auto-numbering.
- * Content comes from the DB as sanitised HTML and is rendered via
- * `dangerouslySetInnerHTML` (safe because the backend runs sanitize-html
- * on every draft save).
- */
 export function LegalSectionRenderer({
   sections,
 }: LegalSectionRendererProps) {
@@ -21,7 +15,7 @@ export function LegalSectionRenderer({
     <>
       {sections.map((section, index) => (
         <section
-          key={section.id}
+          key={section.anchorId}
           id={section.anchorId}
           className={sectionClass}
         >

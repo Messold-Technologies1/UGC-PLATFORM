@@ -187,7 +187,7 @@ export function OrderSummaryCard({
             </p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Your payment is held securely and will be released to the creator
-              after you approve the final content.
+              after you approve the content.
             </p>
           </div>
           <ChevronDown className="size-4 text-muted-foreground shrink-0 mt-0.5" />

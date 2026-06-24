@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -20,10 +19,8 @@ import type {
   LegalPageVersionDetailResponseDto,
 } from './dto';
 import type { SaveDraftDto, DraftSectionInputDto } from './dto/save-draft.dto';
-import type { CreateLegalPageDto } from './dto/create-legal-page.dto';
-import type { RejectDraftDto } from './dto/reject-draft.dto';
 
-// ─── HTML Sanitisation Config ────────────────────────────────────
+import type { RejectDraftDto } from './dto/reject-draft.dto';
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -67,15 +64,12 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     blockquote: ['class'],
   },
   allowedSchemes: ['http', 'https', 'mailto'],
-  // Enforce rel="noopener noreferrer" on links for security
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', {
       rel: 'noopener noreferrer',
     }),
   },
 };
-
-// ─── Type for draft section (stored as JSON) ─────────────────────
 
 interface DraftSectionSnapshot {
   anchorId: string;
@@ -92,15 +86,11 @@ interface PageSnapshot {
   sections: DraftSectionSnapshot[];
 }
 
-// ─── Service ─────────────────────────────────────────────────────
-
 @Injectable()
 export class LegalPagesService {
   private readonly logger = new Logger(LegalPagesService.name);
 
   constructor(private readonly prisma: PrismaService) {}
-
-  // ─── Public ──────────────────────────────────────────────────
 
   async getPageBySlug(slug: string): Promise<LegalPageResponseDto> {
     const page = await this.prisma.legalPage.findUnique({
@@ -118,11 +108,11 @@ export class LegalPagesService {
       description: page.description,
       effectiveDate: page.effectiveDate,
       updatedAt: page.updatedAt,
-      sections: (page.sections as unknown as DraftSectionSnapshot[]).map((s) => this.mapSection(s)),
+      sections: (page.sections as unknown as DraftSectionSnapshot[]).map((s) =>
+        this.mapSection(s),
+      ),
     };
   }
-
-  // ─── Admin — List ────────────────────────────────────────────
 
   async getAllPages(): Promise<AdminLegalPageListResponseDto> {
     const pages = await this.prisma.legalPage.findMany({
@@ -151,8 +141,6 @@ export class LegalPagesService {
     };
   }
 
-  // ─── Admin — Detail ──────────────────────────────────────────
-
   async getPageForAdmin(
     slug: string,
   ): Promise<AdminLegalPageDetailResponseDto> {
@@ -171,69 +159,12 @@ export class LegalPagesService {
       description: page.description,
       effectiveDate: page.effectiveDate,
       updatedAt: page.updatedAt,
-      sections: (page.sections as unknown as DraftSectionSnapshot[]).map((s) => this.mapSection(s)),
+      sections: (page.sections as unknown as DraftSectionSnapshot[]).map((s) =>
+        this.mapSection(s),
+      ),
       draft: page.draftStatus ? this.mapDraft(page) : null,
     };
   }
-
-  // ─── Admin — Create Page ─────────────────────────────────────
-
-  async createPage(
-    dto: CreateLegalPageDto,
-    adminUserId: string,
-  ): Promise<AdminLegalPageDetailResponseDto> {
-    const existing = await this.prisma.legalPage.findUnique({
-      where: { slug: dto.slug },
-      select: { id: true },
-    });
-
-    if (existing) {
-      throw new ConflictException(
-        `A legal page with slug "${dto.slug}" already exists`,
-      );
-    }
-
-    const data: Prisma.LegalPageCreateInput = {
-      slug: dto.slug,
-      title: dto.title,
-      description: dto.description,
-      effectiveDate: dto.effectiveDate,
-      updatedBy: adminUserId,
-    };
-
-    // If initial sections are provided, create a draft
-    if (dto.sections?.length) {
-      data.draftStatus = LegalDraftStatus.DRAFT;
-      data.draftTitle = dto.title;
-      data.draftDescription = dto.description;
-      data.draftEffectiveDate = dto.effectiveDate;
-      data.draftSections = this.sanitizeSections(dto.sections) as unknown as Prisma.InputJsonValue;
-      data.draftCreatedBy = adminUserId;
-      data.draftUpdatedAt = new Date();
-      data.draftCreatedAt = new Date();
-    }
-
-    const page = await this.prisma.legalPage.create({
-      data,
-    });
-
-    this.logger.log(
-      `Legal page "${dto.slug}" created by admin ${adminUserId}`,
-    );
-
-    return {
-      id: page.id,
-      slug: page.slug,
-      title: page.title,
-      description: page.description,
-      effectiveDate: page.effectiveDate,
-      updatedAt: page.updatedAt,
-      sections: (page.sections as unknown as DraftSectionSnapshot[]).map((s) => this.mapSection(s)),
-      draft: page.draftStatus ? this.mapDraft(page) : null,
-    };
-  }
-
-  // ─── Admin — Save Draft ──────────────────────────────────────
 
   async saveDraft(
     slug: string,
@@ -249,7 +180,6 @@ export class LegalPagesService {
       throw new NotFoundException(`Legal page "${slug}" not found`);
     }
 
-    // Cannot edit a draft that is IN_REVIEW
     if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
       throw new BadRequestException(
         'Cannot edit a draft that is currently in review. Reject it first to continue editing.',
@@ -269,22 +199,18 @@ export class LegalPagesService {
         draftSections: sanitizedSections as unknown as Prisma.InputJsonValue,
         draftChangeNote: dto.changeNote ?? null,
         draftStatus: LegalDraftStatus.DRAFT,
-        // Clear review note when draft is updated
         draftReviewNote: null,
-        // Set createdBy if this is the first time drafting
-        ...(page.draftStatus ? {} : { draftCreatedBy: adminUserId, draftCreatedAt: new Date() }),
+        ...(page.draftStatus
+          ? {}
+          : { draftCreatedBy: adminUserId, draftCreatedAt: new Date() }),
         draftUpdatedAt: new Date(),
       },
     });
 
-    this.logger.log(
-      `Draft saved for "${slug}" by admin ${adminUserId}`,
-    );
+    this.logger.log(`Draft saved for "${slug}" by admin ${adminUserId}`);
 
     return this.mapDraft(draft);
   }
-
-  // ─── Admin — Submit for Review ───────────────────────────────
 
   async submitForReview(
     slug: string,
@@ -325,8 +251,6 @@ export class LegalPagesService {
     return this.mapDraft(draft);
   }
 
-  // ─── Admin — Publish Draft ───────────────────────────────────
-
   async publishDraft(
     slug: string,
     adminUserId: string,
@@ -349,19 +273,16 @@ export class LegalPagesService {
       );
     }
 
-    const draftSections = page.draftSections as unknown as DraftSectionSnapshot[];
+    const draftSections =
+      page.draftSections as unknown as DraftSectionSnapshot[];
 
-    // Build snapshot of current live state for version history
     const liveSnapshot: PageSnapshot = {
       title: page.title,
       description: page.description,
       effectiveDate: page.effectiveDate,
       sections: page.sections as unknown as DraftSectionSnapshot[],
     };
-
-    // Transactional publish: snapshot → replace live fields → clear draft fields
     const updated = await this.prisma.$transaction(async (tx) => {
-      // 1. Create version snapshot (only if there were previously live sections)
       if (Array.isArray(page.sections) && page.sections.length > 0) {
         await tx.legalPageVersion.create({
           data: {
@@ -373,7 +294,6 @@ export class LegalPagesService {
         });
       }
 
-      // 2. Update page metadata and live sections, and clear draft
       return tx.legalPage.update({
         where: { id: page.id },
         data: {
@@ -382,7 +302,7 @@ export class LegalPagesService {
           effectiveDate: page.draftEffectiveDate!,
           sections: draftSections as unknown as Prisma.InputJsonValue,
           updatedBy: adminUserId,
-          
+
           draftStatus: null,
           draftTitle: null,
           draftDescription: null,
@@ -397,9 +317,7 @@ export class LegalPagesService {
       });
     });
 
-    this.logger.log(
-      `Draft for "${slug}" published by admin ${adminUserId}`,
-    );
+    this.logger.log(`Draft for "${slug}" published by admin ${adminUserId}`);
 
     return {
       id: updated.id,
@@ -408,12 +326,12 @@ export class LegalPagesService {
       description: updated.description,
       effectiveDate: updated.effectiveDate,
       updatedAt: updated.updatedAt,
-      sections: (updated.sections as unknown as DraftSectionSnapshot[]).map((s) => this.mapSection(s)),
+      sections: (updated.sections as unknown as DraftSectionSnapshot[]).map(
+        (s) => this.mapSection(s),
+      ),
       draft: null,
     };
   }
-
-  // ─── Admin — Reject Draft ───────────────────────────────────
 
   async rejectDraft(
     slug: string,
@@ -448,14 +366,10 @@ export class LegalPagesService {
       },
     });
 
-    this.logger.log(
-      `Draft for "${slug}" rejected by admin ${adminUserId}`,
-    );
+    this.logger.log(`Draft for "${slug}" rejected by admin ${adminUserId}`);
 
     return this.mapDraft(draft);
   }
-
-  // ─── Admin — Discard Draft ──────────────────────────────────
 
   async discardDraft(slug: string, adminUserId: string): Promise<void> {
     const page = await this.prisma.legalPage.findUnique({
@@ -487,25 +401,21 @@ export class LegalPagesService {
       },
     });
 
-    this.logger.log(
-      `Draft for "${slug}" discarded by admin ${adminUserId}`,
-    );
+    this.logger.log(`Draft for "${slug}" discarded by admin ${adminUserId}`);
   }
-
-  // ─── Admin — Draft Preview ──────────────────────────────────
 
   async getDraftPreview(slug: string): Promise<LegalPageResponseDto> {
     const page = await this.prisma.legalPage.findUnique({
       where: { slug },
-      select: { 
-        id: true, 
-        slug: true, 
+      select: {
+        id: true,
+        slug: true,
         draftStatus: true,
         draftTitle: true,
         draftDescription: true,
         draftEffectiveDate: true,
         draftUpdatedAt: true,
-        draftSections: true
+        draftSections: true,
       },
     });
 
@@ -517,7 +427,8 @@ export class LegalPagesService {
       throw new BadRequestException('No draft exists to preview');
     }
 
-    const draftSections = page.draftSections as unknown as DraftSectionSnapshot[];
+    const draftSections =
+      page.draftSections as unknown as DraftSectionSnapshot[];
 
     return {
       id: page.id,
@@ -536,8 +447,6 @@ export class LegalPagesService {
       })),
     };
   }
-
-  // ─── Admin — Version History ─────────────────────────────────
 
   async getVersionHistory(
     slug: string,
@@ -586,9 +495,9 @@ export class LegalPagesService {
     };
   }
 
-  // ─── Private Helpers ─────────────────────────────────────────
-
-  private mapSection(section: Omit<DraftSectionSnapshot, 'id'>): LegalSectionResponseDto {
+  private mapSection(
+    section: Omit<DraftSectionSnapshot, 'id'>,
+  ): LegalSectionResponseDto {
     return {
       id: crypto.randomUUID(),
       anchorId: section.anchorId,
@@ -613,7 +522,7 @@ export class LegalPagesService {
     draftUpdatedAt?: Date | null;
   }): LegalPageDraftResponseDto {
     return {
-      id: page.id, // Using the page ID as the draft ID since they are 1:1
+      id: page.id,
       status: page.draftStatus!,
       title: page.draftTitle!,
       description: page.draftDescription!,
@@ -627,10 +536,6 @@ export class LegalPagesService {
     };
   }
 
-  /**
-   * Sanitise section HTML content and return as JSON-safe array.
-   * Runs on every draft save to prevent stored XSS.
-   */
   private sanitizeSections(
     sections: DraftSectionInputDto[],
   ): DraftSectionSnapshot[] {
@@ -642,17 +547,9 @@ export class LegalPagesService {
       sortOrder: s.sortOrder,
     }));
   }
-
-  /**
-   * Ensure no duplicate anchorIds within a single page's sections.
-   */
-  private validateUniqueSectionAnchors(
-    sections: DraftSectionInputDto[],
-  ): void {
+  private validateUniqueSectionAnchors(sections: DraftSectionInputDto[]): void {
     const anchors = sections.map((s) => s.anchorId);
-    const duplicates = anchors.filter(
-      (a, i) => anchors.indexOf(a) !== i,
-    );
+    const duplicates = anchors.filter((a, i) => anchors.indexOf(a) !== i);
     if (duplicates.length > 0) {
       throw new BadRequestException(
         `Duplicate section anchorIds: ${[...new Set(duplicates)].join(', ')}`,

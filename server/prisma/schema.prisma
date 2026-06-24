@@ -479,7 +479,8 @@ model Order {
   dispatchedAt                    DateTime?
   productReceivedAt               DateTime?
 
-  deliveryDeadlineAt DateTime?
+  deliveryDueAt             DateTime?
+  deliveryGraceDeadlineAt     DateTime?
   deliveredAt        DateTime?
   acceptedAt         DateTime?
   creatorPaidAt      DateTime?
@@ -517,7 +518,7 @@ model Order {
   @@index([brandId, lastChatActivityAt(sort: Desc)])
   @@index([creatorId, lastChatActivityAt(sort: Desc)])
   @@index([status, createdAt])
-  @@index([deliveryDeadlineAt])
+  @@index([deliveryGraceDeadlineAt])
   @@index([briefId])
 }
 

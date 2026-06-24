@@ -18,8 +18,16 @@ export class MarkProductReceivedResponseDto {
   @ApiProperty({
     type: String,
     format: 'date-time',
-    description: 'Delivery due date (package delivery days + 2 grace from product receipt)',
+    description: 'Promised delivery due date from product receipt',
     example: '2026-05-22T07:06:29.604Z',
   })
-  deliveryDeadlineAt!: Date;
+  deliveryDueAt!: Date;
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    description: 'Final delivery cutoff after grace period',
+    example: '2026-05-24T07:06:29.604Z',
+  })
+  deliveryGraceDeadlineAt!: Date;
 }

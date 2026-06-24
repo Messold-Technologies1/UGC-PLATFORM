@@ -66,7 +66,7 @@ export class OrderMailNotifier {
 
   notifyBriefAccepted(
     orderId: string,
-    deliveryDeadlineAt: Date | null,
+    deliveryDueAt: Date | null,
   ): void {
     void this.run('brief_accepted', async () => {
       const order = await this.loadOrder(orderId);
@@ -77,8 +77,8 @@ export class OrderMailNotifier {
         orderId: order.id,
         actionUrl: this.brandOrderUrl(order.id),
       };
-      if (deliveryDeadlineAt) {
-        ctx.deliveryDeadlineAt = this.formatDate(deliveryDeadlineAt);
+      if (deliveryDueAt) {
+        ctx.deliveryDueAt = this.formatDate(deliveryDueAt);
       }
 
       await this.sendToBrand(order, EmailTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND, ctx);
@@ -118,7 +118,7 @@ export class OrderMailNotifier {
 
   notifyProductReceived(
     orderId: string,
-    deliveryDeadlineAt: Date,
+    deliveryDueAt: Date,
   ): void {
     void this.run('product_received', async () => {
       const order = await this.loadOrder(orderId);
@@ -127,7 +127,7 @@ export class OrderMailNotifier {
       await this.sendToBrand(order, EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND, {
         creatorName: order.creator.displayName,
         orderId: order.id,
-        deliveryDeadlineAt: this.formatDate(deliveryDeadlineAt),
+        deliveryDueAt: this.formatDate(deliveryDueAt),
         actionUrl: this.brandOrderUrl(order.id),
       });
     });

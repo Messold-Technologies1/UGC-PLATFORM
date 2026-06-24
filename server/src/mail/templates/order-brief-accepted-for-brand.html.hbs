@@ -1,19 +1,21 @@
 {{!-- context: recipientName, platformName, creatorName, orderId, deliveryDeadlineAt (optional), actionUrl --}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  <strong>{{creatorName}}</strong> accepted the brief for order
-  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>.
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Creator accepted! 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{creatorName}}</strong> accepted the brief for order <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>. Your collab is officially in motion.
 </p>
 {{#if deliveryDeadlineAt}}
-<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
-  Delivery deadline: <strong>{{deliveryDeadlineAt}}</strong>
-</p>
+<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#111827;">
+    <strong>Delivery deadline 📅</strong><br />{{deliveryDeadlineAt}}
+  </p>
+</div>
 {{else}}
-<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
-  Ship the physical product to the creator when ready. The delivery deadline starts once they confirm receipt.
+<p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#374151;">
+  Ship the physical product when ready — the delivery clock starts once the creator confirms receipt. 📦
 </p>
 {{/if}}
 <div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="View order"}}
+  {{> actionButton url=actionUrl label="View order →"}}
 </div>
-<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 🚀</p>

@@ -1,0 +1,23 @@
+{{!-- context: recipientName, platformName, creatorName, packageName, orderId, deliveredAt, revisionNumber (optional), actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+{{#if revisionNumber}}
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Revision submitted! ✏️</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{creatorName}}</strong> submitted revision {{revisionNumber}} for <strong>"{{packageName}}"</strong>. Review the updated content and approve when you're happy with it.
+</p>
+{{else}}
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Content delivered! 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{creatorName}}</strong> submitted their delivery for <strong>"{{packageName}}"</strong>. Review the content and approve when you're happy with it.
+</p>
+{{/if}}
+<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#111827;">
+    <strong>Order</strong> {{orderId}}<br />
+    <strong>Submitted</strong> {{deliveredAt}}
+  </p>
+</div>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Review delivery →"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 💗</p>

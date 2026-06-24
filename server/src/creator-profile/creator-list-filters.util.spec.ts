@@ -173,6 +173,33 @@ describe('creator-list-filters.util', () => {
         ],
       });
     });
+
+    it('filters by max delivery days across packages or faster-delivery add-ons', () => {
+      const q: ListCreatorsQueryDto = { maxDeliveryDays: 2 };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        AND: [
+          { isListed: true },
+          {
+            OR: [
+              {
+                packages: {
+                  some: {
+                    deliveryDays: { lte: 2 },
+                  },
+                },
+              },
+              {
+                addOns: {
+                  some: {
+                    deliveryDays: { lte: 2, not: null },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      });
+    });
   });
 
   describe('buildCreatorListRelationsInclude', () => {

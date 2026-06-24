@@ -1,15 +1,16 @@
 {{!-- context: recipientName, platformName, rejectionReason (optional) --}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  We regret to inform you that your creator profile application on <strong>{{platformName}}</strong> has not been approved at this time.
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:22px;font-weight:800;line-height:1.25;color:#111827;letter-spacing:-0.02em;">Update on your application</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Thanks for applying to <strong>{{platformName}}</strong>. After review, we're not able to approve your creator profile at this time.
 </p>
 {{#if rejectionReason}}
-<div style="margin:0 0 16px;padding:12px 16px;background:#f9fafb;border-left:4px solid #9ca3af;border-radius:4px;">
-  <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#4b5563;">Note from our team</p>
-  <p style="margin:0;font-size:15px;line-height:1.5;color:#374151;">{{rejectionReason}}</p>
+<div style="margin:0 0 16px;padding:14px 16px;background:#fff7ed;border:2px solid #111827;border-radius:12px;">
+  <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:0.04em;">Note from our team 📝</p>
+  <p style="margin:0;font-size:15px;line-height:1.55;color:#374151;">{{rejectionReason}}</p>
 </div>
 {{/if}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  We appreciate the time you took to apply and your interest in working with brands on our platform.
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  We genuinely appreciate your interest and the effort you put into your application. You're welcome to reapply once you've updated your portfolio or profile.
 </p>
 <p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

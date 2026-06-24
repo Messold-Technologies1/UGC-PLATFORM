@@ -1,20 +1,20 @@
 {{!-- context: recipientName, platformName, brandName, packageName, orderId, briefSubmittedAt, actionUrl --}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  <strong>{{brandName}}</strong> submitted a brief for your package
-  <strong>"{{packageName}}"</strong>. Review the brief and accept the order to get started.
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">New brief waiting! 📩</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{brandName}}</strong> just sent a brief for your package <strong>"{{packageName}}"</strong>. This could be your next collab — take a look and accept when you're ready.
 </p>
-<table style="margin:0 0 20px;width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+<table style="margin:0 0 20px;width:100%;border-collapse:collapse;font-size:14px;color:#374151;border:2px solid #111827;border-radius:12px;overflow:hidden;">
   <tr>
-    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:120px;">Order</td>
-    <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;">{{orderId}}</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;width:120px;background:#fafafa;">Order</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;">{{orderId}}</td>
   </tr>
   <tr>
-    <td style="padding:8px 0;color:#6b7280;">Submitted</td>
-    <td style="padding:8px 0;">{{briefSubmittedAt}}</td>
+    <td style="padding:10px 14px;color:#6b7280;background:#fafafa;">Submitted</td>
+    <td style="padding:10px 14px;">{{briefSubmittedAt}}</td>
   </tr>
 </table>
 <div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="Review brief"}}
+  {{> actionButton url=actionUrl label="Review brief →"}}
 </div>
-<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 🚀</p>

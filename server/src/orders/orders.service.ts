@@ -1142,6 +1142,16 @@ export class OrdersService {
       );
     });
 
+    if (nextStatus === 'DELIVERED' || nextStatus === 'REVISION_SUBMITTED') {
+      this.orderMail.notifyContentDelivered(order.id, {
+        revisionNumber,
+        deliveredAt:
+          nextStatus === 'REVISION_SUBMITTED'
+            ? new Date()
+            : (order.deliveredAt ?? new Date()),
+      });
+    }
+
     return {
       orderId: order.id,
       revisionNumber,

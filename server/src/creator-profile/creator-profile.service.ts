@@ -872,6 +872,8 @@ export class CreatorProfileService {
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
         driveLink: input.driveLink?.trim() || null,
+        emailNotificationsEnabled: true,
+        whatsappNotificationsEnabled: true,
         creatorApproval: {
           create: {},
         },

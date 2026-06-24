@@ -7,6 +7,7 @@ export enum EmailTemplateKey {
   ORDER_PRODUCT_SHIPPED_FOR_CREATOR = 'order-product-shipped-for-creator',
   ORDER_PRODUCT_RECEIVED_FOR_BRAND = 'order-product-received-for-brand',
   ORDER_REVISION_REQUESTED_FOR_CREATOR = 'order-revision-requested-for-creator',
+  ORDER_CONTENT_DELIVERED_FOR_BRAND = 'order-content-delivered-for-brand',
   ORDER_CONTENT_ACCEPTED_FOR_CREATOR = 'order-content-accepted-for-creator',
   ORDER_REJECTED_FOR_BRAND = 'order-rejected-for-brand',
   ORDER_REJECTED_FOR_CREATOR = 'order-rejected-for-creator',
@@ -25,8 +26,14 @@ export type RenderedEmail = {
   text: string;
 };
 
+export type MailNotificationGate =
+  | { profileType: 'creator'; profileId: string }
+  | { profileType: 'brand'; profileId: string };
+
 export type SendMailParams = {
   to: string;
   templateKey: EmailTemplateKey;
   context: EmailTemplateContext;
+  /** Required for profile/order mail; omitted for transactional mail (e.g. password reset). */
+  notificationGate?: MailNotificationGate;
 };

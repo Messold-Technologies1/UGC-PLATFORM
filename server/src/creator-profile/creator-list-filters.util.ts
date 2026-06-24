@@ -285,6 +285,28 @@ export function buildListCreatorsWhere(
     });
   }
 
+  const maxDeliveryDays = query.maxDeliveryDays;
+  if (maxDeliveryDays !== undefined) {
+    clauses.push({
+      OR: [
+        {
+          packages: {
+            some: {
+              deliveryDays: { lte: maxDeliveryDays },
+            },
+          },
+        },
+        {
+          addOns: {
+            some: {
+              deliveryDays: { lte: maxDeliveryDays, not: null },
+            },
+          },
+        },
+      ],
+    });
+  }
+
   if (clauses.length === 0) return {};
   if (clauses.length === 1) {
     const only = clauses[0];

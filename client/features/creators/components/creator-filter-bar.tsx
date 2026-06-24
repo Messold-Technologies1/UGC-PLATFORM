@@ -11,7 +11,7 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
-  User,
+  Clock,
   X,
   Zap,
 } from "lucide-react";
@@ -39,6 +39,7 @@ import {
 import {
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
+  DELIVERY_WITHIN_OPTIONS,
   // DEFAULT_FILTERS,
   type Filters,
 } from "../types/creator-filter-types";
@@ -397,6 +398,33 @@ const PriceRangeBody = memo(function PriceRangeBody({
   );
 });
 
+interface DeliveryWithinBodyProps {
+  maxDeliveryDays: string;
+  onChange: (value: string) => void;
+}
+
+const DeliveryWithinBody = memo(function DeliveryWithinBody({
+  maxDeliveryDays,
+  onChange,
+}: DeliveryWithinBodyProps) {
+  return (
+    <div>
+      <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+        Delivery time
+      </h5>
+      <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
+        Includes creators whose package or Faster Delivery add-on meets this
+        timeline.
+      </p>
+      <CheckboxRow
+        items={DELIVERY_WITHIN_OPTIONS}
+        selected={maxDeliveryDays}
+        onToggle={(value) => onChange(value)}
+      />
+    </div>
+  );
+});
+
 interface SmartSearchBarProps {
   value?: string;
   onChange?: (value: string) => void;
@@ -546,6 +574,17 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
     });
   }
 
+  if (filters.maxDeliveryDays) {
+    const preset = DELIVERY_WITHIN_OPTIONS.find(
+      (option) => option.value === filters.maxDeliveryDays,
+    );
+    chips.push({
+      id: "delivery",
+      label: preset?.label ?? `Within ${filters.maxDeliveryDays} days`,
+      type: "maxDeliveryDays",
+    });
+  }
+
   if (filters.onLocationAvailable)
     chips.push({
       id: "on-loc",
@@ -656,6 +695,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     (chip: ActiveChip) => {
       if (chip.type === "minPrice") {
         onChange({ ...filters, minPrice: "", maxPrice: "" });
+      } else if (chip.type === "maxDeliveryDays") {
+        onChange({ ...filters, maxDeliveryDays: "" });
       } else if (chip.type === "onLocationAvailable") {
         onChange({ ...filters, onLocationAvailable: false });
       } else if (
@@ -762,8 +803,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const categoryCount = filters.categories.length;
   const formatCount = filters.contentFormat.length;
   const langCount = filters.language.length;
-  const genderCount = filters.gender ? 1 : 0;
   const priceCount = filters.minPrice || filters.maxPrice ? 1 : 0;
+  const deliveryCount = filters.maxDeliveryDays ? 1 : 0;
 
   const moreCount =
     filters.contentStyle.length +
@@ -775,14 +816,14 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     filters.canCreateWith.length +
     filters.aiContentPermission.length +
     filters.restrictions.length +
-    (landingPage && filters.gender ? 1 : 0) +
+    (filters.gender ? 1 : 0) +
     (filters.ageGroup ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
     (filters.city ? 1 : 0) +
     (filters.industry ? 1 : 0) +
     (filters.portfolioTag ? 1 : 0);
 
-  const activeFilterCount = categoryCount + formatCount + langCount + genderCount + priceCount + moreCount;
+  const activeFilterCount = categoryCount + formatCount + langCount + priceCount + deliveryCount + moreCount;
 
   return (
     <div
@@ -950,6 +991,22 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 </FilterPopover>
 
                 <FilterPopover
+                  id="delivery"
+                  openId={openPopover}
+                  onOpenChange={setOpenPopover}
+                  label="Delivery"
+                  icon={<Clock className="size-[15px]" />}
+                  activeCount={deliveryCount}
+                >
+                  <DeliveryWithinBody
+                    maxDeliveryDays={filters.maxDeliveryDays}
+                    onChange={(value) =>
+                      onChange({ ...filters, maxDeliveryDays: value })
+                    }
+                  />
+                </FilterPopover>
+
+                <FilterPopover
                   id="language"
                   openId={openPopover}
                   onOpenChange={setOpenPopover}
@@ -966,26 +1023,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     onToggle={(slug) => toggleArrayField("language", slug)}
                   />
                 </FilterPopover>
-
-                {!landingPage && (
-                  <FilterPopover
-                    id="gender"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Gender"
-                    icon={<User className="size-[15px]" />}
-                    activeCount={genderCount}
-                  >
-                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                      Gender
-                    </h5>
-                    <CheckboxRow
-                      items={GENDER_OPTIONS}
-                      selected={filters.gender}
-                      onToggle={(v) => commitField("gender", v)}
-                    />
-                  </FilterPopover>
-                )}
 
                 <div className="mx-0.5 h-[26px] w-px bg-gray-200" aria-hidden />
 
@@ -1024,18 +1061,16 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       },
                     )}
 
-                    {landingPage && (
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Gender
-                        </h5>
-                        <CheckboxRow
-                          items={GENDER_OPTIONS}
-                          selected={filters.gender}
-                          onToggle={(v) => commitField("gender", v)}
-                        />
-                      </div>
-                    )}
+                    <div className="mb-4">
+                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                        Gender
+                      </h5>
+                      <CheckboxRow
+                        items={GENDER_OPTIONS}
+                        selected={filters.gender}
+                        onToggle={(v) => commitField("gender", v)}
+                      />
+                    </div>
 
                     <div className="mb-4">
                       <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
@@ -1180,15 +1215,17 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           <PriceRangeBody minPrice={filters.minPrice} maxPrice={filters.maxPrice} onCommit={(min, max) => onChange({ ...filters, minPrice: min, maxPrice: max })} />
                         </div>
                         <div>
+                          <DeliveryWithinBody
+                            maxDeliveryDays={filters.maxDeliveryDays}
+                            onChange={(value) =>
+                              onChange({ ...filters, maxDeliveryDays: value })
+                            }
+                          />
+                        </div>
+                        <div>
                           <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Language</h5>
                           <ChipGrid items={getFacetItems("LANGUAGE")} selected={filters.language} onToggle={(slug) => toggleArrayField("language", slug)} />
                         </div>
-                        {!landingPage && (
-                          <div>
-                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Gender</h5>
-                            <CheckboxRow items={GENDER_OPTIONS} selected={filters.gender} onToggle={(v) => commitField("gender", v)} />
-                          </div>
-                        )}
                         <div className="h-px bg-gray-200" aria-hidden />
                         {MORE_FACET_SECTIONS.map(({ dimension, label, filterKey }) => {
                           const items = getFacetItems(dimension);
@@ -1200,12 +1237,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             </div>
                           );
                         })}
-                        {landingPage && (
-                          <div>
-                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Gender</h5>
-                            <CheckboxRow items={GENDER_OPTIONS} selected={filters.gender} onToggle={(v) => commitField("gender", v)} />
-                          </div>
-                        )}
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Gender</h5>
+                          <CheckboxRow items={GENDER_OPTIONS} selected={filters.gender} onToggle={(v) => commitField("gender", v)} />
+                        </div>
                         <div>
                           <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Age Group</h5>
                           <CheckboxRow items={AGE_GROUP_OPTIONS} selected={filters.ageGroup} onToggle={(v) => commitField("ageGroup", v)} />

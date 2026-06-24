@@ -1,25 +1,24 @@
 {{!-- context: recipientName, platformName, brandName, packageName, orderId, revisionNumber (optional), revisionsRemaining (optional), revisionNote (optional), actionUrl --}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  <strong>{{brandName}}</strong> requested a revision on your delivery for
-  <strong>"{{packageName}}"</strong> (order
-  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span>).
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Revision requested ✏️</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{brandName}}</strong> asked for a tweak on your delivery for <strong>"{{packageName}}"</strong>. No stress — small edits are part of the process.
 </p>
 {{#if revisionNumber}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  This is revision <strong>{{revisionNumber}}</strong>{{#if revisionsRemaining}} — you have <strong>{{revisionsRemaining}}</strong> revision(s) remaining on this order{{/if}}.
+<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;">
+  Revision <strong>{{revisionNumber}}</strong>{{#if revisionsRemaining}} · <strong>{{revisionsRemaining}}</strong> revision(s) left on this order{{/if}}
 </p>
 {{/if}}
 {{#if revisionNote}}
-<div style="margin:0 0 20px;padding:12px 16px;background:#f9fafb;border-left:4px solid #e5e7eb;border-radius:4px;">
-  <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Feedback from {{brandName}}</p>
+<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:0.04em;">Feedback from {{brandName}} 💬</p>
   <p style="margin:0;font-size:15px;line-height:1.6;color:#111827;">{{revisionNote}}</p>
 </div>
 {{/if}}
-<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
-  Please review the brand’s feedback and submit an updated delivery when ready.
+<p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#374151;">
+  Review their notes and upload an updated delivery when you're ready.
 </p>
 <div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="View order"}}
+  {{> actionButton url=actionUrl label="View order →"}}
 </div>
-<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team ✨</p>

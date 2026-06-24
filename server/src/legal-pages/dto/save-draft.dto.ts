@@ -22,7 +22,7 @@ export class DraftSectionInputDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+  @Matches(/^[a-z0-9-]+$/, {
     message:
       'anchorId must be lowercase alphanumeric with hyphens (e.g. "data-security")',
   })

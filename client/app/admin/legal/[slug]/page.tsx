@@ -147,9 +147,9 @@ export default function AdminLegalPageEditor() {
       ...sections,
       {
         anchorId: `section-${Date.now()}`,
-        title: "New Section",
-        tocLabel: "New Section",
-        content: "<p>Start typing...</p>",
+        title: "",
+        tocLabel: "",
+        content: "",
         sortOrder: sections.length,
         _id: crypto.randomUUID(),
       },
@@ -429,6 +429,7 @@ export default function AdminLegalPageEditor() {
                           type="text"
                           value={section.title}
                           onChange={(e) => updateSection(index, { title: e.target.value })}
+                          placeholder="e.g. Data Collection"
                           disabled={isReviewMode || anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 disabled:opacity-60"
                         />
@@ -441,6 +442,7 @@ export default function AdminLegalPageEditor() {
                           type="text"
                           value={section.tocLabel}
                           onChange={(e) => updateSection(index, { tocLabel: e.target.value })}
+                          placeholder="Short name for sidebar"
                           disabled={isReviewMode || anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 disabled:opacity-60"
                         />

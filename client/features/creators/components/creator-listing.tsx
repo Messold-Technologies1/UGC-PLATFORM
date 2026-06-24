@@ -14,7 +14,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Users } from "lucide-react";
+import { Sparkles, Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,6 +42,51 @@ import {
 
 const BROWSE_LIST_LIMIT = 24;
 const LANDING_PAGE_CREATOR_LIMIT = 10;
+
+const BRAND_CREATOR_MATCH_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform";
+
+const browseContentPaddingClass =
+  "px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
+
+function CreatorMatchEndPrompt() {
+  return (
+    <div
+      className="mt-10 flex w-full items-center justify-center rounded-2xl border border-[#ef3e51]/30 bg-gradient-to-r from-[#fff5f6] via-[#fef0f2] to-[#fde9e8] px-4 py-5 shadow-[0_8px_28px_rgba(239,62,81,0.12)] ring-1 ring-[#ef3e51]/10 sm:px-6 sm:py-6"
+      role="region"
+      aria-label="Request a custom creator match"
+    >
+      <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
+        <div className="flex items-center gap-3 text-left">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#ef3e51] text-white shadow-[0_4px_14px_rgba(239,62,81,0.35)]">
+            <Sparkles className="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-[15px] font-bold text-slate-900 sm:text-base">
+              Didn&apos;t spot the right creator?
+            </p>
+            <p className="mt-1 text-sm leading-snug text-slate-700">
+              Tell us what you need — we&apos;ll help you find a better match.
+            </p>
+          </div>
+        </div>
+        <Button
+          asChild
+          size="default"
+          className="h-10 shrink-0 rounded-xl bg-[#ef3e51] px-6 text-sm font-bold text-white shadow-[0_6px_20px_rgba(239,62,81,0.35)] transition-colors hover:bg-[#d93548]"
+        >
+          <a
+            href={BRAND_CREATOR_MATCH_FORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Request a custom match →
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 const virtuosoGridComponents = {
   List: forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -339,6 +384,14 @@ export function CreatorListing({
       loadedCount > LANDING_PAGE_CREATOR_LIMIT ||
       hasNextPage);
 
+  const showCreatorMatchFooter =
+    !landingPage &&
+    Boolean(data) &&
+    visibleCreators.length > 0 &&
+    !hasNextPage &&
+    !isFetchingNextPage &&
+    !(isError && data);
+
   const handleEndReached = useCallback(() => {
     if (landingPage || !hasNextPage || isFetchingNextPage) return;
     void fetchNextPage();
@@ -383,8 +436,10 @@ export function CreatorListing({
 
       <div
         className={cn(
-          "flex-1 bg-[#f4f4f5] px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-10 pt-6",
-          landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8" : ""
+          "flex flex-1 flex-col bg-[#f4f4f5]",
+          browseContentPaddingClass,
+          "pb-10 pt-6",
+          landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8" : "",
         )}
         {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
       >
@@ -426,51 +481,51 @@ export function CreatorListing({
               }}
             />
 
-            <div className="flex min-h-16 items-center justify-center pb-4 pt-2">
-              {landingPage ? (
-                showLandingLoadMore ? (
-                  <Button asChild size="lg" className="min-w-[180px] rounded-xl mt-6">
-                    <Link href="/register/brand">Load more</Link>
-                  </Button>
-                ) : null
-              ) : isFetchingNextPage ? (
-                <div
-                  className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-                  aria-label="Loading more creators"
-                >
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <CreatorCardSkeleton key={index} appearance="browse" />
-                  ))}
-                </div>
-              ) : isError && data ? (
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <p className="text-sm font-medium text-foreground">
-                    Could not load more creators
-                  </p>
-                  <p className="max-w-md text-xs text-muted-foreground">
-                    {error instanceof Error
-                      ? error.message
-                      : "Something went wrong."}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void fetchNextPage()}
-                    className="text-xs font-medium text-primary underline underline-offset-2"
+            {showCreatorMatchFooter ? (
+              <CreatorMatchEndPrompt />
+            ) : (
+              <div className="flex min-h-16 w-full items-center justify-center pb-4 pt-2">
+                {landingPage ? (
+                  showLandingLoadMore ? (
+                    <Button asChild size="lg" className="min-w-[180px] rounded-xl mt-6">
+                      <Link href="/register/brand">Load more</Link>
+                    </Button>
+                  ) : null
+                ) : isFetchingNextPage ? (
+                  <div
+                    className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+                    aria-label="Loading more creators"
                   >
-                    Try again
-                  </button>
-                </div>
-              ) : hasNextPage ? (
-                <p className="text-xs text-muted-foreground">
-                  Showing {loadedCount.toLocaleString()} of{" "}
-                  {displayedCount.toLocaleString()} creators
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  You&apos;ve reached the end
-                </p>
-              )}
-            </div>
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <CreatorCardSkeleton key={index} appearance="browse" />
+                    ))}
+                  </div>
+                ) : isError && data ? (
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <p className="text-sm font-medium text-foreground">
+                      Could not load more creators
+                    </p>
+                    <p className="max-w-md text-xs text-muted-foreground">
+                      {error instanceof Error
+                        ? error.message
+                        : "Something went wrong."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void fetchNextPage()}
+                      className="text-xs font-medium text-primary underline underline-offset-2"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : hasNextPage ? (
+                  <p className="text-xs text-muted-foreground">
+                    Showing {loadedCount.toLocaleString()} of{" "}
+                    {displayedCount.toLocaleString()} creators
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
         ) : (
           <EmptyBrowseState filters={filters} />

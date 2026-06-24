@@ -2,7 +2,18 @@
 
 import React, { memo, useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, Star, MapPin, CheckCircle, ArrowRight, Volume2, VolumeX } from "lucide-react";
+import {
+  Play,
+  Star,
+  MapPin,
+  CheckCircle,
+  ArrowRight,
+  Volume2,
+  VolumeX,
+  Package,
+  Clock,
+  Zap,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
@@ -209,8 +220,24 @@ export const CreatorCard = memo(function CreatorCard({
         <div className="fbottom">
           <div className="fprice">
             <b>₹{creator.startingPrice.toLocaleString("en-IN")}</b>
-            <small>
-              {creator.ordersCompleted} orders · {creator.deliveryDays}d
+            <small className="fmeta">
+              {creator.ordersCompleted > 0 ? (
+                <span className="fmeta-item">
+                  <Package size={10} aria-hidden />
+                  {creator.ordersCompleted}{" "}
+                  {creator.ordersCompleted === 1 ? "order" : "orders"}
+                </span>
+              ) : null}
+              <span className="fmeta-item">
+                <Clock size={10} aria-hidden />
+                {creator.deliveryDays}d
+              </span>
+              {creator.hasFasterDelivery ? (
+                <span className="fmeta-item fmeta-fast">
+                  <Zap size={10} aria-hidden />
+                  Faster delivery
+                </span>
+              ) : null}
             </small>
           </div>
           <button type="button" className="fview" onClick={handleViewClick}>

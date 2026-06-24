@@ -336,6 +336,7 @@ export function buildCreatorListRelationsInclude(
       select: portfolioSelect,
     },
     stats: { select: { avgRating: true, reviewCount: true } },
+    addOns: { select: { name: true, deliveryDays: true } },
   };
 }
 

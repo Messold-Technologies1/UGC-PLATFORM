@@ -1148,6 +1148,19 @@ export class CreatorProfileService {
           .filter((x: any) => x.slug && x.dimension)
       : [];
 
+    const fasterDeliveryAddOn = Array.isArray(profile.addOns)
+      ? profile.addOns.find(
+          (addOn: { name?: string; deliveryDays?: number | null }) =>
+            addOn?.name === 'Faster Delivery' ||
+            (typeof addOn?.deliveryDays === 'number' && addOn.deliveryDays >= 1),
+        )
+      : undefined;
+    const hasFasterDelivery = fasterDeliveryAddOn != null;
+    const fasterDeliveryDays =
+      typeof fasterDeliveryAddOn?.deliveryDays === 'number'
+        ? fasterDeliveryAddOn.deliveryDays
+        : null;
+
     return {
       id: profile.id,
       userId: profile.userId,
@@ -1195,6 +1208,8 @@ export class CreatorProfileService {
       reviewCount: profile.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
       completedOrders: orderCounts?.completedOrders ?? 0,
+      hasFasterDelivery,
+      fasterDeliveryDays,
     };
   }
 

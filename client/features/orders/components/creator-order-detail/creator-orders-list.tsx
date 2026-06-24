@@ -27,6 +27,7 @@ import type { CreatorOrderListItem } from "../../api/get-creator-orders";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COLORS, STATUS_LABELS } from "../../constants";
+import { getDeliveryDeadlineLabel } from "../delivery-deadline-display";
 import { cn } from "@/lib/utils";
 import { CreatorOrdersTabs, TAB_DEFINITIONS } from "./creator-orders-tabs";
 import { CreatorOrdersFilters } from "./creator-orders-filters";
@@ -170,8 +171,8 @@ export function CreatorOrdersList() {
                   order.status === "COMPLETED"
                 ) {
                   deliveryText = `${order.status === "DELIVERED" ? "Delivered" : "Completed"} on ${formattedDate(order.updatedAt) || "recently"}`;
-                } else if (order.deliveryDeadlineAt) {
-                  deliveryText = `ETA: ${formattedDate(order.deliveryDeadlineAt)}`;
+                } else if (order.deliveryDueAt || order.deliveryDaysSnapshot) {
+                  deliveryText = `ETA: ${getDeliveryDeadlineLabel(order)}`;
                 }
 
                 return (
@@ -263,8 +264,7 @@ export function CreatorOrdersList() {
                             </div>
                             <div className="flex flex-col items-start">
                               <span className="font-bold text-sm text-foreground leading-none mb-1.5">
-                                {formattedDate(order.deliveryDeadlineAt) ||
-                                  "TBD"}
+                                {getDeliveryDeadlineLabel(order)}
                               </span>
                               <span className="text-[11px] text-muted-foreground font-medium">
                                 {order.status === "COMPLETED" ||

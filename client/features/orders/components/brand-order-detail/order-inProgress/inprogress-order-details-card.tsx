@@ -10,12 +10,14 @@ import {
   BadgeCheck,
   Video,
   Key,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderBriefPayload } from "../../../api/get-order-brief";
 import type { OrderDetailsPublic } from "../../../api/types";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { Badge } from "@/components/ui/badge";
+import { DeliveryDeadlineDisplay } from "../../delivery-deadline-display";
 
 interface InprogressOrderDetailsCardProps {
   order: OrderDetailsPublic;
@@ -266,6 +268,16 @@ export function InprogressOrderDetailsCard({
                   </Badge>
                 </>
               )}
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3.5 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <Clock className="size-3.5 shrink-0" />
+                Delivery deadline
+              </div>
+              <DeliveryDeadlineDisplay
+                order={order}
+                dateClassName="text-sm font-semibold text-foreground"
+              />
             </div>
           </div>
         </div>

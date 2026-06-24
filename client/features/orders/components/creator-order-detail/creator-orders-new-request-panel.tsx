@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 // import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useAcceptBriefMutation } from "../../hooks/use-accept-brief-mutation";
+import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 
 interface CreatorOrderNewRequestPanelProps {
   selectedOrderId: string;
@@ -290,17 +291,11 @@ export function CreatorOrderNewRequestPanel({
                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
                       <Clock className="w-3.5 h-3.5" /> Due Date
                     </div>
-                    <span className="text-sm font-medium text-foreground">
-                      {selectedItem.order.deliveryDeadlineAt
-                        ? new Intl.DateTimeFormat("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          }).format(
-                            new Date(selectedItem.order.deliveryDeadlineAt),
-                          )
-                        : "TBD"}
-                    </span>
+                    <DeliveryDeadlineDisplay
+                      order={selectedItem.order}
+                      dateClassName="text-sm font-medium text-foreground"
+                      showBadge={false}
+                    />
                   </div>
                 </div>
               </div>

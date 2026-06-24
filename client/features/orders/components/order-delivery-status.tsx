@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import type { OrderDetailsPublic } from "../api/types";
 import { STATUS_COLORS, STATUS_LABELS } from "../constants";
 import { useSubmitDeliveryFlowMutation } from "../hooks/use-submit-delivery-flow-mutation";
+import { DeliveryDeadlineDisplay } from "./delivery-deadline-display";
 
 interface OrderDeliveryStatusProps {
   role?: "brand" | "creator";
@@ -315,13 +316,13 @@ export function OrderDeliveryStatus({
                 })}
               </p>
             </div>
-            <div className="rounded-2xl border bg-muted/20 px-5 py-4">
+              <div className="rounded-2xl border bg-muted/20 px-5 py-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Delivery Deadline
               </p>
-              <p className="mt-2 text-lg font-bold text-foreground">
-                {formatDate(order.deliveryDeadlineAt) || "Starts after brief"}
-              </p>
+              <div className="mt-2 text-lg font-bold text-foreground">
+                <DeliveryDeadlineDisplay order={order} showBadge={false} />
+              </div>
             </div>
           </div>
 

@@ -28,6 +28,7 @@ import type {
 } from "../api/types";
 import { useMarkProductReceivedMutation } from "../hooks/use-mark-product-received-mutation";
 import { useMarkProductShippedMutation } from "../hooks/use-mark-product-shipped-mutation";
+import { DeliveryDeadlineDisplay } from "./delivery-deadline-display";
 
 interface OrderShippingInfoProps {
   role?: "brand" | "creator";
@@ -394,9 +395,9 @@ export function OrderShippingInfo({
                 </>
               ) : null}
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-muted-foreground">Target deadline</dt>
+                <dt className="text-muted-foreground">Promised due date</dt>
                 <dd className="font-semibold text-card-foreground">
-                  {formatDate(order.deliveryDeadlineAt)}
+                  <DeliveryDeadlineDisplay order={order} showBadge={false} />
                 </dd>
               </div>
             </dl>

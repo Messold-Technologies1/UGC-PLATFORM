@@ -24,9 +24,18 @@ export class OrderBriefResponseDto {
     format: 'date-time',
     nullable: true,
     description:
-      'Delivery due date (deliveryDaysSnapshot + 2 grace). Null until the delivery clock starts.',
+      'Promised delivery due date. Null until the delivery clock starts.',
   })
-  deliveryDeadlineAt?: Date | null;
+  deliveryDueAt?: Date | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Final delivery cutoff after grace period. Null until the delivery clock starts.',
+  })
+  deliveryGraceDeadlineAt?: Date | null;
 
   @ApiPropertyOptional({
     description:

@@ -41,7 +41,7 @@ export class JobsService {
     const deliveryOverdueCount = await this.prisma.order.count({
       where: {
         deliveredAt: null,
-        deliveryDeadlineAt: { lte: now },
+        deliveryGraceDeadlineAt: { lte: now },
         OR: [
           {
             status: 'BRIEF_ACCEPTED',

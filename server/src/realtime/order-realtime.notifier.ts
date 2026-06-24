@@ -88,7 +88,8 @@ export class OrderRealtimeNotifier {
     orderId: string;
     briefAcceptedAt: Date;
     /** Set for non-physical orders; null when a physical product still needs to be received first. */
-    deliveryDeadlineAt: Date | null;
+    deliveryDueAt: Date | null;
+    deliveryGraceDeadlineAt: Date | null;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -102,7 +103,9 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
-      deliveryDeadlineAt: params.deliveryDeadlineAt?.toISOString() ?? null,
+      deliveryDueAt: params.deliveryDueAt?.toISOString() ?? null,
+      deliveryGraceDeadlineAt:
+        params.deliveryGraceDeadlineAt?.toISOString() ?? null,
     });
   }
 
@@ -154,11 +157,12 @@ export class OrderRealtimeNotifier {
     });
   }
 
-  /** Creator received physical product; notify brand. Includes the now-set delivery deadline. */
+  /** Creator received physical product; notify brand. Includes the now-set delivery deadlines. */
   async emitOrderProductReceived(params: {
     orderId: string;
     productReceivedAt: Date;
-    deliveryDeadlineAt: Date;
+    deliveryDueAt: Date;
+    deliveryGraceDeadlineAt: Date;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -172,7 +176,8 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.product_received', {
       orderId: params.orderId,
       productReceivedAt: params.productReceivedAt.toISOString(),
-      deliveryDeadlineAt: params.deliveryDeadlineAt.toISOString(),
+      deliveryDueAt: params.deliveryDueAt.toISOString(),
+      deliveryGraceDeadlineAt: params.deliveryGraceDeadlineAt.toISOString(),
     });
   }
 }

@@ -30,6 +30,7 @@ import type {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
+import { computeDeliveryDeadlines } from './delivery-deadline.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
@@ -139,16 +140,6 @@ function parseDispatchDateUtcYmd(ymd: string): Date {
     throw new BadRequestException('Invalid dispatchDate');
   }
   return dt;
-}
-
-/** deliveryDaysSnapshot + 2 calendar-day grace from the moment work can start */
-function computeDeliveryDeadlineAt(
-  startAt: Date,
-  deliveryDaysSnapshot: number,
-): Date {
-  const deadline = new Date(startAt);
-  deadline.setDate(deadline.getDate() + deliveryDaysSnapshot + 2);
-  return deadline;
 }
 
 function canCreatorUploadOrSubmitDelivery(order: {
@@ -738,7 +729,8 @@ export class OrdersService {
         briefAcceptedAt: true,
         deliveryDaysSnapshot: true,
         requiresPhysicalProductShipment: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -754,7 +746,8 @@ export class OrdersService {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: order.briefAcceptedAt,
         requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
-        deliveryDeadlineAt: order.deliveryDeadlineAt,
+        deliveryDueAt: order.deliveryDueAt,
+        deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       };
     }
 
@@ -766,40 +759,48 @@ export class OrdersService {
     }
 
     const now = new Date();
-    const deliveryDeadlineAt = order.requiresPhysicalProductShipment
+    const deadlines = order.requiresPhysicalProductShipment
       ? null
-      : computeDeliveryDeadlineAt(now, order.deliveryDaysSnapshot);
+      : computeDeliveryDeadlines(now, order.deliveryDaysSnapshot);
 
     const updated = await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: now,
-        ...(deliveryDeadlineAt !== null ? { deliveryDeadlineAt } : {}),
+        ...(deadlines
+          ? {
+              deliveryDueAt: deadlines.deliveryDueAt,
+              deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
+            }
+          : {}),
       },
       select: {
         id: true,
         status: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderBriefAccepted({
       orderId: order.id,
       briefAcceptedAt: now,
-      deliveryDeadlineAt,
+      deliveryDueAt: deadlines?.deliveryDueAt ?? null,
+      deliveryGraceDeadlineAt: deadlines?.deliveryGraceDeadlineAt ?? null,
     });
 
-    this.orderMail.notifyBriefAccepted(order.id, deliveryDeadlineAt);
+    this.orderMail.notifyBriefAccepted(order.id, deadlines?.deliveryDueAt ?? null);
 
     return {
       orderId: updated.id,
       status: updated.status,
       briefAcceptedAt: updated.briefAcceptedAt!,
       requiresPhysicalProductShipment: updated.requiresPhysicalProductShipment,
-      deliveryDeadlineAt: updated.deliveryDeadlineAt,
+      deliveryDueAt: updated.deliveryDueAt,
+      deliveryGraceDeadlineAt: updated.deliveryGraceDeadlineAt,
     };
   }
 
@@ -889,7 +890,8 @@ export class OrdersService {
         requiresPhysicalProductShipment: true,
         deliveryDaysSnapshot: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -901,14 +903,19 @@ export class OrdersService {
       );
     }
     if (String(order.status) === 'PRODUCT_RECEIVED') {
-      if (!order.productReceivedAt || !order.deliveryDeadlineAt) {
+      if (
+        !order.productReceivedAt ||
+        !order.deliveryDueAt ||
+        !order.deliveryGraceDeadlineAt
+      ) {
         throw new BadRequestException('Product receipt timestamps missing');
       }
       return {
         orderId: order.id,
         status: 'PRODUCT_RECEIVED',
         productReceivedAt: order.productReceivedAt,
-        deliveryDeadlineAt: order.deliveryDeadlineAt,
+        deliveryDueAt: order.deliveryDueAt,
+        deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       };
     }
     if (String(order.status) !== 'PRODUCT_SHIPPED') {
@@ -918,39 +925,40 @@ export class OrdersService {
     }
 
     const now = new Date();
-    const deliveryDeadlineAt = computeDeliveryDeadlineAt(
-      now,
-      order.deliveryDaysSnapshot,
-    );
+    const deadlines = computeDeliveryDeadlines(now, order.deliveryDaysSnapshot);
 
     const updated = await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'PRODUCT_RECEIVED',
         productReceivedAt: now,
-        deliveryDeadlineAt,
+        deliveryDueAt: deadlines.deliveryDueAt,
+        deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
       },
       select: {
         id: true,
         status: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderProductReceived({
       orderId: order.id,
       productReceivedAt: now,
-      deliveryDeadlineAt,
+      deliveryDueAt: deadlines.deliveryDueAt,
+      deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
     });
 
-    this.orderMail.notifyProductReceived(order.id, deliveryDeadlineAt);
+    this.orderMail.notifyProductReceived(order.id, deadlines.deliveryDueAt);
 
     return {
       orderId: updated.id,
       status: updated.status,
       productReceivedAt: updated.productReceivedAt!,
-      deliveryDeadlineAt: updated.deliveryDeadlineAt!,
+      deliveryDueAt: updated.deliveryDueAt!,
+      deliveryGraceDeadlineAt: updated.deliveryGraceDeadlineAt!,
     };
   }
 
@@ -1293,7 +1301,8 @@ export class OrdersService {
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
-    deliveryDeadlineAt: Date | null;
+    deliveryDueAt: Date | null;
+    deliveryGraceDeadlineAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): OrderListSummaryDto {
@@ -1311,7 +1320,8 @@ export class OrdersService {
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       hasBrief,
       ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
-      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      deliveryDueAt: order.deliveryDueAt,
+      deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
@@ -1338,7 +1348,8 @@ export class OrdersService {
     trackingId: string | null;
     dispatchedAt: Date | null;
     productReceivedAt: Date | null;
-    deliveryDeadlineAt: Date | null;
+    deliveryDueAt: Date | null;
+    deliveryGraceDeadlineAt: Date | null;
     deliveredAt: Date | null;
     acceptedAt: Date | null;
     creatorPaidAt: Date | null;
@@ -1382,7 +1393,8 @@ export class OrdersService {
       productReceivedAt: order.productReceivedAt ?? null,
       hasBrief,
       ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
-      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      deliveryDueAt: order.deliveryDueAt,
+      deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       deliverablesSnapshot: mapDeliverablesSnapshot(order.deliverablesSnapshot),
@@ -1447,7 +1459,8 @@ export class OrdersService {
         trackingId: true,
         dispatchedAt: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
         creatorPaidAt: true,
@@ -1516,7 +1529,8 @@ export class OrdersService {
         trackingId: true,
         dispatchedAt: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
         creatorPaidAt: true,
@@ -1673,7 +1687,8 @@ export class OrdersService {
         trackingId: true,
         dispatchedAt: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
         creatorPaidAt: true,
@@ -1749,7 +1764,8 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
-          deliveryDeadlineAt: true,
+          deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
           creator: {
@@ -1817,7 +1833,8 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
-          deliveryDeadlineAt: true,
+          deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
           brand: {
@@ -1864,7 +1881,8 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
-          deliveryDeadlineAt: true,
+          deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
           creator: {
@@ -1914,7 +1932,8 @@ export class OrdersService {
         briefAcceptedAt: true,
         deliveryDaysSnapshot: true,
         requiresPhysicalProductShipment: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         briefRef: {
           select: {
             id: true,
@@ -2021,7 +2040,8 @@ export class OrdersService {
       briefAcceptedAt: order.briefAcceptedAt,
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
-      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      deliveryDueAt: order.deliveryDueAt,
+      deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       brief,
     };
   }

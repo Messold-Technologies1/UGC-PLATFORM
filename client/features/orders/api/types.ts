@@ -28,7 +28,8 @@ export interface OrderListSummary {
   dispatchedAt?: string | null;
   productReceivedAt?: string | null;
   briefId?: string;
-  deliveryDeadlineAt?: string | null;
+  deliveryDueAt?: string | null;
+  deliveryGraceDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;
   expectedAmountPaise?: number;

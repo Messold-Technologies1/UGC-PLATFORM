@@ -300,9 +300,15 @@ export default function AdminOrderDetailsPage() {
       icon: FileText,
     },
     {
-      label: "Delivery Deadline",
-      date: order.deliveryDeadlineAt,
-      active: Boolean(order.deliveryDeadlineAt),
+      label: "Promised Due Date",
+      date: order.deliveryDueAt,
+      active: Boolean(order.deliveryDueAt),
+      icon: Clock,
+    },
+    {
+      label: "Grace Deadline",
+      date: order.deliveryGraceDeadlineAt,
+      active: Boolean(order.deliveryGraceDeadlineAt),
       icon: Clock,
     },
     {

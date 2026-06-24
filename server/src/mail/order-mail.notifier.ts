@@ -205,6 +205,13 @@ export class OrderMailNotifier {
           actionUrl: this.creatorOrderUrl(order.id),
         },
       );
+
+      await this.sendToBrand(order, EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND, {
+        creatorName: order.creator.displayName,
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        actionUrl: this.brandOrderUrl(order.id),
+      });
     });
   }
 

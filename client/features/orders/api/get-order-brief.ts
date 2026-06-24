@@ -37,7 +37,8 @@ export interface OrderBriefResponse {
   briefAcceptedAt?: string | null;
   deliveryDaysSnapshot: number;
   requiresPhysicalProductShipment: boolean;
-  deliveryDeadlineAt?: string | null;
+  deliveryDueAt?: string | null;
+  deliveryGraceDeadlineAt?: string | null;
   brief: OrderBriefPayload | null;
 }
 

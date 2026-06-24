@@ -26,7 +26,7 @@ import type {
   OrderCreatorSnapshot,
   OrderDetailsPublic,
 } from "../api/types";
-import { STATUS_COLORS, STATUS_LABELS } from "../constants";
+import { getDeliveryDeadlineLabel } from "./delivery-deadline-display";
 
 interface OrderHeaderProps {
   orderId: string;
@@ -106,11 +106,9 @@ export function OrderHeader({
       : role === "creator" || (order && isBriefReadOnly)
         ? "View Brief"
         : "Submit Brief";
-  const deadlineLabel = order?.deliveryDeadlineAt
-    ? formatDate(order.deliveryDeadlineAt)
-    : order?.hasBrief
-      ? "In progress"
-      : "Starts after brief";
+  const deadlineLabel = order
+    ? getDeliveryDeadlineLabel(order)
+    : "Starts after brief";
   const canOpenDispute = order
     ? !["PENDING_PAYMENT", "CREATOR_PAYMENT_DONE", "REFUNDED", "REJECTED"].includes(
         order.status,

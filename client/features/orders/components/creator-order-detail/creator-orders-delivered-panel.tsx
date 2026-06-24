@@ -5,11 +5,10 @@ import {
   Clock,
   Info,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
+import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 interface CreatorOrderDeliveredPanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -71,14 +70,6 @@ function fmtEnum(val?: string | string[] | null): string {
     .join(", ");
 }
 
-function daysLeft(deadline?: string | null): number | null {
-  if (!deadline) return null;
-  const ms = new Date(deadline).getTime() - Date.now();
-  if (Number.isNaN(ms)) return null;
-  return Math.max(0, Math.ceil(ms / 86_400_000));
-}
-
-
 function buildDeliveredSteps(order: any): StepDef[] {
   const ids = [
     "accepted",
@@ -122,9 +113,6 @@ function DeliveredFilesCard({ orderId }: { orderId: string }) {
 }
 
 function WaitingForApprovalCard({ order }: { order: any }) {
-  const deadline = order?.deliveryDeadlineAt;
-  const remaining = daysLeft(deadline);
-
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3">
@@ -161,34 +149,19 @@ function WaitingForApprovalCard({ order }: { order: any }) {
         </ul>
       </div>
 
-      {deadline && (
+      {order?.deliveredAt && (
         <div className="flex items-center justify-between pt-3 border-t border-border/40 mt-auto">
           <div className="flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs text-muted-foreground font-medium">
-              Deadline
+              Delivered
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">
-              {fmtDate(deadline)}
-            </span>
-            {remaining !== null && (
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full border-0",
-                  remaining <= 3
-                    ? "bg-red-500/10 text-red-600"
-                    : remaining <= 7
-                      ? "bg-amber-500/10 text-amber-600"
-                      : "bg-emerald-500/10 text-emerald-600",
-                )}
-              >
-                {remaining} day{remaining !== 1 ? "s" : ""} left
-              </Badge>
-            )}
-          </div>
+          <DeliveryDeadlineDisplay
+            order={order}
+            showBadge={false}
+            dateClassName="text-xs font-semibold text-foreground"
+          />
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ export enum EmailTemplateKey {
   ORDER_REVISION_REQUESTED_FOR_CREATOR = 'order-revision-requested-for-creator',
   ORDER_CONTENT_DELIVERED_FOR_BRAND = 'order-content-delivered-for-brand',
   ORDER_CONTENT_ACCEPTED_FOR_CREATOR = 'order-content-accepted-for-creator',
+  ORDER_COMPLETED_FOR_BRAND = 'order-completed-for-brand',
   ORDER_REJECTED_FOR_BRAND = 'order-rejected-for-brand',
   ORDER_REJECTED_FOR_CREATOR = 'order-rejected-for-creator',
   ORDER_REFUNDED_FOR_BRAND = 'order-refunded-for-brand',

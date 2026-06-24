@@ -18,6 +18,9 @@ export interface OrderBriefSubmittedEvent {
 export interface OrderBriefAcceptedEvent {
   orderId: string;
   briefAcceptedAt: string;
+  /** ISO string for non-physical orders; null when product receipt triggers the deadline */
+  deliveryDueAt: string | null;
+  deliveryGraceDeadlineAt: string | null;
 }
 
 export interface OrderProductShippedEvent {
@@ -30,6 +33,8 @@ export interface OrderProductShippedEvent {
 export interface OrderProductReceivedEvent {
   orderId: string;
   productReceivedAt: string;
+  deliveryDueAt: string;
+  deliveryGraceDeadlineAt: string;
 }
 
 export interface OrderRevisionRequestedEvent {
@@ -62,19 +67,6 @@ export interface OrderChatReadUpdatedEvent {
   userId: string;
   lastReadMessageId?: string | null;
   lastReadAt?: string | null;
-}
-
-export interface OrderBriefAcceptedEvent {
-  orderId: string;
-  briefAcceptedAt: string;
-  /** ISO string for non-physical orders; null when product receipt triggers the deadline */
-  deliveryDeadlineAt: string | null;
-}
-
-export interface OrderProductReceivedEvent {
-  orderId: string;
-  productReceivedAt: string;
-  deliveryDeadlineAt: string;
 }
 
 export interface ServerToClientEvents {

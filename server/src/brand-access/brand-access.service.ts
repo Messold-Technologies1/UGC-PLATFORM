@@ -6,29 +6,7 @@ import {
 } from '@nestjs/common';
 import { RoleName } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type { ResolvedBrandContext } from './brand-access.types';
-
-const brandSelect = {
-  id: true,
-  userId: true,
-  agencyId: true,
-  brandName: true,
-  logoKey: true,
-  logoUrl: true,
-  website: true,
-  contactFullName: true,
-  contactEmail: true,
-  contactPhone: true,
-  brandPronunciationAudioKey: true,
-  brandPronunciationAudioUrl: true,
-  instagramUrl: true,
-  productType: true,
-  otherCategoryLabel: true,
-  createdAt: true,
-  updatedAt: true,
-  agency: { select: { id: true, ownerUserId: true } },
-  user: { select: { email: true } },
-} as const;
+import { brandAccessSelect, type ResolvedBrandContext } from './brand-access.types';
 
 @Injectable()
 export class BrandAccessService {
@@ -89,7 +67,7 @@ export class BrandAccessService {
 
     const standalone = await this.prisma.brandProfile.findUnique({
       where: { userId: params.actorUserId },
-      select: brandSelect,
+      select: brandAccessSelect,
     });
     if (standalone) {
       return this.toContext(standalone, params.actorUserId);
@@ -161,7 +139,7 @@ export class BrandAccessService {
   private async loadBrandById(id: string) {
     const brand = await this.prisma.brandProfile.findUnique({
       where: { id },
-      select: brandSelect,
+      select: brandAccessSelect,
     });
     if (!brand) {
       throw new NotFoundException('Brand profile not found');

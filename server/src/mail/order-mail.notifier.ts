@@ -25,6 +25,7 @@ const orderMailInclude = {
   },
   creator: {
     select: {
+      id: true,
       displayName: true,
       contactEmail: true,
       user: { select: { email: true, name: true } },
@@ -162,6 +163,33 @@ export class OrderMailNotifier {
     });
   }
 
+  notifyContentDelivered(
+    orderId: string,
+    params: { revisionNumber: number; deliveredAt: Date },
+  ): void {
+    void this.run('content_delivered', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const ctx: Record<string, string> = {
+        creatorName: order.creator.displayName,
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        deliveredAt: this.formatDate(params.deliveredAt),
+        actionUrl: this.brandOrderUrl(order.id),
+      };
+      if (params.revisionNumber > 0) {
+        ctx.revisionNumber = String(params.revisionNumber);
+      }
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_CONTENT_DELIVERED_FOR_BRAND,
+        ctx,
+      );
+    });
+  }
+
   notifyContentAccepted(orderId: string): void {
     void this.run('content_accepted', async () => {
       const order = await this.loadOrder(orderId);
@@ -265,6 +293,10 @@ export class OrderMailNotifier {
     await this.mail.send({
       to: email,
       templateKey,
+      notificationGate: {
+        profileType: 'brand',
+        profileId: order.brand.id,
+      },
       context: { recipientName: name, ...context },
     });
   }
@@ -284,6 +316,10 @@ export class OrderMailNotifier {
     await this.mail.send({
       to: email,
       templateKey,
+      notificationGate: {
+        profileType: 'creator',
+        profileId: order.creator.id,
+      },
       context: {
         recipientName: this.creatorDisplayName(order),
         ...context,

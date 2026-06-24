@@ -54,6 +54,7 @@ export const envValidationSchema = Joi.object({
   AWS_SES_SECRET_ACCESS_KEY: Joi.string().min(1).optional(),
   SES_FROM_EMAIL: Joi.string().email().optional(),
   MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
+  EMAIL_TEMPLATE_LOGO: Joi.string().uri().optional(),
   MAIL_SEND_TIMEOUT_MS: Joi.number()
     .integer()
     .min(1_000)

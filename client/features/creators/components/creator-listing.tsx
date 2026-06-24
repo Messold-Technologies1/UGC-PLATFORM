@@ -120,6 +120,7 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.gender === b.gender &&
     a.minPrice === b.minPrice &&
     a.maxPrice === b.maxPrice &&
+    a.maxDeliveryDays === b.maxDeliveryDays &&
     a.onLocationAvailable === b.onLocationAvailable &&
     a.industry === b.industry &&
     a.portfolioTag === b.portfolioTag &&
@@ -286,6 +287,7 @@ export function CreatorListing({
       onLocationAvailable: filters.onLocationAvailable || undefined,
       minPrice: filters.minPrice || undefined,
       maxPrice: filters.maxPrice || undefined,
+      maxDeliveryDays: filters.maxDeliveryDays || undefined,
       // personaTags: filters.personaTags,
       restrictions: filters.restrictions,
       contentFormat: filters.contentFormat.length

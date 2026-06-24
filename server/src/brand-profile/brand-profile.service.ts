@@ -146,6 +146,8 @@ export class BrandProfileService {
         instagramUrl: dto.instagramUrl?.trim() || null,
         productType: dto.productType ?? null,
         otherCategoryLabel: includesOther ? otherCategoryLabel : null,
+        emailNotificationsEnabled: true,
+        whatsappNotificationsEnabled: true,
       } as any,
       select: { id: true },
     });

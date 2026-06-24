@@ -16,6 +16,7 @@ export type CreatorListApiFilters = {
   onLocationAvailable?: boolean;
   minPrice?: string | number;
   maxPrice?: string | number;
+  maxDeliveryDays?: string | number;
   contentFormat?: string[];
   appearance?: string[];
   contentStyle?: string[];
@@ -76,6 +77,9 @@ export function serializeCreatorListApiParams(
   }
   if (filters.maxPrice !== undefined && filters.maxPrice !== "") {
     params.set("maxPrice", String(filters.maxPrice));
+  }
+  if (filters.maxDeliveryDays !== undefined && filters.maxDeliveryDays !== "") {
+    params.set("maxDeliveryDays", String(filters.maxDeliveryDays));
   }
 
   const facetArrayParams: Array<[string, string[] | undefined]> = [

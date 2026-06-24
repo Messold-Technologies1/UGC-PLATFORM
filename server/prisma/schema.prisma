@@ -312,6 +312,10 @@ model CreatorProfile {
   /// Derived discovery gate = (approval APPROVED) AND completeProfile.
   /// Brands only ever see creators where this is true.
   isListed            Boolean                     @default(false)
+  /// Opt-in for transactional/profile/order emails. Set true at signup; legacy rows backfilled false.
+  emailNotificationsEnabled    Boolean            @default(false)
+  /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
+  whatsappNotificationsEnabled Boolean            @default(false)
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
@@ -825,6 +829,10 @@ model BrandProfile {
   instagramUrl               String?
   productType                BrandProductType?
   otherCategoryLabel         String?
+  /// Opt-in for transactional/order emails. Set true at signup; legacy rows backfilled false.
+  emailNotificationsEnabled    Boolean         @default(false)
+  /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
+  whatsappNotificationsEnabled Boolean         @default(false)
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
 

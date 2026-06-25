@@ -649,7 +649,10 @@ export default function AdminLegalPageEditor() {
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">Published version</p>
+                        <p className="font-semibold text-sm">Published Version</p>
+                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-0.5 rounded" title="Version ID">
+                          {v.id}
+                        </span>
                       </div>
                       {v.changeNote && (
                         <p className="text-sm text-muted-foreground italic mt-0.5">
@@ -661,8 +664,8 @@ export default function AdminLegalPageEditor() {
                       <p>
                         {format(new Date(v.createdAt), "MMM d, yyyy 'at' h:mm a")}
                       </p>
-                      <p className="mt-0.5 text-[10px] font-mono opacity-70" title="Publisher Admin ID">
-                        by: {v.changedByEmail || v.changedBy}
+                      <p className="mt-0.5 text-[10px] opacity-70">
+                        by: {v.changedByEmail || "Unknown Admin"}
                       </p>
                     </div>
                     <div className="mt-3 sm:mt-0 sm:ml-4 flex-shrink-0">

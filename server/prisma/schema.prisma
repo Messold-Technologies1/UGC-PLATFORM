@@ -1064,6 +1064,7 @@ model LegalPage {
   draftReviewNote    String?
   draftCreatedAt     DateTime?
   draftUpdatedAt     DateTime?
+  draftRestoredFromVersionId String? @db.Uuid
 
   versions LegalPageVersion[]
 
@@ -1080,6 +1081,7 @@ model LegalPageVersion {
   snapshot   Json
   changedBy  String   @db.Uuid
   changeNote String?
+  restoredFromVersionId String? @db.Uuid
   createdAt  DateTime @default(now())
 
   page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)

@@ -180,6 +180,8 @@ export const ENDPOINTS = {
       CREATE: "/api/admin/legal-pages",
       BY_SLUG: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}`,
+      PREVIEW: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/preview`,
       DRAFT: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/draft`,
       SUBMIT_REVIEW: (slug: string) =>
@@ -190,6 +192,10 @@ export const ENDPOINTS = {
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/reject-draft`,
       VERSIONS: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions`,
+      VERSION: (slug: string, versionId: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}`,
+      RESTORE_VERSION: (slug: string, versionId: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}/restore`,
     },
   },
 } as const;

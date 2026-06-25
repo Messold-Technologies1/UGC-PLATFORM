@@ -32,7 +32,9 @@ export interface LegalPageDraftResponse {
   sections: DraftSectionData[];
   changeNote: string | null;
   createdBy: string;
+  createdByEmail?: string;
   reviewNote: string | null;
+  restoredFromVersionId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -97,7 +99,9 @@ export interface RejectDraftInput {
 export interface LegalPageVersionListItem {
   id: string;
   changedBy: string;
+  changedByEmail?: string;
   changeNote: string | null;
+  restoredFromVersionId?: string;
   createdAt: string;
 }
 
@@ -115,6 +119,8 @@ export interface LegalPageVersionDetail {
     sections: DraftSectionData[];
   };
   changedBy: string;
+  changedByEmail?: string;
   changeNote: string | null;
+  restoredFromVersionId?: string;
   createdAt: string;
 }

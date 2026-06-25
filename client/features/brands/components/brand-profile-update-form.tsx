@@ -1,4 +1,5 @@
 "use client";
+import "./brand-profile-edit.css";
 
 import { motion, type Variants } from "framer-motion";
 
@@ -10,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LayoutGrid, User as UserIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,9 +22,6 @@ import { BrandPronunciationAudioField } from "@/features/brands/components/brand
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitBrandProfileMutation } from "@/features/brands/hooks/use-brand-profile-form-mutation";
 import { useAuth } from "@/providers/auth-provider";
@@ -35,11 +33,9 @@ import {
 } from "@/features/brands/api/fetch-brand-category-options";
 import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
 
-
 import {
   brandProfileUpdateSchema,
   brandProductTypeValues,
-  normalizeOptionalString,
   normalizeOptionalUrl,
   LOGO_ACCEPT,
   type BrandProfileUpdateFormValues,
@@ -47,8 +43,12 @@ import {
 import { useBrandLogoForm } from "@/features/brands/hooks/use-brand-logo-form";
 import { useBrandPronunciationForm } from "@/features/brands/hooks/use-brand-pronunciation-form";
 import { normalizePhoneForOtp } from "@/features/auth/components/phone-verification-field";
+import { cn } from "@/lib/utils";
 
-
+const NAV_ITEMS = [
+  { id: "brand", label: "Brand profile", icon: LayoutGrid },
+  { id: "contact", label: "Primary contact", icon: UserIcon },
+];
 
 export type BrandProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -57,8 +57,6 @@ export type BrandProfileUpdateFormProps = {
   onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
 };
-
-
 
 export function BrandProfileUpdateForm({
   variant,
@@ -80,8 +78,6 @@ export function BrandProfileUpdateForm({
     />
   );
 }
-
-
 
 function BrandProfileUpdateFormContent({
   variant,
@@ -119,19 +115,15 @@ function BrandProfileUpdateFormContent({
     defaultValues: defaultFormValues,
   });
 
-  const brandName = useWatch({ control: form.control, name: "brandName" }) ?? "";
-  const contactFullName = useWatch({ control: form.control, name: "contactFullName" }) ?? "";
-  const contactEmail = useWatch({ control: form.control, name: "contactEmail" }) ?? "";
-  const contactPhone = useWatch({ control: form.control, name: "contactPhone" }) ?? "";
-  const website = useWatch({ control: form.control, name: "website" }) ?? "";
-  const selectedCategories = useWatch({ control: form.control, name: "categories" }) ?? [];
   const productType = useWatch({ control: form.control, name: "productType" }) ?? "";
+  const selectedCategories = useWatch({ control: form.control, name: "categories" }) ?? [];
+  const brandName = useWatch({ control: form.control, name: "brandName" }) ?? "";
 
   const [isCategoriesDropdownOpen, setIsCategoriesDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -150,24 +142,65 @@ function BrandProfileUpdateFormContent({
     if (!initialProfile?.contactFullName && user?.name && !form.getValues("contactFullName")) {
       form.setValue("contactFullName", user.name);
     }
-  }, [form, initialProfile?.contactEmail, initialProfile?.contactFullName, user?.email, user?.name]);
+  }, [form, initialProfile, user]);
 
+  const { isDirty: isFormDirty } = form.formState;
   
+  useEffect(() => {
+    setIsDirty(isFormDirty);
+  }, [isFormDirty]);
+
+  useEffect(() => {
+    if (variant !== "settings") return;
+
+    function onScroll() {
+      const offset = 120;
+      let current = NAV_ITEMS[0].id;
+      for (const item of NAV_ITEMS) {
+        const el = document.getElementById(`pe-section-${item.id}`);
+        if (el && el.getBoundingClientRect().top <= offset) {
+          current = item.id;
+        }
+      }
+      if (
+        window.innerHeight + window.scrollY >=
+        document.body.scrollHeight - 4
+      ) {
+        current = NAV_ITEMS[NAV_ITEMS.length - 1].id;
+      }
+      setActiveSection(current);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [variant]);
+
+  function scrollToSection(id: string) {
+    const el = document.getElementById(`pe-section-${id}`);
+    if (el) {
+      window.scrollTo({
+        top: el.getBoundingClientRect().top + window.scrollY - 76,
+        behavior: "smooth",
+      });
+    }
+  }
+
   const logo = useBrandLogoForm({ mode, initialProfile });
   const pronunciation = useBrandPronunciationForm({ mode, initialProfile });
 
   const submitBrandProfileMutation = useSubmitBrandProfileMutation({
     mode,
-    onSuccess,
+    onSuccess: async () => {
+      setIsDirty(false);
+      await onSuccess();
+    },
   });
 
   const pending = submitBrandProfileMutation.isPending;
   useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
-
-  const title = "Edit your brand profile";
-  const description = "Update your brand details and logo.";
 
   const toggleCategory = useCallback(
     (value: BrandCategoryApi) => {
@@ -187,36 +220,6 @@ function BrandProfileUpdateFormContent({
     [form],
   );
 
-  const completionSummary = useMemo(() => {
-    const checkpoints = [
-      Boolean(brandName.trim()),
-      Boolean(contactFullName.trim()),
-      Boolean(contactEmail.trim()),
-      Boolean(contactPhone.trim()),
-      Boolean(website.trim()),
-      Boolean(logo.logoPreviewUrl || logo.pendingLogoKey),
-      selectedCategories.length > 0,
-      Boolean(productType),
-    ];
-    const completed = checkpoints.filter(Boolean).length;
-    const total = checkpoints.length;
-    return {
-      completed,
-      total,
-      percent: Math.round((completed / total) * 100),
-    };
-  }, [
-    brandName,
-    contactFullName,
-    contactEmail,
-    contactPhone,
-    website,
-    logo.logoPreviewUrl,
-    logo.pendingLogoKey,
-    selectedCategories.length,
-    productType,
-  ]);
-
   const handleSubmit = useCallback(
     (values: BrandProfileUpdateFormValues) => {
       const name = values.brandName.trim();
@@ -228,7 +231,9 @@ function BrandProfileUpdateFormContent({
       const fullName = values.contactFullName.trim();
       const email = values.contactEmail.trim();
       const phone = normalizePhoneForOtp(values.contactPhone);
-      const initialPhone = normalizePhoneForOtp(initialProfile?.contactPhone ?? "");
+      const initialPhone = normalizePhoneForOtp(
+        initialProfile?.contactPhone ?? "",
+      );
       const phoneChanged = phone !== initialPhone;
 
       if (!fullName) {
@@ -247,7 +252,10 @@ function BrandProfileUpdateFormContent({
         toast.error(message);
         return;
       }
-      if (values.categories.includes("OTHER") && !values.otherCategoryText.trim()) {
+      if (
+        values.categories.includes("OTHER") &&
+        !values.otherCategoryText.trim()
+      ) {
         const message = "Enter a custom category for Other.";
         form.setError("otherCategoryText", { message });
         toast.error(message);
@@ -275,15 +283,25 @@ function BrandProfileUpdateFormContent({
 
       submitBrandProfileMutation.mutate({ payload });
     },
-    [form, initialProfile?.contactPhone, logo.pendingLogoKey, phoneVerified, pronunciation.pendingPronunciationAudioKey, submitBrandProfileMutation],
+    [
+      form,
+      initialProfile?.contactPhone,
+      logo.pendingLogoKey,
+      phoneVerified,
+      pronunciation.pendingPronunciationAudioKey,
+      submitBrandProfileMutation,
+    ],
   );
 
- 
-  const inputClass = "h-10";
-  const shellClass =
-    variant === "onboarding"
-      ? "flex flex-col bg-transparent p-0"
-      : "flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8";
+  const handleDiscard = useCallback(() => {
+    form.reset(defaultFormValues);
+    setIsDirty(false);
+    logo.clearLogo();
+    pronunciation.clearPronunciationAudio();
+    toast.info("Changes discarded");
+  }, [form, defaultFormValues, logo, pronunciation]);
+
+  const isSettings = variant === "settings";
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -292,96 +310,30 @@ function BrandProfileUpdateFormContent({
 
   const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring", stiffness: 300, damping: 24 },
+    },
   };
 
-  return (
-    <motion.form
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
-      className={shellClass}
-    >
-      <motion.div variants={itemVariants} className="mb-8 space-y-2">
-        <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-          {title}
-        </h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
-        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Profile completion
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {completionSummary.completed} of {completionSummary.total} core
-                sections added
-              </p>
-            </div>
-            <p className="text-sm font-semibold tabular-nums text-foreground">
-              {completionSummary.percent}%
-            </p>
-          </div>
-          <Progress
-            value={completionSummary.percent}
-            aria-label="Brand profile completion"
-            className="mt-3 h-1"
-          />
+  const contentCardsNode = (
+    <>
+      <motion.section variants={itemVariants} className="pe-card" id="pe-section-brand" style={{ position: "relative", zIndex: isCategoriesDropdownOpen ? 30 : 1 }}>
+        <div className="pe-card-head">
+          <h3>
+            {isSettings && (
+              <div className="pe-card-icon">
+                <LayoutGrid size={16} />
+              </div>
+            )}
+            Brand profile
+          </h3>
+          <p>This is how your brand appears across the platform.</p>
         </div>
-      </motion.div>
-
-      <div className="flex flex-col gap-8">
-        <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/10 p-5">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Brand Identity
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              This is how your brand appears across the platform.
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="brandName">Brand name *</Label>
-                <Input
-                  id="brandName"
-                  className={inputClass}
-                  disabled={pending}
-                  {...form.register("brandName")}
-                  placeholder="Acme Corp"
-                  autoComplete="organization"
-                />
-                {form.formState.errors.brandName && (
-                  <p className="text-xs text-destructive">
-                    {form.formState.errors.brandName.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="brandPronunciation">Brand pronunciation</Label>
-                <Input
-                  id="brandPronunciation"
-                  className={inputClass}
-                  disabled={pending}
-                  {...form.register("brandPronunciation")}
-                  placeholder="e.g. Ack-mee"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Pronunciation audio</Label>
-                <BrandPronunciationAudioField
-                  audioUrl={pronunciation.pronunciationAudioPreviewUrl}
-                  disabled={pronunciation.uploadingPronunciation || pending}
-                  uploading={pronunciation.uploadingPronunciation}
-                  hasRecording={Boolean(pronunciation.pendingPronunciationAudioKey) || Boolean(pronunciation.pronunciationAudioPreviewUrl)}
-                  onRecordingReady={pronunciation.handlePronunciationBlob}
-                  onRemove={pronunciation.clearPronunciationAudio}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
+        <div className="pe-card-body">
+          <div className="pe-grid pe-grid-2">
+            <div className="pe-field">
               <BrandLogoField
                 previewUrl={logo.logoPreviewUrl}
                 accept={LOGO_ACCEPT}
@@ -390,125 +342,107 @@ function BrandProfileUpdateFormContent({
                 fileInputRef={logo.fileInputRef}
                 onSelectFile={(file) => void logo.handleLogoSelected(file)}
                 onRemove={logo.clearLogo}
+                brandName={brandName}
               />
             </div>
           </div>
-        </motion.section>
+          
+          <div className="pe-grid pe-grid-2 mt-4">
+            <div className="pe-field">
+              <label htmlFor="brandName">Brand name <span className="pe-required">*</span></label>
+              <div className="pe-input-wrap">
+                <input
+                  id="brandName"
+                  className="pe-input"
+                  disabled={pending}
+                  {...form.register("brandName")}
+                  placeholder="Acme Corp"
+                  autoComplete="organization"
+                />
+              </div>
+              {form.formState.errors.brandName && (
+                <span className="pe-help text-destructive">
+                  {form.formState.errors.brandName.message}
+                </span>
+              )}
+            </div>
+            
+            <div className="pe-field">
+              <label htmlFor="brandPronunciation">Brand pronunciation</label>
+              <div className="pe-input-wrap">
+                <input
+                  id="brandPronunciation"
+                  className="pe-input"
+                  disabled={pending}
+                  {...form.register("brandPronunciation")}
+                  placeholder="e.g. Ack-mee"
+                />
+              </div>
+            </div>
+          </div>
 
-        <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/10 p-5">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Contact Information
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Internal details for platform communications.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="contactFullName">Contact name *</Label>
-              <Input
-                id="contactFullName"
-                className={inputClass}
-                disabled={pending}
-                {...form.register("contactFullName")}
-                autoComplete="name"
-              />
-              {form.formState.errors.contactFullName && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.contactFullName.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail">Contact email *</Label>
-              <Input
-                id="contactEmail"
-                type="email"
-                className={inputClass}
-                disabled={pending}
-                {...form.register("contactEmail")}
-                autoComplete="email"
-              />
-              {form.formState.errors.contactEmail && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.contactEmail.message}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="space-y-2 max-w-sm">
-            <Label>Mobile number</Label>
-            <PhoneVerificationField
-              idPrefix="brand-profile"
-              disabled={pending}
-              onVerifiedChange={setPhoneVerified}
-              onVerified={() => void refreshUser()}
+          <div className="pe-field mt-4">
+            <label>Pronunciation audio</label>
+            <BrandPronunciationAudioField
+              audioUrl={pronunciation.pronunciationAudioPreviewUrl}
+              disabled={pronunciation.uploadingPronunciation || pending}
+              uploading={pronunciation.uploadingPronunciation}
+              hasRecording={
+                Boolean(pronunciation.pendingPronunciationAudioKey) ||
+                Boolean(pronunciation.pronunciationAudioPreviewUrl)
+              }
+              onRecordingReady={pronunciation.handlePronunciationBlob}
+              onRemove={pronunciation.clearPronunciationAudio}
             />
-            {form.formState.errors.contactPhone && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.contactPhone.message}
-              </p>
-            )}
           </div>
-        </motion.section>
-
-        <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/10 p-5">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Online Presence
-            </h3>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input
-                id="website"
-                className={inputClass}
-                disabled={pending}
-                {...form.register("website")}
-                placeholder="https://acmecorp.com"
-                inputMode="url"
-              />
+          
+          <div className="pe-grid pe-grid-2 mt-4">
+            <div className="pe-field">
+              <label htmlFor="website">Website</label>
+              <div className="pe-input-wrap">
+                <input
+                  id="website"
+                  className="pe-input"
+                  disabled={pending}
+                  {...form.register("website")}
+                  placeholder="https://acmecorp.com"
+                  inputMode="url"
+                />
+              </div>
               {form.formState.errors.website && (
-                <p className="text-xs text-destructive">
+                <span className="pe-help text-destructive">
                   {form.formState.errors.website.message}
-                </p>
+                </span>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagramUrl">Instagram URL</Label>
-              <Input
-                id="instagramUrl"
-                className={inputClass}
-                disabled={pending}
-                {...form.register("instagramUrl")}
-                placeholder="https://instagram.com/acmecorp"
-                inputMode="url"
-              />
+            <div className="pe-field">
+              <label htmlFor="instagramUrl">Instagram URL</label>
+              <div className="pe-input-wrap">
+                <input
+                  id="instagramUrl"
+                  className="pe-input"
+                  disabled={pending}
+                  {...form.register("instagramUrl")}
+                  placeholder="https://instagram.com/acmecorp"
+                  inputMode="url"
+                />
+              </div>
               {form.formState.errors.instagramUrl && (
-                <p className="text-xs text-destructive">
+                <span className="pe-help text-destructive">
                   {form.formState.errors.instagramUrl.message}
-                </p>
+                </span>
               )}
             </div>
           </div>
-        </motion.section>
 
-        <motion.section variants={itemVariants} className="space-y-4 rounded-xl border border-border bg-muted/10 p-5">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Product Details
-            </h3>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-3">
-              <Label className="text-base font-medium">Product type</Label>
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3">
+          <div className="pe-grid pe-grid-2 mt-4">
+            <div className="pe-field">
+              <label>Product type</label>
+              <div className="flex flex-col gap-2 rounded-xl border border-border p-3 mt-1">
                 {brandProductTypeValues.map((value) => (
                   <label
                     key={value}
-                    className="flex cursor-pointer items-center gap-2 rounded text-sm transition-colors hover:bg-muted/50 p-1"
+                    className="flex cursor-pointer items-center gap-2 rounded text-[13.5px] transition-colors hover:bg-muted/50 p-1 font-medium"
                   >
                     <Checkbox
                       disabled={pending}
@@ -520,23 +454,25 @@ function BrandProfileUpdateFormContent({
                           { shouldDirty: true, shouldTouch: true },
                         )
                       }
-                      className="rounded-full"
+                      className="rounded-full w-4 h-4"
                     />
                     <span className="capitalize">{value.toLowerCase()}</span>
                   </label>
                 ))}
               </div>
             </div>
-
-            <div className="space-y-3" ref={dropdownRef}>
-              <Label className="text-base font-medium">Categories</Label>
-              <div className="relative">
+            
+            <div className="pe-field" ref={dropdownRef}>
+              <label>Categories</label>
+              <div className="relative mt-1">
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full justify-between border-border bg-background hover:bg-background"
+                  className="w-full justify-between border-[1.4px] border-border h-[42px] bg-card hover:bg-muted/50 rounded-[10px] px-3 font-normal text-[13.5px] text-foreground"
                   disabled={pending}
-                  onClick={() => setIsCategoriesDropdownOpen(!isCategoriesDropdownOpen)}
+                  onClick={() =>
+                    setIsCategoriesDropdownOpen(!isCategoriesDropdownOpen)
+                  }
                 >
                   <span className="truncate">
                     {selectedCategories.length === 0
@@ -552,18 +488,22 @@ function BrandProfileUpdateFormContent({
                   />
                 </Button>
                 {isCategoriesDropdownOpen && (
-                  <div className="absolute top-[calc(100%+4px)] z-50 max-h-[280px] w-full overflow-y-auto rounded-md border border-border bg-popover p-2 shadow-md">
+                  <div className="absolute top-[calc(100%+4px)] z-50 max-h-[280px] w-full overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-md">
                     <div className="flex flex-col gap-1">
                       {categoryOptionRows.map((row) => (
                         <label
                           key={row.value}
-                          className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                          className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-[13.5px] hover:bg-accent font-medium text-foreground transition-colors"
                         >
                           <Checkbox
                             className="mt-0.5"
                             disabled={pending}
-                            checked={selectedCategories.includes(row.value as BrandCategoryApi)}
-                            onCheckedChange={() => toggleCategory(row.value as BrandCategoryApi)}
+                            checked={selectedCategories.includes(
+                              row.value as BrandCategoryApi,
+                            )}
+                            onCheckedChange={() =>
+                              toggleCategory(row.value as BrandCategoryApi)
+                            }
                           />
                           <span>{row.label}</span>
                         </label>
@@ -572,44 +512,197 @@ function BrandProfileUpdateFormContent({
                   </div>
                 )}
               </div>
+              
               {selectedCategories.includes("OTHER") && (
-                <div className="mt-3 space-y-2 rounded-lg border border-border bg-background p-3">
-                  <Label htmlFor="otherCategoryText">Specify other category</Label>
-                  <Input
-                    id="otherCategoryText"
-                    className={inputClass}
-                    disabled={pending}
-                    {...form.register("otherCategoryText")}
-                    placeholder="E.g. Custom woodwork"
-                  />
+                <div className="mt-3">
+                  <label htmlFor="otherCategoryText" className="text-[12.5px] font-bold block mb-1">
+                    Specify other category
+                  </label>
+                  <div className="pe-input-wrap">
+                    <input
+                      id="otherCategoryText"
+                      className="pe-input"
+                      disabled={pending}
+                      {...form.register("otherCategoryText")}
+                      placeholder="E.g. Custom woodwork"
+                    />
+                  </div>
                   {form.formState.errors.otherCategoryText && (
-                    <p className="text-xs text-destructive">
+                    <span className="pe-help text-destructive">
                       {form.formState.errors.otherCategoryText.message}
-                    </p>
+                    </span>
                   )}
                 </div>
               )}
             </div>
           </div>
-        </motion.section>
-      </div>
+        </div>
+      </motion.section>
 
-      <motion.div variants={itemVariants} className="mt-8 flex justify-end">
-        <Button
-          type="submit"
-          className="w-full sm:w-auto"
-          disabled={pending || logo.uploadingLogo || pronunciation.uploadingPronunciation}
-        >
-          {pending || logo.uploadingLogo || pronunciation.uploadingPronunciation ? (
-            <>
-              <Spinner className="mr-2 h-4 w-4" aria-hidden />
-              Saving...
-            </>
-          ) : (
-            "Save changes"
-          )}
-        </Button>
-      </motion.div>
-    </motion.form>
+      <motion.section variants={itemVariants} className="pe-card" id="pe-section-contact">
+        <div className="pe-card-head">
+          <h3>
+            {isSettings && (
+              <div className="pe-card-icon">
+                <UserIcon size={16} />
+              </div>
+            )}
+            Primary contact
+          </h3>
+          <p>Internal details for platform communications.</p>
+        </div>
+        <div className="pe-card-body">
+          <div className="pe-grid pe-grid-2">
+            <div className="pe-field">
+              <label htmlFor="contactFullName">Contact name <span className="pe-required">*</span></label>
+              <div className="pe-input-wrap">
+                <input
+                  id="contactFullName"
+                  className="pe-input"
+                  disabled={pending}
+                  {...form.register("contactFullName")}
+                  autoComplete="name"
+                />
+              </div>
+              {form.formState.errors.contactFullName && (
+                <span className="pe-help text-destructive">
+                  {form.formState.errors.contactFullName.message}
+                </span>
+              )}
+            </div>
+            <div className="pe-field">
+              <label htmlFor="contactEmail">Contact email <span className="pe-required">*</span></label>
+              <div className="pe-input-wrap">
+                <input
+                  id="contactEmail"
+                  type="email"
+                  className="pe-input"
+                  disabled={pending}
+                  {...form.register("contactEmail")}
+                  autoComplete="email"
+                />
+              </div>
+              {form.formState.errors.contactEmail && (
+                <span className="pe-help text-destructive">
+                  {form.formState.errors.contactEmail.message}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="pe-field max-w-sm mt-4">
+            <label>Mobile number</label>
+            <PhoneVerificationField
+              idPrefix="brand-profile"
+              disabled={pending}
+              onVerifiedChange={setPhoneVerified}
+              onVerified={() => void refreshUser()}
+            />
+            {form.formState.errors.contactPhone && (
+              <span className="pe-help text-destructive mt-1">
+                {form.formState.errors.contactPhone.message}
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.section>
+    </>
+  );
+
+  return (
+    <div className={cn("pe-scope", !isSettings && "pe-onboarding")}>
+      <motion.form
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
+        className="pe-form"
+      >
+        {isSettings ? (
+          <div className="pe-shell">
+            <nav className="pe-nav" data-tour="brand-profile-edit-nav">
+              {NAV_ITEMS.map((item) => {
+                const IconCmp = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="pe-nav-link"
+                    data-active={activeSection === item.id}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    <IconCmp size={16} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <nav className="pe-nav-mobile" aria-label="Profile sections">
+              {NAV_ITEMS.map((item) => {
+                const IconCmp = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="pe-nav-mobile-link"
+                    data-active={activeSection === item.id}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    <IconCmp size={14} className="mr-1" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="pe-content flex flex-col gap-8">
+              {contentCardsNode}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {contentCardsNode}
+            <motion.div variants={itemVariants} className="mt-8 flex justify-end">
+              <Button type="submit" className="w-full sm:w-auto" disabled={pending || logo.uploadingLogo || pronunciation.uploadingPronunciation}>
+                {pending || logo.uploadingLogo || pronunciation.uploadingPronunciation ? (
+                  <><Spinner className="mr-2 h-4 w-4" aria-hidden />Saving...</>
+                ) : ("Save changes")}
+              </Button>
+            </motion.div>
+          </div>
+        )}
+
+        {isSettings && (
+          <div className="pe-savebar" data-visible={isDirty}>
+            <div className="pe-savebar-inner">
+              <div className="pe-savebar-dot" />
+              <div className="pe-savebar-msg">You have unsaved changes</div>
+              <div className="pe-savebar-actions">
+                <button
+                  type="button"
+                  className="pe-btn pe-btn-ghost"
+                  onClick={handleDiscard}
+                  disabled={pending}
+                >
+                  Discard
+                </button>
+                <button
+                  type="submit"
+                  className="pe-btn pe-btn-primary"
+                  disabled={pending || logo.uploadingLogo || pronunciation.uploadingPronunciation}
+                >
+                  {pending ? (
+                    <Spinner className="h-4 w-4" aria-hidden />
+                  ) : (
+                    "Save"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.form>
+    </div>
   );
 }

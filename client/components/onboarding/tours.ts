@@ -344,7 +344,7 @@ const BRAND_ROUTES: TourRoute[] = [
     },
   },
   {
-    match: (p) => p.startsWith("/brand/account"),
+    match: (p) => p.startsWith("/brand/settings/profile"),
     definition: {
       tour: "brand-account",
       steps: [

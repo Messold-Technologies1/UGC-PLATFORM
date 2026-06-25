@@ -17,11 +17,6 @@ interface DynamicLegalPageProps {
   fallbackDescription: string;
 }
 
-/**
- * Shared client component that fetches a legal page from the API and
- * renders it with the standard header, section renderer, and table of
- * contents. Falls back to a loading skeleton while fetching.
- */
 export function DynamicLegalPage({
   slug,
   fallbackTitle,
@@ -50,7 +45,6 @@ export function DynamicLegalPage({
     fetchPage();
   }, [slug]);
 
-  // Loading state
   if (!page && !error) {
     return (
       <>
@@ -98,7 +92,6 @@ export function DynamicLegalPage({
     );
   }
 
-  // Error state — show a clean message
   if (error || !page) {
     return (
       <header className="mb-10">
@@ -115,7 +108,6 @@ export function DynamicLegalPage({
     );
   }
 
-  // Build TOC items from sections
   const tocItems: TocItem[] = page.sections.map((s) => ({
     id: s.anchorId,
     label: s.tocLabel,

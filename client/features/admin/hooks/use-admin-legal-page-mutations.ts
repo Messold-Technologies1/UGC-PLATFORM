@@ -8,6 +8,7 @@ import {
   rejectLegalPageDraft,
   discardLegalPageDraft,
   createLegalPage,
+  restoreLegalPageVersion,
 } from "../api/legal-pages";
 import {
   adminLegalPagesQueryKey,
@@ -133,6 +134,24 @@ export function useDiscardLegalPageDraftMutation(slug: string) {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to discard draft."));
+    },
+  });
+}
+
+export function useRestoreLegalPageVersionMutation(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "legal-pages", slug, "restore"],
+    mutationFn: (versionId: string) => restoreLegalPageVersion(slug, versionId),
+    onSuccess: async () => {
+      toast.success("Version restored to draft.");
+      await queryClient.invalidateQueries({
+        queryKey: adminLegalPageDetailQueryKey(slug),
+      });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to restore version."));
     },
   });
 }

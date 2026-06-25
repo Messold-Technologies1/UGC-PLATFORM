@@ -14,7 +14,9 @@ export default function BrandSettingsProfilePage() {
     isLoading,
     isError,
   } = useBrandProfileStateQuery({
-    enabled: Boolean(user?.id && user.hasBrandProfile && !user.brandAccessRevoked),
+    enabled: Boolean(
+      user?.id && user.hasBrandProfile && !user.brandAccessRevoked,
+    ),
     staleTime: 2 * 60_000,
     retry: false,
   });
@@ -63,12 +65,7 @@ export default function BrandSettingsProfilePage() {
   const initialProfile = hasExistingProfile ? profileState.profile : null;
 
   return (
-    <div className="space-y-8 pt-4 lg:pt-5">
-      <PageHeader
-        title="Profile"
-        description="Update your company details and logo."
-      />
-
+    <div className="pt-4 lg:pt-5">
       <BrandProfileUpdateForm
         variant="settings"
         mode="update"

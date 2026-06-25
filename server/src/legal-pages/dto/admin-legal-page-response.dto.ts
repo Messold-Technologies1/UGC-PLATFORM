@@ -44,6 +44,12 @@ export class LegalPageDraftResponseDto {
   @ApiProperty({ example: 'uuid', description: 'Admin who created the draft.' })
   createdBy!: string;
 
+  @ApiPropertyOptional({ example: 'admin@example.com', description: 'Email of the admin who created the draft.' })
+  createdByEmail?: string;
+
+  @ApiPropertyOptional({ example: 'uuid', description: 'If this draft was restored from a previous version, its ID.' })
+  restoredFromVersionId?: string;
+
   @ApiPropertyOptional({
     example: 'Please add the cookie policy link.',
     description: 'Feedback from reviewer on reject.',

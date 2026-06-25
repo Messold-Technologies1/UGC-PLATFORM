@@ -9,6 +9,7 @@ import type {
   CreateLegalPageInput,
   RejectDraftInput,
   LegalPageVersionListResponse,
+  LegalPageVersionDetail,
 } from "../types";
 
 // ─── Queries ─────────────────────────────────────────────────────
@@ -43,6 +44,16 @@ export async function fetchLegalPageVersions(
 ): Promise<LegalPageVersionListResponse> {
   const { data } = await api.get<LegalPageVersionListResponse>(
     ENDPOINTS.ADMIN.LEGAL_PAGES.VERSIONS(slug),
+  );
+  return data;
+}
+
+export async function fetchLegalPageVersion(
+  slug: string,
+  versionId: string,
+): Promise<LegalPageVersionDetail> {
+  const { data } = await api.get<LegalPageVersionDetail>(
+    ENDPOINTS.ADMIN.LEGAL_PAGES.VERSION(slug, versionId),
   );
   return data;
 }
@@ -101,4 +112,14 @@ export async function rejectLegalPageDraft(
 
 export async function discardLegalPageDraft(slug: string): Promise<void> {
   await api.delete(ENDPOINTS.ADMIN.LEGAL_PAGES.DRAFT(slug));
+}
+
+export async function restoreLegalPageVersion(
+  slug: string,
+  versionId: string,
+): Promise<LegalPageDraftResponse> {
+  const { data } = await api.post<LegalPageDraftResponse>(
+    ENDPOINTS.ADMIN.LEGAL_PAGES.RESTORE_VERSION(slug, versionId),
+  );
+  return data;
 }

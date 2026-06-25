@@ -12,7 +12,7 @@ function normalizeInternalHref(href?: string | null): string | null {
 }
 
 export function workspaceAccountHref(role: WorkspaceMenuRole): string {
-  return role === "BRAND" ? "/brand/account" : "/creator/account";
+  return role === "BRAND" ? "/brand/settings/profile" : "/creator/account";
 }
 
 export function canSwitchToWorkspace(

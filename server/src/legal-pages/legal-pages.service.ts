@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { LegalDraftStatus } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
@@ -162,7 +163,7 @@ export class LegalPagesService {
       sections: (page.sections as unknown as DraftSectionSnapshot[]).map((s) =>
         this.mapSection(s),
       ),
-      draft: page.draftStatus ? this.mapDraft(page) : null,
+      draft: page.draftStatus ? await this.mapDraft(page) : null,
     };
   }
 
@@ -173,7 +174,7 @@ export class LegalPagesService {
   ): Promise<LegalPageDraftResponseDto> {
     const page = await this.prisma.legalPage.findUnique({
       where: { slug },
-      select: { id: true, draftStatus: true },
+      select: { id: true, draftStatus: true, draftCreatedBy: true },
     });
 
     if (!page) {
@@ -183,6 +184,12 @@ export class LegalPagesService {
     if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
       throw new BadRequestException(
         'Cannot edit a draft that is currently in review. Reject it first to continue editing.',
+      );
+    }
+
+    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
+      throw new ForbiddenException(
+        'You cannot edit a draft created by another admin.',
       );
     }
 
@@ -200,16 +207,17 @@ export class LegalPagesService {
         draftChangeNote: dto.changeNote ?? null,
         draftStatus: LegalDraftStatus.DRAFT,
         draftReviewNote: null,
+        draftCreatedBy: adminUserId,
         ...(page.draftStatus
           ? {}
-          : { draftCreatedBy: adminUserId, draftCreatedAt: new Date() }),
+          : { draftCreatedAt: new Date() }),
         draftUpdatedAt: new Date(),
       },
     });
 
     this.logger.log(`Draft saved for "${slug}" by admin ${adminUserId}`);
 
-    return this.mapDraft(draft);
+    return await this.mapDraft(draft);
   }
 
   async submitForReview(
@@ -218,7 +226,7 @@ export class LegalPagesService {
   ): Promise<LegalPageDraftResponseDto> {
     const page = await this.prisma.legalPage.findUnique({
       where: { slug },
-      select: { id: true, draftStatus: true },
+      select: { id: true, draftStatus: true, draftCreatedBy: true },
     });
 
     if (!page) {
@@ -235,11 +243,18 @@ export class LegalPagesService {
       );
     }
 
+    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
+      throw new ForbiddenException(
+        'You cannot submit a draft created by another admin.',
+      );
+    }
+
     const draft = await this.prisma.legalPage.update({
       where: { id: page.id },
       data: {
         draftStatus: LegalDraftStatus.IN_REVIEW,
         draftReviewNote: null,
+        draftCreatedBy: adminUserId,
         draftUpdatedAt: new Date(),
       },
     });
@@ -248,7 +263,7 @@ export class LegalPagesService {
       `Draft for "${slug}" submitted for review by admin ${adminUserId}`,
     );
 
-    return this.mapDraft(draft);
+    return await this.mapDraft(draft);
   }
 
   async publishDraft(
@@ -273,6 +288,12 @@ export class LegalPagesService {
       );
     }
 
+    if (page.draftCreatedBy === adminUserId) {
+      throw new BadRequestException(
+        'You cannot publish a draft that you proposed. Another admin must review and publish it.',
+      );
+    }
+
     const draftSections =
       page.draftSections as unknown as DraftSectionSnapshot[];
 
@@ -290,8 +311,26 @@ export class LegalPagesService {
             snapshot: liveSnapshot as any,
             changedBy: adminUserId,
             changeNote: page.draftChangeNote,
+            restoredFromVersionId: page.draftRestoredFromVersionId,
           },
         });
+
+        const recentVersions = await tx.legalPageVersion.findMany({
+          where: { pageId: page.id },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+          take: 10,
+        });
+
+        if (recentVersions.length === 10) {
+          const recentVersionIds = recentVersions.map((v) => v.id);
+          await tx.legalPageVersion.deleteMany({
+            where: {
+              pageId: page.id,
+              id: { notIn: recentVersionIds },
+            },
+          });
+        }
       }
 
       return tx.legalPage.update({
@@ -313,6 +352,7 @@ export class LegalPagesService {
           draftReviewNote: null,
           draftCreatedAt: null,
           draftUpdatedAt: null,
+          draftRestoredFromVersionId: null,
         },
       });
     });
@@ -368,13 +408,13 @@ export class LegalPagesService {
 
     this.logger.log(`Draft for "${slug}" rejected by admin ${adminUserId}`);
 
-    return this.mapDraft(draft);
+    return await this.mapDraft(draft);
   }
 
   async discardDraft(slug: string, adminUserId: string): Promise<void> {
     const page = await this.prisma.legalPage.findUnique({
       where: { slug },
-      select: { id: true, draftStatus: true },
+      select: { id: true, draftStatus: true, draftCreatedBy: true },
     });
 
     if (!page) {
@@ -383,6 +423,12 @@ export class LegalPagesService {
 
     if (!page.draftStatus) {
       throw new BadRequestException('No draft exists for this page');
+    }
+
+    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
+      throw new ForbiddenException(
+        'You cannot discard a draft created by another admin.',
+      );
     }
 
     await this.prisma.legalPage.update({
@@ -398,6 +444,7 @@ export class LegalPagesService {
         draftReviewNote: null,
         draftCreatedAt: null,
         draftUpdatedAt: null,
+        draftRestoredFromVersionId: null,
       },
     });
 
@@ -453,25 +500,42 @@ export class LegalPagesService {
   ): Promise<LegalPageVersionListResponseDto> {
     const page = await this.prisma.legalPage.findUnique({
       where: { slug },
-      select: { id: true },
+      select: {
+        id: true,
+        versions: {
+          select: {
+            id: true,
+            changedBy: true,
+            changeNote: true,
+            restoredFromVersionId: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!page) {
       throw new NotFoundException(`Legal page "${slug}" not found`);
     }
 
-    const versions = await this.prisma.legalPageVersion.findMany({
-      where: { pageId: page.id },
-      select: {
-        id: true,
-        changedBy: true,
-        changeNote: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
+    const userIds = [...new Set(page.versions.map((v) => v.changedBy))];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true },
     });
+    const userEmailMap = new Map(users.map((u) => [u.id, u.email]));
 
-    return { versions };
+    return {
+      versions: page.versions.map((v) => ({
+        id: v.id,
+        changedBy: v.changedBy,
+        changedByEmail: userEmailMap.get(v.changedBy) || undefined,
+        changeNote: v.changeNote,
+        restoredFromVersionId: v.restoredFromVersionId || undefined,
+        createdAt: v.createdAt,
+      })),
+    };
   }
 
   async getVersion(
@@ -485,14 +549,74 @@ export class LegalPagesService {
       throw new NotFoundException(`Version "${versionId}" not found`);
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: version.changedBy },
+      select: { email: true },
+    });
+
     return {
       id: version.id,
       pageId: version.pageId,
       snapshot: version.snapshot as Record<string, unknown>,
       changedBy: version.changedBy,
+      changedByEmail: user?.email || undefined,
       changeNote: version.changeNote,
+      restoredFromVersionId: version.restoredFromVersionId || undefined,
       createdAt: version.createdAt,
     };
+  }
+
+  async restoreVersion(
+    slug: string,
+    versionId: string,
+    adminUserId: string,
+  ): Promise<LegalPageDraftResponseDto> {
+    const page = await this.prisma.legalPage.findUnique({
+      where: { slug },
+    });
+
+    if (!page) {
+      throw new NotFoundException(`Legal page "${slug}" not found`);
+    }
+
+    if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
+      throw new BadRequestException(
+        'Cannot restore version while a draft is in review. Reject or discard the current draft first.',
+      );
+    }
+
+    const version = await this.prisma.legalPageVersion.findUnique({
+      where: { id: versionId, pageId: page.id },
+    });
+
+    if (!version) {
+      throw new NotFoundException(
+        `Version "${versionId}" not found for this page`,
+      );
+    }
+
+    const snapshot = version.snapshot as unknown as PageSnapshot;
+
+    const draft = await this.prisma.legalPage.update({
+      where: { id: page.id },
+      data: {
+        draftStatus: LegalDraftStatus.DRAFT,
+        draftTitle: snapshot.title,
+        draftDescription: snapshot.description,
+        draftEffectiveDate: snapshot.effectiveDate,
+        draftSections: snapshot.sections as unknown as Prisma.InputJsonValue,
+        draftChangeNote: null,
+        draftReviewNote: null,
+        draftCreatedBy: adminUserId,
+        draftCreatedAt: new Date(),
+        draftUpdatedAt: new Date(),
+        draftRestoredFromVersionId: version.id,
+      },
+    });
+
+    this.logger.log(`Draft for "${slug}" restored from version ${versionId} by admin ${adminUserId}`);
+
+    return await this.mapDraft(draft);
   }
 
   private mapSection(
@@ -508,7 +632,7 @@ export class LegalPagesService {
     };
   }
 
-  private mapDraft(page: {
+  private async mapDraft(page: {
     id: string;
     draftStatus?: LegalDraftStatus | null;
     draftTitle?: string | null;
@@ -520,7 +644,17 @@ export class LegalPagesService {
     draftReviewNote?: string | null;
     draftCreatedAt?: Date | null;
     draftUpdatedAt?: Date | null;
-  }): LegalPageDraftResponseDto {
+    draftRestoredFromVersionId?: string | null;
+  }): Promise<LegalPageDraftResponseDto> {
+    let createdByEmail;
+    if (page.draftCreatedBy) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: page.draftCreatedBy },
+        select: { email: true },
+      });
+      createdByEmail = user?.email;
+    }
+
     return {
       id: page.id,
       status: page.draftStatus!,
@@ -530,7 +664,9 @@ export class LegalPagesService {
       sections: page.draftSections as DraftSectionSnapshot[],
       changeNote: page.draftChangeNote || null,
       createdBy: page.draftCreatedBy!,
+      createdByEmail,
       reviewNote: page.draftReviewNote || null,
+      restoredFromVersionId: page.draftRestoredFromVersionId || undefined,
       createdAt: page.draftCreatedAt || new Date(),
       updatedAt: page.draftUpdatedAt || new Date(),
     };

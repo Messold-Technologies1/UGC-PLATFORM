@@ -29,6 +29,7 @@ import {
   AdminLegalPageDetailResponseDto,
   LegalPageDraftResponseDto,
   LegalPageVersionListResponseDto,
+  LegalPageVersionDetailResponseDto,
 } from './dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 
@@ -137,5 +138,30 @@ export class AdminLegalPagesController {
     @Param('slug') slug: string,
   ): Promise<LegalPageVersionListResponseDto> {
     return this.legalPagesService.getVersionHistory(slug);
+  }
+
+  @Get(':slug/versions/:versionId')
+  @ApiOperation({ summary: 'Get details of a specific past version' })
+  @ApiParam({ name: 'slug', example: 'privacy-policy' })
+  @ApiParam({ name: 'versionId', example: 'uuid' })
+  @ApiOkResponse({ type: LegalPageVersionDetailResponseDto })
+  async getVersion(
+    @Param('versionId') versionId: string,
+  ): Promise<LegalPageVersionDetailResponseDto> {
+    return this.legalPagesService.getVersion(versionId);
+  }
+
+  @Post(':slug/versions/:versionId/restore')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Restore a past version into the active draft' })
+  @ApiParam({ name: 'slug', example: 'privacy-policy' })
+  @ApiParam({ name: 'versionId', example: 'uuid' })
+  @ApiOkResponse({ type: LegalPageDraftResponseDto })
+  async restoreVersion(
+    @Param('slug') slug: string,
+    @Param('versionId') versionId: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<LegalPageDraftResponseDto> {
+    return this.legalPagesService.restoreVersion(slug, versionId, req.user.id);
   }
 }

@@ -282,6 +282,13 @@ export interface AdminOrdersListResponseDto {
   limit: number;
 }
 
+export interface AdminCreatorPayoutDetailsDto {
+  accountHolderName?: string | null;
+  accountNumber?: string | null;
+  ifsc?: string | null;
+  upiId?: string | null;
+}
+
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;

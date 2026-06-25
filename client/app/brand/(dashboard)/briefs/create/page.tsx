@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
-  Check,
+  Check,
   Smartphone,
   MessageSquare,
   Megaphone,
@@ -42,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
@@ -208,7 +207,7 @@ const createBriefSchema = z
       .trim()
       .min(1, "Product description is required"),
     productPageUrl: optionalUrl("Product page URL"),
-    productImageKey: z.string().trim().min(1, "Product image is required"),
+    productImageKey: z.string().trim().optional(),
     productImageUrl: optionalUrl("Product image URL"),
     willShipPhysicalProductToCreator: z.boolean().optional(),
     shootLocationKind: z.enum(shootLocationKinds).optional(),
@@ -256,6 +255,17 @@ const createBriefSchema = z
     finalNotes: z.string().trim().optional(),
   })
   .superRefine((values, ctx) => {
+    if (
+      values.willShipPhysicalProductToCreator &&
+      !values.productImageKey?.trim()
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["productImageKey"],
+        message: "Product image is required when shipping a physical product",
+      });
+    }
+
     if (
       (values.shootLocationKind === "BRAND_SELECTED_LOCATION" ||
         values.shootLocationKind === "OUTDOOR_PUBLIC_LOCATION") &&
@@ -309,6 +319,8 @@ function toReferenceLinks(value: string | undefined) {
 function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
   const referenceLinks = toReferenceLinks(values.referenceLinks);
   const scriptText = optionalString(values.scriptText);
+  const shipsPhysical = values.willShipPhysicalProductToCreator ?? false;
+  const productImageKey = values.productImageKey?.trim();
 
   return {
     brandName: optionalString(values.brandName),
@@ -323,9 +335,8 @@ function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
     productName: optionalString(values.productName),
     productDescription: optionalString(values.productDescription),
     productPageUrl: optionalString(values.productPageUrl),
-    productImageKey: values.productImageKey.trim(),
-    willShipPhysicalProductToCreator:
-      values.willShipPhysicalProductToCreator ?? false,
+    ...(shipsPhysical && productImageKey ? { productImageKey } : {}),
+    willShipPhysicalProductToCreator: shipsPhysical,
     shootLocationKind: values.shootLocationKind as
       | BriefShootLocationKind
       | undefined,
@@ -871,6 +882,38 @@ function CreateBriefPageContent() {
                     </div>
                   </div>
 
+                  <div className={styles.productTypeRow}>
+                    <div className="min-w-0">
+                      <Label
+                        htmlFor="willShipPhysicalProductToCreator"
+                        className={styles.productTypeRowLabel}
+                      >
+                        Will you ship a physical product to the creator?
+                      </Label>
+                      <p className={styles.productTypeRowHint}>
+                        Enable if you&apos;ll send the product for the video. A
+                        product image is required when this is on.
+                      </p>
+                    </div>
+                    <Switch
+                      id="willShipPhysicalProductToCreator"
+                      checked={watchWillShip ?? false}
+                      onCheckedChange={(checked) => {
+                        form.setValue(
+                          "willShipPhysicalProductToCreator",
+                          checked,
+                          {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          },
+                        );
+                        if (!checked) {
+                          handleRemoveProductImage();
+                        }
+                      }}
+                    />
+                  </div>
+
                   <div className="space-y-2 min-w-0">
                     <Label
                       htmlFor="productPageUrl"
@@ -895,6 +938,8 @@ function CreateBriefPageContent() {
                   </div>
 
                   <div className="space-y-3 min-w-0">
+                    {watchWillShip ? (
+                      <>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
                         <Label className="text-xs font-semibold text-foreground/80">
@@ -988,6 +1033,8 @@ function CreateBriefPageContent() {
                         {form.formState.errors.productImageUrl.message}
                       </p>
                     )}
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2 min-w-0">
@@ -1044,36 +1091,6 @@ function CreateBriefPageContent() {
                         }}
                       />
                     </div>
-                  </div>
-
-                  <Separator className="my-2" />
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="willShipPhysicalProductToCreator"
-                        className="text-xs font-semibold text-foreground/80"
-                      >
-                        Will you ship a physical product to the creator?
-                      </Label>
-                      <p className="text-[11px] text-muted-foreground">
-                        Enable if you&apos;ll send the product for the video
-                      </p>
-                    </div>
-                    <Switch
-                      id="willShipPhysicalProductToCreator"
-                      checked={watchWillShip ?? false}
-                      onCheckedChange={(checked) =>
-                        form.setValue(
-                          "willShipPhysicalProductToCreator",
-                          checked,
-                          {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          },
-                        )
-                      }
-                    />
                   </div>
                   </div>
                 </div>
@@ -1282,7 +1299,7 @@ function CreateBriefPageContent() {
                       Key points to include in the video{" "}
                       <span className="text-destructive">*</span>
                     </Label>
-                    <Textarea
+                    <Textarea
                       className="min-h-[120px] resize-y rounded-lg bg-white"
                       {...form.register("keyNoteToInclude")}
                     />

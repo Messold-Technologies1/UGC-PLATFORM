@@ -96,3 +96,33 @@ export function getDeliveryDeadlineLabel(order: DeliveryTimelineInput): string {
   if (timeline.isInGrace) return `Grace ends ${date ?? ""}`.trim();
   return date ?? "TBD";
 }
+
+/** Compact value + label for order list cards (avoids long single-line grace text). */
+export function getDeliveryDeadlineCardMeta(
+  order: DeliveryTimelineInput & { status?: string },
+): { value: string; label: string } {
+  const timeline = getDeliveryTimeline(order);
+  const date = formatDate(timeline.displayDate);
+
+  if (order.status === "COMPLETED" || order.status === "DELIVERED") {
+    return {
+      value: date ?? "—",
+      label: order.status === "COMPLETED" ? "Completed on" : "Delivered on",
+    };
+  }
+
+  if (timeline.phase === "not_started") {
+    const days = order.deliveryDaysSnapshot;
+    return {
+      value: `${days} day${days === 1 ? "" : "s"}`,
+      label: "Delivery time",
+    };
+  }
+  if (timeline.phase === "overdue") {
+    return { value: "Overdue", label: "Past grace" };
+  }
+  if (timeline.isInGrace) {
+    return { value: date ?? "—", label: "Grace ends" };
+  }
+  return { value: date ?? "TBD", label: "Due date" };
+}

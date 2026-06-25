@@ -45,7 +45,7 @@ export function useCreatorIntroVideo({
         return;
       }
       if (file.size > MAX_INTRO_VIDEO_BYTES) {
-        toast.error("Intro video must be 200 MB or smaller.");
+        toast.error("Video must be 200 MB or smaller.");
         return;
       }
 

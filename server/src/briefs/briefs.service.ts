@@ -162,14 +162,24 @@ export class BriefsService {
       brandProfileId: params.brandProfileId,
     });
 
-    const productImageKey = params.dto.productImageKey.trim();
-    if (!productImageKey) {
-      throw new BadRequestException('productImageKey is required');
+    const shipsPhysical = params.dto.willShipPhysicalProductToCreator ?? false;
+    const productImageKey = params.dto.productImageKey?.trim() ?? '';
+
+    if (shipsPhysical) {
+      if (!productImageKey) {
+        throw new BadRequestException(
+          'productImageKey is required when shipping a physical product',
+        );
+      }
+      this.assertTempBriefProductImageKeyOwner(
+        params.actorUserId,
+        productImageKey,
+      );
+    } else if (productImageKey) {
+      throw new BadRequestException(
+        'productImageKey is only allowed when shipping a physical product',
+      );
     }
-    this.assertTempBriefProductImageKeyOwner(
-      params.actorUserId,
-      productImageKey,
-    );
 
     const script = normalizeScriptInput(params.dto.script);
 
@@ -203,19 +213,22 @@ export class BriefsService {
       select: { id: true },
     });
 
-    const finalProductImageKey = await this.storage.finalizeBriefProductImageKey({
-      tempKey: productImageKey,
-      briefId: created.id,
-      deleteTemp: true,
-    });
+    if (productImageKey) {
+      const finalProductImageKey =
+        await this.storage.finalizeBriefProductImageKey({
+          tempKey: productImageKey,
+          briefId: created.id,
+          deleteTemp: true,
+        });
 
-    await this.prisma.brief.update({
-      where: { id: created.id },
-      data: {
-        productImageKey: finalProductImageKey,
-        productImageUrl: this.storage.buildCdnUrl(finalProductImageKey),
-      },
-    });
+      await this.prisma.brief.update({
+        where: { id: created.id },
+        data: {
+          productImageKey: finalProductImageKey,
+          productImageUrl: this.storage.buildCdnUrl(finalProductImageKey),
+        },
+      });
+    }
 
     return { id: created.id };
   }

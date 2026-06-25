@@ -42,6 +42,7 @@ import {
   useRejectAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
+import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
 import TrackingTimeline, { TimelineItem } from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
@@ -450,7 +451,7 @@ export default function AdminOrderDetailsPage() {
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="space-y-5 p-6">
                   <div className="flex items-center gap-5">
                     <Avatar className="h-16 w-16 border-2 border-background shadow-md">
                       <AvatarImage
@@ -473,6 +474,7 @@ export default function AdminOrderDetailsPage() {
                       </p>
                     </div>
                   </div>
+                  <CreatorBankingDetailsCard creatorId={creator.id} />
                 </CardContent>
               </Card>
             </motion.div>

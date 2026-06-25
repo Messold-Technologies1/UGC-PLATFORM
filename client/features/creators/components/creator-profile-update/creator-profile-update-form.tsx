@@ -101,7 +101,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "media", label: "Photo & reel", icon: Camera },
+  { id: "media", label: "Photo & video", icon: Camera },
   { id: "basics", label: "Basic details", icon: User },
   { id: "about", label: "About you", icon: MapPin },
   { id: "niche", label: "Niche & content", icon: Sparkles },
@@ -912,9 +912,9 @@ function CreatorProfileUpdateFormContent({
             id="media"
             tourId="creator-profile-edit-media"
             icon={Camera}
-            title="Photo & intro reel"
+            title="Photo & featured video"
             required
-            desc="Your face and a short intro reel build instant trust."
+            desc="Add your profile photo and a video showcasing your best work — brand collabs, UGC, or anything that shows what you can do."
           >
             <div className="pe-media-split">
               <div className="pe-media-split-col">

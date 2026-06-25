@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Film, Trash2, Video } from "lucide-react";
+import { Film, Video } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export function CreatorProfileIntroVideoField({
@@ -20,37 +20,14 @@ export function CreatorProfileIntroVideoField({
   onSelectFile: (file: File | null) => void;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          width: 160,
-          position: "relative",
-          aspectRatio: "9/16",
-          borderRadius: 14,
-          overflow: "hidden",
-          background: "var(--brand-gradient)",
-          display: "grid",
-          placeItems: "center",
-        }}
-      >
+    <div className="pe-media-field">
+      <div className="pe-media-field-preview pe-media-field-preview--video">
         {videoPreviewUrl ? (
           <video
             src={videoPreviewUrl}
             controls
             preload="metadata"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              position: "absolute",
-              inset: 0,
-            }}
+            className="pe-media-field-video"
           />
         ) : (
           <Video
@@ -61,7 +38,7 @@ export function CreatorProfileIntroVideoField({
         )}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+      <div className="pe-media-field-actions">
         <input
           type="file"
           ref={fileInputRef}
@@ -75,25 +52,10 @@ export function CreatorProfileIntroVideoField({
 
         <button
           type="button"
+          className="pe-media-field-btn"
           disabled={disabled}
           onClick={() => {
             fileInputRef.current?.click();
-          }}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            height: 36,
-            padding: "0 13px",
-            borderRadius: 10,
-            border: "1.4px solid var(--border)",
-            background: "var(--card)",
-            fontSize: 12.5,
-            fontWeight: 700,
-            color: "var(--foreground)",
-            cursor: disabled ? "not-allowed" : "pointer",
-            opacity: disabled ? 0.6 : 1,
-            transition: "background 0.14s",
           }}
         >
           {uploading ? (
@@ -101,9 +63,12 @@ export function CreatorProfileIntroVideoField({
           ) : (
             <Film size={14} aria-hidden />
           )}
-          {videoPreviewUrl ? "Replace reel" : "Upload reel"}
+          {videoPreviewUrl ? "Replace video" : "Upload video"}
         </button>
       </div>
+      <p className="pe-media-field-hint">
+        Your best work — brand collab, UGC, or any clip you&apos;re proud of
+      </p>
     </div>
   );
 }

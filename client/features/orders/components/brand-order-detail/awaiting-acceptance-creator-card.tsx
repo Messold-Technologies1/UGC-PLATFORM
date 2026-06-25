@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Star, MapPin } from "lucide-react";
+import { Star, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,13 +102,6 @@ export function AwaitingAcceptanceCreatorCard({
             asChild
           >
             <Link href={`/brand/creators?creatorId=${creator.id}`}>View Profile</Link>
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-lg text-sm font-semibold h-10 px-4 text-[#6E42FF] border-[#6E42FF]/30 hover:bg-[#6E42FF]/5"
-          >
-            <MessageCircle className="size-4 mr-2" />
-            Message
           </Button>
         </div>
       </div>

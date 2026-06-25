@@ -149,6 +149,8 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/reject`,
+      PAYOUT_DETAILS: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/payout-details`,
     },
     BRANDS: {
       LIST: "/api/admin/brands",

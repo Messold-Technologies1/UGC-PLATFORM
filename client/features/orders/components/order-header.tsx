@@ -27,6 +27,7 @@ import type {
   OrderDetailsPublic,
 } from "../api/types";
 import { getDeliveryDeadlineLabel } from "./delivery-deadline-display";
+import { STATUS_COLORS, STATUS_LABELS } from "../constants";
 
 interface OrderHeaderProps {
   orderId: string;

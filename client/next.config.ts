@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/favicon.ico",
+        destination: "/logo.png",
+      },
+    ];
+  },
   async headers() {
     return [
       {

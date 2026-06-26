@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { useReducedMotion } from "framer-motion";
 import {
+  ArrowRight,
   CheckCircle2,
   Film,
   Megaphone,
@@ -23,6 +23,7 @@ import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
 const SPOTLIGHT_EMAIL = "support@gocollab.io";
+const SPOTLIGHT_CTA_ENABLED = false;
 const SPOTLIGHT_MAILTO = `mailto:${SPOTLIGHT_EMAIL}?subject=${encodeURIComponent("Creator Spotlight Program — I'm interested")}`;
 
 const MARQUEE_ITEMS = [
@@ -119,16 +120,9 @@ function MarqueeSparkle() {
 }
 
 function SpotlightMarquee() {
-  const reduceMotion = useReducedMotion();
-
   return (
-    <div className="relative z-[1] flex min-w-0 flex-1 overflow-hidden mask-[linear-gradient(to_right,transparent,black_6%,black_68%,transparent)] sm:mask-[linear-gradient(to_right,transparent,black_4%,black_62%,transparent)]">
-      <div
-        className={cn(
-          "flex w-max items-center",
-          !reduceMotion && "animate-spotlight-marquee",
-        )}
-      >
+    <div className="relative z-1 flex min-w-0 flex-1 overflow-hidden mask-[linear-gradient(to_right,transparent,black_6%,black_68%,transparent)] sm:mask-[linear-gradient(to_right,transparent,black_4%,black_62%,transparent)]">
+      <div className="spotlight-marquee-track items-center">
         <SpotlightMarqueeSegment />
         <SpotlightMarqueeSegment ariaHidden />
       </div>
@@ -381,14 +375,24 @@ function CreatorSpotlightModal({
             >
               Maybe later
             </Button>
-            <PillButton
-              variant="primary"
-              arrow
-              href={SPOTLIGHT_MAILTO}
-              className="justify-center px-5 py-2.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 sm:min-w-[11rem]"
-            >
-              I&apos;m interested
-            </PillButton>
+            {SPOTLIGHT_CTA_ENABLED ? (
+              <PillButton
+                variant="primary"
+                arrow
+                href={SPOTLIGHT_MAILTO}
+                className="justify-center px-5 py-2.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 sm:min-w-[11rem]"
+              >
+                I&apos;m interested
+              </PillButton>
+            ) : (
+              <Button
+                disabled
+                className="gap-2 bg-primary/50 text-primary-foreground sm:min-w-[11rem]"
+              >
+                I&apos;m interested
+                <ArrowRight className="size-4" aria-hidden />
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

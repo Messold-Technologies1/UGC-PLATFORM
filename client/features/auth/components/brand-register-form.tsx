@@ -444,9 +444,9 @@ export function BrandRegisterForm() {
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex h-full flex-col bg-[#fdfcfb] dark:bg-slate-950"
+      className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:min-h-0 lg:h-full"
     >
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] py-4 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
+      <div className="shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
@@ -467,7 +467,7 @@ export function BrandRegisterForm() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+      <div className="px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
@@ -1093,7 +1093,7 @@ export function BrandRegisterForm() {
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] py-5 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
+      <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start space-x-3">
           <Checkbox
             id="terms"
@@ -1140,12 +1140,12 @@ export function BrandRegisterForm() {
               Still needed: {signupBlockers.join(" · ")}
             </p>
           ) : null}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
             <Button
               type="submit"
               disabled={!isSignupComplete || pendingAny}
               className={cn(
-                "h-11 flex-1 rounded-full text-[15px] font-bold transition-colors",
+                "h-11 w-full rounded-full text-[15px] font-bold transition-colors sm:flex-1",
                 isSignupComplete
                   ? "bg-[#3e76ef] text-white hover:bg-[#2d5cc5] disabled:opacity-70 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
                   : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
@@ -1165,8 +1165,8 @@ export function BrandRegisterForm() {
               )}
             </Button>
 
-            <div className="text-right text-[11px] text-[#8B8489] leading-tight">
-              Looking for Brands? <br />
+            <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight sm:w-auto sm:shrink-0 sm:text-right">
+              Are you a creator? <br />
               <Link
                 href="/register/creator"
                 className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"

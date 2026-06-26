@@ -60,11 +60,18 @@ html {
 
 @keyframes spotlight-marquee {
   from {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translate3d(-50%, 0, 0);
   }
+}
+
+.spotlight-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: spotlight-marquee 32s linear infinite;
+  will-change: transform;
 }
 
 .nav-route-enter {
@@ -73,6 +80,13 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .nav-route-enter {
+    animation: none;
+  }
+
+  .spotlight-marquee-track,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-spotlight-marquee {
     animation: none;
   }
 }
@@ -155,14 +169,6 @@ html {
 
 @utility text-balance {
   text-wrap: balance;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-float,
-  .animate-float-delayed,
-  .animate-spotlight-marquee {
-    animation: none;
-  }
 }
 
 @layer base {

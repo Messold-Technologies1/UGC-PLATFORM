@@ -45,71 +45,72 @@ export default function AdminSettings() {
         </Link>
       </p>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <section className="lg:col-span-7 rounded-xl p-10 relative overflow-hidden">
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full"></div>
-            <div className="relative z-10">
-              <h2 className="font-headline text-3xl font-extrabold text-foreground mb-2 tracking-tight">
-                Register New Admin
-              </h2>
-              <p className="text-muted-foreground mb-6 font-body">
-                Grant administrative access to a new team member with specific
-                permission scopes.
-              </p>
+        <section className="lg:col-span-7 rounded-xl p-10 relative overflow-hidden">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full"></div>
+          <div className="relative z-10">
+            <h2 className="font-headline text-3xl font-extrabold text-foreground mb-2 tracking-tight">
+              Register New Admin
+            </h2>
+            <p className="text-muted-foreground mb-6 font-body">
+              Grant administrative access to a new team member with specific
+              permission scopes.
+            </p>
 
-              <form className="space-y-6" onSubmit={handleSubmit}>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70 ml-1">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full glass-input rounded-lg p-4 text-foreground placeholder:text-muted-foreground font-headline font-semibold bg-background/50"
-                      placeholder="e.g. Alex Rivera"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70 ml-1">
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      className="w-full glass-input rounded-lg p-4 text-foreground placeholder:text-muted-foreground font-headline font-semibold bg-background/50"
-                      placeholder="name@nocturne.admin"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70 ml-1">
-                    Secure Password <span className="text-red-500">*</span>
+                    Full Name
                   </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      className="w-full glass-input rounded-lg p-4 pr-12 text-foreground font-mono tracking-widest bg-background/50"
-                      placeholder="••••••••••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <button
-                      className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      <span className="material-symbols-outlined">
-                        {showPassword ? "visibility_off" : "visibility"}
-                      </span>
-                    </button>
-                  </div>
-                  <div className="flex justify-between items-center px-1 pt-1">
-                    {password.length > 0 && <p className="text-[10px] text-muted-foreground font-bold">
+                  <input
+                    type="text"
+                    className="w-full glass-input rounded-lg p-4 text-foreground placeholder:text-muted-foreground font-headline font-semibold bg-background/50"
+                    placeholder="e.g. Alex Rivera"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70 ml-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    className="w-full glass-input rounded-lg p-4 text-foreground placeholder:text-muted-foreground font-headline font-semibold bg-background/50"
+                    placeholder="name@nocturne.admin"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70 ml-1">
+                  Secure Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    className="w-full glass-input rounded-lg p-4 pr-12 text-foreground font-mono tracking-widest bg-background/50"
+                    placeholder="••••••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <span className="material-symbols-outlined">
+                      {showPassword ? "visibility_off" : "visibility"}
+                    </span>
+                  </button>
+                </div>
+                <div className="flex justify-between items-center px-1 pt-1">
+                  {password.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground font-bold">
                       STRENGTH:{" "}
                       <span className="text-primary uppercase">
                         {password.length > 10
@@ -118,39 +119,42 @@ export default function AdminSettings() {
                             ? "GOOD"
                             : "WEAK"}
                       </span>
-                    </p>}
-                    <button
-                      className="text-[10px] font-bold text-primary hover:text-secondary flex items-center gap-1 transition-all uppercase tracking-wider"
-                      type="button"
-                      onClick={generatePassword}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        refresh
-                      </span>
-                      Generate secure
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-4">
+                    </p>
+                  )}
                   <button
-                    type="submit"
-                    disabled={registerAdminMutation.isPending}
-                    className="w-full bg-primary py-2 px-4 rounded-xl font-headline text-primary-foreground font-semibold text-sm tracking-normal shadow-sm hover:scale-[1.01] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-1.5 cursor-pointer"
+                    className="text-[10px] font-bold text-primary hover:text-secondary flex items-center gap-1 transition-all uppercase tracking-wider"
+                    type="button"
+                    onClick={generatePassword}
                   >
-                    {registerAdminMutation.isPending ? "Creating..." : "Create Admin Account"}
-                    {!registerAdminMutation.isPending && (
-                      <span className="material-symbols-outlined text-base">
-                        person_add
-                      </span>
-                    )}
+                    <span className="material-symbols-outlined text-[14px]">
+                      refresh
+                    </span>
+                    Generate secure
                   </button>
                 </div>
-              </form>
-            </div>
-          </section>
+              </div>
 
-          {/* <div className="lg:col-span-5 space-y-8">
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={registerAdminMutation.isPending}
+                  className="w-full bg-primary py-2 px-4 rounded-xl font-headline text-primary-foreground font-semibold text-sm tracking-normal shadow-sm hover:scale-[1.01] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-1.5 cursor-pointer"
+                >
+                  {registerAdminMutation.isPending
+                    ? "Creating..."
+                    : "Create Admin Account"}
+                  {!registerAdminMutation.isPending && (
+                    <span className="material-symbols-outlined text-base">
+                      person_add
+                    </span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        {/* <div className="lg:col-span-5 space-y-8">
             <div className="glass-card rounded-xl p-8 border-primary/10 group">
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
@@ -216,9 +220,9 @@ export default function AdminSettings() {
               </div>
             </div>
           </div> */}
-        </div>
+      </div>
 
-        {/* <section className="glass-card rounded-xl overflow-hidden mt-12">
+      {/* <section className="glass-card rounded-xl overflow-hidden mt-12">
           <div className="px-8 py-6 border-b border-foreground/5 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-foreground/2">
             <div className="mb-4 sm:mb-0">
               <h3 className="font-headline font-extrabold text-2xl text-foreground tracking-tight">

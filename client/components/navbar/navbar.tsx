@@ -62,16 +62,56 @@ interface NavItem {
 
 const roleConfigs: Record<string, NavItem[]> = {
   brand: [
-    { href: "/brand/creators", label: "Creators", icon: Users, tourId: "nav-brand-creators" },
-    { href: "/brand/orders", label: "Orders", icon: ShoppingCart, tourId: "nav-brand-orders" },
-    { href: "/brand/messages", label: "Messages", icon: MessageSquare, tourId: "nav-brand-messages" },
-    { href: "/brand/briefs/create", label: "Briefs", icon: FileText, tourId: "nav-brand-briefs" },
-    { href: "/brand/wishlists", label: "Wishlists", icon: Heart, tourId: "nav-brand-wishlists" },
+    {
+      href: "/brand/creators",
+      label: "Creators",
+      icon: Users,
+      tourId: "nav-brand-creators",
+    },
+    {
+      href: "/brand/orders",
+      label: "Orders",
+      icon: ShoppingCart,
+      tourId: "nav-brand-orders",
+    },
+    {
+      href: "/brand/messages",
+      label: "Messages",
+      icon: MessageSquare,
+      tourId: "nav-brand-messages",
+    },
+    {
+      href: "/brand/briefs/create",
+      label: "Briefs",
+      icon: FileText,
+      tourId: "nav-brand-briefs",
+    },
+    {
+      href: "/brand/wishlists",
+      label: "Wishlists",
+      icon: Heart,
+      tourId: "nav-brand-wishlists",
+    },
   ],
   creator: [
-    { href: "/creator/orders", label: "Orders", icon: ShoppingCart, tourId: "nav-creator-orders" },
-    { href: "/creator/messages", label: "Messages", icon: MessageSquare, tourId: "nav-creator-messages" },
-    { href: "/creator/portfolio", label: "Portfolio", icon: Briefcase, tourId: "nav-creator-portfolio" },
+    {
+      href: "/creator/orders",
+      label: "Orders",
+      icon: ShoppingCart,
+      tourId: "nav-creator-orders",
+    },
+    {
+      href: "/creator/messages",
+      label: "Messages",
+      icon: MessageSquare,
+      tourId: "nav-creator-messages",
+    },
+    {
+      href: "/creator/portfolio",
+      label: "Portfolio",
+      icon: Briefcase,
+      tourId: "nav-creator-portfolio",
+    },
   ],
   admin: [
     { href: "/admin/creators", label: "Creators", icon: Users },
@@ -148,12 +188,12 @@ export function Navbar() {
         },
       }}
       animate={hidden ? "hidden" : "visible"}
-      className="sticky top-4 z-50 mx-auto w-[90%] md:w-[75%] mb-10"
+      className="sticky top-4 z-50 mx-auto w-[90%] xl:w-[75%] mb-10"
     >
       <div
         className={cn(
           "flex flex-col overflow-visible border border-border/50 bg-[#f7f7f7cc] shadow-sm backdrop-blur-md backdrop-saturate-125 transition-all duration-300 dark:bg-background/60",
-          mobileOpen ? "rounded-2xl" : "rounded-[24px] md:rounded-full",
+          mobileOpen ? "rounded-2xl" : "rounded-[24px] lg:rounded-full",
         )}
       >
         <div className="relative flex h-12 w-full items-center justify-between overflow-visible px-4 sm:px-6">
@@ -179,7 +219,7 @@ export function Navbar() {
 
           {navItems.length > 0 ? (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <nav className="hidden md:flex items-center gap-1">
+              <nav className="hidden lg:flex items-center gap-1">
                 {navItems.map((item) => {
                   const isActive = isNavItemActive(pathname || "", item);
 
@@ -246,9 +286,9 @@ export function Navbar() {
                 })}
               </nav>
             </div>
-          ) : (!isAuthenticated && !isLoading && mounted) ? (
+          ) : !isAuthenticated && !isLoading && mounted ? (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <nav className="hidden md:flex items-center gap-1">
+              <nav className="hidden lg:flex items-center gap-1">
                 <Link
                   href="/register/creator"
                   prefetch
@@ -276,7 +316,7 @@ export function Navbar() {
               </nav>
             </div>
           ) : null}
-          <div className="hidden items-center gap-2 md:flex shrink-0">
+          <div className="hidden items-center gap-2 lg:flex shrink-0">
             {!mounted || isLoading ? (
               <div className="h-7 w-20 animate-pulse rounded-lg bg-muted" />
             ) : isAuthenticated ? (
@@ -316,40 +356,77 @@ export function Navbar() {
                       <ChevronDown className="size-3.5 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" sideOffset={16} className="w-56 p-2 rounded-2xl shadow-xl border-border/50">
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={16}
+                    className="w-56 p-2 rounded-2xl shadow-xl border-border/50"
+                  >
                     <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-1">
                       Choose Account Type
                     </div>
-                    <DropdownMenuItem asChild className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1">
-                      <Link href="/login?role=brand" prefetch className="flex items-center gap-3 w-full">
+                    <DropdownMenuItem
+                      asChild
+                      className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
+                    >
+                      <Link
+                        href="/login?role=brand"
+                        prefetch
+                        className="flex items-center gap-3 w-full"
+                      >
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5138ed]/10 text-[#5138ed]">
                           <Megaphone className="size-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-none mb-1">Brand</span>
-                          <span className="text-[11px] text-muted-foreground leading-none">Hire creators</span>
+                          <span className="font-semibold text-sm leading-none mb-1">
+                            Brand
+                          </span>
+                          <span className="text-[11px] text-muted-foreground leading-none">
+                            Hire creators
+                          </span>
                         </div>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1">
-                      <Link href="/login?role=creator" prefetch className="flex items-center gap-3 w-full">
+                    <DropdownMenuItem
+                      asChild
+                      className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
+                    >
+                      <Link
+                        href="/login?role=creator"
+                        prefetch
+                        className="flex items-center gap-3 w-full"
+                      >
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ef3e51]/10 text-[#ef3e51]">
                           <Camera className="size-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-none mb-1">Creator</span>
-                          <span className="text-[11px] text-muted-foreground leading-none">Find work</span>
+                          <span className="font-semibold text-sm leading-none mb-1">
+                            Creator
+                          </span>
+                          <span className="text-[11px] text-muted-foreground leading-none">
+                            Find work
+                          </span>
                         </div>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="rounded-xl p-2 focus:bg-accent cursor-pointer">
-                      <Link href="/login?role=agency" prefetch className="flex items-center gap-3 w-full">
+                    <DropdownMenuItem
+                      asChild
+                      className="rounded-xl p-2 focus:bg-accent cursor-pointer"
+                    >
+                      <Link
+                        href="/login?role=agency"
+                        prefetch
+                        className="flex items-center gap-3 w-full"
+                      >
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0e9384]/10 text-[#0e9384]">
                           <Building2 className="size-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-none mb-1">Agency</span>
-                          <span className="text-[11px] text-muted-foreground leading-none">Manage talent</span>
+                          <span className="font-semibold text-sm leading-none mb-1">
+                            Agency
+                          </span>
+                          <span className="text-[11px] text-muted-foreground leading-none">
+                            Manage talent
+                          </span>
                         </div>
                       </Link>
                     </DropdownMenuItem>
@@ -359,7 +436,7 @@ export function Navbar() {
             )}
           </div>
 
-          <div className="flex items-center gap-1 md:hidden">
+          <div className="flex items-center gap-1 lg:hidden">
             {isPendingCreator && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -400,7 +477,7 @@ export function Navbar() {
           role="navigation"
           aria-label="Mobile navigation"
           className={cn(
-            "grid transition-[grid-template-rows] duration-300 md:hidden",
+            "grid transition-[grid-template-rows] duration-300 lg:hidden",
             mobileOpen
               ? "grid-rows-[1fr] border-t border-border/60"
               : "grid-rows-[0fr] border-t-0",

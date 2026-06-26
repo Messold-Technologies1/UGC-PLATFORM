@@ -10,7 +10,6 @@ import {
   Grid3X3,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Clock,
   X,
   Zap,
@@ -177,7 +176,7 @@ const FilterPopover = memo(function FilterPopover({
         className={cn(
           "inline-flex h-[44px] items-center gap-2 whitespace-nowrap rounded-xl border bg-white px-3.5 text-[13.5px] font-semibold shadow-sm transition-colors",
           activeCount > 0
-            ? "border-primary text-primary bg-primary/[0.06]"
+            ? "border-primary text-primary bg-primary/6"
             : "border-gray-200 text-foreground hover:bg-gray-50",
           isOpen && "ring-2 ring-primary/15",
         )}
@@ -201,7 +200,7 @@ const FilterPopover = memo(function FilterPopover({
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-[44]"
+            className="fixed inset-0 z-44"
             onClick={() => onOpenChange(null)}
             aria-hidden
           />
@@ -209,7 +208,7 @@ const FilterPopover = memo(function FilterPopover({
           <div
             role="dialog"
             className={cn(
-              "absolute top-[calc(100%+9px)] z-[46] rounded-2xl border border-gray-200 bg-white p-4 shadow-lg filter-popover-enter",
+              "absolute top-[calc(100%+9px)] z-46 rounded-2xl border border-gray-200 bg-white p-4 shadow-lg filter-popover-enter",
               wide ? "w-[460px] max-w-[92vw]" : "w-[340px] max-w-[92vw]",
               alignRight ? "right-0" : "left-0",
             )}
@@ -250,7 +249,7 @@ const ChipGrid = memo(function ChipGrid({
             )}
             onClick={() => onToggle(slug)}
           >
-            {isOn && <Check className="size-3.5 stroke-[3]" />}
+            {isOn && <Check className="size-3.5 stroke-3" />}
             {label}
           </button>
         );
@@ -288,7 +287,7 @@ const CheckboxRow = memo(function CheckboxRow({
                   : "border-gray-300 bg-white",
               )}
             >
-              {isOn && <Check className="size-3 stroke-[3]" />}
+              {isOn && <Check className="size-3 stroke-3" />}
             </div>
             <input
               type="checkbox"
@@ -320,10 +319,12 @@ const PriceRangeBody = memo(function PriceRangeBody({
   const lo = minPrice ? Number(minPrice) : CREATOR_PRICE_MIN;
   const hi = maxPrice ? Number(maxPrice) : CREATOR_PRICE_MAX;
   const [draft, setDraft] = useState<[number, number]>([lo, hi]);
+  const [syncedRange, setSyncedRange] = useState<[number, number]>([lo, hi]);
 
-  useEffect(() => {
+  if (syncedRange[0] !== lo || syncedRange[1] !== hi) {
+    setSyncedRange([lo, hi]);
     setDraft([lo, hi]);
-  }, [lo, hi]);
+  }
 
   const handleCommit = useCallback(
     ([min, max]: number[]) => {
@@ -437,10 +438,12 @@ const SmartSearchBar = memo(function SmartSearchBar({
   onSubmit,
 }: SmartSearchBarProps) {
   const [query, setQuery] = useState(value ?? "");
+  const [prevValue, setPrevValue] = useState(value);
 
-  useEffect(() => {
-    if (value !== undefined) setQuery(value);
-  }, [value]);
+  if (value !== undefined && value !== prevValue) {
+    setPrevValue(value);
+    setQuery(value);
+  }
 
   const handleSearchChange = (v: string) => {
     setQuery(v);
@@ -658,6 +661,13 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     setLocalPortfolioTag(filters.portfolioTag);
   }, [filters.portfolioTag]);
 
+  const commitField = useCallback(
+    <K extends keyof Filters>(key: K, value: Filters[K]) => {
+      onChange({ ...filters, [key]: value });
+    },
+    [filters, onChange],
+  );
+
   const debouncedCityChange = useDebouncedCallback((value: string) => {
     commitField("city", value.trim());
   }, 400);
@@ -669,13 +679,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const debouncedPortfolioTagChange = useDebouncedCallback((value: string) => {
     commitField("portfolioTag", value.trim());
   }, 400);
-
-  const commitField = useCallback(
-    <K extends keyof Filters>(key: K, value: Filters[K]) => {
-      onChange({ ...filters, [key]: value });
-    },
-    [filters, onChange],
-  );
 
   const toggleArrayField = useCallback(
     (key: ArrayFilterKey, value: string) => {
@@ -823,73 +826,79 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     (filters.industry ? 1 : 0) +
     (filters.portfolioTag ? 1 : 0);
 
-  const activeFilterCount = categoryCount + formatCount + langCount + priceCount + deliveryCount + moreCount;
+  const activeFilterCount =
+    categoryCount +
+    formatCount +
+    langCount +
+    priceCount +
+    deliveryCount +
+    moreCount;
 
   return (
     <div
       className={cn(
         "sticky top-0 z-40 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6]",
-        landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12" : ""
+        landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12" : "",
       )}
       role="search"
       aria-label="Creator filters"
       {...(!landingPage ? { "data-tour": "brand-creators-filters" } : {})}
     >
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 lg:py-4">
-        <div className="grid grid-cols-1 xl:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3">
           <div className="flex items-start">
             <div
               className="inline-flex gap-[3px] rounded-[13px] border border-gray-200 bg-gray-100/80 p-1"
               role="tablist"
               aria-label="Search mode"
             >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "smart"}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-[13px] font-bold transition-colors",
-                mode === "smart"
-                  ? "bg-white text-foreground shadow-sm"
-                  : "bg-transparent text-muted-foreground",
-              )}
-              onClick={() => setMode("smart")}
-            >
-              {/* <Sparkles
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "smart"}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-[13px] font-bold transition-colors",
+                  mode === "smart"
+                    ? "bg-white text-foreground shadow-sm"
+                    : "bg-transparent text-muted-foreground",
+                )}
+                onClick={() => setMode("smart")}
+              >
+                {/* <Sparkles
                 className={cn(
                   "size-[15px]",
                   mode === "smart" && "text-primary",
                 )}
               /> */}
-              Smart search
-              <span className="rounded-full bg-primary px-1.5 py-px text-[9px] font-extrabold tracking-wide text-white">
-                AI
-              </span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "manual"}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-[13px] font-bold transition-colors",
-                mode === "manual"
-                  ? "bg-white text-foreground shadow-sm"
-                  : "bg-transparent text-muted-foreground",
-              )}
-              onClick={() => setMode("manual")}
-            >
-              <SlidersHorizontal
+                Smart search
+                <span className="rounded-full bg-primary px-1.5 py-px text-[9px] font-extrabold tracking-wide text-white">
+                  AI
+                </span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "manual"}
                 className={cn(
-                  "size-[15px]",
-                  mode === "manual" && "text-primary",
+                  "inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-[13px] font-bold transition-colors",
+                  mode === "manual"
+                    ? "bg-white text-foreground shadow-sm"
+                    : "bg-transparent text-muted-foreground",
                 )}
-              />
-              Manual filters
-            </button>
+                onClick={() => setMode("manual")}
+              >
+                <SlidersHorizontal
+                  className={cn(
+                    "size-[15px]",
+                    mode === "manual" && "text-primary",
+                  )}
+                />
+                Manual filters
+              </button>
+            </div>
           </div>
-        </div>
 
-        {mode === "smart" ? (
+          {mode === "smart" ? (
             <SmartSearchBar
               onSubmit={(val) => {
                 // TODO: Wire up smart search logic here once backend is ready
@@ -899,7 +908,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="relative min-w-[200px] flex-1 max-w-[480px]">
+                <div className="relative min-w-[200px] flex-1 max-w-[480px] lg:max-w-[420px] xl:max-w-[360px] 2xl:max-w-[480px]">
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
@@ -941,256 +950,287 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 </div>
 
                 <div className="hidden xl:flex flex-wrap items-center gap-2.5">
-                <FilterPopover
-                  id="category"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="Category"
-                  icon={<Grid3X3 className="size-[15px]" />}
-                  activeCount={categoryCount}
-                  wide
-                >
-                  <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                    Content Category
-                  </h5>
-                  {categoryItems.length === 0 ? (
-                    <p className="py-2 text-xs text-muted-foreground">
-                      {categorySuggestionsQuery.isPending
-                        ? "Loading…"
-                        : "No categories available."}
-                    </p>
-                  ) : (
-                    <ChipGrid
-                      items={categoryItems}
-                      selected={filters.categories}
-                      onToggle={(slug) => toggleArrayField("categories", slug)}
-                    />
-                  )}
-                </FilterPopover>
-
-                <FilterPopover
-                  id="format"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="Format"
-                  icon={<Film className="size-[15px]" />}
-                  activeCount={formatCount}
-                >
-                  <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                    Content Format
-                  </h5>
-                  <ChipGrid
-                    items={getFacetItems("CONTENT_FORMAT")}
-                    selected={filters.contentFormat}
-                    onToggle={(slug) => toggleArrayField("contentFormat", slug)}
-                  />
-                </FilterPopover>
-
-                <FilterPopover
-                  id="price"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="Price"
-                  icon={<Zap className="size-[15px]" />}
-                  activeCount={priceCount}
-                >
-                  <PriceRangeBody
-                    minPrice={filters.minPrice}
-                    maxPrice={filters.maxPrice}
-                    onCommit={(min, max) =>
-                      onChange({ ...filters, minPrice: min, maxPrice: max })
-                    }
-                  />
-                </FilterPopover>
-
-                <FilterPopover
-                  id="delivery"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="Delivery"
-                  icon={<Clock className="size-[15px]" />}
-                  activeCount={deliveryCount}
-                >
-                  <DeliveryWithinBody
-                    maxDeliveryDays={filters.maxDeliveryDays}
-                    onChange={(value) =>
-                      onChange({ ...filters, maxDeliveryDays: value })
-                    }
-                  />
-                </FilterPopover>
-
-                <FilterPopover
-                  id="language"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="Language"
-                  icon={<Globe className="size-[15px]" />}
-                  activeCount={langCount}
-                >
-                  <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                    Language
-                  </h5>
-                  <ChipGrid
-                    items={getFacetItems("LANGUAGE")}
-                    selected={filters.language}
-                    onToggle={(slug) => toggleArrayField("language", slug)}
-                  />
-                </FilterPopover>
-
-                <div className="mx-0.5 h-[26px] w-px bg-gray-200" aria-hidden />
-
-                <FilterPopover
-                  id="more"
-                  openId={openPopover}
-                  onOpenChange={setOpenPopover}
-                  label="More filters"
-                  icon={<SlidersHorizontal className="size-[15px]" />}
-                  activeCount={moreCount}
-                  wide
-                  alignRight
-                >
-                  <div className="max-h-[60vh] overflow-y-auto overscroll-y-contain pr-1 [scrollbar-width:thin]">
-                    {MORE_FACET_SECTIONS.map(
-                      ({ dimension, label, filterKey }) => {
-                        const items = getFacetItems(dimension);
-                        if (items.length === 0) return null;
-                        return (
-                          <div key={dimension} className="mb-4">
-                            <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                              {label}
-                            </h5>
-                            <ChipGrid
-                              items={items}
-                              selected={filters[filterKey] as string[]}
-                              onToggle={(slug) =>
-                                toggleArrayField(
-                                  filterKey as ArrayFilterKey,
-                                  slug,
-                                )
-                              }
-                            />
-                          </div>
-                        );
-                      },
+                  <FilterPopover
+                    id="category"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Category"
+                    icon={<Grid3X3 className="size-[15px]" />}
+                    activeCount={categoryCount}
+                    wide
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Content Category
+                    </h5>
+                    {categoryItems.length === 0 ? (
+                      <p className="py-2 text-xs text-muted-foreground">
+                        {categorySuggestionsQuery.isPending
+                          ? "Loading…"
+                          : "No categories available."}
+                      </p>
+                    ) : (
+                      <ChipGrid
+                        items={categoryItems}
+                        selected={filters.categories}
+                        onToggle={(slug) =>
+                          toggleArrayField("categories", slug)
+                        }
+                      />
                     )}
+                  </FilterPopover>
 
-                    <div className="mb-4">
-                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Gender
-                      </h5>
-                      <CheckboxRow
-                        items={GENDER_OPTIONS}
-                        selected={filters.gender}
-                        onToggle={(v) => commitField("gender", v)}
+                  <FilterPopover
+                    id="format"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Format"
+                    icon={<Film className="size-[15px]" />}
+                    activeCount={formatCount}
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Content Format
+                    </h5>
+                    <ChipGrid
+                      items={getFacetItems("CONTENT_FORMAT")}
+                      selected={filters.contentFormat}
+                      onToggle={(slug) =>
+                        toggleArrayField("contentFormat", slug)
+                      }
+                    />
+                  </FilterPopover>
+
+                  <FilterPopover
+                    id="price"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Price"
+                    icon={<Zap className="size-[15px]" />}
+                    activeCount={priceCount}
+                  >
+                    <PriceRangeBody
+                      minPrice={filters.minPrice}
+                      maxPrice={filters.maxPrice}
+                      onCommit={(min, max) =>
+                        onChange({ ...filters, minPrice: min, maxPrice: max })
+                      }
+                    />
+                  </FilterPopover>
+
+                  {/* Delivery & Language stay inline only on very wide (2xl) screens; on laptop (xl) they live inside "More filters" */}
+                  <div className="hidden 2xl:flex items-center gap-2.5">
+                    <FilterPopover
+                      id="delivery"
+                      openId={openPopover}
+                      onOpenChange={setOpenPopover}
+                      label="Delivery"
+                      icon={<Clock className="size-[15px]" />}
+                      activeCount={deliveryCount}
+                    >
+                      <DeliveryWithinBody
+                        maxDeliveryDays={filters.maxDeliveryDays}
+                        onChange={(value) =>
+                          onChange({ ...filters, maxDeliveryDays: value })
+                        }
                       />
-                    </div>
+                    </FilterPopover>
 
-                    <div className="mb-4">
-                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Age Group
+                    <FilterPopover
+                      id="language"
+                      openId={openPopover}
+                      onOpenChange={setOpenPopover}
+                      label="Language"
+                      icon={<Globe className="size-[15px]" />}
+                      activeCount={langCount}
+                    >
+                      <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                        Language
                       </h5>
-                      <CheckboxRow
-                        items={AGE_GROUP_OPTIONS}
-                        selected={filters.ageGroup}
-                        onToggle={(v) => commitField("ageGroup", v)}
+                      <ChipGrid
+                        items={getFacetItems("LANGUAGE")}
+                        selected={filters.language}
+                        onToggle={(slug) => toggleArrayField("language", slug)}
                       />
-                    </div>
+                    </FilterPopover>
+                  </div>
 
-                    {restrictionNames.length > 0 && (
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Restrictions
-                        </h5>
-                        <ChipGrid
-                          items={restrictionItems}
-                          selected={filters.restrictions}
-                          onToggle={(slug) =>
-                            toggleArrayField("restrictions", slug)
+                  <div
+                    className="mx-0.5 h-[26px] w-px bg-gray-200"
+                    aria-hidden
+                  />
+
+                  <FilterPopover
+                    id="more"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="More filters"
+                    icon={<SlidersHorizontal className="size-[15px]" />}
+                    activeCount={moreCount}
+                    wide
+                    alignRight
+                  >
+                    <div className="max-h-[60vh] overflow-y-auto overscroll-y-contain pr-1 [scrollbar-width:thin]">
+                      {/* Delivery & Language are surfaced here on laptop (xl); on 2xl they have their own inline buttons */}
+                      <div className="mb-4 2xl:hidden">
+                        <DeliveryWithinBody
+                          maxDeliveryDays={filters.maxDeliveryDays}
+                          onChange={(value) =>
+                            onChange({ ...filters, maxDeliveryDays: value })
                           }
                         />
                       </div>
-                    )}
 
-                    <div className="mb-4">
-                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Location
-                      </h5>
-                      <Input
-                        placeholder="e.g. Mumbai, Delhi, Bengaluru"
-                        value={localCity}
-                        onChange={(e) => {
-                          setLocalCity(e.target.value);
-                          debouncedCityChange(e.target.value);
-                        }}
-                        className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                      />
-                    </div>
-
-                    <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5">
-                      <div>
-                        <div className="text-[13px] font-semibold text-foreground">
-                          On-location shoots
-                        </div>
-                        <div className="text-[11.5px] text-muted-foreground">
-                          Films at your store or venue
-                        </div>
+                      <div className="mb-4 2xl:hidden">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Language
+                        </h5>
+                        <ChipGrid
+                          items={getFacetItems("LANGUAGE")}
+                          selected={filters.language}
+                          onToggle={(slug) => toggleArrayField("language", slug)}
+                        />
                       </div>
-                      <Switch
-                        checked={filters.onLocationAvailable}
-                        onCheckedChange={(checked) =>
-                          commitField("onLocationAvailable", checked)
-                        }
-                      />
+
+                      {MORE_FACET_SECTIONS.map(
+                        ({ dimension, label, filterKey }) => {
+                          const items = getFacetItems(dimension);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={dimension} className="mb-4">
+                              <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                                {label}
+                              </h5>
+                              <ChipGrid
+                                items={items}
+                                selected={filters[filterKey] as string[]}
+                                onToggle={(slug) =>
+                                  toggleArrayField(
+                                    filterKey as ArrayFilterKey,
+                                    slug,
+                                  )
+                                }
+                              />
+                            </div>
+                          );
+                        },
+                      )}
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Gender
+                        </h5>
+                        <CheckboxRow
+                          items={GENDER_OPTIONS}
+                          selected={filters.gender}
+                          onToggle={(v) => commitField("gender", v)}
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Age Group
+                        </h5>
+                        <CheckboxRow
+                          items={AGE_GROUP_OPTIONS}
+                          selected={filters.ageGroup}
+                          onToggle={(v) => commitField("ageGroup", v)}
+                        />
+                      </div>
+
+                      {restrictionNames.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Restrictions
+                          </h5>
+                          <ChipGrid
+                            items={restrictionItems}
+                            selected={filters.restrictions}
+                            onToggle={(slug) =>
+                              toggleArrayField("restrictions", slug)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Location
+                        </h5>
+                        <Input
+                          placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                          value={localCity}
+                          onChange={(e) => {
+                            setLocalCity(e.target.value);
+                            debouncedCityChange(e.target.value);
+                          }}
+                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
+                        />
+                      </div>
+
+                      <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5">
+                        <div>
+                          <div className="text-[13px] font-semibold text-foreground">
+                            On-location shoots
+                          </div>
+                          <div className="text-[11.5px] text-muted-foreground">
+                            Films at your store or venue
+                          </div>
+                        </div>
+                        <Switch
+                          checked={filters.onLocationAvailable}
+                          onCheckedChange={(checked) =>
+                            commitField("onLocationAvailable", checked)
+                          }
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Industry
+                        </h5>
+                        <Input
+                          placeholder="Search industry"
+                          value={localIndustry}
+                          onChange={(e) => {
+                            setLocalIndustry(e.target.value);
+                            debouncedIndustryChange(e.target.value);
+                          }}
+                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Portfolio Tag
+                        </h5>
+                        <Input
+                          placeholder="Search tag"
+                          value={localPortfolioTag}
+                          onChange={(e) => {
+                            setLocalPortfolioTag(e.target.value);
+                            debouncedPortfolioTagChange(e.target.value);
+                          }}
+                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
+                        />
+                      </div>
                     </div>
 
-                    <div className="mb-4">
-                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Industry
-                      </h5>
-                      <Input
-                        placeholder="Search industry"
-                        value={localIndustry}
-                        onChange={(e) => {
-                          setLocalIndustry(e.target.value);
-                          debouncedIndustryChange(e.target.value);
-                        }}
-                        className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                      />
+                    <div className="flex gap-2.5 border-t border-gray-200 pt-3.5 mt-1">
+                      <button
+                        type="button"
+                        className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-gray-50"
+                        onClick={onClear}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 rounded-lg bg-foreground px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-foreground/90"
+                        onClick={() => setOpenPopover(null)}
+                      >
+                        Show {isPending ? "…" : total}
+                      </button>
                     </div>
-
-                    <div className="mb-4">
-                      <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Portfolio Tag
-                      </h5>
-                      <Input
-                        placeholder="Search tag"
-                        value={localPortfolioTag}
-                        onChange={(e) => {
-                          setLocalPortfolioTag(e.target.value);
-                          debouncedPortfolioTagChange(e.target.value);
-                        }}
-                        className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2.5 border-t border-gray-200 pt-3.5 mt-1">
-                    <button
-                      type="button"
-                      className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-gray-50"
-                      onClick={onClear}
-                    >
-                      Reset
-                    </button>
-                    <button
-                      type="button"
-                      className="flex-1 rounded-lg bg-foreground px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-foreground/90"
-                      onClick={() => setOpenPopover(null)}
-                    >
-                      Show {isPending ? "…" : total}
-                    </button>
-                  </div>
-                </FilterPopover>
+                  </FilterPopover>
                 </div>
 
                 <div className="flex xl:hidden">
@@ -1215,17 +1255,43 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       </DrawerHeader>
                       <div className="overflow-y-auto px-4 py-2 [scrollbar-width:thin] flex flex-col gap-6">
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Content Category</h5>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Content Category
+                          </h5>
                           {categoryItems.length > 0 && (
-                            <ChipGrid items={categoryItems} selected={filters.categories} onToggle={(slug) => toggleArrayField("categories", slug)} />
+                            <ChipGrid
+                              items={categoryItems}
+                              selected={filters.categories}
+                              onToggle={(slug) =>
+                                toggleArrayField("categories", slug)
+                              }
+                            />
                           )}
                         </div>
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Content Format</h5>
-                          <ChipGrid items={getFacetItems("CONTENT_FORMAT")} selected={filters.contentFormat} onToggle={(slug) => toggleArrayField("contentFormat", slug)} />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Content Format
+                          </h5>
+                          <ChipGrid
+                            items={getFacetItems("CONTENT_FORMAT")}
+                            selected={filters.contentFormat}
+                            onToggle={(slug) =>
+                              toggleArrayField("contentFormat", slug)
+                            }
+                          />
                         </div>
                         <div>
-                          <PriceRangeBody minPrice={filters.minPrice} maxPrice={filters.maxPrice} onCommit={(min, max) => onChange({ ...filters, minPrice: min, maxPrice: max })} />
+                          <PriceRangeBody
+                            minPrice={filters.minPrice}
+                            maxPrice={filters.maxPrice}
+                            onCommit={(min, max) =>
+                              onChange({
+                                ...filters,
+                                minPrice: min,
+                                maxPrice: max,
+                              })
+                            }
+                          />
                         </div>
                         <div>
                           <DeliveryWithinBody
@@ -1236,59 +1302,147 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           />
                         </div>
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Language</h5>
-                          <ChipGrid items={getFacetItems("LANGUAGE")} selected={filters.language} onToggle={(slug) => toggleArrayField("language", slug)} />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Language
+                          </h5>
+                          <ChipGrid
+                            items={getFacetItems("LANGUAGE")}
+                            selected={filters.language}
+                            onToggle={(slug) =>
+                              toggleArrayField("language", slug)
+                            }
+                          />
                         </div>
                         <div className="h-px bg-gray-200" aria-hidden />
-                        {MORE_FACET_SECTIONS.map(({ dimension, label, filterKey }) => {
-                          const items = getFacetItems(dimension);
-                          if (items.length === 0) return null;
-                          return (
-                            <div key={dimension}>
-                              <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">{label}</h5>
-                              <ChipGrid items={items} selected={filters[filterKey] as string[]} onToggle={(slug) => toggleArrayField(filterKey as ArrayFilterKey, slug)} />
-                            </div>
-                          );
-                        })}
+                        {MORE_FACET_SECTIONS.map(
+                          ({ dimension, label, filterKey }) => {
+                            const items = getFacetItems(dimension);
+                            if (items.length === 0) return null;
+                            return (
+                              <div key={dimension}>
+                                <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                                  {label}
+                                </h5>
+                                <ChipGrid
+                                  items={items}
+                                  selected={filters[filterKey] as string[]}
+                                  onToggle={(slug) =>
+                                    toggleArrayField(
+                                      filterKey as ArrayFilterKey,
+                                      slug,
+                                    )
+                                  }
+                                />
+                              </div>
+                            );
+                          },
+                        )}
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Gender</h5>
-                          <CheckboxRow items={GENDER_OPTIONS} selected={filters.gender} onToggle={(v) => commitField("gender", v)} />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Gender
+                          </h5>
+                          <CheckboxRow
+                            items={GENDER_OPTIONS}
+                            selected={filters.gender}
+                            onToggle={(v) => commitField("gender", v)}
+                          />
                         </div>
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Age Group</h5>
-                          <CheckboxRow items={AGE_GROUP_OPTIONS} selected={filters.ageGroup} onToggle={(v) => commitField("ageGroup", v)} />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Age Group
+                          </h5>
+                          <CheckboxRow
+                            items={AGE_GROUP_OPTIONS}
+                            selected={filters.ageGroup}
+                            onToggle={(v) => commitField("ageGroup", v)}
+                          />
                         </div>
                         {restrictionNames.length > 0 && (
                           <div>
-                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Restrictions</h5>
-                            <ChipGrid items={restrictionItems} selected={filters.restrictions} onToggle={(slug) => toggleArrayField("restrictions", slug)} />
+                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                              Restrictions
+                            </h5>
+                            <ChipGrid
+                              items={restrictionItems}
+                              selected={filters.restrictions}
+                              onToggle={(slug) =>
+                                toggleArrayField("restrictions", slug)
+                              }
+                            />
                           </div>
                         )}
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Location</h5>
-                          <Input placeholder="e.g. Mumbai, Delhi, Bengaluru" value={localCity} onChange={(e) => { setLocalCity(e.target.value); debouncedCityChange(e.target.value); }} className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm" />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Location
+                          </h5>
+                          <Input
+                            placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                            value={localCity}
+                            onChange={(e) => {
+                              setLocalCity(e.target.value);
+                              debouncedCityChange(e.target.value);
+                            }}
+                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
+                          />
                         </div>
                         <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
                           <div>
-                            <div className="text-[13px] font-semibold text-foreground">On-location shoots</div>
-                            <div className="text-[11.5px] text-muted-foreground">Films at your store or venue</div>
+                            <div className="text-[13px] font-semibold text-foreground">
+                              On-location shoots
+                            </div>
+                            <div className="text-[11.5px] text-muted-foreground">
+                              Films at your store or venue
+                            </div>
                           </div>
-                          <Switch checked={filters.onLocationAvailable} onCheckedChange={(checked) => commitField("onLocationAvailable", checked)} />
+                          <Switch
+                            checked={filters.onLocationAvailable}
+                            onCheckedChange={(checked) =>
+                              commitField("onLocationAvailable", checked)
+                            }
+                          />
                         </div>
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Industry</h5>
-                          <Input placeholder="Search industry" value={localIndustry} onChange={(e) => { setLocalIndustry(e.target.value); debouncedIndustryChange(e.target.value); }} className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm" />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Industry
+                          </h5>
+                          <Input
+                            placeholder="Search industry"
+                            value={localIndustry}
+                            onChange={(e) => {
+                              setLocalIndustry(e.target.value);
+                              debouncedIndustryChange(e.target.value);
+                            }}
+                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
+                          />
                         </div>
                         <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Portfolio Tag</h5>
-                          <Input placeholder="Search tag" value={localPortfolioTag} onChange={(e) => { setLocalPortfolioTag(e.target.value); debouncedPortfolioTagChange(e.target.value); }} className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm" />
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Portfolio Tag
+                          </h5>
+                          <Input
+                            placeholder="Search tag"
+                            value={localPortfolioTag}
+                            onChange={(e) => {
+                              setLocalPortfolioTag(e.target.value);
+                              debouncedPortfolioTagChange(e.target.value);
+                            }}
+                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
+                          />
                         </div>
                       </div>
                       <DrawerFooter className="pt-4 border-t mt-2">
                         <div className="flex gap-3 w-full">
-                          <Button variant="outline" className="flex-1 rounded-xl" onClick={onClear}>Reset</Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1 rounded-xl"
+                            onClick={onClear}
+                          >
+                            Reset
+                          </Button>
                           <DrawerClose asChild>
-                            <Button className="flex-1 rounded-xl">Show {isPending ? "…" : total}</Button>
+                            <Button className="flex-1 rounded-xl">
+                              Show {isPending ? "…" : total}
+                            </Button>
                           </DrawerClose>
                         </div>
                       </DrawerFooter>
@@ -1354,7 +1508,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
             </>
           )}
         </div>
+      </div>
     </div>
-  </div>
   );
 });

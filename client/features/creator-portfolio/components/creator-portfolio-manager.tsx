@@ -73,7 +73,8 @@ function errorMessage(err: unknown): string {
 export function CreatorPortfolioManager() {
   const [isUploadOverlayOpen, setIsUploadOverlayOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [editingTagsVideo, setEditingTagsVideo] = useState<PortfolioVideoApi | null>(null);
+  const [editingTagsVideo, setEditingTagsVideo] =
+    useState<PortfolioVideoApi | null>(null);
   const [showBanner, setShowBanner] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   // const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -266,7 +267,10 @@ export function CreatorPortfolioManager() {
 
             <div className="flex items-center gap-3 shrink-0">
               <Button asChild className="gap-2">
-                <Link href="/creator/portfolio/upload" data-tour="creator-portfolio-upload">
+                <Link
+                  href="/creator/portfolio/upload"
+                  data-tour="creator-portfolio-upload"
+                >
                   <Plus className="size-4" />
                   Add New Work
                 </Link>
@@ -281,7 +285,11 @@ export function CreatorPortfolioManager() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-disabled={!publicProfilePath}
-                  className={!publicProfilePath ? "pointer-events-none opacity-50" : undefined}
+                  className={
+                    !publicProfilePath
+                      ? "pointer-events-none opacity-50"
+                      : undefined
+                  }
                 >
                   View my public profile <ExternalLink className="size-4" />
                 </Link>
@@ -419,7 +427,9 @@ export function CreatorPortfolioManager() {
                       <div
                         key={v.id}
                         className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:shadow-md"
-                        data-tour={index === 0 ? "creator-portfolio-card" : undefined}
+                        data-tour={
+                          index === 0 ? "creator-portfolio-card" : undefined
+                        }
                       >
                         <div
                           className="relative aspect-video overflow-hidden bg-muted w-full rounded-t-lg group"
@@ -505,11 +515,15 @@ export function CreatorPortfolioManager() {
                                 className="flex-1 border-2 border-dotted border-muted-foreground/40 bg-transparent text-muted-foreground hover:border-muted-foreground hover:bg-transparent text-xs h-8 justify-start px-2"
                                 onClick={() => setEditingTagsVideo(v)}
                                 data-tour={
-                                  index === 0 ? "creator-portfolio-edit-tags" : undefined
+                                  index === 0
+                                    ? "creator-portfolio-edit-tags"
+                                    : undefined
                                 }
                               >
                                 <Plus className="size-3 mr-1.5" />
-                                {v.tags && v.tags.length > 0 ? "edit tags" : "add tags for better search"}
+                                {v.tags && v.tags.length > 0
+                                  ? "edit tags"
+                                  : "add tags for better search"}
                               </Button>
                               <Button
                                 variant="ghost"
@@ -742,7 +756,8 @@ export function CreatorPortfolioManager() {
             </h3>
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 bg-muted rounded-lg px-3 py-2 text-xs font-medium text-primary truncate border border-border/50">
-                {publicProfileDisplayUrl ?? "Set your display name to get a link"}
+                {publicProfileDisplayUrl ??
+                  "Set your display name to get a link"}
               </div>
               <Button
                 type="button"

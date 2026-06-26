@@ -1,5 +1,5 @@
-
-.studio, .briefCard {
+.studio,
+.briefCard {
   --bs-font-heading: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --bs-lime: #c6ff3d;
   --bs-grape: #8b5cf6;
@@ -114,7 +114,9 @@
   border-radius: 999px;
   border: 0;
   cursor: pointer;
-  transition: background 0.14s, color 0.14s;
+  transition:
+    background 0.14s,
+    color 0.14s;
   flex-shrink: 0;
 }
 
@@ -232,7 +234,10 @@
   border-radius: var(--bs-radius-lg);
   padding: 16px;
   background: #fff;
-  transition: transform 0.16s, box-shadow 0.16s, border-color 0.16s;
+  transition:
+    transform 0.16s,
+    box-shadow 0.16s,
+    border-color 0.16s;
 }
 
 .briefCard:hover {
@@ -420,8 +425,13 @@
 }
 
 @keyframes shimmer {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @media (max-width: 1024px) {

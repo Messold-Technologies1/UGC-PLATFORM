@@ -46,13 +46,12 @@ const LANDING_PAGE_CREATOR_LIMIT = 10;
 const BRAND_CREATOR_MATCH_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform";
 
-const browseContentPaddingClass =
-  "px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
+const browseContentPaddingClass = "px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
 
 function CreatorMatchEndPrompt() {
   return (
     <div
-      className="mt-10 flex w-full items-center justify-center rounded-2xl border border-[#ef3e51]/30 bg-gradient-to-r from-[#fff5f6] via-[#fef0f2] to-[#fde9e8] px-4 py-5 shadow-[0_8px_28px_rgba(239,62,81,0.12)] ring-1 ring-[#ef3e51]/10 sm:px-6 sm:py-6"
+      className="mt-10 flex w-full items-center justify-center rounded-2xl border border-[#ef3e51]/30 bg-linear-to-r from-[#fff5f6] via-[#fef0f2] to-[#fde9e8] px-4 py-5 shadow-[0_8px_28px_rgba(239,62,81,0.12)] ring-1 ring-[#ef3e51]/10 sm:px-6 sm:py-6"
       role="region"
       aria-label="Request a custom creator match"
     >
@@ -213,13 +212,18 @@ export function CreatorListing({
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const cid = searchParams.get("creatorId");
-    if (cid && cid !== drawerCreatorId) {
-      setDrawerCreatorId(cid);
+  const creatorIdParam = searchParams.get("creatorId");
+  const [syncedCreatorIdParam, setSyncedCreatorIdParam] = useState<
+    string | null
+  >(null);
+
+  if (creatorIdParam !== syncedCreatorIdParam) {
+    setSyncedCreatorIdParam(creatorIdParam);
+    if (creatorIdParam && creatorIdParam !== drawerCreatorId) {
+      setDrawerCreatorId(creatorIdParam);
       setDrawerOpen(true);
     }
-  }, [searchParams]);
+  }
   const searchParamsKey = searchParams.toString();
 
   const parsedInitial = useMemo(
@@ -273,7 +277,9 @@ export function CreatorListing({
     });
   }, [router, searchParamsKey]);
 
-  const listLimit = landingPage ? LANDING_PAGE_CREATOR_LIMIT : BROWSE_LIST_LIMIT;
+  const listLimit = landingPage
+    ? LANDING_PAGE_CREATOR_LIMIT
+    : BROWSE_LIST_LIMIT;
 
   const apiFilters = useMemo(
     () => ({
@@ -342,9 +348,7 @@ export function CreatorListing({
   );
   const visibleCreators = useMemo(
     () =>
-      landingPage
-        ? creators.slice(0, LANDING_PAGE_CREATOR_LIMIT)
-        : creators,
+      landingPage ? creators.slice(0, LANDING_PAGE_CREATOR_LIMIT) : creators,
     [creators, landingPage],
   );
   const { categoryOptions } = useMemo(
@@ -441,7 +445,9 @@ export function CreatorListing({
           "flex flex-1 flex-col bg-[#f4f4f5]",
           browseContentPaddingClass,
           "pb-10 pt-6",
-          landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8" : "",
+          landingPage
+            ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8"
+            : "",
         )}
         {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
       >
@@ -489,7 +495,11 @@ export function CreatorListing({
               <div className="flex min-h-16 w-full items-center justify-center pb-4 pt-2">
                 {landingPage ? (
                   showLandingLoadMore ? (
-                    <Button asChild size="lg" className="min-w-[180px] rounded-xl mt-6">
+                    <Button
+                      asChild
+                      size="lg"
+                      className="min-w-[180px] rounded-xl mt-6"
+                    >
                       <Link href="/register/brand">Load more</Link>
                     </Button>
                   ) : null

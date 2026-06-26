@@ -17,32 +17,46 @@
   --primary-foreground: oklch(0.978 0.014 17.35);
 }
 
+/* Use explicit column counts (not auto-fit) so VirtuosoGrid measures a
+   deterministic item width even while probing with a single item. auto-fit
+   collapses empty tracks, which made the probe item span full width and made
+   the grid render as a single full-width card until a scroll forced re-layout. */
 .reelgrid {
   display: grid;
   gap: 12px;
   margin-top: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-}
-
-@media (min-width: 640px) {
-  .reelgrid {
-    gap: 18px;
-    margin-top: 22px;
-    grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
-  }
-}
-
-@media (max-width: 1023px) {
-  .reelgrid {
-    gap: 12px;
-    margin-top: 16px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (max-width: 380px) {
   .reelgrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 640px) {
+  .reelgrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .reelgrid {
+    gap: 18px;
+    margin-top: 22px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .reelgrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1536px) {
+  .reelgrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 

@@ -92,7 +92,10 @@ export function BrandOrdersList() {
   const hasActiveFilter = activeTab !== "all";
 
   return (
-    <div id="brand-orders-page" className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-4 lg:pt-5 pb-24">
+    <div
+      id="brand-orders-page"
+      className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-4 lg:pt-5 pb-24"
+    >
       <OrderStatusTab
         activeTab={activeTab}
         onTabChange={(tab) => {

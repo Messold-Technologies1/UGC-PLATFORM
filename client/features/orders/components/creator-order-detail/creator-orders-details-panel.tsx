@@ -517,9 +517,12 @@ export function CreatorOrdersDetailsPanel({
         <Button
           variant="outline"
           className="flex-1 rounded-lg h-11 font-semibold border-border/60 bg-background"
+          asChild
         >
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Message Brand
+          <Link href={`/creator/messages?orderId=${selectedOrderId}`}>
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Message Brand
+          </Link>
         </Button>
       </div>
     </div>

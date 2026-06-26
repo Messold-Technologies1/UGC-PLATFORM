@@ -173,10 +173,12 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
 
   const isEmpty = !latestDelivery || allAssets.length === 0;
 
-  const primaryFilename = primaryVideo
-    ? filenameFromKey(primaryVideo.key)
+  const primaryAsset = primaryVideo ?? allAssets[0] ?? null;
+
+  const primaryFilename = primaryAsset
+    ? filenameFromKey(primaryAsset.key)
     : "Pending Delivery...";
-  const shortPrimaryFilename = primaryVideo 
+  const shortPrimaryFilename = primaryAsset 
     ? formatShortFilename(primaryFilename, 30) 
     : primaryFilename;
 
@@ -240,7 +242,7 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
                     size="sm"
                     className="rounded-lg font-semibold text-xs px-4 h-9"
                     onClick={() =>
-                      primaryVideo && downloadAsset(primaryVideo.url, primaryFilename)
+                      primaryAsset && downloadAsset(primaryAsset.url, primaryFilename)
                     }
                     disabled={isEmpty}
                   >
@@ -251,7 +253,7 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
                     variant="outline"
                     size="icon"
                     className="size-9 rounded-lg text-muted-foreground h-9 w-9"
-                    onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
+                    onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
                     disabled={isEmpty}
                   >
                     <ExternalLink className="size-4" />
@@ -262,7 +264,7 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
                   <Button
                     size="sm"
                     className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
+                    onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
                     disabled={isEmpty}
                   >
                     <Eye className="size-3.5 mr-1.5" />
@@ -273,21 +275,13 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
                     size="sm"
                     className="rounded-lg font-semibold text-xs px-4 h-9"
                     onClick={() =>
-                      primaryVideo &&
-                      downloadAsset(primaryVideo.url, primaryFilename)
+                      primaryAsset &&
+                      downloadAsset(primaryAsset.url, primaryFilename)
                     }
                     disabled={isEmpty}
                   >
                     <Download className="size-3.5 mr-1.5" />
                     Download
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-9 rounded-lg text-muted-foreground"
-                    disabled={isEmpty}
-                  >
-                    <MoreVertical className="size-4" />
                   </Button>
                 </>
               )}

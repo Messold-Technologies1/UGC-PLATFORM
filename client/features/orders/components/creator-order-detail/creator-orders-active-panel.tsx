@@ -20,7 +20,7 @@ import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
-import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
+// import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
 interface CreatorOrderActivePanelProps {
   selectedOrderId: string;
   selectedItem: any;

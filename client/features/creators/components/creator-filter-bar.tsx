@@ -638,7 +638,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   }, [search]);
   const debouncedSearchChange = useDebouncedCallback((value: string) => {
     onSearchChange(value);
-  }, 300);
+  }, 1500);
   const [mode, setMode] = useState<"smart" | "manual">("manual");
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [localCity, setLocalCity] = useState(filters.city);
@@ -906,8 +906,20 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     placeholder="Search name, city or bio…"
                     value={localSearch}
                     onChange={(e) => {
-                      setLocalSearch(e.target.value);
-                      debouncedSearchChange(e.target.value);
+                      const val = e.target.value;
+                      setLocalSearch(val);
+                      if (val.endsWith(" ") || val === "") {
+                        onSearchChange(val.trim());
+                        debouncedSearchChange(val.trim());
+                      } else {
+                        debouncedSearchChange(val.trim());
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        onSearchChange(localSearch.trim());
+                        debouncedSearchChange(localSearch.trim());
+                      }
                     }}
                     aria-label="Search creators by name, city or bio"
                     className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-9 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200"
@@ -919,6 +931,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       onClick={() => {
                         setLocalSearch("");
                         onSearchChange("");
+                        debouncedSearchChange("");
                       }}
                       aria-label="Clear search"
                     >

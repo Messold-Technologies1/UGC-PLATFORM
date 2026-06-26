@@ -50,6 +50,7 @@ export type Brief = {
   productPageUrl?: string | null;
   productImageKey?: string | null;
   productImageUrl?: string | null;
+  isProduct: boolean;
   willShipPhysicalProductToCreator: boolean;
   shootLocationKind?: BriefShootLocationKind | null;
   shootLocationAddress?: string | null;
@@ -80,6 +81,7 @@ export type CreateBriefPayload = {
   productDescription?: string;
   productPageUrl?: string;
   productImageKey?: string;
+  isProduct?: boolean;
   willShipPhysicalProductToCreator?: boolean;
   shootLocationKind?: BriefShootLocationKind;
   shootLocationAddress?: string;

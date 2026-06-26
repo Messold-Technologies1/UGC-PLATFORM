@@ -41,6 +41,7 @@ import {
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
+import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import {
   formatDuration,
   formatLocation,
@@ -142,6 +143,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   }
 
   const scriptSummary = formatBriefScript(brief.script);
+  const offerLabels = getBriefOfferLabels(brief.isProduct ?? true);
 
   return (
     <>
@@ -240,21 +242,23 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                     <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                       <Package className="size-4" />
                     </div>
-                    Product Info
+                    {offerLabels.sectionInfoTitle}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-6 md:grid-cols-2">
-                  <DetailRow label="Product name" value={brief.productName} />
+                  <DetailRow label={offerLabels.name} value={brief.productName} />
                   <DetailRow
-                    label="Product page"
+                    label={offerLabels.pageLink}
                     value={brief.productPageUrl}
                   />
+                  {brief.isProduct !== false ? (
                   <DetailRow
                     label="Ship physical product"
                     value={
                       brief.willShipPhysicalProductToCreator ? "Yes" : "No"
                     }
                   />
+                  ) : null}
                   <div className="space-y-1 md:col-span-2">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                       Description

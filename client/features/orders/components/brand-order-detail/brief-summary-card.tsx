@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
+import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import type { OrderBriefPayload } from "../../api/get-order-brief";
 import type { OrderDetailsPublic } from "../../api/types";
 
@@ -105,7 +106,9 @@ export function BriefSummaryCard({
 }: BriefSummaryCardProps) {
   const router = useRouter();
 
-  const productName = brief?.productName ?? "Product Details";
+  const isProductBrief = brief?.isProduct ?? true;
+  const offerLabels = getBriefOfferLabels(isProductBrief);
+  const productName = brief?.productName ?? offerLabels.summaryDetails;
   const productDescription = brief?.productDescription ?? "";
   const contentTypes = brief?.contentType
     ? formatEnumLabel(brief.contentType)
@@ -152,9 +155,9 @@ export function BriefSummaryCard({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <BriefField
-          label="Product Details"
+          label={offerLabels.summaryDetails}
           value={productName}
-          image={brief?.productImage?.url}
+          image={isProductBrief ? brief?.productImage?.url : undefined}
           imageFallbackIcon={Package}
         >
           {productDescription && (

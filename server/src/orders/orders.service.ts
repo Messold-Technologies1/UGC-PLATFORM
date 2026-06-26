@@ -679,18 +679,16 @@ export class OrdersService {
       select: {
         id: true,
         willShipPhysicalProductToCreator: true,
+        isProduct: true,
         productImageKey: true,
       },
     });
     if (!brief) {
       throw new NotFoundException('Brief not found for this brand');
     }
-    if (
-      brief.willShipPhysicalProductToCreator &&
-      !brief.productImageKey?.trim()
-    ) {
+    if (brief.isProduct && !brief.productImageKey?.trim()) {
       throw new BadRequestException(
-        'Brief must include a product image before it can be submitted to an order when shipping a physical product',
+        'Brief must include a product image before it can be submitted to an order for product campaigns',
       );
     }
 
@@ -1951,6 +1949,7 @@ export class OrdersService {
             productPageUrl: true,
             productImageKey: true,
             productImageUrl: true,
+            isProduct: true,
             willShipPhysicalProductToCreator: true,
             shootLocationKind: true,
             shootLocationAddress: true,
@@ -2013,6 +2012,7 @@ export class OrdersService {
                 url: order.briefRef.productImageUrl ?? null,
               }
             : null,
+          isProduct: order.briefRef.isProduct,
           willShipPhysicalProductToCreator:
             order.briefRef.willShipPhysicalProductToCreator,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,

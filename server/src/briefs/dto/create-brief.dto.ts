@@ -65,11 +65,20 @@ export class CreateBriefDto {
   @ApiPropertyOptional({
     example: 'brief-product-temp/<userId>/<uuid>.png',
     description:
-      'Temporary S3 object key from POST /briefs/uploads/presign-product-image; required when willShipPhysicalProductToCreator is true.',
+      'Temporary S3 object key from POST /briefs/uploads/presign-product-image; required when isProduct is true.',
   })
   @IsOptional()
   @IsString()
   productImageKey?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'When true, brief is for a product (image required). When false, service brief.',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isProduct?: boolean;
 
   @ApiPropertyOptional({
     description:

@@ -64,6 +64,7 @@ import type {
   BriefToneStyle,
   CreateBriefPayload,
 } from "@/features/briefs/api/types";
+import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import { useBriefFieldOptionsQuery } from "@/features/briefs/hooks/use-brief-field-options-query";
 
 import { PaymentSuccessBanner } from "@/features/briefs/components/payment-success-banner";
@@ -201,14 +202,15 @@ const createBriefSchema = z
     brandLogoUrl: optionalUrl("Brand logo URL"),
     brandPronunciationAudioKey: z.string().trim().optional(),
     brandPronunciationAudioUrl: optionalUrl("Pronunciation audio URL"),
-    productName: z.string().trim().min(1, "Product name is required"),
+    productName: z.string().trim().min(1, "Name is required"),
     productDescription: z
       .string()
       .trim()
-      .min(1, "Product description is required"),
-    productPageUrl: optionalUrl("Product page URL"),
+      .min(1, "Description is required"),
+    productPageUrl: optionalUrl("Page URL"),
     productImageKey: z.string().trim().optional(),
-    productImageUrl: optionalUrl("Product image URL"),
+    productImageUrl: optionalUrl("Image URL"),
+    isProduct: z.boolean().optional(),
     willShipPhysicalProductToCreator: z.boolean().optional(),
     shootLocationKind: z.enum(shootLocationKinds).optional(),
     shootLocationAddress: z.string().trim().optional(),
@@ -255,14 +257,13 @@ const createBriefSchema = z
     finalNotes: z.string().trim().optional(),
   })
   .superRefine((values, ctx) => {
-    if (
-      values.willShipPhysicalProductToCreator &&
-      !values.productImageKey?.trim()
-    ) {
+    const isProduct = values.isProduct ?? true;
+
+    if (isProduct && !values.productImageKey?.trim()) {
       ctx.addIssue({
         code: "custom",
         path: ["productImageKey"],
-        message: "Product image is required when shipping a physical product",
+        message: "Product image is required for product briefs",
       });
     }
 
@@ -292,6 +293,7 @@ const createBriefDefaultValues: CreateBriefValues = {
   productPageUrl: "",
   productImageKey: "",
   productImageUrl: "",
+  isProduct: true,
   willShipPhysicalProductToCreator: false,
   shootLocationAddress: "",
   contentType: [],
@@ -319,7 +321,9 @@ function toReferenceLinks(value: string | undefined) {
 function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
   const referenceLinks = toReferenceLinks(values.referenceLinks);
   const scriptText = optionalString(values.scriptText);
-  const shipsPhysical = values.willShipPhysicalProductToCreator ?? false;
+  const isProduct = values.isProduct ?? true;
+  const shipsPhysical =
+    isProduct && (values.willShipPhysicalProductToCreator ?? false);
   const productImageKey = values.productImageKey?.trim();
 
   return {
@@ -335,7 +339,8 @@ function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
     productName: optionalString(values.productName),
     productDescription: optionalString(values.productDescription),
     productPageUrl: optionalString(values.productPageUrl),
-    ...(shipsPhysical && productImageKey ? { productImageKey } : {}),
+    isProduct,
+    ...(isProduct && productImageKey ? { productImageKey } : {}),
     willShipPhysicalProductToCreator: shipsPhysical,
     shootLocationKind: values.shootLocationKind as
       | BriefShootLocationKind
@@ -489,6 +494,12 @@ function CreateBriefPageContent() {
     control: form.control,
     name: "willShipPhysicalProductToCreator",
   });
+  const watchIsProduct = useWatch({
+    control: form.control,
+    name: "isProduct",
+  });
+  const isProductBrief = watchIsProduct ?? true;
+  const offerLabels = getBriefOfferLabels(isProductBrief);
   const watchPronunciationAudioUrl = useWatch({
     control: form.control,
     name: "brandPronunciationAudioUrl",
@@ -695,6 +706,7 @@ function CreateBriefPageContent() {
       form.setValue("productName", brief.productName ?? "", opts);
       form.setValue("productDescription", brief.productDescription ?? "", opts);
       form.setValue("productPageUrl", brief.productPageUrl ?? "", opts);
+      form.setValue("isProduct", brief.isProduct ?? true, opts);
       form.setValue(
         "willShipPhysicalProductToCreator",
         brief.willShipPhysicalProductToCreator ?? false,
@@ -796,9 +808,40 @@ function CreateBriefPageContent() {
                 <div className={styles.formSection}>
                   <div className={styles.formSectionTitle}>
                     <span className={styles.formSectionNum}>1</span>
-                    Product Details
+                    {offerLabels.sectionTitle}
                   </div>
                   <div className="space-y-6">
+                  <div className={styles.productTypeRow}>
+                    <div className="min-w-0">
+                      <Label
+                        htmlFor="isProduct"
+                        className={styles.productTypeRowLabel}
+                      >
+                        Is this a product brief?
+                      </Label>
+                      <p className={styles.productTypeRowHint}>
+                        Turn off for service campaigns (e.g. app demo, salon
+                        visit). Product image is required when this is on.
+                      </p>
+                    </div>
+                    <Switch
+                      id="isProduct"
+                      checked={isProductBrief}
+                      onCheckedChange={(checked) => {
+                        form.setValue("isProduct", checked, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                        if (!checked) {
+                          form.setValue("willShipPhysicalProductToCreator", false, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+                          handleRemoveProductImage();
+                        }
+                      }}
+                    />
+                  </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2 min-w-0">
                       <Label
@@ -824,7 +867,7 @@ function CreateBriefPageContent() {
                         htmlFor="productName"
                         className="text-xs font-semibold text-foreground/80"
                       >
-                        Product Name <span className="text-destructive">*</span>
+                        {offerLabels.name} <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="productName"
@@ -882,6 +925,7 @@ function CreateBriefPageContent() {
                     </div>
                   </div>
 
+                  {isProductBrief ? (
                   <div className={styles.productTypeRow}>
                     <div className="min-w-0">
                       <Label
@@ -891,8 +935,7 @@ function CreateBriefPageContent() {
                         Will you ship a physical product to the creator?
                       </Label>
                       <p className={styles.productTypeRowHint}>
-                        Enable if you&apos;ll send the product for the video. A
-                        product image is required when this is on.
+                        Enable if you&apos;ll send the product for the video.
                       </p>
                     </div>
                     <Switch
@@ -907,19 +950,17 @@ function CreateBriefPageContent() {
                             shouldValidate: true,
                           },
                         );
-                        if (!checked) {
-                          handleRemoveProductImage();
-                        }
                       }}
                     />
                   </div>
+                  ) : null}
 
                   <div className="space-y-2 min-w-0">
                     <Label
                       htmlFor="productPageUrl"
                       className="text-xs font-semibold text-foreground/80"
                     >
-                      Product URL{" "}
+                      {offerLabels.pageUrlOptional}{" "}
                       <span className="text-muted-foreground font-normal">
                         (optional)
                       </span>
@@ -938,12 +979,12 @@ function CreateBriefPageContent() {
                   </div>
 
                   <div className="space-y-3 min-w-0">
-                    {watchWillShip ? (
+                    {isProductBrief ? (
                       <>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
                         <Label className="text-xs font-semibold text-foreground/80">
-                          Product Image{" "}
+                          {offerLabels.image}{" "}
                           <span className="text-destructive">*</span>
                         </Label>
                         <p className="text-[11px] text-muted-foreground">
@@ -1042,7 +1083,7 @@ function CreateBriefPageContent() {
                       htmlFor="productDescription"
                       className="text-xs font-semibold text-foreground/80"
                     >
-                      Product Description{" "}
+                      {offerLabels.description}{" "}
                       <span className="text-destructive">*</span>
                     </Label>
                     <Textarea

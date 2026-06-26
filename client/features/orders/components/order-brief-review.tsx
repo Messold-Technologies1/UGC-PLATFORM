@@ -3,7 +3,6 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,7 +14,6 @@ import {
   FileText,
   ImageIcon,
   MapPin,
-  MessageSquare,
   Package,
   Sparkles,
   Truck,
@@ -35,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
+import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import { cn } from "@/lib/utils";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 import { useGetCreatorOrderDetailsQuery } from "@/features/orders/hooks/use-get-creator-order-details-query";
@@ -189,10 +188,6 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
     acceptBriefMutation.mutate({ orderId });
   }
 
-  function handleMessageBrand() {
-    toast.warning("Please accept the order first");
-  }
-
   if (isLoading) {
     return <BriefReviewSkeleton />;
   }
@@ -256,6 +251,8 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
 
   const brandLogoUrl = brief.brandLogo?.url ?? brand?.logoUrl;
   const productImageUrl = brief.productImage?.url;
+  const isProductBrief = brief.isProduct ?? true;
+  const offerLabels = getBriefOfferLabels(isProductBrief);
   const brandName = brief.brandName || brand?.brandName || "Brand";
   const pronunciationAudioUrl = brief.brandPronunciationAudio?.url;
   const scriptSummary = formatBriefScript(brief.script);
@@ -397,30 +394,30 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
           </SectionCard>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <SectionCard title="Product" icon={Package}>
+            <SectionCard title={offerLabels.reviewSectionTitle} icon={Package}>
               <div className="space-y-5">
-                {productImageUrl ? (
+                {isProductBrief && productImageUrl ? (
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      Product image
+                      {offerLabels.image}
                     </p>
                     <NextImage
                       src={productImageUrl}
-                      alt={brief.productName || "Product image"}
+                      alt={brief.productName || offerLabels.image}
                       width={120}
                       height={120}
                       className="size-[120px] rounded-xl border border-border/40 bg-muted/20 object-cover"
                       unoptimized
                     />
                   </div>
-                ) : (
-                  <BriefField label="Product image" />
-                )}
-                <BriefField label="Product name" value={brief.productName} />
+                ) : isProductBrief ? (
+                  <BriefField label={offerLabels.image} />
+                ) : null}
+                <BriefField label={offerLabels.name} value={brief.productName} />
                 {brief.productPageUrl ? (
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      Product page
+                      {offerLabels.pageLink}
                     </p>
                     <a
                       href={brief.productPageUrl}
@@ -428,19 +425,21 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm font-semibold text-pink hover:underline"
                     >
-                      View product
+                      {offerLabels.viewPage}
                       <ExternalLink className="size-3.5" />
                     </a>
                   </div>
                 ) : (
-                  <BriefField label="Product page" />
+                  <BriefField label={offerLabels.pageLink} />
                 )}
+                {isProductBrief ? (
                 <BriefField
                   label="Ship physical product"
                   value={
                     brief.willShipPhysicalProductToCreator ? "Yes" : "No"
                   }
                 />
+                ) : null}
                 <BriefField
                   label="Description"
                   value={brief.productDescription}
@@ -566,6 +565,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-semibold text-foreground">{statusLabel}</span>
                 </div>
+                {isProductBrief ? (
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Physical product</span>
                   <span className="inline-flex items-center gap-1 font-semibold text-foreground">
@@ -579,6 +579,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                     )}
                   </span>
                 </div>
+                ) : null}
                 {expectedAmount > 0 ? (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Est. payout</span>
@@ -608,15 +609,6 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                         Accept brief
                       </>
                     )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleMessageBrand}
-                    className="h-10 w-full rounded-xl border-border/50 font-semibold"
-                  >
-                    <MessageSquare className="size-4" />
-                    Message brand
                   </Button>
                 </>
               ) : (

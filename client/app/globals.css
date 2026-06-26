@@ -58,6 +58,15 @@ html {
   }
 }
 
+@keyframes spotlight-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 .nav-route-enter {
   animation: nav-route-enter 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -133,6 +142,7 @@ html {
   --shadow-hard: 6px 6px 0 rgb(24 19 19);
   --animate-float: marketing-float 6s ease-in-out infinite;
   --animate-float-delayed: marketing-float 7s ease-in-out 1s infinite;
+  --animate-spotlight-marquee: spotlight-marquee 28s linear infinite;
 }
 
 @utility bg-grain {
@@ -149,7 +159,8 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-float,
-  .animate-float-delayed {
+  .animate-float-delayed,
+  .animate-spotlight-marquee {
     animation: none;
   }
 }

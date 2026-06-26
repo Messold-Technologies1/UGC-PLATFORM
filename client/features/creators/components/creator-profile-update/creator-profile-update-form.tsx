@@ -6,6 +6,7 @@ import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 import { GoLiveBanner } from "./go-live-banner";
+import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import {
   computeGoLiveMissing,
   type GoLiveSnapshot,
@@ -745,9 +746,10 @@ function CreatorProfileUpdateFormContent({
         animate="visible"
         onSubmit={(event) => void handleSubmit(event)}
       >
-        {isSettings && !completeProfile ? (
-          <div className="mb-4">
-            <GoLiveBanner missing={goLiveMissing} />
+        {isSettings ? (
+          <div className="mb-4 space-y-4">
+            <CreatorSpotlightProgram />
+            {!completeProfile ? <GoLiveBanner missing={goLiveMissing} /> : null}
           </div>
         ) : null}
         {isSettings ? (

@@ -7,6 +7,10 @@ import { Check, Copy, FileVideo, Package, Truck, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 // import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 // import { OrderChatWidget } from "../order-chat-widget";

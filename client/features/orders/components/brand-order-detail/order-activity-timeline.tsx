@@ -37,6 +37,10 @@ function formatEventDate(value?: string | null) {
 
 function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
   const events: TimelineEvent[] = [];
+  const briefSubmitted =
+    Boolean(order.briefSubmittedAt) || order.hasBrief;
+  const awaitingBriefSubmission =
+    order.status === "BRIEF_SUBMISSION_PENDING" && !briefSubmitted;
 
   events.push({
     key: "payment",
@@ -49,17 +53,25 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
 
   events.push({
     key: "brief_submitted",
-    title: "Brief Submitted",
-    description: "You have submitted the brief for this project.",
+    title: briefSubmitted
+      ? "Brief Submitted"
+      : awaitingBriefSubmission
+        ? "Submit Your Brief"
+        : "Brief Submission",
+    description: briefSubmitted
+      ? "You submitted the brief for this project."
+      : awaitingBriefSubmission
+        ? "Submit your project brief so the creator can review and accept it."
+        : "Your brief will be shared with the creator for this project.",
     date: formatEventDate(order.briefSubmittedAt),
-    status: order.briefSubmittedAt
+    status: briefSubmitted
       ? "completed"
-      : order.status === "BRIEF_SUBMISSION_PENDING"
+      : awaitingBriefSubmission
         ? "active"
         : "pending",
-    color: order.briefSubmittedAt
+    color: briefSubmitted
       ? "green"
-      : order.status === "BRIEF_SUBMISSION_PENDING"
+      : awaitingBriefSubmission
         ? "orange"
         : "gray",
   });
@@ -68,7 +80,7 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
     key: "creator_acceptance",
     title: "Awaiting Creator Acceptance",
     description:
-      "Creator will review your brief and accept or decline the project.",
+      "The creator will review your brief and accept or decline the project.",
     date: formatEventDate(order.briefAcceptedAt),
     status: order.briefAcceptedAt
       ? "completed"
@@ -222,9 +234,13 @@ export function OrderActivityTimeline({ order }: OrderActivityTimelineProps) {
                     <span className="text-xs text-muted-foreground">
                       {event.date}
                     </span>
+                  ) : event.status === "active" ? (
+                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                      Current step
+                    </span>
                   ) : event.status === "pending" ? (
                     <span className="text-xs text-muted-foreground italic">
-                      Pending
+                      Up next
                     </span>
                   ) : null}
                 </div>

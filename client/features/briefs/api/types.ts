@@ -79,7 +79,7 @@ export type CreateBriefPayload = {
   productName?: string;
   productDescription?: string;
   productPageUrl?: string;
-  productImageKey: string;
+  productImageKey?: string;
   willShipPhysicalProductToCreator?: boolean;
   shootLocationKind?: BriefShootLocationKind;
   shootLocationAddress?: string;

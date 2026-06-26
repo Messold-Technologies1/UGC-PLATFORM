@@ -3,6 +3,7 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   AlertCircle,
   ArrowLeft,
@@ -39,6 +40,7 @@ import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 import { useGetCreatorOrderDetailsQuery } from "@/features/orders/hooks/use-get-creator-order-details-query";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "@/features/orders/hooks/use-accept-brief-mutation";
+import { getCreatorOrdersPageHref } from "@/features/orders/components/creator-order-detail/creator-orders-tabs";
 
 interface OrderBriefReviewProps {
   orderId: string;
@@ -163,7 +165,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   const { data: orderDetails } = useGetCreatorOrderDetailsQuery(orderId);
   const acceptBriefMutation = useAcceptBriefMutation({
     onSuccess: () => {
-      router.push("/creator/orders");
+      router.push(getCreatorOrdersPageHref(orderId, "BRIEF_ACCEPTED"));
     },
   });
 
@@ -171,6 +173,10 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   const isAccepted = Boolean(data?.briefAcceptedAt);
   const order = orderDetails?.order;
   const brand = orderDetails?.brand;
+  const ordersPageHref = getCreatorOrdersPageHref(
+    orderId,
+    isAccepted ? "BRIEF_ACCEPTED" : order?.status,
+  );
 
   const expectedAmount = order?.expectedAmountPaise
     ? order.expectedAmountPaise / 100
@@ -181,6 +187,10 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   function handleAcceptBrief() {
     if (!brief || isAccepted || acceptBriefMutation.isPending) return;
     acceptBriefMutation.mutate({ orderId });
+  }
+
+  function handleMessageBrand() {
+    toast.warning("Please accept the order first");
   }
 
   if (isLoading) {
@@ -204,7 +214,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                   "The order brief request did not return usable data."}
               </p>
               <Button asChild variant="outline" className="rounded-xl">
-                <Link href={`/creator/orders/${orderId}`}>
+                <Link href={getCreatorOrdersPageHref(orderId, order?.status)}>
                   <ArrowLeft className="size-4" />
                   Back to order
                 </Link>
@@ -232,7 +242,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                 The brand has not submitted a campaign brief for this order.
               </p>
               <Button asChild variant="outline" className="rounded-xl">
-                <Link href={`/creator/orders/${orderId}`}>
+                <Link href={getCreatorOrdersPageHref(orderId, order?.status)}>
                   <ArrowLeft className="size-4" />
                   Back to order
                 </Link>
@@ -245,6 +255,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   }
 
   const brandLogoUrl = brief.brandLogo?.url ?? brand?.logoUrl;
+  const productImageUrl = brief.productImage?.url;
   const brandName = brief.brandName || brand?.brandName || "Brand";
   const pronunciationAudioUrl = brief.brandPronunciationAudio?.url;
   const scriptSummary = formatBriefScript(brief.script);
@@ -262,7 +273,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
         variant="ghost"
         className="h-9 w-fit gap-2 rounded-lg px-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
       >
-        <Link href={`/creator/orders/${orderId}`}>
+        <Link href={ordersPageHref}>
           <ArrowLeft className="size-4" />
           Back to order
         </Link>
@@ -273,7 +284,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
           <div className="flex min-w-0 items-center gap-4">
             <Avatar className="size-12 shrink-0 rounded-lg border border-pink/20 bg-pink/10">
               <AvatarImage
-                src={brandLogoUrl || undefined}
+                src={productImageUrl || brandLogoUrl || undefined}
                 className="rounded-lg object-cover"
               />
               <AvatarFallback className="rounded-lg bg-transparent text-sm font-bold text-pink">
@@ -388,6 +399,23 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
           <div className="grid gap-6 lg:grid-cols-2">
             <SectionCard title="Product" icon={Package}>
               <div className="space-y-5">
+                {productImageUrl ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      Product image
+                    </p>
+                    <NextImage
+                      src={productImageUrl}
+                      alt={brief.productName || "Product image"}
+                      width={120}
+                      height={120}
+                      className="size-[120px] rounded-xl border border-border/40 bg-muted/20 object-cover"
+                      unoptimized
+                    />
+                  </div>
+                ) : (
+                  <BriefField label="Product image" />
+                )}
                 <BriefField label="Product name" value={brief.productName} />
                 {brief.productPageUrl ? (
                   <div className="space-y-1">
@@ -501,15 +529,28 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
             </CardHeader>
             <CardContent className="space-y-5 p-5">
               <div className="flex items-center gap-3">
-                <Avatar className="size-11 rounded-lg border border-pink/20 bg-pink/10">
-                  <AvatarImage
-                    src={brandLogoUrl || undefined}
-                    className="rounded-lg object-cover"
-                  />
-                  <AvatarFallback className="rounded-lg bg-transparent text-sm font-bold text-pink">
-                    {getInitials(brandName)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-pink/20 bg-pink/10">
+                  {productImageUrl ? (
+                    <NextImage
+                      src={productImageUrl}
+                      alt={brief.productName || "Product image"}
+                      width={44}
+                      height={44}
+                      className="size-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <Avatar className="size-full rounded-lg border-0">
+                      <AvatarImage
+                        src={brandLogoUrl || undefined}
+                        className="rounded-lg object-cover"
+                      />
+                      <AvatarFallback className="rounded-lg bg-transparent text-sm font-bold text-pink">
+                        {getInitials(brandName)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
                 <div className="min-w-0">
                   <p className="truncate font-bold text-foreground">{brandName}</p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -569,14 +610,13 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                     )}
                   </Button>
                   <Button
-                    asChild
+                    type="button"
                     variant="outline"
+                    onClick={handleMessageBrand}
                     className="h-10 w-full rounded-xl border-border/50 font-semibold"
                   >
-                    <Link href={`/creator/messages?orderId=${orderId}`}>
-                      <MessageSquare className="size-4" />
-                      Message brand
-                    </Link>
+                    <MessageSquare className="size-4" />
+                    Message brand
                   </Button>
                 </>
               ) : (
@@ -593,7 +633,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                     variant="outline"
                     className="mt-4 h-10 w-full rounded-xl"
                   >
-                    <Link href={`/creator/orders/${orderId}`}>Go to order</Link>
+                    <Link href={ordersPageHref}>Go to order</Link>
                   </Button>
                 </div>
               )}

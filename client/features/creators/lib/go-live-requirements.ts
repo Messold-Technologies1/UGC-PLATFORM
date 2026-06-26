@@ -59,7 +59,7 @@ export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
   const missing: string[] = [];
 
   if (!snapshot.hasPhoto) missing.push("Profile photo");
-  if (!snapshot.hasIntroVideo) missing.push("Intro reel");
+  if (!snapshot.hasIntroVideo) missing.push("Featured video");
 
   if (blank(snapshot.displayName)) missing.push("Display name");
   if (blank(snapshot.contactEmail)) missing.push("Contact email");

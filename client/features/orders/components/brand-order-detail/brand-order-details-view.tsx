@@ -359,7 +359,9 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
             brief={brief}
           />
 
-          <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+          {order.hasBrief && brief ? (
+            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+          ) : null}
 
           <OrderActivityTimeline order={order} />
         </div>

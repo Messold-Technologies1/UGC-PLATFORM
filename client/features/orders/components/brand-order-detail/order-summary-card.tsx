@@ -33,30 +33,29 @@ export function OrderSummaryCard({
   const totalAmount = order.expectedAmountPaise / 100;
  
 
-  const canEditBrief =
-    order.status === "BRIEF_SUBMISSION_PENDING" && !order.hasBrief;
+  const hasSubmittedBrief =
+    order.hasBrief || Boolean(order.briefSubmittedAt);
+  const resolvedBriefId = briefId ?? order.briefId ?? null;
 
   function handleEditBrief() {
-    if (canEditBrief) {
-      router.push(`/brand/briefs/create?orderId=${orderId}`);
-    } else if (briefId) {
-      router.push(`/brand/briefs/${briefId}`);
-    }
+    if (!resolvedBriefId) return;
+    router.push(`/brand/briefs/${resolvedBriefId}`);
   }
 
   return (
     <div className="rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <h3 className="text-lg font-bold text-foreground">Order Summary</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-lg text-sm font-medium"
-          onClick={handleEditBrief}
-          disabled={!canEditBrief && !briefId}
-        >
-          {canEditBrief ? "Edit Brief" : "View Brief"}
-        </Button>
+        {hasSubmittedBrief && resolvedBriefId ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-lg text-sm font-medium"
+            onClick={handleEditBrief}
+          >
+            Edit Brief
+          </Button>
+        ) : null}
       </div>
 
       <div className="px-6 pb-6">

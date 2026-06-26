@@ -685,9 +685,12 @@ export class OrdersService {
     if (!brief) {
       throw new NotFoundException('Brief not found for this brand');
     }
-    if (!brief.productImageKey?.trim()) {
+    if (
+      brief.willShipPhysicalProductToCreator &&
+      !brief.productImageKey?.trim()
+    ) {
       throw new BadRequestException(
-        'Brief must include a product image before it can be submitted to an order',
+        'Brief must include a product image before it can be submitted to an order when shipping a physical product',
       );
     }
 

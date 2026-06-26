@@ -169,7 +169,7 @@ interface CreatorOrdersDetailsPanelProps {
   selectedOrderId: string;
   selectedItem: any;
   onClose: () => void;
-  onTabChange: (tabId: string) => void;
+  onTabChange: (tabId: string, selectOrderId?: string) => void;
   activeTab: string;
 }
 
@@ -209,7 +209,7 @@ export function CreatorOrdersDetailsPanel({
         briefData={briefData}
         isLoading={isLoadingRightPanel}
         onClose={onClose}
-        onAccepted={() => onTabChange("active")}
+        onAccepted={() => onTabChange("active", selectedOrderId)}
       />
     );
   }

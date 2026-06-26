@@ -1,8 +1,7 @@
 "use client";
 
-import { Copy, Download } from "lucide-react";
+import { Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { OrderDetailsPublic } from "../../api/types";
 
@@ -63,11 +62,6 @@ export function OrderDetailsCard({ order }: OrderDetailsCardProps) {
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <dt className="text-muted-foreground">Payment Method</dt>
-          <dd className="font-medium text-foreground">UPI</dd>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
           <dt className="text-muted-foreground">Payment Status</dt>
           <dd>
             <Badge
@@ -83,15 +77,6 @@ export function OrderDetailsCard({ order }: OrderDetailsCardProps) {
           </dd>
         </div>
       </dl>
-
-      <Button
-        variant="outline"
-        className="w-full mt-5 rounded-lg text-sm font-medium"
-        disabled
-      >
-        <Download className="size-4" />
-        Download Invoice
-      </Button>
     </div>
   );
 }

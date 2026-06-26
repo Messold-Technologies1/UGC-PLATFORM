@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {  ApiPropertyOptional } from '@nestjs/swagger';
 import {
   BriefContentType,
   BriefDurationBucket,
@@ -62,13 +62,14 @@ export class CreateBriefDto {
   @IsUrl()
   productPageUrl?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'brief-product-temp/<userId>/<uuid>.png',
     description:
-      'Temporary S3 object key from POST /briefs/uploads/presign-product-image; finalized when the brief is created.',
+      'Temporary S3 object key from POST /briefs/uploads/presign-product-image; required when willShipPhysicalProductToCreator is true.',
   })
+  @IsOptional()
   @IsString()
-  productImageKey!: string;
+  productImageKey?: string;
 
   @ApiPropertyOptional({
     description:

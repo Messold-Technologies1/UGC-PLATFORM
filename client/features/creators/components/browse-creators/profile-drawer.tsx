@@ -25,9 +25,12 @@ import {
   Baby,
   PawPrint,
   User,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { creatorPublicProfilePathForProfile } from "@/features/creators/lib/creator-public-profile-url";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import type { Creator, AddOn } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
@@ -787,6 +790,10 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
 
   const verified = c.rating >= 4.8;
   const profileUrl = `/brand/creators?creatorId=${c.id}`;
+  const publicProfilePath = creatorPublicProfilePathForProfile({
+    publicSlug: profileApi?.publicSlug,
+    displayName: profileApi?.displayName ?? c.name,
+  });
 
   const showIntro = !!c.introVideoUrl && !introFailed;
 
@@ -915,19 +922,32 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             </div>
           </div>
           <div className="dr-tabs">
-            {TABS.map((t) => {
-              if (t.id === "reviews" && c.reviewCount === 0) return null;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={tab === t.id ? "on" : ""}
-                  onClick={() => setTab(t.id)}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
+            <div className="dr-tabs-list">
+              {TABS.map((t) => {
+                if (t.id === "reviews" && c.reviewCount === 0) return null;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={tab === t.id ? "on" : ""}
+                    onClick={() => setTab(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            {publicProfilePath ? (
+              <Link
+                href={publicProfilePath}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dr-tabs-profile-link"
+              >
+                View profile
+                <ExternalLink size={13} />
+              </Link>
+            ) : null}
           </div>
 
           {activeId && tab === "overview" && <OverviewTab profile={profile} />}

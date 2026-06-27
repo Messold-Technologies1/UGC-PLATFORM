@@ -20,6 +20,7 @@ import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import type { CreateBriefPayload } from "@/features/briefs/api/types";
+import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import {
   presignBriefProductImageUpload,
   putProductImageToPresignedUrl,
@@ -32,17 +33,28 @@ const supportedProductImageTypes = new Set([
   "image/webp",
 ]);
 
-const briefFormSchema = z.object({
-  brandName: z.string().trim().min(1, "Brand name is required"),
-  productService: z.string().trim().min(1, "Product or service is required"),
-  productImageKey: z.string().trim().min(1, "Product image is required"),
-  productImageUrl: z.string().trim(),
-  industry: z.string().trim(),
-  instructions: z.string().trim().min(1, "Script or instructions are required"),
-  onLocationFilming: z.boolean(),
-  links: z.string(),
-  notes: z.string(),
-});
+const briefFormSchema = z
+  .object({
+    brandName: z.string().trim().min(1, "Brand name is required"),
+    isProduct: z.boolean(),
+    productService: z.string().trim().min(1, "Name is required"),
+    productImageKey: z.string().trim().optional(),
+    productImageUrl: z.string().trim(),
+    industry: z.string().trim(),
+    instructions: z.string().trim().min(1, "Script or instructions are required"),
+    onLocationFilming: z.boolean(),
+    links: z.string(),
+    notes: z.string(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.isProduct && !values.productImageKey?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["productImageKey"],
+        message: "Product image is required for product briefs",
+      });
+    }
+  });
 
 type BriefFormValues = z.infer<typeof briefFormSchema>;
 
@@ -62,11 +74,15 @@ function toBriefPayload(values: BriefFormValues): CreateBriefPayload {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const isProduct = values.isProduct;
 
   return {
     brandName: values.brandName.trim(),
+    isProduct,
     productName: values.productService.trim(),
-    productImageKey: values.productImageKey.trim(),
+    ...(isProduct && values.productImageKey?.trim()
+      ? { productImageKey: values.productImageKey.trim() }
+      : {}),
     industry: values.industry.trim() || undefined,
     productDescription: values.instructions.trim(),
     shootLocationKind: values.onLocationFilming
@@ -79,6 +95,7 @@ function toBriefPayload(values: BriefFormValues): CreateBriefPayload {
       text: values.instructions.trim(),
     },
     finalNotes: values.notes.trim() || undefined,
+    willShipPhysicalProductToCreator: false,
   };
 }
 
@@ -119,6 +136,7 @@ export function BriefForm({
       const brf = briefData.brief as BriefPayload;
       return {
         brandName: brf.brandName || "",
+        isProduct: (brf as { isProduct?: boolean }).isProduct ?? true,
         productService: brf.productService || brf.productName || "",
         productImageKey: brf.productImageKey?.startsWith("brief-product-temp/")
           ? brf.productImageKey
@@ -134,6 +152,7 @@ export function BriefForm({
     }
     return {
       brandName: "",
+      isProduct: true,
       productService: "",
       productImageKey: "",
       productImageUrl: "",
@@ -187,6 +206,11 @@ export function BriefForm({
     control: form.control,
     name: "onLocationFilming",
   });
+  const isProduct = useWatch({
+    control: form.control,
+    name: "isProduct",
+  });
+  const offerLabels = getBriefOfferLabels(isProduct ?? true);
   const productImageUrl = useWatch({
     control: form.control,
     name: "productImageUrl",
@@ -285,12 +309,36 @@ export function BriefForm({
         ) : null}
       </div>
 
+      <div className="flex flex-row items-center justify-between rounded-lg border border-border/40 bg-background/50 p-4 shadow-none">
+        <div className="space-y-0.5">
+          <Label className="text-[11px] font-bold text-foreground tracking-wide">
+            Product brief
+          </Label>
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            Turn off for service campaigns. Product image is required when on.
+          </p>
+        </div>
+        <Switch
+          checked={isProduct ?? true}
+          onCheckedChange={(checked) => {
+            form.setValue("isProduct", checked, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+            if (!checked) {
+              handleRemoveProductImage();
+            }
+          }}
+          disabled={readOnly || isSubmitting}
+        />
+      </div>
+
       <div className="space-y-2">
         <Label
           htmlFor="productService"
           className="text-[11px] font-bold text-foreground tracking-wide"
         >
-          Product / service
+          {offerLabels.name}
         </Label>
         <Input
           id="productService"
@@ -307,11 +355,12 @@ export function BriefForm({
         ) : null}
       </div>
 
+      {(isProduct ?? true) ? (
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-0.5">
             <Label className="text-[11px] font-bold text-foreground tracking-wide">
-              Product image
+              {offerLabels.image}
             </Label>
             <p className="text-[10px] text-muted-foreground leading-tight">
               JPG, PNG, or WebP image creators can reference.
@@ -390,6 +439,7 @@ export function BriefForm({
           </p>
         ) : null}
       </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label

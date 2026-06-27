@@ -49,6 +49,13 @@ export class BriefDto {
 
   @ApiProperty({
     description:
+      'When true, brief is for a product (image required). When false, service brief.',
+    default: true,
+  })
+  isProduct!: boolean;
+
+  @ApiProperty({
+    description:
       'Whether the brand will physically ship a product to the creator for this campaign',
     default: false,
   })

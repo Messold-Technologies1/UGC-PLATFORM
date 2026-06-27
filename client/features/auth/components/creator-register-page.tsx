@@ -6,7 +6,7 @@ import { CreatorRegisterForm } from "./creator-register-form";
 
 export function CreatorRegisterPage() {
   return (
-    <div className="grid h-dvh overflow-hidden lg:grid-cols-[47.5%_52.5%] box-border">
+    <div className="grid min-h-dvh lg:h-dvh lg:overflow-hidden lg:grid-cols-[47.5%_52.5%] box-border">
       <div
         className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 lg:flex"
         style={{
@@ -176,11 +176,20 @@ export function CreatorRegisterPage() {
         </div>
       </div>
 
-      <div className="flex flex-col h-dvh bg-[#fdfcfb] dark:bg-slate-950 overflow-hidden">
-        <div className="lg:hidden px-6 pt-4 pb-2">
-          <AuthLogoLink imageClassName="h-16" />
+      <div className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
+        <div className="shrink-0 border-b border-pink-100/80 px-4 pb-4 pt-4 dark:border-slate-800 lg:hidden">
+          <AuthLogoLink imageClassName="h-14 sm:h-16" />
+          <p className="mt-3 text-base font-bold leading-snug text-slate-900">
+            Get booked by brands.{" "}
+            <span className="text-[#ef3e51]">Stop chasing DMs.</span>
+          </p>
+          <p className="mt-1.5 text-sm text-slate-600">
+            Set your rates, showcase your work, and get discovered by D2C brands.
+          </p>
         </div>
-        <CreatorRegisterForm />
+        <div className="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
+          <CreatorRegisterForm />
+        </div>
       </div>
     </div>
   );

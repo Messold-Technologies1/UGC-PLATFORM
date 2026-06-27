@@ -601,16 +601,16 @@ export function CreatorRegisterForm() {
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex h-full flex-col bg-[#fdfcfb] dark:bg-slate-950"
+      className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:min-h-0 lg:h-full"
     >
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] py-4 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+      <div className="shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
               Create your creator profile
             </h1>
           </div>
-          <div className="flex flex-col items-end gap-2 text-sm">
+          <div className="flex flex-col items-start gap-2 text-sm sm:items-end">
             <p className="text-slate-500">
               Already a creator?{" "}
               <Link
@@ -624,7 +624,7 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+      <div className="px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
@@ -657,7 +657,7 @@ export function CreatorRegisterForm() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div className="space-y-1">
                   <Label
                     htmlFor="age"
@@ -712,7 +712,7 @@ export function CreatorRegisterForm() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label
                   htmlFor="country"
@@ -897,15 +897,15 @@ export function CreatorRegisterForm() {
                         </p>
                       ) : null}
                       {activeOtpPhone ? (
-                        <div className="mt-[10px] flex items-center justify-between gap-[10px] rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-[12px] py-[10px] dark:border-red-500/20 dark:bg-red-500/10">
-                          <div className="flex items-center gap-5">
+                        <div className="mt-[10px] overflow-x-auto rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-3 py-2.5 dark:border-red-500/20 dark:bg-red-500/10 sm:px-[12px] sm:py-[10px]">
+                          <div className="flex min-w-max flex-col gap-3 sm:min-w-0 sm:flex-row sm:items-center sm:justify-between sm:gap-[10px]">
                             <Label
                               htmlFor="creator-signup-phone-otp"
                               className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
                             >
                               Enter OTP
                             </Label>
-                            <div className="relative flex items-center gap-2 group">
+                            <div className="relative flex items-center gap-1.5 group sm:gap-2">
                               <style>{`
                             @keyframes otp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
                           `}</style>
@@ -934,7 +934,7 @@ export function CreatorRegisterForm() {
                                   <div
                                     key={i}
                                     className={cn(
-                                      "relative flex size-[42px] items-center justify-center rounded-xl border bg-white text-[20px] font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors dark:bg-slate-900",
+                                      "relative flex size-9 items-center justify-center rounded-xl border bg-white text-lg font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors sm:size-[42px] sm:text-[20px] dark:bg-slate-900",
                                       char
                                         ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
                                         : "border-slate-200 text-transparent dark:border-slate-800",
@@ -1109,7 +1109,7 @@ export function CreatorRegisterForm() {
                   </p>
                 </div>
 
-                <div className="flex gap-2 rounded-lg bg-slate-100 p-1 w-fit dark:bg-slate-900">
+                <div className="flex w-full gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900 sm:w-fit">
                   <button
                     type="button"
                     disabled={pendingAny}
@@ -1119,7 +1119,7 @@ export function CreatorRegisterForm() {
                       form.clearErrors("driveLink");
                     }}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-60",
+                      "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 sm:flex-none sm:px-4",
                       portfolioInputMode === "upload"
                         ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
                         : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
@@ -1136,7 +1136,7 @@ export function CreatorRegisterForm() {
                       setPortfolioVideoError(null);
                     }}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-60",
+                      "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 sm:flex-none sm:px-4",
                       portfolioInputMode === "drive"
                         ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
                         : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
@@ -1194,7 +1194,7 @@ export function CreatorRegisterForm() {
                   }}
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
-                    "flex items-center gap-4 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-6 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer",
+                    "flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-4 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer sm:flex-row sm:items-center sm:gap-4 sm:px-6",
                     portfolioVideoError
                       ? "border-red-300"
                       : "border-slate-200 hover:bg-slate-50 hover:border-[#ef3e51] dark:border-slate-800 dark:hover:border-[#ef3e51]",
@@ -1216,7 +1216,7 @@ export function CreatorRegisterForm() {
                     <Video className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[15px] font-bold text-slate-900 dark:text-white">
+                    <p className="text-sm font-bold text-slate-900 sm:text-[15px] dark:text-white">
                       Drop your reels here, or{" "}
                       <span className="text-[#ef3e51] hover:text-[#d93849] underline decoration-[#ef3e51] underline-offset-2">
                         browse
@@ -1238,7 +1238,7 @@ export function CreatorRegisterForm() {
                     {portfolioVideoFiles.map((file, index) => (
                       <div
                         key={`${file.name}-${index}`}
-                        className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950"
+                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
                       >
                         <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ef3e51] to-[#8b5cf6] text-white">
                           {portfolioVideoStatus === "uploading" ? (
@@ -1248,7 +1248,7 @@ export function CreatorRegisterForm() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16px] font-bold text-slate-900 truncate dark:text-white">
+                          <p className="text-sm font-bold text-slate-900 truncate dark:text-white sm:text-[16px]">
                             {file.name}
                           </p>
                           <p className="text-[13px] text-slate-500 mt-0.5">
@@ -1273,7 +1273,7 @@ export function CreatorRegisterForm() {
                               setPortfolioVideoError(null);
                             }
                           }}
-                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 ml-2"
+                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 sm:ml-2 self-end sm:self-auto"
                         >
                           <X className="size-4" />
                         </button>
@@ -1454,7 +1454,7 @@ export function CreatorRegisterForm() {
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
                 <Label
                   htmlFor="password"
                   className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
@@ -1462,7 +1462,7 @@ export function CreatorRegisterForm() {
                   Password <span className="text-red-500">*</span>
                 </Label>
                 <span className="text-[11px] text-slate-400">
-                  · min 8 chars, mix letters + numbers + symbol
+                  min 8 chars, mix letters + numbers + symbol
                 </span>
               </div>
               <div className="relative">
@@ -1495,7 +1495,7 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] py-5 px-6 md:px-8 dark:border-slate-800 dark:bg-slate-950">
+      <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start space-x-3">
           <Checkbox
             id="terms"
@@ -1542,12 +1542,12 @@ export function CreatorRegisterForm() {
               Still needed: {signupBlockers.join(" · ")}
             </p>
           ) : null}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
             <Button
               type="submit"
               disabled={!isSignupComplete || pendingSubmit}
               className={cn(
-                "h-11 flex-1 rounded-full text-[15px] font-bold transition-colors",
+                "h-11 w-full rounded-full text-[15px] font-bold transition-colors sm:flex-1",
                 isSignupComplete
                   ? "bg-[#ef3e51] text-white hover:bg-[#d63647] disabled:opacity-70 dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
                   : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
@@ -1563,7 +1563,7 @@ export function CreatorRegisterForm() {
               )}
             </Button>
 
-          <div className="text-right text-[11px] text-[#8B8489] leading-tight">
+          <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight sm:w-auto sm:shrink-0 sm:text-right">
             Hiring instead? <br />
             <Link
               href="/register/brand"

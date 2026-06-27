@@ -54,6 +54,11 @@ export const metadata: Metadata = {
     description:
       "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   },
+  icons: {
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

@@ -58,12 +58,35 @@ html {
   }
 }
 
+@keyframes spotlight-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.spotlight-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: spotlight-marquee 32s linear infinite;
+  will-change: transform;
+}
+
 .nav-route-enter {
   animation: nav-route-enter 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .nav-route-enter {
+    animation: none;
+  }
+
+  .spotlight-marquee-track,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-spotlight-marquee {
     animation: none;
   }
 }
@@ -133,6 +156,7 @@ html {
   --shadow-hard: 6px 6px 0 rgb(24 19 19);
   --animate-float: marketing-float 6s ease-in-out infinite;
   --animate-float-delayed: marketing-float 7s ease-in-out 1s infinite;
+  --animate-spotlight-marquee: spotlight-marquee 28s linear infinite;
 }
 
 @utility bg-grain {
@@ -145,13 +169,6 @@ html {
 
 @utility text-balance {
   text-wrap: balance;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-float,
-  .animate-float-delayed {
-    animation: none;
-  }
 }
 
 @layer base {

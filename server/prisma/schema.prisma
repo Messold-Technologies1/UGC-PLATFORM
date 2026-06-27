@@ -568,12 +568,15 @@ model Brief {
   brandLogoKey               String?
   brandLogoUrl               String?
 
-  /// Product
+  /// Product / service (UI labels follow isProduct; columns reused for both)
   productName        String?
   productDescription String?
   productPageUrl     String?
   productImageKey    String?
   productImageUrl    String?
+
+  /// When true, brief is for a physical/digital product (image required). When false, service brief.
+  isProduct Boolean @default(true)
 
   /// Logistics: brand will mail / courier a physical item to the creator for the shoot
   willShipPhysicalProductToCreator Boolean @default(false)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useMemo, useEffect } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { isAxiosError } from "axios";
 import {
   Image as ImageIcon,
@@ -82,9 +82,15 @@ export function CreatorPortfolioManager() {
   const [selectedSort, setSelectedSort] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(6);
 
-  useEffect(() => {
+  const handleCategoryChange = useCallback((value: string) => {
+    setSelectedCategory(value);
     setVisibleCount(6);
-  }, [selectedCategory, selectedSort]);
+  }, []);
+
+  const handleSortChange = useCallback((value: string) => {
+    setSelectedSort(value);
+    setVisibleCount(6);
+  }, []);
 
   const deletePortfolioVideoMutation = useDeletePortfolioVideoMutation();
   const videosQuery = useMyPortfolioVideosQuery({
@@ -92,7 +98,7 @@ export function CreatorPortfolioManager() {
   });
   const profileQuery = useCreatorProfileMeQuery();
 
-  const videos = videosQuery.data ?? [];
+  const videos = useMemo(() => videosQuery.data ?? [], [videosQuery.data]);
   const loading = videosQuery.isPending;
   const publicProfileDisplayUrl = profileQuery.data
     ? creatorPublicProfileDisplayUrlForProfile(profileQuery.data)
@@ -265,8 +271,8 @@ export function CreatorPortfolioManager() {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <Button asChild className="gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto sm:shrink-0">
+              <Button asChild className="gap-2 flex-1 sm:flex-none">
                 <Link
                   href="/creator/portfolio/upload"
                   data-tour="creator-portfolio-upload"
@@ -275,11 +281,18 @@ export function CreatorPortfolioManager() {
                   Add New Work
                 </Link>
               </Button>
-              <Button variant="outline" className="gap-2 bg-background">
+              <Button
+                variant="outline"
+                className="gap-2 bg-background flex-1 sm:flex-none"
+              >
                 <Settings className="size-4" />
                 Manage Sections
               </Button>
-              <Button variant="outline" className="gap-2 bg-background" asChild>
+              <Button
+                variant="outline"
+                className="gap-2 bg-background basis-full sm:basis-auto"
+                asChild
+              >
                 <Link
                   href={publicProfilePath ?? "#"}
                   target="_blank"
@@ -308,23 +321,24 @@ export function CreatorPortfolioManager() {
                     Organize your portfolio in sections
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Sections help brands find the type of content they're
+                    Sections help brands find the type of content they&apos;re
                     looking for easily.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2 bg-background border-primary/20 text-primary hover:bg-primary/10 hover:text-primary w-full sm:w-auto"
+                  className="gap-2 bg-background border-primary/20 text-primary hover:bg-primary/10 hover:text-primary flex-1 sm:flex-none sm:w-auto"
                 >
                   <Plus className="size-3.5" />
                   Create Section
                 </Button>
                 <button
                   onClick={() => setShowBanner(false)}
-                  className="text-muted-foreground hover:text-foreground hidden sm:block"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Dismiss"
                 >
                   <X className="size-5" />
                 </button>
@@ -336,7 +350,7 @@ export function CreatorPortfolioManager() {
             <div className="flex flex-wrap items-center gap-3">
               <Select
                 value={selectedCategory}
-                onValueChange={setSelectedCategory}
+                onValueChange={handleCategoryChange}
               >
                 <SelectTrigger className="w-[140px] bg-background">
                   <SelectValue placeholder="All Categories" />
@@ -351,7 +365,7 @@ export function CreatorPortfolioManager() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedSort} onValueChange={setSelectedSort}>
+              <Select value={selectedSort} onValueChange={handleSortChange}>
                 <SelectTrigger className="w-[130px] bg-background">
                   <SelectValue placeholder="Newest First" />
                 </SelectTrigger>
@@ -395,22 +409,6 @@ export function CreatorPortfolioManager() {
                   data-tour="creator-portfolio-cards"
                 >
                   {displayedVideos.slice(0, visibleCount).map((v, index) => {
-                    const cardTitle =
-                      v.description?.trim() || "Portfolio video";
-                    const createdLabel = new Date(
-                      v.createdAt,
-                    ).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    });
-                    const industryName =
-                      v.industryLabel?.trim() || "Brand Work";
-                    const fallbackInitials = industryName
-                      .substring(0, 2)
-                      .toUpperCase();
-                    const tagDisplay = v.tags?.[0]?.trim() || "UGC Video";
-
                     const updateDuration = (video: HTMLVideoElement | null) => {
                       if (video && video.duration && isFinite(video.duration)) {
                         const minutes = Math.floor(video.duration / 60);
@@ -607,7 +605,7 @@ export function CreatorPortfolioManager() {
                   Add More
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[70vw] max-w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[94vw] max-w-[94vw] sm:w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
                 <DialogTitle className="sr-only">Add New Work</DialogTitle>
                 <CreatorPortfolioUploadForm
                   isOverlay

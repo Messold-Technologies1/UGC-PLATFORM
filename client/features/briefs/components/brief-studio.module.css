@@ -1,5 +1,6 @@
 .studio,
-.briefCard {
+.briefCard,
+.briefsDrawer {
   --bs-font-heading: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --bs-lime: #c6ff3d;
   --bs-grape: #8b5cf6;
@@ -434,10 +435,101 @@
   }
 }
 
-@media (max-width: 1024px) {
+.panelHeadActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.briefsMenuBtn {
+  position: relative;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
+  background: #fff;
+  color: var(--foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.14s,
+    color 0.14s,
+    border-color 0.14s;
+}
+
+.briefsMenuBtn:hover {
+  background: var(--muted);
+  border-color: color-mix(in oklab, var(--primary) 22%, var(--border));
+}
+
+.briefsMenuBtnBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--bs-grape);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  line-height: 1;
+}
+
+.briefsDrawer {
+  height: 100%;
+}
+
+.briefsDrawer .panelBody {
+  min-height: 0;
+}
+
+.briefsDrawerClose {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 0;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.14s,
+    color 0.14s;
+}
+
+.briefsDrawerClose:hover {
+  background: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
+  color: var(--foreground);
+}
+
+@media (max-width: 767px) {
   .studio {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
     padding-bottom: 40px;
+  }
+
+  .rightPanel {
+    display: none;
+  }
+
+  .briefsMenuBtn {
+    display: inline-flex;
   }
 
   .panel {
@@ -482,7 +574,8 @@
 @media (prefers-reduced-motion: reduce) {
   .briefCard,
   .useTemplateBtn,
-  .panelHeadAction {
+  .panelHeadAction,
+  .briefsMenuBtn {
     transition-duration: 0.01ms !important;
   }
 }

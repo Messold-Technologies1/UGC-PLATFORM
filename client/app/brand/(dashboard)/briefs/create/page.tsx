@@ -68,7 +68,10 @@ import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import { useBriefFieldOptionsQuery } from "@/features/briefs/hooks/use-brief-field-options-query";
 
 import { PaymentSuccessBanner } from "@/features/briefs/components/payment-success-banner";
-import { ExistingBriefsSidebar } from "@/features/briefs/components/existing-briefs-sidebar";
+import {
+  ExistingBriefsSidebar,
+  BriefsDrawerButton,
+} from "@/features/briefs/components/existing-briefs-sidebar";
 import styles from "@/features/briefs/components/brief-studio.module.css";
 
 const shootLocationKinds = [
@@ -791,16 +794,19 @@ function CreateBriefPageContent() {
                   {watchProductName?.trim() || "Untitled brief"} · draft
                 </div>
               </div>
-              <button
-                type="button"
-                className={styles.panelHeadAction}
-                onClick={() => {
-                  form.reset(createBriefDefaultValues);
-                  toast.info("Form cleared");
-                }}
-              >
-                Clear
-              </button>
+              <div className={styles.panelHeadActions}>
+                <BriefsDrawerButton onUseTemplate={applyTemplate} />
+                <button
+                  type="button"
+                  className={styles.panelHeadAction}
+                  onClick={() => {
+                    form.reset(createBriefDefaultValues);
+                    toast.info("Form cleared");
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
             </div>
 
             <div className={styles.panelBody}>
@@ -842,7 +848,7 @@ function CreateBriefPageContent() {
                       }}
                     />
                   </div>
-                  <div className="grid gap-6 md:grid-cols-2">
+                  <div className="grid gap-6 lg:grid-cols-2">
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="brandName"
@@ -883,7 +889,7 @@ function CreateBriefPageContent() {
                     </div>
                   </div>
 
-                  <div className="grid gap-6 md:grid-cols-2">
+                  <div className="grid gap-6 lg:grid-cols-2">
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="industry"
@@ -1146,7 +1152,7 @@ function CreateBriefPageContent() {
                     Select all that apply
                   </p>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                     {fieldOptions.contentTypes.map((contentType) => {
                       const isSelected =
                         watchContentTypes.includes(contentType);
@@ -1192,7 +1198,7 @@ function CreateBriefPageContent() {
                     </p>
                   )}
 
-                  <div className="grid gap-6 md:grid-cols-2 pt-2">
+                  <div className="grid gap-6 lg:grid-cols-2 pt-2">
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="durationBucket"
@@ -1451,7 +1457,7 @@ function CreateBriefPageContent() {
                     How would you like the script for this video?
                   </p>
 
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 lg:grid-cols-3">
                     {scriptOptions.map((opt) => (
                       <div
                         key={opt.id}

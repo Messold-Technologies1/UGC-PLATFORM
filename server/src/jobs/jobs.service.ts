@@ -24,17 +24,54 @@ export class JobsService {
 
   /**
    * Safety net for the watermark pipeline: re-drive any delivery still stuck in
-   * `pending`/`failed` (dropped enqueue, worker crash, Redis blip). The DB is
-   * the source of truth, so a missed job means slower processing — never lost
-   * processing.
+   * `pending`/`failed` (dropped enqueue, worker crash, Redis blip). Also runs
+   * direct processing when BullMQ jobs sit in `wait` with no active consumer.
    */
-  @Cron('*/5 * * * *') // every 5 minutes
-  async reconcileWatermarks(): Promise<void> {
+  @Cron('*/30 * * * * *') // every 30 seconds
+  async processStuckWatermarks(): Promise<void> {
     if (this.reconcileRunning) return;
     this.reconcileRunning = true;
 
     try {
-      const staleBefore = new Date(Date.now() - 10 * 60_000); // 10 minutes old
+      const staleBefore = new Date(Date.now() - 60_000); // 1 minute old
+      const stuck = await this.prisma.orderDelivery.findMany({
+        where: {
+          previewStatus: { in: ['pending', 'failed'] },
+          createdAt: { lte: staleBefore },
+          order: { acceptedAt: null },
+        },
+        select: { id: true },
+        take: 5,
+      });
+
+      if (stuck.length === 0) return;
+
+      this.logger.log(`watermark_poller processing=${stuck.length}`);
+      for (const d of stuck) {
+        try {
+          await this.watermarkQueue.processDeliveryDirect(d.id, 'poller');
+        } catch {
+          // logged inside processDeliveryDirect; next tick retries
+        }
+      }
+    } catch (err) {
+      if (isPrismaPoolTimeout(err)) {
+        this.logger.warn(
+          'watermark_poller skipped: database connection pool busy (will retry)',
+        );
+        return;
+      }
+      throw err;
+    } finally {
+      this.reconcileRunning = false;
+    }
+  }
+
+  /** Re-enqueue very old stuck deliveries (belt-and-suspenders with poller). */
+  @Cron('*/5 * * * *') // every 5 minutes
+  async reconcileWatermarks(): Promise<void> {
+    try {
+      const staleBefore = new Date(Date.now() - 10 * 60_000);
       const stuck = await this.prisma.orderDelivery.findMany({
         where: {
           previewStatus: { in: ['pending', 'failed'] },
@@ -59,8 +96,6 @@ export class JobsService {
         return;
       }
       throw err;
-    } finally {
-      this.reconcileRunning = false;
     }
   }
 

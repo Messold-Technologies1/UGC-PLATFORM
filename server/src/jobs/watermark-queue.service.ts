@@ -5,12 +5,14 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, Worker, type ConnectionOptions } from 'bullmq';
-import { Redis } from 'ioredis';
+import { Queue, Worker } from 'bullmq';
 import { WatermarkService } from '../watermark/watermark.service';
+import { buildBullmqConnection } from './bullmq-redis.connection';
 
 const QUEUE_NAME = 'delivery-watermark';
 const JOB_NAME = 'watermark-delivery';
+/** If a queued job is still waiting after this, run a direct background pass. */
+const WATCHDOG_MS = 15_000;
 
 interface WatermarkJobData {
   deliveryId: string;
@@ -20,10 +22,9 @@ interface WatermarkJobData {
  * Owns the BullMQ queue + worker for delivery watermarking.
  *
  * - When REDIS_URL is configured (production), jobs are enqueued to Redis and
- *   processed by the in-process BullMQ worker only — never inline on the API
- *   thread. Failed enqueues are left for the reconcile cron to re-drive.
- * - When REDIS_URL is absent (local dev), watermarking runs inline so the
- *   feature works without Redis.
+ *   processed by the in-process BullMQ worker. A watchdog + reconcile poller
+ *   process stuck deliveries directly when the worker fails to consume.
+ * - When REDIS_URL is absent (local dev), watermarking runs inline.
  */
 @Injectable()
 export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
@@ -32,11 +33,10 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly redisUrl: string | undefined;
   private queue: Queue | null = null;
   private worker: Worker<WatermarkJobData> | null = null;
-  private queueConnection: Redis | null = null;
-  private workerConnection: Redis | null = null;
-  /** Limits concurrent inline runs so Prisma pool isn't exhausted without Redis. */
+  /** Limits concurrent direct / inline runs so Prisma pool isn't exhausted. */
   private inlineActive = 0;
   private readonly inlineWaiters: Array<() => void> = [];
+  private readonly processing = new Set<string>();
 
   constructor(
     private readonly config: ConfigService,
@@ -44,30 +44,6 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   ) {
     this.enabled = config.get<string>('WATERMARK_ENABLED', 'true') !== 'false';
     this.redisUrl = config.get<string>('REDIS_URL');
-  }
-
-  /**
-   * A dedicated ioredis connection. BullMQ workers issue blocking commands, so
-   * the queue and the worker MUST NOT share a connection, and every connection
-   * must use `maxRetriesPerRequest: null` — otherwise the blocking client can
-   * silently stop polling after a reconnect and jobs pile up in `wait` with no
-   * error (the bug we hit on Railway Redis).
-   */
-  private createConnection(label: string): Redis {
-    const url = this.redisUrl as string;
-    const conn = new Redis(url, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      // Railway / Upstash use rediss:// — ioredis needs an explicit tls object.
-      ...(url.startsWith('rediss://') ? { tls: {} } : {}),
-    });
-    conn.on('error', (err) =>
-      this.logger.error(`watermark: redis ${label} error: ${err?.message}`),
-    );
-    conn.on('reconnecting', () =>
-      this.logger.warn(`watermark: redis ${label} reconnecting`),
-    );
-    return conn;
   }
 
   /** Reject if a promise hasn't settled within `ms`. */
@@ -102,12 +78,10 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    // Separate, dedicated connections for the queue and the worker.
-    this.queueConnection = this.createConnection('queue');
-    this.workerConnection = this.createConnection('worker');
+    const connection = buildBullmqConnection(this.redisUrl);
 
     this.queue = new Queue(QUEUE_NAME, {
-      connection: this.queueConnection as ConnectionOptions,
+      connection,
       defaultJobOptions: {
         attempts: 5,
         backoff: { type: 'exponential', delay: 5_000 },
@@ -122,12 +96,8 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(
           `watermark: worker picked up ${job.data.deliveryId} (jobId=${job.id})`,
         );
-        // Hard ceiling on the whole job. The ffmpeg step has its own timeout,
-        // but S3 download/upload have none — a stalled stream would otherwise
-        // hold the worker slot forever and freeze the queue. This guarantees a
-        // hung job fails, frees the slot, and is retried.
         await this.withTimeout(
-          this.watermark.watermarkDelivery(job.data.deliveryId),
+          this.processDeliveryDirect(job.data.deliveryId, 'worker'),
           Math.max(
             60_000,
             Number(this.config.get('WATERMARK_JOB_TIMEOUT_MS', 300_000)),
@@ -136,17 +106,15 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         );
       },
       {
-        connection: this.workerConnection as ConnectionOptions,
-        // Video encodes run in a child process, so a couple in parallel is fine.
+        connection,
         concurrency: Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
-        // FFmpeg jobs outlast the default 30s lock; renew over a longer window.
         lockDuration: 120_000,
       },
     );
 
-    // Full observability — previously only `failed` was logged, so a stalled
-    // job or a dropped Redis connection happened silently (job stuck pending,
-    // no log). These handlers surface exactly where a job dies.
+    this.worker.on('ready', () => {
+      this.logger.log('watermark: worker ready (listening for jobs)');
+    });
     this.worker.on('active', (job) => {
       this.logger.log(`watermark: job active ${job.id}`);
     });
@@ -167,14 +135,16 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
 
     await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();
-    this.logger.log('watermark: BullMQ queue + worker started and ready');
+
+    const workers = await this.queue.getWorkers().catch(() => []);
+    this.logger.log(
+      `watermark: BullMQ queue + worker started (${workers.length} worker(s) registered in Redis)`,
+    );
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.worker?.close().catch(() => undefined);
     await this.queue?.close().catch(() => undefined);
-    this.workerConnection?.disconnect();
-    this.queueConnection?.disconnect();
   }
 
   /** Queue watermarking for a delivery. Never throws. */
@@ -183,13 +153,13 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
 
     if (this.queue) {
       try {
-        // Remove any prior job with this id first. BullMQ treats `add` with an
-        // existing jobId (still in the completed/failed set) as a no-op, which
-        // would silently drop re-enqueues for reconciles, regenerations and
-        // revisions. Removing first guarantees the delivery is reprocessed.
         const jobId = `wm-${deliveryId}`;
-        await this.queue.remove(jobId).catch(() => undefined);
+        const existing = await this.queue.getJob(jobId);
+        if (existing) {
+          await existing.remove().catch(() => undefined);
+        }
         await this.queue.add(JOB_NAME, { deliveryId }, { jobId });
+
         const counts = await this.queue
           .getJobCounts('wait', 'active', 'delayed', 'failed')
           .catch(() => null);
@@ -200,17 +170,77 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
               : ''
           }`,
         );
+
+        if (counts && counts.wait > 0 && counts.active === 0) {
+          void this.logWorkerDiagnostics();
+        }
+
+        setTimeout(() => {
+          void this.watchdog(deliveryId, jobId);
+        }, WATCHDOG_MS);
         return;
       } catch (err) {
         this.logger.error(
-          `watermark: enqueue failed for ${deliveryId}: ${(err as Error)?.message} (reconcile cron will retry)`,
+          `watermark: enqueue failed for ${deliveryId}: ${(err as Error)?.message} (direct process fallback)`,
         );
+        void this.processDeliveryDirect(deliveryId, 'enqueue-fallback');
         return;
       }
     }
 
-    // No Redis — local dev only.
-    void this.runInline(deliveryId);
+    void this.processDeliveryDirect(deliveryId, 'inline');
+  }
+
+  /**
+   * Run watermarking outside the HTTP request path. Used by the BullMQ worker,
+   * the enqueue watchdog, and the reconcile poller when jobs sit in `wait`.
+   */
+  async processDeliveryDirect(
+    deliveryId: string,
+    source: string,
+  ): Promise<void> {
+    if (this.processing.has(deliveryId)) return;
+
+    await this.acquireInlineSlot();
+    this.processing.add(deliveryId);
+    try {
+      this.logger.log(`watermark: ${source} processing ${deliveryId}`);
+      await this.watermark.watermarkDelivery(deliveryId);
+    } catch (err) {
+      this.logger.error(
+        `watermark: ${source} failed for ${deliveryId}: ${(err as Error)?.message}`,
+      );
+      throw err;
+    } finally {
+      this.processing.delete(deliveryId);
+      this.releaseInlineSlot();
+    }
+  }
+
+  private async watchdog(deliveryId: string, jobId: string): Promise<void> {
+    if (!this.queue) return;
+
+    const job = await this.queue.getJob(jobId).catch(() => null);
+    const state = job ? await job.getState().catch(() => 'unknown') : 'missing';
+    if (state === 'completed' || state === 'active') return;
+
+    this.logger.warn(
+      `watermark: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — direct process`,
+    );
+    await this.logWorkerDiagnostics();
+    try {
+      await this.processDeliveryDirect(deliveryId, 'watchdog');
+    } catch {
+      // watermarkDelivery logs; reconcile poller will retry
+    }
+  }
+
+  private async logWorkerDiagnostics(): Promise<void> {
+    if (!this.queue || !this.worker) return;
+    const workers = await this.queue.getWorkers().catch(() => []);
+    this.logger.warn(
+      `watermark: diagnostics workersRegistered=${workers.length} isRunning=${this.worker.isRunning()} isPaused=${this.worker.isPaused()}`,
+    );
   }
 
   private inlineConcurrency(): number {
@@ -235,18 +265,5 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     this.inlineActive = Math.max(0, this.inlineActive - 1);
     const next = this.inlineWaiters.shift();
     if (next) next();
-  }
-
-  private async runInline(deliveryId: string): Promise<void> {
-    await this.acquireInlineSlot();
-    try {
-      await this.watermark.watermarkDelivery(deliveryId);
-    } catch (err) {
-      this.logger.error(
-        `watermark: inline run failed for ${deliveryId}: ${(err as Error)?.message}`,
-      );
-    } finally {
-      this.releaseInlineSlot();
-    }
   }
 }

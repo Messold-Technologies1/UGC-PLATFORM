@@ -25,6 +25,12 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# System ffmpeg for delivery watermarking. ffmpeg-static ships a glibc binary
+# that can't run on Alpine (musl), so install the native package and point the
+# watermark service at it via FFMPEG_PATH.
+RUN apk add --no-cache ffmpeg
+ENV FFMPEG_PATH=/usr/bin/ffmpeg
+
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./

@@ -10,7 +10,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
-const ffmpegPath: string = (ffmpegStatic as unknown as string) || 'ffmpeg';
+// Prefer an explicit FFMPEG_PATH (set to the system ffmpeg in production —
+// ffmpeg-static ships a glibc binary that can't run on Alpine/musl). Fall back
+// to the bundled static binary for local dev, then to a PATH lookup.
+const ffmpegPath: string =
+  process.env.FFMPEG_PATH || (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 /** Shape of a delivery asset as persisted in OrderDelivery.assets JSON. */
 export interface StoredDeliveryAsset {

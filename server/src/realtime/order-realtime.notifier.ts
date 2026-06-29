@@ -192,6 +192,35 @@ export class OrderRealtimeNotifier {
   }
 
   /**
+   * Creator submitted delivery content; notify brand so order status and the
+   * deliveries list update before watermarked previews are ready.
+   */
+  async emitOrderContentDelivered(params: {
+    orderId: string;
+    status: 'DELIVERED' | 'REVISION_SUBMITTED';
+    revisionNumber: number;
+    deliveredAt: Date;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { brand: { select: { id: true } } },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitOrderContentDelivered: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    this.gateway.server.to(`user:${brandUserId}`).emit('order.content_delivered', {
+      orderId: params.orderId,
+      status: params.status,
+      revisionNumber: params.revisionNumber,
+      deliveredAt: params.deliveredAt.toISOString(),
+    });
+  }
+
+  /**
    * Notify the brand that watermarked delivery previews are ready to view, so
    * the client can refetch without a manual reload.
    */

@@ -1247,13 +1247,28 @@ export class OrdersService {
       await this.watermarkQueue.enqueue(deliveryId);
     }
 
+    const deliveredAt =
+      nextStatus === 'REVISION_SUBMITTED'
+        ? new Date()
+        : (order.deliveredAt ?? new Date());
+
     if (nextStatus === 'DELIVERED' || nextStatus === 'REVISION_SUBMITTED') {
+      void this.orderRealtime
+        .emitOrderContentDelivered({
+          orderId: order.id,
+          status: nextStatus,
+          revisionNumber,
+          deliveredAt,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `content_delivered realtime failed for ${order.id}: ${(err as Error)?.message}`,
+          ),
+        );
+
       this.orderMail.notifyContentDelivered(order.id, {
         revisionNumber,
-        deliveredAt:
-          nextStatus === 'REVISION_SUBMITTED'
-            ? new Date()
-            : (order.deliveredAt ?? new Date()),
+        deliveredAt,
       });
     }
 

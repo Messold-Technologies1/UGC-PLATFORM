@@ -70,7 +70,11 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { creator: { select: { userId: true } } },
+      select: {
+        packageNameSnapshot: true,
+        creator: { select: { userId: true } },
+        brand: { select: { brandName: true } },
+      },
     });
     if (!order) {
       this.logger.warn(`emitOrderBriefSubmitted: order not found ${params.orderId}`);
@@ -80,6 +84,8 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${creatorUserId}`).emit('order.brief_submitted', {
       orderId: params.orderId,
       briefSubmittedAt: params.briefSubmittedAt.toISOString(),
+      brandName: order.brand.brandName ?? null,
+      packageName: order.packageNameSnapshot,
     });
   }
 
@@ -93,7 +99,10 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { id: true } } },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { displayName: true } },
+      },
     });
     if (!order) {
       this.logger.warn(`emitOrderBriefAccepted: order not found ${params.orderId}`);
@@ -103,6 +112,7 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
+      creatorName: order.creator.displayName ?? null,
       deliveryDueAt: params.deliveryDueAt?.toISOString() ?? null,
       deliveryGraceDeadlineAt:
         params.deliveryGraceDeadlineAt?.toISOString() ?? null,

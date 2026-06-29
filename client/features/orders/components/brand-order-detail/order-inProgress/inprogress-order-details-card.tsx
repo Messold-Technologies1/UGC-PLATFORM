@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -17,7 +18,11 @@ import type { OrderBriefPayload } from "../../../api/get-order-brief";
 import type { OrderDetailsPublic } from "../../../api/types";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { Badge } from "@/components/ui/badge";
-import { DeliveryDeadlineDisplay } from "../../delivery-deadline-display";
+import {
+  DeliveryDeadlineDisplay,
+  formatDeliveryDate,
+} from "../../delivery-deadline-display";
+import { getPromisedDeliveryDueAt } from "../../../lib/delivery-timeline";
 
 interface InprogressOrderDetailsCardProps {
   order: OrderDetailsPublic;
@@ -47,6 +52,11 @@ export function InprogressOrderDetailsCard({
   orderId,
 }: InprogressOrderDetailsCardProps) {
   const router = useRouter();
+
+  const promisedDueDate = useMemo(() => {
+    const due = getPromisedDeliveryDueAt(order);
+    return due ? formatDeliveryDate(due.toISOString()) : null;
+  }, [order]);
 
   const brandName = brief?.brandName ?? "Not specified";
   const productName = brief?.productName ?? "Not specified";
@@ -269,15 +279,35 @@ export function InprogressOrderDetailsCard({
                 </>
               )}
             </div>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3.5 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                <Clock className="size-3.5 shrink-0" />
-                Delivery deadline
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3.5 py-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  <Clock className="size-3.5 shrink-0" />
+                  Delivery deadline
+                </div>
+                {order.deliveredAt ? (
+                  <span className="text-sm font-semibold text-foreground">
+                    {promisedDueDate ?? "—"}
+                  </span>
+                ) : (
+                  <DeliveryDeadlineDisplay
+                    order={order}
+                    dateClassName="text-sm font-semibold text-foreground"
+                  />
+                )}
               </div>
-              <DeliveryDeadlineDisplay
-                order={order}
-                dateClassName="text-sm font-semibold text-foreground"
-              />
+
+              {order.deliveredAt ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3.5 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                    Delivered on
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">
+                    {formatDeliveryDate(order.deliveredAt) ?? "—"}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

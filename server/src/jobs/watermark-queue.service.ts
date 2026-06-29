@@ -33,6 +33,9 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly connection: ConnectionOptions | null;
   private queue: Queue<WatermarkJobData> | null = null;
   private worker: Worker<WatermarkJobData> | null = null;
+  /** Limits concurrent inline runs so Prisma pool isn't exhausted without Redis. */
+  private inlineActive = 0;
+  private readonly inlineWaiters: Array<() => void> = [];
 
   constructor(
     private readonly config: ConfigService,
@@ -114,13 +117,44 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Inline fallback — run in the background, don't block the request.
-    void this.watermark
-      .watermarkDelivery(deliveryId)
-      .catch((err) =>
-        this.logger.error(
-          `watermark: inline run failed for ${deliveryId}: ${(err as Error)?.message}`,
-        ),
+    // Inline fallback — bounded concurrency so reconcile/dev can't stampede the DB pool.
+    void this.runInline(deliveryId);
+  }
+
+  private inlineConcurrency(): number {
+    return Math.max(
+      1,
+      Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
+    );
+  }
+
+  private async acquireInlineSlot(): Promise<void> {
+    if (this.inlineActive < this.inlineConcurrency()) {
+      this.inlineActive++;
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      this.inlineWaiters.push(resolve);
+    });
+    this.inlineActive++;
+  }
+
+  private releaseInlineSlot(): void {
+    this.inlineActive = Math.max(0, this.inlineActive - 1);
+    const next = this.inlineWaiters.shift();
+    if (next) next();
+  }
+
+  private async runInline(deliveryId: string): Promise<void> {
+    await this.acquireInlineSlot();
+    try {
+      await this.watermark.watermarkDelivery(deliveryId);
+    } catch (err) {
+      this.logger.error(
+        `watermark: inline run failed for ${deliveryId}: ${(err as Error)?.message}`,
       );
+    } finally {
+      this.releaseInlineSlot();
+    }
   }
 }

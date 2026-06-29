@@ -13,11 +13,14 @@ export interface OrderPaymentEvent {
 export interface OrderBriefSubmittedEvent {
   orderId: string;
   briefSubmittedAt: string;
+  brandName?: string | null;
+  packageName?: string;
 }
 
 export interface OrderBriefAcceptedEvent {
   orderId: string;
   briefAcceptedAt: string;
+  creatorName?: string | null;
   /** ISO string for non-physical orders; null when product receipt triggers the deadline */
   deliveryDueAt: string | null;
   deliveryGraceDeadlineAt: string | null;

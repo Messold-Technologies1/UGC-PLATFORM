@@ -3,9 +3,19 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { WatermarkQueueService } from './watermark-queue.service';
 
+function isPrismaPoolTimeout(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: string }).code === 'P2024'
+  );
+}
+
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
+  private reconcileRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -20,71 +30,38 @@ export class JobsService {
    */
   @Cron('*/5 * * * *') // every 5 minutes
   async reconcileWatermarks(): Promise<void> {
-    const staleBefore = new Date(Date.now() - 10 * 60_000); // 10 minutes old
-    const stuck = await this.prisma.orderDelivery.findMany({
-      where: {
-        previewStatus: { in: ['pending', 'failed'] },
-        createdAt: { lte: staleBefore },
-        order: { acceptedAt: null },
-      },
-      select: { id: true },
-      take: 50,
-    });
+    if (this.reconcileRunning) return;
+    this.reconcileRunning = true;
 
-    if (stuck.length === 0) return;
+    try {
+      const staleBefore = new Date(Date.now() - 10 * 60_000); // 10 minutes old
+      const stuck = await this.prisma.orderDelivery.findMany({
+        where: {
+          previewStatus: { in: ['pending', 'failed'] },
+          createdAt: { lte: staleBefore },
+          order: { acceptedAt: null },
+        },
+        select: { id: true },
+        take: 50,
+      });
 
-    this.logger.log(`watermark_reconcile reEnqueued=${stuck.length}`);
-    for (const d of stuck) {
-      await this.watermarkQueue.enqueue(d.id);
+      if (stuck.length === 0) return;
+
+      this.logger.log(`watermark_reconcile reEnqueued=${stuck.length}`);
+      for (const d of stuck) {
+        await this.watermarkQueue.enqueue(d.id);
+      }
+    } catch (err) {
+      if (isPrismaPoolTimeout(err)) {
+        this.logger.warn(
+          'watermark_reconcile skipped: database connection pool busy (will retry next cron)',
+        );
+        return;
+      }
+      throw err;
+    } finally {
+      this.reconcileRunning = false;
     }
   }
 
-  /**
-   * Minimal periodic checks. Right now this only logs counts so you can verify
-   * the rules are being detected; wire actual notifications later.
-   */
-  @Cron('0 * * * *') // hourly
-  async checkOrderDeadlines(): Promise<void> {
-    const now = new Date();
-
-    const briefReminderAt = new Date(now);
-    briefReminderAt.setDate(briefReminderAt.getDate() - 3);
-
-    const briefOverdueAt = new Date(now);
-    briefOverdueAt.setDate(briefOverdueAt.getDate() - 7);
-
-    const briefReminderCount = await this.prisma.order.count({
-      where: {
-        status: 'BRIEF_SUBMISSION_PENDING',
-        paidAt: { lte: briefReminderAt },
-        briefSubmittedAt: null,
-      },
-    });
-
-    const briefOverdueCount = await this.prisma.order.count({
-      where: {
-        status: 'BRIEF_SUBMISSION_PENDING',
-        paidAt: { lte: briefOverdueAt },
-        briefSubmittedAt: null,
-      },
-    });
-
-    const deliveryOverdueCount = await this.prisma.order.count({
-      where: {
-        deliveredAt: null,
-        deliveryGraceDeadlineAt: { lte: now },
-        OR: [
-          {
-            status: 'BRIEF_ACCEPTED',
-            requiresPhysicalProductShipment: false,
-          },
-          { status: 'PRODUCT_RECEIVED' },
-        ],
-      },
-    });
-
-    this.logger.log(
-      `deadline_check briefReminder=${briefReminderCount} briefOverdue=${briefOverdueCount} deliveryOverdue=${deliveryOverdueCount}`,
-    );
-  }
 }

@@ -64,6 +64,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+
+      const isCreator = user.primaryRole === "CREATOR";
+      if (isCreator && e.kind === "captured") {
+        return;
+      }
+
       const msg =
         e.kind === "captured"
           ? "Payment captured"
@@ -89,14 +95,23 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
-      toast.info("Brand submitted a brief", {
-        description: `Order ${e.orderId.slice(0, 8)}…`,
+
+      if (user.primaryRole !== "CREATOR") return;
+
+      const brandLabel = e.brandName?.trim() || "A brand";
+      const packageLabel = e.packageName?.trim();
+      const description = packageLabel
+        ? `${brandLabel} · ${packageLabel}`
+        : `${brandLabel} submitted a brief for you to review`;
+
+      toast.success("New collaboration request", {
+        description,
       });
       addNotification({
-        type: "info",
-        title: "Brand submitted a brief",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId, "/brief"),
+        type: "success",
+        title: "New collaboration request",
+        description,
+        link: `/creator/orders/${e.orderId}/brief`,
       });
     };
 
@@ -104,14 +119,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
-      toast.success("Creator accepted the brief", {
-        description: `Order ${e.orderId.slice(0, 8)}...`,
+
+      const creatorLabel = e.creatorName?.trim() || "Creator";
+      const description = `${creatorLabel} accepted your brief`;
+
+      toast.success("Brief accepted", {
+        description,
       });
       addNotification({
         type: "success",
-        title: "Creator accepted the brief",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId, "/brief"),
+        title: "Brief accepted",
+        description,
+        link: orderNotificationLink(e.orderId),
       });
     };
 

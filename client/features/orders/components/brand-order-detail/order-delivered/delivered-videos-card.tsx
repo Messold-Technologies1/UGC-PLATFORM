@@ -314,6 +314,17 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
             </div>
           </div>
         </div>
+
+        {latestDelivery?.note?.trim() ? (
+          <div className="mt-5 pt-4 border-t border-border/60">
+            <h4 className="text-sm font-bold text-foreground mb-2">
+              Note from creator
+            </h4>
+            <p className="rounded-lg bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+              {latestDelivery.note.trim()}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {imageAssets.length > 0 && (

@@ -51,7 +51,7 @@ export class WatermarkService {
     private readonly storage: StorageService,
     config: ConfigService,
   ) {
-    this.text = config.get<string>('WATERMARK_TEXT', 'PREVIEW');
+    this.text = config.get<string>('WATERMARK_TEXT', 'Go Collab');
   }
 
   /**

@@ -1580,8 +1580,40 @@ export class OrdersService {
     if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
 
     const { creator, brandId, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetails(orderFields);
+
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (
+      revisionActiveStatuses.has(order.status) &&
+      order.revisionCount > 0
+    ) {
+      const currentRevision = await this.prisma.orderRevision.findUnique({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber: order.revisionCount,
+          },
+        },
+        select: {
+          revisionNumber: true,
+          note: true,
+          createdAt: true,
+        },
+      });
+      if (currentRevision) {
+        mappedOrder.currentRevision = {
+          revisionNumber: currentRevision.revisionNumber,
+          note: currentRevision.note ?? null,
+          requestedAt: currentRevision.createdAt,
+        };
+      }
+    }
+
     return {
-      order: this.mapOrderDetails(orderFields),
+      order: mappedOrder,
       creator: {
         id: creator.id,
         displayName: creator.displayName,
@@ -1644,8 +1676,40 @@ export class OrdersService {
     if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
 
     const { brand, creatorId, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetails(orderFields);
+
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (
+      revisionActiveStatuses.has(order.status) &&
+      order.revisionCount > 0
+    ) {
+      const currentRevision = await this.prisma.orderRevision.findUnique({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber: order.revisionCount,
+          },
+        },
+        select: {
+          revisionNumber: true,
+          note: true,
+          createdAt: true,
+        },
+      });
+      if (currentRevision) {
+        mappedOrder.currentRevision = {
+          revisionNumber: currentRevision.revisionNumber,
+          note: currentRevision.note ?? null,
+          requestedAt: currentRevision.createdAt,
+        };
+      }
+    }
+
     return {
-      order: this.mapOrderDetails(orderFields),
+      order: mappedOrder,
       brand: toOrderBrandSnapshotDto(brand),
     };
   }

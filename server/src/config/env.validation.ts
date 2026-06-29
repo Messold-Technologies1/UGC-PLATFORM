@@ -40,7 +40,7 @@ export const envValidationSchema = Joi.object({
   // works in local/dev environments without Redis.
   REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).optional(),
   WATERMARK_ENABLED: Joi.string().valid('true', 'false').optional(),
-  WATERMARK_TEXT: Joi.string().min(1).max(40).optional().default('PREVIEW'),
+  WATERMARK_TEXT: Joi.string().min(1).max(40).optional().default('gocollab'),
 
   // Razorpay Payments
   RAZORPAY_KEY_ID: Joi.string().min(1).required(),

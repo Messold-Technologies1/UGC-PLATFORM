@@ -8,6 +8,7 @@ import sharp from 'sharp';
 import ffmpegStatic from 'ffmpeg-static';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
 // Prefer an explicit FFMPEG_PATH (set to the system ffmpeg in production —
@@ -55,6 +56,7 @@ export class WatermarkService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly realtime: OrderRealtimeNotifier,
+    private readonly orderMail: OrderMailNotifier,
     config: ConfigService,
   ) {
     this.text = config.get<string>('WATERMARK_TEXT', 'Go Collab');
@@ -114,6 +116,11 @@ export class WatermarkService {
       }
       this.logger.log(`watermark: delivery ${deliveryId} ready (${assets.length} assets)`);
 
+      await this.promoteOrderAfterPreviewReady({
+        orderId: delivery.orderId,
+        revisionNumber: delivery.revisionNumber,
+      });
+
       // Real-time nudge so the brand UI refetches without a manual reload.
       await this.realtime
         .emitDeliveryWatermarkReady({
@@ -141,6 +148,69 @@ export class WatermarkService {
     await this.prisma.orderDelivery.update({
       where: { id: deliveryId },
       data: { previewStatus: status },
+    });
+  }
+
+  /**
+   * Move the order to DELIVERED / REVISION_SUBMITTED once brand-facing previews
+   * are ready. Idempotent for queue retries and reconcile runs.
+   */
+  private async promoteOrderAfterPreviewReady(params: {
+    orderId: string;
+    revisionNumber: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, status: true, deliveredAt: true },
+    });
+    if (!order) return;
+
+    const targetStatus =
+      params.revisionNumber > 0 ? 'REVISION_SUBMITTED' : 'DELIVERED';
+
+    if (String(order.status) === targetStatus) return;
+
+    const allowedPriorStatuses =
+      params.revisionNumber > 0
+        ? ['REVISION_REQUESTED']
+        : ['BRIEF_ACCEPTED', 'PRODUCT_RECEIVED'];
+
+    if (!allowedPriorStatuses.includes(String(order.status))) {
+      this.logger.warn(
+        `watermark: skip status promote ${order.id} ${order.status} -> ${targetStatus}`,
+      );
+      return;
+    }
+
+    const deliveredAt =
+      params.revisionNumber > 0
+        ? new Date()
+        : (order.deliveredAt ?? new Date());
+
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: targetStatus as any,
+        deliveredAt,
+      },
+    });
+
+    void this.realtime
+      .emitOrderContentDelivered({
+        orderId: order.id,
+        status: targetStatus,
+        revisionNumber: params.revisionNumber,
+        deliveredAt,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `watermark: content_delivered realtime failed for ${order.id}: ${(err as Error)?.message}`,
+        ),
+      );
+
+    this.orderMail.notifyContentDelivered(order.id, {
+      revisionNumber: params.revisionNumber,
+      deliveredAt,
     });
   }
 

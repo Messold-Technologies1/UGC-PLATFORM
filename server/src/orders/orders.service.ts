@@ -1066,6 +1066,8 @@ export class OrdersService {
       String(order.status) === 'REVISION_SUBMITTED';
     const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
 
+    await this.assertDeliveryNotProcessing(order.id, revisionNumber);
+
     const uploads = await Promise.all(
       params.dto.files.map(async (f) => {
         const key = this.storage.buildObjectKey({
@@ -1149,9 +1151,8 @@ export class OrdersService {
       String(order.status) === 'REVISION_REQUESTED' ||
       String(order.status) === 'REVISION_SUBMITTED';
     const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
-    const nextStatus = isRevisionFlow
-      ? ('REVISION_SUBMITTED' as const)
-      : ('DELIVERED' as const);
+
+    await this.assertDeliveryNotProcessing(order.id, revisionNumber);
 
     const submitted = params.dto.assets ?? [];
 
@@ -1229,54 +1230,37 @@ export class OrdersService {
         select: { id: true },
       });
       deliveryId = saved.id;
-      await this.updateOrder(
-        {
-          where: { id: order.id },
-          data: {
-            status: nextStatus as any,
-            deliveredAt: order.deliveredAt ?? new Date(),
-          } as any,
-        },
-        tx,
-      );
     });
 
-    // Kick off watermarking of the brand-facing preview copies. Non-blocking:
-    // failures are caught and retried by the queue / reconcile cron.
+    // Kick off watermarking of the brand-facing preview copies. Order status
+    // moves to DELIVERED / REVISION_SUBMITTED only after previews are ready.
     if (deliveryId) {
       await this.watermarkQueue.enqueue(deliveryId);
-    }
-
-    const deliveredAt =
-      nextStatus === 'REVISION_SUBMITTED'
-        ? new Date()
-        : (order.deliveredAt ?? new Date());
-
-    if (nextStatus === 'DELIVERED' || nextStatus === 'REVISION_SUBMITTED') {
-      void this.orderRealtime
-        .emitOrderContentDelivered({
-          orderId: order.id,
-          status: nextStatus,
-          revisionNumber,
-          deliveredAt,
-        })
-        .catch((err) =>
-          this.logger.warn(
-            `content_delivered realtime failed for ${order.id}: ${(err as Error)?.message}`,
-          ),
-        );
-
-      this.orderMail.notifyContentDelivered(order.id, {
-        revisionNumber,
-        deliveredAt,
-      });
     }
 
     return {
       orderId: order.id,
       revisionNumber,
-      status: nextStatus,
+      status: String(order.status),
     };
+  }
+
+  /** Block re-submit while watermarked previews are still being generated. */
+  private async assertDeliveryNotProcessing(
+    orderId: string,
+    revisionNumber: number,
+  ): Promise<void> {
+    const delivery = await (this.prisma as any).orderDelivery.findUnique({
+      where: {
+        orderId_revisionNumber: { orderId, revisionNumber },
+      },
+      select: { previewStatus: true },
+    });
+    if (delivery?.previewStatus === 'pending') {
+      throw new BadRequestException(
+        'Your delivery is still being processed. Please wait for previews to finish.',
+      );
+    }
   }
 
   async requestRevision(params: {

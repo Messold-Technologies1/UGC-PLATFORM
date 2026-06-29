@@ -192,8 +192,8 @@ export class OrderRealtimeNotifier {
   }
 
   /**
-   * Creator submitted delivery content; notify brand so order status and the
-   * deliveries list update before watermarked previews are ready.
+   * Watermarked previews are ready; notify brand and creator so order status
+   * and the deliveries list update together.
    */
   async emitOrderContentDelivered(params: {
     orderId: string;
@@ -203,7 +203,10 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { id: true } } },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { userId: true } },
+      },
     });
     if (!order) {
       this.logger.warn(
@@ -212,12 +215,19 @@ export class OrderRealtimeNotifier {
       return;
     }
     const brandUserId = await this.resolveBrandUserId(order.brand.id);
-    this.gateway.server.to(`user:${brandUserId}`).emit('order.content_delivered', {
+    const payload = {
       orderId: params.orderId,
       status: params.status,
       revisionNumber: params.revisionNumber,
       deliveredAt: params.deliveredAt.toISOString(),
-    });
+    };
+    this.gateway.server.to(`user:${brandUserId}`).emit('order.content_delivered', payload);
+    const creatorUserId = order.creator.userId;
+    if (creatorUserId !== brandUserId) {
+      this.gateway.server
+        .to(`user:${creatorUserId}`)
+        .emit('order.content_delivered', payload);
+    }
   }
 
   /**

@@ -203,7 +203,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const onContentDelivered = (e: OrderContentDeliveredEvent) => {
-      refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      if (user.primaryRole === "BRAND") {
+        refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+      }
     };
 
     const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {

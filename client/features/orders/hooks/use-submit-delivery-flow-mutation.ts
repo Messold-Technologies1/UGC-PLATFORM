@@ -126,7 +126,7 @@ export function useSubmitDeliveryFlowMutation() {
       });
     },
     onSuccess: async () => {
-      toast.success("Delivery submitted successfully. Awaiting brand approval!");
+      toast.success("Delivery submitted — processing preview…");
       await queryClient.invalidateQueries({ queryKey: ["orders", "creator"] });
     },
     onError: (error) => {

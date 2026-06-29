@@ -1,12 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { WatermarkQueueService } from './watermark-queue.service';
 
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly watermarkQueue: WatermarkQueueService,
+  ) {}
+
+  /**
+   * Safety net for the watermark pipeline: re-drive any delivery still stuck in
+   * `pending`/`failed` (dropped enqueue, worker crash, Redis blip). The DB is
+   * the source of truth, so a missed job means slower processing — never lost
+   * processing.
+   */
+  @Cron('*/5 * * * *') // every 5 minutes
+  async reconcileWatermarks(): Promise<void> {
+    const staleBefore = new Date(Date.now() - 10 * 60_000); // 10 minutes old
+    const stuck = await this.prisma.orderDelivery.findMany({
+      where: {
+        previewStatus: { in: ['pending', 'failed'] },
+        createdAt: { lte: staleBefore },
+        order: { acceptedAt: null },
+      },
+      select: { id: true },
+      take: 50,
+    });
+
+    if (stuck.length === 0) return;
+
+    this.logger.log(`watermark_reconcile reEnqueued=${stuck.length}`);
+    for (const d of stuck) {
+      await this.watermarkQueue.enqueue(d.id);
+    }
+  }
 
   /**
    * Minimal periodic checks. Right now this only logs counts so you can verify

@@ -9,6 +9,15 @@ export class SubmitDeliveryAssetDto {
   @ApiProperty({ enum: ['video', 'image'] })
   @IsIn(['video', 'image'])
   kind!: 'video' | 'image';
+
+  @ApiPropertyOptional({
+    example: 'a1b2c3...',
+    description:
+      'SHA-256 hex digest of the file contents, used to detect duplicate uploads. Optional.',
+  })
+  @IsOptional()
+  @IsString()
+  sha256?: string;
 }
 
 export class SubmitDeliveryDto {

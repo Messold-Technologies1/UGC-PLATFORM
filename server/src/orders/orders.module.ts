@@ -8,6 +8,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageModule } from '../storage/storage.module';
 import { OrderChatModule } from '../order-chat/order-chat.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
+import { JobsModule } from '../jobs/jobs.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module'
     StorageModule,
     OrderChatModule,
     CreatorReviewsModule,
+    JobsModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],

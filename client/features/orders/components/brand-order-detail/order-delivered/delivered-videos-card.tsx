@@ -154,7 +154,15 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
   const primaryVideo = videoAssets[0];
   const videoCount = videoAssets.length;
 
-  const carouselAssets: CarouselAsset[] = allAssets.map((asset) => ({
+  // Pre-acceptance the brand sees watermarked previews. Some may still be
+  // generating (no url yet) — surface that instead of rendering broken media.
+  const isWatermarked = allAssets.some((a) => a.watermarked);
+  const previewGenerating =
+    allAssets.length > 0 &&
+    allAssets.some((a) => a.watermarked && (!a.url || a.previewStatus === "pending"));
+  const playableAssets = allAssets.filter((a) => !!a.url);
+
+  const carouselAssets: CarouselAsset[] = playableAssets.map((asset) => ({
     id: asset.key,
     type: asset.kind,
     full: asset.url,
@@ -188,6 +196,18 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
         <h3 className="text-base font-bold text-foreground mb-6">
           Final Delivery
         </h3>
+      )}
+
+      {isWatermarked && !isEmpty && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+          <Eye className="size-4 shrink-0 mt-0.5" />
+          <span>
+            You&apos;re viewing a <strong>watermarked preview</strong>.
+            {previewGenerating
+              ? " Some files are still being prepared — check back in a moment."
+              : " Accept the delivery to download the original, watermark-free files."}
+          </span>
+        </div>
       )}
 
       <div className="flex-1 flex flex-col justify-center">

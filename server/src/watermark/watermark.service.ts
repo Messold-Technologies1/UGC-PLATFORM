@@ -8,6 +8,7 @@ import sharp from 'sharp';
 import ffmpegStatic from 'ffmpeg-static';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
 const ffmpegPath: string = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
@@ -49,6 +50,7 @@ export class WatermarkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly realtime: OrderRealtimeNotifier,
     config: ConfigService,
   ) {
     this.text = config.get<string>('WATERMARK_TEXT', 'PREVIEW');
@@ -64,6 +66,8 @@ export class WatermarkService {
       where: { id: deliveryId },
       select: {
         id: true,
+        orderId: true,
+        revisionNumber: true,
         assets: true,
         order: { select: { acceptedAt: true } },
       },
@@ -105,6 +109,18 @@ export class WatermarkService {
         await this.markStatus(deliveryId, 'ready');
       }
       this.logger.log(`watermark: delivery ${deliveryId} ready (${assets.length} assets)`);
+
+      // Real-time nudge so the brand UI refetches without a manual reload.
+      await this.realtime
+        .emitDeliveryWatermarkReady({
+          orderId: delivery.orderId,
+          revisionNumber: delivery.revisionNumber,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `watermark: realtime notify failed for ${deliveryId}: ${(err as Error)?.message}`,
+          ),
+        );
     } catch (err) {
       await this.markStatus(deliveryId, 'failed').catch(() => undefined);
       this.logger.error(

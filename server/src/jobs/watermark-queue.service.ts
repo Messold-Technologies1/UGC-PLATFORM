@@ -73,6 +73,9 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     this.worker = new Worker<WatermarkJobData>(
       QUEUE_NAME,
       async (job) => {
+        this.logger.log(
+          `watermark: worker picked up ${job.data.deliveryId} (jobId=${job.id})`,
+        );
         await this.watermark.watermarkDelivery(job.data.deliveryId);
       },
       {
@@ -84,10 +87,25 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       },
     );
 
+    // Full observability — previously only `failed` was logged, so a stalled
+    // job or a dropped Redis connection happened silently (job stuck pending,
+    // no log). These handlers surface exactly where a job dies.
+    this.worker.on('active', (job) => {
+      this.logger.log(`watermark: job active ${job.id}`);
+    });
+    this.worker.on('completed', (job) => {
+      this.logger.log(`watermark: job completed ${job.id}`);
+    });
     this.worker.on('failed', (job, err) => {
       this.logger.error(
         `watermark job ${job?.id} failed (attempt ${job?.attemptsMade}): ${err?.message}`,
       );
+    });
+    this.worker.on('stalled', (jobId) => {
+      this.logger.warn(`watermark: job stalled ${jobId}`);
+    });
+    this.worker.on('error', (err) => {
+      this.logger.error(`watermark: worker error: ${err?.message}`);
     });
 
     this.logger.log('watermark: BullMQ queue + worker started');
@@ -111,6 +129,16 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         const jobId = `wm-${deliveryId}`;
         await this.queue.remove(jobId).catch(() => undefined);
         await this.queue.add(JOB_NAME, { deliveryId }, { jobId });
+        const counts = await this.queue
+          .getJobCounts('wait', 'active', 'delayed', 'failed')
+          .catch(() => null);
+        this.logger.log(
+          `watermark: enqueued ${deliveryId} (jobId=${jobId})${
+            counts
+              ? ` [wait=${counts.wait} active=${counts.active} delayed=${counts.delayed} failed=${counts.failed}]`
+              : ''
+          }`,
+        );
         return;
       } catch (err) {
         this.logger.error(

@@ -28,7 +28,10 @@ ENV NODE_ENV=production
 # System ffmpeg for delivery watermarking. ffmpeg-static ships a glibc binary
 # that can't run on Alpine (musl), so install the native package and point the
 # watermark service at it via FFMPEG_PATH.
-RUN apk add --no-cache ffmpeg
+# fontconfig + a real font are required for Sharp/librsvg to render the SVG
+# watermark text — without them the text rasterizes to blank/tofu glyphs and
+# the watermark is invisible.
+RUN apk add --no-cache ffmpeg fontconfig ttf-dejavu && fc-cache -f
 ENV FFMPEG_PATH=/usr/bin/ffmpeg
 
 COPY --from=builder /app/node_modules ./node_modules

@@ -193,10 +193,12 @@ export class WatermarkService {
     const tileH = fontSize * 6;
     const safe = this.text.replace(/[&<>]/g, '');
     return Buffer.from(
+      // font-family must resolve to a font installed in the container
+      // (ttf-dejavu → "DejaVu Sans"); otherwise librsvg renders blank glyphs.
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
         <defs>
           <pattern id="wm" width="${tileW}" height="${tileH}" patternTransform="rotate(-30)" patternUnits="userSpaceOnUse">
-            <text x="0" y="${Math.round(tileH / 2)}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="${fontSize}" fill="rgba(255,255,255,0.32)" stroke="rgba(0,0,0,0.18)" stroke-width="1">${safe}</text>
+            <text x="0" y="${Math.round(tileH / 2)}" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="${fontSize}" fill="rgba(255,255,255,0.45)" stroke="rgba(0,0,0,0.28)" stroke-width="1.5">${safe}</text>
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#wm)"/>

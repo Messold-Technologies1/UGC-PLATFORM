@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
@@ -16,10 +16,27 @@ import type {
   OrderProductReceivedEvent,
   OrderProductShippedEvent,
   OrderRevisionRequestedEvent,
+  OrderContentDeliveredEvent,
   OrderChatMessageEvent,
   DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
-import { brandOrderDeliveriesQueryKey } from "@/features/orders/api/get-brand-order-deliveries";
+import {
+  brandOrderDeliveriesQueryKey,
+} from "@/features/orders/api/get-brand-order-deliveries";
+import { brandOrderDetailsQueryKey } from "@/features/orders/api/get-brand-order-details";
+
+function refetchBrandOrderDeliveryViews(
+  queryClient: QueryClient,
+  orderId: string,
+) {
+  void queryClient.refetchQueries({
+    queryKey: brandOrderDeliveriesQueryKey(orderId),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: brandOrderDetailsQueryKey(orderId),
+  });
+  queryClient.invalidateQueries({ queryKey: ["orders"] });
+}
 
 type RealtimeCtx = { connected: boolean };
 const Ctx = createContext<RealtimeCtx>({ connected: false });
@@ -185,22 +202,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    const onContentDelivered = (e: OrderContentDeliveredEvent) => {
+      refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+    };
+
     const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {
-      // Previews finished generating — refetch the brand's deliveries so the
-      // watermarked content appears without a manual reload.
-      queryClient.invalidateQueries({
-        queryKey: brandOrderDeliveriesQueryKey(e.orderId),
-      });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Preview ready", {
-        description: `Delivery preview for order ${e.orderId.slice(0, 8)}… is ready to view`,
-      });
-      addNotification({
-        type: "success",
-        title: "Delivery preview ready",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId),
-      });
+      refetchBrandOrderDeliveryViews(queryClient, e.orderId);
     };
 
     const onChatMessage = (e: OrderChatMessageEvent) => {
@@ -227,6 +234,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.product_shipped", onProductShipped);
     s.on("order.product_received", onProductReceived);
     s.on("order.revision_requested", onRevisionRequested);
+    s.on("order.content_delivered", onContentDelivered);
     s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("chat.message", onChatMessage);
 
@@ -241,6 +249,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.product_shipped", onProductShipped);
       s.off("order.product_received", onProductReceived);
       s.off("order.revision_requested", onRevisionRequested);
+      s.off("order.content_delivered", onContentDelivered);
       s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("chat.message", onChatMessage);
       disconnectSocket();

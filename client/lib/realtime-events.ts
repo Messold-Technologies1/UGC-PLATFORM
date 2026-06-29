@@ -77,6 +77,13 @@ export interface DeliveryWatermarkReadyEvent {
   revisionNumber: number;
 }
 
+export interface OrderContentDeliveredEvent {
+  orderId: string;
+  status: "DELIVERED" | "REVISION_SUBMITTED";
+  revisionNumber: number;
+  deliveredAt: string;
+}
+
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
@@ -84,6 +91,7 @@ export interface ServerToClientEvents {
   "order.product_shipped": (e: OrderProductShippedEvent) => void;
   "order.product_received": (e: OrderProductReceivedEvent) => void;
   "order.revision_requested": (e: OrderRevisionRequestedEvent) => void;
+  "order.content_delivered": (e: OrderContentDeliveredEvent) => void;
   "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;

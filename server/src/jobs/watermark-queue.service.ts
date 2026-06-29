@@ -107,7 +107,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         await this.queue.add(
           JOB_NAME,
           { deliveryId },
-          { jobId: `wm:${deliveryId}` },
+          { jobId: `wm-${deliveryId}` },
         );
         return;
       } catch (err) {

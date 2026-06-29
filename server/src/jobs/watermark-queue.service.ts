@@ -5,7 +5,8 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, Worker, type ConnectionOptions } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
+import { Redis } from 'ioredis';
 import { WatermarkService } from '../watermark/watermark.service';
 
 const QUEUE_NAME = 'delivery-watermark';
@@ -30,9 +31,11 @@ interface WatermarkJobData {
 export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WatermarkQueueService.name);
   private readonly enabled: boolean;
-  private readonly connection: ConnectionOptions | null;
+  private readonly redisUrl: string | undefined;
   private queue: Queue<WatermarkJobData> | null = null;
   private worker: Worker<WatermarkJobData> | null = null;
+  private queueConnection: Redis | null = null;
+  private workerConnection: Redis | null = null;
   /** Limits concurrent inline runs so Prisma pool isn't exhausted without Redis. */
   private inlineActive = 0;
   private readonly inlineWaiters: Array<() => void> = [];
@@ -42,10 +45,25 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly watermark: WatermarkService,
   ) {
     this.enabled = config.get<string>('WATERMARK_ENABLED', 'true') !== 'false';
-    const redisUrl = config.get<string>('REDIS_URL');
-    this.connection = redisUrl
-      ? ({ url: redisUrl } as unknown as ConnectionOptions)
-      : null;
+    this.redisUrl = config.get<string>('REDIS_URL');
+  }
+
+  /**
+   * A dedicated ioredis connection. BullMQ workers issue blocking commands, so
+   * the queue and the worker MUST NOT share a connection, and every connection
+   * must use `maxRetriesPerRequest: null` — otherwise the blocking client can
+   * silently stop polling after a reconnect and jobs pile up in `wait` with no
+   * error (the bug we hit on Railway Redis).
+   */
+  private createConnection(label: string): Redis {
+    const conn = new Redis(this.redisUrl as string, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+    });
+    conn.on('error', (err) =>
+      this.logger.error(`watermark: redis ${label} error: ${err?.message}`),
+    );
+    return conn;
   }
 
   onModuleInit(): void {
@@ -53,15 +71,19 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('watermark: disabled via WATERMARK_ENABLED=false');
       return;
     }
-    if (!this.connection) {
+    if (!this.redisUrl) {
       this.logger.warn(
         'watermark: REDIS_URL not set — running in inline (no-queue) mode',
       );
       return;
     }
 
+    // Separate, dedicated connections for the queue and the worker.
+    this.queueConnection = this.createConnection('queue');
+    this.workerConnection = this.createConnection('worker');
+
     this.queue = new Queue<WatermarkJobData>(QUEUE_NAME, {
-      connection: this.connection,
+      connection: this.queueConnection,
       defaultJobOptions: {
         attempts: 5,
         backoff: { type: 'exponential', delay: 5_000 },
@@ -79,7 +101,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         await this.watermark.watermarkDelivery(job.data.deliveryId);
       },
       {
-        connection: this.connection,
+        connection: this.workerConnection,
         // Video encodes run in a child process, so a couple in parallel is fine.
         concurrency: Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
         // FFmpeg jobs outlast the default 30s lock; renew over a longer window.
@@ -114,6 +136,8 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     await this.worker?.close().catch(() => undefined);
     await this.queue?.close().catch(() => undefined);
+    this.workerConnection?.disconnect();
+    this.queueConnection?.disconnect();
   }
 
   /** Queue (or inline-run) watermarking for a delivery. Never throws. */

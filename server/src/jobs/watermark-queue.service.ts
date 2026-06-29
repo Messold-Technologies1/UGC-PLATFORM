@@ -66,6 +66,26 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     return conn;
   }
 
+  /** Reject if a promise hasn't settled within `ms`. */
+  private withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms,
+      );
+      p.then(
+        (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
+  }
+
   onModuleInit(): void {
     if (!this.enabled) {
       this.logger.log('watermark: disabled via WATERMARK_ENABLED=false');
@@ -98,7 +118,18 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(
           `watermark: worker picked up ${job.data.deliveryId} (jobId=${job.id})`,
         );
-        await this.watermark.watermarkDelivery(job.data.deliveryId);
+        // Hard ceiling on the whole job. The ffmpeg step has its own timeout,
+        // but S3 download/upload have none — a stalled stream would otherwise
+        // hold the worker slot forever and freeze the queue. This guarantees a
+        // hung job fails, frees the slot, and is retried.
+        await this.withTimeout(
+          this.watermark.watermarkDelivery(job.data.deliveryId),
+          Math.max(
+            60_000,
+            Number(this.config.get('WATERMARK_JOB_TIMEOUT_MS', 300_000)),
+          ),
+          `watermark job ${job.id}`,
+        );
       },
       {
         connection: this.workerConnection,

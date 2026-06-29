@@ -4,9 +4,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import type { Readable } from 'node:stream';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { PresignedUploadResult, StorageUploadKind } from './storage.types';
 
@@ -549,6 +551,54 @@ export class StorageService {
       expiresInSeconds: this.ttlSeconds,
       cdnUrl: this.buildCdnUrl(input.key),
     };
+  }
+
+  /**
+   * Build the S3 key for a brand-facing watermarked preview of a delivery
+   * asset. The preview uses a fresh UUID (NOT derived from the source key) so a
+   * brand cannot guess the original, un-watermarked object key from the preview
+   * URL before accepting the order.
+   */
+  buildDeliveryPreviewKey(sourceKey: string, extOverride?: string): string {
+    const fileName = sourceKey.split('/').pop() ?? '';
+    const srcExt = fileName.includes('.') ? fileName.split('.').pop()! : 'bin';
+    const ext = (extOverride ?? srcExt).toLowerCase();
+    const dir = sourceKey.slice(0, sourceKey.length - fileName.length);
+    // e.g. order-deliveries/<orderId>/r0/preview/<uuid>.<ext>
+    return `${dir}preview/${randomUUID()}.${ext}`;
+  }
+
+  /** Download an object from S3 into an in-memory buffer. */
+  async getObjectBuffer(key: string): Promise<Buffer> {
+    const res = await this.s3.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    const body = res.Body as Readable | undefined;
+    if (!body) {
+      throw new Error(`Empty object body for key: ${key}`);
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of body) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
+  /** Upload a buffer to S3 under the given key. */
+  async putObjectBuffer(input: {
+    key: string;
+    body: Buffer;
+    contentType: string;
+  }): Promise<string> {
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        Body: input.body,
+        ContentType: input.contentType,
+      }),
+    );
+    return input.key;
   }
 }
 

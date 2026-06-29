@@ -69,6 +69,11 @@ export interface OrderChatReadUpdatedEvent {
   lastReadAt?: string | null;
 }
 
+export interface DeliveryWatermarkReadyEvent {
+  orderId: string;
+  revisionNumber: number;
+}
+
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
@@ -76,6 +81,7 @@ export interface ServerToClientEvents {
   "order.product_shipped": (e: OrderProductShippedEvent) => void;
   "order.product_received": (e: OrderProductReceivedEvent) => void;
   "order.revision_requested": (e: OrderRevisionRequestedEvent) => void;
+  "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

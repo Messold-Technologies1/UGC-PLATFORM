@@ -180,4 +180,31 @@ export class OrderRealtimeNotifier {
       deliveryGraceDeadlineAt: params.deliveryGraceDeadlineAt.toISOString(),
     });
   }
+
+  /**
+   * Notify the brand that watermarked delivery previews are ready to view, so
+   * the client can refetch without a manual reload.
+   */
+  async emitDeliveryWatermarkReady(params: {
+    orderId: string;
+    revisionNumber: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { brand: { select: { id: true } } },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitDeliveryWatermarkReady: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    this.gateway.server
+      .to(`user:${brandUserId}`)
+      .emit('delivery.watermark_ready', {
+        orderId: params.orderId,
+        revisionNumber: params.revisionNumber,
+      });
+  }
 }

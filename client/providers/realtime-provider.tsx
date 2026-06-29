@@ -17,7 +17,9 @@ import type {
   OrderProductShippedEvent,
   OrderRevisionRequestedEvent,
   OrderChatMessageEvent,
+  DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
+import { brandOrderDeliveriesQueryKey } from "@/features/orders/api/get-brand-order-deliveries";
 
 type RealtimeCtx = { connected: boolean };
 const Ctx = createContext<RealtimeCtx>({ connected: false });
@@ -183,6 +185,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {
+      // Previews finished generating — refetch the brand's deliveries so the
+      // watermarked content appears without a manual reload.
+      queryClient.invalidateQueries({
+        queryKey: brandOrderDeliveriesQueryKey(e.orderId),
+      });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success("Preview ready", {
+        description: `Delivery preview for order ${e.orderId.slice(0, 8)}… is ready to view`,
+      });
+      addNotification({
+        type: "success",
+        title: "Delivery preview ready",
+        description: `Order ${e.orderId.slice(0, 8)}...`,
+        link: orderNotificationLink(e.orderId),
+      });
+    };
+
     const onChatMessage = (e: OrderChatMessageEvent) => {
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       if (e.message.senderUserId === user.id) return;
@@ -207,6 +227,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.product_shipped", onProductShipped);
     s.on("order.product_received", onProductReceived);
     s.on("order.revision_requested", onRevisionRequested);
+    s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("chat.message", onChatMessage);
 
     s.connect();
@@ -220,6 +241,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.product_shipped", onProductShipped);
       s.off("order.product_received", onProductReceived);
       s.off("order.revision_requested", onRevisionRequested);
+      s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };

@@ -19,13 +19,11 @@ interface WatermarkJobData {
 /**
  * Owns the BullMQ queue + worker for delivery watermarking.
  *
- * - When REDIS_URL is configured, jobs are enqueued to Redis and processed by a
- *   worker (in this process by default; can be split into a dedicated service).
- * - When REDIS_URL is absent (e.g. local dev), watermarking runs inline in the
- *   background so the feature still works without standing up Redis.
- *
- * Either way the database `previewStatus` column is the source of truth, and the
- * reconcile cron (JobsService) re-drives anything left in `pending`.
+ * - When REDIS_URL is configured (production), jobs are enqueued to Redis and
+ *   processed by the in-process BullMQ worker only — never inline on the API
+ *   thread. Failed enqueues are left for the reconcile cron to re-drive.
+ * - When REDIS_URL is absent (local dev), watermarking runs inline so the
+ *   feature works without Redis.
  */
 @Injectable()
 export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
@@ -56,12 +54,18 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
    * error (the bug we hit on Railway Redis).
    */
   private createConnection(label: string): Redis {
-    const conn = new Redis(this.redisUrl as string, {
+    const url = this.redisUrl as string;
+    const conn = new Redis(url, {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
+      // Railway / Upstash use rediss:// — ioredis needs an explicit tls object.
+      ...(url.startsWith('rediss://') ? { tls: {} } : {}),
     });
     conn.on('error', (err) =>
       this.logger.error(`watermark: redis ${label} error: ${err?.message}`),
+    );
+    conn.on('reconnecting', () =>
+      this.logger.warn(`watermark: redis ${label} reconnecting`),
     );
     return conn;
   }
@@ -86,7 +90,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     if (!this.enabled) {
       this.logger.log('watermark: disabled via WATERMARK_ENABLED=false');
       return;
@@ -161,7 +165,9 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`watermark: worker error: ${err?.message}`);
     });
 
-    this.logger.log('watermark: BullMQ queue + worker started');
+    await this.queue.waitUntilReady();
+    await this.worker.waitUntilReady();
+    this.logger.log('watermark: BullMQ queue + worker started and ready');
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -171,7 +177,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     this.queueConnection?.disconnect();
   }
 
-  /** Queue (or inline-run) watermarking for a delivery. Never throws. */
+  /** Queue watermarking for a delivery. Never throws. */
   async enqueue(deliveryId: string): Promise<void> {
     if (!this.enabled) return;
 
@@ -197,12 +203,13 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         return;
       } catch (err) {
         this.logger.error(
-          `watermark: enqueue failed for ${deliveryId}, falling back inline: ${(err as Error)?.message}`,
+          `watermark: enqueue failed for ${deliveryId}: ${(err as Error)?.message} (reconcile cron will retry)`,
         );
+        return;
       }
     }
 
-    // Inline fallback — bounded concurrency so reconcile/dev can't stampede the DB pool.
+    // No Redis — local dev only.
     void this.runInline(deliveryId);
   }
 

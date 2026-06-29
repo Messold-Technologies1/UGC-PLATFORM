@@ -224,8 +224,10 @@ export class WatermarkService {
     const outPath = join(dir, 'out.mp4');
     try {
       await writeFile(inPath, source);
-      // Base watermark sized to 720p; scale2ref stretches it to the video.
-      const wmPng = await sharp(this.watermarkSvg(1280, 720)).png().toBuffer();
+      // Square watermark canvas; scale2ref (no w/h args) stretches it to the
+      // video's actual dimensions so the tiled text covers the whole frame,
+      // whether the video is landscape or a vertical reel.
+      const wmPng = await sharp(this.watermarkSvg(1080, 1080)).png().toBuffer();
       await writeFile(wmPath, wmPng);
 
       await this.runFfmpeg([
@@ -235,7 +237,8 @@ export class WatermarkService {
         '-i',
         wmPath,
         '-filter_complex',
-        '[1:v][0:v]scale2ref=w=iw:h=ih[wm][base];[base][wm]overlay=0:0:format=auto',
+        // [1:v]=watermark scaled to match [0:v]=video, then overlaid full-frame.
+        '[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto',
         '-c:v',
         'libx264',
         '-preset',

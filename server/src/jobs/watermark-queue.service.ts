@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, Worker } from 'bullmq';
+import { Queue, Worker, type ConnectionOptions } from 'bullmq';
 import { Redis } from 'ioredis';
 import { WatermarkService } from '../watermark/watermark.service';
 
@@ -32,7 +32,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WatermarkQueueService.name);
   private readonly enabled: boolean;
   private readonly redisUrl: string | undefined;
-  private queue: Queue<WatermarkJobData> | null = null;
+  private queue: Queue | null = null;
   private worker: Worker<WatermarkJobData> | null = null;
   private queueConnection: Redis | null = null;
   private workerConnection: Redis | null = null;
@@ -102,8 +102,8 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     this.queueConnection = this.createConnection('queue');
     this.workerConnection = this.createConnection('worker');
 
-    this.queue = new Queue<WatermarkJobData>(QUEUE_NAME, {
-      connection: this.queueConnection,
+    this.queue = new Queue(QUEUE_NAME, {
+      connection: this.queueConnection as ConnectionOptions,
       defaultJobOptions: {
         attempts: 5,
         backoff: { type: 'exponential', delay: 5_000 },
@@ -132,7 +132,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         );
       },
       {
-        connection: this.workerConnection,
+        connection: this.workerConnection as ConnectionOptions,
         // Video encodes run in a child process, so a couple in parallel is fine.
         concurrency: Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
         // FFmpeg jobs outlast the default 30s lock; renew over a longer window.

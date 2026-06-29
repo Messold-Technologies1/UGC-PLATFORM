@@ -104,11 +104,13 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
 
     if (this.queue) {
       try {
-        await this.queue.add(
-          JOB_NAME,
-          { deliveryId },
-          { jobId: `wm-${deliveryId}` },
-        );
+        // Remove any prior job with this id first. BullMQ treats `add` with an
+        // existing jobId (still in the completed/failed set) as a no-op, which
+        // would silently drop re-enqueues for reconciles, regenerations and
+        // revisions. Removing first guarantees the delivery is reprocessed.
+        const jobId = `wm-${deliveryId}`;
+        await this.queue.remove(jobId).catch(() => undefined);
+        await this.queue.add(JOB_NAME, { deliveryId }, { jobId });
         return;
       } catch (err) {
         this.logger.error(

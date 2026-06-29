@@ -261,17 +261,38 @@ export class WatermarkService {
   }
 
   private runFfmpeg(args: string[]): Promise<void> {
+    // Hard cap so a hung encode can't occupy a worker slot forever and stall
+    // the whole queue. Tunable via WATERMARK_FFMPEG_TIMEOUT_MS.
+    const timeoutMs = Math.max(
+      30_000,
+      Number(process.env.WATERMARK_FFMPEG_TIMEOUT_MS) || 180_000,
+    );
     return new Promise((resolve, reject) => {
       const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
       let stderr = '';
+      let settled = false;
+      const finish = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fn();
+      };
+      const timer = setTimeout(() => {
+        proc.kill('SIGKILL');
+        finish(() =>
+          reject(new Error(`ffmpeg timed out after ${timeoutMs}ms`)),
+        );
+      }, timeoutMs);
       proc.stderr?.on('data', (d) => {
         // keep only the tail to avoid unbounded memory on long encodes
         stderr = (stderr + d.toString()).slice(-4000);
       });
-      proc.on('error', reject);
+      proc.on('error', (err) => finish(() => reject(err)));
       proc.on('close', (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+        finish(() => {
+          if (code === 0) resolve();
+          else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+        });
       });
     });
   }

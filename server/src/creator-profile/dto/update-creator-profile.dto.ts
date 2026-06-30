@@ -160,6 +160,16 @@ export class UpdateCreatorProfileDto {
   @IsBoolean()
   onLocationAvailable?: boolean;
 
+  /**
+   * When true, this update is an explicit "Go Live" — the backend may latch
+   * `completeProfile` if the checklist is satisfied. When omitted/false the
+   * update is a draft save: data is persisted but the profile is NOT published.
+   */
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  goLive?: boolean;
+
   @ApiPropertyOptional({
     type: [CreatorFacetSelectionInputDto],
     description:

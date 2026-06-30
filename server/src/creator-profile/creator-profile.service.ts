@@ -1843,7 +1843,13 @@ export class CreatorProfileService {
         }
 
         // Latch completeProfile / recompute isListed after all writes land.
-        await recomputeCreatorListingState(tx, creatorProfileId);
+        // Only an explicit Go Live (dto.goLive) may flip completeProfile to
+        // true; a draft save persists data without publishing.
+        await recomputeCreatorListingState(
+          tx,
+          creatorProfileId,
+          dto.goLive === true,
+        );
 
         const updated = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },

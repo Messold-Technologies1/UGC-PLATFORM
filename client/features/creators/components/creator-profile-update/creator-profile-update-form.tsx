@@ -558,13 +558,11 @@ function CreatorProfileUpdateFormContent({
     }
   }
 
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-
-      // Go-Live gate: until the profile is live, block the save (no API call)
-      // unless every requirement is met, and tell the creator what's missing.
-      if (!completeProfile && goLiveMissing.length > 0) {
+  const runSubmit = useCallback(
+    async (goLive: boolean) => {
+      // Go-Live gate applies ONLY when explicitly going live. A draft save
+      // (goLive === false) persists partial progress without publishing.
+      if (goLive && !completeProfile && goLiveMissing.length > 0) {
         toast.error(
           `Complete your profile to go live. Still needed: ${goLiveMissing.join(", ")}.`,
         );
@@ -714,7 +712,9 @@ function CreatorProfileUpdateFormContent({
         if (finalPayload.city === (initialProfile.city || undefined)) delete finalPayload.city;
       }
 
-      submitCreatorProfileMutation.mutate({ payload: finalPayload });
+      submitCreatorProfileMutation.mutate({
+        payload: goLive ? { ...finalPayload, goLive: true } : finalPayload,
+      });
     },
     [
       addOns,
@@ -746,10 +746,40 @@ function CreatorProfileUpdateFormContent({
       goLiveMissing,
     ],
   );
+
+  // Form submit (Enter key / primary button): an already-live profile saves
+  // changes (no re-publish needed); a not-yet-live profile treats the primary
+  // action as "Go Live".
+  const handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void runSubmit(!completeProfile);
+    },
+    [runSubmit, completeProfile],
+  );
+
+  // Explicit "Save draft" — persist partial progress without publishing.
+  const handleSaveDraft = useCallback(() => {
+    void runSubmit(false);
+  }, [runSubmit]);
+
   const handleDiscard = useCallback(() => {
     onRequestReset();
     toast.info("Changes discarded");
   }, [onRequestReset]);
+
+  // Warn before leaving (refresh / tab close / external nav) with unsaved
+  // edits, so half-filled progress isn't lost. Use "Save draft" to keep it.
+  useEffect(() => {
+    if (!isDirty || pending) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty, pending]);
+
   const navCounts = useMemo(() => {
     const nicheCount =
       Object.values(facets.selectedFacets).reduce(
@@ -941,6 +971,24 @@ function CreatorProfileUpdateFormContent({
                 >
                   Discard
                 </button>
+                {/* Not-yet-live profiles can save partial progress without
+                    publishing. Live profiles only need the single save button. */}
+                {!completeProfile ? (
+                  <button
+                    type="button"
+                    className="pe-btn pe-btn-ghost"
+                    onClick={handleSaveDraft}
+                    disabled={
+                      pending ||
+                      introVideo.uploadingIntroVideo ||
+                      profileImage.uploadingProfileImage ||
+                      facets.facetOptionsQuery.isLoading ||
+                      addOns.addOnOptionsQuery.isLoading
+                    }
+                  >
+                    {pending ? "Saving…" : "Save draft"}
+                  </button>
+                ) : null}
                 <button
                   type="submit"
                   className="pe-btn pe-btn-primary"

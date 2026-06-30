@@ -37,6 +37,8 @@ export type UpdateCreatorProfilePayload = {
   restrictions?: string[];
   packages?: CreatorPackageCreatePayload[];
   addOns?: CreatorAddOnCreatePayload[];
+  /** True only on an explicit "Go Live"; omitted for draft saves. */
+  goLive?: boolean;
 };
 
 export async function updateCreatorProfile(

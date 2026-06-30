@@ -17,6 +17,8 @@ function formatDate(value?: string | null) {
   });
 }
 
+export const formatDeliveryDate = formatDate;
+
 interface DeliveryDeadlineDisplayProps {
   order: DeliveryTimelineInput;
   className?: string;
@@ -99,15 +101,34 @@ export function getDeliveryDeadlineLabel(order: DeliveryTimelineInput): string {
 
 /** Compact value + label for order list cards (avoids long single-line grace text). */
 export function getDeliveryDeadlineCardMeta(
-  order: DeliveryTimelineInput & { status?: string },
-): { value: string; label: string } {
+  order: DeliveryTimelineInput & {
+    status?: string;
+    acceptedAt?: string | null;
+  },
+): { value: string; label: string; showBadge: boolean } {
   const timeline = getDeliveryTimeline(order);
   const date = formatDate(timeline.displayDate);
 
-  if (order.status === "COMPLETED" || order.status === "DELIVERED") {
+  if (order.status === "COMPLETED") {
     return {
-      value: date ?? "—",
-      label: order.status === "COMPLETED" ? "Completed on" : "Delivered on",
+      value:
+        formatDate(order.acceptedAt) ??
+        formatDate(order.deliveredAt) ??
+        "—",
+      label: "Completed on",
+      showBadge: false,
+    };
+  }
+
+  if (
+    order.status === "DELIVERED" ||
+    order.status === "REVISION_SUBMITTED" ||
+    order.status === "REVISION_REQUESTED"
+  ) {
+    return {
+      value: formatDate(order.deliveredAt) ?? "—",
+      label: "Delivered on",
+      showBadge: false,
     };
   }
 
@@ -116,13 +137,14 @@ export function getDeliveryDeadlineCardMeta(
     return {
       value: `${days} day${days === 1 ? "" : "s"}`,
       label: "Delivery time",
+      showBadge: false,
     };
   }
   if (timeline.phase === "overdue") {
-    return { value: "Overdue", label: "Past grace" };
+    return { value: "Overdue", label: "Past grace", showBadge: true };
   }
   if (timeline.isInGrace) {
-    return { value: date ?? "—", label: "Grace ends" };
+    return { value: date ?? "—", label: "Grace ends", showBadge: true };
   }
-  return { value: date ?? "TBD", label: "Due date" };
+  return { value: date ?? "TBD", label: "Due date", showBadge: true };
 }

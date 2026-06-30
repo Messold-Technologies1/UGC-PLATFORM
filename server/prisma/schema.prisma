@@ -659,6 +659,10 @@ model OrderDelivery {
   revisionNumber Int      @default(0)
   assets         Json
   note           String?
+  // Watermark pipeline status for the brand-facing preview copies.
+  // "ready" is the default so historical rows are never reprocessed; new
+  // deliveries are explicitly created as "pending".
+  previewStatus  String   @default("ready")
   createdAt      DateTime @default(now())
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -667,6 +671,7 @@ model OrderDelivery {
   @@unique([orderId, revisionNumber])
   @@index([orderId, createdAt])
   @@index([creatorId, createdAt])
+  @@index([previewStatus, createdAt])
 }
 
 model OrderRevision {

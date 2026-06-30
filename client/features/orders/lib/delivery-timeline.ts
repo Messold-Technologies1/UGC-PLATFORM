@@ -39,6 +39,23 @@ function daysBetween(from: Date, to: Date): number {
   return Math.max(0, Math.ceil(ms / 86_400_000));
 }
 
+/** Promised due date from `deliveryDueAt` or clock start + delivery days. */
+export function getPromisedDeliveryDueAt(
+  order: DeliveryTimelineInput,
+): Date | null {
+  if (order.deliveryDueAt) {
+    return new Date(order.deliveryDueAt);
+  }
+
+  const clockStarted = order.requiresPhysicalProductShipment
+    ? order.productReceivedAt
+    : order.briefAcceptedAt;
+
+  if (!clockStarted) return null;
+
+  return addCalendarDays(new Date(clockStarted), order.deliveryDaysSnapshot);
+}
+
 export function getDeliveryTimeline(
   order: DeliveryTimelineInput,
   now: Date = new Date(),

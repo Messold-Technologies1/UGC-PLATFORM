@@ -5,6 +5,7 @@ import type { DeliveryAssetKind } from "./presign-delivery-upload";
 export type SubmitDeliveryAsset = {
   key: string;
   kind: DeliveryAssetKind;
+  sha256?: string;
 };
 
 export type SubmitDeliveryPayload = {

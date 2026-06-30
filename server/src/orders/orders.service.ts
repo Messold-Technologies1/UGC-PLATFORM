@@ -48,6 +48,7 @@ import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
+import { WatermarkQueueService } from '../jobs/watermark-queue.service';
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 
 /**
@@ -113,6 +114,44 @@ function mapDeliveryAssets(value: Prisma.JsonValue): OrderDeliveryAssetDto[] {
       url: typeof a.url === 'string' ? a.url : '',
     }))
     .filter((a) => a.key && a.url && (a.kind === 'video' || a.kind === 'image')) as any;
+}
+
+/**
+ * Brand-facing asset mapping with watermark gating.
+ *
+ * - Order accepted  → return the original file URL (brand has paid, full access).
+ * - Not yet accepted → return the watermarked preview URL. If the preview is
+ *   still being generated, `url` is empty and `previewStatus` tells the client
+ *   to show a "preview generating" state instead of the original.
+ */
+function mapBrandDeliveryAssets(
+  value: Prisma.JsonValue,
+  opts: { accepted: boolean; previewStatus?: string | null },
+): OrderDeliveryAssetDto[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+    .filter(Boolean)
+    .map((a: any) => {
+      const kind: 'video' | 'image' | null =
+        a.kind === 'video' || a.kind === 'image' ? a.kind : null;
+      const key = typeof a.key === 'string' ? a.key : '';
+      const originalUrl = typeof a.url === 'string' ? a.url : '';
+      const previewUrl = typeof a.previewUrl === 'string' ? a.previewUrl : '';
+
+      if (opts.accepted) {
+        return { key, kind, url: originalUrl };
+      }
+      return {
+        key,
+        kind,
+        // Never expose the original URL before acceptance.
+        url: previewUrl,
+        watermarked: true,
+        previewStatus: (previewUrl ? 'ready' : opts.previewStatus) ?? 'pending',
+      };
+    })
+    .filter((a) => a.key && (a.kind === 'video' || a.kind === 'image')) as any;
 }
 
 /** Calendar day YYYY-MM-DD as UTC midnight (validated). */
@@ -192,6 +231,7 @@ export class OrdersService {
     private readonly orderMail: OrderMailNotifier,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
+    private readonly watermarkQueue: WatermarkQueueService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -1026,6 +1066,8 @@ export class OrdersService {
       String(order.status) === 'REVISION_SUBMITTED';
     const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
 
+    await this.assertDeliveryNotProcessing(order.id, revisionNumber);
+
     const uploads = await Promise.all(
       params.dto.files.map(async (f) => {
         const key = this.storage.buildObjectKey({
@@ -1109,18 +1151,63 @@ export class OrdersService {
       String(order.status) === 'REVISION_REQUESTED' ||
       String(order.status) === 'REVISION_SUBMITTED';
     const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
-    const nextStatus = isRevisionFlow
-      ? ('REVISION_SUBMITTED' as const)
-      : ('DELIVERED' as const);
 
-    const assets = (params.dto.assets ?? []).map((a) => ({
+    await this.assertDeliveryNotProcessing(order.id, revisionNumber);
+
+    const submitted = params.dto.assets ?? [];
+
+    // ---- Duplicate-content prevention (when client supplies SHA-256) ----
+    const submittedHashes = submitted
+      .map((a) => a.sha256?.trim().toLowerCase())
+      .filter((h): h is string => !!h);
+
+    // Reject duplicates inside the same submission.
+    const seenInBatch = new Set<string>();
+    for (const h of submittedHashes) {
+      if (seenInBatch.has(h)) {
+        throw new BadRequestException(
+          'Duplicate file detected in this submission. Each file must be unique.',
+        );
+      }
+      seenInBatch.add(h);
+    }
+
+    // Reject files already submitted in another revision of this order.
+    if (submittedHashes.length > 0) {
+      const priorDeliveries: any[] = await (
+        this.prisma as any
+      ).orderDelivery.findMany({
+        where: { orderId: order.id, revisionNumber: { not: revisionNumber } },
+        select: { assets: true },
+      });
+      const priorHashes = new Set<string>();
+      for (const d of priorDeliveries) {
+        for (const a of Array.isArray(d.assets) ? d.assets : []) {
+          if (a && typeof a.sha256 === 'string') {
+            priorHashes.add(a.sha256.toLowerCase());
+          }
+        }
+      }
+      const dup = submittedHashes.find((h) => priorHashes.has(h));
+      if (dup) {
+        throw new BadRequestException(
+          'One or more files were already submitted for this order in a previous revision.',
+        );
+      }
+    }
+
+    const assets = submitted.map((a) => ({
       key: a.key,
       kind: a.kind,
       url: this.storage.buildCdnUrl(a.key),
+      sha256: a.sha256?.trim().toLowerCase() || null,
+      previewKey: null as string | null,
+      previewUrl: null as string | null,
     }));
 
+    let deliveryId: string | null = null;
     await this.prisma.$transaction(async (tx) => {
-      await (tx as any).orderDelivery.upsert({
+      const saved = await (tx as any).orderDelivery.upsert({
         where: {
           orderId_revisionNumber: {
             orderId: order.id,
@@ -1133,39 +1220,47 @@ export class OrdersService {
           revisionNumber,
           assets: assets as any,
           note: params.dto.note?.trim() || null,
+          previewStatus: 'pending',
         },
         update: {
           assets: assets as any,
           note: params.dto.note?.trim() || null,
+          previewStatus: 'pending',
         },
+        select: { id: true },
       });
-      await this.updateOrder(
-        {
-          where: { id: order.id },
-          data: {
-            status: nextStatus as any,
-            deliveredAt: order.deliveredAt ?? new Date(),
-          } as any,
-        },
-        tx,
-      );
+      deliveryId = saved.id;
     });
 
-    if (nextStatus === 'DELIVERED' || nextStatus === 'REVISION_SUBMITTED') {
-      this.orderMail.notifyContentDelivered(order.id, {
-        revisionNumber,
-        deliveredAt:
-          nextStatus === 'REVISION_SUBMITTED'
-            ? new Date()
-            : (order.deliveredAt ?? new Date()),
-      });
+    // Kick off watermarking of the brand-facing preview copies. Order status
+    // moves to DELIVERED / REVISION_SUBMITTED only after previews are ready.
+    if (deliveryId) {
+      await this.watermarkQueue.enqueue(deliveryId);
     }
 
     return {
       orderId: order.id,
       revisionNumber,
-      status: nextStatus,
+      status: String(order.status),
     };
+  }
+
+  /** Block re-submit while watermarked previews are still being generated. */
+  private async assertDeliveryNotProcessing(
+    orderId: string,
+    revisionNumber: number,
+  ): Promise<void> {
+    const delivery = await (this.prisma as any).orderDelivery.findUnique({
+      where: {
+        orderId_revisionNumber: { orderId, revisionNumber },
+      },
+      select: { previewStatus: true },
+    });
+    if (delivery?.previewStatus === 'pending') {
+      throw new BadRequestException(
+        'Your delivery is still being processed. Please wait for previews to finish.',
+      );
+    }
   }
 
   async requestRevision(params: {
@@ -1484,8 +1579,40 @@ export class OrdersService {
     if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
 
     const { creator, brandId, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetails(orderFields);
+
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (
+      revisionActiveStatuses.has(order.status) &&
+      order.revisionCount > 0
+    ) {
+      const currentRevision = await this.prisma.orderRevision.findUnique({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber: order.revisionCount,
+          },
+        },
+        select: {
+          revisionNumber: true,
+          note: true,
+          createdAt: true,
+        },
+      });
+      if (currentRevision) {
+        mappedOrder.currentRevision = {
+          revisionNumber: currentRevision.revisionNumber,
+          note: currentRevision.note ?? null,
+          requestedAt: currentRevision.createdAt,
+        };
+      }
+    }
+
     return {
-      order: this.mapOrderDetails(orderFields),
+      order: mappedOrder,
       creator: {
         id: creator.id,
         displayName: creator.displayName,
@@ -1548,8 +1675,40 @@ export class OrdersService {
     if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
 
     const { brand, creatorId, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetails(orderFields);
+
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (
+      revisionActiveStatuses.has(order.status) &&
+      order.revisionCount > 0
+    ) {
+      const currentRevision = await this.prisma.orderRevision.findUnique({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber: order.revisionCount,
+          },
+        },
+        select: {
+          revisionNumber: true,
+          note: true,
+          createdAt: true,
+        },
+      });
+      if (currentRevision) {
+        mappedOrder.currentRevision = {
+          revisionNumber: currentRevision.revisionNumber,
+          note: currentRevision.note ?? null,
+          requestedAt: currentRevision.createdAt,
+        };
+      }
+    }
+
     return {
-      order: this.mapOrderDetails(orderFields),
+      order: mappedOrder,
       brand: toOrderBrandSnapshotDto(brand),
     };
   }
@@ -1566,7 +1725,7 @@ export class OrdersService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true },
+      select: { id: true, brandId: true, acceptedAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
@@ -1582,15 +1741,23 @@ export class OrdersService {
         assets: true,
         note: true,
         createdAt: true,
+        previewStatus: true,
       },
     });
+
+    // Brands only get the original files once they have accepted the order.
+    // Until then they see the watermarked preview copies.
+    const accepted = !!order.acceptedAt;
 
     const items: OrderDeliveryItemDto[] = rows.map((r) => ({
       id: r.id,
       orderId: r.orderId,
       creatorId: r.creatorId,
       revisionsUsed: r.revisionNumber,
-      assets: mapDeliveryAssets(r.assets),
+      assets: mapBrandDeliveryAssets(r.assets, {
+        accepted,
+        previewStatus: r.previewStatus,
+      }),
       note: r.note ?? null,
       createdAt: r.createdAt,
     }));

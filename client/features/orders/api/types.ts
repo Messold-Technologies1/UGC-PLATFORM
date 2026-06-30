@@ -44,6 +44,12 @@ export interface OrderAddOnSnapshot {
   description?: string | null;
 }
 
+export interface OrderCurrentRevision {
+  revisionNumber: number;
+  note?: string | null;
+  requestedAt: string;
+}
+
 export interface OrderDetailsPublic extends OrderListSummary {
   deliverablesSnapshot: string[];
   maxRevisionsSnapshot: number;
@@ -54,6 +60,7 @@ export interface OrderDetailsPublic extends OrderListSummary {
   acceptedAt?: string | null;
   creatorPaidAt?: string | null;
   revisionCount: number;
+  currentRevision?: OrderCurrentRevision;
   refundedAt?: string | null;
 }
 

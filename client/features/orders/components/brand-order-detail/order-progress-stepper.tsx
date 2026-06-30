@@ -9,6 +9,8 @@ import {
   Play,
   Truck,
   Star,
+  RotateCcw,
+  FileVideo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -24,7 +26,9 @@ interface StepDefinition {
   label: string;
   icon: React.ElementType;
   dateKey: keyof OrderDetailsPublic | null;
+  getDate?: (order: OrderDetailsPublic) => string | null | undefined;
   statusMatch: string[];
+  revisionStep?: boolean;
   getHref?: (orderId: string) => string;
 }
 
@@ -68,7 +72,25 @@ const STEPS: StepDefinition[] = [
     label: "Delivered",
     icon: Truck,
     dateKey: "deliveredAt",
-    statusMatch: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
+    statusMatch: ["DELIVERED"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
+  },
+  {
+    label: "Revision\nRequested",
+    icon: RotateCcw,
+    dateKey: null,
+    getDate: (order) => order.currentRevision?.requestedAt ?? null,
+    statusMatch: ["REVISION_REQUESTED"],
+    revisionStep: true,
+    getHref: (orderId) => `/brand/orders/${orderId}`,
+  },
+  {
+    label: "Revision\nSubmitted",
+    icon: FileVideo,
+    dateKey: null,
+    getDate: (order) => order.updatedAt ?? null,
+    statusMatch: ["REVISION_SUBMITTED"],
+    revisionStep: true,
     getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
@@ -116,37 +138,42 @@ function formatStepDate(value?: string | null) {
   );
 }
 
-export function OrderProgressStepper({
-  order,
-  onStepClick,
-  previewState,
-}: OrderProgressStepperProps) {
-  const steps = STEPS.filter((step) => {
-    if (
-      step.label === "Awaiting\nShipment" &&
-      !order.requiresPhysicalProductShipment
-    ) {
-      return false;
-    }
-    return true;
-  }).map((step) => {
-    if (
-      step.label === "In Progress" &&
-      !order.requiresPhysicalProductShipment
-    ) {
-      return {
-        ...step,
-        statusMatch: [...step.statusMatch, "BRIEF_ACCEPTED"],
-      };
-    }
-    return step;
-  });
-
+export function OrderProgressStepper({ order, onStepClick, previewState }: OrderProgressStepperProps) {
+  const steps = STEPS
+    .filter((step) => {
+      if (step.revisionStep) {
+        return (
+          order.revisionCount > 0 ||
+          order.status === "REVISION_REQUESTED" ||
+          order.status === "REVISION_SUBMITTED"
+        );
+      }
+      if (
+        step.label === "Awaiting\nShipment" &&
+        !order.requiresPhysicalProductShipment
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .map((step) => {
+      if (
+        step.label === "In Progress" &&
+        !order.requiresPhysicalProductShipment
+      ) {
+        return {
+          ...step,
+          statusMatch: [...step.statusMatch, "BRIEF_ACCEPTED"],
+        };
+      }
+      return step;
+    });
+  
   const activeIndex = getActiveStepIndex(order.status, steps);
 
   return (
     <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">
-      <div className="flex items-start justify-between min-w-[700px]">
+      <div className="flex items-start justify-between min-w-[860px]">
         {steps.map((step, index) => {
           const isPassed = index <= activeIndex;
           const isCompleted = index < activeIndex;
@@ -157,9 +184,11 @@ export function OrderProgressStepper({
           const displayLabel = getStepDisplayLabel(step, order, index);
           const Icon = step.icon;
 
-          const dateValue = step.dateKey
-            ? (order[step.dateKey] as string | null | undefined)
-            : null;
+          const dateValue = step.getDate
+            ? step.getDate(order)
+            : step.dateKey
+              ? (order[step.dateKey] as string | null | undefined)
+              : null;
 
           const StepContent = () => (
             <>

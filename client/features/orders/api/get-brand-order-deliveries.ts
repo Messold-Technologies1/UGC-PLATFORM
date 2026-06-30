@@ -5,6 +5,10 @@ export interface OrderDeliveryAsset {
   key: string;
   kind: "video" | "image";
   url: string;
+  /** True when `url` is the watermarked preview (brand, before accepting). */
+  watermarked?: boolean;
+  /** Preview generation status; "pending" means it isn't ready yet. */
+  previewStatus?: "pending" | "ready" | "failed";
 }
 
 export interface OrderDeliveryItem {

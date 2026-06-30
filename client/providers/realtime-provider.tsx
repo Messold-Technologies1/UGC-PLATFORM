@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
@@ -16,8 +16,27 @@ import type {
   OrderProductReceivedEvent,
   OrderProductShippedEvent,
   OrderRevisionRequestedEvent,
+  OrderContentDeliveredEvent,
   OrderChatMessageEvent,
+  DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
+import {
+  brandOrderDeliveriesQueryKey,
+} from "@/features/orders/api/get-brand-order-deliveries";
+import { brandOrderDetailsQueryKey } from "@/features/orders/api/get-brand-order-details";
+
+function refetchBrandOrderDeliveryViews(
+  queryClient: QueryClient,
+  orderId: string,
+) {
+  void queryClient.refetchQueries({
+    queryKey: brandOrderDeliveriesQueryKey(orderId),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: brandOrderDetailsQueryKey(orderId),
+  });
+  queryClient.invalidateQueries({ queryKey: ["orders"] });
+}
 
 type RealtimeCtx = { connected: boolean };
 const Ctx = createContext<RealtimeCtx>({ connected: false });
@@ -64,6 +83,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+
+      const isCreator = user.primaryRole === "CREATOR";
+      if (isCreator && e.kind === "captured") {
+        return;
+      }
+
       const msg =
         e.kind === "captured"
           ? "Payment captured"
@@ -89,14 +114,23 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
-      toast.info("Brand submitted a brief", {
-        description: `Order ${e.orderId.slice(0, 8)}…`,
+
+      if (user.primaryRole !== "CREATOR") return;
+
+      const brandLabel = e.brandName?.trim() || "A brand";
+      const packageLabel = e.packageName?.trim();
+      const description = packageLabel
+        ? `${brandLabel} · ${packageLabel}`
+        : `${brandLabel} submitted a brief for you to review`;
+
+      toast.success("New collaboration request", {
+        description,
       });
       addNotification({
-        type: "info",
-        title: "Brand submitted a brief",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId),
+        type: "success",
+        title: "New collaboration request",
+        description,
+        link: `/creator/orders/${e.orderId}/brief`,
       });
     };
 
@@ -104,13 +138,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
-      toast.success("Creator accepted the brief", {
-        description: `Order ${e.orderId.slice(0, 8)}...`,
+
+      const creatorLabel = e.creatorName?.trim() || "Creator";
+      const description = `${creatorLabel} accepted your brief`;
+
+      toast.success("Brief accepted", {
+        description,
       });
       addNotification({
         type: "success",
-        title: "Creator accepted the brief",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
+        title: "Brief accepted",
+        description,
         link: orderNotificationLink(e.orderId),
       });
     };
@@ -164,6 +202,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    const onContentDelivered = (e: OrderContentDeliveredEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      if (user.primaryRole === "BRAND") {
+        refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+      }
+    };
+
+    const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {
+      refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+    };
+
     const onChatMessage = (e: OrderChatMessageEvent) => {
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       if (e.message.senderUserId === user.id) return;
@@ -188,6 +237,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.product_shipped", onProductShipped);
     s.on("order.product_received", onProductReceived);
     s.on("order.revision_requested", onRevisionRequested);
+    s.on("order.content_delivered", onContentDelivered);
+    s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("chat.message", onChatMessage);
 
     s.connect();
@@ -201,6 +252,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.product_shipped", onProductShipped);
       s.off("order.product_received", onProductReceived);
       s.off("order.revision_requested", onRevisionRequested);
+      s.off("order.content_delivered", onContentDelivered);
+      s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };

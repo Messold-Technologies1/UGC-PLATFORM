@@ -263,6 +263,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <DeliveredNotificationBanner
           creatorName={creator?.displayName || "Creator"}
+          order={order}
           previewPreparing={previewGenerating}
           isRevision={isRevision}
         />

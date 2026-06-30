@@ -83,6 +83,8 @@ import { useCreatorProfileImage } from "@/features/creators/hooks/use-creator-pr
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { useRosyConfirmDialog } from "@/hooks/use-rosy-confirm-dialog";
 
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 import {
@@ -278,6 +280,9 @@ function CreatorProfileUpdateFormContent({
     setPfDrawerOpen(false);
   }
   const [isDirty, setIsDirty] = useState(false);
+  const [submitIntent, setSubmitIntent] = useState<
+    "save-draft" | "go-live" | "save-changes" | null
+  >(null);
   const markDirty = useCallback(() => setIsDirty(true), []);
 
   const contactEmailDisplay = adminMode
@@ -300,9 +305,20 @@ function CreatorProfileUpdateFormContent({
   });
 
   const pending = submitCreatorProfileMutation.isPending;
+  const isSavingDraft = pending && submitIntent === "save-draft";
+  const isPrimarySubmitting =
+    pending &&
+    (submitIntent === "go-live" || submitIntent === "save-changes");
+
   useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
+
+  useEffect(() => {
+    if (!pending) {
+      setSubmitIntent(null);
+    }
+  }, [pending]);
 
   const [phoneVerified, setPhoneVerified] = useState<boolean>(
     adminMode || !PROFILE_OTP_VERIFICATION_ENABLED,
@@ -661,6 +677,9 @@ function CreatorProfileUpdateFormContent({
         if (finalPayload.city === (initialProfile.city || undefined)) delete finalPayload.city;
       }
 
+      setSubmitIntent(
+        goLive ? "go-live" : completeProfile ? "save-changes" : "save-draft",
+      );
       submitCreatorProfileMutation.mutate({
         payload: goLive ? { ...finalPayload, goLive: true } : finalPayload,
       });
@@ -718,17 +737,9 @@ function CreatorProfileUpdateFormContent({
     toast.info("Changes discarded");
   }, [onRequestReset]);
 
-  // Warn before leaving (refresh / tab close / external nav) with unsaved
-  // edits, so half-filled progress isn't lost. Use "Save draft" to keep it.
-  useEffect(() => {
-    if (!isDirty || pending) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty, pending]);
+  const { confirm, dialog: confirmDialog } = useRosyConfirmDialog();
+
+  useUnsavedChangesGuard(isDirty && !pending, { confirm });
 
   const navCounts = useMemo(() => {
     const nicheCount =
@@ -770,6 +781,7 @@ function CreatorProfileUpdateFormContent({
 
   return (
     <div className={cn("pe-scope", !isSettings && "pe-onboarding")}>
+      {confirmDialog}
       <motion.form
         variants={containerVariants}
         initial="hidden"
@@ -858,11 +870,15 @@ function CreatorProfileUpdateFormContent({
                 <span className="pe-savebar-dot" />
               )}
               <span className="pe-savebar-msg">
-                {pending
-                  ? "Saving changes..."
-                  : completeProfile
-                    ? "You have unsaved changes"
-                    : "Finish your profile to go live"}
+                {isSavingDraft
+                  ? "Saving draft..."
+                  : submitIntent === "go-live"
+                    ? "Going live..."
+                    : submitIntent === "save-changes"
+                      ? "Saving changes..."
+                      : completeProfile
+                        ? "You have unsaved changes"
+                        : "Finish your profile to go live"}
               </span>
               <div className="pe-savebar-actions">
                 <button
@@ -888,7 +904,7 @@ function CreatorProfileUpdateFormContent({
                       addOns.addOnOptionsQuery.isLoading
                     }
                   >
-                    {pending ? "Saving…" : "Save draft"}
+                    {isSavingDraft ? "Saving…" : "Save draft"}
                   </button>
                 ) : null}
                 <button
@@ -902,7 +918,7 @@ function CreatorProfileUpdateFormContent({
                     addOns.addOnOptionsQuery.isLoading
                   }
                 >
-                  {pending ? (
+                  {isPrimarySubmitting ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
                       {completeProfile ? "Saving…" : "Going live…"}

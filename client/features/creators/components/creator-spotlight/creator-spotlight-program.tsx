@@ -2,7 +2,6 @@
 
 import { Fragment, useState } from "react";
 import {
-  ArrowRight,
   CheckCircle2,
   Film,
   Megaphone,
@@ -20,11 +19,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SITE_NAME } from "@/config/site";
+import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
-const SPOTLIGHT_EMAIL = "support@gocollab.io";
-const SPOTLIGHT_CTA_ENABLED = false;
-const SPOTLIGHT_MAILTO = `mailto:${SPOTLIGHT_EMAIL}?subject=${encodeURIComponent("Creator Spotlight Program — I'm interested")}`;
+function buildSpotlightMailto(): string {
+  const subject = encodeURIComponent("Creator Spotlight Program — I'm interested");
+  const body = encodeURIComponent(
+    `Hi ${SITE_NAME} team,\n\nI'm interested in the Creator Spotlight Program.\n\nThanks!`,
+  );
+  return `mailto:${env.spotlightContactEmail}?subject=${subject}&body=${body}`;
+}
 
 const MARQUEE_ITEMS = [
   `STAR IN ${SITE_NAME.toUpperCase()} ADS`,
@@ -375,24 +379,17 @@ function CreatorSpotlightModal({
             >
               Maybe later
             </Button>
-            {SPOTLIGHT_CTA_ENABLED ? (
-              <PillButton
-                variant="primary"
-                arrow
-                href={SPOTLIGHT_MAILTO}
-                className="justify-center px-5 py-2.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 sm:min-w-[11rem]"
-              >
-                I&apos;m interested
-              </PillButton>
-            ) : (
-              <Button
-                disabled
-                className="gap-2 bg-primary/50 text-primary-foreground sm:min-w-[11rem]"
-              >
-                I&apos;m interested
-                <ArrowRight className="size-4" aria-hidden />
-              </Button>
-            )}
+            <PillButton
+              variant="primary"
+              arrow
+              className="justify-center px-5 py-2.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 sm:min-w-[11rem]"
+              onClick={() => {
+                window.location.href = buildSpotlightMailto();
+                onOpenChange(false);
+              }}
+            >
+              I&apos;m interested
+            </PillButton>
           </div>
         </div>
       </DialogContent>

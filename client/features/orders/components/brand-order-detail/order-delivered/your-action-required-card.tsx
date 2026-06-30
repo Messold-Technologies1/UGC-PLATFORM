@@ -37,6 +37,9 @@ import type { OrderDetailsPublic } from "../../../api/types";
 interface YourActionRequiredCardProps {
   order: OrderDetailsPublic;
   orderId: string;
+  previewPreparing?: boolean;
+  creatorName?: string;
+  isRevision?: boolean;
 }
 
 function computeDaysLeft(deliveredAt?: string | null): number | null {
@@ -61,6 +64,9 @@ const DRAWER_FOOTER_CLASSES =
 export function YourActionRequiredCard({
   order,
   orderId,
+  previewPreparing = false,
+  creatorName = "Creator",
+  isRevision = false,
 }: YourActionRequiredCardProps) {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRevisionDrawerOpen, setIsRevisionDrawerOpen] = useState(false);
@@ -116,6 +122,28 @@ export function YourActionRequiredCard({
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs">
             You've approved the delivered content. The order is now complete.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (previewPreparing) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">Almost there</h3>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+            {creatorName} has submitted{" "}
+            {isRevision ? "a revision" : "new content"}. Review actions unlock
+            once your preview is ready.
+          </p>
+        </div>
+
+        <div className="mt-auto pt-6 flex items-center gap-3 rounded-xl border border-dashed border-primary/20 bg-primary/[0.04] px-4 py-4">
+          <Spinner className="size-5 text-primary shrink-0" />
+          <p className="text-sm font-medium text-foreground">
+            Preparing your preview…
           </p>
         </div>
       </div>

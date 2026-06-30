@@ -3,6 +3,7 @@ import {
   brandOrderDeliveriesQueryOptions,
   type BrandOrderDeliveriesResponse,
 } from "../api/get-brand-order-deliveries";
+import { getLatestDeliveryPreviewState } from "../components/brand-order-detail/order-delivered/delivery-preview-preparing";
 
 type UseGetBrandOrderDeliveriesQueryOptions = Omit<
   UseQueryOptions<BrandOrderDeliveriesResponse, Error>,
@@ -25,15 +26,7 @@ export function useGetBrandOrderDeliveriesQuery(
         return typeof override === "function" ? override(query) : override;
       }
       const items = query.state.data?.items ?? [];
-      const latest = items.at(-1);
-      const assets = latest?.assets ?? [];
-      const previewGenerating =
-        assets.length > 0 &&
-        assets.some(
-          (asset) =>
-            asset.watermarked &&
-            (!asset.url || asset.previewStatus === "pending"),
-        );
+      const { previewGenerating } = getLatestDeliveryPreviewState(items);
       return previewGenerating ? 5_000 : false;
     },
   });

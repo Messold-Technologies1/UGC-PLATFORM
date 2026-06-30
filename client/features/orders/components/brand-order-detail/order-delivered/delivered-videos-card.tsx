@@ -20,10 +20,15 @@ import {
 
 import type { OrderDetailsPublic } from "../../../api/types";
 import { ExternalLink } from "lucide-react";
+import {
+  DeliveryPreviewPreparing,
+  getLatestDeliveryPreviewState,
+} from "./delivery-preview-preparing";
 
 interface DeliveredVideosCardProps {
   orderId: string;
   order?: OrderDetailsPublic;
+  creatorName?: string;
   variant?: "delivered" | "completed";
 }
 
@@ -139,7 +144,12 @@ function DeliveredVideosSkeleton() {
   );
 }
 
-export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: DeliveredVideosCardProps) {
+export function DeliveredVideosCard({
+  orderId,
+  order,
+  creatorName = "Creator",
+  variant = "delivered",
+}: DeliveredVideosCardProps) {
   const { data, isLoading, isError } = useGetBrandOrderDeliveriesQuery(orderId);
 
   if (isLoading) {
@@ -147,20 +157,19 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
   }
 
   const deliveries = data?.items ?? [];
-  const latestDelivery = deliveries.at(-1);
+  const {
+    latestDelivery,
+    previewGenerating,
+    isRevision,
+    playableAssets,
+  } = getLatestDeliveryPreviewState(deliveries);
   const allAssets = latestDelivery?.assets ?? [];
   const videoAssets = allAssets.filter((a) => a.kind === "video");
   const imageAssets = allAssets.filter((a) => a.kind === "image");
   const primaryVideo = videoAssets[0];
   const videoCount = videoAssets.length;
 
-  // Pre-acceptance the brand sees watermarked previews. Some may still be
-  // generating (no url yet) — surface that instead of rendering broken media.
   const isWatermarked = allAssets.some((a) => a.watermarked);
-  const previewGenerating =
-    allAssets.length > 0 &&
-    allAssets.some((a) => a.watermarked && (!a.url || a.previewStatus === "pending"));
-  const playableAssets = allAssets.filter((a) => !!a.url);
 
   const carouselAssets: CarouselAsset[] = playableAssets.map((asset) => ({
     id: asset.key,
@@ -192,6 +201,39 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
 
   const isCompleted = variant === "completed";
 
+  if (previewGenerating && !isCompleted) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+        <div className="flex flex-col md:flex-row gap-6 justify-between">
+          <div className="flex-1 min-w-0 w-full">
+            <DeliveryPreviewPreparing
+              creatorName={creatorName}
+              isRevision={isRevision}
+            />
+          </div>
+
+          <div className="shrink-0 w-full md:w-[260px] xl:w-[280px] flex flex-col justify-center">
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-bold text-foreground">
+                {isRevision ? "Revision incoming" : "Preview incoming"}
+              </h4>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {creatorName} has submitted{" "}
+                {isRevision ? "updated content" : "new content"}. This page
+                refreshes automatically — no need to reload.
+              </p>
+              {latestDelivery?.createdAt ? (
+                <p className="text-xs text-muted-foreground pt-1">
+                  {formatDeliveryDate(latestDelivery.createdAt)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
       {isCompleted && (
@@ -200,14 +242,12 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
         </h3>
       )}
 
-      {isWatermarked && !isEmpty && (
+      {isWatermarked && !isEmpty && !previewGenerating && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
           <Eye className="size-4 shrink-0 mt-0.5" />
           <span>
-            You&apos;re viewing a <strong>watermarked preview</strong>.
-            {previewGenerating
-              ? " Some files are still being prepared — check back in a moment."
-              : " Accept the delivery to download the original, watermark-free files."}
+            You&apos;re viewing a <strong>watermarked preview</strong>. Accept
+            the delivery to download the original, watermark-free files.
           </span>
         </div>
       )}

@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 // import { Textarea } from "@/components/ui/textarea";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
+import { useGetBrandOrderDeliveriesQuery } from "../../hooks/use-get-brand-order-deliveries-query";
+import { getLatestDeliveryPreviewState } from "./order-delivered/delivery-preview-preparing";
 import { OrderRatingReviewCard } from "../order-rating-review-card";
 import { BriefSummaryCard } from "./brief-summary-card";
 import { CreatorAcceptanceCard } from "./creator-acceptance-card";
@@ -87,6 +89,10 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   const { data, isLoading, isError, error } =
     useGetBrandOrderDetailsQuery(orderId);
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
+  const { data: deliveriesData } = useGetBrandOrderDeliveriesQuery(orderId);
+  const { previewGenerating, isRevision } = getLatestDeliveryPreviewState(
+    deliveriesData?.items ?? [],
+  );
 
   const [previewState, setPreviewState] = useState<string | null>(null);
 
@@ -257,15 +263,27 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <DeliveredNotificationBanner
           creatorName={creator?.displayName || "Creator"}
+          order={order}
+          previewPreparing={previewGenerating}
+          isRevision={isRevision}
         />
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
           <div className="flex flex-col gap-5 lg:col-span-8 h-full">
-            <DeliveredVideosCard orderId={orderId} />
+            <DeliveredVideosCard
+              orderId={orderId}
+              creatorName={creator?.displayName || "Creator"}
+            />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
-            <YourActionRequiredCard order={order} orderId={orderId} />
+            <YourActionRequiredCard
+              order={order}
+              orderId={orderId}
+              previewPreparing={previewGenerating}
+              creatorName={creator?.displayName || "Creator"}
+              isRevision={isRevision}
+            />
           </aside>
         </div>
 

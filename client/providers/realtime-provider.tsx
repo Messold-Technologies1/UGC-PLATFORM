@@ -96,7 +96,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "info",
         title: "Brand submitted a brief",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId, "/brief"),
+        link: orderNotificationLink(e.orderId),
       });
     };
 
@@ -111,7 +111,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "success",
         title: "Creator accepted the brief",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId, "/brief"),
+        link: orderNotificationLink(e.orderId),
       });
     };
 

@@ -6,6 +6,12 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const pathname = request.nextUrl.pathname;
   const search = request.nextUrl.search;
+
+  if (pathname.match(/^\/brand\/orders\/[^\/]+\/brief$/)) {
+    const newPathname = pathname.replace('/brief', '');
+    return NextResponse.redirect(new URL(newPathname, request.url));
+  }
+
   requestHeaders.set("x-pathname", `${pathname}${search}`);
 
   return NextResponse.next({

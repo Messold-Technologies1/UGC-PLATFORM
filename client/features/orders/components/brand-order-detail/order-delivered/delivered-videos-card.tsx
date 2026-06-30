@@ -236,54 +236,26 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
 
             <div className="flex items-center gap-2.5 mt-6">
               {isCompleted ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() =>
-                      primaryAsset && downloadAsset(primaryAsset.url, primaryFilename)
-                    }
-                    disabled={isEmpty}
-                  >
-                    <Download className="size-3.5 mr-1.5" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-9 rounded-lg text-muted-foreground h-9 w-9"
-                    onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
-                    disabled={isEmpty}
-                  >
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg font-semibold text-xs px-4 h-9"
+                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
+                  disabled={isEmpty}
+                >
+                  <ExternalLink className="size-3.5 mr-1.5" />
+                  Open Link
+                </Button>
               ) : (
-                <>
-                  <Button
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
-                    disabled={isEmpty}
-                  >
-                    <Eye className="size-3.5 mr-1.5" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() =>
-                      primaryAsset &&
-                      downloadAsset(primaryAsset.url, primaryFilename)
-                    }
-                    disabled={isEmpty}
-                  >
-                    <Download className="size-3.5 mr-1.5" />
-                    Download
-                  </Button>
-                </>
+                <Button
+                  size="sm"
+                  className="rounded-lg font-semibold text-xs px-4 h-9"
+                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
+                  disabled={isEmpty}
+                >
+                  <Eye className="size-3.5 mr-1.5" />
+                  Preview
+                </Button>
               )}
             </div>
           </div>

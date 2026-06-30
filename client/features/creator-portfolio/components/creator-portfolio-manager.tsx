@@ -538,12 +538,6 @@ export function CreatorPortfolioManager() {
                               </Button>
                             </div>
                           </div>
-
-                          {/* <div className="flex items-center justify-end gap-3 mt-2">
-                            <span className="font-medium text-xs text-muted-foreground">
-                              {createdLabel}
-                            </span>
-                          </div> */}
                         </div>
                       </div>
                     );
@@ -743,9 +737,6 @@ export function CreatorPortfolioManager() {
                 </div>
               </div>
             </div>
-            {/* <Link href="#" className="text-xs font-semibold text-primary hover:underline flex items-center justify-center mt-6">
-              View Portfolio Guide &gt;
-            </Link> */}
           </div>
 
           <div className="rounded-lg border border-border bg-background p-5">

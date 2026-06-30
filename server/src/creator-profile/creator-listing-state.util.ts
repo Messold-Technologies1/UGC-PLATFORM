@@ -17,6 +17,13 @@ import { evaluateProfileCompleteness } from './creator-profile-completeness.util
 export async function recomputeCreatorListingState(
   client: Prisma.TransactionClient,
   creatorProfileId: string,
+  /**
+   * Whether the `completeProfile` latch may flip false → true on this write.
+   * Pass false for draft saves so persisting a (possibly complete) profile does
+   * NOT auto-publish it — only an explicit "Go Live" should. `isListed` is still
+   * recomputed either way, and once `completeProfile` is true it stays true.
+   */
+  evaluateCompleteness = true,
 ): Promise<{ completeProfile: boolean; isListed: boolean } | null> {
   const profile = await client.creatorProfile.findUnique({
     where: { id: creatorProfileId },
@@ -44,8 +51,9 @@ export async function recomputeCreatorListingState(
 
   let completeProfile = profile.completeProfile;
 
-  // Latch only flips false -> true; never re-evaluate once already complete.
-  if (!completeProfile) {
+  // Latch only flips false -> true; never re-evaluate once already complete,
+  // and never auto-latch on a draft save (evaluateCompleteness === false).
+  if (!completeProfile && evaluateCompleteness) {
     const publicVideoCount = await client.creatorPortfolioVideo.count({
       where: {
         creatorId: creatorProfileId,

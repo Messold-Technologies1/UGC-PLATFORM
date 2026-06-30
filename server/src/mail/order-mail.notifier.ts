@@ -149,7 +149,7 @@ export class OrderMailNotifier {
         orderId: order.id,
         revisionNumber: String(order.revisionCount),
         revisionsRemaining: String(revisionsRemaining),
-        actionUrl: this.creatorOrderUrl(order.id),
+        actionUrl: this.creatorOrderListUrl(order.id, 'revisions'),
       };
       if (note?.trim()) {
         vars.revisionNote = note.trim();
@@ -376,6 +376,12 @@ export class OrderMailNotifier {
 
   private creatorOrderUrl(orderId: string): string {
     return `${this.frontendBase()}/creator/orders/${orderId}`;
+  }
+
+  private creatorOrderListUrl(orderId: string, tab?: string): string {
+    const params = new URLSearchParams({ orderId });
+    if (tab) params.set('tab', tab);
+    return `${this.frontendBase()}/creator/orders?${params.toString()}`;
   }
 
   private creatorOrderBriefUrl(orderId: string): string {

@@ -34,6 +34,7 @@ import {
   CreatorOrdersTabs,
   TAB_DEFINITIONS,
   isCreatorOrdersTab,
+  getCreatorOrdersTabForStatus,
 } from "./creator-orders-tabs";
 import { CreatorOrdersFilters } from "./creator-orders-filters";
 import { CreatorOrdersDetailsPanel } from "./creator-orders-details-panel";
@@ -51,15 +52,10 @@ function CreatorOrdersListInner() {
 
   useEffect(() => {
     const orderIdParam = searchParams.get("orderId");
-    if (!orderIdParam) return;
-
-    setSelectedOrderId(orderIdParam);
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("orderId");
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router]);
+    if (orderIdParam) {
+      setSelectedOrderId(orderIdParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setPage(1);
@@ -85,6 +81,45 @@ function CreatorOrdersListInner() {
     () => data?.items ?? [],
     [data?.items],
   );
+
+  useEffect(() => {
+    if (!selectedOrderId) return;
+
+    const orderIdParam = searchParams.get("orderId");
+    if (activeTab === "all" && !orderIdParam) return;
+
+    const order = allItems.find((item) => item.order.id === selectedOrderId);
+    if (!order) return;
+
+    const correctTab = getCreatorOrdersTabForStatus(order.order.status as string);
+    const tabMismatch =
+      correctTab !== "all" && correctTab !== activeTab;
+
+    if (!tabMismatch && !orderIdParam) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("orderId");
+    if (correctTab !== "all") {
+      params.set("tab", correctTab);
+    } else if (tabMismatch) {
+      params.delete("tab");
+    }
+
+    const qs = params.toString();
+    const newUrl = qs ? `${pathname}?${qs}` : pathname;
+    const currentQs = searchParams.toString();
+    const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [
+    selectedOrderId,
+    allItems,
+    activeTab,
+    searchParams,
+    pathname,
+    router,
+  ]);
 
   const filteredItems = useMemo(() => {
     if (activeTab === "all") return allItems;

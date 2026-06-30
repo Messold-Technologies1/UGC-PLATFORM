@@ -24,6 +24,7 @@ import {
   brandOrderDeliveriesQueryKey,
 } from "@/features/orders/api/get-brand-order-deliveries";
 import { brandOrderDetailsQueryKey } from "@/features/orders/api/get-brand-order-details";
+import { getCreatorOrdersPageHref } from "@/features/orders/components/creator-order-detail/creator-orders-tabs";
 
 function refetchBrandOrderDeliveryViews(
   queryClient: QueryClient,
@@ -73,9 +74,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const rolePath = user.primaryRole?.toLowerCase() || "";
-    const orderNotificationLink = (orderId: string, suffix = "") => {
+    const orderNotificationLink = (
+      orderId: string,
+      status?: string,
+      suffix = "",
+    ) => {
       if (!rolePath) return undefined;
-      if (rolePath === "creator") return "/creator/orders";
+      if (rolePath === "creator") {
+        if (suffix) return `/creator/orders/${orderId}${suffix}`;
+        return getCreatorOrdersPageHref(orderId, status);
+      }
       return `/${rolePath}/orders/${orderId}${suffix}`;
     };
 
@@ -198,7 +206,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "info",
         title: `Revision ${e.revisionNumber} requested`,
         description,
-        link: orderNotificationLink(e.orderId),
+        link: orderNotificationLink(e.orderId, "REVISION_REQUESTED"),
       });
     };
 

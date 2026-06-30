@@ -26,6 +26,7 @@
     "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
     "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts",
     "prisma:backfill:notification-preferences": "ts-node prisma/backfill-notification-preferences.ts",
+    "prisma:backfill:creator-restriction-suggestions": "ts-node prisma/backfill-creator-restriction-suggestions.ts",
     "prisma:seed:cities": "ts-node prisma/seed-cities.ts",
     "prisma:seed:ai-search-creators": "ts-node prisma/seed-ai-search-test-creators.ts",
     "prisma:backfill:seed-media-s3": "ts-node prisma/backfill-seed-portfolio-videos-to-s3.ts",

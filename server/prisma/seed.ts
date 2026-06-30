@@ -37,11 +37,10 @@ const permissionsByRole: Record<RoleName, string[]> = {
   ],
 };
 
-const creatorRestrictionSuggestions = [
-  'does not accept lingerie',
-  'does not accept alcohol',
-  'does not accept gambling',
-] as const;
+import {
+  CREATOR_RESTRICTION_SUGGESTIONS,
+  normalizeRestrictionSuggestion,
+} from './creator-restriction-suggestions';
 
 const portfolioIndustryLabels = [
   'coworking',
@@ -68,7 +67,7 @@ const portfolioTags = [
 ];
 
 function normalizeSuggestion(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  return normalizeRestrictionSuggestion(value);
 }
 
 async function seedRolesAndPermissions(): Promise<void> {
@@ -128,7 +127,7 @@ async function seedRolesAndPermissions(): Promise<void> {
 
 async function seedCreatorSuggestions(): Promise<void> {
   await db.creatorRestrictionSuggestion.createMany({
-    data: creatorRestrictionSuggestions.map((name) => ({
+    data: CREATOR_RESTRICTION_SUGGESTIONS.map((name) => ({
       name,
       normalizedName: normalizeSuggestion(name),
     })),

@@ -151,6 +151,20 @@ const OverviewTab = React.memo(function OverviewTab({
       value: `~${profile.deliveryDays} days`,
       icon: Clock,
     },
+    ...(profile.restrictions?.length > 0
+      ? [
+          {
+            key: "Open to",
+            value: profile.restrictions
+              .map(
+                (item) =>
+                  item.charAt(0).toUpperCase() + item.slice(1),
+              )
+              .join(", "),
+            icon: CheckCircle,
+          },
+        ]
+      : []),
   ];
 
   const canCreateWithIcons: Record<string, typeof Users> = {
@@ -211,7 +225,7 @@ const OverviewTab = React.memo(function OverviewTab({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: "1fr 1fr 1fr",
             gap: 10,
           }}
         >

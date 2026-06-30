@@ -275,7 +275,7 @@ export class ListCreatorsQueryDto {
   onLocationAvailable?: boolean;
 
   @ApiPropertyOptional({
-    example: ['does not accept alcohol'],
+    example: ['swimwear / beachwear'],
     description:
       'Repeat param or comma-separated. Creator must have any of these restrictions (OR).',
   })

@@ -147,7 +147,7 @@ export class CreatorPublicListItemDto {
   facetSelections!: CreatorPublicListFacetDto[];
 
 
-  @ApiProperty({ type: [String], example: ['does not accept alcohol'] })
+  @ApiProperty({ type: [String], example: ['swimwear / beachwear'] })
   restrictions!: string[];
 
   @ApiProperty({ type: () => [CreatorPublicListPackageDto] })

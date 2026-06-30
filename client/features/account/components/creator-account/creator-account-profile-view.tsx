@@ -457,6 +457,21 @@ export function CreatorAccountProfileView({
                   </li>
                 )}
 
+                {(profile.restrictions?.length ?? 0) > 0 && (
+                  <li className="flex items-center gap-2.5 text-sm">
+                    <span className="text-muted-foreground">
+                      <strong className="text-foreground font-semibold">Open to:</strong>{" "}
+                      {profile
+                        .restrictions!.map(
+                          (row) =>
+                            row.restriction.charAt(0).toUpperCase() +
+                            row.restriction.slice(1),
+                        )
+                        .join(", ")}
+                    </span>
+                  </li>
+                )}
+
                 <li className="flex items-center gap-2.5 text-sm">
                   {/* <Building2 className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">

@@ -83,6 +83,58 @@ export function FacetChipSection({
   );
 }
 
+export function RestrictionChipSection({
+  label,
+  items,
+  selected,
+  disabled,
+  onToggle,
+  help,
+}: {
+  label: string;
+  items: string[];
+  selected: string[];
+  disabled: boolean;
+  onToggle: (name: string) => void;
+  help?: string;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="pe-field">
+      <label>
+        {label}
+        {selected.length > 0 ? (
+          <span className="pe-field-count">{selected.length}</span>
+        ) : null}
+      </label>
+      {help ? <span className="pe-help">{help}</span> : null}
+      <div className="pe-chips">
+        {items.map((name) => {
+          const isOn = selected.includes(name);
+          return (
+            <button
+              key={name}
+              type="button"
+              className="pe-chip"
+              data-selected={isOn}
+              disabled={disabled}
+              onClick={() => onToggle(name)}
+            >
+              {isOn ? (
+                <span className="pe-chip-tick">
+                  <Check size={13} strokeWidth={3} />
+                </span>
+              ) : null}
+              {name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function LanguageRows({
   allLanguages,
   selected,

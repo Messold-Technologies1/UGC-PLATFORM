@@ -19,11 +19,13 @@ export async function recomputeCreatorListingState(
   creatorProfileId: string,
   /**
    * Whether the `completeProfile` latch may flip false → true on this write.
-   * Pass false for draft saves so persisting a (possibly complete) profile does
-   * NOT auto-publish it — only an explicit "Go Live" should. `isListed` is still
-   * recomputed either way, and once `completeProfile` is true it stays true.
+   * Defaults to FALSE: publishing is an explicit creator action ("Go Live"),
+   * so no incidental write — portfolio video upload, admin approval, package
+   * edits, draft save — should auto-publish a profile. Only the Go Live path
+   * passes true. `isListed` is still recomputed on every call, and once
+   * `completeProfile` is true it stays true (one-way latch).
    */
-  evaluateCompleteness = true,
+  evaluateCompleteness = false,
 ): Promise<{ completeProfile: boolean; isListed: boolean } | null> {
   const profile = await client.creatorProfile.findUnique({
     where: { id: creatorProfileId },

@@ -1,10 +1,35 @@
 import { PrismaClient } from '@prisma/client';
-import {
-  CREATOR_RESTRICTION_LEGACY_MIGRATIONS,
-  CREATOR_RESTRICTION_SUGGESTIONS,
-  DEPRECATED_CREATOR_RESTRICTION_SUGGESTIONS,
-  normalizeRestrictionSuggestion,
-} from './creator-restriction-suggestions';
+
+/** Canonical creator content-preference labels (keep in sync with creator-restriction-suggestions.ts). */
+const CREATOR_RESTRICTION_SUGGESTIONS = [
+  'swimwear / beachwear',
+  'intimate wear / lingerie',
+  'alcohol',
+  'gambling',
+] as const;
+
+const DEPRECATED_CREATOR_RESTRICTION_SUGGESTIONS = [
+  'does not accept lingerie',
+  'does not accept alcohol',
+  'does not accept gambling',
+  'accept alcohol',
+  'accept gambling',
+  'accepts swimwear / beachwear',
+  'accepts intimate wear / lingerie',
+  'accepts alcohol',
+  'accepts gambling',
+] as const;
+
+const CREATOR_RESTRICTION_LEGACY_MIGRATIONS: Record<string, string> = {
+  'accepts swimwear / beachwear': 'swimwear / beachwear',
+  'accepts intimate wear / lingerie': 'intimate wear / lingerie',
+  'accepts alcohol': 'alcohol',
+  'accepts gambling': 'gambling',
+};
+
+function normalizeRestrictionSuggestion(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 const prisma = new PrismaClient();
 

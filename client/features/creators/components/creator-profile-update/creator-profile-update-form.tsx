@@ -64,6 +64,7 @@ import { useDeletePortfolioVideoMutation } from "@/features/creator-portfolio/ho
 import {
   usePortfolioIndustrySuggestionsQuery,
   usePortfolioTagSuggestionsQuery,
+  usePortfolioLanguageSuggestionsQuery,
 } from "@/features/creator-portfolio/hooks/use-portfolio-suggestion-queries";
 
 const PROFILE_OTP_VERIFICATION_ENABLED = false;
@@ -94,6 +95,7 @@ import {
   genderOptions,
   contentVolumeOptions,
   normalizeWholeNumberInput,
+  normalizeOptionalUrl,
   getInitialCreatorName,
 } from "@/features/creators/hooks/creator-profile-form-utils";
 
@@ -257,6 +259,9 @@ function CreatorProfileUpdateFormContent({
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
     enabled: Boolean(user),
   });
+  const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
+    enabled: Boolean(user),
+  });
   const [pfDrawerOpen, setPfDrawerOpen] = useState(false);
   const [pfEditingVideo, setPfEditingVideo] =
     useState<PortfolioVideoApi | null>(null);
@@ -320,7 +325,7 @@ function CreatorProfileUpdateFormContent({
     }
   }, [pending]);
 
-  const [, setPhoneVerified] = useState<boolean>(
+  const [phoneVerified, setPhoneVerified] = useState<boolean>(
     adminMode || !PROFILE_OTP_VERIFICATION_ENABLED,
   );
   const [phoneInput, setPhoneInput] = useState(
@@ -707,7 +712,7 @@ function CreatorProfileUpdateFormContent({
         addOns: builtAddOns,
       };
 
-      const finalPayload = { ...payload };
+      let finalPayload = { ...payload };
 
       if (initialProfile && mode === "update") {
         if (finalPayload.displayName === initialProfile.displayName) delete finalPayload.displayName;
@@ -761,6 +766,7 @@ function CreatorProfileUpdateFormContent({
       adminMode,
       contactEmailDisplay,
       initialProfile,
+      user?.email,
       completeProfile,
       goLiveMissing,
     ],

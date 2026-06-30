@@ -103,9 +103,13 @@ function RevisionNotesCard({
   currentRevision?: OrderCurrentRevision | null;
   isLoading?: boolean;
 }) {
-  const { revisionNotes, requestedDate } = useMemo(() => {
+  const { revisionNotes, requestedDate, isEmptyNote } = useMemo(() => {
     const noteText = currentRevision?.note?.trim();
-    const notes = noteText
+    
+    
+    const isStaticFallback = noteText === "Please review the brand's feedback in the chat and make the requested changes.";
+    
+    const notes = (noteText && !isStaticFallback)
       ? noteText
           .split(/\n/)
           .map((line) => line.replace(/^\d+\.\s*/, "").trim())
@@ -115,6 +119,7 @@ function RevisionNotesCard({
     return {
       revisionNotes: notes,
       requestedDate: fmtDateTime(currentRevision?.requestedAt),
+      isEmptyNote: !noteText || isStaticFallback || notes.length === 0,
     };
   }, [currentRevision]);
 
@@ -126,11 +131,12 @@ function RevisionNotesCard({
         <div className="flex flex-1 items-center justify-center py-8">
           <Spinner className="size-5 text-muted-foreground" />
         </div>
-      ) : revisionNotes.length === 0 ? (
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          No written notes were provided. Please review the brand&apos;s
-          feedback in the chat and make the requested changes.
-        </p>
+      ) : isEmptyNote ? (
+        <div className="flex-1 flex flex-col justify-center items-center text-center p-6 border border-dashed border-border/60 rounded-lg bg-slate-50/50 my-2">
+          <p className="text-sm text-muted-foreground">
+            No revision notes provided.
+          </p>
+        </div>
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-3">

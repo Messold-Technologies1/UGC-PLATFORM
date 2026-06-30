@@ -34,6 +34,7 @@ import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-rev
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import type { CreatorProfileItemApi } from "../../api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
 
 interface PublicCreatorProfileProps {
   profile: CreatorProfileItemApi;
@@ -292,7 +293,7 @@ export function PublicCreatorProfile({
       (profile.restrictions ?? [])
         .map((row) => row.restriction)
         .filter((item): item is string => Boolean(item))
-        .map((item: string) => item.charAt(0).toUpperCase() + item.slice(1)),
+        .map((item) => formatContentPreferenceLabel(item)),
     [profile.restrictions],
   );
 

@@ -36,6 +36,7 @@ import { PortfolioCard } from "./portfolio-card";
 import { DashboardPayoutDetails } from "./dashboard-payout-details";
 import { CreatorReviewsCard } from "./creator-reviews-card";
 import { creatorPublicProfilePathForProfile } from "@/features/creators/lib/creator-public-profile-url";
+import { formatContentPreferenceLabel } from "@/features/creators/lib/format-content-preference-label";
 
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -462,10 +463,8 @@ export function CreatorAccountProfileView({
                     <span className="text-muted-foreground">
                       <strong className="text-foreground font-semibold">Open to:</strong>{" "}
                       {profile
-                        .restrictions!.map(
-                          (row) =>
-                            row.restriction.charAt(0).toUpperCase() +
-                            row.restriction.slice(1),
+                        .restrictions!.map((row) =>
+                          formatContentPreferenceLabel(row.restriction),
                         )
                         .join(", ")}
                     </span>

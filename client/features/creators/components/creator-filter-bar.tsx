@@ -43,6 +43,7 @@ import {
   // DEFAULT_FILTERS,
   type Filters,
 } from "../types/creator-filter-types";
+import { formatContentPreferenceLabel } from "../lib/format-content-preference-label";
 import type { CreatorFacetOption } from "../api/get-creator-facet-options";
 
 const PRICE_STEP = 250;
@@ -796,7 +797,11 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   );
 
   const contentPreferenceItems = useMemo(
-    () => restrictionNames.map((n) => ({ slug: n, label: n })),
+    () =>
+      restrictionNames.map((n) => ({
+        slug: n,
+        label: formatContentPreferenceLabel(n),
+      })),
     [restrictionNames],
   );
 

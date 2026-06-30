@@ -37,6 +37,7 @@ import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import { mapProfileItemToCreatorProfile } from "../../api/map-profile-to-creator";
+import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
 import { tagColor } from "@/lib/utils";
 
 interface ProfileDrawerProps {
@@ -156,10 +157,7 @@ const OverviewTab = React.memo(function OverviewTab({
           {
             key: "Open to",
             value: profile.restrictions
-              .map(
-                (item: string) =>
-                  item.charAt(0).toUpperCase() + item.slice(1),
-              )
+              .map((item: string) => formatContentPreferenceLabel(item))
               .join(", "),
             icon: CheckCircle,
           },

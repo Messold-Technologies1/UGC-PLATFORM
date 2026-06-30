@@ -18,6 +18,7 @@ import {
   fluencyOptions,
   type LanguageDraft,
 } from "@/features/creators/hooks/creator-profile-form-utils";
+import { formatContentPreferenceLabel } from "@/features/creators/lib/format-content-preference-label";
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -126,7 +127,7 @@ export function RestrictionChipSection({
                   <Check size={13} strokeWidth={3} />
                 </span>
               ) : null}
-              {name}
+              {formatContentPreferenceLabel(name)}
             </button>
           );
         })}

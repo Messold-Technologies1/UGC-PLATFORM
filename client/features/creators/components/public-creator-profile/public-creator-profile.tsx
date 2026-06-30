@@ -291,8 +291,8 @@ export function PublicCreatorProfile({
     () =>
       (profile.restrictions ?? [])
         .map((row) => row.restriction)
-        .filter(Boolean)
-        .map((item) => item.charAt(0).toUpperCase() + item.slice(1)),
+        .filter((item): item is string => Boolean(item))
+        .map((item: string) => item.charAt(0).toUpperCase() + item.slice(1)),
     [profile.restrictions],
   );
 

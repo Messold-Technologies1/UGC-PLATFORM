@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -10,6 +11,14 @@ import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
 import { PresignPortfolioUploadDto } from './dto/presign-portfolio-upload.dto';
 import { UpdatePortfolioVideoDto } from './dto/update-portfolio-video.dto';
 import { PortfolioVideoResponseDto } from './dto/portfolio-video-response.dto';
+import { CreatePortfolioSectionDto } from './dto/create-portfolio-section.dto';
+import { UpdatePortfolioSectionDto } from './dto/update-portfolio-section.dto';
+import { AddSectionVideosDto } from './dto/add-section-videos.dto';
+import { ReorderSectionsDto } from './dto/reorder-sections.dto';
+import {
+  PortfolioSectionResponseDto,
+  PortfolioSectionVideoItemDto,
+} from './dto/portfolio-section-response.dto';
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
 
 function normalizeList(values: string[] | undefined): string[] {
@@ -20,6 +29,8 @@ function normalizeList(values: string[] | undefined): string[] {
 function normalizeSuggestion(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
+
+const MAX_SECTIONS_PER_CREATOR = 10;
 
 @Injectable()
 export class CreatorPortfolioService {
@@ -413,6 +424,266 @@ export class CreatorPortfolioService {
       visibilityStatus,
       createdAt: row.createdAt,
     } satisfies PortfolioVideoResponseDto;
+  }
+
+
+  private readonly sectionInclude = {
+    videos: {
+      orderBy: { position: 'asc' as const },
+      include: {
+        video: {
+          select: {
+            id: true,
+            videoUrl: true,
+            thumbnailUrl: true,
+          },
+        },
+      },
+    },
+  };
+
+  async createSection(
+    actingUserId: string,
+    dto: CreatePortfolioSectionDto,
+    targetCreatorProfileId?: string,
+  ): Promise<PortfolioSectionResponseDto> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const existingCount = await this.prisma.creatorPortfolioSection.count({
+      where: { creatorId: profile.id },
+    });
+    if (existingCount >= MAX_SECTIONS_PER_CREATOR) {
+      throw new BadRequestException(
+        `Maximum of ${MAX_SECTIONS_PER_CREATOR} sections allowed per creator`,
+      );
+    }
+
+    const section = await this.prisma.creatorPortfolioSection.create({
+      data: {
+        creatorId: profile.id,
+        name: dto.name.trim(),
+        position: dto.position ?? existingCount,
+      },
+      include: this.sectionInclude,
+    });
+
+    return this.mapSection(section);
+  }
+
+  async listMySections(
+    userId: string,
+  ): Promise<PortfolioSectionResponseDto[]> {
+    const profile = await this.getCreatorProfileOrThrow(userId);
+
+    const sections = await this.prisma.creatorPortfolioSection.findMany({
+      where: { creatorId: profile.id },
+      orderBy: { position: 'asc' },
+      include: this.sectionInclude,
+    });
+
+    return sections.map((s) => this.mapSection(s));
+  }
+
+  async updateSection(
+    actingUserId: string,
+    sectionId: string,
+    dto: UpdatePortfolioSectionDto,
+    targetCreatorProfileId?: string,
+  ): Promise<PortfolioSectionResponseDto> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const existing = await this.prisma.creatorPortfolioSection.findUnique({
+      where: { id: sectionId },
+      select: { id: true, creatorId: true },
+    });
+    if (!existing) throw new NotFoundException('Section not found');
+    if (existing.creatorId !== profile.id) {
+      throw new ForbiddenException('Not allowed to update this section');
+    }
+
+    const updated = await this.prisma.creatorPortfolioSection.update({
+      where: { id: sectionId },
+      data: {
+        name: dto.name !== undefined ? dto.name.trim() : undefined,
+        position: dto.position,
+      },
+      include: this.sectionInclude,
+    });
+
+    return this.mapSection(updated);
+  }
+
+  async deleteSection(
+    actingUserId: string,
+    sectionId: string,
+    targetCreatorProfileId?: string,
+  ): Promise<void> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const existing = await this.prisma.creatorPortfolioSection.findUnique({
+      where: { id: sectionId },
+      select: { id: true, creatorId: true },
+    });
+    if (!existing) throw new NotFoundException('Section not found');
+    if (existing.creatorId !== profile.id) {
+      throw new ForbiddenException('Not allowed to delete this section');
+    }
+
+    await this.prisma.creatorPortfolioSection.delete({
+      where: { id: sectionId },
+    });
+  }
+
+  async reorderSections(
+    actingUserId: string,
+    dto: ReorderSectionsDto,
+    targetCreatorProfileId?: string,
+  ): Promise<PortfolioSectionResponseDto[]> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const sectionIds = dto.sections.map((s) => s.id);
+    const owned = await this.prisma.creatorPortfolioSection.findMany({
+      where: { id: { in: sectionIds }, creatorId: profile.id },
+      select: { id: true },
+    });
+    const ownedIds = new Set(owned.map((s) => s.id));
+    const unowned = sectionIds.filter((id) => !ownedIds.has(id));
+    if (unowned.length > 0) {
+      throw new ForbiddenException(
+        `Sections not owned by this creator: ${unowned.join(', ')}`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      dto.sections.map((s) =>
+        this.prisma.creatorPortfolioSection.update({
+          where: { id: s.id },
+          data: { position: s.position },
+        }),
+      ),
+    );
+
+    const sections = await this.prisma.creatorPortfolioSection.findMany({
+      where: { creatorId: profile.id },
+      orderBy: { position: 'asc' },
+      include: this.sectionInclude,
+    });
+
+    return sections.map((s) => this.mapSection(s));
+  }
+
+  async addVideosToSection(
+    actingUserId: string,
+    sectionId: string,
+    dto: AddSectionVideosDto,
+    targetCreatorProfileId?: string,
+  ): Promise<PortfolioSectionResponseDto> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const section = await this.prisma.creatorPortfolioSection.findUnique({
+      where: { id: sectionId },
+      select: { id: true, creatorId: true },
+    });
+    if (!section) throw new NotFoundException('Section not found');
+    if (section.creatorId !== profile.id) {
+      throw new ForbiddenException('Not allowed to modify this section');
+    }
+
+    const videoIds = dto.videos.map((v) => v.videoId);
+    const ownedVideos = await this.prisma.creatorPortfolioVideo.findMany({
+      where: { id: { in: videoIds }, creatorId: profile.id },
+      select: { id: true },
+    });
+    const ownedVideoIds = new Set(ownedVideos.map((v) => v.id));
+    const unownedVideos = videoIds.filter((id) => !ownedVideoIds.has(id));
+    if (unownedVideos.length > 0) {
+      throw new ForbiddenException(
+        `Videos not owned by this creator: ${unownedVideos.join(', ')}`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      dto.videos.map((v) =>
+        this.prisma.creatorPortfolioSectionVideo.upsert({
+          where: {
+            sectionId_videoId: { sectionId, videoId: v.videoId },
+          },
+          create: {
+            sectionId,
+            videoId: v.videoId,
+            position: v.position,
+          },
+          update: { position: v.position },
+        }),
+      ),
+    );
+
+    const updated = await this.prisma.creatorPortfolioSection.findUniqueOrThrow(
+      {
+        where: { id: sectionId },
+        include: this.sectionInclude,
+      },
+    );
+
+    return this.mapSection(updated);
+  }
+
+  async removeVideoFromSection(
+    actingUserId: string,
+    sectionId: string,
+    videoId: string,
+    targetCreatorProfileId?: string,
+  ): Promise<void> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const section = await this.prisma.creatorPortfolioSection.findUnique({
+      where: { id: sectionId },
+      select: { id: true, creatorId: true },
+    });
+    if (!section) throw new NotFoundException('Section not found');
+    if (section.creatorId !== profile.id) {
+      throw new ForbiddenException('Not allowed to modify this section');
+    }
+
+    await this.prisma.creatorPortfolioSectionVideo.deleteMany({
+      where: { sectionId, videoId },
+    });
+  }
+
+  private mapSection(row: any): PortfolioSectionResponseDto {
+    return {
+      id: row.id,
+      creatorId: row.creatorId,
+      name: row.name,
+      position: row.position,
+      createdAt: row.createdAt,
+      videos: (row.videos ?? []).map(
+        (sv: any): PortfolioSectionVideoItemDto => ({
+          videoId: sv.videoId,
+          position: sv.position,
+          videoUrl: sv.video.videoUrl,
+          thumbnailUrl: sv.video.thumbnailUrl ?? null,
+        }),
+      ),
+    };
   }
 }
 

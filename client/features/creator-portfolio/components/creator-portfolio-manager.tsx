@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Play,
   Plus,
+  FolderPlus,
   Trash2,
   ExternalLink,
   Settings,
@@ -17,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,9 +38,13 @@ import {
 } from "@/components/ui/dialog";
 import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy";
 import { CreatorPortfolioTagsModal } from "./creator-portfolio-tags-modal";
+import { CreatorPortfolioSectionsView } from "./creator-portfolio-sections-view";
+import { ManageSectionsModal } from "./manage-sections-modal";
+import { VideoSectionAssignmentModal } from "./video-section-assignment-modal";
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
+import { useMyPortfolioSectionsQuery } from "../hooks/use-portfolio-sections";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import {
   creatorPublicProfileDisplayUrlForProfile,
@@ -73,14 +79,32 @@ function errorMessage(err: unknown): string {
 export function CreatorPortfolioManager() {
   const [isUploadOverlayOpen, setIsUploadOverlayOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [editingTagsVideo, setEditingTagsVideo] =
     useState<PortfolioVideoApi | null>(null);
   const [showBanner, setShowBanner] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
+  
+  const activeTab = searchParams?.get("tab") === "sections" ? "sections" : "all";
+  
+  const [isManageSectionsOpen, setIsManageSectionsOpen] = useState(false);
+  const [assignVideoId, setAssignVideoId] = useState<string | null>(null);
   // const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] = useState("all-categories");
   const [selectedSort, setSelectedSort] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(6);
+
+  const setActiveTab = useCallback((tab: string) => {
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    if (tab === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   const handleCategoryChange = useCallback((value: string) => {
     setSelectedCategory(value);
@@ -96,6 +120,8 @@ export function CreatorPortfolioManager() {
   const videosQuery = useMyPortfolioVideosQuery({
     staleTime: 5 * 60_000,
   });
+  const sectionsQuery = useMyPortfolioSectionsQuery();
+  const sectionsCount = sectionsQuery.data?.length ?? 0;
   const profileQuery = useCreatorProfileMeQuery();
 
   const videos = useMemo(() => videosQuery.data ?? [], [videosQuery.data]);
@@ -269,6 +295,21 @@ export function CreatorPortfolioManager() {
                   {staticCounts.all}
                 </span>
               </button>
+              <button
+                onClick={() => setActiveTab("sections")}
+                className={`flex items-center gap-2 pb-2 border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "sections"
+                    ? "border-primary text-primary font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sections
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === "sections" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                >
+                  {sectionsCount}
+                </span>
+              </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto sm:shrink-0">
@@ -284,6 +325,7 @@ export function CreatorPortfolioManager() {
               <Button
                 variant="outline"
                 className="gap-2 bg-background flex-1 sm:flex-none"
+                onClick={() => setIsManageSectionsOpen(true)}
               >
                 <Settings className="size-4" />
                 Manage Sections
@@ -331,6 +373,7 @@ export function CreatorPortfolioManager() {
                   variant="outline"
                   size="sm"
                   className="gap-2 bg-background border-primary/20 text-primary hover:bg-primary/10 hover:text-primary flex-1 sm:flex-none sm:w-auto"
+                  onClick={() => setIsManageSectionsOpen(true)}
                 >
                   <Plus className="size-3.5" />
                   Create Section
@@ -346,7 +389,11 @@ export function CreatorPortfolioManager() {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
+          {activeTab === "sections" ? (
+            <CreatorPortfolioSectionsView />
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <Select
                 value={selectedCategory}
@@ -526,6 +573,15 @@ export function CreatorPortfolioManager() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="shrink-0 h-8 w-8 text-muted-foreground bg-transparent hover:bg-muted/50 hover:text-foreground"
+                                onClick={() => setAssignVideoId(v.id)}
+                                title="Add to section"
+                              >
+                                <FolderPlus className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
                                 disabled={deletingId === v.id}
                                 onClick={() => void handleDelete(v)}
@@ -555,6 +611,8 @@ export function CreatorPortfolioManager() {
                   </Button>
                 </div>
               )}
+            </>
+          )}
             </>
           )}
         </div>
@@ -773,6 +831,14 @@ export function CreatorPortfolioManager() {
         onOpenChange={(open) => {
           if (!open) setEditingTagsVideo(null);
         }}
+      />
+      <ManageSectionsModal
+        open={isManageSectionsOpen}
+        onOpenChange={setIsManageSectionsOpen}
+      />
+      <VideoSectionAssignmentModal
+        videoId={assignVideoId}
+        onClose={() => setAssignVideoId(null)}
       />
     </div>
   );

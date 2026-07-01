@@ -329,6 +329,7 @@ model CreatorProfile {
   packages         CreatorPackage[]
   addOns           CreatorAddOn[]
   portfolioVideos  CreatorPortfolioVideo[]
+  portfolioSections CreatorPortfolioSection[]
   receivedOrders      Order[]                        @relation("OrderCreator")
   orderDeliveries     OrderDelivery[]
   payoutDetails       CreatorPayoutDetails?
@@ -724,6 +725,7 @@ model CreatorPortfolioVideo {
 
   creator CreatorProfile             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   tags    CreatorPortfolioVideoTag[]
+  sectionVideos CreatorPortfolioSectionVideo[]
 
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
@@ -740,6 +742,31 @@ model CreatorPortfolioVideoTag {
 
   @@unique([videoId, tag])
   @@index([tag])
+}
+
+model CreatorPortfolioSection {
+  id        String   @id @default(uuid()) @db.Uuid
+  creatorId String   @db.Uuid
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  creator CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  videos  CreatorPortfolioSectionVideo[]
+
+  @@index([creatorId, position])
+}
+
+model CreatorPortfolioSectionVideo {
+  sectionId String @db.Uuid
+  videoId   String @db.Uuid
+  position  Int    @default(0)
+
+  section CreatorPortfolioSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  video   CreatorPortfolioVideo   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([sectionId, videoId])
+  @@index([sectionId, position])
 }
 
 model PortfolioIndustrySuggestion {

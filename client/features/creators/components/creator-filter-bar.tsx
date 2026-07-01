@@ -42,6 +42,7 @@ import {
   // DEFAULT_FILTERS,
   type Filters,
 } from "../types/creator-filter-types";
+import { formatContentPreferenceLabel } from "../lib/format-content-preference-label";
 import type { CreatorFacetOption } from "../api/get-creator-facet-options";
 
 const PRICE_STEP = 250;
@@ -798,8 +799,12 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     [restrictionSuggestionsQuery.data],
   );
 
-  const restrictionItems = useMemo(
-    () => restrictionNames.map((n) => ({ slug: n, label: n })),
+  const contentPreferenceItems = useMemo(
+    () =>
+      restrictionNames.map((n) => ({
+        slug: n,
+        label: formatContentPreferenceLabel(n),
+      })),
     [restrictionNames],
   );
 
@@ -1136,20 +1141,20 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                         />
                       </div>
 
-                      {restrictionNames.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Restrictions
-                          </h5>
-                          <ChipGrid
-                            items={restrictionItems}
-                            selected={filters.restrictions}
-                            onToggle={(slug) =>
-                              toggleArrayField("restrictions", slug)
-                            }
-                          />
-                        </div>
-                      )}
+                    {restrictionNames.length > 0 && (
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Open to
+                        </h5>
+                        <ChipGrid
+                          items={contentPreferenceItems}
+                          selected={filters.restrictions}
+                          onToggle={(slug) =>
+                            toggleArrayField("restrictions", slug)
+                          }
+                        />
+                      </div>
+                    )}
 
                       <div className="mb-4">
                         <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
@@ -1359,16 +1364,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                         </div>
                         {restrictionNames.length > 0 && (
                           <div>
-                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                              Restrictions
-                            </h5>
-                            <ChipGrid
-                              items={restrictionItems}
-                              selected={filters.restrictions}
-                              onToggle={(slug) =>
-                                toggleArrayField("restrictions", slug)
-                              }
-                            />
+                            <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">Open to</h5>
+                            <ChipGrid items={contentPreferenceItems} selected={filters.restrictions} onToggle={(slug) => toggleArrayField("restrictions", slug)} />
                           </div>
                         )}
                         <div>

@@ -49,7 +49,7 @@ export class CreatorRestrictionResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'does not accept alcohol' })
+  @ApiProperty({ example: 'swimwear / beachwear' })
   restriction!: string;
 }
 

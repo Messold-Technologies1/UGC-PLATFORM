@@ -34,6 +34,7 @@ import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-rev
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import type { CreatorProfileItemApi } from "../../api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
 
 interface PublicCreatorProfileProps {
   profile: CreatorProfileItemApi;
@@ -287,6 +288,15 @@ export function PublicCreatorProfile({
     [profile.profileLanguages],
   );
 
+  const openToLabels = useMemo(
+    () =>
+      (profile.restrictions ?? [])
+        .map((row) => row.restriction)
+        .filter((item): item is string => Boolean(item))
+        .map((item) => formatContentPreferenceLabel(item)),
+    [profile.restrictions],
+  );
+
   const facetsByDim = useMemo(() => {
     const groups: Record<string, { slug: string; label: string }[]> = {};
     for (const f of profile.facetSelections ?? []) {
@@ -350,6 +360,15 @@ export function PublicCreatorProfile({
         label: "Occupation",
         tone: "orange",
         items: occupation.map((f) => f.label),
+      });
+    }
+    if (openToLabels.length > 0) {
+      sections.push({
+        icon: CheckCircle2,
+        label: "Open to",
+        tone: "emerald",
+        items: openToLabels,
+        wide: openToLabels.length > 2,
       });
     }
     if (languages.length > 0) {
@@ -419,6 +438,7 @@ export function PublicCreatorProfile({
     contentStyles,
     languages,
     occupation,
+    openToLabels,
     productionCapabilities,
     profile.onLocationAvailable,
   ]);

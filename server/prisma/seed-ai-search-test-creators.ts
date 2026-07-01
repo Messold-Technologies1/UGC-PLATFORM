@@ -761,7 +761,7 @@ const PERSONAS: Persona[] = [
         description: 'Comfort wear brand try-on testimonial',
       },
     ],
-    restrictions: ['does not accept alcohol'],
+    restrictions: ['alcohol'],
     startingPrice: 4100,
     deliveryDays: 4,
   },

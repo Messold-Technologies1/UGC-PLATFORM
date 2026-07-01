@@ -1,7 +1,7 @@
 "use client";
 import "./profile-edit.css";
 import { SectionCard, PeSelectField, CatalogStatus } from "./shared-components";
-import { FacetChipSection, LanguageRows } from "./facet-components";
+import { FacetChipSection, LanguageRows, RestrictionChipSection } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
@@ -67,6 +67,7 @@ import {
   usePortfolioTagSuggestionsQuery,
   usePortfolioLanguageSuggestionsQuery,
 } from "@/features/creator-portfolio/hooks/use-portfolio-suggestion-queries";
+import { useCreatorRestrictionSuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 
 const PROFILE_OTP_VERIFICATION_ENABLED = false;
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
@@ -275,6 +276,13 @@ function CreatorProfileUpdateFormContent({
   const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
     enabled: Boolean(user),
   });
+  const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
+    enabled: Boolean(user),
+  });
+  const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>(
+    () =>
+      (initialProfile?.restrictions ?? []).map((row) => row.restriction),
+  );
   const [pfDrawerOpen, setPfDrawerOpen] = useState(false);
   const [pfEditingVideo, setPfEditingVideo] =
     useState<PortfolioVideoApi | null>(null);
@@ -491,6 +499,21 @@ function CreatorProfileUpdateFormContent({
     () => computeGoLiveMissing(goLiveSnapshot),
     [goLiveSnapshot],
   );
+
+  const restrictionSuggestionNames = useMemo(
+    () =>
+      (restrictionSuggestionsQuery.data ?? []).map((item) => item.name),
+    [restrictionSuggestionsQuery.data],
+  );
+
+  function toggleRestriction(name: string) {
+    setSelectedRestrictions((current) =>
+      current.includes(name)
+        ? current.filter((item) => item !== name)
+        : [...current, name],
+    );
+    markDirty();
+  }
 
   // Keep unsaved free-text progress in localStorage until the creator goes live.
   const draftValues = useMemo<CreatorProfileDraftFields>(
@@ -721,6 +744,7 @@ function CreatorProfileUpdateFormContent({
         onLocationAvailable,
         facetSelections,
         profileLanguages,
+        restrictions: selectedRestrictions,
         packages: builtPackages,
         addOns: builtAddOns,
       };
@@ -776,6 +800,7 @@ function CreatorProfileUpdateFormContent({
       shippingAddress,
       submitCreatorProfileMutation,
       travelRadius,
+      selectedRestrictions,
       adminMode,
       contactEmailDisplay,
       initialProfile,
@@ -1524,7 +1549,21 @@ function CreatorProfileUpdateFormContent({
                   );
                 })}
 
-                <LanguageRows
+                {restrictionSuggestionNames.length > 0 ? (
+                  <RestrictionChipSection
+                    label="Open to"
+                    help="Optional — categories you're comfortable creating for. Only shown to brands when you opt in."
+                    items={restrictionSuggestionNames}
+                    selected={selectedRestrictions}
+                    disabled={
+                      pending || restrictionSuggestionsQuery.isLoading
+                    }
+                    onToggle={toggleRestriction}
+                  />
+                ) : null}
+
+                <div className="border-t border-border/50 pt-5">
+                  <LanguageRows
                   allLanguages={facets.facetOptionsByDimension.LANGUAGE ?? []}
                   selected={facets.languageDrafts}
                   disabled={pending || facets.facetOptionsQuery.isLoading}
@@ -1545,6 +1584,7 @@ function CreatorProfileUpdateFormContent({
                     markDirty();
                   }}
                 />
+                </div>
               </>
             ) : null}
           </SectionCard>

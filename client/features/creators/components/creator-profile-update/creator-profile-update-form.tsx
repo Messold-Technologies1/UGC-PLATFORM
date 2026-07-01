@@ -47,6 +47,7 @@ import {
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { capitalizeFirstLetter } from "@/lib/string-lists";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -259,6 +260,18 @@ function CreatorProfileUpdateFormContent({
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
     enabled: Boolean(user),
   });
+  const portfolioIndustrySuggestions = useMemo(
+    () =>
+      (industrySuggestionsQuery.data ?? []).map((name) =>
+        capitalizeFirstLetter(name),
+      ),
+    [industrySuggestionsQuery.data],
+  );
+  const portfolioTagSuggestions = useMemo(
+    () =>
+      (tagSuggestionsQuery.data ?? []).map((name) => capitalizeFirstLetter(name)),
+    [tagSuggestionsQuery.data],
+  );
   const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
     enabled: Boolean(user),
   });
@@ -1860,8 +1873,8 @@ function CreatorProfileUpdateFormContent({
         thumbInputRef={pfThumbInputRef}
         onSelectVideoFile={setPfPendingVideoFile}
         onSelectThumbFile={setPfPendingThumbFile}
-        industrySuggestions={industrySuggestionsQuery.data ?? []}
-        tagSuggestions={tagSuggestionsQuery.data ?? []}
+        industrySuggestions={portfolioIndustrySuggestions}
+        tagSuggestions={portfolioTagSuggestions}
         languageOptions={(facets.facetOptionsByDimension.LANGUAGE ?? []).map(
           (lang) => ({ value: lang.slug, label: lang.label }),
         )}

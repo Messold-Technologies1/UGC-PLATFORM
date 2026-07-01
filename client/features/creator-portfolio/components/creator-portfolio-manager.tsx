@@ -668,12 +668,12 @@ export function CreatorPortfolioManager() {
                 No categories yet
               </div>
             )}
-            <Link
+            {/* <Link
               href="#"
               className="text-xs font-semibold text-primary hover:underline flex items-center justify-center mt-2"
             >
               Manage Categories &gt;
-            </Link>
+            </Link> */}
           </div>
 
           <div

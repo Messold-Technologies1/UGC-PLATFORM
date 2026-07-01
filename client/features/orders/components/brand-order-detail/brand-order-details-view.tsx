@@ -36,7 +36,6 @@ import { NeedHelpCard, TipsCard } from "./support-tips-card";
 import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
 import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-details-card";
 import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
-import { NeedUpdateCard } from "./need-update-card";
 import { QuickActionsCard } from "./quick-actions-card";
 import { ChatPreviewCard } from "./chat-preview-card";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
@@ -334,8 +333,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
                 productReceivedAt={(order as any).productReceivedAt}
               />
             )}
-
-            <NeedUpdateCard />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">

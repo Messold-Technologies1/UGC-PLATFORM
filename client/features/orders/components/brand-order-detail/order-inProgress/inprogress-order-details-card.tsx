@@ -159,7 +159,7 @@ export function InprogressOrderDetailsCard({
               </span>
             </div>
             <span className="text-sm font-medium text-foreground whitespace-pre-wrap self-start mt-2">
-              {brief?.keyNoteToInclude || "Not specified"}
+              {brief?.keyNoteToInclude ? "See full brief" : "Not specified"}
             </span>
           </div>
 

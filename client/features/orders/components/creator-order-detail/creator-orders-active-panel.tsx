@@ -320,15 +320,6 @@ function AwaitingShipmentContent({
           </div>
         )}
 
-        {hasShippingDetails && (
-          <Button
-            variant="outline"
-            className="w-full mt-4 rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-          >
-            <Truck className="w-3.5 h-3.5" />
-            View Tracking
-          </Button>
-        )}
 
         {canMarkReceived && (
           <Button

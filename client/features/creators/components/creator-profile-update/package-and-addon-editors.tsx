@@ -236,7 +236,7 @@ export function AddOnCatalogEditor({
       ) : null}
 
       {options.length ? (
-        <div className="pe-grid pe-grid-2">
+        <div style={{ columns: "320px 2", columnGap: 16 }}>
           {options.map((option) => {
             const selected = selectedSlugs.includes(option.slug);
             const draft = drafts[option.slug] ?? {
@@ -245,7 +245,7 @@ export function AddOnCatalogEditor({
             };
 
             return (
-              <div key={option.slug} className="pe-pkg" style={{ padding: 12 }}>
+              <div key={option.slug} className="pe-pkg" style={{ padding: 12, breakInside: "avoid", marginBottom: 16 }}>
                 <div
                   style={{
                     display: "flex",

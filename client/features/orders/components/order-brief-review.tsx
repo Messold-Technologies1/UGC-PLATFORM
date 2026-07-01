@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
+import { formatDuration, formatLocation, formatTone } from "@/features/briefs/lib/format-enums";
 import { cn } from "@/lib/utils";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 import { useGetCreatorOrderDetailsQuery } from "@/features/orders/hooks/use-get-creator-order-details-query";
@@ -45,20 +46,7 @@ interface OrderBriefReviewProps {
   orderId: string;
 }
 
-function formatEnumLabel(value?: string | string[] | null) {
-  if (!value) return "—";
-  const values = Array.isArray(value) ? value : [value];
-  if (values.length === 0) return "—";
 
-  return values
-    .map((item) =>
-      item
-        .split("_")
-        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-        .join(" "),
-    )
-    .join(", ");
-}
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -451,15 +439,17 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
               <div className="space-y-5">
                 <BriefField
                   label="Duration"
-                  value={formatEnumLabel(brief.durationBucket)}
+                  value={brief.durationBucket ? formatDuration(brief.durationBucket) : "—"}
                 />
                 <BriefField
                   label="Tone"
-                  value={formatEnumLabel(brief.toneStyle)}
+                  value={brief.toneStyle && brief.toneStyle.length > 0
+                    ? (Array.isArray(brief.toneStyle) ? brief.toneStyle : [brief.toneStyle]).map(t => formatTone(t)).join(", ")
+                    : "—"}
                 />
                 <BriefField
                   label="Location"
-                  value={formatEnumLabel(brief.shootLocationKind)}
+                  value={brief.shootLocationKind ? formatLocation(brief.shootLocationKind) : "—"}
                 />
                 {brief.shootLocationAddress ? (
                   <div className="flex gap-2.5 rounded-xl border border-pink/15 bg-pink/5 p-3.5 text-sm leading-relaxed text-foreground">

@@ -175,211 +175,215 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Calendar className="size-4" />
-                  <span>Created {formatDate(brief.createdAt)}</span>
+                  <span>Created on {formatDate(brief.createdAt)}</span>
                 </div>
-                {brief.updatedAt && brief.updatedAt !== brief.createdAt && (
+                {/* {brief.updatedAt && brief.updatedAt !== brief.createdAt && (
                   <div className="flex items-center gap-2">
                     <Calendar className="size-4" />
                     <span>Updated {formatDate(brief.updatedAt)}</span>
                   </div>
-                )}
+                )} */}
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-              <Card className="lg:col-span-3 overflow-hidden border-border/60 shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <ImageIcon className="size-4" />
-                    </div>
-                    Brand Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  <DetailRow label="Brand Name" value={brief.brandName} />
-                  <DetailRow label="Industry" value={brief.industry} />
-                  {brief.brandLogoUrl ? (
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Brand Logo
-                      </p>
-                      <NextImage
-                        src={brief.brandLogoUrl}
-                        alt={`${brief.brandName || "Brand"} logo`}
-                        width={64}
-                        height={64}
-                        className="h-16 w-16 rounded-lg border border-border/40 object-contain bg-muted/20 p-1"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <DetailRow label="Brand Logo" value={null} />
-                  )}
-                  {brief.brandPronunciationAudioUrl ? (
-                    <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Volume2 className="size-3" />
-                        Brand Pronunciation Audio
-                      </p>
-                      <audio
-                        controls
-                        src={brief.brandPronunciationAudioUrl}
-                        className="w-full max-w-md h-10"
-                      >
-                        Your browser does not support the audio element.
-                      </audio>
-                    </div>
-                  ) : (
-                    <DetailRow label="Pronunciation Audio" value={null} />
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-2 overflow-hidden border-border/60 shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                      <Package className="size-4" />
-                    </div>
-                    {offerLabels.sectionInfoTitle}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-6 md:grid-cols-2">
-                  <DetailRow label={offerLabels.name} value={brief.productName} />
-                  <DetailRow
-                    label={offerLabels.pageLink}
-                    value={brief.productPageUrl}
-                  />
-                  {brief.isProduct !== false ? (
-                  <DetailRow
-                    label="Ship physical product"
-                    value={
-                      brief.willShipPhysicalProductToCreator ? "Yes" : "No"
-                    }
-                  />
-                  ) : null}
-                  <div className="space-y-1 md:col-span-2">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Description
-                    </p>
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                      {brief.productDescription || "N/A"}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="overflow-hidden border-border/60 shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                      <Video className="size-4" />
-                    </div>
-                    Creative Needs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5 pt-6">
-                  <DetailRow
-                    label="Duration"
-                    value={formatDuration(brief.durationBucket)}
-                  />
-                  <DetailRow
-                    label="Tone"
-                    value={formatTone(brief.toneStyle?.[0])}
-                  />
-                  <DetailRow
-                    label="Location"
-                    value={formatLocation(brief.shootLocationKind)}
-                  />
-                  {brief.shootLocationAddress ? (
-                    <div className="flex gap-2 rounded-xl border border-border/40 bg-muted/20 p-3 text-sm">
-                      <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <span>{brief.shootLocationAddress}</span>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="overflow-hidden border-border/60 shadow-sm">
-              <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <FileText className="size-4" />
-                  </div>
-                  References & Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Key points
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                    {brief.keyNoteToInclude || "N/A"}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Call to action
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                    {brief.ctaNote || "N/A"}
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Reference links
-                  </p>
-                  {brief.referenceLinks.length > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      {brief.referenceLinks.map((link) => (
-                        <a
-                          key={link}
-                          href={link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-2 rounded-xl border border-border/40 bg-background p-3 text-sm font-medium text-primary transition-colors hover:bg-muted"
+            <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
+              <div className="flex flex-col gap-6 lg:col-span-2">
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <ImageIcon className="size-4" />
+                      </div>
+                      Brand Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-6 md:grid-cols-2 pt-6">
+                    <DetailRow label="Brand Name" value={brief.brandName} />
+                    <DetailRow label="Industry" value={brief.industry} />
+                    {brief.brandLogoUrl ? (
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Brand Logo
+                        </p>
+                        <NextImage
+                          src={brief.brandLogoUrl}
+                          alt={`${brief.brandName || "Brand"} logo`}
+                          width={64}
+                          height={64}
+                          className="h-16 w-16 rounded-lg border border-border/40 object-contain bg-muted/20 p-1"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <DetailRow label="Brand Logo" value={null} />
+                    )}
+                    {brief.brandPronunciationAudioUrl ? (
+                      <div className="space-y-2 md:col-span-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Volume2 className="size-3" />
+                          Brand Pronunciation Audio
+                        </p>
+                        <audio
+                          controls
+                          src={brief.brandPronunciationAudioUrl}
+                          className="w-full max-w-md h-10"
                         >
-                          <ExternalLink className="size-4" />
-                          <span className="truncate">{link}</span>
-                        </a>
-                      ))}
+                          Your browser does not support the audio element.
+                        </audio>
+                      </div>
+                    ) : (
+                      <DetailRow label="Pronunciation Audio" value={null} />
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <Package className="size-4" />
+                      </div>
+                      {offerLabels.sectionInfoTitle}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-6 md:grid-cols-2 pt-6">
+                    <DetailRow label={offerLabels.name} value={brief.productName} />
+                    <DetailRow
+                      label={offerLabels.pageLink}
+                      value={brief.productPageUrl}
+                    />
+                    {brief.isProduct !== false ? (
+                    <DetailRow
+                      label="Ship physical product"
+                      value={
+                        brief.willShipPhysicalProductToCreator ? "Yes" : "No"
+                      }
+                    />
+                    ) : null}
+                    <div className="space-y-1 md:col-span-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Description
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                        {brief.productDescription || "N/A"}
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No references added.
-                    </p>
-                  )}
-                </div>
+                  </CardContent>
+                </Card>
 
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Script
-                  </p>
-                  <p className="text-sm font-medium text-foreground">
-                    {scriptSummary?.label || "N/A"}
-                  </p>
-                  {scriptSummary?.text ? (
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                      {scriptSummary.text}
-                    </p>
-                  ) : null}
-                </div>
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <FileText className="size-4" />
+                      </div>
+                      References & Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6 pt-6">
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Key points
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                        {brief.keyNoteToInclude || "N/A"}
+                      </p>
+                    </div>
 
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Final notes
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                    {brief.finalNotes || "N/A"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Call to action
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                        {brief.ctaNote || "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Reference links
+                      </p>
+                      {brief.referenceLinks.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {brief.referenceLinks.map((link) => (
+                            <a
+                              key={link}
+                              href={link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 rounded-xl border border-border/40 bg-background p-3 text-sm font-medium text-primary transition-colors hover:bg-muted"
+                            >
+                              <ExternalLink className="size-4" />
+                              <span className="truncate">{link}</span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No references added.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Script
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {scriptSummary?.label || "N/A"}
+                      </p>
+                      {scriptSummary?.text ? (
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                          {scriptSummary.text}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Final notes
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                        {brief.finalNotes || "N/A"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-1 sticky top-8">
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                        <Video className="size-4" />
+                      </div>
+                      Creative Needs
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5 pt-6">
+                    <DetailRow
+                      label="Duration"
+                      value={formatDuration(brief.durationBucket)}
+                    />
+                    <DetailRow
+                      label="Tone"
+                      value={formatTone(brief.toneStyle?.[0])}
+                    />
+                    <DetailRow
+                      label="Location"
+                      value={formatLocation(brief.shootLocationKind)}
+                    />
+                    {brief.shootLocationAddress ? (
+                      <div className="flex gap-2 rounded-xl border border-border/40 bg-muted/20 p-3 text-sm">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <span>{brief.shootLocationAddress}</span>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
 
             {isFromOrder && (
               <div className="flex justify-end">

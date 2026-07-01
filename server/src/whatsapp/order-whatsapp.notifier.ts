@@ -18,6 +18,7 @@ const orderWhatsAppSelect = {
       id: true,
       brandName: true,
       contactPhone: true,
+      whatsappNotificationsEnabled: true,
       userId: true,
       agency: { select: { ownerUserId: true } },
     },
@@ -25,6 +26,7 @@ const orderWhatsAppSelect = {
   creator: {
     select: {
       displayName: true,
+      whatsappNotificationsEnabled: true,
       user: { select: { name: true, phone: true } },
     },
   },
@@ -224,6 +226,13 @@ export class OrderWhatsAppNotifier {
     variables: string[],
     buttonVariables?: string[],
   ): Promise<void> {
+    if (!order.brand.whatsappNotificationsEnabled) {
+      this.logger.debug(
+        `skip whatsapp ${templateKey}: notifications disabled for brand on order ${order.id}`,
+      );
+      return;
+    }
+
     const phone = await this.resolveBrandPhone(order);
     if (!phone) {
       this.logger.debug(
@@ -240,6 +249,13 @@ export class OrderWhatsAppNotifier {
     variables: string[],
     buttonVariables?: string[],
   ): Promise<void> {
+    if (!order.creator.whatsappNotificationsEnabled) {
+      this.logger.debug(
+        `skip whatsapp ${templateKey}: notifications disabled for creator on order ${order.id}`,
+      );
+      return;
+    }
+
     const phone = this.creatorPhone(order);
     if (!phone) {
       this.logger.debug(

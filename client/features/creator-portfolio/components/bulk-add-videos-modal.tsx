@@ -130,7 +130,7 @@ export function BulkAddVideosModal({ sectionId, isOpen, onClose }: Props) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[1100px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle>Manage Section Videos</DialogTitle>
         </DialogHeader>
@@ -147,7 +147,7 @@ export function BulkAddVideosModal({ sectionId, isOpen, onClose }: Props) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {allVideos.map((video) => {
                 const isSelected = selectedIds.has(video.id);
                 return (
@@ -200,7 +200,7 @@ export function BulkAddVideosModal({ sectionId, isOpen, onClose }: Props) {
         </div>
 
         {!isLoading && (
-          <DialogFooter className="px-6 py-4 border-t bg-muted/20">
+          <DialogFooter className="p-6 border-t bg-muted/20">
             <Button variant="outline" onClick={onClose} disabled={isSaving}>
               Cancel
             </Button>

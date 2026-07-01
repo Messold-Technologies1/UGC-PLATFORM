@@ -103,15 +103,6 @@ export function InprogressShippingCard({
             <span className="text-muted-foreground">Shipped On</span>
             <span className="font-medium">{shippedDateStr || "N/A"}</span>
           </div>
-
-          <div className="pt-2">
-            <a
-              href="#"
-              className="inline-flex items-center gap-1 text-primary hover:underline font-semibold"
-            >
-              Track Shipment <ExternalLink className="size-3.5" />
-            </a>
-          </div>
         </div>
 
         <div className="flex flex-col ml-4">

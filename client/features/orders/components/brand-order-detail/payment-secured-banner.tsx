@@ -14,7 +14,7 @@ export function PaymentSecuredBanner() {
             Your payment is secured
           </p>
           <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
-            Payment will be released to the creator only after you approve the final content.
+            Payment will be released to the creator only after you approve the content.
           </p>
         </div>
       </div>

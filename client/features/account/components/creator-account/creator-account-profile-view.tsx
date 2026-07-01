@@ -12,7 +12,6 @@ import {
   Pencil,
   ShoppingBag,
   Star,
-  Wallet,
   Youtube,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { CreatorPayoutDetailsBanner } from "@/components/dashboard/creator-payout-details-banner";
+import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import { SnapchatIcon } from "@/components/icons/social-icons";
 import { formatINR } from "@/lib/format-currency";
 import {
@@ -36,6 +36,7 @@ import { PortfolioCard } from "./portfolio-card";
 import { DashboardPayoutDetails } from "./dashboard-payout-details";
 import { CreatorReviewsCard } from "./creator-reviews-card";
 import { creatorPublicProfilePathForProfile } from "@/features/creators/lib/creator-public-profile-url";
+import { formatContentPreferenceLabel } from "@/features/creators/lib/format-content-preference-label";
 
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -125,14 +126,6 @@ export function CreatorAccountProfileView({
       iconColor: "text-emerald-600",
     },
     {
-      label: "Total Earnings",
-      value: profile.totalEarnings ? `₹${profile.totalEarnings.toLocaleString()}` : "₹0",
-      linkText: "View Earnings",
-      icon: <Wallet className="size-5" />,
-      iconBg: "bg-orange-100",
-      iconColor: "text-orange-600",
-    },
-    {
       label: "Avg. Rating",
       value: profile.avgRating || "0.0",
       linkText: `${profile.reviewCount || 0} Reviews`,
@@ -219,6 +212,7 @@ export function CreatorAccountProfileView({
       animate="visible"
     >
       <CreatorPayoutDetailsBanner />
+      <CreatorSpotlightProgram />
       <div className="flex flex-col items-start gap-6 xl:flex-row">
         <motion.div
           className="min-w-0 w-full flex-1 space-y-6"
@@ -460,6 +454,19 @@ export function CreatorAccountProfileView({
                     <span className="text-muted-foreground">
                       <strong className="text-foreground font-semibold">Can create with:</strong>{" "}
                       {canCreateWith.map(f => f.label).join(", ")}
+                    </span>
+                  </li>
+                )}
+
+                {(profile.restrictions?.length ?? 0) > 0 && (
+                  <li className="flex items-center gap-2.5 text-sm">
+                    <span className="text-muted-foreground">
+                      <strong className="text-foreground font-semibold">Open to:</strong>{" "}
+                      {profile
+                        .restrictions!.map((row) =>
+                          formatContentPreferenceLabel(row.restriction),
+                        )
+                        .join(", ")}
                     </span>
                   </li>
                 )}

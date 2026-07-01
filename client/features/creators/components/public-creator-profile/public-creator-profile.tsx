@@ -34,6 +34,7 @@ import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-rev
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import type { CreatorProfileItemApi } from "../../api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
 
 interface PublicCreatorProfileProps {
   profile: CreatorProfileItemApi;
@@ -287,6 +288,15 @@ export function PublicCreatorProfile({
     [profile.profileLanguages],
   );
 
+  const openToLabels = useMemo(
+    () =>
+      (profile.restrictions ?? [])
+        .map((row) => row.restriction)
+        .filter((item): item is string => Boolean(item))
+        .map((item) => formatContentPreferenceLabel(item)),
+    [profile.restrictions],
+  );
+
   const facetsByDim = useMemo(() => {
     const groups: Record<string, { slug: string; label: string }[]> = {};
     for (const f of profile.facetSelections ?? []) {
@@ -350,6 +360,15 @@ export function PublicCreatorProfile({
         label: "Occupation",
         tone: "orange",
         items: occupation.map((f) => f.label),
+      });
+    }
+    if (openToLabels.length > 0) {
+      sections.push({
+        icon: CheckCircle2,
+        label: "Open to",
+        tone: "emerald",
+        items: openToLabels,
+        wide: openToLabels.length > 2,
       });
     }
     if (languages.length > 0) {
@@ -419,6 +438,7 @@ export function PublicCreatorProfile({
     contentStyles,
     languages,
     occupation,
+    openToLabels,
     productionCapabilities,
     profile.onLocationAvailable,
   ]);
@@ -662,16 +682,25 @@ export function PublicCreatorProfile({
                 }
               />
               {portfolioVideos.length > 0 ? (
-                <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
-                  {portfolioVideos.slice(0, 6).map((video) => (
-                    <PortfolioTile
-                      key={video.id}
-                      video={video}
-                      isPlayingElsewhere={playingPortfolioId !== null && playingPortfolioId !== video.id}
-                      onPlay={() => setPlayingPortfolioId(video.id)}
-                      onStop={() => setPlayingPortfolioId((prev) => prev === video.id ? null : prev)}
-                    />
-                  ))}
+                <div className="relative mt-5 w-full">
+                  {/* Fixed 2-row viewport height (padding % is relative to width) */}
+                  <div
+                    className="h-0 w-full pb-[calc(2*((100%-1rem)/2*16/9)+1rem)] sm:pb-[calc(2*((100%-2rem)/3*16/9)+1rem)]"
+                    aria-hidden="true"
+                  />
+                  <div className="absolute inset-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      {portfolioVideos.map((video) => (
+                        <PortfolioTile
+                          key={video.id}
+                          video={video}
+                          isPlayingElsewhere={playingPortfolioId !== null && playingPortfolioId !== video.id}
+                          onPlay={() => setPlayingPortfolioId(video.id)}
+                          onStop={() => setPlayingPortfolioId((prev) => prev === video.id ? null : prev)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <p className="mt-5 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-10 text-center text-sm text-neutral-500">

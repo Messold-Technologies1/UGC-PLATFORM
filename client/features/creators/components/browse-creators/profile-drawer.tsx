@@ -25,15 +25,19 @@ import {
   Baby,
   PawPrint,
   User,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { creatorPublicProfilePathForProfile } from "@/features/creators/lib/creator-public-profile-url";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
-import type { Creator, AddOn } from "../../types";
+import type { Creator, CreatorProfile, AddOn } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import { mapProfileItemToCreatorProfile } from "../../api/map-profile-to-creator";
+import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
 import { tagColor } from "@/lib/utils";
 
 interface ProfileDrawerProps {
@@ -108,7 +112,7 @@ const SkeletonBlock = React.memo(function SkeletonBlock({
 const OverviewTab = React.memo(function OverviewTab({
   profile,
 }: {
-  profile: any | null;
+  profile: CreatorProfile | null;
 }) {
   const specialties = useMemo(() => {
     if (!profile) return [];
@@ -148,6 +152,17 @@ const OverviewTab = React.memo(function OverviewTab({
       value: `~${profile.deliveryDays} days`,
       icon: Clock,
     },
+    ...(profile.restrictions?.length > 0
+      ? [
+          {
+            key: "Open to",
+            value: profile.restrictions
+              .map((item: string) => formatContentPreferenceLabel(item))
+              .join(", "),
+            icon: CheckCircle,
+          },
+        ]
+      : []),
   ];
 
   const canCreateWithIcons: Record<string, typeof Users> = {
@@ -208,7 +223,7 @@ const OverviewTab = React.memo(function OverviewTab({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: "1fr 1fr 1fr",
             gap: 10,
           }}
         >
@@ -787,6 +802,10 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
 
   const verified = c.rating >= 4.8;
   const profileUrl = `/brand/creators?creatorId=${c.id}`;
+  const publicProfilePath = creatorPublicProfilePathForProfile({
+    publicSlug: profileApi?.publicSlug,
+    displayName: profileApi?.displayName ?? c.name,
+  });
 
   const showIntro = !!c.introVideoUrl && !introFailed;
 
@@ -915,19 +934,32 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             </div>
           </div>
           <div className="dr-tabs">
-            {TABS.map((t) => {
-              if (t.id === "reviews" && c.reviewCount === 0) return null;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={tab === t.id ? "on" : ""}
-                  onClick={() => setTab(t.id)}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
+            <div className="dr-tabs-list">
+              {TABS.map((t) => {
+                if (t.id === "reviews" && c.reviewCount === 0) return null;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={tab === t.id ? "on" : ""}
+                    onClick={() => setTab(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            {publicProfilePath ? (
+              <Link
+                href={publicProfilePath}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dr-tabs-profile-link"
+              >
+                View profile
+                <ExternalLink size={13} />
+              </Link>
+            ) : null}
           </div>
 
           {activeId && tab === "overview" && <OverviewTab profile={profile} />}

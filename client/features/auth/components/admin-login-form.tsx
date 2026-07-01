@@ -28,6 +28,7 @@ import { useForgotPasswordMutation } from "@/features/auth/hooks/use-password-mu
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { cn } from "@/lib/utils";
+import { AuthLogoLink } from "./auth-logo-link";
 import styles from "./login-page.module.css";
 
 const adminLoginSchema = z.object({
@@ -64,12 +65,7 @@ function AdminLoginHero() {
       <div className={styles.grain} aria-hidden="true" />
 
       <div className={styles.heroTop}>
-        <img
-          src="/brand-logo.png"
-          alt="GoCollab"
-          className="h-24 md:h-32 w-auto object-contain object-left -ml-4"
-          draggable={false}
-        />
+        <AuthLogoLink className="-ml-4" imageClassName="h-24 md:h-32" />
       </div>
 
       <div className={styles.heroMid}>
@@ -230,12 +226,7 @@ function AdminLoginFormInner() {
   return (
     <div className="w-full max-w-[392px]">
       <div className={styles.mobileHead}>
-        <img
-          src="/brand-logo.png"
-          alt="GoCollab"
-          className="h-16 sm:h-20 w-auto object-contain object-left -ml-2"
-          draggable={false}
-        />
+        <AuthLogoLink className="-ml-2" imageClassName="h-16 sm:h-20" />
       </div>
 
       <span className={styles.formTag}>

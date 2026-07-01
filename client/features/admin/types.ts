@@ -282,6 +282,13 @@ export interface AdminOrdersListResponseDto {
   limit: number;
 }
 
+export interface AdminCreatorPayoutDetailsDto {
+  accountHolderName?: string | null;
+  accountNumber?: string | null;
+  ifsc?: string | null;
+  upiId?: string | null;
+}
+
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;
@@ -339,3 +346,21 @@ export interface AdminOrderRefundResponseDto {
   refundId: string;
   refundStatus: string;
 }
+
+// ─── Legal Pages ─────────────────────────────────────────────────
+export type {
+  LegalPageResponse,
+  LegalSectionResponse,
+  LegalDraftStatus,
+  LegalPageDraftResponse,
+  DraftSectionData,
+  AdminLegalPageListItem,
+  AdminLegalPageListResponse,
+  AdminLegalPageDetailResponse,
+  SaveDraftInput,
+  CreateLegalPageInput,
+  RejectDraftInput,
+  LegalPageVersionListItem,
+  LegalPageVersionListResponse,
+  LegalPageVersionDetail,
+} from "./types/legal-pages";

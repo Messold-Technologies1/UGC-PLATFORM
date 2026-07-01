@@ -16,6 +16,7 @@ export interface OrderBriefPayload {
   productName?: string | null;
   productDescription?: string | null;
   productPageUrl?: string | null;
+  isProduct: boolean;
   willShipPhysicalProductToCreator: boolean;
   shootLocationKind?: string | null;
   shootLocationAddress?: string | null;
@@ -37,7 +38,8 @@ export interface OrderBriefResponse {
   briefAcceptedAt?: string | null;
   deliveryDaysSnapshot: number;
   requiresPhysicalProductShipment: boolean;
-  deliveryDeadlineAt?: string | null;
+  deliveryDueAt?: string | null;
+  deliveryGraceDeadlineAt?: string | null;
   brief: OrderBriefPayload | null;
 }
 

@@ -1,9 +1,16 @@
 {{!-- context: recipientName, platformName, actionUrl --}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  Great news — your creator profile on <strong>{{platformName}}</strong> has been approved. You can now receive orders from brands.
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">You're in! 🎉</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your creator profile just got approved on <strong>{{platformName}}</strong>. Brands are scouting talent right now — let's make sure they find <em>you</em>.
 </p>
-<div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="Go to dashboard"}}
+<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#111827;">
+    <strong>Your next move ✨</strong><br />
+    Complete your profile, add your best work, and go live so briefs can start rolling in.
+  </p>
 </div>
-<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Go to my account →"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 💗</p>

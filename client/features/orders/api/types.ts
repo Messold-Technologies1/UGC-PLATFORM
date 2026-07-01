@@ -3,6 +3,8 @@ export interface OrderCreatorSnapshot {
   displayName: string;
   profileImageUrl?: string | null;
   city?: string | null;
+  avgRating?: string | null;
+  reviewCount?: number;
 }
 
 export interface OrderBrandSnapshot {
@@ -28,7 +30,8 @@ export interface OrderListSummary {
   dispatchedAt?: string | null;
   productReceivedAt?: string | null;
   briefId?: string;
-  deliveryDeadlineAt?: string | null;
+  deliveryDueAt?: string | null;
+  deliveryGraceDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;
   expectedAmountPaise?: number;
@@ -41,6 +44,12 @@ export interface OrderAddOnSnapshot {
   description?: string | null;
 }
 
+export interface OrderCurrentRevision {
+  revisionNumber: number;
+  note?: string | null;
+  requestedAt: string;
+}
+
 export interface OrderDetailsPublic extends OrderListSummary {
   deliverablesSnapshot: string[];
   maxRevisionsSnapshot: number;
@@ -51,6 +60,7 @@ export interface OrderDetailsPublic extends OrderListSummary {
   acceptedAt?: string | null;
   creatorPaidAt?: string | null;
   revisionCount: number;
+  currentRevision?: OrderCurrentRevision;
   refundedAt?: string | null;
 }
 

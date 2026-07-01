@@ -25,6 +25,7 @@ const orderMailInclude = {
   },
   creator: {
     select: {
+      id: true,
       displayName: true,
       contactEmail: true,
       user: { select: { email: true, name: true } },
@@ -65,7 +66,7 @@ export class OrderMailNotifier {
 
   notifyBriefAccepted(
     orderId: string,
-    deliveryDeadlineAt: Date | null,
+    deliveryDueAt: Date | null,
   ): void {
     void this.run('brief_accepted', async () => {
       const order = await this.loadOrder(orderId);
@@ -76,8 +77,8 @@ export class OrderMailNotifier {
         orderId: order.id,
         actionUrl: this.brandOrderUrl(order.id),
       };
-      if (deliveryDeadlineAt) {
-        ctx.deliveryDeadlineAt = this.formatDate(deliveryDeadlineAt);
+      if (deliveryDueAt) {
+        ctx.deliveryDueAt = this.formatDate(deliveryDueAt);
       }
 
       await this.sendToBrand(order, EmailTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND, ctx);
@@ -117,7 +118,7 @@ export class OrderMailNotifier {
 
   notifyProductReceived(
     orderId: string,
-    deliveryDeadlineAt: Date,
+    deliveryDueAt: Date,
   ): void {
     void this.run('product_received', async () => {
       const order = await this.loadOrder(orderId);
@@ -126,7 +127,7 @@ export class OrderMailNotifier {
       await this.sendToBrand(order, EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND, {
         creatorName: order.creator.displayName,
         orderId: order.id,
-        deliveryDeadlineAt: this.formatDate(deliveryDeadlineAt),
+        deliveryDueAt: this.formatDate(deliveryDueAt),
         actionUrl: this.brandOrderUrl(order.id),
       });
     });
@@ -148,7 +149,7 @@ export class OrderMailNotifier {
         orderId: order.id,
         revisionNumber: String(order.revisionCount),
         revisionsRemaining: String(revisionsRemaining),
-        actionUrl: this.creatorOrderUrl(order.id),
+        actionUrl: this.creatorOrderListUrl(order.id, 'revisions'),
       };
       if (note?.trim()) {
         vars.revisionNote = note.trim();
@@ -158,6 +159,33 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_REVISION_REQUESTED_FOR_CREATOR,
         vars,
+      );
+    });
+  }
+
+  notifyContentDelivered(
+    orderId: string,
+    params: { revisionNumber: number; deliveredAt: Date },
+  ): void {
+    void this.run('content_delivered', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const ctx: Record<string, string> = {
+        creatorName: order.creator.displayName,
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        deliveredAt: this.formatDate(params.deliveredAt),
+        actionUrl: this.brandOrderUrl(order.id),
+      };
+      if (params.revisionNumber > 0) {
+        ctx.revisionNumber = String(params.revisionNumber);
+      }
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_CONTENT_DELIVERED_FOR_BRAND,
+        ctx,
       );
     });
   }
@@ -177,6 +205,13 @@ export class OrderMailNotifier {
           actionUrl: this.creatorOrderUrl(order.id),
         },
       );
+
+      await this.sendToBrand(order, EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND, {
+        creatorName: order.creator.displayName,
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        actionUrl: this.brandOrderUrl(order.id),
+      });
     });
   }
 
@@ -265,6 +300,10 @@ export class OrderMailNotifier {
     await this.mail.send({
       to: email,
       templateKey,
+      notificationGate: {
+        profileType: 'brand',
+        profileId: order.brand.id,
+      },
       context: { recipientName: name, ...context },
     });
   }
@@ -284,6 +323,10 @@ export class OrderMailNotifier {
     await this.mail.send({
       to: email,
       templateKey,
+      notificationGate: {
+        profileType: 'creator',
+        profileId: order.creator.id,
+      },
       context: {
         recipientName: this.creatorDisplayName(order),
         ...context,
@@ -333,6 +376,12 @@ export class OrderMailNotifier {
 
   private creatorOrderUrl(orderId: string): string {
     return `${this.frontendBase()}/creator/orders/${orderId}`;
+  }
+
+  private creatorOrderListUrl(orderId: string, tab?: string): string {
+    const params = new URLSearchParams({ orderId });
+    if (tab) params.set('tab', tab);
+    return `${this.frontendBase()}/creator/orders?${params.toString()}`;
   }
 
   private creatorOrderBriefUrl(orderId: string): string {

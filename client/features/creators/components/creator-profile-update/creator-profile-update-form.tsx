@@ -1,11 +1,12 @@
 "use client";
 import "./profile-edit.css";
 import { SectionCard, PeSelectField, CatalogStatus } from "./shared-components";
-import { FacetChipSection, LanguageRows } from "./facet-components";
+import { FacetChipSection, LanguageRows, RestrictionChipSection } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 import { GoLiveBanner } from "./go-live-banner";
+import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import {
   computeGoLiveMissing,
   type GoLiveSnapshot,
@@ -31,6 +32,8 @@ import {
   CalendarIcon,
   Camera,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Film,
   Layers,
   MapPin,
@@ -44,6 +47,7 @@ import {
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { capitalizeFirstLetter } from "@/lib/string-lists";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -63,6 +67,7 @@ import {
   usePortfolioTagSuggestionsQuery,
   usePortfolioLanguageSuggestionsQuery,
 } from "@/features/creator-portfolio/hooks/use-portfolio-suggestion-queries";
+import { useCreatorRestrictionSuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 
 const PROFILE_OTP_VERIFICATION_ENABLED = false;
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
@@ -82,6 +87,8 @@ import { useCreatorProfileImage } from "@/features/creators/hooks/use-creator-pr
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { useRosyConfirmDialog } from "@/hooks/use-rosy-confirm-dialog";
 
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 import {
@@ -101,7 +108,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "media", label: "Photo & reel", icon: Camera },
+  { id: "media", label: "Photo & video", icon: Camera },
   { id: "basics", label: "Basic details", icon: User },
   { id: "about", label: "About you", icon: MapPin },
   { id: "niche", label: "Niche & content", icon: Sparkles },
@@ -169,6 +176,9 @@ type CreatorProfileUpdateFormContentProps = CreatorProfileUpdateFormProps & {
   user: AuthUser | null;
   onRequestReset: () => void;
 };
+
+const PROFILE_MOBILE_NAV_STICKY_CLASS =
+  "sticky top-0 z-40 shrink-0 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12";
 
 export function CreatorProfileUpdateForm({
   variant,
@@ -251,9 +261,28 @@ function CreatorProfileUpdateFormContent({
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
     enabled: Boolean(user),
   });
+  const portfolioIndustrySuggestions = useMemo(
+    () =>
+      (industrySuggestionsQuery.data ?? []).map((name) =>
+        capitalizeFirstLetter(name),
+      ),
+    [industrySuggestionsQuery.data],
+  );
+  const portfolioTagSuggestions = useMemo(
+    () =>
+      (tagSuggestionsQuery.data ?? []).map((name) => capitalizeFirstLetter(name)),
+    [tagSuggestionsQuery.data],
+  );
   const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
     enabled: Boolean(user),
   });
+  const restrictionSuggestionsQuery = useCreatorRestrictionSuggestionsQuery({
+    enabled: Boolean(user),
+  });
+  const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>(
+    () =>
+      (initialProfile?.restrictions ?? []).map((row) => row.restriction),
+  );
   const [pfDrawerOpen, setPfDrawerOpen] = useState(false);
   const [pfEditingVideo, setPfEditingVideo] =
     useState<PortfolioVideoApi | null>(null);
@@ -277,6 +306,9 @@ function CreatorProfileUpdateFormContent({
     setPfDrawerOpen(false);
   }
   const [isDirty, setIsDirty] = useState(false);
+  const [submitIntent, setSubmitIntent] = useState<
+    "save-draft" | "go-live" | "save-changes" | null
+  >(null);
   const markDirty = useCallback(() => setIsDirty(true), []);
 
   const contactEmailDisplay = adminMode
@@ -299,9 +331,20 @@ function CreatorProfileUpdateFormContent({
   });
 
   const pending = submitCreatorProfileMutation.isPending;
+  const isSavingDraft = pending && submitIntent === "save-draft";
+  const isPrimarySubmitting =
+    pending &&
+    (submitIntent === "go-live" || submitIntent === "save-changes");
+
   useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [onPendingChange, pending]);
+
+  useEffect(() => {
+    if (!pending) {
+      setSubmitIntent(null);
+    }
+  }, [pending]);
 
   const [phoneVerified, setPhoneVerified] = useState<boolean>(
     adminMode || !PROFILE_OTP_VERIFICATION_ENABLED,
@@ -354,6 +397,52 @@ function CreatorProfileUpdateFormContent({
   );
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
+
+  const mobileNavRef = useRef<HTMLElement | null>(null);
+  const mobileNavWrapRef = useRef<HTMLDivElement | null>(null);
+  const [navArrows, setNavArrows] = useState({ left: false, right: false });
+
+  const getMobileNavOffset = useCallback(() => {
+    const navHeight = mobileNavWrapRef.current?.offsetHeight ?? 56;
+    return navHeight + 12;
+  }, []);
+
+  const updateNavArrows = useCallback(() => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setNavArrows({
+      left: scrollLeft > 4,
+      right: scrollLeft + clientWidth < scrollWidth - 4,
+    });
+  }, []);
+
+  const scrollMobileNav = useCallback((dir: -1 | 1) => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    el.scrollBy({
+      left: dir * Math.max(180, el.clientWidth * 0.7),
+      behavior: "smooth",
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    updateNavArrows();
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateNavArrows)
+        : null;
+    ro?.observe(el);
+    el.addEventListener("scroll", updateNavArrows, { passive: true });
+    window.addEventListener("resize", updateNavArrows);
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener("scroll", updateNavArrows);
+      window.removeEventListener("resize", updateNavArrows);
+    };
+  }, [updateNavArrows]);
 
   // One-way Go-Live latch from the server. Once true the profile is live and the
   // button reverts to a normal "Save changes" (edits no longer gated).
@@ -410,6 +499,21 @@ function CreatorProfileUpdateFormContent({
     () => computeGoLiveMissing(goLiveSnapshot),
     [goLiveSnapshot],
   );
+
+  const restrictionSuggestionNames = useMemo(
+    () =>
+      (restrictionSuggestionsQuery.data ?? []).map((item) => item.name),
+    [restrictionSuggestionsQuery.data],
+  );
+
+  function toggleRestriction(name: string) {
+    setSelectedRestrictions((current) =>
+      current.includes(name)
+        ? current.filter((item) => item !== name)
+        : [...current, name],
+    );
+    markDirty();
+  }
 
   // Keep unsaved free-text progress in localStorage until the creator goes live.
   const draftValues = useMemo<CreatorProfileDraftFields>(
@@ -474,7 +578,8 @@ function CreatorProfileUpdateFormContent({
     if (variant !== "settings") return;
 
     function onScroll() {
-      const offset = 120;
+      const isMobileNav = window.matchMedia("(max-width: 900px)").matches;
+      const offset = isMobileNav ? getMobileNavOffset() : 120;
       let current = NAV_ITEMS[0].id;
       for (const item of NAV_ITEMS) {
         const el = document.getElementById(`pe-section-${item.id}`);
@@ -494,25 +599,27 @@ function CreatorProfileUpdateFormContent({
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [variant]);
+  }, [variant, getMobileNavOffset]);
 
   function scrollToSection(id: string) {
     const el = document.getElementById(`pe-section-${id}`);
     if (el) {
+      const isMobileNav =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 900px)").matches;
+      const offset = isMobileNav ? getMobileNavOffset() : 76;
       window.scrollTo({
-        top: el.getBoundingClientRect().top + window.scrollY - 76,
+        top: el.getBoundingClientRect().top + window.scrollY - offset,
         behavior: "smooth",
       });
     }
   }
 
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-
-      // Go-Live gate: until the profile is live, block the save (no API call)
-      // unless every requirement is met, and tell the creator what's missing.
-      if (!completeProfile && goLiveMissing.length > 0) {
+  const runSubmit = useCallback(
+    async (goLive: boolean) => {
+      // Go-Live gate applies ONLY when explicitly going live. A draft save
+      // (goLive === false) persists partial progress without publishing.
+      if (goLive && !completeProfile && goLiveMissing.length > 0) {
         toast.error(
           `Complete your profile to go live. Still needed: ${goLiveMissing.join(", ")}.`,
         );
@@ -637,6 +744,7 @@ function CreatorProfileUpdateFormContent({
         onLocationAvailable,
         facetSelections,
         profileLanguages,
+        restrictions: selectedRestrictions,
         packages: builtPackages,
         addOns: builtAddOns,
       };
@@ -662,7 +770,12 @@ function CreatorProfileUpdateFormContent({
         if (finalPayload.city === (initialProfile.city || undefined)) delete finalPayload.city;
       }
 
-      submitCreatorProfileMutation.mutate({ payload: finalPayload });
+      setSubmitIntent(
+        goLive ? "go-live" : completeProfile ? "save-changes" : "save-draft",
+      );
+      submitCreatorProfileMutation.mutate({
+        payload: goLive ? { ...finalPayload, goLive: true } : finalPayload,
+      });
     },
     [
       addOns,
@@ -687,6 +800,7 @@ function CreatorProfileUpdateFormContent({
       shippingAddress,
       submitCreatorProfileMutation,
       travelRadius,
+      selectedRestrictions,
       adminMode,
       contactEmailDisplay,
       initialProfile,
@@ -695,10 +809,32 @@ function CreatorProfileUpdateFormContent({
       goLiveMissing,
     ],
   );
+
+  // Form submit (Enter key / primary button): an already-live profile saves
+  // changes (no re-publish needed); a not-yet-live profile treats the primary
+  // action as "Go Live".
+  const handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void runSubmit(!completeProfile);
+    },
+    [runSubmit, completeProfile],
+  );
+
+  // Explicit "Save draft" — persist partial progress without publishing.
+  const handleSaveDraft = useCallback(() => {
+    void runSubmit(false);
+  }, [runSubmit]);
+
   const handleDiscard = useCallback(() => {
     onRequestReset();
     toast.info("Changes discarded");
   }, [onRequestReset]);
+
+  const { confirm, dialog: confirmDialog } = useRosyConfirmDialog();
+
+  useUnsavedChangesGuard(isDirty && !pending, { confirm });
+
   const navCounts = useMemo(() => {
     const nicheCount =
       Object.values(facets.selectedFacets).reduce(
@@ -717,6 +853,10 @@ function CreatorProfileUpdateFormContent({
     facets.languageDrafts.length,
     portfolioQuery.data,
   ]);
+
+  useEffect(() => {
+    updateNavArrows();
+  }, [navCounts, updateNavArrows]);
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -738,18 +878,91 @@ function CreatorProfileUpdateFormContent({
   const isSettings = variant === "settings";
 
   return (
-    <div className={cn("pe-scope", !isSettings && "pe-onboarding")}>
+    <div
+      className={cn(
+        "pe-scope flex flex-1 w-full min-w-0 flex-col",
+        !isSettings && "pe-onboarding",
+      )}
+    >
+      {confirmDialog}
+      {isSettings ? (
+        <>
+          <div
+            ref={mobileNavWrapRef}
+            className={cn(
+              "pe-nav-mobile-wrap",
+              PROFILE_MOBILE_NAV_STICKY_CLASS,
+              "max-[900px]:block min-[901px]:hidden",
+            )}
+            data-left={navArrows.left}
+            data-right={navArrows.right}
+            aria-label="Profile sections"
+          >
+            <div className="relative w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3">
+              <button
+                type="button"
+                className="pe-nav-mobile-arrow"
+                data-dir="left"
+                data-show={navArrows.left}
+                aria-label="Scroll sections left"
+                tabIndex={navArrows.left ? 0 : -1}
+                onClick={() => scrollMobileNav(-1)}
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <nav className="pe-nav-mobile" ref={mobileNavRef}>
+                {NAV_ITEMS.map((item) => {
+                  const count =
+                    item.id === "niche"
+                      ? navCounts.niche
+                      : item.id === "portfolio"
+                        ? navCounts.portfolio
+                        : null;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="pe-nav-mobile-link"
+                      data-active={activeSection === item.id}
+                      onClick={() => scrollToSection(item.id)}
+                    >
+                      {item.label}
+                      {count != null ? (
+                        <span className="pe-nav-mobile-count">{count}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              <button
+                type="button"
+                className="pe-nav-mobile-arrow"
+                data-dir="right"
+                data-show={navArrows.right}
+                aria-label="Scroll sections right"
+                tabIndex={navArrows.right ? 0 : -1}
+                onClick={() => scrollMobileNav(1)}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4 space-y-4">
+            <CreatorSpotlightProgram />
+            {!completeProfile ? <GoLiveBanner missing={goLiveMissing} /> : null}
+          </div>
+        </>
+      ) : null}
       <motion.form
         variants={containerVariants}
         initial="hidden"
         animate="visible"
+        className="flex min-w-0 flex-1 flex-col"
         onSubmit={(event) => void handleSubmit(event)}
       >
-        {isSettings && !completeProfile ? (
-          <div className="mb-4">
-            <GoLiveBanner missing={goLiveMissing} />
-          </div>
-        ) : null}
         {isSettings ? (
           <div className="pe-shell">
             <nav className="pe-nav" data-tour="creator-profile-edit-nav">
@@ -779,34 +992,6 @@ function CreatorProfileUpdateFormContent({
               })}
             </nav>
 
-            <nav
-              className="pe-nav-mobile"
-              aria-label="Profile sections"
-            >
-              {NAV_ITEMS.map((item) => {
-                const count =
-                  item.id === "niche"
-                    ? navCounts.niche
-                    : item.id === "portfolio"
-                      ? navCounts.portfolio
-                      : null;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="pe-nav-mobile-link"
-                    data-active={activeSection === item.id}
-                    onClick={() => scrollToSection(item.id)}
-                  >
-                    {item.label}
-                    {count != null ? (
-                      <span className="pe-nav-mobile-count">{count}</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </nav>
-
             <div className="pe-form">{renderFormSections()}</div>
           </div>
         ) : (
@@ -826,11 +1011,15 @@ function CreatorProfileUpdateFormContent({
                 <span className="pe-savebar-dot" />
               )}
               <span className="pe-savebar-msg">
-                {pending
-                  ? "Saving changes..."
-                  : completeProfile
-                    ? "You have unsaved changes"
-                    : "Finish your profile to go live"}
+                {isSavingDraft
+                  ? "Saving draft..."
+                  : submitIntent === "go-live"
+                    ? "Going live..."
+                    : submitIntent === "save-changes"
+                      ? "Saving changes..."
+                      : completeProfile
+                        ? "You have unsaved changes"
+                        : "Finish your profile to go live"}
               </span>
               <div className="pe-savebar-actions">
                 <button
@@ -841,6 +1030,24 @@ function CreatorProfileUpdateFormContent({
                 >
                   Discard
                 </button>
+                {/* Not-yet-live profiles can save partial progress without
+                    publishing. Live profiles only need the single save button. */}
+                {!completeProfile ? (
+                  <button
+                    type="button"
+                    className="pe-btn pe-btn-ghost"
+                    onClick={handleSaveDraft}
+                    disabled={
+                      pending ||
+                      introVideo.uploadingIntroVideo ||
+                      profileImage.uploadingProfileImage ||
+                      facets.facetOptionsQuery.isLoading ||
+                      addOns.addOnOptionsQuery.isLoading
+                    }
+                  >
+                    {isSavingDraft ? "Saving…" : "Save draft"}
+                  </button>
+                ) : null}
                 <button
                   type="submit"
                   className="pe-btn pe-btn-primary"
@@ -852,7 +1059,7 @@ function CreatorProfileUpdateFormContent({
                     addOns.addOnOptionsQuery.isLoading
                   }
                 >
-                  {pending ? (
+                  {isPrimarySubmitting ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
                       {completeProfile ? "Saving…" : "Going live…"}
@@ -912,9 +1119,9 @@ function CreatorProfileUpdateFormContent({
             id="media"
             tourId="creator-profile-edit-media"
             icon={Camera}
-            title="Photo & intro reel"
+            title="Photo & featured video"
             required
-            desc="Your face and a short intro reel build instant trust."
+            desc="Add your profile photo and a video showcasing your best work — brand collabs, UGC, or anything that shows what you can do."
           >
             <div className="pe-media-split">
               <div className="pe-media-split-col">
@@ -1342,7 +1549,21 @@ function CreatorProfileUpdateFormContent({
                   );
                 })}
 
-                <LanguageRows
+                {restrictionSuggestionNames.length > 0 ? (
+                  <RestrictionChipSection
+                    label="Open to"
+                    help="Optional — categories you're comfortable creating for. Only shown to brands when you opt in."
+                    items={restrictionSuggestionNames}
+                    selected={selectedRestrictions}
+                    disabled={
+                      pending || restrictionSuggestionsQuery.isLoading
+                    }
+                    onToggle={toggleRestriction}
+                  />
+                ) : null}
+
+                <div className="border-t border-border/50 pt-5">
+                  <LanguageRows
                   allLanguages={facets.facetOptionsByDimension.LANGUAGE ?? []}
                   selected={facets.languageDrafts}
                   disabled={pending || facets.facetOptionsQuery.isLoading}
@@ -1363,6 +1584,7 @@ function CreatorProfileUpdateFormContent({
                     markDirty();
                   }}
                 />
+                </div>
               </>
             ) : null}
           </SectionCard>
@@ -1533,7 +1755,7 @@ function CreatorProfileUpdateFormContent({
                   </p>
                 )}
                 <span className="pe-help">
-                  Total brand projects you've delivered.
+                  Total brand projects you&apos;ve delivered.
                 </span>
               </div>
             </div>
@@ -1691,8 +1913,8 @@ function CreatorProfileUpdateFormContent({
         thumbInputRef={pfThumbInputRef}
         onSelectVideoFile={setPfPendingVideoFile}
         onSelectThumbFile={setPfPendingThumbFile}
-        industrySuggestions={industrySuggestionsQuery.data ?? []}
-        tagSuggestions={tagSuggestionsQuery.data ?? []}
+        industrySuggestions={portfolioIndustrySuggestions}
+        tagSuggestions={portfolioTagSuggestions}
         languageOptions={(facets.facetOptionsByDimension.LANGUAGE ?? []).map(
           (lang) => ({ value: lang.slug, label: lang.label }),
         )}

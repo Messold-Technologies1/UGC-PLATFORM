@@ -147,7 +147,7 @@ export class CreatorPublicListItemDto {
   facetSelections!: CreatorPublicListFacetDto[];
 
 
-  @ApiProperty({ type: [String], example: ['does not accept alcohol'] })
+  @ApiProperty({ type: [String], example: ['swimwear / beachwear'] })
   restrictions!: string[];
 
   @ApiProperty({ type: () => [CreatorPublicListPackageDto] })
@@ -155,4 +155,16 @@ export class CreatorPublicListItemDto {
 
   @ApiProperty({ type: () => [CreatorPublicListPortfolioVideoDto] })
   portfolioVideos!: CreatorPublicListPortfolioVideoDto[];
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the creator offers a Faster Delivery add-on',
+  })
+  hasFasterDelivery!: boolean;
+
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Promised delivery days when Faster Delivery add-on is enabled',
+  })
+  fasterDeliveryDays?: number | null;
 }

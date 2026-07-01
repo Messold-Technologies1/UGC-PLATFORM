@@ -17,7 +17,7 @@ export class AcceptBriefResponseDto {
 
   @ApiProperty({
     description:
-      'When false, delivery deadline is set at brief acceptance; when true, it is set when the creator confirms product receipt',
+      'When false, delivery deadlines are set at brief acceptance; when true, they are set when the creator confirms product receipt',
   })
   requiresPhysicalProductShipment!: boolean;
 
@@ -26,8 +26,18 @@ export class AcceptBriefResponseDto {
     format: 'date-time',
     nullable: true,
     description:
-      'Delivery due date (deliveryDaysSnapshot + 2 grace). Null until product is received when physical shipment applies.',
+      'Promised delivery due date. Null until product is received when physical shipment applies.',
     example: '2026-05-22T07:06:29.604Z',
   })
-  deliveryDeadlineAt?: Date | null;
+  deliveryDueAt?: Date | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Final delivery cutoff after grace period. Null until the delivery clock starts.',
+    example: '2026-05-24T07:06:29.604Z',
+  })
+  deliveryGraceDeadlineAt?: Date | null;
 }

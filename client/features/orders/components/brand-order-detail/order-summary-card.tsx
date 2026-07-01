@@ -33,30 +33,19 @@ export function OrderSummaryCard({
   const totalAmount = order.expectedAmountPaise / 100;
  
 
-  const canEditBrief =
-    order.status === "BRIEF_SUBMISSION_PENDING" && !order.hasBrief;
+  const hasSubmittedBrief =
+    order.hasBrief || Boolean(order.briefSubmittedAt);
+  const resolvedBriefId = briefId ?? order.briefId ?? null;
 
   function handleEditBrief() {
-    if (canEditBrief) {
-      router.push(`/brand/briefs/create?orderId=${orderId}`);
-    } else if (briefId) {
-      router.push(`/brand/briefs/${briefId}`);
-    }
+    if (!resolvedBriefId) return;
+    router.push(`/brand/briefs/${resolvedBriefId}`);
   }
 
   return (
     <div className="rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <h3 className="text-lg font-bold text-foreground">Order Summary</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-lg text-sm font-medium"
-          onClick={handleEditBrief}
-          disabled={!canEditBrief && !briefId}
-        >
-          {canEditBrief ? "Edit Brief" : "View Brief"}
-        </Button>
       </div>
 
       <div className="px-6 pb-6">
@@ -187,7 +176,7 @@ export function OrderSummaryCard({
             </p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Your payment is held securely and will be released to the creator
-              after you approve the final content.
+              after you approve the content.
             </p>
           </div>
           <ChevronDown className="size-4 text-muted-foreground shrink-0 mt-0.5" />

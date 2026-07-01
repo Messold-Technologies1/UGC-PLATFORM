@@ -312,6 +312,10 @@ model CreatorProfile {
   /// Derived discovery gate = (approval APPROVED) AND completeProfile.
   /// Brands only ever see creators where this is true.
   isListed            Boolean                     @default(false)
+  /// Opt-in for transactional/profile/order emails. Set true at signup; legacy rows backfilled false.
+  emailNotificationsEnabled    Boolean            @default(false)
+  /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
+  whatsappNotificationsEnabled Boolean            @default(false)
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
@@ -325,6 +329,7 @@ model CreatorProfile {
   packages         CreatorPackage[]
   addOns           CreatorAddOn[]
   portfolioVideos  CreatorPortfolioVideo[]
+  portfolioSections CreatorPortfolioSection[]
   receivedOrders      Order[]                        @relation("OrderCreator")
   orderDeliveries     OrderDelivery[]
   payoutDetails       CreatorPayoutDetails?
@@ -475,7 +480,8 @@ model Order {
   dispatchedAt                    DateTime?
   productReceivedAt               DateTime?
 
-  deliveryDeadlineAt DateTime?
+  deliveryDueAt             DateTime?
+  deliveryGraceDeadlineAt     DateTime?
   deliveredAt        DateTime?
   acceptedAt         DateTime?
   creatorPaidAt      DateTime?
@@ -513,7 +519,7 @@ model Order {
   @@index([brandId, lastChatActivityAt(sort: Desc)])
   @@index([creatorId, lastChatActivityAt(sort: Desc)])
   @@index([status, createdAt])
-  @@index([deliveryDeadlineAt])
+  @@index([deliveryGraceDeadlineAt])
   @@index([briefId])
 }
 
@@ -563,12 +569,15 @@ model Brief {
   brandLogoKey               String?
   brandLogoUrl               String?
 
-  /// Product
+  /// Product / service (UI labels follow isProduct; columns reused for both)
   productName        String?
   productDescription String?
   productPageUrl     String?
   productImageKey    String?
   productImageUrl    String?
+
+  /// When true, brief is for a physical/digital product (image required). When false, service brief.
+  isProduct Boolean @default(true)
 
   /// Logistics: brand will mail / courier a physical item to the creator for the shoot
   willShipPhysicalProductToCreator Boolean @default(false)
@@ -651,6 +660,10 @@ model OrderDelivery {
   revisionNumber Int      @default(0)
   assets         Json
   note           String?
+  // Watermark pipeline status for the brand-facing preview copies.
+  // "ready" is the default so historical rows are never reprocessed; new
+  // deliveries are explicitly created as "pending".
+  previewStatus  String   @default("ready")
   createdAt      DateTime @default(now())
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -659,6 +672,7 @@ model OrderDelivery {
   @@unique([orderId, revisionNumber])
   @@index([orderId, createdAt])
   @@index([creatorId, createdAt])
+  @@index([previewStatus, createdAt])
 }
 
 model OrderRevision {
@@ -711,6 +725,7 @@ model CreatorPortfolioVideo {
 
   creator CreatorProfile             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   tags    CreatorPortfolioVideoTag[]
+  sectionVideos CreatorPortfolioSectionVideo[]
 
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
@@ -727,6 +742,31 @@ model CreatorPortfolioVideoTag {
 
   @@unique([videoId, tag])
   @@index([tag])
+}
+
+model CreatorPortfolioSection {
+  id        String   @id @default(uuid()) @db.Uuid
+  creatorId String   @db.Uuid
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  creator CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  videos  CreatorPortfolioSectionVideo[]
+
+  @@index([creatorId, position])
+}
+
+model CreatorPortfolioSectionVideo {
+  sectionId String @db.Uuid
+  videoId   String @db.Uuid
+  position  Int    @default(0)
+
+  section CreatorPortfolioSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  video   CreatorPortfolioVideo   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([sectionId, videoId])
+  @@index([sectionId, position])
 }
 
 model PortfolioIndustrySuggestion {
@@ -825,6 +865,10 @@ model BrandProfile {
   instagramUrl               String?
   productType                BrandProductType?
   otherCategoryLabel         String?
+  /// Opt-in for transactional/order emails. Set true at signup; legacy rows backfilled false.
+  emailNotificationsEnabled    Boolean         @default(false)
+  /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
+  whatsappNotificationsEnabled Boolean         @default(false)
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
 
@@ -1021,4 +1065,61 @@ model EmailSuppression {
   createdAt DateTime               @default(now())
 
   @@index([reason])
+}
+
+// ─── Legal Pages (Dynamic, Admin-Editable) ─────────────────────────
+
+enum LegalDraftStatus {
+  DRAFT
+  IN_REVIEW
+}
+
+/// Top-level container for a legal page (Privacy Policy, Terms of Service, etc.).
+/// The `slug` is the URL identifier used by the public-facing page.
+/// Live content is stored in related `LegalSection` rows.
+model LegalPage {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique
+  title         String
+  description   String
+  effectiveDate String
+  sections      Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?  @db.Uuid
+
+  // Draft State
+  draftStatus        LegalDraftStatus?
+  draftTitle         String?
+  draftDescription   String?
+  draftEffectiveDate String?
+  draftSections      Json?
+  draftChangeNote    String?
+  draftCreatedBy     String?           @db.Uuid
+  draftReviewNote    String?
+  draftCreatedAt     DateTime?
+  draftUpdatedAt     DateTime?
+  draftRestoredFromVersionId String? @db.Uuid
+
+  versions LegalPageVersion[]
+
+  @@index([slug])
+}
+
+
+
+/// Immutable snapshot created each time a draft is published. Captures the
+/// entire page state (meta + sections) so admins can review history.
+model LegalPageVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  pageId     String   @db.Uuid
+  snapshot   Json
+  changedBy  String   @db.Uuid
+  changeNote String?
+  restoredFromVersionId String? @db.Uuid
+  createdAt  DateTime @default(now())
+
+  page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, createdAt])
 }

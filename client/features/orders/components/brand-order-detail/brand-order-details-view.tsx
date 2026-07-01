@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 // import { Textarea } from "@/components/ui/textarea";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
+import { useGetBrandOrderDeliveriesQuery } from "../../hooks/use-get-brand-order-deliveries-query";
+import { getLatestDeliveryPreviewState } from "./order-delivered/delivery-preview-preparing";
 import { OrderRatingReviewCard } from "../order-rating-review-card";
 import { BriefSummaryCard } from "./brief-summary-card";
 import { CreatorAcceptanceCard } from "./creator-acceptance-card";
@@ -34,7 +36,6 @@ import { NeedHelpCard, TipsCard } from "./support-tips-card";
 import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
 import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-details-card";
 import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
-import { NeedUpdateCard } from "./need-update-card";
 import { QuickActionsCard } from "./quick-actions-card";
 import { ChatPreviewCard } from "./chat-preview-card";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
@@ -87,6 +88,10 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   const { data, isLoading, isError, error } =
     useGetBrandOrderDetailsQuery(orderId);
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
+  const { data: deliveriesData } = useGetBrandOrderDeliveriesQuery(orderId);
+  const { previewGenerating, isRevision } = getLatestDeliveryPreviewState(
+    deliveriesData?.items ?? [],
+  );
 
   const [previewState, setPreviewState] = useState<string | null>(null);
 
@@ -257,15 +262,27 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <DeliveredNotificationBanner
           creatorName={creator?.displayName || "Creator"}
+          order={order}
+          previewPreparing={previewGenerating}
+          isRevision={isRevision}
         />
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
           <div className="flex flex-col gap-5 lg:col-span-8 h-full">
-            <DeliveredVideosCard orderId={orderId} />
+            <DeliveredVideosCard
+              orderId={orderId}
+              creatorName={creator?.displayName || "Creator"}
+            />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
-            <YourActionRequiredCard order={order} orderId={orderId} />
+            <YourActionRequiredCard
+              order={order}
+              orderId={orderId}
+              previewPreparing={previewGenerating}
+              creatorName={creator?.displayName || "Creator"}
+              isRevision={isRevision}
+            />
           </aside>
         </div>
 
@@ -316,8 +333,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
                 productReceivedAt={(order as any).productReceivedAt}
               />
             )}
-
-            <NeedUpdateCard />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
@@ -359,7 +374,9 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
             brief={brief}
           />
 
-          <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+          {order.hasBrief && brief ? (
+            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+          ) : null}
 
           <OrderActivityTimeline order={order} />
         </div>

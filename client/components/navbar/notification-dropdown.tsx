@@ -1,18 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { 
-  Bell, 
-  CheckCheck, 
-  CheckCircle2, 
-  Info, 
-  AlertCircle, 
-  AlertTriangle 
+import {
+  Bell,
+  CheckCheck,
+  CheckCircle2,
+  Info,
+  AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useNotification, type AppNotification } from "@/providers/notification-provider";
+import {
+  useNotification,
+  type AppNotification,
+} from "@/providers/notification-provider";
 
 function timeAgo(dateString: string) {
   const date = new Date(dateString);
@@ -44,7 +47,8 @@ const NotificationIcon = ({ type }: { type: AppNotification["type"] }) => {
 };
 
 export function NotificationDropdown() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } =
+    useNotification();
 
   return (
     <div className="group relative">
@@ -59,13 +63,15 @@ export function NotificationDropdown() {
           </span>
         )}
       </button>
-      
+
       <div className="absolute top-full right-0 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto pt-4 pointer-events-none opacity-0 translate-y-2 group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-50">
         <div className="w-[340px] sm:w-[380px] rounded-[2rem] bg-[#f7f7f7] shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:bg-slate-950 border border-border/50 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-6 py-4">
-            <span className="font-semibold text-base text-foreground">Notifications</span>
+            <span className="font-semibold text-base text-foreground">
+              Notifications
+            </span>
             {unreadCount > 0 && (
-              <button 
+              <button
                 className="flex items-center text-xs font-medium text-primary hover:underline focus:outline-none"
                 onClick={(e) => {
                   e.preventDefault();
@@ -78,15 +84,19 @@ export function NotificationDropdown() {
             )}
           </div>
           <div className="h-px bg-border/50 w-full" />
-          
+
           <ScrollArea className="max-h-[400px]">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                 <div className="bg-muted size-10 rounded-full flex items-center justify-center mb-3">
                   <Bell className="size-5 text-muted-foreground/60" />
                 </div>
-                <p className="text-sm font-medium text-foreground">No notifications</p>
-                <p className="text-xs text-muted-foreground mt-1">You&apos;re all caught up! New events will appear here.</p>
+                <p className="text-sm font-medium text-foreground">
+                  No notifications
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  You&apos;re all caught up! New events will appear here.
+                </p>
               </div>
             ) : (
               <div className="flex flex-col py-2">
@@ -119,19 +129,23 @@ export function NotificationDropdown() {
 
                   const commonClasses = cn(
                     "flex px-6 py-3 transition-colors hover:bg-black/5 dark:hover:bg-white/5 outline-none items-start text-left",
-                    !notification.isRead && "bg-black/5 dark:bg-white/5"
+                    !notification.isRead && "bg-black/5 dark:bg-white/5",
                   );
 
                   // Fix old cached links in localStorage
                   let href = notification.link;
-                  if (href && notification.title === "New chat message" && href.includes("/orders/")) {
+                  if (
+                    href &&
+                    notification.title === "New chat message" &&
+                    href.includes("/orders/")
+                  ) {
                     href = href.replace("/orders/", "/messages?orderId=");
                   }
 
                   return href ? (
-                    <Link 
+                    <Link
                       key={notification.id}
-                      href={href} 
+                      href={href}
                       className={commonClasses}
                       onClick={() => {
                         if (!notification.isRead) markAsRead(notification.id);

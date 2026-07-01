@@ -13,11 +13,17 @@ export interface OrderPaymentEvent {
 export interface OrderBriefSubmittedEvent {
   orderId: string;
   briefSubmittedAt: string;
+  brandName?: string | null;
+  packageName?: string;
 }
 
 export interface OrderBriefAcceptedEvent {
   orderId: string;
   briefAcceptedAt: string;
+  creatorName?: string | null;
+  /** ISO string for non-physical orders; null when product receipt triggers the deadline */
+  deliveryDueAt: string | null;
+  deliveryGraceDeadlineAt: string | null;
 }
 
 export interface OrderProductShippedEvent {
@@ -30,6 +36,8 @@ export interface OrderProductShippedEvent {
 export interface OrderProductReceivedEvent {
   orderId: string;
   productReceivedAt: string;
+  deliveryDueAt: string;
+  deliveryGraceDeadlineAt: string;
 }
 
 export interface OrderRevisionRequestedEvent {
@@ -64,17 +72,16 @@ export interface OrderChatReadUpdatedEvent {
   lastReadAt?: string | null;
 }
 
-export interface OrderBriefAcceptedEvent {
+export interface DeliveryWatermarkReadyEvent {
   orderId: string;
-  briefAcceptedAt: string;
-  /** ISO string for non-physical orders; null when product receipt triggers the deadline */
-  deliveryDeadlineAt: string | null;
+  revisionNumber: number;
 }
 
-export interface OrderProductReceivedEvent {
+export interface OrderContentDeliveredEvent {
   orderId: string;
-  productReceivedAt: string;
-  deliveryDeadlineAt: string;
+  status: "DELIVERED" | "REVISION_SUBMITTED";
+  revisionNumber: number;
+  deliveredAt: string;
 }
 
 export interface ServerToClientEvents {
@@ -84,6 +91,8 @@ export interface ServerToClientEvents {
   "order.product_shipped": (e: OrderProductShippedEvent) => void;
   "order.product_received": (e: OrderProductReceivedEvent) => void;
   "order.revision_requested": (e: OrderRevisionRequestedEvent) => void;
+  "order.content_delivered": (e: OrderContentDeliveredEvent) => void;
+  "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

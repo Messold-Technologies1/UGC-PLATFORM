@@ -8,6 +8,7 @@ import express from 'express';
 import helmet from 'helmet';
 import type { IncomingMessage } from 'node:http';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './realtime/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -61,6 +62,15 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api');
+
+  // When Redis is configured, use the Redis-backed Socket.IO adapter so realtime
+  // emits propagate across processes (e.g. a separate watermark worker → browser).
+  const redisUrl = configService.get<string>('REDIS_URL');
+  if (redisUrl) {
+    const redisIoAdapter = new RedisIoAdapter(app);
+    await redisIoAdapter.connectToRedis(redisUrl);
+    app.useWebSocketAdapter(redisIoAdapter);
+  }
 
   const swaggerEnabled =
     configService.get<string>('SWAGGER_ENABLED') === 'true' ||

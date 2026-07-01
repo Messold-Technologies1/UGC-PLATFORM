@@ -86,6 +86,8 @@ export type CreatorPublicListItemApi = {
   collaborationCount?: number;
   avgRating?: string | null;
   reviewCount: number;
+  completedOrders?: number;
+  totalOrders?: number;
   onLocationAvailable: boolean;
   languages: string[];
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
@@ -95,6 +97,8 @@ export type CreatorPublicListItemApi = {
   restrictions: string[];
   packages: CreatorPublicListPackageApi[];
   portfolioVideos: CreatorPortfolioVideoPreviewApi[];
+  hasFasterDelivery?: boolean;
+  fasterDeliveryDays?: number | null;
 };
 
 export type CreatorProfileItemApi = {

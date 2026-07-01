@@ -1,6 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 
+export class OrderCurrentRevisionDto {
+  @ApiProperty({
+    example: 1,
+    description: 'Revision number matching order.revisionCount',
+  })
+  revisionNumber!: number;
+
+  @ApiPropertyOptional({
+    example: 'Please reshoot the product close-up with better lighting.',
+    description: "Brand's feedback for this revision request",
+  })
+  note!: string | null;
+
+  @ApiProperty()
+  requestedAt!: Date;
+}
+
 export class OrderDetailsPublicDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -57,8 +74,15 @@ export class OrderDetailsPublicDto {
   })
   briefId?: string;
 
-  @ApiPropertyOptional()
-  deliveryDeadlineAt?: Date | null;
+  @ApiPropertyOptional({
+    description: 'Promised delivery due date (deliveryDaysSnapshot from clock start)',
+  })
+  deliveryDueAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Final delivery cutoff after the grace period',
+  })
+  deliveryGraceDeadlineAt?: Date | null;
 
   @ApiProperty()
   createdAt!: Date;
@@ -101,6 +125,13 @@ export class OrderDetailsPublicDto {
 
   @ApiProperty({ example: 0 })
   revisionCount!: number;
+
+  @ApiPropertyOptional({
+    type: () => OrderCurrentRevisionDto,
+    description:
+      'Present when status is REVISION_REQUESTED or REVISION_SUBMITTED — the active brand revision request',
+  })
+  currentRevision?: OrderCurrentRevisionDto;
 
   @ApiPropertyOptional()
   refundedAt?: Date | null;

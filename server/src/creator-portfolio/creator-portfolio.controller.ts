@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -35,6 +36,12 @@ import { PortfolioVideoResponseDto } from './dto/portfolio-video-response.dto';
 import { DeletePortfolioVideoQueryDto } from './dto/delete-portfolio-video-query.dto';
 import { ListAdminPortfolioVideosQueryDto } from './dto/list-admin-portfolio-videos-query.dto';
 import { UpdatePortfolioVideoDto } from './dto/update-portfolio-video.dto';
+import { CreatePortfolioSectionDto } from './dto/create-portfolio-section.dto';
+import { UpdatePortfolioSectionDto } from './dto/update-portfolio-section.dto';
+import { PortfolioSectionResponseDto } from './dto/portfolio-section-response.dto';
+import { AddSectionVideosDto } from './dto/add-section-videos.dto';
+import { RemoveSectionVideoQueryDto } from './dto/remove-section-video.dto';
+import { ReorderSectionsDto } from './dto/reorder-sections.dto';
 import { CreatorPortfolioService } from './creator-portfolio.service';
 
 @ApiTags('Creator Portfolio')
@@ -169,5 +176,130 @@ export class CreatorPortfolioController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     await this.service.deleteVideo(req.user.id, id, query.creatorId);
+  }
+
+
+
+  @Post('sections')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiCreatedResponse({ type: PortfolioSectionResponseDto })
+  @ApiOperation({
+    summary: 'Create a portfolio section',
+    description:
+      'Creates a named section to group portfolio videos. Max 10 sections per creator. Admins may pass creatorId.',
+  })
+  async createSection(
+    @Body() dto: CreatePortfolioSectionDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PortfolioSectionResponseDto> {
+    return this.service.createSection(req.user.id, dto, dto.creatorId);
+  }
+
+  @Get('sections/me')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: [PortfolioSectionResponseDto] })
+  @ApiOperation({
+    summary: 'List my portfolio sections with nested videos',
+  })
+  async listMySections(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PortfolioSectionResponseDto[]> {
+    return this.service.listMySections(req.user.id);
+  }
+
+  @Patch('sections/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: PortfolioSectionResponseDto })
+  @ApiOperation({
+    summary: 'Update a portfolio section',
+    description:
+      'Update section name and/or position. Admins may pass creatorId to act on behalf of a creator.',
+  })
+  async updateSection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePortfolioSectionDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PortfolioSectionResponseDto> {
+    return this.service.updateSection(req.user.id, id, dto, dto.creatorId);
+  }
+
+  @Delete('sections/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Deleted' })
+  @ApiOperation({
+    summary: 'Delete a portfolio section',
+    description:
+      'Deletes the section and removes all video assignments. The videos themselves are not deleted. Admins may pass creatorId as a query param.',
+  })
+  async deleteSection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: DeletePortfolioVideoQueryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.service.deleteSection(req.user.id, id, query.creatorId);
+  }
+
+  @Put('sections/reorder')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: [PortfolioSectionResponseDto] })
+  @ApiOperation({
+    summary: 'Bulk reorder portfolio sections',
+    description:
+      'Updates position values for all provided sections in a single transaction. Returns the full updated list.',
+  })
+  async reorderSections(
+    @Body() dto: ReorderSectionsDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PortfolioSectionResponseDto[]> {
+    return this.service.reorderSections(req.user.id, dto, dto.creatorId);
+  }
+
+  @Post('sections/:id/videos')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: PortfolioSectionResponseDto })
+  @ApiOperation({
+    summary: 'Add videos to a portfolio section',
+    description:
+      'Adds one or more videos to the section. If a video is already in the section, its position is updated. Admins may pass creatorId.',
+  })
+  async addVideosToSection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddSectionVideosDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PortfolioSectionResponseDto> {
+    return this.service.addVideosToSection(req.user.id, id, dto, dto.creatorId);
+  }
+
+  @Delete('sections/:sectionId/videos/:videoId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Removed' })
+  @ApiOperation({
+    summary: 'Remove a video from a portfolio section',
+    description:
+      'Removes the video assignment from the section. The video itself is not deleted. Admins may pass creatorId as a query param.',
+  })
+  async removeVideoFromSection(
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
+    @Param('videoId', ParseUUIDPipe) videoId: string,
+    @Query() query: RemoveSectionVideoQueryDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.service.removeVideoFromSection(
+      req.user.id,
+      sectionId,
+      videoId,
+      query.creatorId,
+    );
   }
 }

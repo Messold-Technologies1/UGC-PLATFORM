@@ -5,9 +5,12 @@ import Link from "next/link";
 import { Check, Copy, FileVideo, Package, Truck, Upload } from "lucide-react";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 // import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 // import { OrderChatWidget } from "../order-chat-widget";
@@ -16,7 +19,8 @@ import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-f
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
-import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
+import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
+// import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
 interface CreatorOrderActivePanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -56,13 +60,6 @@ function fmtDate(val?: string | null): string {
   } catch {
     return "TBD";
   }
-}
-
-function daysLeft(deadline?: string | null): number | null {
-  if (!deadline) return null;
-  const ms = new Date(deadline).getTime() - Date.now();
-  if (Number.isNaN(ms)) return null;
-  return Math.max(0, Math.ceil(ms / 86_400_000));
 }
 
 function resolveCurrentStep(status: string, ship: boolean): string {
@@ -163,10 +160,12 @@ function isSupportedFile(file: File): boolean {
 
 function OrderSummaryCard({
   briefData,
+  order,
   selectedItem,
   selectedOrderId,
 }: {
   briefData: any;
+  order: any;
   selectedItem: any;
   selectedOrderId: string;
 }) {
@@ -216,9 +215,10 @@ function OrderSummaryCard({
         </div>
         <div className="flex justify-between pt-1 mt-auto">
           <span className="text-muted-foreground">Due Date</span>
-          <span className="font-medium text-foreground">
-            {fmtDate(selectedItem.order.deliveryDeadlineAt)}
-          </span>
+          <DeliveryDeadlineDisplay
+            order={order}
+            dateClassName="font-medium text-foreground"
+          />
         </div>
       </div>
 
@@ -302,9 +302,11 @@ function AwaitingShipmentContent({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">ETA</span>
-              <span className="font-medium">
-                {fmtDate(order.deliveryDeadlineAt)}
-              </span>
+              <DeliveryDeadlineDisplay
+                order={order}
+                dateClassName="font-medium"
+                showBadge={false}
+              />
             </div>
           </div>
         ) : (
@@ -318,15 +320,6 @@ function AwaitingShipmentContent({
           </div>
         )}
 
-        {hasShippingDetails && (
-          <Button
-            variant="outline"
-            className="w-full mt-4 rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-          >
-            <Truck className="w-3.5 h-3.5" />
-            View Tracking
-          </Button>
-        )}
 
         {canMarkReceived && (
           <Button
@@ -369,6 +362,7 @@ function AwaitingShipmentContent({
 
       <OrderSummaryCard
         briefData={briefData}
+        order={order}
         selectedItem={selectedItem}
         selectedOrderId={selectedOrderId}
       />
@@ -421,8 +415,7 @@ function InProgressContent({
     };
   }, [pendingUpload]);
 
-  const deadline = selectedItem.order.deliveryDeadlineAt;
-  const remaining = daysLeft(deadline);
+  const timelineOrder = order;
 
   function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const fileList = event.target.files;
@@ -532,24 +525,10 @@ function InProgressContent({
 
             <div className={cn("flex items-center justify-between", isCurrentStep ? "mt-4 pt-4 border-t border-border/40" : "mt-4 pt-4 border-t border-border/40")}>
               <span className="text-sm text-muted-foreground">Due Date</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold">{fmtDate(deadline)}</span>
-                {remaining !== null && (
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "text-[10px] font-bold px-2 py-0.5 rounded-full border-0",
-                      remaining <= 3
-                        ? "bg-red-500/10 text-red-600"
-                        : remaining <= 7
-                          ? "bg-amber-500/10 text-amber-600"
-                          : "bg-emerald-500/10 text-emerald-600",
-                    )}
-                  >
-                    {remaining} day{remaining !== 1 ? "s" : ""} left
-                  </Badge>
-                )}
-              </div>
+              <DeliveryDeadlineDisplay
+                order={timelineOrder}
+                dateClassName="text-sm font-semibold"
+              />
             </div>
           </div>
         }
@@ -571,6 +550,7 @@ function InProgressContent({
 
       <OrderSummaryCard
         briefData={briefData}
+        order={order}
         selectedItem={selectedItem}
         selectedOrderId={selectedOrderId}
       />
@@ -693,6 +673,7 @@ export function CreatorOrderActivePanel({
           </div>
           <OrderSummaryCard
             briefData={briefData}
+            order={order}
             selectedItem={selectedItem}
             selectedOrderId={selectedOrderId}
           />

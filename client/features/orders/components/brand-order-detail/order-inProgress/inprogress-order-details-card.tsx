@@ -1,21 +1,27 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
-  FileEdit,
   Briefcase,
   Clipboard,
   MonitorPlay,
   BadgeCheck,
   Video,
   Key,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderBriefPayload } from "../../../api/get-order-brief";
 import type { OrderDetailsPublic } from "../../../api/types";
 import { formatBriefScript } from "@/features/briefs/lib/format-brief-script";
 import { Badge } from "@/components/ui/badge";
+import {
+  DeliveryDeadlineDisplay,
+  formatDeliveryDate,
+} from "../../delivery-deadline-display";
+import { getPromisedDeliveryDueAt } from "../../../lib/delivery-timeline";
 
 interface InprogressOrderDetailsCardProps {
   order: OrderDetailsPublic;
@@ -46,6 +52,11 @@ export function InprogressOrderDetailsCard({
 }: InprogressOrderDetailsCardProps) {
   const router = useRouter();
 
+  const promisedDueDate = useMemo(() => {
+    const due = getPromisedDeliveryDueAt(order);
+    return due ? formatDeliveryDate(due.toISOString()) : null;
+  }, [order]);
+
   const brandName = brief?.brandName ?? "Not specified";
   const productName = brief?.productName ?? "Not specified";
   const contentTypes = brief?.contentType
@@ -72,27 +83,10 @@ export function InprogressOrderDetailsCard({
       router.push(`/brand/briefs/${briefId}`);
     }
   }
-
-  function handleEditBrief() {
-    if (briefId) {
-      router.push(`/brand/briefs/${briefId}`);
-    }
-  }
-
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between pb-5 border-b border-border/60 mb-6">
         <h3 className="text-lg font-bold text-foreground">Order Details</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-lg text-xs font-semibold px-3 h-8"
-          onClick={handleEditBrief}
-          disabled={!briefId}
-        >
-          <FileEdit className="size-3.5 mr-1.5" />
-          Edit Brief
-        </Button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">
@@ -165,7 +159,7 @@ export function InprogressOrderDetailsCard({
               </span>
             </div>
             <span className="text-sm font-medium text-foreground whitespace-pre-wrap self-start mt-2">
-              {brief?.keyNoteToInclude || "Not specified"}
+              {brief?.keyNoteToInclude ? "See full brief" : "Not specified"}
             </span>
           </div>
 
@@ -266,6 +260,36 @@ export function InprogressOrderDetailsCard({
                   </Badge>
                 </>
               )}
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3.5 py-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  <Clock className="size-3.5 shrink-0" />
+                  Delivery deadline
+                </div>
+                {order.deliveredAt ? (
+                  <span className="text-sm font-semibold text-foreground">
+                    {promisedDueDate ?? "—"}
+                  </span>
+                ) : (
+                  <DeliveryDeadlineDisplay
+                    order={order}
+                    dateClassName="text-sm font-semibold text-foreground"
+                  />
+                )}
+              </div>
+
+              {order.deliveredAt ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3.5 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                    Delivered on
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">
+                    {formatDeliveryDate(order.deliveredAt) ?? "—"}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

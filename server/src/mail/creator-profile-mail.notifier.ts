@@ -27,9 +27,16 @@ export class CreatorProfileMailNotifier {
         return;
       }
 
+      this.logger.log(
+        `creator approval email: profile=${creatorProfileId} to=${email}`,
+      );
       await this.mail.send({
         to: email,
         templateKey: EmailTemplateKey.CREATOR_PROFILE_APPROVED,
+        notificationGate: {
+          profileType: 'creator',
+          profileId: creatorProfileId,
+        },
         context: {
           recipientName: this.recipientName(profile),
           actionUrl: `${this.frontendBase()}/creator/account`,
@@ -65,6 +72,10 @@ export class CreatorProfileMailNotifier {
       await this.mail.send({
         to: email,
         templateKey: EmailTemplateKey.CREATOR_PROFILE_REJECTED,
+        notificationGate: {
+          profileType: 'creator',
+          profileId: creatorProfileId,
+        },
         context,
       });
     });

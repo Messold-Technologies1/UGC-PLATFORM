@@ -1,11 +1,12 @@
 "use client";
 
-import { MessageCircle, Star, MapPin } from "lucide-react";
+import { Star, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../../api/types";
+import { useCreatorProfileQuery } from "../../../creators/hooks/use-creator-profile-query";
 
 interface AwaitingAcceptanceCreatorCardProps {
   creator: OrderCreatorSnapshot;
@@ -27,6 +28,7 @@ export function AwaitingAcceptanceCreatorCard({
 }: AwaitingAcceptanceCreatorCardProps) {
   const creatorName = creator.displayName || "Creator";
   const firstName = creatorName.split(" ")[0];
+  const { data: creatorProfile } = useCreatorProfileQuery(creator.id, { enabled: !!creator.id });
 
   const ACCEPTED_STATUSES = [
     "BRIEF_ACCEPTED",
@@ -87,9 +89,11 @@ export function AwaitingAcceptanceCreatorCard({
 
             <div className="flex items-center gap-1.5 mt-1">
               <Star className="size-4 fill-amber-400 text-amber-400" />
-              <span className="text-sm font-semibold text-foreground">4.9</span>
+              <span className="text-sm font-semibold text-foreground">
+                {creator.avgRating ?? creatorProfile?.avgRating ?? "New"}
+              </span>
               <span className="text-sm text-muted-foreground underline underline-offset-2">
-                (126 reviews)
+                ({creator.reviewCount ?? creatorProfile?.reviewCount ?? 0} reviews)
               </span>
             </div>
           </div>
@@ -102,13 +106,6 @@ export function AwaitingAcceptanceCreatorCard({
             asChild
           >
             <Link href={`/brand/creators?creatorId=${creator.id}`}>View Profile</Link>
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-lg text-sm font-semibold h-10 px-4 text-[#6E42FF] border-[#6E42FF]/30 hover:bg-[#6E42FF]/5"
-          >
-            <MessageCircle className="size-4 mr-2" />
-            Message
           </Button>
         </div>
       </div>

@@ -36,7 +36,7 @@ export function ChatPreviewCard({ creator, orderId }: ChatPreviewCardProps) {
           </div>
         </div>
         <Link
-          href={`/brand/orders/${orderId}/messages`}
+          href={`/brand/messages?orderId=${orderId}`}
           className="text-xs font-bold text-primary hover:underline"
         >
           View all messages

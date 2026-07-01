@@ -41,6 +41,8 @@ export function parseBrowseListingParams(
       gender: sp.get("gender")?.trim() ?? DEFAULT_FILTERS.gender,
       minPrice: sp.get("minPrice") ?? DEFAULT_FILTERS.minPrice,
       maxPrice: sp.get("maxPrice") ?? DEFAULT_FILTERS.maxPrice,
+      maxDeliveryDays:
+        sp.get("maxDeliveryDays") ?? DEFAULT_FILTERS.maxDeliveryDays,
       onLocationAvailable: parseBoolean(
         sp,
         "onLocationAvailable",
@@ -106,6 +108,9 @@ export function serializeBrowseListingParams(
 
   if (filters.minPrice) params.set("minPrice", filters.minPrice);
   if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+  if (filters.maxDeliveryDays) {
+    params.set("maxDeliveryDays", filters.maxDeliveryDays);
+  }
   if (filters.onLocationAvailable) params.set("onLocationAvailable", "true");
 
   const industry = filters.industry.trim();

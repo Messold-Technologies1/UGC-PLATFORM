@@ -9,7 +9,7 @@ export const TAB_DEFINITIONS = [
   { 
     id: "new", 
     label: "New Requests", 
-    statuses: ["PENDING_PAYMENT", "BRIEF_SUBMISSION_PENDING", "BRIEF_SUBMITTED"] 
+    statuses: ["BRIEF_SUBMISSION_PENDING", "BRIEF_SUBMITTED"] 
   },
   {
     id: "active",
@@ -38,9 +38,35 @@ export const TAB_DEFINITIONS = [
   },
 ];
 
+export const CREATOR_ORDERS_TAB_IDS = TAB_DEFINITIONS.map((tab) => tab.id);
+
+export function isCreatorOrdersTab(
+  value: string | null,
+): value is (typeof TAB_DEFINITIONS)[number]["id"] {
+  return value != null && CREATOR_ORDERS_TAB_IDS.includes(value);
+}
+
+export function getCreatorOrdersTabForStatus(status?: string): string {
+  if (!status) return "new";
+  const tab = TAB_DEFINITIONS.find(
+    (t) => t.id !== "all" && t.statuses.includes(status),
+  );
+  return tab?.id ?? "all";
+}
+
+export function getCreatorOrdersPageHref(
+  orderId: string,
+  status?: string,
+): string {
+  const tab = getCreatorOrdersTabForStatus(status);
+  const params = new URLSearchParams({ orderId });
+  if (tab !== "all") params.set("tab", tab);
+  return `/creator/orders?${params.toString()}`;
+}
+
 interface CreatorOrdersTabsProps {
   activeTab: string;
-  onTabChange: (tabId: string) => void;
+  onTabChange: (tabId: string, selectOrderId?: string) => void;
   allItems: CreatorOrderListItem[];
   totalCount?: number;
 }

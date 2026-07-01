@@ -25,6 +25,24 @@ function resolveFileKind(file: File): DeliveryAssetKind {
   return "video";
 }
 
+/**
+ * SHA-256 hex digest of a file's contents. Used server-side to reject duplicate
+ * uploads. Returns undefined if the Web Crypto API is unavailable (the server
+ * treats a missing hash as "skip duplicate check").
+ */
+async function computeFileSha256(file: File): Promise<string | undefined> {
+  try {
+    if (!globalThis.crypto?.subtle) return undefined;
+    const buffer = await file.arrayBuffer();
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveContentType(file: File): string {
   const contentType = file.type?.trim();
   if (contentType) {
@@ -80,6 +98,8 @@ export function useSubmitDeliveryFlowMutation() {
         kind: resolveFileKind(file),
       }));
 
+      const hashes = await Promise.all(files.map((f) => computeFileSha256(f)));
+
       const presign = await presignDeliveryUpload({
         orderId,
         files: uploadInputs,
@@ -101,11 +121,12 @@ export function useSubmitDeliveryFlowMutation() {
         assets: presign.uploads.map((upload, index) => ({
           key: upload.key,
           kind: uploadInputs[index].kind,
+          sha256: hashes[index],
         })),
       });
     },
     onSuccess: async () => {
-      toast.success("Delivery submitted successfully. Awaiting brand approval!");
+      toast.success("Delivery submitted — processing preview…");
       await queryClient.invalidateQueries({ queryKey: ["orders", "creator"] });
     },
     onError: (error) => {

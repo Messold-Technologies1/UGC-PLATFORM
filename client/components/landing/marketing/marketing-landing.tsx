@@ -553,7 +553,7 @@ export function MarketingLanding() {
           ))}
         </div>
         <div className="mt-10 flex justify-center">
-          <PillButton variant="primary" arrow href="/signup">
+          <PillButton variant="primary" arrow href="/register/brand">
             Start Hiring Creators
           </PillButton>
         </div>

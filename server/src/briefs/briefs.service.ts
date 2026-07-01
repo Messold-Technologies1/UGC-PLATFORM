@@ -56,6 +56,7 @@ function mapBriefRow(b: {
   productPageUrl: string | null;
   productImageKey: string | null;
   productImageUrl: string | null;
+  isProduct: boolean;
   willShipPhysicalProductToCreator: boolean;
   shootLocationKind: BriefShootLocationKind | null;
   shootLocationAddress: string | null;
@@ -83,6 +84,7 @@ function mapBriefRow(b: {
     productPageUrl: b.productPageUrl ?? null,
     productImageKey: b.productImageKey ?? null,
     productImageUrl: b.productImageUrl ?? null,
+    isProduct: b.isProduct,
     willShipPhysicalProductToCreator: b.willShipPhysicalProductToCreator,
     shootLocationKind: b.shootLocationKind ?? null,
     shootLocationAddress: b.shootLocationAddress ?? null,
@@ -162,14 +164,32 @@ export class BriefsService {
       brandProfileId: params.brandProfileId,
     });
 
-    const productImageKey = params.dto.productImageKey.trim();
-    if (!productImageKey) {
-      throw new BadRequestException('productImageKey is required');
+    const isProduct = params.dto.isProduct ?? true;
+    const shipsPhysical =
+      isProduct && (params.dto.willShipPhysicalProductToCreator ?? false);
+    const productImageKey = params.dto.productImageKey?.trim() ?? '';
+
+    if (!isProduct && params.dto.willShipPhysicalProductToCreator) {
+      throw new BadRequestException(
+        'willShipPhysicalProductToCreator is only allowed for product briefs',
+      );
     }
-    this.assertTempBriefProductImageKeyOwner(
-      params.actorUserId,
-      productImageKey,
-    );
+
+    if (isProduct) {
+      if (!productImageKey) {
+        throw new BadRequestException(
+          'productImageKey is required for product briefs',
+        );
+      }
+      this.assertTempBriefProductImageKeyOwner(
+        params.actorUserId,
+        productImageKey,
+      );
+    } else if (productImageKey) {
+      throw new BadRequestException(
+        'productImageKey is only allowed for product briefs',
+      );
+    }
 
     const script = normalizeScriptInput(params.dto.script);
 
@@ -185,8 +205,8 @@ export class BriefsService {
         productName: params.dto.productName,
         productDescription: params.dto.productDescription,
         productPageUrl: params.dto.productPageUrl,
-        willShipPhysicalProductToCreator:
-          params.dto.willShipPhysicalProductToCreator ?? false,
+        isProduct,
+        willShipPhysicalProductToCreator: shipsPhysical,
         shootLocationKind: params.dto.shootLocationKind,
         shootLocationAddress: params.dto.shootLocationAddress,
         durationBucket: params.dto.durationBucket,
@@ -203,19 +223,22 @@ export class BriefsService {
       select: { id: true },
     });
 
-    const finalProductImageKey = await this.storage.finalizeBriefProductImageKey({
-      tempKey: productImageKey,
-      briefId: created.id,
-      deleteTemp: true,
-    });
+    if (productImageKey) {
+      const finalProductImageKey =
+        await this.storage.finalizeBriefProductImageKey({
+          tempKey: productImageKey,
+          briefId: created.id,
+          deleteTemp: true,
+        });
 
-    await this.prisma.brief.update({
-      where: { id: created.id },
-      data: {
-        productImageKey: finalProductImageKey,
-        productImageUrl: this.storage.buildCdnUrl(finalProductImageKey),
-      },
-    });
+      await this.prisma.brief.update({
+        where: { id: created.id },
+        data: {
+          productImageKey: finalProductImageKey,
+          productImageUrl: this.storage.buildCdnUrl(finalProductImageKey),
+        },
+      });
+    }
 
     return { id: created.id };
   }

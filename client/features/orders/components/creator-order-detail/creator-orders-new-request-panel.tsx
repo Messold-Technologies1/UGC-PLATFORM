@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 // import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useAcceptBriefMutation } from "../../hooks/use-accept-brief-mutation";
+import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 
 interface CreatorOrderNewRequestPanelProps {
   selectedOrderId: string;
@@ -188,7 +189,7 @@ export function CreatorOrderNewRequestPanel({
         <div className="bg-[#fff9e6] border border-[#ffe58f] rounded-lg p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-amber-700 font-medium text-sm">
             <Clock className="w-5 h-5 text-amber-500" />
-            You have 48 hours to accept or decline this request.
+            You have {timeLeft?.hours ?? 48} hrs left to accept this order.
           </div>
           {timeLeft && (
             <div className="flex items-center gap-2 text-amber-700 font-bold text-sm bg-white/60 px-3 py-1 rounded-md border border-amber-200/60">
@@ -205,7 +206,7 @@ export function CreatorOrderNewRequestPanel({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px_280px] gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
               <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-base">Brief</h3>
@@ -220,17 +221,7 @@ export function CreatorOrderNewRequestPanel({
                   </Button>
                 </div>
 
-                <div className="mb-6">
-                  <p className="text-sm text-foreground/90 leading-relaxed mb-2">
-                    {briefData?.brief?.creativeGuidance ||
-                      "Create an engaging 60-second UGC video..."}
-                  </p>
-                  <button className="text-sm font-bold text-[#4318FF] hover:underline">
-                    Show more
-                  </button>
-                </div>
-
-                <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 mt-2">
                   <div className="grid grid-cols-[140px_1fr] items-start">
                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
                       <Music className="w-3.5 h-3.5" /> Video Type
@@ -290,166 +281,54 @@ export function CreatorOrderNewRequestPanel({
                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
                       <Clock className="w-3.5 h-3.5" /> Due Date
                     </div>
-                    <span className="text-sm font-medium text-foreground">
-                      {selectedItem.order.deliveryDeadlineAt
-                        ? new Intl.DateTimeFormat("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          }).format(
-                            new Date(selectedItem.order.deliveryDeadlineAt),
-                          )
-                        : "TBD"}
-                    </span>
+                    <DeliveryDeadlineDisplay
+                      order={selectedItem.order}
+                      dateClassName="text-sm font-medium text-foreground"
+                      showBadge={false}
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
-                  <div>
-                    <h3 className="font-bold text-base mb-4">Brand</h3>
+              <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col h-fit">
+                <h3 className="font-bold text-base mb-4">Earnings</h3>
 
-                    <div className="flex items-center gap-4 mb-8">
-                      <Avatar className="w-12 h-12 rounded-lg bg-[#e8f5e9] text-[#2e7d32]">
-                        <AvatarImage
-                          src={selectedItem.brand.logoUrl || undefined}
-                          className="object-cover rounded-lg"
-                        />
-                        <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                          {selectedItem.brand.brandName
-                            .substring(0, 1)
-                            .toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="font-bold text-sm leading-none">
-                          {selectedItem.brand.brandName}
-                        </span>
-                        <Button
-                          variant="outline"
-                          className="h-6 text-[10px] text-[#4318FF] border-[#4318FF]/20 bg-[#4318FF]/5 px-2 font-bold hover:bg-[#4318FF]/10 hover:text-[#4318FF]"
-                        >
-                          View Profile
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-center mt-auto">
-                    <div className="flex flex-col gap-1 border-r border-border/50">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Orders
-                      </span>
-                      <span className="font-bold text-base">0</span>
-                    </div>
-                    <div className="flex flex-col gap-1 border-r border-border/50">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Completed
-                      </span>
-                      <span className="font-bold text-base">0</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Rating
-                      </span>
-                      <div className="flex items-center justify-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span className="font-bold text-base">0.0</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col flex-1">
-                  <h3 className="font-bold text-base mb-4">Earnings</h3>
-
-                  <div className="space-y-3 flex-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground font-medium">
-                        Base Payout
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(baseAmount - addOnsTotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground font-medium">
-                        Add-ons (
-                        {detailsData?.order?.addOnsSnapshot?.length || 0})
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(addOnsTotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center pb-3 border-b border-border/50">
-                      <span className="text-sm text-muted-foreground font-medium">
-                        Platform Fee
-                      </span>
-                      <span className="text-sm font-semibold text-foreground">
-                        ₹0
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="text-sm font-bold">Est. Payout</span>
-                      <span className="text-2xl font-black text-[#4318FF]">
-                        {new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(expectedAmount)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
-                  <div>
-                    <h3 className="font-bold text-base mb-4">
-                      Message from Brand
-                    </h3>
-
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 text-sm text-foreground/80 flex flex-col justify-center text-center">
-                      <p className="italic text-muted-foreground">
-                        No message provided yet.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-[10px] text-muted-foreground mt-3">
-                    Sent on{" "}
-                    {new Intl.DateTimeFormat("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    }).format(new Date(selectedItem.order.createdAt))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col flex-1">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-base">Brand Attachments</h3>
-                    <span className="text-xs text-muted-foreground font-semibold">
-                      0 files
+                <div className="space-y-3 flex-1 flex flex-col">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      Base Payout
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(baseAmount - addOnsTotal)}
                     </span>
                   </div>
-
-                  <div className="flex-1 flex flex-col justify-center items-center text-center p-4 border border-dashed border-border/60 rounded-lg bg-slate-50/50">
-                    <p className="text-sm text-muted-foreground">
-                      No attachments provided.
-                    </p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      Add-ons (
+                      {detailsData?.order?.addOnsSnapshot?.length || 0})
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(addOnsTotal)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-4 mt-2 border-t border-border/50">
+                    <span className="text-sm font-bold">Est. Payout</span>
+                    <span className="text-2xl font-black text-[#4318FF]">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(expectedAmount)}
+                    </span>
                   </div>
                 </div>
               </div>

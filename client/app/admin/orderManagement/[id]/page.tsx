@@ -42,7 +42,10 @@ import {
   useRejectAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
-import TrackingTimeline, { TimelineItem } from "@/components/ui/tracking-timeline";
+import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
+import TrackingTimeline, {
+  TimelineItem,
+} from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 
@@ -286,7 +289,12 @@ export default function AdminOrderDetailsPage() {
   const ConfirmIcon = confirmActionCopy.icon;
 
   const timelineConfig = [
-    { label: "Order Created", date: order.createdAt, active: true, icon: ClipboardCheck },
+    {
+      label: "Order Created",
+      date: order.createdAt,
+      active: true,
+      icon: ClipboardCheck,
+    },
     {
       label: "Payment Received",
       date: order.paidAt,
@@ -300,9 +308,15 @@ export default function AdminOrderDetailsPage() {
       icon: FileText,
     },
     {
-      label: "Delivery Deadline",
-      date: order.deliveryDeadlineAt,
-      active: Boolean(order.deliveryDeadlineAt),
+      label: "Promised Due Date",
+      date: order.deliveryDueAt,
+      active: Boolean(order.deliveryDueAt),
+      icon: Clock,
+    },
+    {
+      label: "Grace Deadline",
+      date: order.deliveryGraceDeadlineAt,
+      active: Boolean(order.deliveryGraceDeadlineAt),
       icon: Clock,
     },
     {
@@ -348,7 +362,7 @@ export default function AdminOrderDetailsPage() {
         : status === "in-progress"
           ? "text-primary"
           : "text-muted-foreground";
-    
+
     const IconComponent = step.icon;
 
     return {
@@ -444,7 +458,7 @@ export default function AdminOrderDetailsPage() {
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="space-y-5 p-6">
                   <div className="flex items-center gap-5">
                     <Avatar className="h-16 w-16 border-2 border-background shadow-md">
                       <AvatarImage
@@ -467,6 +481,7 @@ export default function AdminOrderDetailsPage() {
                       </p>
                     </div>
                   </div>
+                  <CreatorBankingDetailsCard creatorId={creator.id} />
                 </CardContent>
               </Card>
             </motion.div>
@@ -704,7 +719,6 @@ export default function AdminOrderDetailsPage() {
               </CardContent>
             </Card>
           </motion.div>
-
         </div>
 
         <motion.div variants={itemVariants} className="xl:col-span-2">
@@ -738,7 +752,9 @@ export default function AdminOrderDetailsPage() {
               <ConfirmIcon className="h-4 w-4 text-primary" />
               {confirmActionCopy.title}
             </DialogTitle>
-            <DialogDescription>{confirmActionCopy.description}</DialogDescription>
+            <DialogDescription>
+              {confirmActionCopy.description}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -766,7 +782,8 @@ export default function AdminOrderDetailsPage() {
       <Dialog
         open={rejectDialogOpen}
         onOpenChange={(open) => {
-          if (!open && !rejectOrderMutation.isPending) setRejectDialogOpen(false);
+          if (!open && !rejectOrderMutation.isPending)
+            setRejectDialogOpen(false);
         }}
       >
         <DialogContent showCloseButton={!rejectOrderMutation.isPending}>

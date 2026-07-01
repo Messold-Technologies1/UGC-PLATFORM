@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ISO6391 from "iso-639-1";
 import ReactSelect from "react-select";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import {
+  capitalizeFirstLetter,
   splitCommaSeparatedList,
   toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
@@ -52,6 +53,18 @@ export function CreatorPortfolioTagsModal({
   const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({
     staleTime: 5 * 60_000,
   });
+  const industrySuggestions = useMemo(
+    () =>
+      (industrySuggestionsQuery.data ?? []).map((name) =>
+        capitalizeFirstLetter(name),
+      ),
+    [industrySuggestionsQuery.data],
+  );
+  const tagSuggestions = useMemo(
+    () =>
+      (tagSuggestionsQuery.data ?? []).map((name) => capitalizeFirstLetter(name)),
+    [tagSuggestionsQuery.data],
+  );
 
   const [description, setDescription] = useState("");
   const [industryLabel, setIndustryLabel] = useState("");
@@ -62,7 +75,7 @@ export function CreatorPortfolioTagsModal({
   useEffect(() => {
     if (open && video) {
       setDescription(video.description || "");
-      setIndustryLabel(video.industryLabel || "");
+      setIndustryLabel(capitalizeFirstLetter(video.industryLabel || ""));
       setLanguage(video.language || "");
       setTagsRaw(video.tags ? video.tags.join(", ") : "");
       setVisibility(video.visibilityStatus || "public");
@@ -73,10 +86,10 @@ export function CreatorPortfolioTagsModal({
     e.preventDefault();
     if (!video) return;
 
-    const tags = parseTags(tagsRaw);
+    const tags = parseTags(tagsRaw).map((tag) => capitalizeFirstLetter(tag));
     const payload: UpdatePortfolioVideoPayload = {
       description: description.trim(),
-      industryLabel: industryLabel.trim(),
+      industryLabel: capitalizeFirstLetter(industryLabel.trim()),
       language: language.trim(),
       tags,
       visibilityStatus: visibility,
@@ -127,18 +140,16 @@ export function CreatorPortfolioTagsModal({
                 placeholder="e.g. fitness"
                 list="portfolio-industry-suggestions"
               />
-              {industrySuggestionsQuery.isSuccess &&
-              industrySuggestionsQuery.data.length > 0 ? (
+              {industrySuggestions.length > 0 ? (
                 <datalist id="portfolio-industry-suggestions">
-                  {industrySuggestionsQuery.data.map((name) => (
+                  {industrySuggestions.map((name) => (
                     <option key={name} value={name} />
                   ))}
                 </datalist>
               ) : null}
-              {industrySuggestionsQuery.isSuccess &&
-              industrySuggestionsQuery.data.length > 0 ? (
+              {industrySuggestions.length > 0 ? (
                 <SuggestionChips
-                  items={industrySuggestionsQuery.data.map((name) => ({
+                  items={industrySuggestions.map((name) => ({
                     key: name,
                     label: name,
                     ariaLabel: `Use ${name} as industry`,
@@ -217,10 +228,9 @@ export function CreatorPortfolioTagsModal({
               onChange={(e) => setTagsRaw(e.target.value)}
               placeholder="Comma-separated, e.g. testimonial, UGC"
             />
-            {tagSuggestionsQuery.isSuccess &&
-            tagSuggestionsQuery.data.length > 0 ? (
+            {tagSuggestions.length > 0 ? (
               <SuggestionChips
-                items={tagSuggestionsQuery.data.map((name) => ({
+                items={tagSuggestions.map((name) => ({
                   key: name,
                   label: name,
                   ariaLabel: `Add ${name} to tags`,

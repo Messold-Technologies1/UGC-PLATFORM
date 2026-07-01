@@ -24,6 +24,8 @@ export interface Creator {
   languages: string[];
   deliveryDays: number;
   basicEditing?: boolean;
+  hasFasterDelivery?: boolean;
+  fasterDeliveryDays?: number | null;
 }
 
 export interface CreatorProfile extends Creator {

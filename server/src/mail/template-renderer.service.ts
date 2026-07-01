@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Handlebars from 'handlebars';
@@ -17,7 +18,9 @@ const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = [
   EmailTemplateKey.ORDER_PRODUCT_SHIPPED_FOR_CREATOR,
   EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND,
   EmailTemplateKey.ORDER_REVISION_REQUESTED_FOR_CREATOR,
+  EmailTemplateKey.ORDER_CONTENT_DELIVERED_FOR_BRAND,
   EmailTemplateKey.ORDER_CONTENT_ACCEPTED_FOR_CREATOR,
+  EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND,
   EmailTemplateKey.ORDER_REJECTED_FOR_BRAND,
   EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR,
   EmailTemplateKey.ORDER_REFUNDED_FOR_BRAND,
@@ -38,6 +41,8 @@ export class TemplateRendererService implements OnModuleInit {
   private templatesDir!: string;
   private shellTemplate!: TemplateDelegate;
   private readonly compiled = new Map<EmailTemplateKey, CompiledSet>();
+
+  constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
     this.templatesDir = this.resolveTemplatesDir();
@@ -83,8 +88,14 @@ export class TemplateRendererService implements OnModuleInit {
   private withDefaults(
     context: EmailTemplateContext,
   ): EmailTemplateContext {
+    const frontendUrl = this.config
+      .get<string>('FRONTEND_URL', 'http://localhost:3000')
+      .replace(/\/$/, '');
+
     return {
       platformName: 'Go Collab',
+      logoUrl: this.config.get<string>('EMAIL_TEMPLATE_LOGO')?.trim(),
+      frontendUrl,
       ...context,
     };
   }

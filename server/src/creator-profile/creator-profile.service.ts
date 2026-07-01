@@ -874,6 +874,8 @@ export class CreatorProfileService {
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
         driveLink: input.driveLink?.trim() || null,
+        emailNotificationsEnabled: true,
+        whatsappNotificationsEnabled: true,
         creatorApproval: {
           create: {},
         },
@@ -1150,6 +1152,19 @@ export class CreatorProfileService {
           .filter((x: any) => x.slug && x.dimension)
       : [];
 
+    const fasterDeliveryAddOn = Array.isArray(profile.addOns)
+      ? profile.addOns.find(
+          (addOn: { name?: string; deliveryDays?: number | null }) =>
+            addOn?.name === 'Faster Delivery' ||
+            (typeof addOn?.deliveryDays === 'number' && addOn.deliveryDays >= 1),
+        )
+      : undefined;
+    const hasFasterDelivery = fasterDeliveryAddOn != null;
+    const fasterDeliveryDays =
+      typeof fasterDeliveryAddOn?.deliveryDays === 'number'
+        ? fasterDeliveryAddOn.deliveryDays
+        : null;
+
     return {
       id: profile.id,
       userId: profile.userId,
@@ -1197,6 +1212,8 @@ export class CreatorProfileService {
       reviewCount: profile.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
       completedOrders: orderCounts?.completedOrders ?? 0,
+      hasFasterDelivery,
+      fasterDeliveryDays,
     };
   }
 
@@ -1830,7 +1847,13 @@ export class CreatorProfileService {
         }
 
         // Latch completeProfile / recompute isListed after all writes land.
-        await recomputeCreatorListingState(tx, creatorProfileId);
+        // Only an explicit Go Live (dto.goLive) may flip completeProfile to
+        // true; a draft save persists data without publishing.
+        await recomputeCreatorListingState(
+          tx,
+          creatorProfileId,
+          dto.goLive === true,
+        );
 
         const updated = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },

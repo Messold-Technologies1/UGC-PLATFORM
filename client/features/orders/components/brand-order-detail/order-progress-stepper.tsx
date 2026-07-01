@@ -9,6 +9,8 @@ import {
   Play,
   Truck,
   Star,
+  RotateCcw,
+  FileVideo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -24,7 +26,9 @@ interface StepDefinition {
   label: string;
   icon: React.ElementType;
   dateKey: keyof OrderDetailsPublic | null;
+  getDate?: (order: OrderDetailsPublic) => string | null | undefined;
   statusMatch: string[];
+  revisionStep?: boolean;
   getHref?: (orderId: string) => string;
 }
 
@@ -68,7 +72,25 @@ const STEPS: StepDefinition[] = [
     label: "Delivered",
     icon: Truck,
     dateKey: "deliveredAt",
-    statusMatch: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
+    statusMatch: ["DELIVERED"],
+    getHref: (orderId) => `/brand/orders/${orderId}`,
+  },
+  {
+    label: "Revision\nRequested",
+    icon: RotateCcw,
+    dateKey: null,
+    getDate: (order) => order.currentRevision?.requestedAt ?? null,
+    statusMatch: ["REVISION_REQUESTED"],
+    revisionStep: true,
+    getHref: (orderId) => `/brand/orders/${orderId}`,
+  },
+  {
+    label: "Revision\nSubmitted",
+    icon: FileVideo,
+    dateKey: null,
+    getDate: (order) => order.updatedAt ?? null,
+    statusMatch: ["REVISION_SUBMITTED"],
+    revisionStep: true,
     getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
@@ -119,6 +141,13 @@ function formatStepDate(value?: string | null) {
 export function OrderProgressStepper({ order, onStepClick, previewState }: OrderProgressStepperProps) {
   const steps = STEPS
     .filter((step) => {
+      if (step.revisionStep) {
+        return (
+          order.revisionCount > 0 ||
+          order.status === "REVISION_REQUESTED" ||
+          order.status === "REVISION_SUBMITTED"
+        );
+      }
       if (
         step.label === "Awaiting\nShipment" &&
         !order.requiresPhysicalProductShipment
@@ -144,7 +173,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
 
   return (
     <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">
-      <div className="flex items-start justify-between min-w-[700px]">
+      <div className="flex items-start justify-between min-w-[860px]">
         {steps.map((step, index) => {
           const isPassed = index <= activeIndex;
           const isCompleted = index < activeIndex;
@@ -155,9 +184,11 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
           const displayLabel = getStepDisplayLabel(step, order, index);
           const Icon = step.icon;
 
-          const dateValue = step.dateKey
-            ? (order[step.dateKey] as string | null | undefined)
-            : null;
+          const dateValue = step.getDate
+            ? step.getDate(order)
+            : step.dateKey
+              ? (order[step.dateKey] as string | null | undefined)
+              : null;
 
           const StepContent = () => (
             <>
@@ -171,7 +202,8 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                         ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
                         : "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
                       : "border-border bg-muted text-muted-foreground",
-                  previewState === step.label && "ring-4 ring-primary/40 ring-offset-2"
+                  previewState === step.label &&
+                    "ring-4 ring-primary/40 ring-offset-2",
                 )}
               >
                 {isCompleted ? (
@@ -202,7 +234,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 <span
                   className={cn(
                     "mt-1.5 text-[10px] font-semibold",
-                    isAwaitingPayment ? "text-amber-600 dark:text-amber-400" : "text-primary",
+                    isAwaitingPayment
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-primary",
                   )}
                 >
                   {isAwaitingPayment ? "Payment pending" : "Current step"}
@@ -232,7 +266,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 </div>
               )}
 
-              {step.getHref && (isActive || isCompleted) && (!onStepClick || step.label === "Awaiting\nShipment") ? (
+              {step.getHref &&
+              (isActive || isCompleted) &&
+              (!onStepClick || step.label === "Awaiting\nShipment") ? (
                 <Link
                   href={step.getHref(order.id)}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer"
@@ -240,8 +276,13 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   <StepContent />
                 </Link>
               ) : (
-                <div 
-                  className={cn("flex flex-col items-center", onStepClick && (isActive || isCompleted) ? "cursor-pointer hover:opacity-80 transition-opacity" : "")}
+                <div
+                  className={cn(
+                    "flex flex-col items-center",
+                    onStepClick && (isActive || isCompleted)
+                      ? "cursor-pointer hover:opacity-80 transition-opacity"
+                      : "",
+                  )}
                   onClick={() => {
                     if (onStepClick && (isActive || isCompleted)) {
                       onStepClick(step.label);

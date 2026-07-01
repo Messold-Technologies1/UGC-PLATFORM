@@ -275,7 +275,7 @@ export class ListCreatorsQueryDto {
   onLocationAvailable?: boolean;
 
   @ApiPropertyOptional({
-    example: ['does not accept alcohol'],
+    example: ['swimwear / beachwear'],
     description:
       'Repeat param or comma-separated. Creator must have any of these restrictions (OR).',
   })
@@ -307,4 +307,16 @@ export class ListCreatorsQueryDto {
   @Min(0)
   @Validate(MaxPriceGteMinPriceConstraint)
   maxPrice?: number;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description:
+      'Maximum delivery days (inclusive). Matches creators with at least one package or Faster Delivery add-on at or below this threshold.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  maxDeliveryDays?: number;
 }

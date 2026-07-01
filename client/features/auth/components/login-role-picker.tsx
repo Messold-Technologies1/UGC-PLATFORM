@@ -14,10 +14,10 @@ export function LoginRolePicker() {
   return (
     <div className={styles.picker}>
       <div className={styles.pickerInner}>
-        <div className={`${styles.pickerLogo} font-heading`}>
+        <Link href="/" className={`${styles.pickerLogo} font-heading`} aria-label="Go to GoCollab home">
           <span className={styles.pickerLogoDot}>G</span>
           GoCollab
-        </div>
+        </Link>
         <h1 className="font-heading mt-[30px] text-[clamp(28px,4vw,40px)] font-extrabold tracking-tight">
           How do you want to log in?
         </h1>

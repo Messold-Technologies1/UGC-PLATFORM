@@ -45,8 +45,15 @@ export class OrderListSummaryDto {
   })
   briefId?: string;
 
-  @ApiPropertyOptional()
-  deliveryDeadlineAt?: Date | null;
+  @ApiPropertyOptional({
+    description: 'Promised delivery due date (deliveryDaysSnapshot from clock start)',
+  })
+  deliveryDueAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Final delivery cutoff after the grace period',
+  })
+  deliveryGraceDeadlineAt?: Date | null;
 
   @ApiProperty()
   createdAt!: Date;

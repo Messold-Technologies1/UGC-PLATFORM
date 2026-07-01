@@ -7,8 +7,8 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Prisma, RoleName } from '@prisma/client';
-import type { CreatorAddOn, OrderStatus } from '@prisma/client';
+import { Prisma, RoleName, OrderStatus } from '@prisma/client';
+import type { CreatorAddOn } from '@prisma/client';
 import type { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
 import type { AdminOrderListItemDto } from './dto/admin-order-list-item.dto';
 import type { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
@@ -30,6 +30,7 @@ import type {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
+import { computeDeliveryDeadlines } from './delivery-deadline.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
@@ -48,6 +49,7 @@ import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { OrderWhatsAppNotifier } from '../whatsapp/order-whatsapp.notifier';
 import { StorageService } from '../storage/storage.service';
+import { WatermarkQueueService } from '../jobs/watermark-queue.service';
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 
 /**
@@ -115,6 +117,43 @@ function mapDeliveryAssets(value: Prisma.JsonValue): OrderDeliveryAssetDto[] {
     .filter((a) => a.key && a.url && (a.kind === 'video' || a.kind === 'image')) as any;
 }
 
+/**
+ * Brand-facing asset mapping with watermark gating.
+ *
+ * - Order accepted  → return the original file URL (brand has paid, full access).
+ * - Not yet accepted → return the watermarked preview URL. If the preview is
+ *   still being generated, `url` is empty and `previewStatus` tells the client
+ *   to show a "preview generating" state instead of the original.
+ */
+function mapBrandDeliveryAssets(
+  value: Prisma.JsonValue,
+  opts: { accepted: boolean; previewStatus?: string | null },
+): OrderDeliveryAssetDto[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+    .filter(Boolean)
+    .map((a: any) => {
+      const kind: 'video' | 'image' | null =
+        a.kind === 'video' || a.kind === 'image' ? a.kind : null;
+      const key = typeof a.key === 'string' ? a.key : '';
+      const originalUrl = typeof a.url === 'string' ? a.url : '';
+      const previewUrl = typeof a.previewUrl === 'string' ? a.previewUrl : '';
+
+      if (opts.accepted) {
+        return { key, kind, url: originalUrl };
+      }
+      return {
+        key,
+        kind,
+        url: previewUrl,
+        watermarked: true,
+        previewStatus: (previewUrl ? 'ready' : opts.previewStatus) ?? 'pending',
+      };
+    })
+    .filter((a) => a.key && (a.kind === 'video' || a.kind === 'image')) as any;
+}
+
 /** Calendar day YYYY-MM-DD as UTC midnight (validated). */
 function parseDispatchDateUtcYmd(ymd: string): Date {
   const parts = ymd.split('-').map((p) => Number(p));
@@ -140,16 +179,6 @@ function parseDispatchDateUtcYmd(ymd: string): Date {
     throw new BadRequestException('Invalid dispatchDate');
   }
   return dt;
-}
-
-/** deliveryDaysSnapshot + 2 calendar-day grace from the moment work can start */
-function computeDeliveryDeadlineAt(
-  startAt: Date,
-  deliveryDaysSnapshot: number,
-): Date {
-  const deadline = new Date(startAt);
-  deadline.setDate(deadline.getDate() + deliveryDaysSnapshot + 2);
-  return deadline;
 }
 
 function canCreatorUploadOrSubmitDelivery(order: {
@@ -203,6 +232,7 @@ export class OrdersService {
     private readonly orderWhatsApp: OrderWhatsAppNotifier,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
+    private readonly watermarkQueue: WatermarkQueueService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -690,15 +720,16 @@ export class OrdersService {
       select: {
         id: true,
         willShipPhysicalProductToCreator: true,
+        isProduct: true,
         productImageKey: true,
       },
     });
     if (!brief) {
       throw new NotFoundException('Brief not found for this brand');
     }
-    if (!brief.productImageKey?.trim()) {
+    if (brief.isProduct && !brief.productImageKey?.trim()) {
       throw new BadRequestException(
-        'Brief must include a product image before it can be submitted to an order',
+        'Brief must include a product image before it can be submitted to an order for product campaigns',
       );
     }
 
@@ -741,7 +772,8 @@ export class OrdersService {
         briefAcceptedAt: true,
         deliveryDaysSnapshot: true,
         requiresPhysicalProductShipment: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -757,7 +789,8 @@ export class OrdersService {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: order.briefAcceptedAt,
         requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
-        deliveryDeadlineAt: order.deliveryDeadlineAt,
+        deliveryDueAt: order.deliveryDueAt,
+        deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       };
     }
 
@@ -769,41 +802,49 @@ export class OrdersService {
     }
 
     const now = new Date();
-    const deliveryDeadlineAt = order.requiresPhysicalProductShipment
+    const deadlines = order.requiresPhysicalProductShipment
       ? null
-      : computeDeliveryDeadlineAt(now, order.deliveryDaysSnapshot);
+      : computeDeliveryDeadlines(now, order.deliveryDaysSnapshot);
 
     const updated = await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: now,
-        ...(deliveryDeadlineAt !== null ? { deliveryDeadlineAt } : {}),
+        ...(deadlines
+          ? {
+              deliveryDueAt: deadlines.deliveryDueAt,
+              deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
+            }
+          : {}),
       },
       select: {
         id: true,
         status: true,
         briefAcceptedAt: true,
         requiresPhysicalProductShipment: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderBriefAccepted({
       orderId: order.id,
       briefAcceptedAt: now,
-      deliveryDeadlineAt,
+      deliveryDueAt: deadlines?.deliveryDueAt ?? null,
+      deliveryGraceDeadlineAt: deadlines?.deliveryGraceDeadlineAt ?? null,
     });
 
-    this.orderMail.notifyBriefAccepted(order.id, deliveryDeadlineAt);
-    this.orderWhatsApp.notifyBriefAccepted(order.id, deliveryDeadlineAt);
+    this.orderMail.notifyBriefAccepted(order.id, deadlines?.deliveryDueAt ?? null);
+    this.orderWhatsApp.notifyBriefAccepted(order.id, deadlines?.deliveryDueAt ?? null);
 
     return {
       orderId: updated.id,
       status: updated.status,
       briefAcceptedAt: updated.briefAcceptedAt!,
       requiresPhysicalProductShipment: updated.requiresPhysicalProductShipment,
-      deliveryDeadlineAt: updated.deliveryDeadlineAt,
+      deliveryDueAt: updated.deliveryDueAt,
+      deliveryGraceDeadlineAt: updated.deliveryGraceDeadlineAt,
     };
   }
 
@@ -898,7 +939,8 @@ export class OrdersService {
         requiresPhysicalProductShipment: true,
         deliveryDaysSnapshot: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -910,14 +952,19 @@ export class OrdersService {
       );
     }
     if (String(order.status) === 'PRODUCT_RECEIVED') {
-      if (!order.productReceivedAt || !order.deliveryDeadlineAt) {
+      if (
+        !order.productReceivedAt ||
+        !order.deliveryDueAt ||
+        !order.deliveryGraceDeadlineAt
+      ) {
         throw new BadRequestException('Product receipt timestamps missing');
       }
       return {
         orderId: order.id,
         status: 'PRODUCT_RECEIVED',
         productReceivedAt: order.productReceivedAt,
-        deliveryDeadlineAt: order.deliveryDeadlineAt,
+        deliveryDueAt: order.deliveryDueAt,
+        deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       };
     }
     if (String(order.status) !== 'PRODUCT_SHIPPED') {
@@ -927,40 +974,41 @@ export class OrdersService {
     }
 
     const now = new Date();
-    const deliveryDeadlineAt = computeDeliveryDeadlineAt(
-      now,
-      order.deliveryDaysSnapshot,
-    );
+    const deadlines = computeDeliveryDeadlines(now, order.deliveryDaysSnapshot);
 
     const updated = await this.updateOrder({
       where: { id: order.id },
       data: {
         status: 'PRODUCT_RECEIVED',
         productReceivedAt: now,
-        deliveryDeadlineAt,
+        deliveryDueAt: deadlines.deliveryDueAt,
+        deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
       },
       select: {
         id: true,
         status: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
       },
     });
 
     await this.orderRealtime.emitOrderProductReceived({
       orderId: order.id,
       productReceivedAt: now,
-      deliveryDeadlineAt,
+      deliveryDueAt: deadlines.deliveryDueAt,
+      deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
     });
 
-    this.orderMail.notifyProductReceived(order.id, deliveryDeadlineAt);
-    this.orderWhatsApp.notifyProductReceived(order.id, deliveryDeadlineAt);
+    this.orderMail.notifyProductReceived(order.id, deadlines.deliveryDueAt);
+    this.orderWhatsApp.notifyProductReceived(order.id, deadlines.deliveryDueAt);
 
     return {
       orderId: updated.id,
       status: updated.status,
       productReceivedAt: updated.productReceivedAt!,
-      deliveryDeadlineAt: updated.deliveryDeadlineAt!,
+      deliveryDueAt: updated.deliveryDueAt!,
+      deliveryGraceDeadlineAt: updated.deliveryGraceDeadlineAt!,
     };
   }
 
@@ -1026,6 +1074,8 @@ export class OrdersService {
       String(order.status) === 'REVISION_REQUESTED' ||
       String(order.status) === 'REVISION_SUBMITTED';
     const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
+
+    await this.assertDeliveryNotProcessing(order.id, revisionNumber);
 
     const uploads = await Promise.all(
       params.dto.files.map(async (f) => {
@@ -1110,18 +1160,63 @@ export class OrdersService {
       String(order.status) === 'REVISION_REQUESTED' ||
       String(order.status) === 'REVISION_SUBMITTED';
     const revisionNumber = isRevisionFlow ? order.revisionCount : 0;
-    const nextStatus = isRevisionFlow
-      ? ('REVISION_SUBMITTED' as const)
-      : ('DELIVERED' as const);
 
-    const assets = (params.dto.assets ?? []).map((a) => ({
+    await this.assertDeliveryNotProcessing(order.id, revisionNumber);
+
+    const submitted = params.dto.assets ?? [];
+
+    // ---- Duplicate-content prevention (when client supplies SHA-256) ----
+    const submittedHashes = submitted
+      .map((a) => a.sha256?.trim().toLowerCase())
+      .filter((h): h is string => !!h);
+
+    // Reject duplicates inside the same submission.
+    const seenInBatch = new Set<string>();
+    for (const h of submittedHashes) {
+      if (seenInBatch.has(h)) {
+        throw new BadRequestException(
+          'Duplicate file detected in this submission. Each file must be unique.',
+        );
+      }
+      seenInBatch.add(h);
+    }
+
+    // Reject files already submitted in another revision of this order.
+    if (submittedHashes.length > 0) {
+      const priorDeliveries: any[] = await (
+        this.prisma as any
+      ).orderDelivery.findMany({
+        where: { orderId: order.id, revisionNumber: { not: revisionNumber } },
+        select: { assets: true },
+      });
+      const priorHashes = new Set<string>();
+      for (const d of priorDeliveries) {
+        for (const a of Array.isArray(d.assets) ? d.assets : []) {
+          if (a && typeof a.sha256 === 'string') {
+            priorHashes.add(a.sha256.toLowerCase());
+          }
+        }
+      }
+      const dup = submittedHashes.find((h) => priorHashes.has(h));
+      if (dup) {
+        throw new BadRequestException(
+          'One or more files were already submitted for this order in a previous revision.',
+        );
+      }
+    }
+
+    const assets = submitted.map((a) => ({
       key: a.key,
       kind: a.kind,
       url: this.storage.buildCdnUrl(a.key),
+      sha256: a.sha256?.trim().toLowerCase() || null,
+      previewKey: null as string | null,
+      previewUrl: null as string | null,
     }));
 
+    let deliveryId: string | null = null;
     await this.prisma.$transaction(async (tx) => {
-      await (tx as any).orderDelivery.upsert({
+      const saved = await (tx as any).orderDelivery.upsert({
         where: {
           orderId_revisionNumber: {
             orderId: order.id,
@@ -1134,29 +1229,47 @@ export class OrdersService {
           revisionNumber,
           assets: assets as any,
           note: params.dto.note?.trim() || null,
+          previewStatus: 'pending',
         },
         update: {
           assets: assets as any,
           note: params.dto.note?.trim() || null,
+          previewStatus: 'pending',
         },
+        select: { id: true },
       });
-      await this.updateOrder(
-        {
-          where: { id: order.id },
-          data: {
-            status: nextStatus as any,
-            deliveredAt: order.deliveredAt ?? new Date(),
-          } as any,
-        },
-        tx,
-      );
+      deliveryId = saved.id;
     });
+
+    // Kick off watermarking of the brand-facing preview copies. Order status
+    // moves to DELIVERED / REVISION_SUBMITTED only after previews are ready.
+    if (deliveryId) {
+      await this.watermarkQueue.enqueue(deliveryId);
+    }
 
     return {
       orderId: order.id,
       revisionNumber,
-      status: nextStatus,
+      status: String(order.status),
     };
+  }
+
+  /** Block re-submit while watermarked previews are still being generated. */
+  private async assertDeliveryNotProcessing(
+    orderId: string,
+    revisionNumber: number,
+  ): Promise<void> {
+    const delivery = await (this.prisma as any).orderDelivery.findUnique({
+      where: {
+        orderId_revisionNumber: { orderId, revisionNumber },
+      },
+      select: { previewStatus: true },
+    });
+    if (delivery?.previewStatus === 'pending') {
+      throw new BadRequestException(
+        'Your delivery is still being processed. Please wait for previews to finish.',
+      );
+    }
   }
 
   async requestRevision(params: {
@@ -1294,7 +1407,8 @@ export class OrdersService {
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
-    deliveryDeadlineAt: Date | null;
+    deliveryDueAt: Date | null;
+    deliveryGraceDeadlineAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): OrderListSummaryDto {
@@ -1312,7 +1426,8 @@ export class OrdersService {
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       hasBrief,
       ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
-      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      deliveryDueAt: order.deliveryDueAt,
+      deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
@@ -1339,7 +1454,8 @@ export class OrdersService {
     trackingId: string | null;
     dispatchedAt: Date | null;
     productReceivedAt: Date | null;
-    deliveryDeadlineAt: Date | null;
+    deliveryDueAt: Date | null;
+    deliveryGraceDeadlineAt: Date | null;
     deliveredAt: Date | null;
     acceptedAt: Date | null;
     creatorPaidAt: Date | null;
@@ -1383,7 +1499,8 @@ export class OrdersService {
       productReceivedAt: order.productReceivedAt ?? null,
       hasBrief,
       ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
-      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      deliveryDueAt: order.deliveryDueAt,
+      deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       deliverablesSnapshot: mapDeliverablesSnapshot(order.deliverablesSnapshot),
@@ -1448,7 +1565,8 @@ export class OrdersService {
         trackingId: true,
         dispatchedAt: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
         creatorPaidAt: true,
@@ -1471,8 +1589,40 @@ export class OrdersService {
     if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
 
     const { creator, brandId, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetails(orderFields);
+
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (
+      revisionActiveStatuses.has(order.status) &&
+      order.revisionCount > 0
+    ) {
+      const currentRevision = await this.prisma.orderRevision.findUnique({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber: order.revisionCount,
+          },
+        },
+        select: {
+          revisionNumber: true,
+          note: true,
+          createdAt: true,
+        },
+      });
+      if (currentRevision) {
+        mappedOrder.currentRevision = {
+          revisionNumber: currentRevision.revisionNumber,
+          note: currentRevision.note ?? null,
+          requestedAt: currentRevision.createdAt,
+        };
+      }
+    }
+
     return {
-      order: this.mapOrderDetails(orderFields),
+      order: mappedOrder,
       creator: {
         id: creator.id,
         displayName: creator.displayName,
@@ -1517,7 +1667,8 @@ export class OrdersService {
         trackingId: true,
         dispatchedAt: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
         creatorPaidAt: true,
@@ -1534,8 +1685,40 @@ export class OrdersService {
     if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
 
     const { brand, creatorId, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetails(orderFields);
+
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (
+      revisionActiveStatuses.has(order.status) &&
+      order.revisionCount > 0
+    ) {
+      const currentRevision = await this.prisma.orderRevision.findUnique({
+        where: {
+          orderId_revisionNumber: {
+            orderId: order.id,
+            revisionNumber: order.revisionCount,
+          },
+        },
+        select: {
+          revisionNumber: true,
+          note: true,
+          createdAt: true,
+        },
+      });
+      if (currentRevision) {
+        mappedOrder.currentRevision = {
+          revisionNumber: currentRevision.revisionNumber,
+          note: currentRevision.note ?? null,
+          requestedAt: currentRevision.createdAt,
+        };
+      }
+    }
+
     return {
-      order: this.mapOrderDetails(orderFields),
+      order: mappedOrder,
       brand: toOrderBrandSnapshotDto(brand),
     };
   }
@@ -1552,7 +1735,7 @@ export class OrdersService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true },
+      select: { id: true, brandId: true, acceptedAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
@@ -1568,15 +1751,23 @@ export class OrdersService {
         assets: true,
         note: true,
         createdAt: true,
+        previewStatus: true,
       },
     });
+
+    // Brands only get the original files once they have accepted the order.
+    // Until then they see the watermarked preview copies.
+    const accepted = !!order.acceptedAt;
 
     const items: OrderDeliveryItemDto[] = rows.map((r) => ({
       id: r.id,
       orderId: r.orderId,
       creatorId: r.creatorId,
       revisionsUsed: r.revisionNumber,
-      assets: mapDeliveryAssets(r.assets),
+      assets: mapBrandDeliveryAssets(r.assets, {
+        accepted,
+        previewStatus: r.previewStatus,
+      }),
       note: r.note ?? null,
       createdAt: r.createdAt,
     }));
@@ -1674,7 +1865,8 @@ export class OrdersService {
         trackingId: true,
         dispatchedAt: true,
         productReceivedAt: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         deliveredAt: true,
         acceptedAt: true,
         creatorPaidAt: true,
@@ -1750,7 +1942,8 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
-          deliveryDeadlineAt: true,
+          deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
           creator: {
@@ -1797,7 +1990,10 @@ export class OrdersService {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
-    const where = { creatorId: creator.id };
+    const where: Prisma.OrderWhereInput = {
+      creatorId: creator.id,
+      status: { not: OrderStatus.PENDING_PAYMENT },
+    };
 
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.order.count({ where }),
@@ -1818,7 +2014,8 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
-          deliveryDeadlineAt: true,
+          deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
           brand: {
@@ -1865,7 +2062,8 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
-          deliveryDeadlineAt: true,
+          deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
           creator: {
@@ -1915,7 +2113,8 @@ export class OrdersService {
         briefAcceptedAt: true,
         deliveryDaysSnapshot: true,
         requiresPhysicalProductShipment: true,
-        deliveryDeadlineAt: true,
+        deliveryDueAt: true,
+        deliveryGraceDeadlineAt: true,
         briefRef: {
           select: {
             id: true,
@@ -1930,6 +2129,7 @@ export class OrdersService {
             productPageUrl: true,
             productImageKey: true,
             productImageUrl: true,
+            isProduct: true,
             willShipPhysicalProductToCreator: true,
             shootLocationKind: true,
             shootLocationAddress: true,
@@ -1992,6 +2192,7 @@ export class OrdersService {
                 url: order.briefRef.productImageUrl ?? null,
               }
             : null,
+          isProduct: order.briefRef.isProduct,
           willShipPhysicalProductToCreator:
             order.briefRef.willShipPhysicalProductToCreator,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,
@@ -2022,7 +2223,8 @@ export class OrdersService {
       briefAcceptedAt: order.briefAcceptedAt,
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
-      deliveryDeadlineAt: order.deliveryDeadlineAt,
+      deliveryDueAt: order.deliveryDueAt,
+      deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       brief,
     };
   }

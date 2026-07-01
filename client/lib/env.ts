@@ -28,6 +28,9 @@ export const env = {
   cookieDomain: normalizeCookieDomain(
     process.env.COOKIE_DOMAIN || process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
   ),
+  spotlightContactEmail:
+    process.env.NEXT_PUBLIC_SPOTLIGHT_CONTACT_EMAIL?.trim() ||
+    "hello@gocollab.io",
 } as const;
 
 /** Absolute API URL for paths like `/api/auth/login` (OAuth redirects, etc.). */

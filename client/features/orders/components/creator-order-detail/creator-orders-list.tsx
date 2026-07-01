@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type MouseEvent, useMemo } from "react";
+import { Suspense, useEffect, useState, type MouseEvent, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,16 +28,52 @@ import type { CreatorOrderListItem } from "../../api/get-creator-orders";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COLORS, STATUS_LABELS } from "../../constants";
+import { getDeliveryDeadlineCardMeta } from "../delivery-deadline-display";
 import { cn } from "@/lib/utils";
-import { CreatorOrdersTabs, TAB_DEFINITIONS } from "./creator-orders-tabs";
+import {
+  CreatorOrdersTabs,
+  TAB_DEFINITIONS,
+  isCreatorOrdersTab,
+  getCreatorOrdersTabForStatus,
+} from "./creator-orders-tabs";
 import { CreatorOrdersFilters } from "./creator-orders-filters";
 import { CreatorOrdersDetailsPanel } from "./creator-orders-details-panel";
 
-export function CreatorOrdersList() {
-  const [activeTab, setActiveTab] = useState("all");
+function CreatorOrdersListInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = isCreatorOrdersTab(tabParam) ? tabParam : "all";
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(6);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const orderIdParam = searchParams.get("orderId");
+    if (orderIdParam) {
+      setSelectedOrderId(orderIdParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
+
+  function handleTabChange(tabId: string, selectOrderId?: string) {
+    setPage(1);
+    setSelectedOrderId(selectOrderId ?? null);
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (tabId === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tabId);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const { data, isLoading } = useGetCreatorOrdersQuery({ page: 1, limit: 50 });
 
@@ -44,6 +81,45 @@ export function CreatorOrdersList() {
     () => data?.items ?? [],
     [data?.items],
   );
+
+  useEffect(() => {
+    if (!selectedOrderId) return;
+
+    const orderIdParam = searchParams.get("orderId");
+    if (activeTab === "all" && !orderIdParam) return;
+
+    const order = allItems.find((item) => item.order.id === selectedOrderId);
+    if (!order) return;
+
+    const correctTab = getCreatorOrdersTabForStatus(order.order.status as string);
+    const tabMismatch =
+      correctTab !== "all" && correctTab !== activeTab;
+
+    if (!tabMismatch && !orderIdParam) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("orderId");
+    if (correctTab !== "all") {
+      params.set("tab", correctTab);
+    } else if (tabMismatch) {
+      params.delete("tab");
+    }
+
+    const qs = params.toString();
+    const newUrl = qs ? `${pathname}?${qs}` : pathname;
+    const currentQs = searchParams.toString();
+    const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [
+    selectedOrderId,
+    allItems,
+    activeTab,
+    searchParams,
+    pathname,
+    router,
+  ]);
 
   const filteredItems = useMemo(() => {
     if (activeTab === "all") return allItems;
@@ -76,11 +152,7 @@ export function CreatorOrdersList() {
     <div className="w-full mx-auto space-y-8 pb-4 pt-4 lg:pt-5">
       <CreatorOrdersTabs
         activeTab={activeTab}
-        onTabChange={(tabId) => {
-          setActiveTab(tabId);
-          setPage(1);
-          setSelectedOrderId(null);
-        }}
+        onTabChange={handleTabChange}
         allItems={allItems}
         totalCount={data?.total}
       />
@@ -152,6 +224,7 @@ export function CreatorOrdersList() {
                     activeTab === "cancelled"),
                 );
                 const displayId = `#${order.id.substring(0, 5).toUpperCase()}`;
+                const deadlineMeta = getDeliveryDeadlineCardMeta(order);
 
                 const categories = "Skincare • Product Demo";
                 const isNew = order.status === "BRIEF_SUBMISSION_PENDING" || order.status === "BRIEF_SUBMITTED";
@@ -170,8 +243,14 @@ export function CreatorOrdersList() {
                   order.status === "COMPLETED"
                 ) {
                   deliveryText = `${order.status === "DELIVERED" ? "Delivered" : "Completed"} on ${formattedDate(order.updatedAt) || "recently"}`;
-                } else if (order.deliveryDeadlineAt) {
-                  deliveryText = `ETA: ${formattedDate(order.deliveryDeadlineAt)}`;
+                } else if (order.deliveryDueAt || order.deliveryDaysSnapshot) {
+                  if (deadlineMeta.label === "Grace ends") {
+                    deliveryText = `Grace ends ${deadlineMeta.value}`;
+                  } else if (deadlineMeta.value === "Overdue") {
+                    deliveryText = "Overdue";
+                  } else {
+                    deliveryText = `ETA: ${deadlineMeta.value}`;
+                  }
                 }
 
                 return (
@@ -181,7 +260,7 @@ export function CreatorOrdersList() {
                       setSelectedOrderId(isSelected ? null : order.id)
                     }
                     className={cn(
-                      "group relative overflow-hidden bg-background p-4 sm:p-5 rounded-lg flex items-start gap-4 transition-all duration-200 cursor-pointer shadow-sm border",
+                      "group relative bg-background p-4 sm:p-5 rounded-lg flex items-start gap-3 sm:gap-4 transition-all duration-200 cursor-pointer shadow-sm border",
                       isSelected
                         ? "border-primary ring-1 ring-primary/20 shadow-md"
                         : "border-border/40 hover:border-border hover:shadow-md",
@@ -200,81 +279,75 @@ export function CreatorOrdersList() {
                     <>
                       <div
                         className={cn(
-                          "flex-1 items-center justify-between w-full gap-4",
-                          isNarrowLayout ? "flex" : "flex lg:hidden",
+                          "flex-1 min-w-0 w-full",
+                          isNarrowLayout ? "flex flex-col gap-2.5" : "flex lg:hidden flex-col gap-2.5",
                         )}
                       >
-                        <div className="flex flex-col gap-2.5 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-foreground">
-                              {displayId}
-                            </span>
-                            {isNew && !isNarrowLayout && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0"
-                              >
-                                New Request
-                              </Badge>
-                            )}
-                          </div>
-                          <h3 className="font-semibold text-sm text-foreground/90 truncate">
-                            {brand.brandName}
-                          </h3>
-                          <div className="flex flex-col gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground truncate">
-                              {order.packageNameSnapshot || "UGC Video (60s)"}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "w-fit max-w-full rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
-                                STATUS_COLORS[order.status as string] ||
-                                  "bg-muted text-muted-foreground",
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex flex-col gap-2 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-bold text-sm text-foreground shrink-0">
+                                {displayId}
+                              </span>
+                              {isNew && !isNarrowLayout && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0 shrink-0"
+                                >
+                                  New Request
+                                </Badge>
                               )}
-                            >
-                              <span className="truncate">
+                            </div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <h3 className="font-semibold text-sm text-foreground/90 truncate min-w-0">
+                                {brand.brandName}
+                              </h3>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
+                                  STATUS_COLORS[order.status as string] ||
+                                    "bg-muted text-muted-foreground",
+                                )}
+                              >
                                 {STATUS_LABELS[
                                   order.status as keyof typeof STATUS_LABELS
                                 ] || order.status}
-                              </span>
-                            </Badge>
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {order.packageNameSnapshot || "UGC Video (60s)"}
+                            </span>
                           </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0 mt-0.5" />
                         </div>
 
-                        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-                          <div className="flex flex-col gap-4">
-                            <div className="flex flex-col items-start">
-                              <span className="font-bold text-sm text-foreground leading-none mb-1.5">
-                                {order.priceAmountSnapshot &&
-                                parseFloat(order.priceAmountSnapshot) > 0
-                                  ? new Intl.NumberFormat("en-IN", {
-                                      style: "currency",
-                                      currency: "INR",
-                                      maximumFractionDigits: 0,
-                                    }).format(
-                                      parseFloat(order.priceAmountSnapshot),
-                                    )
-                                  : "₹0"}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground font-medium">
-                                Payout
-                              </span>
-                            </div>
-                            <div className="flex flex-col items-start">
-                              <span className="font-bold text-sm text-foreground leading-none mb-1.5">
-                                {formattedDate(order.deliveryDeadlineAt) ||
-                                  "TBD"}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground font-medium">
-                                {order.status === "COMPLETED" ||
-                                order.status === "DELIVERED"
-                                  ? "Completed On"
-                                  : "Due Date"}
-                              </span>
-                            </div>
+                        <div className="flex items-center justify-between gap-4 border-t border-border/40 pt-2.5">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-sm text-foreground leading-snug">
+                              {order.priceAmountSnapshot &&
+                              parseFloat(order.priceAmountSnapshot) > 0
+                                ? new Intl.NumberFormat("en-IN", {
+                                    style: "currency",
+                                    currency: "INR",
+                                    maximumFractionDigits: 0,
+                                  }).format(
+                                    parseFloat(order.priceAmountSnapshot),
+                                  )
+                                : "₹0"}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground font-medium">
+                              Payout
+                            </span>
                           </div>
-                          <ChevronRight className="w-5 h-5 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0" />
+                          <div className="flex flex-col items-end text-right min-w-0">
+                            <span className="font-bold text-sm text-foreground leading-snug">
+                              {deadlineMeta.value}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground font-medium">
+                              {deadlineMeta.label}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -284,7 +357,7 @@ export function CreatorOrdersList() {
                             <span className="font-bold text-sm text-foreground">
                               {displayId}
                             </span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
                               <h3 className="font-semibold text-sm text-foreground/90 truncate max-w-[120px] xl:max-w-[150px]">
                                 {brand.brandName}
                               </h3>
@@ -296,6 +369,18 @@ export function CreatorOrdersList() {
                                   New Request
                                 </Badge>
                               )}
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
+                                  STATUS_COLORS[order.status as string] ||
+                                    "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {STATUS_LABELS[
+                                  order.status as keyof typeof STATUS_LABELS
+                                ] || order.status}
+                              </Badge>
                             </div>
                           </div>
 
@@ -308,19 +393,7 @@ export function CreatorOrdersList() {
                             </span>
                           </div>
 
-                          <div className="flex flex-col gap-2 min-w-[140px] xl:min-w-[180px] items-start">
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "bg-[#4318FF]/10 text-[#4318FF] hover:bg-[#4318FF]/10 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border-0",
-                                STATUS_COLORS[order.status as string] ||
-                                  "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {STATUS_LABELS[
-                                order.status as keyof typeof STATUS_LABELS
-                              ] || order.status}
-                            </Badge>
+                          <div className="flex flex-col gap-2 min-w-[140px] xl:min-w-[180px] items-start justify-center">
                             <span className="text-[13px] text-muted-foreground font-medium">
                               {deliveryText}
                             </span>
@@ -491,13 +564,29 @@ export function CreatorOrdersList() {
             selectedItem={selectedItem}
             activeTab={activeTab}
             onClose={() => setSelectedOrderId(null)}
-            onTabChange={(tabId) => {
-              setActiveTab(tabId);
-              setPage(1);
-            }}
+            onTabChange={handleTabChange}
           />
         )}
       </div>
     </div>
+  );
+}
+
+export function CreatorOrdersList() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full mx-auto space-y-8 pb-4 pt-4 lg:pt-5">
+          <Skeleton className="h-10 w-full max-w-3xl" />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <CreatorOrdersListInner />
+    </Suspense>
   );
 }

@@ -4,6 +4,9 @@ import type { RefObject } from "react";
 import Image from "next/image";
 import { User, Camera } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { MAX_PROFILE_IMAGE_BYTES } from "@/features/creators/hooks/use-creator-profile-image";
+
+const PROFILE_IMAGE_MAX_MB = MAX_PROFILE_IMAGE_BYTES / (1024 * 1024);
 
 export function CreatorProfileImageField({
   imagePreviewUrl,
@@ -21,25 +24,8 @@ export function CreatorProfileImageField({
   onSelectFile: (file: File | null) => void;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          width: 160,
-          position: "relative",
-          aspectRatio: "1/1",
-          borderRadius: 24,
-          overflow: "hidden",
-          background: "var(--brand-gradient)",
-          display: "grid",
-          placeItems: "center",
-        }}
-      >
+    <div className="pe-media-field">
+      <div className="pe-media-field-preview pe-media-field-preview--photo">
         {imagePreviewUrl ? (
           <Image
             src={imagePreviewUrl}
@@ -56,7 +42,7 @@ export function CreatorProfileImageField({
         )}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+      <div className="pe-media-field-actions">
         <input
           type="file"
           ref={fileInputRef}
@@ -70,25 +56,10 @@ export function CreatorProfileImageField({
 
         <button
           type="button"
+          className="pe-media-field-btn"
           disabled={disabled}
           onClick={() => {
             fileInputRef.current?.click();
-          }}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            height: 36,
-            padding: "0 13px",
-            borderRadius: 10,
-            border: "1.4px solid var(--border)",
-            background: "var(--card)",
-            fontSize: 12.5,
-            fontWeight: 700,
-            color: "var(--foreground)",
-            cursor: disabled ? "not-allowed" : "pointer",
-            opacity: disabled ? 0.6 : 1,
-            transition: "background 0.14s",
           }}
         >
           {uploading ? (
@@ -99,6 +70,9 @@ export function CreatorProfileImageField({
           {imagePreviewUrl ? "Change photo" : "Upload photo"}
         </button>
       </div>
+      <p className="pe-media-field-hint">
+        JPG, PNG, or WEBP · Max {PROFILE_IMAGE_MAX_MB} MB
+      </p>
     </div>
   );
 }

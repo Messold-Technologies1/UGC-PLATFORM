@@ -1,12 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
+import type { OrderCurrentRevision } from "../../api/types";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
@@ -90,45 +96,62 @@ function buildRevisionSteps(order: any): StepDef[] {
   }));
 }
 
-function RevisionNotesCard({ order }: { order: any }) {
-  const revisionNotes = useMemo(() => {
-    if (order?.revisionNotes && Array.isArray(order.revisionNotes)) {
-      return order.revisionNotes as string[];
-    }
-    if (order?.note && typeof order.note === "string") {
-      return order.note
-        .split(/\n/)
-        .map((s: string) => s.replace(/^\d+\.\s*/, "").trim())
-        .filter(Boolean);
-    }
-    if (order?.revisionNote && typeof order.revisionNote === "string") {
-      return order.revisionNote
-        .split(/\n/)
-        .map((s: string) => s.replace(/^\d+\.\s*/, "").trim())
-        .filter(Boolean);
-    }
-    return [
-      "Please review the brand's feedback in the chat and make the requested changes.",
-    ];
-  }, [order]);
+function RevisionNotesCard({
+  currentRevision,
+  isLoading,
+}: {
+  currentRevision?: OrderCurrentRevision | null;
+  isLoading?: boolean;
+}) {
+  const { revisionNotes, requestedDate, isEmptyNote } = useMemo(() => {
+    const noteText = currentRevision?.note?.trim();
+    
+    
+    const isStaticFallback = noteText === "Please review the brand's feedback in the chat and make the requested changes.";
+    
+    const notes = (noteText && !isStaticFallback)
+      ? noteText
+          .split(/\n/)
+          .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+          .filter(Boolean)
+      : [];
 
-  const requestedDate = fmtDateTime(order?.updatedAt);
+    return {
+      revisionNotes: notes,
+      requestedDate: fmtDateTime(currentRevision?.requestedAt),
+      isEmptyNote: !noteText || isStaticFallback || notes.length === 0,
+    };
+  }, [currentRevision]);
 
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <h3 className="font-bold text-sm mb-4">Revision Notes</h3>
 
-      <p className="text-sm text-muted-foreground mb-3">
-        Please make the following changes:
-      </p>
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center py-8">
+          <Spinner className="size-5 text-muted-foreground" />
+        </div>
+      ) : isEmptyNote ? (
+        <div className="flex-1 flex flex-col justify-center items-center text-center p-6 border border-dashed border-border/60 rounded-lg bg-slate-50/50 my-2">
+          <p className="text-sm text-muted-foreground">
+            No revision notes provided.
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground mb-3">
+            Please make the following changes:
+          </p>
 
-      <ol className="space-y-2.5 text-sm list-decimal list-inside">
-        {revisionNotes.map((note: string, idx: number) => (
-          <li key={idx} className="text-foreground/80 leading-relaxed pl-0.5">
-            {note}
-          </li>
-        ))}
-      </ol>
+          <ol className="space-y-2.5 text-sm list-decimal list-inside">
+            {revisionNotes.map((note: string, idx: number) => (
+              <li key={idx} className="text-foreground/80 leading-relaxed pl-0.5">
+                {note}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
 
       {requestedDate && (
         <p className="mt-4 pt-3 border-t border-border/40 text-xs text-muted-foreground">
@@ -154,37 +177,79 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
   const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleFiles = useCallback(
-    (files: FileList | File[]) => {
-      const fileArr = Array.from(files);
-      const validFiles = fileArr.filter(isSupportedFile);
-
-      if (validFiles.length === 0) {
-        toast.error("Please upload valid video or image files.");
-        return;
-      }
-
-      if (validFiles.some((f) => f.size > MAX_FILE_SIZE_BYTES)) {
-        toast.error(`Each file must be ${MAX_FILE_SIZE_MB} MB or smaller.`);
-        return;
-      }
-
-      submitMutation.mutate({ orderId, files: validFiles });
-    },
-    [orderId, submitMutation],
+  const [submissionNote, setSubmissionNote] = useState("");
+  const [pendingUpload, setPendingUpload] = useState<{ files: File[] } | null>(
+    null,
   );
+  const [previewAssets, setPreviewAssets] = useState<CarouselAsset[]>([]);
+
+  useEffect(() => {
+    if (!pendingUpload || pendingUpload.files.length === 0) {
+      setPreviewAssets([]);
+      return;
+    }
+
+    const assets = pendingUpload.files.map((file, index) => {
+      const url = URL.createObjectURL(file);
+      const isVideo = file.type.startsWith("video/");
+      return {
+        id: `local-${index}-${file.name}`,
+        type: isVideo ? "video" : "image",
+        full: url,
+        thumb: url,
+      } as CarouselAsset;
+    });
+    setPreviewAssets(assets);
+
+    return () => {
+      assets.forEach((asset) => URL.revokeObjectURL(asset.full));
+    };
+  }, [pendingUpload]);
+
+  const stageFiles = useCallback((files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const validFiles = fileArr.filter(isSupportedFile);
+
+    if (validFiles.length === 0) {
+      toast.error("Please upload valid video or image files.");
+      return;
+    }
+
+    if (validFiles.some((f) => f.size > MAX_FILE_SIZE_BYTES)) {
+      toast.error(`Each file must be ${MAX_FILE_SIZE_MB} MB or smaller.`);
+      return;
+    }
+
+    setPendingUpload({ files: validFiles });
+  }, []);
+
+  function handleConfirmUpload() {
+    if (!pendingUpload) return;
+
+    const note = submissionNote.trim() || undefined;
+    submitMutation.mutate(
+      { orderId, files: pendingUpload.files, note },
+      {
+        onSuccess: () => {
+          setPendingUpload(null);
+          setSubmissionNote("");
+          toast.success("Revision uploaded successfully!");
+        },
+      },
+    );
+  }
 
   function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const fileList = event.target.files;
     if (!fileList || fileList.length === 0) return;
-    handleFiles(fileList);
+    stageFiles(fileList);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (isUploading) return;
     setIsDragOver(true);
   }
 
@@ -198,14 +263,35 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    if (isUploading) return;
     if (e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
+      stageFiles(e.dataTransfer.files);
     }
   }
 
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <h3 className="font-bold text-sm mb-4">Upload Revised Video</h3>
+
+      <div className="mb-4 space-y-2">
+        <label
+          htmlFor={`revision-submission-note-${orderId}`}
+          className="text-[11px] font-bold uppercase tracking-wide text-foreground"
+        >
+          Notes for the brand{" "}
+          <span className="font-normal normal-case text-muted-foreground">
+            (optional)
+          </span>
+        </label>
+        <Textarea
+          id={`revision-submission-note-${orderId}`}
+          placeholder="Summarize what you changed in this revision..."
+          className="min-h-20 resize-y rounded-lg border-border/50 bg-background p-3 text-xs shadow-none"
+          value={submissionNote}
+          onChange={(event) => setSubmissionNote(event.target.value)}
+          disabled={isUploading}
+        />
+      </div>
 
       <input
         type="file"
@@ -216,55 +302,81 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
         onChange={handleFileSelect}
       />
 
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={cn(
-          "flex flex-col items-center justify-center py-8 px-4 border-2 border-dashed rounded-lg transition-all duration-200 text-center cursor-pointer",
-          isDragOver
-            ? "border-[#4318FF] bg-[#4318FF]/5"
-            : "border-border/60 hover:border-[#4318FF]/40 hover:bg-muted/30",
-          isUploading && "opacity-60 pointer-events-none",
-        )}
-        onClick={() => !isUploading && fileInputRef.current?.click()}
-      >
-        {isUploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <Spinner className="w-8 h-8 text-[#4318FF]" />
-            <p className="text-sm font-semibold text-foreground">
-              Uploading...
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Please wait while your file is being uploaded.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="w-12 h-12 rounded-lg bg-[#4318FF]/10 flex items-center justify-center mb-3">
-              <Upload className="w-6 h-6 text-[#4318FF]" />
-            </div>
-            <p className="text-sm font-semibold text-foreground mb-1">
-              Drag & drop your video here
-            </p>
-            <p className="text-xs text-muted-foreground mb-4">or</p>
+      {pendingUpload ? (
+        <div className="flex flex-1 flex-col rounded-lg border border-border/50 bg-muted/30 p-4">
+          {previewAssets.length > 0 && (
+            <ThumbnailsCarousel
+              assets={previewAssets}
+              itemGroupClassName="aspect-auto h-36 rounded-lg"
+            />
+          )}
+          <p className="mt-3 text-sm font-medium text-foreground">
+            Ready to upload {pendingUpload.files.length} file
+            {pendingUpload.files.length === 1 ? "" : "s"}
+          </p>
+          <div className="mt-4 flex gap-2">
             <Button
               type="button"
               variant="outline"
-              className="rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
-              }}
+              className="h-9 flex-1 rounded-lg border-border/50"
               disabled={isUploading}
+              onClick={() => setPendingUpload(null)}
             >
-              Choose File
+              Cancel
             </Button>
-          </>
-        )}
-      </div>
+            <Button
+              type="button"
+              className="h-9 flex-1 rounded-lg bg-[#22c55e] font-bold text-white shadow-sm hover:bg-[#22c55e]/90"
+              disabled={isUploading}
+              onClick={handleConfirmUpload}
+            >
+              {isUploading ? (
+                <>
+                  <Spinner className="mr-1.5 size-3.5" aria-hidden />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-1.5 size-3.5" />
+                  Confirm Upload
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition-all duration-200",
+            isDragOver
+              ? "border-[#4318FF] bg-[#4318FF]/5"
+              : "border-border/60 hover:border-[#4318FF]/40 hover:bg-muted/30",
+            isUploading && "pointer-events-none opacity-60",
+          )}
+        >
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-[#4318FF]/10">
+            <Upload className="h-6 w-6 text-[#4318FF]" />
+          </div>
+          <p className="mb-1 text-sm font-semibold text-foreground">
+            Drag & drop your video here
+          </p>
+          <p className="mb-4 text-xs text-muted-foreground">or</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 gap-1.5 rounded-lg border-border/50 text-xs font-semibold"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            Choose File
+          </Button>
+        </div>
+      )}
 
-      <p className="mt-3 text-[11px] text-muted-foreground text-center">
+      <p className="mt-3 text-center text-[11px] text-muted-foreground">
         Max file size: {MAX_FILE_SIZE_MB} MB • MP4 recommended
       </p>
     </div>
@@ -312,7 +424,10 @@ export function CreatorOrderRevisionPanel({
       steps={steps}
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
-        <RevisionNotesCard order={order} />
+        <RevisionNotesCard
+          currentRevision={order?.currentRevision}
+          isLoading={isLoading}
+        />
         <PreviousSubmissionCard orderId={selectedOrderId} />
         <UploadRevisedVideoCard orderId={selectedOrderId} />
       </div>

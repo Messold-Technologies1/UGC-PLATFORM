@@ -1,20 +1,19 @@
 {{!-- context: recipientName, platformName, brandName, packageName, orderId, resolutionNotes (optional), actionUrl --}}
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#111827;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#374151;">
-  After review, order
-  <span style="font-family:monospace;font-size:14px;">{{orderId}}</span> for
-  <strong>"{{packageName}}"</strong> with <strong>{{brandName}}</strong> was closed and will not proceed to completion.
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:22px;font-weight:800;line-height:1.25;color:#111827;letter-spacing:-0.02em;">Order closed</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  After review, order <span style="font-family:monospace;font-size:14px;">{{orderId}}</span> for <strong>"{{packageName}}"</strong> with <strong>{{brandName}}</strong> was closed and won't proceed to completion.
 </p>
 {{#if resolutionNotes}}
-<div style="margin:0 0 16px;padding:12px 16px;background:#f9fafb;border-left:4px solid #9ca3af;border-radius:4px;">
-  <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#4b5563;">Resolution notes</p>
-  <p style="margin:0;font-size:15px;line-height:1.5;color:#374151;">{{resolutionNotes}}</p>
+<div style="margin:0 0 16px;padding:14px 16px;background:#fafafa;border:2px solid #111827;border-radius:12px;">
+  <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:0.04em;">Resolution notes</p>
+  <p style="margin:0;font-size:15px;line-height:1.55;color:#374151;">{{resolutionNotes}}</p>
 </div>
 {{/if}}
-<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#374151;">
-  No further delivery or revision is required for this order. If you have questions, reply in the order chat or contact support.
+<p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#374151;">
+  No further delivery is required. Questions? Reply in the order chat or reach out to support.
 </p>
 <div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="View order"}}
+  {{> actionButton url=actionUrl label="View order →"}}
 </div>
 <p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

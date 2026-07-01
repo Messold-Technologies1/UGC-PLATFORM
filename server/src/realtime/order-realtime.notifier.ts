@@ -70,7 +70,11 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { creator: { select: { userId: true } } },
+      select: {
+        packageNameSnapshot: true,
+        creator: { select: { userId: true } },
+        brand: { select: { brandName: true } },
+      },
     });
     if (!order) {
       this.logger.warn(`emitOrderBriefSubmitted: order not found ${params.orderId}`);
@@ -80,6 +84,8 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${creatorUserId}`).emit('order.brief_submitted', {
       orderId: params.orderId,
       briefSubmittedAt: params.briefSubmittedAt.toISOString(),
+      brandName: order.brand.brandName ?? null,
+      packageName: order.packageNameSnapshot,
     });
   }
 
@@ -88,11 +94,15 @@ export class OrderRealtimeNotifier {
     orderId: string;
     briefAcceptedAt: Date;
     /** Set for non-physical orders; null when a physical product still needs to be received first. */
-    deliveryDeadlineAt: Date | null;
+    deliveryDueAt: Date | null;
+    deliveryGraceDeadlineAt: Date | null;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { id: true } } },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { displayName: true } },
+      },
     });
     if (!order) {
       this.logger.warn(`emitOrderBriefAccepted: order not found ${params.orderId}`);
@@ -102,7 +112,10 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
-      deliveryDeadlineAt: params.deliveryDeadlineAt?.toISOString() ?? null,
+      creatorName: order.creator.displayName ?? null,
+      deliveryDueAt: params.deliveryDueAt?.toISOString() ?? null,
+      deliveryGraceDeadlineAt:
+        params.deliveryGraceDeadlineAt?.toISOString() ?? null,
     });
   }
 
@@ -154,11 +167,12 @@ export class OrderRealtimeNotifier {
     });
   }
 
-  /** Creator received physical product; notify brand. Includes the now-set delivery deadline. */
+  /** Creator received physical product; notify brand. Includes the now-set delivery deadlines. */
   async emitOrderProductReceived(params: {
     orderId: string;
     productReceivedAt: Date;
-    deliveryDeadlineAt: Date;
+    deliveryDueAt: Date;
+    deliveryGraceDeadlineAt: Date;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -172,7 +186,74 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.product_received', {
       orderId: params.orderId,
       productReceivedAt: params.productReceivedAt.toISOString(),
-      deliveryDeadlineAt: params.deliveryDeadlineAt.toISOString(),
+      deliveryDueAt: params.deliveryDueAt.toISOString(),
+      deliveryGraceDeadlineAt: params.deliveryGraceDeadlineAt.toISOString(),
     });
+  }
+
+  /**
+   * Watermarked previews are ready; notify brand and creator so order status
+   * and the deliveries list update together.
+   */
+  async emitOrderContentDelivered(params: {
+    orderId: string;
+    status: 'DELIVERED' | 'REVISION_SUBMITTED';
+    revisionNumber: number;
+    deliveredAt: Date;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitOrderContentDelivered: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const payload = {
+      orderId: params.orderId,
+      status: params.status,
+      revisionNumber: params.revisionNumber,
+      deliveredAt: params.deliveredAt.toISOString(),
+    };
+    this.gateway.server.to(`user:${brandUserId}`).emit('order.content_delivered', payload);
+    const creatorUserId = order.creator.userId;
+    if (creatorUserId !== brandUserId) {
+      this.gateway.server
+        .to(`user:${creatorUserId}`)
+        .emit('order.content_delivered', payload);
+    }
+  }
+
+  /**
+   * Notify the brand that watermarked delivery previews are ready to view, so
+   * the client can refetch without a manual reload.
+   */
+  async emitDeliveryWatermarkReady(params: {
+    orderId: string;
+    revisionNumber: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { brand: { select: { id: true } } },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitDeliveryWatermarkReady: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    this.gateway.server
+      .to(`user:${brandUserId}`)
+      .emit('delivery.watermark_ready', {
+        orderId: params.orderId,
+        revisionNumber: params.revisionNumber,
+      });
   }
 }

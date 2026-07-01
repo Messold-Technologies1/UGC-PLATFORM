@@ -34,6 +34,14 @@ export const envValidationSchema = Joi.object({
   S3_UPLOAD_URL_TTL_SECONDS: Joi.number().integer().min(60).max(3600).default(900),
   CDN_BASE_URL: Joi.string().uri().required(),
 
+  // Delivery watermarking (preview-before-accept).
+  // REDIS_URL enables the BullMQ-backed async pipeline. When unset, watermarking
+  // runs inline (best-effort) after delivery submission so the feature still
+  // works in local/dev environments without Redis.
+  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).optional(),
+  WATERMARK_ENABLED: Joi.string().valid('true', 'false').optional(),
+  WATERMARK_TEXT: Joi.string().min(1).max(40).optional().default('gocollab'),
+
   // Razorpay Payments
   RAZORPAY_KEY_ID: Joi.string().min(1).required(),
   RAZORPAY_KEY_SECRET: Joi.string().min(1).required(),
@@ -54,6 +62,7 @@ export const envValidationSchema = Joi.object({
   AWS_SES_SECRET_ACCESS_KEY: Joi.string().min(1).optional(),
   SES_FROM_EMAIL: Joi.string().email().optional(),
   MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
+  EMAIL_TEMPLATE_LOGO: Joi.string().uri().optional(),
   MAIL_SEND_TIMEOUT_MS: Joi.number()
     .integer()
     .min(1_000)

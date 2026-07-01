@@ -20,10 +20,15 @@ import {
 
 import type { OrderDetailsPublic } from "../../../api/types";
 import { ExternalLink } from "lucide-react";
+import {
+  DeliveryPreviewPreparing,
+  getLatestDeliveryPreviewState,
+} from "./delivery-preview-preparing";
 
 interface DeliveredVideosCardProps {
   orderId: string;
   order?: OrderDetailsPublic;
+  creatorName?: string;
   variant?: "delivered" | "completed";
 }
 
@@ -139,7 +144,12 @@ function DeliveredVideosSkeleton() {
   );
 }
 
-export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: DeliveredVideosCardProps) {
+export function DeliveredVideosCard({
+  orderId,
+  order,
+  creatorName = "Creator",
+  variant = "delivered",
+}: DeliveredVideosCardProps) {
   const { data, isLoading, isError } = useGetBrandOrderDeliveriesQuery(orderId);
 
   if (isLoading) {
@@ -147,14 +157,21 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
   }
 
   const deliveries = data?.items ?? [];
-  const latestDelivery = deliveries.at(-1);
+  const {
+    latestDelivery,
+    previewGenerating,
+    isRevision,
+    playableAssets,
+  } = getLatestDeliveryPreviewState(deliveries);
   const allAssets = latestDelivery?.assets ?? [];
   const videoAssets = allAssets.filter((a) => a.kind === "video");
   const imageAssets = allAssets.filter((a) => a.kind === "image");
   const primaryVideo = videoAssets[0];
   const videoCount = videoAssets.length;
 
-  const carouselAssets: CarouselAsset[] = allAssets.map((asset) => ({
+  const isWatermarked = allAssets.some((a) => a.watermarked);
+
+  const carouselAssets: CarouselAsset[] = playableAssets.map((asset) => ({
     id: asset.key,
     type: asset.kind,
     full: asset.url,
@@ -173,14 +190,49 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
 
   const isEmpty = !latestDelivery || allAssets.length === 0;
 
-  const primaryFilename = primaryVideo
-    ? filenameFromKey(primaryVideo.key)
+  const primaryAsset = primaryVideo ?? allAssets[0] ?? null;
+
+  const primaryFilename = primaryAsset
+    ? filenameFromKey(primaryAsset.key)
     : "Pending Delivery...";
-  const shortPrimaryFilename = primaryVideo 
+  const shortPrimaryFilename = primaryAsset 
     ? formatShortFilename(primaryFilename, 30) 
     : primaryFilename;
 
   const isCompleted = variant === "completed";
+
+  if (previewGenerating && !isCompleted) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+        <div className="flex flex-col md:flex-row gap-6 justify-between">
+          <div className="flex-1 min-w-0 w-full">
+            <DeliveryPreviewPreparing
+              creatorName={creatorName}
+              isRevision={isRevision}
+            />
+          </div>
+
+          <div className="shrink-0 w-full md:w-[260px] xl:w-[280px] flex flex-col justify-center">
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-bold text-foreground">
+                {isRevision ? "Revision incoming" : "Preview incoming"}
+              </h4>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {creatorName} has submitted{" "}
+                {isRevision ? "updated content" : "new content"}. This page
+                refreshes automatically — no need to reload.
+              </p>
+              {latestDelivery?.createdAt ? (
+                <p className="text-xs text-muted-foreground pt-1">
+                  {formatDeliveryDate(latestDelivery.createdAt)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
@@ -188,6 +240,16 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
         <h3 className="text-base font-bold text-foreground mb-6">
           Final Delivery
         </h3>
+      )}
+
+      {isWatermarked && !isEmpty && !previewGenerating && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+          <Eye className="size-4 shrink-0 mt-0.5" />
+          <span>
+            You&apos;re viewing a <strong>watermarked preview</strong>. Accept
+            the delivery to download the original, watermark-free files.
+          </span>
+        </div>
       )}
 
       <div className="flex-1 flex flex-col justify-center">
@@ -234,66 +296,41 @@ export function DeliveredVideosCard({ orderId, order, variant = "delivered" }: D
 
             <div className="flex items-center gap-2.5 mt-6">
               {isCompleted ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() =>
-                      primaryVideo && downloadAsset(primaryVideo.url, primaryFilename)
-                    }
-                    disabled={isEmpty}
-                  >
-                    <Download className="size-3.5 mr-1.5" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-9 rounded-lg text-muted-foreground h-9 w-9"
-                    onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
-                    disabled={isEmpty}
-                  >
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg font-semibold text-xs px-4 h-9"
+                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
+                  disabled={isEmpty}
+                >
+                  <ExternalLink className="size-3.5 mr-1.5" />
+                  Open Link
+                </Button>
               ) : (
-                <>
-                  <Button
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
-                    disabled={isEmpty}
-                  >
-                    <Eye className="size-3.5 mr-1.5" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() =>
-                      primaryVideo &&
-                      downloadAsset(primaryVideo.url, primaryFilename)
-                    }
-                    disabled={isEmpty}
-                  >
-                    <Download className="size-3.5 mr-1.5" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-9 rounded-lg text-muted-foreground"
-                    disabled={isEmpty}
-                  >
-                    <MoreVertical className="size-4" />
-                  </Button>
-                </>
+                <Button
+                  size="sm"
+                  className="rounded-lg font-semibold text-xs px-4 h-9"
+                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
+                  disabled={isEmpty}
+                >
+                  <Eye className="size-3.5 mr-1.5" />
+                  Preview
+                </Button>
               )}
             </div>
           </div>
         </div>
+
+        {latestDelivery?.note?.trim() ? (
+          <div className="mt-5 pt-4 border-t border-border/60">
+            <h4 className="text-sm font-bold text-foreground mb-2">
+              Note from creator
+            </h4>
+            <p className="rounded-lg bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+              {latestDelivery.note.trim()}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {imageAssets.length > 0 && (

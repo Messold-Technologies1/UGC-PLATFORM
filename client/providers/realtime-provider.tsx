@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
@@ -16,8 +16,28 @@ import type {
   OrderProductReceivedEvent,
   OrderProductShippedEvent,
   OrderRevisionRequestedEvent,
+  OrderContentDeliveredEvent,
   OrderChatMessageEvent,
+  DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
+import {
+  brandOrderDeliveriesQueryKey,
+} from "@/features/orders/api/get-brand-order-deliveries";
+import { brandOrderDetailsQueryKey } from "@/features/orders/api/get-brand-order-details";
+import { getCreatorOrdersPageHref } from "@/features/orders/components/creator-order-detail/creator-orders-tabs";
+
+function refetchBrandOrderDeliveryViews(
+  queryClient: QueryClient,
+  orderId: string,
+) {
+  void queryClient.refetchQueries({
+    queryKey: brandOrderDeliveriesQueryKey(orderId),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: brandOrderDetailsQueryKey(orderId),
+  });
+  queryClient.invalidateQueries({ queryKey: ["orders"] });
+}
 
 type RealtimeCtx = { connected: boolean };
 const Ctx = createContext<RealtimeCtx>({ connected: false });
@@ -54,9 +74,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const rolePath = user.primaryRole?.toLowerCase() || "";
-    const orderNotificationLink = (orderId: string, suffix = "") => {
+    const orderNotificationLink = (
+      orderId: string,
+      status?: string,
+      suffix = "",
+    ) => {
       if (!rolePath) return undefined;
-      if (rolePath === "creator") return "/creator/orders";
+      if (rolePath === "creator") {
+        if (suffix) return `/creator/orders/${orderId}${suffix}`;
+        return getCreatorOrdersPageHref(orderId, status);
+      }
       return `/${rolePath}/orders/${orderId}${suffix}`;
     };
 
@@ -64,6 +91,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+
+      const isCreator = user.primaryRole === "CREATOR";
+      if (isCreator && e.kind === "captured") {
+        return;
+      }
+
       const msg =
         e.kind === "captured"
           ? "Payment captured"
@@ -89,14 +122,23 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
-      toast.info("Brand submitted a brief", {
-        description: `Order ${e.orderId.slice(0, 8)}…`,
+
+      if (user.primaryRole !== "CREATOR") return;
+
+      const brandLabel = e.brandName?.trim() || "A brand";
+      const packageLabel = e.packageName?.trim();
+      const description = packageLabel
+        ? `${brandLabel} · ${packageLabel}`
+        : `${brandLabel} submitted a brief for you to review`;
+
+      toast.success("New collaboration request", {
+        description,
       });
       addNotification({
-        type: "info",
-        title: "Brand submitted a brief",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId, "/brief"),
+        type: "success",
+        title: "New collaboration request",
+        description,
+        link: `/creator/orders/${e.orderId}/brief`,
       });
     };
 
@@ -104,14 +146,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
-      toast.success("Creator accepted the brief", {
-        description: `Order ${e.orderId.slice(0, 8)}...`,
+
+      const creatorLabel = e.creatorName?.trim() || "Creator";
+      const description = `${creatorLabel} accepted your brief`;
+
+      toast.success("Brief accepted", {
+        description,
       });
       addNotification({
         type: "success",
-        title: "Creator accepted the brief",
-        description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: orderNotificationLink(e.orderId, "/brief"),
+        title: "Brief accepted",
+        description,
+        link: orderNotificationLink(e.orderId),
       });
     };
 
@@ -160,8 +206,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "info",
         title: `Revision ${e.revisionNumber} requested`,
         description,
-        link: orderNotificationLink(e.orderId),
+        link: orderNotificationLink(e.orderId, "REVISION_REQUESTED"),
       });
+    };
+
+    const onContentDelivered = (e: OrderContentDeliveredEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      if (user.primaryRole === "BRAND") {
+        refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+      }
+    };
+
+    const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {
+      refetchBrandOrderDeliveryViews(queryClient, e.orderId);
     };
 
     const onChatMessage = (e: OrderChatMessageEvent) => {
@@ -188,6 +245,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.product_shipped", onProductShipped);
     s.on("order.product_received", onProductReceived);
     s.on("order.revision_requested", onRevisionRequested);
+    s.on("order.content_delivered", onContentDelivered);
+    s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("chat.message", onChatMessage);
 
     s.connect();
@@ -201,6 +260,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.product_shipped", onProductShipped);
       s.off("order.product_received", onProductReceived);
       s.off("order.revision_requested", onRevisionRequested);
+      s.off("order.content_delivered", onContentDelivered);
+      s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };

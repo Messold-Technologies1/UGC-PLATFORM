@@ -10,7 +10,7 @@ const columns = [
     title: "Platform",
     links: [
       { href: "/brand/creators", label: "For Brands" },
-      { href: "/signup", label: "For Creators" },
+      { href: "/login?role=creator", label: "For Creators" },
       { href: "/brand/creators", label: "Browse Creators" },
       { href: "/#pricing", label: "Pricing" },
     ],
@@ -19,7 +19,7 @@ const columns = [
     title: "Company",
     links: [
       { href: "/about", label: "About" },
-      { href: "/contact", label: "Contact" },
+      { href: "/contact", label: "Contact Us" },
       { href: "/blog", label: "Blog" },
     ],
   },

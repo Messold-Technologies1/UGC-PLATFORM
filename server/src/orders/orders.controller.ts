@@ -123,7 +123,7 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
     summary:
-      'List orders for the authenticated creator (brand snapshot per row)',
+      'List orders for the authenticated creator (excludes awaiting-payment orders; brand snapshot per row)',
   })
   @ApiOkResponse({ type: CreatorOrdersListResponseDto })
   async listCreatorOrders(

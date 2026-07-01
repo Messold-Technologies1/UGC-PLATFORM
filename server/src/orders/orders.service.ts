@@ -7,8 +7,8 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Prisma, RoleName } from '@prisma/client';
-import type { CreatorAddOn, OrderStatus } from '@prisma/client';
+import { Prisma, RoleName, OrderStatus } from '@prisma/client';
+import type { CreatorAddOn } from '@prisma/client';
 import type { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
 import type { AdminOrderListItemDto } from './dto/admin-order-list-item.dto';
 import type { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
@@ -1980,7 +1980,10 @@ export class OrdersService {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
-    const where = { creatorId: creator.id };
+    const where: Prisma.OrderWhereInput = {
+      creatorId: creator.id,
+      status: { not: OrderStatus.PENDING_PAYMENT },
+    };
 
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.order.count({ where }),

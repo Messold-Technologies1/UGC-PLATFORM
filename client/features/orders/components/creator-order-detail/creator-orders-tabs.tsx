@@ -9,7 +9,7 @@ export const TAB_DEFINITIONS = [
   { 
     id: "new", 
     label: "New Requests", 
-    statuses: ["PENDING_PAYMENT", "BRIEF_SUBMISSION_PENDING", "BRIEF_SUBMITTED"] 
+    statuses: ["BRIEF_SUBMISSION_PENDING", "BRIEF_SUBMITTED"] 
   },
   {
     id: "active",

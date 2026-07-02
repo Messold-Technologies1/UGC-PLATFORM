@@ -113,7 +113,7 @@ function BrandOrdersListInner() {
   return (
     <div
       id="brand-orders-page"
-      className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-4 lg:pt-5 pb-24"
+      className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24"
     >
       <OrderStatusTab
         activeTab={activeTab}
@@ -142,8 +142,8 @@ function BrandOrdersListInner() {
       </div>
 
       {!isLoading && items.length > 0 && (
-        <div className="mt-12 flex items-center justify-between border-t border-border/50 pt-8">
-          <div className="flex items-center gap-4 min-w-[150px]">
+        <div className="mt-12 flex flex-col lg:flex-row items-center justify-between gap-6 border-t border-border/50 pt-8">
+          <div className="flex items-center gap-4 min-w-[150px] w-full lg:w-auto justify-center lg:justify-start">
             <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground">Page</span>
               <span className="text-sm font-bold text-foreground">{page}</span>
@@ -157,7 +157,7 @@ function BrandOrdersListInner() {
             </span>
           </div>
 
-          <div className="flex flex-1 justify-center">
+          <div className="flex flex-1 justify-center w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
@@ -218,7 +218,7 @@ function BrandOrdersListInner() {
             </Pagination>
           </div>
 
-          <div className="flex items-center gap-2 min-w-[150px] justify-end">
+          <div className="flex items-center gap-2 min-w-[150px] w-full lg:w-auto justify-center lg:justify-end">
             <span className="whitespace-nowrap text-xs font-bold uppercase tracking-widest text-muted-foreground">
               Rows per page:
             </span>
@@ -270,7 +270,7 @@ export function BrandOrdersList() {
   return (
     <Suspense
       fallback={
-        <div className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-4 lg:pt-5 pb-24">
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24">
           <div className="flex flex-col gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <CollaborationCardSkeleton key={i} />

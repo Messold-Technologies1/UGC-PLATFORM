@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { CheckCircle2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,7 @@ interface CreatorOrderRevisionPanelProps {
   onClose: () => void;
   previewStepId?: string | null;
   onStepClick?: (id: string) => void;
+  isOrderCompleted?: boolean;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -39,6 +40,7 @@ const STEP_LABELS: Record<string, string> = {
 
 const MAX_FILE_SIZE_MB = 250;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1_000_000;
+const revisionUploadsCache: Record<string, File[]> = {};
 
 function fmtDateTime(val?: string | null): string | null {
   if (!val) return null;
@@ -179,7 +181,7 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [submissionNote, setSubmissionNote] = useState("");
   const [pendingUpload, setPendingUpload] = useState<{ files: File[] } | null>(
-    null,
+    revisionUploadsCache[orderId] ? { files: revisionUploadsCache[orderId] } : null
   );
   const [previewAssets, setPreviewAssets] = useState<CarouselAsset[]>([]);
 
@@ -220,6 +222,7 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
       return;
     }
 
+    revisionUploadsCache[orderId] = validFiles;
     setPendingUpload({ files: validFiles });
   }, []);
 
@@ -231,6 +234,7 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
       { orderId, files: pendingUpload.files, note },
       {
         onSuccess: () => {
+          delete revisionUploadsCache[orderId];
           setPendingUpload(null);
           setSubmissionNote("");
           toast.success("Revision uploaded successfully!");
@@ -320,7 +324,10 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
               variant="outline"
               className="h-9 flex-1 rounded-lg border-border/50"
               disabled={isUploading}
-              onClick={() => setPendingUpload(null)}
+              onClick={() => {
+                delete revisionUploadsCache[orderId];
+                setPendingUpload(null);
+              }}
             >
               Cancel
             </Button>
@@ -383,6 +390,20 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
   );
 }
 
+function RevisionApprovedCard() {
+  return (
+    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col justify-center items-center text-center">
+      <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mb-4">
+        <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+      </div>
+      <h3 className="font-bold text-sm mb-2">Revision Approved</h3>
+      <p className="text-sm text-muted-foreground">
+        The brand has approved your revised content. This stage is now complete.
+      </p>
+    </div>
+  );
+}
+
 export function CreatorOrderRevisionPanel({
   selectedOrderId,
   selectedItem,
@@ -392,6 +413,7 @@ export function CreatorOrderRevisionPanel({
   onClose,
   previewStepId,
   onStepClick,
+  isOrderCompleted = false,
 }: CreatorOrderRevisionPanelProps) {
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -429,7 +451,11 @@ export function CreatorOrderRevisionPanel({
           isLoading={isLoading}
         />
         <PreviousSubmissionCard orderId={selectedOrderId} />
-        <UploadRevisedVideoCard orderId={selectedOrderId} />
+        {isOrderCompleted ? (
+          <RevisionApprovedCard />
+        ) : (
+          <UploadRevisedVideoCard orderId={selectedOrderId} />
+        )}
       </div>
     </CreatorOrderPanelLayout>
   );

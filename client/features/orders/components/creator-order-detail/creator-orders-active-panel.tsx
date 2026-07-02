@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Copy, FileVideo, Package, Truck, Upload } from "lucide-react";
+import { Check, CheckCircle2, Copy, FileVideo, Package, Truck, Upload } from "lucide-react";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 // import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +20,9 @@ import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
-// import { ThumbnailsCarousel, type CarouselAsset } from "@/components/ui/thumbnails-carousel";
+
+const activeUploadsCache: Record<string, File[]> = {};
+
 interface CreatorOrderActivePanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -30,6 +32,7 @@ interface CreatorOrderActivePanelProps {
   onClose: () => void;
   previewStepId?: string | null;
   onStepClick?: (id: string) => void;
+  isOrderCompleted?: boolean;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -158,6 +161,8 @@ function isSupportedFile(file: File): boolean {
   );
 }
 
+
+
 function OrderSummaryCard({
   briefData,
   order,
@@ -241,12 +246,14 @@ function AwaitingShipmentContent({
   isCurrentStep,
   briefData,
   selectedItem,
+  isOrderCompleted = false,
 }: {
   order: any;
   selectedOrderId: string;
   isCurrentStep: boolean;
   briefData: any;
   selectedItem: any;
+  isOrderCompleted?: boolean;
 }) {
   const markReceivedMutation = useMarkProductReceivedMutation({
     onSuccess: () => {
@@ -321,7 +328,7 @@ function AwaitingShipmentContent({
         )}
 
 
-        {canMarkReceived && (
+        {canMarkReceived && !isOrderCompleted && (
           <Button
             className="w-full mt-3 rounded-lg h-10 font-bold bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-sm"
             disabled={isPending}
@@ -341,6 +348,15 @@ function AwaitingShipmentContent({
               </>
             )}
           </Button>
+        )}
+
+        {isOrderCompleted && (
+          <div className="flex items-center gap-2.5 mt-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              Product was received and this stage is complete.
+            </p>
+          </div>
         )}
       </div>
 
@@ -376,12 +392,14 @@ function InProgressContent({
   isCurrentStep,
   briefData,
   selectedItem,
+  isOrderCompleted = false,
 }: {
   order: any;
   selectedOrderId: string;
   isCurrentStep: boolean;
   briefData: any;
   selectedItem: any;
+  isOrderCompleted?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitMutation = useSubmitDeliveryFlowMutation();
@@ -389,7 +407,9 @@ function InProgressContent({
 
   const [pendingUpload, setPendingUpload] = useState<{
     files: File[];
-  } | null>(null);
+  } | null>(
+    activeUploadsCache[selectedOrderId] ? { files: activeUploadsCache[selectedOrderId] } : null
+  );
 
   const [previewAssets, setPreviewAssets] = useState<CarouselAsset[]>([]);
 
@@ -433,6 +453,7 @@ function InProgressContent({
       return;
     }
 
+    activeUploadsCache[selectedOrderId] = validFiles;
     setPendingUpload({ files: validFiles });
 
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -444,6 +465,7 @@ function InProgressContent({
       { orderId: selectedOrderId, files: pendingUpload.files },
       {
         onSuccess: () => {
+          delete activeUploadsCache[selectedOrderId];
           setPendingUpload(null);
           toast.success("Files uploaded successfully!");
         },
@@ -460,7 +482,7 @@ function InProgressContent({
         hideEmptyState={Boolean(pendingUpload)}
         action={
           <div className="mt-auto">
-            {isCurrentStep && (
+            {isCurrentStep && !isOrderCompleted && (
               <>
                 <input
                   type="file"
@@ -487,7 +509,10 @@ function InProgressContent({
                         variant="outline"
                         className="flex-1 h-9 rounded-lg border-border/50"
                         disabled={isUploading}
-                        onClick={() => setPendingUpload(null)}
+                        onClick={() => {
+                          delete activeUploadsCache[selectedOrderId];
+                          setPendingUpload(null);
+                        }}
                       >
                         Cancel
                       </Button>
@@ -521,6 +546,15 @@ function InProgressContent({
                   </Button>
                 )}
               </>
+            )}
+
+            {isOrderCompleted && (
+              <div className="flex items-center gap-2.5 mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                  Content was delivered and approved by the brand.
+                </p>
+              </div>
             )}
 
             <div className={cn("flex items-center justify-between", isCurrentStep ? "mt-4 pt-4 border-t border-border/40" : "mt-4 pt-4 border-t border-border/40")}>
@@ -567,6 +601,7 @@ export function CreatorOrderActivePanel({
   onClose,
   previewStepId,
   onStepClick,
+  isOrderCompleted = false,
 }: CreatorOrderActivePanelProps) {
   const order = detailsData?.order ?? selectedItem?.order;
   const requiresShip = Boolean(
@@ -634,6 +669,7 @@ export function CreatorOrderActivePanel({
           isCurrentStep={isViewingCurrentStep}
           briefData={briefData}
           selectedItem={selectedItem}
+          isOrderCompleted={isOrderCompleted}
         />
       )}
 
@@ -644,6 +680,7 @@ export function CreatorOrderActivePanel({
           isCurrentStep={isViewingCurrentStep}
           briefData={briefData}
           selectedItem={selectedItem}
+          isOrderCompleted={isOrderCompleted}
         />
       )}
 

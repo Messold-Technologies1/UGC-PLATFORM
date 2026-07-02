@@ -239,6 +239,17 @@ function CreatorOrdersListInner() {
                   }).format(new Date(dateString));
                 };
 
+                let badgeLabel = STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] || order.status;
+                let badgeColor = STATUS_COLORS[order.status as string] || "bg-muted text-muted-foreground";
+
+                if (
+                  order.requiresPhysicalProductShipment &&
+                  (order.status === "BRIEF_ACCEPTED" || order.status === "PRODUCT_SHIPPED")
+                ) {
+                  badgeLabel = "Awaiting Shipment";
+                  badgeColor = "bg-amber-500/10 text-amber-600 border-amber-500/20";
+                }
+
                 let deliveryText = "ETA: To Be Determined";
                 if (
                   order.status === "DELIVERED" ||
@@ -311,13 +322,10 @@ function CreatorOrdersListInner() {
                                 variant="outline"
                                 className={cn(
                                   "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
-                                  STATUS_COLORS[order.status as string] ||
-                                    "bg-muted text-muted-foreground",
+                                  badgeColor,
                                 )}
                               >
-                                {STATUS_LABELS[
-                                  order.status as keyof typeof STATUS_LABELS
-                                ] || order.status}
+                                {badgeLabel}
                               </Badge>
                             </div>
                             <span className="text-xs text-muted-foreground truncate">
@@ -380,13 +388,10 @@ function CreatorOrdersListInner() {
                                 variant="outline"
                                 className={cn(
                                   "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
-                                  STATUS_COLORS[order.status as string] ||
-                                    "bg-muted text-muted-foreground",
+                                  badgeColor,
                                 )}
                               >
-                                {STATUS_LABELS[
-                                  order.status as keyof typeof STATUS_LABELS
-                                ] || order.status}
+                                {badgeLabel}
                               </Badge>
                             </div>
                           </div>

@@ -244,6 +244,7 @@ export function CreatorOrdersDetailsPanel({
   const DELIVERED_STATUSES = ["DELIVERED", "REVISION_SUBMITTED"];
   const COMPLETED_STATUSES = ["ACCEPTED", "CREATOR_PAYMENT_DONE"];
   const CANCELLED_STATUSES = ["REJECTED", "REFUNDED", "DISPUTED"];
+  const isOrderCompleted = COMPLETED_STATUSES.includes(orderStatus);
 
   if (activeTab !== "all") {
     if (
@@ -260,6 +261,7 @@ export function CreatorOrdersDetailsPanel({
           onClose={onClose}
           previewStepId={previewStepId}
           onStepClick={setPreviewStepId}
+          isOrderCompleted={isOrderCompleted}
         />
       );
     }
@@ -278,6 +280,7 @@ export function CreatorOrdersDetailsPanel({
           onClose={onClose}
           previewStepId={previewStepId}
           onStepClick={setPreviewStepId}
+          isOrderCompleted={isOrderCompleted}
         />
       );
     }
@@ -328,6 +331,7 @@ export function CreatorOrdersDetailsPanel({
         onClose={onClose}
         previewStepId={previewStepId}
         onStepClick={setPreviewStepId}
+        isOrderCompleted={isOrderCompleted}
       />
     );
   }

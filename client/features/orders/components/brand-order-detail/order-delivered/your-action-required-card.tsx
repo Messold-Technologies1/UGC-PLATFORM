@@ -32,6 +32,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAcceptOrderDeliveryMutation } from "../../../hooks/use-accept-order-delivery-mutation";
 import { useRequestOrderRevisionMutation } from "../../../hooks/use-request-order-revision-mutation";
+import { useOpenBrandDisputeMutation } from "../../../hooks/use-open-brand-dispute-mutation";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface YourActionRequiredCardProps {
@@ -46,7 +47,7 @@ function computeDaysLeft(deliveredAt?: string | null): number | null {
   if (!deliveredAt) return null;
   const delivered = new Date(deliveredAt);
   const deadline = new Date(delivered);
-  deadline.setDate(deadline.getDate() + 2); // 2-day review window
+  deadline.setDate(deadline.getDate() + 2);
   const now = new Date();
   const diffMs = deadline.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
@@ -83,6 +84,12 @@ export function YourActionRequiredCard({
       setIsRevisionDrawerOpen(false);
     },
   });
+  const issueMutation = useOpenBrandDisputeMutation({
+    onSuccess: () => {
+      setIssueReason("");
+      setIsIssueDrawerOpen(false);
+    },
+  });
 
   const canReviewDelivery =
     order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
@@ -97,6 +104,7 @@ export function YourActionRequiredCard({
   const daysLeft = computeDaysLeft(order.deliveredAt);
   const isAcceptPending = acceptMutation.isPending;
   const isRevisionPending = revisionMutation.isPending;
+  const isIssuePending = issueMutation.isPending;
   const trimmedRevisionNote = revisionNote.trim();
   const trimmedIssueReason = issueReason.trim();
 
@@ -110,7 +118,23 @@ export function YourActionRequiredCard({
     revisionMutation.mutate({ orderId, note: trimmedRevisionNote });
   }
 
+  function handleIssueSubmit() {
+    if (trimmedIssueReason.length < 10 || isIssuePending) return;
+    issueMutation.mutate({ orderId, reason: trimmedIssueReason });
+  }
+
   if (isAccepted) {
+    const approvedDate = order.acceptedAt
+      ? new Intl.DateTimeFormat("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(new Date(order.acceptedAt))
+      : null;
+
     return (
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div className="flex flex-col items-center text-center gap-3 py-4">
@@ -121,8 +145,13 @@ export function YourActionRequiredCard({
             Content Approved
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs">
-            You've approved the delivered content. The order is now complete.
+            You approved the delivered content and this order is now complete.
           </p>
+          {approvedDate && (
+            <p className="text-xs text-muted-foreground">
+              Approved on {approvedDate}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -394,10 +423,20 @@ export function YourActionRequiredCard({
             <Button
               variant="destructive"
               className="w-full font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={trimmedIssueReason.length < 10}
+              onClick={handleIssueSubmit}
+              disabled={isIssuePending || trimmedIssueReason.length < 10}
             >
-              <AlertTriangle className="size-4" />
-              Submit Issue
+              {isIssuePending ? (
+                <>
+                  <Spinner className="size-4 mr-2" aria-hidden />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="size-4 mr-2" />
+                  Submit Issue
+                </>
+              )}
             </Button>
             <DrawerClose asChild>
               <Button

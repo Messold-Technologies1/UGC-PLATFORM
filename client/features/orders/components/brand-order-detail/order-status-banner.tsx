@@ -12,6 +12,7 @@ import type { OrderCreatorSnapshot } from "../../api/types";
 interface OrderStatusBannerProps {
   order: OrderDetailsPublic;
   creator?: OrderCreatorSnapshot;
+  isOrderCompleted?: boolean;
 }
 
 interface StatusConfig {
@@ -160,13 +161,15 @@ const ICON_STYLES = {
 
 import { useAcceptanceCountdown } from "../../hooks/use-acceptance-countdown";
 
-export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
+export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: OrderStatusBannerProps) {
   const creatorName = creator?.displayName ?? "Creator";
-  const config = getStatusConfig(
-    order.status,
-    creatorName,
-    order.requiresPhysicalProductShipment,
-  );
+  const config = isOrderCompleted
+    ? getStatusConfig("ACCEPTED", creatorName, order.requiresPhysicalProductShipment)
+    : getStatusConfig(
+        order.status,
+        creatorName,
+        order.requiresPhysicalProductShipment,
+      );
   const Icon = config.icon;
   const { hours, minutes, seconds } = useAcceptanceCountdown(
     order.briefSubmittedAt,
@@ -203,7 +206,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
         </div>
       </div>
 
-      {config.showTimer && (
+      {!isOrderCompleted && config.showTimer && (
         <div className="flex items-center gap-2 rounded-lg bg-primary/5 dark:bg-primary/10 px-4 py-3 text-sm font-medium text-foreground shrink-0 sm:self-center">
           <span className="text-muted-foreground text-[13px]">
             Auto-cancel in
@@ -214,7 +217,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
         </div>
       )}
 
-      {order.status === "BRIEF_ACCEPTED" &&
+      {!isOrderCompleted && order.status === "BRIEF_ACCEPTED" &&
         order.requiresPhysicalProductShipment && (
           <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
             <Link href={`/brand/orders/${order.id}/shipping`}>
@@ -223,7 +226,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
           </Button>
         )}
 
-      {order.status === "BRIEF_SUBMISSION_PENDING" && (
+      {!isOrderCompleted && order.status === "BRIEF_SUBMISSION_PENDING" && (
         <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white">
           <Link href={`/brand/briefs/create?orderId=${order.id}`}>
             Submit Brief
@@ -231,7 +234,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
         </Button>
       )}
 
-      {order.status === "PENDING_PAYMENT" && (
+      {!isOrderCompleted && order.status === "PENDING_PAYMENT" && (
         <Button
           className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white"
           disabled={!isGatewayReady || isProcessing}

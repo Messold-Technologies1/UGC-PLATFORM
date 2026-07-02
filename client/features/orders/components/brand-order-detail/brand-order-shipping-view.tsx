@@ -17,6 +17,8 @@ import { ShippingTimelineCard } from "./order-shipping/shipping-timeline-card";
 import { ShippingAddressCard } from "./order-shipping/shipping-address-card";
 import { PaymentSecuredBanner } from "./payment-secured-banner";
 
+import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
+
 interface BrandOrderShippingViewProps {
   orderId: string;
 }
@@ -109,10 +111,19 @@ export function BrandOrderShippingView({
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
         <div className="flex flex-col gap-5 lg:col-span-8">
-          <ShippingDetailsCard
-            orderId={orderId}
-            creatorName={creator.displayName || "Creator"}
-          />
+          {order.dispatchedAt ? (
+            <InprogressShippingCard
+              courierPartner={(order as any).courierName}
+              trackingId={(order as any).trackingId}
+              shippedAt={order.dispatchedAt}
+              productReceivedAt={(order as any).productReceivedAt}
+            />
+          ) : (
+            <ShippingDetailsCard
+              orderId={orderId}
+              creatorName={creator.displayName || "Creator"}
+            />
+          )}
           <ShippingTimelineCard />
           <PaymentSecuredBanner />
         </div>

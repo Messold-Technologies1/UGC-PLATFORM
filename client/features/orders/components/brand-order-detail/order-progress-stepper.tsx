@@ -102,13 +102,29 @@ const STEPS: StepDefinition[] = [
   },
 ];
 
-function getActiveStepIndex(status: string, steps: StepDefinition[]): number {
+function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]): number {
+  let effectiveStatus = order.status;
+
+  if (order.status === "DISPUTED") {
+    if (order.deliveredAt) {
+      effectiveStatus = "DELIVERED";
+    } else if (order.requiresPhysicalProductShipment) {
+      if (order.productReceivedAt) effectiveStatus = "PRODUCT_RECEIVED";
+      else if (order.dispatchedAt) effectiveStatus = "PRODUCT_SHIPPED";
+      else if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
+      else effectiveStatus = "BRIEF_SUBMITTED";
+    } else {
+      if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
+      else effectiveStatus = "BRIEF_SUBMITTED";
+    }
+  }
+
   for (let i = 0; i < steps.length; i++) {
-    if (steps[i].statusMatch.includes(status)) {
+    if (steps[i].statusMatch.includes(effectiveStatus)) {
       return i;
     }
   }
-  if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(status))
+  if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(effectiveStatus))
     return steps.length;
   return 0;
 }
@@ -169,7 +185,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
       return step;
     });
   
-  const activeIndex = getActiveStepIndex(order.status, steps);
+  const activeIndex = getActiveStepIndex(order, steps);
 
   return (
     <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">

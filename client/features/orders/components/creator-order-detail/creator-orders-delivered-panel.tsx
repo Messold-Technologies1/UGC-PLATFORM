@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   Clock,
   Info,
+  CheckCircle2,
 } from "lucide-react";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
@@ -18,6 +19,7 @@ interface CreatorOrderDeliveredPanelProps {
   onClose: () => void;
   previewStepId?: string | null;
   onStepClick?: (id: string) => void;
+  isOrderCompleted?: boolean;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -168,6 +170,27 @@ function WaitingForApprovalCard({ order }: { order: any }) {
   );
 }
 
+function ContentApprovedCard({ order }: { order: any }) {
+  const approvedDate = order?.acceptedAt ? fmtDateTime(order.acceptedAt) : null;
+
+  return (
+    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col justify-center items-center text-center">
+      <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mb-4">
+        <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+      </div>
+      <h3 className="font-bold text-sm mb-2">Content Approved</h3>
+      <p className="text-sm text-muted-foreground">
+        The brand has approved your delivered content. This order is now complete.
+      </p>
+      {approvedDate && (
+        <p className="mt-4 pt-3 border-t border-border/40 text-xs text-muted-foreground w-full text-center">
+          Approved on {approvedDate}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DeliveredOrderSummaryCard({
   briefData,
   selectedItem,
@@ -251,6 +274,7 @@ export function CreatorOrderDeliveredPanel({
   onClose,
   previewStepId,
   onStepClick,
+  isOrderCompleted = false,
 }: CreatorOrderDeliveredPanelProps) {
   const order = detailsData?.order ?? selectedItem?.order;
 
@@ -277,7 +301,11 @@ export function CreatorOrderDeliveredPanel({
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
         <DeliveredFilesCard orderId={selectedOrderId} />
-        <WaitingForApprovalCard order={order} />
+        {isOrderCompleted ? (
+          <ContentApprovedCard order={order} />
+        ) : (
+          <WaitingForApprovalCard order={order} />
+        )}
         <DeliveredOrderSummaryCard
           briefData={briefData}
           selectedItem={selectedItem}

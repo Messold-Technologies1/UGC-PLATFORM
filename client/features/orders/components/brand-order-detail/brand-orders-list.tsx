@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, type MouseEvent } from "react";
+import { Suspense, useState, useMemo, type MouseEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Pagination,
   PaginationContent,
@@ -57,10 +58,28 @@ function CollaborationCardSkeleton() {
   );
 }
 
-export function BrandOrdersList() {
+function BrandOrdersListInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const tabParam = searchParams.get("tab");
+  const activeTab = STATUS_TABS.some((t) => t.key === tabParam) ? tabParam! : "all";
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [activeTab, setActiveTab] = useState("all");
+
+  function handleTabChange(tabId: string) {
+    setPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tabId === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tabId);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const { data, isLoading } = useGetBrandOrdersQuery({ page, limit });
 
@@ -98,9 +117,7 @@ export function BrandOrdersList() {
     >
       <OrderStatusTab
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-        }}
+        onTabChange={handleTabChange}
         tabCounts={tabCounts}
       />
 
@@ -246,5 +263,23 @@ export function BrandOrdersList() {
         </div>
       )}
     </div>
+  );
+}
+
+export function BrandOrdersList() {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-4 lg:pt-5 pb-24">
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CollaborationCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <BrandOrdersListInner />
+    </Suspense>
   );
 }

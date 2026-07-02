@@ -156,29 +156,29 @@ function CancelledOrderSummaryCard({
       <h3 className="font-bold text-sm mb-4">Order Summary</h3>
 
       <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Video Type</span>
-          <span className="font-medium text-foreground text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Video Type</span>
+          <span className="font-medium text-foreground sm:text-right">
             {briefData?.brief?.contentType
               ? fmtEnum(briefData.brief.contentType)
               : selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Key Points</span>
-          <span className="font-medium text-foreground text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Key Points</span>
+          <span className="font-medium text-foreground sm:text-right">
             {briefData?.brief?.keyNoteToInclude ? "Included in Brief" : "None"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Language</span>
-          <span className="font-medium text-foreground text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Language</span>
+          <span className="font-medium text-foreground sm:text-right">
             {briefData?.brief?.language || "Hindi"}
           </span>
         </div>
-        <div className="flex justify-between items-start">
-          <span className="text-muted-foreground">Deliverables</span>
-          <div className="text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Deliverables</span>
+          <div className="sm:text-right">
             <span className="font-medium text-foreground block">
               1 {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
             </span>

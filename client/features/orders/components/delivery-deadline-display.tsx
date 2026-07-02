@@ -104,6 +104,7 @@ export function getDeliveryDeadlineCardMeta(
   order: DeliveryTimelineInput & {
     status?: string;
     acceptedAt?: string | null;
+    updatedAt?: string | null;
   },
 ): { value: string; label: string; showBadge: boolean } {
   const timeline = getDeliveryTimeline(order);
@@ -114,6 +115,7 @@ export function getDeliveryDeadlineCardMeta(
       value:
         formatDate(order.acceptedAt) ??
         formatDate(order.deliveredAt) ??
+        formatDate(order.updatedAt) ??
         "—",
       label: "Completed on",
       showBadge: false,
@@ -126,7 +128,7 @@ export function getDeliveryDeadlineCardMeta(
     order.status === "REVISION_REQUESTED"
   ) {
     return {
-      value: formatDate(order.deliveredAt) ?? "—",
+      value: formatDate(order.deliveredAt) ?? formatDate(order.updatedAt) ?? "—",
       label: "Delivered on",
       showBadge: false,
     };

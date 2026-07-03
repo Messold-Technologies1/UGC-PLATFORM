@@ -6,6 +6,7 @@ import {
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
+import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { creatorProfileMeQueryKey } from "../api/fetch-creator-profile-me";
 
 import {
@@ -32,7 +33,7 @@ type SubmitCreatorProfileVariables = {
 
 type SubmitCreatorProfileResult =
   | { status: "skipped" }
-  | { status: "updated" };
+  | { status: "updated"; goLive: boolean };
 
 export function useUploadCreatorIntroVideoMutation(options: {
   mode: CreatorProfileMode;
@@ -147,7 +148,7 @@ export function useSubmitCreatorProfileMutation({
   mode: CreatorProfileMode;
   profileId?: string;
   adminMode?: boolean;
-  onSuccess?: () => void | Promise<void>;
+  onSuccess?: (result: SubmitCreatorProfileResult) => void | Promise<void>;
 }) {
   const queryClient = useQueryClient();
 
@@ -178,7 +179,7 @@ export function useSubmitCreatorProfileMutation({
         } else {
           await updateCreatorProfile(profileId, payload as UpdateCreatorProfilePayload);
         }
-        return { status: "updated" };
+        return { status: "updated", goLive: payload.goLive === true };
       }
       
       throw new Error("Create mode is no longer supported.");
@@ -191,11 +192,20 @@ export function useSubmitCreatorProfileMutation({
       await invalidateCreatorQueries();
 
       if (result.status === "updated") {
-        toast.success("Profile updated");
-        await onSuccess?.();
+        if (result.goLive) {
+          toast.success(
+            isProfileFirstOnboardingMode()
+              ? "Profile submitted for review"
+              : "You're live on the marketplace",
+          );
+        } else {
+          toast.success("Profile updated");
+        }
+        await onSuccess?.(result);
+        return;
       }
 
-      await onSuccess?.();
+      await onSuccess?.(result);
     },
     onError: () => {
       toast.error(

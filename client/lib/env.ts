@@ -8,6 +8,15 @@ function normalizeCookieDomain(raw: string | undefined): string | undefined {
   return trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
 }
 
+export type CreatorOnboardingMode = "approval_first" | "profile_first";
+
+function readCreatorOnboardingMode(): CreatorOnboardingMode {
+  const raw =
+    process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE ??
+    process.env.CREATOR_ONBOARDING_MODE;
+  return raw === "profile_first" ? "profile_first" : "approval_first";
+}
+
 const apiUrl = normalizeBaseUrl(
   process.env.API_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
@@ -31,6 +40,9 @@ export const env = {
   spotlightContactEmail:
     process.env.NEXT_PUBLIC_SPOTLIGHT_CONTACT_EMAIL?.trim() ||
     "hello@gocollab.io",
+  get creatorOnboardingMode(): CreatorOnboardingMode {
+    return readCreatorOnboardingMode();
+  },
 } as const;
 
 /** Absolute API URL for paths like `/api/auth/login` (OAuth redirects, etc.). */

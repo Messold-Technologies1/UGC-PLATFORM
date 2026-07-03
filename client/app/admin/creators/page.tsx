@@ -7,7 +7,8 @@ import { AdminCreatorListRow } from "@/features/admin/components/admin-creator-l
 import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 import { AdminCreatorSegmentTabs } from "@/features/admin/components/admin-creator-segment-tabs";
 import {
-  ADMIN_CREATOR_TABS,
+  getAdminCreatorEmptyMessage,
+  getAdminCreatorTabs,
   isAdminCreatorListSegment,
 } from "@/features/admin/constants/admin-creator-tabs";
 import { useAdminCreatorsQuery } from "@/features/admin/hooks/use-admin-creators-query";
@@ -35,25 +36,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 const DEFAULT_TAB: AdminCreatorListSegment = "pending";
-
-function emptyMessage(segment: AdminCreatorListSegment, hasSearch: boolean) {
-  if (hasSearch) return "No creators match your search.";
-
-  switch (segment) {
-    case "pending":
-      return "No pending applications at the moment.";
-    case "listed":
-      return "No listed creators on the marketplace yet.";
-    case "approved":
-      return "No approved creators yet.";
-    case "non_approved":
-      return "No rejected creators at the moment.";
-    case "incomplete":
-      return "No approved creators with incomplete profiles at the moment.";
-    default:
-      return "No creators found.";
-  }
-}
 
 function AdminCreatorsPageInner() {
   const router = useRouter();
@@ -92,7 +74,7 @@ function AdminCreatorsPageInner() {
   const searchLoading = isFetching && !isLoading;
   const showingStart = creators.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
-  const activeTabMeta = ADMIN_CREATOR_TABS.find((tab) => tab.value === segment);
+  const activeTabMeta = getAdminCreatorTabs().find((tab) => tab.value === segment);
 
   const handleTabChange = (next: AdminCreatorListSegment) => {
     setSegment(next);
@@ -154,7 +136,7 @@ function AdminCreatorsPageInner() {
 
               {!isLoading && creators.length === 0 ? (
                 <div className="rounded-2xl border border-border/10 bg-card/10 py-20 text-center text-sm text-muted-foreground glass-panel">
-                  {emptyMessage(segment, Boolean(search.trim()))}
+                  {getAdminCreatorEmptyMessage(segment, Boolean(search.trim()))}
                 </div>
               ) : null}
 

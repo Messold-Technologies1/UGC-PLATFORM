@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import {
-  ADMIN_CREATOR_TABS,
+  getAdminCreatorTabs,
   getAdminCreatorSegmentCount,
 } from "@/features/admin/constants/admin-creator-tabs";
 import type {
@@ -28,7 +28,7 @@ export function AdminCreatorSegmentTabs({
     <nav className="border-b border-border/60">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto scrollbar-none sm:gap-2">
-        {ADMIN_CREATOR_TABS.map((tab) => {
+        {getAdminCreatorTabs().map((tab) => {
           const isActive = tab.value === value;
           const count = getAdminCreatorSegmentCount(counts, tab.value);
           const Icon = tab.icon;
@@ -37,6 +37,7 @@ export function AdminCreatorSegmentTabs({
             <button
               key={tab.value}
               type="button"
+              title={tab.description}
               onClick={() => onChange(tab.value)}
               className={cn(
                 "group relative flex shrink-0 items-center gap-2 px-3 pb-3 pt-1 text-sm font-medium transition-colors sm:px-4",

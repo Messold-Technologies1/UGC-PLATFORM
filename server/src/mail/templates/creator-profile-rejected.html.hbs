@@ -1,8 +1,14 @@
-{{!-- context: recipientName, platformName, rejectionReason (optional) --}}
+{{!-- context: recipientName, platformName, rejectionReason (optional), profileFirstMode, actionUrl (optional) --}}
 <p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
-<p style="margin:0 0 16px;font-size:22px;font-weight:800;line-height:1.25;color:#111827;letter-spacing:-0.02em;">Update on your application</p>
+<p style="margin:0 0 16px;font-size:22px;font-weight:800;line-height:1.25;color:#111827;letter-spacing:-0.02em;">
+  {{#if profileFirstMode}}Update on your profile submission{{else}}Update on your application{{/if}}
+</p>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  {{#if profileFirstMode}}
+  Thanks for submitting your profile to <strong>{{platformName}}</strong>. After review, we're not able to approve it at this time.
+  {{else}}
   Thanks for applying to <strong>{{platformName}}</strong>. After review, we're not able to approve your creator profile at this time.
+  {{/if}}
 </p>
 {{#if rejectionReason}}
 <div style="margin:0 0 16px;padding:14px 16px;background:#fff7ed;border:2px solid #111827;border-radius:12px;">
@@ -11,6 +17,17 @@
 </div>
 {{/if}}
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  {{#if profileFirstMode}}
+  We genuinely appreciate your effort. You're welcome to update your profile and resubmit once you've made changes.
+  {{else}}
   We genuinely appreciate your interest and the effort you put into your application. You're welcome to reapply once you've updated your portfolio or profile.
+  {{/if}}
 </p>
+{{#if profileFirstMode}}
+{{#if actionUrl}}
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Update my profile →"}}
+</div>
+{{/if}}
+{{/if}}
 <p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

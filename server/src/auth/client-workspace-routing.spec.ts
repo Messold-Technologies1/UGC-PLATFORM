@@ -5,7 +5,27 @@ import {
   stripOnboardingFromHref,
 } from '../../../client/features/auth/lib/post-auth-destination';
 import { resolveImmediatePostAuthPath } from '../../../client/features/auth/lib/resolve-immediate-post-auth-path';
+import { resolveCreatorOnboardingPath } from '../../../client/features/auth/lib/resolve-creator-onboarding-path';
 import type { AuthUser } from '../../../client/features/auth/hooks/use-me-query';
+
+const ORIGINAL_ENV = process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE;
+
+function withOnboardingMode<T>(mode: string | undefined, fn: () => T): T {
+  if (mode === undefined) {
+    delete process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE;
+  } else {
+    process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE = mode;
+  }
+  try {
+    return fn();
+  } finally {
+    if (ORIGINAL_ENV === undefined) {
+      delete process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE;
+    } else {
+      process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE = ORIGINAL_ENV;
+    }
+  }
+}
 
 function createUser(overrides?: Partial<AuthUser>): AuthUser {
   return {
@@ -117,5 +137,71 @@ describe('Client workspace routing helpers', () => {
 
   it('builds the continue route safely when there is no callback URL', () => {
     expect(postAuthContinuePath(null)).toBe('/auth/continue');
+  });
+
+  describe('creator onboarding (approval_first)', () => {
+    it('sends pending creators to under-review before profile completion', () => {
+      withOnboardingMode(undefined, () => {
+        const user = createUser({
+          creatorApprovalStatus: 'PENDING',
+          creatorProfileComplete: false,
+        });
+
+        expect(resolveCreatorOnboardingPath(user)).toBe('/creator/under-review');
+        expect(resolveImmediatePostAuthPath(user, null)).toBe('/creator/under-review');
+        expect(resolvePostAuthRedirectPath(user, null)).toBe('/creator/under-review');
+      });
+    });
+
+    it('sends approved but incomplete creators to profile settings', () => {
+      withOnboardingMode(undefined, () => {
+        const user = createUser({
+          creatorApprovalStatus: 'APPROVED',
+          creatorProfileComplete: false,
+        });
+
+        expect(resolveCreatorOnboardingPath(user)).toBe('/creator/settings/profile');
+      });
+    });
+  });
+
+  describe('creator onboarding (profile_first)', () => {
+    it('sends pending incomplete creators to profile settings', () => {
+      withOnboardingMode('profile_first', () => {
+        const user = createUser({
+          creatorApprovalStatus: 'PENDING',
+          creatorProfileComplete: false,
+        });
+
+        expect(resolveCreatorOnboardingPath(user)).toBe('/creator/settings/profile');
+        expect(resolveImmediatePostAuthPath(user, null)).toBe('/creator/settings/profile');
+        expect(resolvePostAuthRedirectPath(user, null)).toBe('/creator/settings/profile');
+      });
+    });
+
+    it('sends pending complete creators to under-review', () => {
+      withOnboardingMode('profile_first', () => {
+        const user = createUser({
+          creatorApprovalStatus: 'PENDING',
+          creatorProfileComplete: true,
+        });
+
+        expect(resolveCreatorOnboardingPath(user)).toBe('/creator/under-review');
+        expect(resolveImmediatePostAuthPath(user, null)).toBe('/creator/under-review');
+        expect(resolvePostAuthRedirectPath(user, null)).toBe('/creator/under-review');
+      });
+    });
+
+    it('lets approved complete creators into the workspace', () => {
+      withOnboardingMode('profile_first', () => {
+        const user = createUser({
+          creatorApprovalStatus: 'APPROVED',
+          creatorProfileComplete: true,
+        });
+
+        expect(resolveCreatorOnboardingPath(user)).toBeNull();
+        expect(resolveImmediatePostAuthPath(user, null)).toBe('/creator/account');
+      });
+    });
   });
 });

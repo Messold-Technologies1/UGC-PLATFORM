@@ -54,27 +54,28 @@ export default function UnderReviewPage() {
   const reviewSteps = profileFirst ? PROFILE_FIRST_STEPS : APPROVAL_FIRST_STEPS;
 
   return (
-    <div className="relative -mx-4 -mt-4 -mb-8 flex min-h-[calc(100dvh-4rem)] items-center justify-center px-4 py-6 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12">
+    <div className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center justify-center py-6">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[#fdfcfb] dark:bg-slate-950"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 top-1/4 size-72 rounded-full bg-[#ef3e51]/15 blur-3xl dark:bg-[#ef3e51]/10"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 bottom-1/4 size-80 rounded-full bg-violet-400/20 blur-3xl dark:bg-violet-500/10"
-      />
+        className="pointer-events-none absolute inset-0 -mx-4 -mt-4 -mb-8 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 overflow-hidden -z-10 bg-[#fdfcfb] dark:bg-slate-950"
+      >
+        <div
+          aria-hidden
+          className="absolute -left-24 top-1/4 size-72 rounded-full bg-[#ef3e51]/15 blur-3xl dark:bg-[#ef3e51]/10"
+        />
+        <div
+          aria-hidden
+          className="absolute -right-16 bottom-1/4 size-80 rounded-full bg-violet-400/20 blur-3xl dark:bg-violet-500/10"
+        />
+      </div>
 
       <div className="relative w-full max-w-2xl">
         <div className="flex min-h-[min(34rem,calc(100dvh-7rem))] flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/95 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.22)] backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
-          <div className="border-b border-slate-100 bg-gradient-to-br from-[#fff5f6] via-white to-[#f8f5ff] px-8 py-8 text-center dark:border-slate-800 dark:from-red-500/10 dark:via-slate-900 dark:to-violet-500/10">
-            <div className="relative mx-auto mb-5 flex size-[4.5rem] items-center justify-center">
+          <div className="border-b border-slate-100 bg-gradient-to-br from-[#fff5f6] via-white to-[#f8f5ff] px-5 py-6 sm:px-8 sm:py-8 text-center dark:border-slate-800 dark:from-red-500/10 dark:via-slate-900 dark:to-violet-500/10">
+            <div className="relative mx-auto mb-5 flex size-16 sm:size-[4.5rem] items-center justify-center">
               <span className="absolute inset-0 animate-ping rounded-full bg-[#ef3e51]/20 [animation-duration:2.4s]" />
               <span className="absolute inset-2 rounded-full bg-[#ef3e51]/10" />
-              <span className="relative flex size-[3.75rem] items-center justify-center rounded-2xl bg-gradient-to-br from-[#ef3e51] to-[#c42d48] text-white shadow-lg shadow-[#ef3e51]/30">
+              <span className="relative flex size-14 sm:size-[3.75rem] items-center justify-center rounded-2xl bg-gradient-to-br from-[#ef3e51] to-[#c42d48] text-white shadow-lg shadow-[#ef3e51]/30">
                 <Sparkles className="size-7" strokeWidth={1.75} />
               </span>
             </div>
@@ -82,7 +83,7 @@ export default function UnderReviewPage() {
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#ef3e51]">
               Almost there
             </p>
-            <h1 className="font-heading mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="font-heading mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
               {profileFirst
                 ? "Your profile is under review"
                 : "Your application is under review"}
@@ -104,7 +105,7 @@ export default function UnderReviewPage() {
             </p>
           </div>
 
-          <div className="flex flex-1 flex-col justify-center gap-6 px-8 py-7">
+          <div className="flex flex-1 flex-col justify-center gap-6 px-5 py-6 sm:px-8 sm:py-7">
             <ol className="grid gap-3 sm:grid-cols-3">
               {reviewSteps.map((step) => (
                 <li

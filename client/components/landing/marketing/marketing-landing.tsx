@@ -673,7 +673,7 @@ export function MarketingLanding() {
               heading="Scale UGC for Multiple Clients Without Creator Hunting"
               paragraph="Source niche-specific creators for client campaigns, ad creatives, product launches, reels, and monthly content needs without wasting hours on manual outreach."
               cta="Explore agency solutions"
-              ctaHref="/contact"
+              ctaHref="/login?role=agency"
               benefits={[
                 {
                   title: "Faster creator sourcing",

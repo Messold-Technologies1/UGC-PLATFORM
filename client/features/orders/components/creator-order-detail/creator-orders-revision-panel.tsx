@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -101,9 +102,11 @@ function buildRevisionSteps(order: any): StepDef[] {
 function RevisionNotesCard({
   currentRevision,
   isLoading,
+  orderId,
 }: {
   currentRevision?: OrderCurrentRevision | null;
   isLoading?: boolean;
+  orderId: string;
 }) {
   const { revisionNotes, requestedDate, isEmptyNote } = useMemo(() => {
     const noteText = currentRevision?.note?.trim();
@@ -160,6 +163,18 @@ function RevisionNotesCard({
           Requested on {requestedDate}
         </p>
       )}
+
+      <div className="mt-auto pt-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${orderId}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -449,6 +464,7 @@ export function CreatorOrderRevisionPanel({
         <RevisionNotesCard
           currentRevision={order?.currentRevision}
           isLoading={isLoading}
+          orderId={selectedOrderId}
         />
         <PreviousSubmissionCard orderId={selectedOrderId} />
         {isOrderCompleted ? (

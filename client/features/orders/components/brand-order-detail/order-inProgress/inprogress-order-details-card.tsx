@@ -11,6 +11,7 @@ import {
   Video,
   Key,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderBriefPayload } from "../../../api/get-order-brief";
@@ -165,11 +166,11 @@ export function InprogressOrderDetailsCard({
 
           <Button
             variant="outline"
-            className="w-full text-primary border-primary/20 hover:bg-primary/5 rounded-xl font-semibold"
+            className="rounded-xl border border-border/50 text-pink hover:bg-pink/5 hover:text-pink font-semibold gap-2"
             onClick={handleViewFullBrief}
             disabled={!briefId}
           >
-            View Full Brief
+            View Full Brief <ExternalLink className="size-4" />
           </Button>
         </div>
 

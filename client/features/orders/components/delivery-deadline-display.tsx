@@ -110,7 +110,7 @@ export function getDeliveryDeadlineCardMeta(
   const timeline = getDeliveryTimeline(order);
   const date = formatDate(timeline.displayDate);
 
-  if (order.status === "COMPLETED") {
+  if (order.status === "COMPLETED" || order.status === "ACCEPTED" || order.status === "CREATOR_PAYMENT_DONE") {
     return {
       value:
         formatDate(order.acceptedAt) ??
@@ -118,6 +118,20 @@ export function getDeliveryDeadlineCardMeta(
         formatDate(order.updatedAt) ??
         "—",
       label: "Completed on",
+      showBadge: false,
+    };
+  }
+
+  if (
+    order.status === "DISPUTED" || 
+    order.status === "REJECTED" || 
+    order.status === "REFUNDED" ||
+    order.status === "CANCELLED" ||
+    order.status === "ADMIN_CANCELLED"
+  ) {
+    return {
+      value: formatDate(order.updatedAt) ?? "—",
+      label: "Cancelled on",
       showBadge: false,
     };
   }

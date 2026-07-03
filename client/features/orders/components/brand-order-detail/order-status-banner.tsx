@@ -171,10 +171,21 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
         order.requiresPhysicalProductShipment,
       );
   const Icon = config.icon;
-  const { hours, minutes, seconds } = useAcceptanceCountdown(
+  const { hours, minutes, seconds, isExpired } = useAcceptanceCountdown(
     order.briefSubmittedAt,
     order.status,
   );
+
+  let displayTitle = config.title;
+  let displayDescription = config.description;
+  let displayVariant = config.variant;
+
+  if (!isOrderCompleted && config.showTimer && isExpired) {
+    displayTitle = "Creator acceptance time expired";
+    displayDescription = `${creatorName} did not accept your project in time. The order will be cancelled.`;
+    displayVariant = "warning";
+  }
+
   const { isGatewayReady, isProcessing, resumePayment } = useResumeOrderCheckout(
     order.id,
     order.packageNameSnapshot,
@@ -184,36 +195,45 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
     <div
       className={cn(
         "flex flex-col gap-4 rounded-xl border px-6 py-5 sm:flex-row sm:items-center sm:justify-between",
-        VARIANT_STYLES[config.variant],
+        VARIANT_STYLES[displayVariant],
       )}
     >
       <div className="flex items-start gap-4">
         <div
           className={cn(
             "flex size-10 shrink-0 items-center justify-center rounded-full",
-            ICON_STYLES[config.variant],
+            ICON_STYLES[displayVariant],
           )}
         >
           <Icon className="size-5" />
         </div>
         <div className="mt-0.5">
           <p className="text-[15px] font-bold text-foreground">
-            {config.title}
+            {displayTitle}
           </p>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            {config.description}
+            {displayDescription}
           </p>
         </div>
       </div>
 
       {!isOrderCompleted && config.showTimer && (
-        <div className="flex items-center gap-2 rounded-lg bg-primary/5 dark:bg-primary/10 px-4 py-3 text-sm font-medium text-foreground shrink-0 sm:self-center">
-          <span className="text-muted-foreground text-[13px]">
-            Auto-cancel in
-          </span>
-          <span className="font-bold text-primary tracking-wide tabular-nums">
-            {hours}h : {minutes}m : {seconds}s
-          </span>
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shrink-0 sm:self-center",
+          isExpired ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" : "bg-primary/5 dark:bg-primary/10 text-foreground"
+        )}>
+          {isExpired ? (
+            <span className="font-bold">Time Expired</span>
+          ) : (
+            <>
+              <span className="text-muted-foreground text-[13px]">
+                Auto-cancel in
+              </span>
+              <span className="font-bold text-primary tracking-wide tabular-nums">
+                {hours}h : {minutes}m : {seconds}s
+              </span>
+            </>
+          )}
         </div>
       )}
 

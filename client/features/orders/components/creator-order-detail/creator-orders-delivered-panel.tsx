@@ -10,6 +10,8 @@ import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 interface CreatorOrderDeliveredPanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -214,9 +216,9 @@ function DeliveredOrderSummaryCard({
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
           <span className="text-muted-foreground shrink-0">Video Type</span>
           <span className="font-medium text-foreground sm:text-right">
-            {briefData?.brief?.contentType
+            {briefData?.brief?.contentType?.length
               ? fmtEnum(briefData.brief.contentType)
-              : "UGC Testimonial"}
+              : selectedItem.order.packageNameSnapshot || "Not specified"}
           </span>
         </div>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
@@ -228,22 +230,22 @@ function DeliveredOrderSummaryCard({
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
           <span className="text-muted-foreground shrink-0">Language</span>
           <span className="font-medium text-foreground sm:text-right">
-            {briefData?.brief?.language || "Hindi"}
+            {briefData?.brief?.language || "Not specified"}
           </span>
         </div>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
           <span className="text-muted-foreground shrink-0">Tone</span>
           <span className="font-medium text-foreground sm:text-right">
-            {briefData?.brief?.toneStyle
+            {briefData?.brief?.toneStyle?.length
               ? fmtEnum(briefData.brief.toneStyle)
-              : "Natural, Authentic"}
+              : "Not specified"}
           </span>
         </div>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
           <span className="text-muted-foreground shrink-0">Deliverables</span>
           <div className="sm:text-right">
             <span className="font-medium text-foreground block">
-              1 {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+              1 {selectedItem.order.packageNameSnapshot || "Deliverable"}
             </span>
             <span className="text-xs text-muted-foreground">
               9:16 Aspect Ratio
@@ -260,6 +262,18 @@ function DeliveredOrderSummaryCard({
             }).format(expectedAmount)}
           </span>
         </div>
+      </div>
+
+      <div className="mt-auto pt-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${selectedItem.order.id}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
       </div>
     </div>
   );

@@ -381,7 +381,9 @@ export function CreatorOrdersDetailsPanel({
                 {selectedItem.brand.brandName}
               </h3>
               <p className="text-xs text-muted-foreground">
-                Skincare • Product Demo
+                {briefData?.brief?.industry && briefData?.brief?.contentType?.length
+                  ? `${briefData.brief.industry} • ${fmtEnum(briefData.brief.contentType)}`
+                  : "Order Details"}
               </p>
             </div>
           </div>
@@ -413,7 +415,7 @@ export function CreatorOrdersDetailsPanel({
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
                 <span className="text-muted-foreground shrink-0">Video Type</span>
                 <span className="font-medium text-foreground sm:text-right">
-                  {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+                  {selectedItem.order.packageNameSnapshot || "Not specified"}
                 </span>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
@@ -421,7 +423,7 @@ export function CreatorOrdersDetailsPanel({
                 <span className="font-medium text-foreground sm:text-right">
                   {briefData?.brief?.toneStyle?.length
                     ? fmtEnum(briefData.brief.toneStyle)
-                    : "Standard"}
+                    : "Not specified"}
                 </span>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">

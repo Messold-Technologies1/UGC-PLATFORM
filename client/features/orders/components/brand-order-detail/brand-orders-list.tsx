@@ -142,8 +142,8 @@ function BrandOrdersListInner() {
       </div>
 
       {!isLoading && items.length > 0 && (
-        <div className="mt-12 flex flex-col lg:flex-row items-center justify-between gap-6 border-t border-border/50 pt-8">
-          <div className="flex items-center gap-4 min-w-[150px] w-full lg:w-auto justify-center lg:justify-start">
+        <div className="mt-12 hidden min-[426px]:flex flex-col md:flex-row items-center justify-between gap-6 border-t border-border/50 pt-8">
+          <div className="flex items-center gap-4 min-w-[150px] w-full md:w-auto justify-center md:justify-start">
             <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground">Page</span>
               <span className="text-sm font-bold text-foreground">{page}</span>
@@ -157,7 +157,7 @@ function BrandOrdersListInner() {
             </span>
           </div>
 
-          <div className="flex flex-1 justify-center w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+          <div className="flex flex-1 justify-center w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
@@ -218,7 +218,7 @@ function BrandOrdersListInner() {
             </Pagination>
           </div>
 
-          <div className="flex items-center gap-2 min-w-[150px] w-full lg:w-auto justify-center lg:justify-end">
+          <div className="flex items-center gap-2 min-w-[150px] w-full md:w-auto justify-center md:justify-end">
             <span className="whitespace-nowrap text-xs font-bold uppercase tracking-widest text-muted-foreground">
               Rows per page:
             </span>

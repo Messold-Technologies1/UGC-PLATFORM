@@ -15,6 +15,7 @@ import {
   FileVideo,
   Wallet,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -99,6 +100,8 @@ export function CreatorOrderNewRequestPanel({
     return () => clearInterval(interval);
   }, [selectedItem?.order?.createdAt]);
 
+  const hasTimeExceeded = timeLeft !== null && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
+
   if (!selectedItem) return null;
 
   const hasBrief = Boolean(selectedItem.order.hasBrief);
@@ -171,7 +174,7 @@ export function CreatorOrderNewRequestPanel({
             {hasBrief && (
               <Button 
                 onClick={() => acceptBriefMutation.mutate({ orderId: selectedOrderId })}
-                disabled={acceptBriefMutation.isPending}
+                disabled={acceptBriefMutation.isPending || hasTimeExceeded}
                 className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-9 px-4 sm:h-10 sm:px-5 rounded-lg shadow-sm whitespace-nowrap text-xs sm:text-sm"
               >
                 {acceptBriefMutation.isPending ? (
@@ -195,12 +198,27 @@ export function CreatorOrderNewRequestPanel({
       </div>
 
       <div className="p-6 bg-slate-50/50 space-y-6">
-        <div className="bg-[#fff9e6] border border-[#ffe58f] rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-2.5 sm:gap-3 text-amber-700 font-medium text-xs sm:text-sm">
-            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
-            <span>You have {timeLeft?.hours ?? 48} hrs left to accept this order.</span>
+        <div className={cn(
+          "border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4",
+          hasTimeExceeded 
+            ? "bg-red-50 border-red-200"
+            : "bg-[#fff9e6] border-[#ffe58f]"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2.5 sm:gap-3 font-medium text-xs sm:text-sm",
+            hasTimeExceeded ? "text-red-700" : "text-amber-700"
+          )}>
+            <Clock className={cn(
+              "w-4 h-4 sm:w-5 sm:h-5 shrink-0",
+              hasTimeExceeded ? "text-red-500" : "text-amber-500"
+            )} />
+            <span>
+              {hasTimeExceeded 
+                ? "This order request has expired because it was not accepted in time." 
+                : `You have ${timeLeft?.hours ?? 48} hrs left to accept this order.`}
+            </span>
           </div>
-          {timeLeft && (
+          {timeLeft && !hasTimeExceeded && (
             <div className="flex items-center gap-2 text-amber-700 font-bold text-xs sm:text-sm bg-white/60 px-3 py-1.5 sm:py-1 rounded-md border border-amber-200/60 shrink-0">
               <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
               <span>{String(timeLeft.hours ?? 0).padStart(2, '0')}h : {String(timeLeft.minutes ?? 0).padStart(2, '0')}m : {String(timeLeft.seconds ?? 0).padStart(2, '0')}s left</span>
@@ -236,7 +254,7 @@ export function CreatorOrderNewRequestPanel({
                       <Music className="w-3.5 h-3.5" /> Video Type
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.contentType ? formatEnumLabel(briefData.brief.contentType) : "UGC Testimonial"}
+                      {briefData?.brief?.contentType ? formatEnumLabel(briefData.brief.contentType) : selectedItem.order.packageNameSnapshot || "Not specified"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -252,7 +270,7 @@ export function CreatorOrderNewRequestPanel({
                       <MessageSquare className="w-3.5 h-3.5" /> Language
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.language || "English"}
+                      {briefData?.brief?.language || "Not specified"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -260,7 +278,7 @@ export function CreatorOrderNewRequestPanel({
                       <Star className="w-3.5 h-3.5" /> Tone
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.toneStyle ? formatEnumLabel(briefData.brief.toneStyle) : "Natural, Authentic"}
+                      {briefData?.brief?.toneStyle ? formatEnumLabel(briefData.brief.toneStyle) : "Not specified"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -268,7 +286,7 @@ export function CreatorOrderNewRequestPanel({
                       <CheckCircle2 className="w-3.5 h-3.5" /> Usage Rights
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      Organic Social + Paid Ads
+                      Not specified
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -279,7 +297,7 @@ export function CreatorOrderNewRequestPanel({
                       <span className="text-sm font-medium text-foreground">
                         1{" "}
                         {selectedItem.order.packageNameSnapshot ||
-                          "UGC Video (60s)"}
+                          "Deliverable"}
                       </span>
                       <span className="text-xs text-muted-foreground mt-0.5">
                         9:16 Aspect Ratio

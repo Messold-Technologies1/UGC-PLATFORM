@@ -1,11 +1,11 @@
-export type CreatorOnboardingMode = "approval_first" | "profile_first";
+import { env, type CreatorOnboardingMode } from "../../../lib/env";
+
+export type { CreatorOnboardingMode };
 
 export function getCreatorOnboardingMode(): CreatorOnboardingMode {
-  return process.env.NEXT_PUBLIC_CREATOR_ONBOARDING_MODE === "profile_first"
-    ? "profile_first"
-    : "approval_first";
+  return env.creatorOnboardingMode;
 }
 
 export function isProfileFirstOnboardingMode(): boolean {
-  return getCreatorOnboardingMode() === "profile_first";
+  return env.creatorOnboardingMode === "profile_first";
 }

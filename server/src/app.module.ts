@@ -24,6 +24,7 @@ import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
 import { CitiesModule } from './cities/cities.module';
+import { LegalPagesModule } from './legal-pages/legal-pages.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { CitiesModule } from './cities/cities.module';
     WebhooksModule,
     JobsModule,
     RealtimeModule,
+    LegalPagesModule,
   ],
   controllers: [AppController],
   providers: [

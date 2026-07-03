@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
-  FileEdit,
   Briefcase,
   Clipboard,
   MonitorPlay,
@@ -12,6 +11,7 @@ import {
   Video,
   Key,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderBriefPayload } from "../../../api/get-order-brief";
@@ -84,27 +84,10 @@ export function InprogressOrderDetailsCard({
       router.push(`/brand/briefs/${briefId}`);
     }
   }
-
-  function handleEditBrief() {
-    if (briefId) {
-      router.push(`/brand/briefs/${briefId}`);
-    }
-  }
-
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between pb-5 border-b border-border/60 mb-6">
         <h3 className="text-lg font-bold text-foreground">Order Details</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-lg text-xs font-semibold px-3 h-8"
-          onClick={handleEditBrief}
-          disabled={!briefId}
-        >
-          <FileEdit className="size-3.5 mr-1.5" />
-          Edit Brief
-        </Button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">
@@ -177,17 +160,17 @@ export function InprogressOrderDetailsCard({
               </span>
             </div>
             <span className="text-sm font-medium text-foreground whitespace-pre-wrap self-start mt-2">
-              {brief?.keyNoteToInclude || "Not specified"}
+              {brief?.keyNoteToInclude ? "See full brief" : "Not specified"}
             </span>
           </div>
 
           <Button
             variant="outline"
-            className="w-full text-primary border-primary/20 hover:bg-primary/5 rounded-xl font-semibold"
+            className="rounded-xl border border-border/50 text-pink hover:bg-pink/5 hover:text-pink font-semibold gap-2"
             onClick={handleViewFullBrief}
             disabled={!briefId}
           >
-            View Full Brief
+            View Full Brief <ExternalLink className="size-4" />
           </Button>
         </div>
 

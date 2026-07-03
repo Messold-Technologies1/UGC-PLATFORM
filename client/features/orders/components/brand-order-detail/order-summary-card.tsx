@@ -46,16 +46,6 @@ export function OrderSummaryCard({
     <div className="rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <h3 className="text-lg font-bold text-foreground">Order Summary</h3>
-        {hasSubmittedBrief && resolvedBriefId ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-lg text-sm font-medium"
-            onClick={handleEditBrief}
-          >
-            Edit Brief
-          </Button>
-        ) : null}
       </div>
 
       <div className="px-6 pb-6">
@@ -186,7 +176,7 @@ export function OrderSummaryCard({
             </p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Your payment is held securely and will be released to the creator
-              after you approve the final content.
+              after you approve the content.
             </p>
           </div>
           <ChevronDown className="size-4 text-muted-foreground shrink-0 mt-0.5" />

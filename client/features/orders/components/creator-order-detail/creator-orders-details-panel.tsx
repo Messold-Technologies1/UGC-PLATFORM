@@ -125,7 +125,7 @@ function buildTimelineSteps(
     label: "Delivered",
     desc: order?.deliveredAt
       ? formatTs(order.deliveredAt)!
-      : "Submit the final content for review",
+      : "Submit the content for review",
     status: order?.deliveredAt ? "completed" : "pending",
   });
 
@@ -244,6 +244,7 @@ export function CreatorOrdersDetailsPanel({
   const DELIVERED_STATUSES = ["DELIVERED", "REVISION_SUBMITTED"];
   const COMPLETED_STATUSES = ["ACCEPTED", "CREATOR_PAYMENT_DONE"];
   const CANCELLED_STATUSES = ["REJECTED", "REFUNDED", "DISPUTED"];
+  const isOrderCompleted = COMPLETED_STATUSES.includes(orderStatus);
 
   if (activeTab !== "all") {
     if (
@@ -260,6 +261,7 @@ export function CreatorOrdersDetailsPanel({
           onClose={onClose}
           previewStepId={previewStepId}
           onStepClick={setPreviewStepId}
+          isOrderCompleted={isOrderCompleted}
         />
       );
     }
@@ -278,6 +280,7 @@ export function CreatorOrdersDetailsPanel({
           onClose={onClose}
           previewStepId={previewStepId}
           onStepClick={setPreviewStepId}
+          isOrderCompleted={isOrderCompleted}
         />
       );
     }
@@ -328,6 +331,7 @@ export function CreatorOrdersDetailsPanel({
         onClose={onClose}
         previewStepId={previewStepId}
         onStepClick={setPreviewStepId}
+        isOrderCompleted={isOrderCompleted}
       />
     );
   }
@@ -377,19 +381,23 @@ export function CreatorOrdersDetailsPanel({
                 {selectedItem.brand.brandName}
               </h3>
               <p className="text-xs text-muted-foreground">
-                Skincare • Product Demo
+                {briefData?.brief?.industry && briefData?.brief?.contentType?.length
+                  ? `${briefData.brief.industry} • ${fmtEnum(briefData.brief.contentType)}`
+                  : "Order Details"}
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            className="rounded-lg h-9 text-xs font-semibold gap-1.5 border-border/50 text-primary hover:text-primary"
-            asChild
-          >
-            <Link href={`/creator/orders/${selectedOrderId}/brief`}>
-              View Brief <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
-          </Button>
+          {selectedItem.order.status !== "BRIEF_SUBMISSION_PENDING" && (
+            <Button
+              variant="outline"
+              className="rounded-lg h-9 text-xs font-semibold gap-1.5 border-border/50 text-primary hover:text-primary"
+              asChild
+            >
+              <Link href={`/creator/orders/${selectedOrderId}/brief`}>
+                View Brief <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -404,31 +412,31 @@ export function CreatorOrdersDetailsPanel({
             </div>
           ) : (
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Video Type</span>
-                <span className="font-medium text-foreground text-right">
-                  {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+                <span className="text-muted-foreground shrink-0">Video Type</span>
+                <span className="font-medium text-foreground sm:text-right">
+                  {selectedItem.order.packageNameSnapshot || "Not specified"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Style</span>
-                <span className="font-medium text-foreground text-right">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+                <span className="text-muted-foreground shrink-0">Style</span>
+                <span className="font-medium text-foreground sm:text-right">
                   {briefData?.brief?.toneStyle?.length
                     ? fmtEnum(briefData.brief.toneStyle)
-                    : "Standard"}
+                    : "Not specified"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Key Points</span>
-                <span className="font-medium text-foreground text-right">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+                <span className="text-muted-foreground shrink-0">Key Points</span>
+                <span className="font-medium text-foreground sm:text-right">
                   {briefData?.brief?.keyNoteToInclude
                     ? "Included in Brief"
                     : "None"}
                 </span>
               </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-muted-foreground">Add-ons</span>
-                <div className="flex gap-1.5 flex-wrap justify-end">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 pt-1">
+                <span className="text-muted-foreground shrink-0">Add-ons</span>
+                <div className="flex gap-1.5 flex-wrap sm:justify-end mt-1 sm:mt-0">
                   {detailsData?.order?.addOnsSnapshot &&
                   detailsData.order.addOnsSnapshot.length > 0 ? (
                     detailsData.order.addOnsSnapshot.map((addon: any) => (
@@ -444,7 +452,7 @@ export function CreatorOrdersDetailsPanel({
                   )}
                 </div>
               </div>
-              <div className="flex justify-between pt-3">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 pt-3 border-t border-border/40 mt-auto">
                 <span className="text-muted-foreground">Total Payout</span>
                 <span className="font-bold text-foreground text-right">
                   {detailsData?.order?.expectedAmountPaise &&
@@ -517,9 +525,12 @@ export function CreatorOrdersDetailsPanel({
         <Button
           variant="outline"
           className="flex-1 rounded-lg h-11 font-semibold border-border/60 bg-background"
+          asChild
         >
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Message Brand
+          <Link href={`/creator/messages?orderId=${selectedOrderId}`}>
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Message Brand
+          </Link>
         </Button>
       </div>
     </div>

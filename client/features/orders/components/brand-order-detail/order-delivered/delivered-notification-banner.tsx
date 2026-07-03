@@ -8,6 +8,24 @@ interface DeliveredNotificationBannerProps {
   order: OrderDetailsPublic;
   previewPreparing?: boolean;
   isRevision?: boolean;
+  isOrderCompleted?: boolean;
+  completedAt?: string | null;
+}
+
+function formatCompletedDate(val?: string | null): string | null {
+  if (!val) return null;
+  try {
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date(val));
+  } catch {
+    return null;
+  }
 }
 
 function getReadyToReviewMessage(
@@ -48,7 +66,22 @@ export function DeliveredNotificationBanner({
   order,
   previewPreparing = false,
   isRevision = false,
+  isOrderCompleted = false,
+  completedAt,
 }: DeliveredNotificationBannerProps) {
+  if (isOrderCompleted) {
+    const dateStr = formatCompletedDate(completedAt);
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+        <CheckCircle2 className="size-5 shrink-0 text-emerald-500" />
+        <p className="text-sm font-medium text-emerald-900 dark:text-emerald-300">
+          Content was approved and this order was completed successfully.
+          {dateStr && ` Approved on ${dateStr}.`}
+        </p>
+      </div>
+    );
+  }
+
   if (previewPreparing) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-primary/15 bg-primary/[0.06] p-4 dark:bg-primary/10">
@@ -86,3 +119,4 @@ export function DeliveredNotificationBanner({
     </div>
   );
 }
+

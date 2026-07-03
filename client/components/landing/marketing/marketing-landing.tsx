@@ -252,10 +252,10 @@ export function MarketingLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const heroTiny = [
-    MARKETING_CREATOR_IMAGES.skincare,
+    MARKETING_CREATOR_IMAGES.tech,
     MARKETING_CREATOR_IMAGES.fashion,
     MARKETING_CREATOR_IMAGES.food,
-    MARKETING_CREATOR_IMAGES.beauty,
+    MARKETING_CREATOR_IMAGES.fitness,
   ];
 
   return (
@@ -673,7 +673,7 @@ export function MarketingLanding() {
               heading="Scale UGC for Multiple Clients Without Creator Hunting"
               paragraph="Source niche-specific creators for client campaigns, ad creatives, product launches, reels, and monthly content needs without wasting hours on manual outreach."
               cta="Explore agency solutions"
-              ctaHref="/contact"
+              ctaHref="/login?role=agency"
               benefits={[
                 {
                   title: "Faster creator sourcing",
@@ -991,7 +991,7 @@ export function MarketingLanding() {
               look more trusted, more active, and more scroll-worthy.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <PillButton variant="lime" arrow href="/signup">
+              <PillButton variant="lime" arrow href="/register/brand">
                 Start for Free
               </PillButton>
               <PillButton

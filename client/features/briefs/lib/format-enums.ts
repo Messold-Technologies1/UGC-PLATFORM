@@ -17,7 +17,8 @@ export function formatDuration(
   bucket: BriefDurationBucket | string | null | undefined
 ): string {
   if (!bucket) return "N/A";
-  switch (bucket) {
+  const normalized = String(bucket).toUpperCase();
+  switch (normalized) {
     case "SEC_0_15":
       return "0-15 Secs";
     case "SEC_15_30":
@@ -39,7 +40,8 @@ export function formatLocation(
   kind: BriefShootLocationKind | string | null | undefined
 ): string {
   if (!kind) return "N/A";
-  switch (kind) {
+  const normalized = String(kind).toUpperCase();
+  switch (normalized) {
     case "CREATOR_OWN_SETUP":
       return "Creator's Own Setup";
     case "OUTDOOR_PUBLIC_LOCATION":
@@ -57,7 +59,8 @@ export function formatTone(
   tone: BriefToneStyle | string | null | undefined
 ): string {
   if (!tone) return "N/A";
-  switch (tone) {
+  const normalized = String(tone).toUpperCase();
+  switch (normalized) {
     case "FUNNY":
       return "Funny/Humorous";
     case "EMOTIONAL":
@@ -79,7 +82,8 @@ export function formatContentType(
   type: BriefContentType | string | null | undefined
 ): string {
   if (!type) return "N/A";
-  switch (type) {
+  const normalized = String(type).toUpperCase();
+  switch (normalized) {
     case "TALKING_VIDEO":
       return "Talking Head";
     case "PRODUCT_DEMO":

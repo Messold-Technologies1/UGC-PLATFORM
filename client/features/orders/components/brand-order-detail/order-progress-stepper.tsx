@@ -102,13 +102,29 @@ const STEPS: StepDefinition[] = [
   },
 ];
 
-function getActiveStepIndex(status: string, steps: StepDefinition[]): number {
+function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]): number {
+  let effectiveStatus = order.status;
+
+  if (order.status === "DISPUTED") {
+    if (order.deliveredAt) {
+      effectiveStatus = "DELIVERED";
+    } else if (order.requiresPhysicalProductShipment) {
+      if (order.productReceivedAt) effectiveStatus = "PRODUCT_RECEIVED";
+      else if (order.dispatchedAt) effectiveStatus = "PRODUCT_SHIPPED";
+      else if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
+      else effectiveStatus = "BRIEF_SUBMITTED";
+    } else {
+      if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
+      else effectiveStatus = "BRIEF_SUBMITTED";
+    }
+  }
+
   for (let i = 0; i < steps.length; i++) {
-    if (steps[i].statusMatch.includes(status)) {
+    if (steps[i].statusMatch.includes(effectiveStatus)) {
       return i;
     }
   }
-  if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(status))
+  if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(effectiveStatus))
     return steps.length;
   return 0;
 }
@@ -169,7 +185,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
       return step;
     });
   
-  const activeIndex = getActiveStepIndex(order.status, steps);
+  const activeIndex = getActiveStepIndex(order, steps);
 
   return (
     <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">
@@ -202,7 +218,8 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                         ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
                         : "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
                       : "border-border bg-muted text-muted-foreground",
-                  previewState === step.label && "ring-4 ring-primary/40 ring-offset-2"
+                  previewState === step.label &&
+                    "ring-4 ring-primary/40 ring-offset-2",
                 )}
               >
                 {isCompleted ? (
@@ -233,7 +250,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 <span
                   className={cn(
                     "mt-1.5 text-[10px] font-semibold",
-                    isAwaitingPayment ? "text-amber-600 dark:text-amber-400" : "text-primary",
+                    isAwaitingPayment
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-primary",
                   )}
                 >
                   {isAwaitingPayment ? "Payment pending" : "Current step"}
@@ -263,7 +282,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 </div>
               )}
 
-              {step.getHref && (isActive || isCompleted) && (!onStepClick || step.label === "Awaiting\nShipment") ? (
+              {step.getHref &&
+              (isActive || isCompleted) &&
+              (!onStepClick || step.label === "Awaiting\nShipment") ? (
                 <Link
                   href={step.getHref(order.id)}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer"
@@ -271,8 +292,13 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   <StepContent />
                 </Link>
               ) : (
-                <div 
-                  className={cn("flex flex-col items-center", onStepClick && (isActive || isCompleted) ? "cursor-pointer hover:opacity-80 transition-opacity" : "")}
+                <div
+                  className={cn(
+                    "flex flex-col items-center",
+                    onStepClick && (isActive || isCompleted)
+                      ? "cursor-pointer hover:opacity-80 transition-opacity"
+                      : "",
+                  )}
                   onClick={() => {
                     if (onStepClick && (isActive || isCompleted)) {
                       onStepClick(step.label);

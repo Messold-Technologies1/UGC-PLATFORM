@@ -33,9 +33,15 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export default function OrderRow({ order, creator, brand, delay = 0 }: OrderRowProps) {
+export default function OrderRow({
+  order,
+  creator,
+  brand,
+  delay = 0,
+}: OrderRowProps) {
   const statusClass =
-    STATUS_COLORS[order.status] ?? "bg-muted text-muted-foreground border-border";
+    STATUS_COLORS[order.status] ??
+    "bg-muted text-muted-foreground border-border";
   const statusLabel =
     STATUS_LABELS[order.status] ?? order.status.replaceAll("_", " ");
 

@@ -20,6 +20,7 @@ import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { UpdatePortfolioVideoPayload } from "@/features/creator-portfolio/api/update-portfolio-video";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
+import { capitalizeFirstLetter } from "@/lib/string-lists";
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -197,9 +198,9 @@ export function TagEditor({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   function addTag(tag: string) {
-    const trimmed = tag.trim();
+    const trimmed = capitalizeFirstLetter(tag.trim());
     if (!trimmed) return;
-    if (tags.includes(trimmed)) return;
+    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return;
     onChange([...tags, trimmed]);
     setInputValue("");
   }
@@ -254,7 +255,9 @@ export function TagEditor({
       {suggestions.length > 0 ? (
         <div className="pe-tag-suggest">
           {suggestions.map((sg) => {
-            const used = tags.includes(sg);
+            const used = tags.some(
+              (t) => t.toLowerCase() === sg.toLowerCase(),
+            );
             return (
               <button
                 type="button"
@@ -307,7 +310,9 @@ export function PortfolioEditDrawer({
   isSaving: boolean;
 }) {
   const isCreate = video == null;
-  const [industry, setIndustry] = useState(video?.industryLabel ?? "");
+  const [industry, setIndustry] = useState(
+    capitalizeFirstLetter(video?.industryLabel ?? ""),
+  );
   const [description, setDescription] = useState(video?.description ?? "");
   const [tags, setTags] = useState<string[]>(video?.tags ?? []);
   const [language, setLanguage] = useState(video?.language ?? "");
@@ -317,7 +322,7 @@ export function PortfolioEditDrawer({
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    setIndustry(video?.industryLabel ?? "");
+    setIndustry(capitalizeFirstLetter(video?.industryLabel ?? ""));
     setDescription(video?.description ?? "");
     setTags(video?.tags ?? []);
     setLanguage(video?.language ?? "");
@@ -336,7 +341,7 @@ export function PortfolioEditDrawer({
 
   function handleSave() {
     onSave({
-      industryLabel: industry || undefined,
+      industryLabel: industry ? capitalizeFirstLetter(industry) : undefined,
       description: description || undefined,
       tags,
       language: language || undefined,

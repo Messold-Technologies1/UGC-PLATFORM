@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { Package, AddOn } from "../types";
+import { openSupportChat } from "@/components/tawk-to";
 
 interface SidebarPricingCardProps {
   packages: Package[];
@@ -195,6 +196,7 @@ export const SidebarPricingCard = memo(function SidebarPricingCard({
         <button
           type="button"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+          onClick={openSupportChat}
         >
           <Phone className="size-3.5" />
           Contact Support

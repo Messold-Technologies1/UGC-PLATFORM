@@ -151,7 +151,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
         <div className={styles.mobileHead}>
           <AuthLogoLink className="-ml-2" imageClassName="h-16 sm:h-20" />
           <Link
-            href="/login"
+            href={`/login${searchParams.get("callbackUrl") ? `?callbackUrl=${encodeURIComponent(searchParams.get("callbackUrl")!)}` : ""}`}
             className={styles.mobileHeadBack}
             onClick={clearRememberedRole}
           >
@@ -314,7 +314,10 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
               </span>
               <span className={styles.formDividerLine} />
             </div>
-            <Link href={roleConfig.signupHref} className={styles.formSecondary}>
+            <Link 
+              href={`${roleConfig.signupHref}${searchParams.get("callbackUrl") ? `?callbackUrl=${encodeURIComponent(searchParams.get("callbackUrl")!)}` : ""}`} 
+              className={styles.formSecondary}
+            >
               <Plus size={16} aria-hidden="true" />
               {roleConfig.signupCta}
             </Link>
@@ -325,10 +328,12 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
               <span className={styles.roleSwitchLinks}>
                 {LOGIN_ROLES.filter((k) => k !== roleConfig.key).map((k) => {
                   const other = ROLE_CONFIGS[k];
+                  const callbackUrl = searchParams.get("callbackUrl");
+                  const callbackQuery = callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : "";
                   return (
                     <Link
                       key={k}
-                      href={`/login?role=${k}`}
+                      href={`/login?role=${k}${callbackQuery}`}
                       replace
                       className={styles.roleSwitchLink}
                       onClick={() => setRememberedRole(k)}

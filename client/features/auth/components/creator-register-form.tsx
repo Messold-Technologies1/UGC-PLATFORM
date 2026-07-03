@@ -601,16 +601,16 @@ export function CreatorRegisterForm() {
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:min-h-0 lg:h-full"
+      className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:min-h-0 xl:h-full"
     >
       <div className="shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start sm:gap-4">
+        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start lg:gap-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
               Create your creator profile
             </h1>
           </div>
-          <div className="flex flex-col items-start gap-2 text-sm sm:items-end">
+          <div className="flex flex-col items-start gap-2 text-sm lg:items-end">
             <p className="text-slate-500">
               Already a creator?{" "}
               <Link
@@ -624,7 +624,7 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+      <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
@@ -657,7 +657,7 @@ export function CreatorRegisterForm() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
                 <div className="space-y-1">
                   <Label
                     htmlFor="age"
@@ -712,7 +712,7 @@ export function CreatorRegisterForm() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               <div className="space-y-1">
                 <Label
                   htmlFor="country"
@@ -898,7 +898,7 @@ export function CreatorRegisterForm() {
                       ) : null}
                       {activeOtpPhone ? (
                         <div className="mt-[10px] overflow-x-auto rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-3 py-2.5 dark:border-red-500/20 dark:bg-red-500/10 sm:px-[12px] sm:py-[10px]">
-                          <div className="flex min-w-max flex-col gap-3 sm:min-w-0 sm:flex-row sm:items-center sm:justify-between sm:gap-[10px]">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-[10px]">
                             <Label
                               htmlFor="creator-signup-phone-otp"
                               className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
@@ -1194,7 +1194,7 @@ export function CreatorRegisterForm() {
                   }}
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
-                    "flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-4 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer sm:flex-row sm:items-center sm:gap-4 sm:px-6",
+                    "flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-4 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer lg:flex-row lg:items-center lg:gap-4 lg:px-6",
                     portfolioVideoError
                       ? "border-red-300"
                       : "border-slate-200 hover:bg-slate-50 hover:border-[#ef3e51] dark:border-slate-800 dark:hover:border-[#ef3e51]",
@@ -1234,11 +1234,11 @@ export function CreatorRegisterForm() {
                 </div>
 
                 {portfolioVideoFiles.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                  <div className="grid grid-cols-1 gap-3 mt-3 lg:grid-cols-3">
                     {portfolioVideoFiles.map((file, index) => (
                       <div
                         key={`${file.name}-${index}`}
-                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
+                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 lg:flex-row lg:items-center lg:gap-4 lg:px-4"
                       >
                         <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ef3e51] to-[#8b5cf6] text-white">
                           {portfolioVideoStatus === "uploading" ? (
@@ -1454,7 +1454,7 @@ export function CreatorRegisterForm() {
             </div>
 
             <div className="space-y-1">
-              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+              <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
                 <Label
                   htmlFor="password"
                   className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
@@ -1496,7 +1496,7 @@ export function CreatorRegisterForm() {
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
             checked={form.watch("termsAccepted")}
@@ -1505,24 +1505,24 @@ export function CreatorRegisterForm() {
                 shouldValidate: true,
               })
             }
-            className="mt-[4px] shrink-0 h-4 w-4 border border-slate-300 accent-[#ef3e51] data-[state=checked]:bg-[#ef3e51] data-[state=checked]:border-[#ef3e51] data-[state=checked]:text-white dark:border-slate-600"
+            className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#ef3e51] data-[state=checked]:bg-[#ef3e51] data-[state=checked]:border-[#ef3e51] data-[state=checked]:text-white dark:border-slate-600"
           />
-          <div className="mt-0.5 space-y-1 leading-none">
+          <div className="min-w-0 flex-1 space-y-1">
             <Label
               htmlFor="terms"
-              className="text-[13px] font-normal text-slate-600 dark:text-slate-400"
+              className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
             >
               I agree to the{" "}
               <Link
                 href="/legal/terms"
-                className="font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
                 Terms of Service
               </Link>
               {", "}
               <Link
                 href="/legal/privacy"
-                className="font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
                 Privacy Policy
               </Link>
@@ -1542,12 +1542,12 @@ export function CreatorRegisterForm() {
               Still needed: {signupBlockers.join(" · ")}
             </p>
           ) : null}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
             <Button
               type="submit"
               disabled={!isSignupComplete || pendingSubmit}
               className={cn(
-                "h-11 w-full rounded-full text-[15px] font-bold transition-colors sm:flex-1",
+                "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
                 isSignupComplete
                   ? "bg-[#ef3e51] text-white hover:bg-[#d63647] disabled:opacity-70 dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
                   : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
@@ -1563,7 +1563,7 @@ export function CreatorRegisterForm() {
               )}
             </Button>
 
-          <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight sm:w-auto sm:shrink-0 sm:text-right">
+          <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
             Hiring instead? <br />
             <Link
               href="/register/brand"

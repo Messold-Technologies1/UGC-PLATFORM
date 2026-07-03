@@ -32,6 +32,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAcceptOrderDeliveryMutation } from "../../../hooks/use-accept-order-delivery-mutation";
 import { useRequestOrderRevisionMutation } from "../../../hooks/use-request-order-revision-mutation";
+import { useOpenBrandDisputeMutation } from "../../../hooks/use-open-brand-dispute-mutation";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface YourActionRequiredCardProps {
@@ -42,14 +43,28 @@ interface YourActionRequiredCardProps {
   isRevision?: boolean;
 }
 
-function computeDaysLeft(deliveredAt?: string | null): number | null {
+function computeTimeLeft(deliveredAt?: string | null): string | null {
   if (!deliveredAt) return null;
   const delivered = new Date(deliveredAt);
   const deadline = new Date(delivered);
-  deadline.setDate(deadline.getDate() + 2); // 2-day review window
+  deadline.setDate(deadline.getDate() + 2);
   const now = new Date();
   const diffMs = deadline.getTime() - now.getTime();
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  
+  if (diffMs <= 0) return "0 hours";
+  
+  const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
+  const daysLeft = Math.floor(hoursLeft / 24);
+  const remainingHours = hoursLeft % 24;
+  
+  if (daysLeft > 0) {
+    if (remainingHours === 0) {
+      return `${daysLeft} day${daysLeft !== 1 ? "s" : ""}`;
+    }
+    return `${daysLeft} day${daysLeft !== 1 ? "s" : ""} ${remainingHours} hr${remainingHours !== 1 ? "s" : ""}`;
+  }
+  
+  return `${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
 }
 
 const DRAWER_CONTENT_CLASSES =
@@ -83,6 +98,12 @@ export function YourActionRequiredCard({
       setIsRevisionDrawerOpen(false);
     },
   });
+  const issueMutation = useOpenBrandDisputeMutation({
+    onSuccess: () => {
+      setIssueReason("");
+      setIsIssueDrawerOpen(false);
+    },
+  });
 
   const canReviewDelivery =
     order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED";
@@ -94,9 +115,10 @@ export function YourActionRequiredCard({
   const canRequestRevision = canReviewDelivery && hasRevisionsRemaining;
   const revisionsUsed = order.revisionCount;
   const revisionsMax = order.maxRevisionsSnapshot;
-  const daysLeft = computeDaysLeft(order.deliveredAt);
+  const timeLeft = computeTimeLeft(order.deliveredAt);
   const isAcceptPending = acceptMutation.isPending;
   const isRevisionPending = revisionMutation.isPending;
+  const isIssuePending = issueMutation.isPending;
   const trimmedRevisionNote = revisionNote.trim();
   const trimmedIssueReason = issueReason.trim();
 
@@ -110,7 +132,23 @@ export function YourActionRequiredCard({
     revisionMutation.mutate({ orderId, note: trimmedRevisionNote });
   }
 
+  function handleIssueSubmit() {
+    if (trimmedIssueReason.length < 10 || isIssuePending) return;
+    issueMutation.mutate({ orderId, reason: trimmedIssueReason });
+  }
+
   if (isAccepted) {
+    const approvedDate = order.acceptedAt
+      ? new Intl.DateTimeFormat("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(new Date(order.acceptedAt))
+      : null;
+
     return (
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div className="flex flex-col items-center text-center gap-3 py-4">
@@ -121,8 +159,13 @@ export function YourActionRequiredCard({
             Content Approved
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs">
-            You've approved the delivered content. The order is now complete.
+            You approved the delivered content and this order is now complete.
           </p>
+          {approvedDate && (
+            <p className="text-xs text-muted-foreground">
+              Approved on {approvedDate}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -158,15 +201,25 @@ export function YourActionRequiredCard({
             Your Action Required
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Please review the content and take action within
+            {timeLeft === "0 hours" 
+              ? "The review period for this delivery has expired." 
+              : "Please review the content and take action within"}
           </p>
 
-          {daysLeft !== null && (
+          {timeLeft !== null && (
             <div className="flex items-center gap-2 mt-3">
               <Clock className="size-4 text-destructive shrink-0" />
               <span className="text-sm font-semibold text-destructive">
-                {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
+                {timeLeft === "0 hours" ? "0 hours left" : `${timeLeft} left`}
               </span>
+            </div>
+          )}
+
+          {timeLeft === "0 hours" && (
+            <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+               <p className="text-xs text-destructive/90 leading-relaxed">
+                 You can no longer approve or request revisions directly. Please <strong>Raise an Issue</strong> below or contact support if you need further assistance.
+               </p>
             </div>
           )}
         </div>
@@ -175,7 +228,7 @@ export function YourActionRequiredCard({
           <div className="flex flex-col gap-3">
             <Button
               className="w-full font-semibold h-11 rounded-xl shadow-sm"
-              disabled={!canReviewDelivery || isAcceptPending}
+              disabled={!canReviewDelivery || isAcceptPending || timeLeft === "0 hours"}
               onClick={() => setIsApproveDialogOpen(true)}
             >
               <CheckCircle className="size-4 mr-1.5" />
@@ -185,7 +238,7 @@ export function YourActionRequiredCard({
             <Button
               variant="outline"
               className="w-full font-semibold h-11 rounded-xl"
-              disabled={!canRequestRevision}
+              disabled={!canRequestRevision || timeLeft === "0 hours"}
               onClick={() => setIsRevisionDrawerOpen(true)}
             >
               <RotateCcw className="size-4 mr-1.5" />
@@ -394,10 +447,20 @@ export function YourActionRequiredCard({
             <Button
               variant="destructive"
               className="w-full font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={trimmedIssueReason.length < 10}
+              onClick={handleIssueSubmit}
+              disabled={isIssuePending || trimmedIssueReason.length < 10}
             >
-              <AlertTriangle className="size-4" />
-              Submit Issue
+              {isIssuePending ? (
+                <>
+                  <Spinner className="size-4 mr-2" aria-hidden />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="size-4 mr-2" />
+                  Submit Issue
+                </>
+              )}
             </Button>
             <DrawerClose asChild>
               <Button

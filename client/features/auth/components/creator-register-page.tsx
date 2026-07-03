@@ -6,9 +6,9 @@ import { CreatorRegisterForm } from "./creator-register-form";
 
 export function CreatorRegisterPage() {
   return (
-    <div className="grid min-h-dvh lg:h-dvh lg:overflow-hidden lg:grid-cols-[47.5%_52.5%] box-border">
+    <div className="grid min-h-dvh xl:h-dvh xl:overflow-hidden xl:grid-cols-[47.5%_52.5%] box-border">
       <div
-        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 lg:flex"
+        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 xl:flex"
         style={{
           background:
             "linear-gradient(165deg, #fef5ee 0%, #fde9e8 55%, #fbd9d7 100%)",
@@ -44,7 +44,7 @@ export function CreatorRegisterPage() {
             For creators
           </div> */}
 
-          <h1 className="text-4xl font-extrabold tracking-tight lg:text-[40px] mb-4 leading-tight">
+          <h1 className="text-4xl font-extrabold tracking-tight xl:text-[40px] mb-4 leading-tight">
             Get booked by brands. <br />
             <span className="relative inline-block">
               <span className="relative z-10">Stop chasing DMs.</span>
@@ -176,8 +176,8 @@ export function CreatorRegisterPage() {
         </div>
       </div>
 
-      <div className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
-        <div className="shrink-0 border-b border-pink-100/80 px-4 pb-4 pt-4 dark:border-slate-800 lg:hidden">
+      <div className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:h-dvh xl:min-h-0 xl:overflow-hidden">
+        <div className="shrink-0 border-b border-pink-100/80 px-4 pb-4 pt-4 dark:border-slate-800 xl:hidden">
           <AuthLogoLink imageClassName="h-14 sm:h-16" />
           <p className="mt-3 text-base font-bold leading-snug text-slate-900">
             Get booked by brands.{" "}
@@ -187,7 +187,7 @@ export function CreatorRegisterPage() {
             Set your rates, showcase your work, and get discovered by D2C brands.
           </p>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:overflow-hidden">
           <CreatorRegisterForm />
         </div>
       </div>

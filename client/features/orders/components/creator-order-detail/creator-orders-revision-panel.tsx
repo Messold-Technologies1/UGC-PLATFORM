@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { CheckCircle2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -26,6 +27,7 @@ interface CreatorOrderRevisionPanelProps {
   onClose: () => void;
   previewStepId?: string | null;
   onStepClick?: (id: string) => void;
+  isOrderCompleted?: boolean;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -39,6 +41,7 @@ const STEP_LABELS: Record<string, string> = {
 
 const MAX_FILE_SIZE_MB = 250;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1_000_000;
+const revisionUploadsCache: Record<string, File[]> = {};
 
 function fmtDateTime(val?: string | null): string | null {
   if (!val) return null;
@@ -99,13 +102,19 @@ function buildRevisionSteps(order: any): StepDef[] {
 function RevisionNotesCard({
   currentRevision,
   isLoading,
+  orderId,
 }: {
   currentRevision?: OrderCurrentRevision | null;
   isLoading?: boolean;
+  orderId: string;
 }) {
-  const { revisionNotes, requestedDate } = useMemo(() => {
+  const { revisionNotes, requestedDate, isEmptyNote } = useMemo(() => {
     const noteText = currentRevision?.note?.trim();
-    const notes = noteText
+    
+    
+    const isStaticFallback = noteText === "Please review the brand's feedback in the chat and make the requested changes.";
+    
+    const notes = (noteText && !isStaticFallback)
       ? noteText
           .split(/\n/)
           .map((line) => line.replace(/^\d+\.\s*/, "").trim())
@@ -115,6 +124,7 @@ function RevisionNotesCard({
     return {
       revisionNotes: notes,
       requestedDate: fmtDateTime(currentRevision?.requestedAt),
+      isEmptyNote: !noteText || isStaticFallback || notes.length === 0,
     };
   }, [currentRevision]);
 
@@ -126,11 +136,12 @@ function RevisionNotesCard({
         <div className="flex flex-1 items-center justify-center py-8">
           <Spinner className="size-5 text-muted-foreground" />
         </div>
-      ) : revisionNotes.length === 0 ? (
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          No written notes were provided. Please review the brand&apos;s
-          feedback in the chat and make the requested changes.
-        </p>
+      ) : isEmptyNote ? (
+        <div className="flex-1 flex flex-col justify-center items-center text-center p-6 border border-dashed border-border/60 rounded-lg bg-slate-50/50 my-2">
+          <p className="text-sm text-muted-foreground">
+            No revision notes provided.
+          </p>
+        </div>
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-3">
@@ -152,6 +163,18 @@ function RevisionNotesCard({
           Requested on {requestedDate}
         </p>
       )}
+
+      <div className="mt-auto pt-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${orderId}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -173,7 +196,7 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [submissionNote, setSubmissionNote] = useState("");
   const [pendingUpload, setPendingUpload] = useState<{ files: File[] } | null>(
-    null,
+    revisionUploadsCache[orderId] ? { files: revisionUploadsCache[orderId] } : null
   );
   const [previewAssets, setPreviewAssets] = useState<CarouselAsset[]>([]);
 
@@ -214,6 +237,7 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
       return;
     }
 
+    revisionUploadsCache[orderId] = validFiles;
     setPendingUpload({ files: validFiles });
   }, []);
 
@@ -225,6 +249,7 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
       { orderId, files: pendingUpload.files, note },
       {
         onSuccess: () => {
+          delete revisionUploadsCache[orderId];
           setPendingUpload(null);
           setSubmissionNote("");
           toast.success("Revision uploaded successfully!");
@@ -314,7 +339,10 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
               variant="outline"
               className="h-9 flex-1 rounded-lg border-border/50"
               disabled={isUploading}
-              onClick={() => setPendingUpload(null)}
+              onClick={() => {
+                delete revisionUploadsCache[orderId];
+                setPendingUpload(null);
+              }}
             >
               Cancel
             </Button>
@@ -377,6 +405,20 @@ function UploadRevisedVideoCard({ orderId }: { orderId: string }) {
   );
 }
 
+function RevisionApprovedCard() {
+  return (
+    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col justify-center items-center text-center">
+      <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mb-4">
+        <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+      </div>
+      <h3 className="font-bold text-sm mb-2">Revision Approved</h3>
+      <p className="text-sm text-muted-foreground">
+        The brand has approved your revised content. This stage is now complete.
+      </p>
+    </div>
+  );
+}
+
 export function CreatorOrderRevisionPanel({
   selectedOrderId,
   selectedItem,
@@ -386,6 +428,7 @@ export function CreatorOrderRevisionPanel({
   onClose,
   previewStepId,
   onStepClick,
+  isOrderCompleted = false,
 }: CreatorOrderRevisionPanelProps) {
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -421,9 +464,14 @@ export function CreatorOrderRevisionPanel({
         <RevisionNotesCard
           currentRevision={order?.currentRevision}
           isLoading={isLoading}
+          orderId={selectedOrderId}
         />
         <PreviousSubmissionCard orderId={selectedOrderId} />
-        <UploadRevisedVideoCard orderId={selectedOrderId} />
+        {isOrderCompleted ? (
+          <RevisionApprovedCard />
+        ) : (
+          <UploadRevisedVideoCard orderId={selectedOrderId} />
+        )}
       </div>
     </CreatorOrderPanelLayout>
   );

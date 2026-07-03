@@ -22,11 +22,7 @@ export default function AdminCreatorEditPage() {
   const router = useRouter();
   const [isUploadOverlayOpen, setIsUploadOverlayOpen] = useState(false);
 
-  const {
-    data: profile,
-    isLoading,
-    isError,
-  } = useCreatorProfileQuery(id);
+  const { data: profile, isLoading, isError } = useCreatorProfileQuery(id);
 
   if (isLoading) {
     return (
@@ -54,7 +50,10 @@ export default function AdminCreatorEditPage() {
     <div className="space-y-8 p-8">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <PageHeader title={`Creator: ${profile.displayName || "Unknown"}`} />
-        <Dialog open={isUploadOverlayOpen} onOpenChange={setIsUploadOverlayOpen}>
+        <Dialog
+          open={isUploadOverlayOpen}
+          onOpenChange={setIsUploadOverlayOpen}
+        >
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2">
               <Plus className="size-4" />

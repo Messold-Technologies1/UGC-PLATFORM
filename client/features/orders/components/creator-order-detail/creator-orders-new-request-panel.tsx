@@ -15,6 +15,7 @@ import {
   FileVideo,
   Wallet,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -99,6 +100,8 @@ export function CreatorOrderNewRequestPanel({
     return () => clearInterval(interval);
   }, [selectedItem?.order?.createdAt]);
 
+  const hasTimeExceeded = timeLeft !== null && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
+
   if (!selectedItem) return null;
 
   const hasBrief = Boolean(selectedItem.order.hasBrief);
@@ -115,69 +118,78 @@ export function CreatorOrderNewRequestPanel({
 
   return (
     <div className="bg-background rounded-lg border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-fit sticky top-24">
-      <div className="flex items-center justify-between p-5 border-b border-border/40 bg-white">
-        <div className="flex items-center gap-4">
-          <Avatar className="w-12 h-12 rounded-lg bg-[#e8f5e9] text-[#2e7d32]">
-            <AvatarImage
-              src={selectedItem.brand.logoUrl || undefined}
-              className="object-cover rounded-lg"
-            />
-            <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-              {selectedItem.brand.brandName.substring(0, 1).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-border/40 bg-white relative">
+        <div className="flex items-center justify-between gap-4 min-w-0 w-full sm:w-auto">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-[#e8f5e9] text-[#2e7d32] shrink-0">
+              <AvatarImage
+                src={selectedItem.brand.logoUrl || undefined}
+                className="object-cover rounded-lg"
+              />
+              <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
+                {selectedItem.brand.brandName.substring(0, 1).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
 
-          <div className="flex flex-col justify-center gap-1.5">
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-lg leading-none">
-                Order #{selectedItem.order.id.substring(0, 5).toUpperCase()}
-              </h2>
-              <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border-0 font-semibold px-2 py-0">
-                New Request
-              </Badge>
+            <div className="flex flex-col justify-center gap-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-bold text-base sm:text-lg leading-none whitespace-nowrap text-foreground">
+                  Order #{selectedItem.order.id.substring(0, 5).toUpperCase()}
+                </h2>
+                <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border-0 font-semibold px-2 py-0.5 whitespace-nowrap text-[10px] sm:text-[11px] rounded-full">
+                  New Request
+                </Badge>
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-none truncate mt-1">
+                {selectedItem.brand.brandName} •{" "}
+                {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground leading-none">
-              {selectedItem.brand.brandName} •{" "}
-              {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
-            </p>
           </div>
+
+          <button
+            onClick={onClose}
+            className="sm:hidden p-1.5 -mr-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors shrink-0"
+            aria-label="Close panel"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col items-end">
-            <span className="font-bold text-lg leading-none mb-1">
+        <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+          <div className="flex flex-col justify-center items-start sm:items-end gap-1">
+            <span className="font-bold text-base sm:text-lg leading-none text-foreground">
               {new Intl.NumberFormat("en-IN", {
                 style: "currency",
                 currency: "INR",
                 maximumFractionDigits: 0,
               }).format(expectedAmount)}
             </span>
-            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+            <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium uppercase tracking-wider leading-none">
               Est. Payout
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             {hasBrief && (
-              <>
-                <Button 
-                  onClick={() => acceptBriefMutation.mutate({ orderId: selectedOrderId })}
-                  disabled={acceptBriefMutation.isPending}
-                  className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-10 px-5 rounded-lg shadow-sm"
-                >
-                  {acceptBriefMutation.isPending ? (
-                    <Spinner className="w-4 h-4 mr-2" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                  )}
-                  {acceptBriefMutation.isPending ? "Accepting..." : "Accept Order"}
-                </Button>
-              </>
+              <Button 
+                onClick={() => acceptBriefMutation.mutate({ orderId: selectedOrderId })}
+                disabled={acceptBriefMutation.isPending || hasTimeExceeded}
+                className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-9 px-4 sm:h-10 sm:px-5 rounded-lg shadow-sm whitespace-nowrap text-xs sm:text-sm"
+              >
+                {acceptBriefMutation.isPending ? (
+                  <Spinner className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                )}
+                {acceptBriefMutation.isPending ? "Accepting..." : "Accept Order"}
+              </Button>
             )}
 
             <button
               onClick={onClose}
-              className="p-2 ml-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+              className="hidden sm:block p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+              aria-label="Close panel"
             >
               <X className="w-5 h-5" />
             </button>
@@ -186,15 +198,30 @@ export function CreatorOrderNewRequestPanel({
       </div>
 
       <div className="p-6 bg-slate-50/50 space-y-6">
-        <div className="bg-[#fff9e6] border border-[#ffe58f] rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-amber-700 font-medium text-sm">
-            <Clock className="w-5 h-5 text-amber-500" />
-            You have 48 hours to accept or decline this request.
+        <div className={cn(
+          "border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4",
+          hasTimeExceeded 
+            ? "bg-red-50 border-red-200"
+            : "bg-[#fff9e6] border-[#ffe58f]"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2.5 sm:gap-3 font-medium text-xs sm:text-sm",
+            hasTimeExceeded ? "text-red-700" : "text-amber-700"
+          )}>
+            <Clock className={cn(
+              "w-4 h-4 sm:w-5 sm:h-5 shrink-0",
+              hasTimeExceeded ? "text-red-500" : "text-amber-500"
+            )} />
+            <span>
+              {hasTimeExceeded 
+                ? "This order request has expired because it was not accepted in time." 
+                : `You have ${timeLeft?.hours ?? 48} hrs left to accept this order.`}
+            </span>
           </div>
-          {timeLeft && (
-            <div className="flex items-center gap-2 text-amber-700 font-bold text-sm bg-white/60 px-3 py-1 rounded-md border border-amber-200/60">
-              <Clock className="w-4 h-4 text-amber-500" />
-              {String(timeLeft.hours ?? 0).padStart(2, '0')}h : {String(timeLeft.minutes ?? 0).padStart(2, '0')}m : {String(timeLeft.seconds ?? 0).padStart(2, '0')}s left
+          {timeLeft && !hasTimeExceeded && (
+            <div className="flex items-center gap-2 text-amber-700 font-bold text-xs sm:text-sm bg-white/60 px-3 py-1.5 sm:py-1 rounded-md border border-amber-200/60 shrink-0">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+              <span>{String(timeLeft.hours ?? 0).padStart(2, '0')}h : {String(timeLeft.minutes ?? 0).padStart(2, '0')}m : {String(timeLeft.seconds ?? 0).padStart(2, '0')}s left</span>
             </div>
           )}
         </div>
@@ -206,7 +233,7 @@ export function CreatorOrderNewRequestPanel({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px_280px] gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
               <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-base">Brief</h3>
@@ -221,23 +248,13 @@ export function CreatorOrderNewRequestPanel({
                   </Button>
                 </div>
 
-                <div className="mb-6">
-                  <p className="text-sm text-foreground/90 leading-relaxed mb-2">
-                    {briefData?.brief?.creativeGuidance ||
-                      "Create an engaging 60-second UGC video..."}
-                  </p>
-                  <button className="text-sm font-bold text-[#4318FF] hover:underline">
-                    Show more
-                  </button>
-                </div>
-
-                <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 mt-2">
                   <div className="grid grid-cols-[140px_1fr] items-start">
                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
                       <Music className="w-3.5 h-3.5" /> Video Type
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.contentType ? formatEnumLabel(briefData.brief.contentType) : "UGC Testimonial"}
+                      {briefData?.brief?.contentType ? formatEnumLabel(briefData.brief.contentType) : selectedItem.order.packageNameSnapshot || "Not specified"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -253,7 +270,7 @@ export function CreatorOrderNewRequestPanel({
                       <MessageSquare className="w-3.5 h-3.5" /> Language
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.language || "English"}
+                      {briefData?.brief?.language || "Not specified"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -261,7 +278,7 @@ export function CreatorOrderNewRequestPanel({
                       <Star className="w-3.5 h-3.5" /> Tone
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {briefData?.brief?.toneStyle ? formatEnumLabel(briefData.brief.toneStyle) : "Natural, Authentic"}
+                      {briefData?.brief?.toneStyle ? formatEnumLabel(briefData.brief.toneStyle) : "Not specified"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -269,7 +286,7 @@ export function CreatorOrderNewRequestPanel({
                       <CheckCircle2 className="w-3.5 h-3.5" /> Usage Rights
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      Organic Social + Paid Ads
+                      Not specified
                     </span>
                   </div>
                   <div className="grid grid-cols-[140px_1fr] items-start">
@@ -280,7 +297,7 @@ export function CreatorOrderNewRequestPanel({
                       <span className="text-sm font-medium text-foreground">
                         1{" "}
                         {selectedItem.order.packageNameSnapshot ||
-                          "UGC Video (60s)"}
+                          "Deliverable"}
                       </span>
                       <span className="text-xs text-muted-foreground mt-0.5">
                         9:16 Aspect Ratio
@@ -300,151 +317,45 @@ export function CreatorOrderNewRequestPanel({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
-                  <div>
-                    <h3 className="font-bold text-base mb-4">Brand</h3>
+              <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col h-fit">
+                <h3 className="font-bold text-base mb-4">Earnings</h3>
 
-                    <div className="flex items-center gap-4 mb-8">
-                      <Avatar className="w-12 h-12 rounded-lg bg-[#e8f5e9] text-[#2e7d32]">
-                        <AvatarImage
-                          src={selectedItem.brand.logoUrl || undefined}
-                          className="object-cover rounded-lg"
-                        />
-                        <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                          {selectedItem.brand.brandName
-                            .substring(0, 1)
-                            .toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="font-bold text-sm leading-none">
-                          {selectedItem.brand.brandName}
-                        </span>
-                        <Button
-                          variant="outline"
-                          className="h-6 text-[10px] text-[#4318FF] border-[#4318FF]/20 bg-[#4318FF]/5 px-2 font-bold hover:bg-[#4318FF]/10 hover:text-[#4318FF]"
-                        >
-                          View Profile
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-center mt-auto">
-                    <div className="flex flex-col gap-1 border-r border-border/50">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Orders
-                      </span>
-                      <span className="font-bold text-base">0</span>
-                    </div>
-                    <div className="flex flex-col gap-1 border-r border-border/50">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Completed
-                      </span>
-                      <span className="font-bold text-base">0</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Rating
-                      </span>
-                      <div className="flex items-center justify-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span className="font-bold text-base">0.0</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col flex-1">
-                  <h3 className="font-bold text-base mb-4">Earnings</h3>
-
-                  <div className="space-y-3 flex-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground font-medium">
-                        Base Payout
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(baseAmount - addOnsTotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground font-medium">
-                        Add-ons (
-                        {detailsData?.order?.addOnsSnapshot?.length || 0})
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(addOnsTotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center pb-3 border-b border-border/50">
-                      <span className="text-sm text-muted-foreground font-medium">
-                        Platform Fee
-                      </span>
-                      <span className="text-sm font-semibold text-foreground">
-                        ₹0
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="text-sm font-bold">Est. Payout</span>
-                      <span className="text-2xl font-black text-[#4318FF]">
-                        {new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(expectedAmount)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col">
-                  <div>
-                    <h3 className="font-bold text-base mb-4">
-                      Message from Brand
-                    </h3>
-
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 text-sm text-foreground/80 flex flex-col justify-center text-center">
-                      <p className="italic text-muted-foreground">
-                        No message provided yet.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-[10px] text-muted-foreground mt-3">
-                    Sent on{" "}
-                    {new Intl.DateTimeFormat("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    }).format(new Date(selectedItem.order.createdAt))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col flex-1">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-base">Brand Attachments</h3>
-                    <span className="text-xs text-muted-foreground font-semibold">
-                      0 files
+                <div className="space-y-3 flex-1 flex flex-col">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      Base Payout
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(baseAmount - addOnsTotal)}
                     </span>
                   </div>
-
-                  <div className="flex-1 flex flex-col justify-center items-center text-center p-4 border border-dashed border-border/60 rounded-lg bg-slate-50/50">
-                    <p className="text-sm text-muted-foreground">
-                      No attachments provided.
-                    </p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      Add-ons (
+                      {detailsData?.order?.addOnsSnapshot?.length || 0})
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(addOnsTotal)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-4 mt-2 border-t border-border/50">
+                    <span className="text-sm font-bold">Est. Payout</span>
+                    <span className="text-2xl font-black text-[#4318FF]">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(expectedAmount)}
+                    </span>
                   </div>
                 </div>
               </div>

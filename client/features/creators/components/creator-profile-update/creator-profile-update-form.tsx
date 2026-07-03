@@ -26,6 +26,8 @@ import {
   CalendarIcon,
   Camera,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Film,
   Layers,
   MapPin,
@@ -39,6 +41,7 @@ import {
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { capitalizeFirstLetter } from "@/lib/string-lists";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -170,6 +173,9 @@ type CreatorProfileUpdateFormContentProps = CreatorProfileUpdateFormProps & {
   onRequestReset: () => void;
 };
 
+const PROFILE_MOBILE_NAV_STICKY_CLASS =
+  "sticky top-0 z-40 shrink-0 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6] -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12";
+
 export function CreatorProfileUpdateForm({
   variant,
   mode,
@@ -252,6 +258,18 @@ function CreatorProfileUpdateFormContent({
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({
     enabled: Boolean(user),
   });
+  const portfolioIndustrySuggestions = useMemo(
+    () =>
+      (industrySuggestionsQuery.data ?? []).map((name) =>
+        capitalizeFirstLetter(name),
+      ),
+    [industrySuggestionsQuery.data],
+  );
+  const portfolioTagSuggestions = useMemo(
+    () =>
+      (tagSuggestionsQuery.data ?? []).map((name) => capitalizeFirstLetter(name)),
+    [tagSuggestionsQuery.data],
+  );
   const languageSuggestionsQuery = usePortfolioLanguageSuggestionsQuery({
     enabled: Boolean(user),
   });
@@ -394,6 +412,52 @@ function CreatorProfileUpdateFormContent({
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
 
+  const mobileNavRef = useRef<HTMLElement | null>(null);
+  const mobileNavWrapRef = useRef<HTMLDivElement | null>(null);
+  const [navArrows, setNavArrows] = useState({ left: false, right: false });
+
+  const getMobileNavOffset = useCallback(() => {
+    const navHeight = mobileNavWrapRef.current?.offsetHeight ?? 56;
+    return navHeight + 12;
+  }, []);
+
+  const updateNavArrows = useCallback(() => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setNavArrows({
+      left: scrollLeft > 4,
+      right: scrollLeft + clientWidth < scrollWidth - 4,
+    });
+  }, []);
+
+  const scrollMobileNav = useCallback((dir: -1 | 1) => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    el.scrollBy({
+      left: dir * Math.max(180, el.clientWidth * 0.7),
+      behavior: "smooth",
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    updateNavArrows();
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateNavArrows)
+        : null;
+    ro?.observe(el);
+    el.addEventListener("scroll", updateNavArrows, { passive: true });
+    window.addEventListener("resize", updateNavArrows);
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener("scroll", updateNavArrows);
+      window.removeEventListener("resize", updateNavArrows);
+    };
+  }, [updateNavArrows]);
+
   // One-way Go-Live latch from the server. Once true the profile is live and the
   // button reverts to a normal "Save changes" (edits no longer gated).
   const completeProfile = Boolean(initialProfile?.completeProfile);
@@ -528,7 +592,8 @@ function CreatorProfileUpdateFormContent({
     if (variant !== "settings") return;
 
     function onScroll() {
-      const offset = 120;
+      const isMobileNav = window.matchMedia("(max-width: 900px)").matches;
+      const offset = isMobileNav ? getMobileNavOffset() : 120;
       let current = NAV_ITEMS[0].id;
       for (const item of NAV_ITEMS) {
         const el = document.getElementById(`pe-section-${item.id}`);
@@ -548,13 +613,17 @@ function CreatorProfileUpdateFormContent({
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [variant]);
+  }, [variant, getMobileNavOffset]);
 
   function scrollToSection(id: string) {
     const el = document.getElementById(`pe-section-${id}`);
     if (el) {
+      const isMobileNav =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 900px)").matches;
+      const offset = isMobileNav ? getMobileNavOffset() : 76;
       window.scrollTo({
-        top: el.getBoundingClientRect().top + window.scrollY - 76,
+        top: el.getBoundingClientRect().top + window.scrollY - offset,
         behavior: "smooth",
       });
     }
@@ -799,6 +868,10 @@ function CreatorProfileUpdateFormContent({
     portfolioQuery.data,
   ]);
 
+  useEffect(() => {
+    updateNavArrows();
+  }, [navCounts, updateNavArrows]);
+
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
@@ -819,20 +892,91 @@ function CreatorProfileUpdateFormContent({
   const isSettings = variant === "settings";
 
   return (
-    <div className={cn("pe-scope", !isSettings && "pe-onboarding")}>
+    <div
+      className={cn(
+        "pe-scope flex flex-1 w-full min-w-0 flex-col",
+        !isSettings && "pe-onboarding",
+      )}
+    >
       {confirmDialog}
-      <motion.form
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        onSubmit={(event) => void handleSubmit(event)}
-      >
-        {isSettings ? (
+      {isSettings ? (
+        <>
+          <div
+            ref={mobileNavWrapRef}
+            className={cn(
+              "pe-nav-mobile-wrap",
+              PROFILE_MOBILE_NAV_STICKY_CLASS,
+              "max-[900px]:block min-[901px]:hidden",
+            )}
+            data-left={navArrows.left}
+            data-right={navArrows.right}
+            aria-label="Profile sections"
+          >
+            <div className="relative w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3">
+              <button
+                type="button"
+                className="pe-nav-mobile-arrow"
+                data-dir="left"
+                data-show={navArrows.left}
+                aria-label="Scroll sections left"
+                tabIndex={navArrows.left ? 0 : -1}
+                onClick={() => scrollMobileNav(-1)}
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <nav className="pe-nav-mobile" ref={mobileNavRef}>
+                {NAV_ITEMS.map((item) => {
+                  const count =
+                    item.id === "niche"
+                      ? navCounts.niche
+                      : item.id === "portfolio"
+                        ? navCounts.portfolio
+                        : null;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="pe-nav-mobile-link"
+                      data-active={activeSection === item.id}
+                      onClick={() => scrollToSection(item.id)}
+                    >
+                      {item.label}
+                      {count != null ? (
+                        <span className="pe-nav-mobile-count">{count}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              <button
+                type="button"
+                className="pe-nav-mobile-arrow"
+                data-dir="right"
+                data-show={navArrows.right}
+                aria-label="Scroll sections right"
+                tabIndex={navArrows.right ? 0 : -1}
+                onClick={() => scrollMobileNav(1)}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+
           <div className="mb-4 space-y-4">
             <CreatorSpotlightProgram />
             {!completeProfile ? <GoLiveBanner missing={goLiveMissing} /> : null}
           </div>
-        ) : null}
+        </>
+      ) : null}
+      <motion.form
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="flex min-w-0 flex-1 flex-col"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         {isSettings ? (
           <div className="pe-shell">
             <nav className="pe-nav" data-tour="creator-profile-edit-nav">
@@ -856,34 +1000,6 @@ function CreatorProfileUpdateFormContent({
                     {item.label}
                     {count != null ? (
                       <span className="pe-nav-count">{count}</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </nav>
-
-            <nav
-              className="pe-nav-mobile"
-              aria-label="Profile sections"
-            >
-              {NAV_ITEMS.map((item) => {
-                const count =
-                  item.id === "niche"
-                    ? navCounts.niche
-                    : item.id === "portfolio"
-                      ? navCounts.portfolio
-                      : null;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="pe-nav-mobile-link"
-                    data-active={activeSection === item.id}
-                    onClick={() => scrollToSection(item.id)}
-                  >
-                    {item.label}
-                    {count != null ? (
-                      <span className="pe-nav-mobile-count">{count}</span>
                     ) : null}
                   </button>
                 );
@@ -1653,7 +1769,7 @@ function CreatorProfileUpdateFormContent({
                   </p>
                 )}
                 <span className="pe-help">
-                  Total brand projects you've delivered.
+                  Total brand projects you&apos;ve delivered.
                 </span>
               </div>
             </div>
@@ -1811,8 +1927,8 @@ function CreatorProfileUpdateFormContent({
         thumbInputRef={pfThumbInputRef}
         onSelectVideoFile={setPfPendingVideoFile}
         onSelectThumbFile={setPfPendingThumbFile}
-        industrySuggestions={industrySuggestionsQuery.data ?? []}
-        tagSuggestions={tagSuggestionsQuery.data ?? []}
+        industrySuggestions={portfolioIndustrySuggestions}
+        tagSuggestions={portfolioTagSuggestions}
         languageOptions={(facets.facetOptionsByDimension.LANGUAGE ?? []).map(
           (lang) => ({ value: lang.slug, label: lang.label }),
         )}

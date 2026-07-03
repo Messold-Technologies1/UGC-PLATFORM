@@ -22,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 import { useGetCreatorOrdersQuery } from "../../hooks/use-get-creator-orders-query";
 import type { CreatorOrderListItem } from "../../api/get-creator-orders";
@@ -36,7 +42,6 @@ import {
   isCreatorOrdersTab,
   getCreatorOrdersTabForStatus,
 } from "./creator-orders-tabs";
-import { CreatorOrdersFilters } from "./creator-orders-filters";
 import { CreatorOrdersDetailsPanel } from "./creator-orders-details-panel";
 
 function CreatorOrdersListInner() {
@@ -45,6 +50,8 @@ function CreatorOrdersListInner() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const activeTab = isCreatorOrdersTab(tabParam) ? tabParam : "all";
+
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(6);
@@ -168,11 +175,6 @@ function CreatorOrdersListInner() {
         )}
       >
         <div className="space-y-6">
-          <CreatorOrdersFilters
-            activeTab={activeTab}
-            isCompact={Boolean(selectedOrderId)}
-          />
-
           <div
             className={cn(
               "space-y-3",
@@ -211,10 +213,10 @@ function CreatorOrdersListInner() {
               </div>
             )}
 
-            {!isLoading &&
-              displayItems.map(({ order, brand }) => {
+            {!isLoading && displayItems.map(({ order, brand }) => {
                 const isSelected = selectedOrderId === order.id;
                 const isNarrowLayout = Boolean(
+                  isDesktop &&
                   selectedOrderId &&
                   (activeTab === "new" ||
                     activeTab === "active" ||
@@ -237,12 +239,26 @@ function CreatorOrdersListInner() {
                   }).format(new Date(dateString));
                 };
 
+                let badgeLabel = STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] || order.status;
+                let badgeColor = STATUS_COLORS[order.status as string] || "bg-muted text-muted-foreground";
+
+                if (
+                  order.requiresPhysicalProductShipment &&
+                  (order.status === "BRIEF_ACCEPTED" || order.status === "PRODUCT_SHIPPED")
+                ) {
+                  badgeLabel = "Awaiting Shipment";
+                  badgeColor = "bg-amber-500/10 text-amber-600 border-amber-500/20";
+                }
+
                 let deliveryText = "ETA: To Be Determined";
                 if (
                   order.status === "DELIVERED" ||
-                  order.status === "COMPLETED"
+                  order.status === "COMPLETED" ||
+                  order.status === "REVISION_SUBMITTED" ||
+                  order.status === "REVISION_REQUESTED"
                 ) {
-                  deliveryText = `${order.status === "DELIVERED" ? "Delivered" : "Completed"} on ${formattedDate(order.updatedAt) || "recently"}`;
+                  const prefix = order.status === "COMPLETED" ? "Completed" : "Delivered";
+                  deliveryText = `${prefix} on ${formattedDate(order.updatedAt) || "recently"}`;
                 } else if (order.deliveryDueAt || order.deliveryDaysSnapshot) {
                   if (deadlineMeta.label === "Grace ends") {
                     deliveryText = `Grace ends ${deadlineMeta.value}`;
@@ -280,7 +296,7 @@ function CreatorOrdersListInner() {
                       <div
                         className={cn(
                           "flex-1 min-w-0 w-full",
-                          isNarrowLayout ? "flex flex-col gap-2.5" : "flex lg:hidden flex-col gap-2.5",
+                          isNarrowLayout ? "flex flex-col gap-2.5" : "flex md:hidden flex-col gap-2.5",
                         )}
                       >
                         <div className="flex items-start justify-between gap-2 min-w-0">
@@ -306,13 +322,10 @@ function CreatorOrdersListInner() {
                                 variant="outline"
                                 className={cn(
                                   "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
-                                  STATUS_COLORS[order.status as string] ||
-                                    "bg-muted text-muted-foreground",
+                                  badgeColor,
                                 )}
                               >
-                                {STATUS_LABELS[
-                                  order.status as keyof typeof STATUS_LABELS
-                                ] || order.status}
+                                {badgeLabel}
                               </Badge>
                             </div>
                             <span className="text-xs text-muted-foreground truncate">
@@ -352,15 +365,12 @@ function CreatorOrdersListInner() {
                       </div>
 
                       {!isNarrowLayout && (
-                        <div className="flex-1 hidden lg:flex items-center justify-between w-full ml-4">
-                          <div className="flex flex-col gap-1.5 min-w-[160px] xl:min-w-[200px]">
-                            <span className="font-bold text-sm text-foreground">
-                              {displayId}
-                            </span>
-                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                              <h3 className="font-semibold text-sm text-foreground/90 truncate max-w-[120px] xl:max-w-[150px]">
-                                {brand.brandName}
-                              </h3>
+                        <div className="flex-1 hidden md:flex items-center justify-between w-full ml-4">
+                          <div className="flex flex-col gap-1.5 min-w-[180px] xl:min-w-[220px]">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-foreground">
+                                {displayId}
+                              </span>
                               {isNew && (
                                 <Badge
                                   variant="secondary"
@@ -369,17 +379,19 @@ function CreatorOrdersListInner() {
                                   New Request
                                 </Badge>
                               )}
+                            </div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <h3 className="font-semibold text-sm text-foreground/90 truncate max-w-[120px] xl:max-w-[150px]">
+                                {brand.brandName}
+                              </h3>
                               <Badge
                                 variant="outline"
                                 className={cn(
                                   "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold border-transparent",
-                                  STATUS_COLORS[order.status as string] ||
-                                    "bg-muted text-muted-foreground",
+                                  badgeColor,
                                 )}
                               >
-                                {STATUS_LABELS[
-                                  order.status as keyof typeof STATUS_LABELS
-                                ] || order.status}
+                                {badgeLabel}
                               </Badge>
                             </div>
                           </div>
@@ -426,7 +438,7 @@ function CreatorOrdersListInner() {
               })}
 
             {(activeTab === "all" || !selectedOrderId) && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
+              <div className="hidden sm:flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-6 mt-8 pb-4 w-full">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 whitespace-nowrap">
                     <span className="text-sm text-muted-foreground">Page</span>
@@ -559,13 +571,33 @@ function CreatorOrdersListInner() {
         </div>
 
         {selectedOrderId && selectedItem && (
-          <CreatorOrdersDetailsPanel
-            selectedOrderId={selectedOrderId}
-            selectedItem={selectedItem}
-            activeTab={activeTab}
-            onClose={() => setSelectedOrderId(null)}
-            onTabChange={handleTabChange}
-          />
+          isDesktop ? (
+            <CreatorOrdersDetailsPanel
+              selectedOrderId={selectedOrderId}
+              selectedItem={selectedItem}
+              activeTab={activeTab}
+              onClose={() => setSelectedOrderId(null)}
+              onTabChange={handleTabChange}
+            />
+          ) : (
+            <Drawer
+              open={!!selectedOrderId}
+              onOpenChange={(open) => !open && setSelectedOrderId(null)}
+            >
+              <DrawerContent className="max-h-[90vh] p-0 bg-background border-none">
+                <DrawerTitle className="sr-only">Order Details</DrawerTitle>
+                <div className="overflow-y-auto w-full h-full p-4 sm:p-6 pb-8">
+                  <CreatorOrdersDetailsPanel
+                    selectedOrderId={selectedOrderId}
+                    selectedItem={selectedItem}
+                    activeTab={activeTab}
+                    onClose={() => setSelectedOrderId(null)}
+                    onTabChange={handleTabChange}
+                  />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          )
         )}
       </div>
     </div>

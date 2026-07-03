@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/brand/orders/:orderId/brief",
+        destination: "/brand/orders/:orderId",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

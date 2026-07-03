@@ -190,10 +190,12 @@ export function DeliveredVideosCard({
 
   const isEmpty = !latestDelivery || allAssets.length === 0;
 
-  const primaryFilename = primaryVideo
-    ? filenameFromKey(primaryVideo.key)
+  const primaryAsset = primaryVideo ?? allAssets[0] ?? null;
+
+  const primaryFilename = primaryAsset
+    ? filenameFromKey(primaryAsset.key)
     : "Pending Delivery...";
-  const shortPrimaryFilename = primaryVideo 
+  const shortPrimaryFilename = primaryAsset 
     ? formatShortFilename(primaryFilename, 30) 
     : primaryFilename;
 
@@ -294,62 +296,26 @@ export function DeliveredVideosCard({
 
             <div className="flex items-center gap-2.5 mt-6">
               {isCompleted ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() =>
-                      primaryVideo && downloadAsset(primaryVideo.url, primaryFilename)
-                    }
-                    disabled={isEmpty}
-                  >
-                    <Download className="size-3.5 mr-1.5" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-9 rounded-lg text-muted-foreground h-9 w-9"
-                    onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
-                    disabled={isEmpty}
-                  >
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg font-semibold text-xs px-4 h-9"
+                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
+                  disabled={isEmpty}
+                >
+                  <ExternalLink className="size-3.5 mr-1.5" />
+                  Open Link
+                </Button>
               ) : (
-                <>
-                  <Button
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() => primaryVideo && openInNewTab(primaryVideo.url)}
-                    disabled={isEmpty}
-                  >
-                    <Eye className="size-3.5 mr-1.5" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg font-semibold text-xs px-4 h-9"
-                    onClick={() =>
-                      primaryVideo &&
-                      downloadAsset(primaryVideo.url, primaryFilename)
-                    }
-                    disabled={isEmpty}
-                  >
-                    <Download className="size-3.5 mr-1.5" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-9 rounded-lg text-muted-foreground"
-                    disabled={isEmpty}
-                  >
-                    <MoreVertical className="size-4" />
-                  </Button>
-                </>
+                <Button
+                  size="sm"
+                  className="rounded-lg font-semibold text-xs px-4 h-9"
+                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
+                  disabled={isEmpty}
+                >
+                  <Eye className="size-3.5 mr-1.5" />
+                  Preview
+                </Button>
               )}
             </div>
           </div>

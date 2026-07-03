@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../../api/types";
+import { useCreatorProfileQuery } from "../../../creators/hooks/use-creator-profile-query";
 
 interface CreatorProfileCardProps {
   creator: OrderCreatorSnapshot;
@@ -21,13 +22,14 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-
-
 export function CreatorProfileCard({
   creator,
   order,
 }: CreatorProfileCardProps) {
   const creatorName = creator.displayName || "Creator";
+  const { data: creatorProfile } = useCreatorProfileQuery(creator.id, {
+    enabled: !!creator.id,
+  });
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
@@ -46,9 +48,7 @@ export function CreatorProfileCard({
 
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-sm font-bold text-foreground">
-              {creatorName}
-            </h4>
+            <h4 className="text-sm font-bold text-foreground">{creatorName}</h4>
             <Badge className="rounded-full bg-primary/10 text-primary border-primary/20 text-[10px] font-semibold px-2 py-0">
               Top Creator
             </Badge>
@@ -60,9 +60,12 @@ export function CreatorProfileCard({
 
           <div className="flex items-center gap-1.5 mt-1">
             <Star className="size-3.5 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-semibold text-foreground">4.9</span>
+            <span className="text-xs font-semibold text-foreground">
+              {creator.avgRating ?? creatorProfile?.avgRating ?? "New"}
+            </span>
             <span className="text-xs text-muted-foreground underline underline-offset-2">
-              (126 reviews)
+              ({creator.reviewCount ?? creatorProfile?.reviewCount ?? 0}{" "}
+              reviews)
             </span>
           </div>
         </div>

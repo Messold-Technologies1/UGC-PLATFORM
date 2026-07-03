@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState, useMemo, useEffect } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { isAxiosError } from "axios";
 import {
   Image as ImageIcon,
   Play,
   Plus,
+  FolderPlus,
   Trash2,
   ExternalLink,
   Settings,
@@ -17,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,9 +38,13 @@ import {
 } from "@/components/ui/dialog";
 import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy";
 import { CreatorPortfolioTagsModal } from "./creator-portfolio-tags-modal";
+import { CreatorPortfolioSectionsView } from "./creator-portfolio-sections-view";
+import { ManageSectionsModal } from "./manage-sections-modal";
+import { VideoSectionAssignmentModal } from "./video-section-assignment-modal";
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
+import { useMyPortfolioSectionsQuery } from "../hooks/use-portfolio-sections";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import {
   creatorPublicProfileDisplayUrlForProfile,
@@ -73,25 +79,52 @@ function errorMessage(err: unknown): string {
 export function CreatorPortfolioManager() {
   const [isUploadOverlayOpen, setIsUploadOverlayOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [editingTagsVideo, setEditingTagsVideo] = useState<PortfolioVideoApi | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [editingTagsVideo, setEditingTagsVideo] =
+    useState<PortfolioVideoApi | null>(null);
   const [showBanner, setShowBanner] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
+  
+  const activeTab = searchParams?.get("tab") === "sections" ? "sections" : "all";
+  
+  const [isManageSectionsOpen, setIsManageSectionsOpen] = useState(false);
+  const [assignVideoId, setAssignVideoId] = useState<string | null>(null);
   // const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] = useState("all-categories");
   const [selectedSort, setSelectedSort] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(6);
 
-  useEffect(() => {
+  const setActiveTab = useCallback((tab: string) => {
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    if (tab === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [searchParams, pathname, router]);
+
+  const handleCategoryChange = useCallback((value: string) => {
+    setSelectedCategory(value);
     setVisibleCount(6);
-  }, [selectedCategory, selectedSort]);
+  }, []);
+
+  const handleSortChange = useCallback((value: string) => {
+    setSelectedSort(value);
+    setVisibleCount(6);
+  }, []);
 
   const deletePortfolioVideoMutation = useDeletePortfolioVideoMutation();
   const videosQuery = useMyPortfolioVideosQuery({
     staleTime: 5 * 60_000,
   });
+  const sectionsQuery = useMyPortfolioSectionsQuery();
+  const sectionsCount = sectionsQuery.data?.length ?? 0;
   const profileQuery = useCreatorProfileMeQuery();
 
-  const videos = videosQuery.data ?? [];
+  const videos = useMemo(() => videosQuery.data ?? [], [videosQuery.data]);
   const loading = videosQuery.isPending;
   const publicProfileDisplayUrl = profileQuery.data
     ? creatorPublicProfileDisplayUrlForProfile(profileQuery.data)
@@ -262,26 +295,56 @@ export function CreatorPortfolioManager() {
                   {staticCounts.all}
                 </span>
               </button>
+              <button
+                onClick={() => setActiveTab("sections")}
+                className={`flex items-center gap-2 pb-2 border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "sections"
+                    ? "border-primary text-primary font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sections
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === "sections" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                >
+                  {sectionsCount}
+                </span>
+              </button>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <Button asChild className="gap-2">
-                <Link href="/creator/portfolio/upload" data-tour="creator-portfolio-upload">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto sm:shrink-0">
+              <Button asChild className="gap-2 flex-1 sm:flex-none">
+                <Link
+                  href="/creator/portfolio/upload"
+                  data-tour="creator-portfolio-upload"
+                >
                   <Plus className="size-4" />
                   Add New Work
                 </Link>
               </Button>
-              <Button variant="outline" className="gap-2 bg-background">
+              <Button
+                variant="outline"
+                className="gap-2 bg-background flex-1 sm:flex-none"
+                onClick={() => setIsManageSectionsOpen(true)}
+              >
                 <Settings className="size-4" />
                 Manage Sections
               </Button>
-              <Button variant="outline" className="gap-2 bg-background" asChild>
+              <Button
+                variant="outline"
+                className="gap-2 bg-background basis-full sm:basis-auto"
+                asChild
+              >
                 <Link
                   href={publicProfilePath ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-disabled={!publicProfilePath}
-                  className={!publicProfilePath ? "pointer-events-none opacity-50" : undefined}
+                  className={
+                    !publicProfilePath
+                      ? "pointer-events-none opacity-50"
+                      : undefined
+                  }
                 >
                   View my public profile <ExternalLink className="size-4" />
                 </Link>
@@ -300,23 +363,25 @@ export function CreatorPortfolioManager() {
                     Organize your portfolio in sections
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Sections help brands find the type of content they're
+                    Sections help brands find the type of content they&apos;re
                     looking for easily.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2 bg-background border-primary/20 text-primary hover:bg-primary/10 hover:text-primary w-full sm:w-auto"
+                  className="gap-2 bg-background border-primary/20 text-primary hover:bg-primary/10 hover:text-primary flex-1 sm:flex-none sm:w-auto"
+                  onClick={() => setIsManageSectionsOpen(true)}
                 >
                   <Plus className="size-3.5" />
                   Create Section
                 </Button>
                 <button
                   onClick={() => setShowBanner(false)}
-                  className="text-muted-foreground hover:text-foreground hidden sm:block"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Dismiss"
                 >
                   <X className="size-5" />
                 </button>
@@ -324,11 +389,15 @@ export function CreatorPortfolioManager() {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
+          {activeTab === "sections" ? (
+            <CreatorPortfolioSectionsView />
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <Select
                 value={selectedCategory}
-                onValueChange={setSelectedCategory}
+                onValueChange={handleCategoryChange}
               >
                 <SelectTrigger className="w-[140px] bg-background">
                   <SelectValue placeholder="All Categories" />
@@ -343,7 +412,7 @@ export function CreatorPortfolioManager() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedSort} onValueChange={setSelectedSort}>
+              <Select value={selectedSort} onValueChange={handleSortChange}>
                 <SelectTrigger className="w-[130px] bg-background">
                   <SelectValue placeholder="Newest First" />
                 </SelectTrigger>
@@ -387,22 +456,6 @@ export function CreatorPortfolioManager() {
                   data-tour="creator-portfolio-cards"
                 >
                   {displayedVideos.slice(0, visibleCount).map((v, index) => {
-                    const cardTitle =
-                      v.description?.trim() || "Portfolio video";
-                    const createdLabel = new Date(
-                      v.createdAt,
-                    ).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    });
-                    const industryName =
-                      v.industryLabel?.trim() || "Brand Work";
-                    const fallbackInitials = industryName
-                      .substring(0, 2)
-                      .toUpperCase();
-                    const tagDisplay = v.tags?.[0]?.trim() || "UGC Video";
-
                     const updateDuration = (video: HTMLVideoElement | null) => {
                       if (video && video.duration && isFinite(video.duration)) {
                         const minutes = Math.floor(video.duration / 60);
@@ -419,7 +472,9 @@ export function CreatorPortfolioManager() {
                       <div
                         key={v.id}
                         className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:shadow-md"
-                        data-tour={index === 0 ? "creator-portfolio-card" : undefined}
+                        data-tour={
+                          index === 0 ? "creator-portfolio-card" : undefined
+                        }
                       >
                         <div
                           className="relative aspect-video overflow-hidden bg-muted w-full rounded-t-lg group"
@@ -505,11 +560,24 @@ export function CreatorPortfolioManager() {
                                 className="flex-1 border-2 border-dotted border-muted-foreground/40 bg-transparent text-muted-foreground hover:border-muted-foreground hover:bg-transparent text-xs h-8 justify-start px-2"
                                 onClick={() => setEditingTagsVideo(v)}
                                 data-tour={
-                                  index === 0 ? "creator-portfolio-edit-tags" : undefined
+                                  index === 0
+                                    ? "creator-portfolio-edit-tags"
+                                    : undefined
                                 }
                               >
                                 <Plus className="size-3 mr-1.5" />
-                                {v.tags && v.tags.length > 0 ? "edit tags" : "add tags for better search"}
+                                {v.tags && v.tags.length > 0
+                                  ? "edit tags"
+                                  : "add tags for better search"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 h-8 w-8 text-muted-foreground bg-transparent hover:bg-muted/50 hover:text-foreground"
+                                onClick={() => setAssignVideoId(v.id)}
+                                title="Add to section"
+                              >
+                                <FolderPlus className="size-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -526,12 +594,6 @@ export function CreatorPortfolioManager() {
                               </Button>
                             </div>
                           </div>
-
-                          {/* <div className="flex items-center justify-end gap-3 mt-2">
-                            <span className="font-medium text-xs text-muted-foreground">
-                              {createdLabel}
-                            </span>
-                          </div> */}
                         </div>
                       </div>
                     );
@@ -549,6 +611,8 @@ export function CreatorPortfolioManager() {
                   </Button>
                 </div>
               )}
+            </>
+          )}
             </>
           )}
         </div>
@@ -593,7 +657,7 @@ export function CreatorPortfolioManager() {
                   Add More
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[70vw] max-w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[94vw] max-w-[94vw] sm:w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
                 <DialogTitle className="sr-only">Add New Work</DialogTitle>
                 <CreatorPortfolioUploadForm
                   isOverlay
@@ -662,12 +726,12 @@ export function CreatorPortfolioManager() {
                 No categories yet
               </div>
             )}
-            <Link
+            {/* <Link
               href="#"
               className="text-xs font-semibold text-primary hover:underline flex items-center justify-center mt-2"
             >
               Manage Categories &gt;
-            </Link>
+            </Link> */}
           </div>
 
           <div
@@ -731,9 +795,6 @@ export function CreatorPortfolioManager() {
                 </div>
               </div>
             </div>
-            {/* <Link href="#" className="text-xs font-semibold text-primary hover:underline flex items-center justify-center mt-6">
-              View Portfolio Guide &gt;
-            </Link> */}
           </div>
 
           <div className="rounded-lg border border-border bg-background p-5">
@@ -742,7 +803,8 @@ export function CreatorPortfolioManager() {
             </h3>
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 bg-muted rounded-lg px-3 py-2 text-xs font-medium text-primary truncate border border-border/50">
-                {publicProfileDisplayUrl ?? "Set your display name to get a link"}
+                {publicProfileDisplayUrl ??
+                  "Set your display name to get a link"}
               </div>
               <Button
                 type="button"
@@ -769,6 +831,14 @@ export function CreatorPortfolioManager() {
         onOpenChange={(open) => {
           if (!open) setEditingTagsVideo(null);
         }}
+      />
+      <ManageSectionsModal
+        open={isManageSectionsOpen}
+        onOpenChange={setIsManageSectionsOpen}
+      />
+      <VideoSectionAssignmentModal
+        videoId={assignVideoId}
+        onClose={() => setAssignVideoId(null)}
       />
     </div>
   );

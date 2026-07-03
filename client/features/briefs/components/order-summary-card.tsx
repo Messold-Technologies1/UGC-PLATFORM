@@ -159,8 +159,8 @@ export function OrderSummaryCard({
               Your payment is secure
             </h4>
             <p className="text-xs text-primary/80 leading-relaxed">
-              Your payment is held securely and will be released to the creator
-              only after you approve the final content.
+              The amount is held securely in escrow and will be released to the creator
+              only after you approve the content.
             </p>
           </div>
         </div>

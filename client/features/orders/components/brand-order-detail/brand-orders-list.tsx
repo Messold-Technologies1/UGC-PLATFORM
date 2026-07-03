@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, type MouseEvent } from "react";
+import { Suspense, useState, useMemo, type MouseEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Pagination,
   PaginationContent,
@@ -57,10 +58,28 @@ function CollaborationCardSkeleton() {
   );
 }
 
-export function BrandOrdersList() {
+function BrandOrdersListInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const tabParam = searchParams.get("tab");
+  const activeTab = STATUS_TABS.some((t) => t.key === tabParam) ? tabParam! : "all";
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [activeTab, setActiveTab] = useState("all");
+
+  function handleTabChange(tabId: string) {
+    setPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tabId === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tabId);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const { data, isLoading } = useGetBrandOrdersQuery({ page, limit });
 
@@ -92,12 +111,13 @@ export function BrandOrdersList() {
   const hasActiveFilter = activeTab !== "all";
 
   return (
-    <div id="brand-orders-page" className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-4 lg:pt-5 pb-24">
+    <div
+      id="brand-orders-page"
+      className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24"
+    >
       <OrderStatusTab
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-        }}
+        onTabChange={handleTabChange}
         tabCounts={tabCounts}
       />
 
@@ -122,8 +142,8 @@ export function BrandOrdersList() {
       </div>
 
       {!isLoading && items.length > 0 && (
-        <div className="mt-12 flex items-center justify-between border-t border-border/50 pt-8">
-          <div className="flex items-center gap-4 min-w-[150px]">
+        <div className="mt-12 hidden min-[426px]:flex flex-col md:flex-row items-center justify-between gap-6 border-t border-border/50 pt-8">
+          <div className="flex items-center gap-4 min-w-[150px] w-full md:w-auto justify-center md:justify-start">
             <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground">Page</span>
               <span className="text-sm font-bold text-foreground">{page}</span>
@@ -137,7 +157,7 @@ export function BrandOrdersList() {
             </span>
           </div>
 
-          <div className="flex flex-1 justify-center">
+          <div className="flex flex-1 justify-center w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
@@ -198,7 +218,7 @@ export function BrandOrdersList() {
             </Pagination>
           </div>
 
-          <div className="flex items-center gap-2 min-w-[150px] justify-end">
+          <div className="flex items-center gap-2 min-w-[150px] w-full md:w-auto justify-center md:justify-end">
             <span className="whitespace-nowrap text-xs font-bold uppercase tracking-widest text-muted-foreground">
               Rows per page:
             </span>
@@ -243,5 +263,23 @@ export function BrandOrdersList() {
         </div>
       )}
     </div>
+  );
+}
+
+export function BrandOrdersList() {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24">
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CollaborationCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <BrandOrdersListInner />
+    </Suspense>
   );
 }

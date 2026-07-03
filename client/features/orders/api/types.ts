@@ -3,6 +3,8 @@ export interface OrderCreatorSnapshot {
   displayName: string;
   profileImageUrl?: string | null;
   city?: string | null;
+  avgRating?: string | null;
+  reviewCount?: number;
 }
 
 export interface OrderBrandSnapshot {

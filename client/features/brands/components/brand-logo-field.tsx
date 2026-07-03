@@ -6,6 +6,15 @@ import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
+function getInitials(name: string) {
+  if (!name || !name.trim()) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 export function BrandLogoField({
   previewUrl,
   accept,
@@ -14,6 +23,7 @@ export function BrandLogoField({
   fileInputRef,
   onSelectFile,
   onRemove,
+  brandName,
 }: {
   previewUrl: string | null;
   accept: string;
@@ -22,17 +32,28 @@ export function BrandLogoField({
   fileInputRef: RefObject<HTMLInputElement | null>;
   onSelectFile: (file: File | null) => void;
   onRemove: () => void;
+  brandName?: string;
 }) {
+  const initials = getInitials(brandName || "Brand");
+
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-0.5">
-          <p className="text-sm font-medium text-foreground">Logo</p>
-          <p className="text-xs text-muted-foreground">
-            Upload a square image for best results.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="flex flex-row items-center gap-5">
+      <div className="relative flex size-[88px] shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-3xl font-bold tracking-tight text-white shadow-sm ring-1 ring-border/10">
+        {previewUrl ? (
+          <Image
+            src={previewUrl}
+            alt="Brand logo preview"
+            fill
+            className="object-cover"
+            sizes="88px"
+          />
+        ) : (
+          <span>{initials}</span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -43,17 +64,17 @@ export function BrandLogoField({
           />
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             disabled={disabled}
             onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
+            className="gap-2 rounded-[10px] h-[38px] px-4 font-semibold shadow-sm border-[1.4px]"
           >
             {uploading ? (
-              <Spinner className="size-4" aria-hidden />
+              <Spinner className="size-4 text-muted-foreground" aria-hidden />
             ) : (
-              <Upload className="size-4" aria-hidden />
+              <Upload className="size-[18px]" aria-hidden />
             )}
-            {uploading ? "Uploading…" : "Upload"}
+            {uploading ? "Uploading…" : "Upload logo"}
           </Button>
           {previewUrl ? (
             <Button
@@ -61,31 +82,16 @@ export function BrandLogoField({
               variant="ghost"
               disabled={disabled}
               onClick={onRemove}
+              className="h-[38px] rounded-[10px] px-3 font-semibold text-muted-foreground hover:text-foreground"
             >
               Remove
             </Button>
           ) : null}
         </div>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="relative size-16 overflow-hidden rounded-xl border border-border bg-muted">
-          {previewUrl ? (
-            <Image
-              src={previewUrl}
-              alt="Brand logo preview"
-              fill
-              className="object-cover"
-              sizes="64px"
-            />
-          ) : null}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {previewUrl
-            ? "Preview will be applied on create."
-            : "No logo uploaded yet."}
+        <p className="text-[12.5px] font-medium text-muted-foreground">
+          PNG / SVG • square • min 256x256 • transparent background recommended
         </p>
       </div>
-    </section>
+    </div>
   );
 }

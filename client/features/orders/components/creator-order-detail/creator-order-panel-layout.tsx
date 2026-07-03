@@ -53,78 +53,80 @@ export function CreatorOrderPanelLayout({
   return (
     <div className="bg-background rounded-xl border border-border/40 shadow-sm p-5 sm:p-6 flex flex-col xl:flex-row gap-6 xl:gap-8 items-stretch relative w-full">
       <div className="flex-1 flex flex-col min-w-0 w-full">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4 min-w-0">
-            <Avatar className="w-12 h-12 rounded-lg bg-[#e8f5e9] text-[#2e7d32] shrink-0">
-              <AvatarImage
-                src={selectedItem.brand.logoUrl || undefined}
-                className="object-cover rounded-lg"
-              />
-              <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                {selectedItem.brand.brandName.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative">
+          <div className="flex items-center justify-between gap-4 min-w-0 w-full sm:w-auto">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-[#e8f5e9] text-[#2e7d32] shrink-0">
+                <AvatarImage
+                  src={selectedItem.brand.logoUrl || undefined}
+                  className="object-cover rounded-lg"
+                />
+                <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
+                  {selectedItem.brand.brandName.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
 
-            <div className="flex flex-col justify-center gap-1.5 min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-lg leading-none whitespace-nowrap text-foreground">
-                  Order #{selectedItem.order.id.substring(0, 5).toUpperCase()}
-                </h2>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "text-[11px] font-bold px-2.5 py-0.5 rounded-full border-0 whitespace-nowrap",
-                    statusBadgeColor,
-                  )}
-                >
-                  {statusBadgeLabel}
-                </Badge>
+              <div className="flex flex-col justify-center gap-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-bold text-base sm:text-lg leading-none whitespace-nowrap text-foreground">
+                    Order #{selectedItem.order.id.substring(0, 5).toUpperCase()}
+                  </h2>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full border-0 whitespace-nowrap",
+                      statusBadgeColor,
+                    )}
+                  >
+                    {statusBadgeLabel}
+                  </Badge>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-none truncate mt-1">
+                  {selectedItem.brand.brandName} •{" "}
+                  {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground leading-none truncate">
-                {selectedItem.brand.brandName} •{" "}
-                {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
-              </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="hidden sm:flex flex-col justify-center items-end gap-1.5">
-              <span className="font-bold text-lg leading-none text-foreground">
-                {amountDisplay}
-              </span>
-              <span className="text-[11px] text-muted-foreground font-medium tracking-wider leading-none">
-                {payoutLabelDisplay}
-              </span>
-            </div>
-
-            {/* <Button
-              variant="outline"
-              className="rounded-lg h-9 text-xs font-semibold gap-1.5 border-border/50 text-primary hover:text-primary whitespace-nowrap"
-              asChild
-            >
-              <Link href={`/creator/orders/${selectedOrderId}/brief`}>
-                View Brief <ExternalLink className="w-3.5 h-3.5" />
-              </Link>
-            </Button> */}
-
-            <Button
-              variant="outline"
-              className="rounded-lg h-9 px-3.5 text-xs font-semibold border-border/50 whitespace-nowrap"
-              asChild
-            >
-              <Link href={`/creator/messages?orderId=${selectedOrderId}`} className="flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5" />
-                Contact Brand
-              </Link>
-            </Button>
 
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+              className="sm:hidden p-1.5 -mr-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors shrink-0"
               aria-label="Close panel"
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+            <div className="flex flex-col justify-center items-start sm:items-end gap-1">
+              <span className="font-bold text-base sm:text-lg leading-none text-foreground">
+                {amountDisplay}
+              </span>
+              <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium tracking-wider leading-none">
+                {payoutLabelDisplay}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                className="rounded-lg h-9 px-3.5 text-xs font-semibold border-border/50 whitespace-nowrap"
+                asChild
+              >
+                <Link href={`/creator/messages?orderId=${selectedOrderId}`} className="flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Contact Brand
+                </Link>
+              </Button>
+
+              <button
+                onClick={onClose}
+                className="hidden sm:block p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+                aria-label="Close panel"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 

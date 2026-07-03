@@ -220,13 +220,7 @@ const OverviewTab = React.memo(function OverviewTab({
 
       <div className="dr-section">
         <SectionHeading>Creator details</SectionHeading>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 10,
-          }}
-        >
+        <div className="dr-details-grid">
           {detailRows.map((d) => {
             const IconComp = d.icon;
             return (
@@ -884,14 +878,29 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           )}
 
           <div className="dr-identity">
-            <div className="dr-name">
-              {c.name}
-              {verified ? <CheckCircle size={19} className="verif" /> : null}
-            </div>
-            <div className="dr-sub" style={{ marginTop: 5 }}>
-              <MapPin size={14} /> {c.location}
-              <span style={{ opacity: 0.4 }}>·</span>
-              <Globe size={14} /> {c.languages.join(", ")}
+            <div className="dr-identity-head">
+              <div>
+                <div className="dr-name">
+                  {c.name}
+                  {verified ? <CheckCircle size={19} className="verif" /> : null}
+                </div>
+                <div className="dr-sub" style={{ marginTop: 5 }}>
+                  <MapPin size={14} /> {c.location}
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <Globe size={14} /> {c.languages.join(", ")}
+                </div>
+              </div>
+              {publicProfilePath ? (
+                <Link
+                  href={publicProfilePath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="dr-tabs-profile-link"
+                >
+                  View profile
+                  <ExternalLink size={13} />
+                </Link>
+              ) : null}
             </div>
 
             <div className="dr-stats">
@@ -949,17 +958,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 );
               })}
             </div>
-            {publicProfilePath ? (
-              <Link
-                href={publicProfilePath}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="dr-tabs-profile-link"
-              >
-                View profile
-                <ExternalLink size={13} />
-              </Link>
-            ) : null}
           </div>
 
           {activeId && tab === "overview" && <OverviewTab profile={profile} />}

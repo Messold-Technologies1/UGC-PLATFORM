@@ -105,6 +105,8 @@ export const ENDPOINTS = {
     ACCEPT: (id: string) => `/api/orders/${encodeURIComponent(id)}/accept`,
     REQUEST_REVISION: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions/request`,
+    REVISIONS: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/revisions`,
     RATING_REVIEW: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/rating-review`,
   },
@@ -135,9 +137,20 @@ export const ENDPOINTS = {
     VIDEOS: "/api/creator-portfolio/videos",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
     VIDEOS_ADMIN: "/api/creator-portfolio/videos/admin",
+    SECTIONS: "/api/creator-portfolio/sections",
+    SECTIONS_ME: "/api/creator-portfolio/sections/me",
+    SECTION_DETAIL: (id: string) => `/api/creator-portfolio/sections/${encodeURIComponent(id)}`,
+    SECTIONS_REORDER: "/api/creator-portfolio/sections/reorder",
+    SECTION_VIDEOS: (id: string) => `/api/creator-portfolio/sections/${encodeURIComponent(id)}/videos`,
+    SECTION_VIDEO_DETAIL: (sectionId: string, videoId: string) => `/api/creator-portfolio/sections/${encodeURIComponent(sectionId)}/videos/${encodeURIComponent(videoId)}`,
+    PUBLIC_SECTIONS: (creatorId: string) => `/api/creator-portfolio/creators/${encodeURIComponent(creatorId)}/sections`,
     SUGGESTIONS_INDUSTRIES: "/api/creator-portfolio/suggestions/industries",
     SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
     SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
+  },
+  LEGAL_PAGES: {
+    BY_SLUG: (slug: string) =>
+      `/api/legal-pages/${encodeURIComponent(slug)}`,
   },
   ADMIN: {
     CREATORS: {
@@ -170,6 +183,28 @@ export const ENDPOINTS = {
         `/api/admin/orders/${encodeURIComponent(id)}/reject`,
       REFUND: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/refund`,
+    },
+    LEGAL_PAGES: {
+      LIST: "/api/admin/legal-pages",
+      CREATE: "/api/admin/legal-pages",
+      BY_SLUG: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}`,
+      PREVIEW: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/preview`,
+      DRAFT: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/draft`,
+      SUBMIT_REVIEW: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/submit-review`,
+      PUBLISH: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/publish`,
+      REJECT_DRAFT: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/reject-draft`,
+      VERSIONS: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions`,
+      VERSION: (slug: string, versionId: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}`,
+      RESTORE_VERSION: (slug: string, versionId: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}/restore`,
     },
   },
 } as const;

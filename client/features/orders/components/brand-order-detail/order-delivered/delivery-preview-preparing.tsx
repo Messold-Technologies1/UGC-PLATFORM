@@ -11,8 +11,7 @@ export function getLatestDeliveryPreviewState(items: OrderDeliveryItem[]) {
     assets.length > 0 &&
     assets.some(
       (asset) =>
-        asset.watermarked &&
-        (!asset.url || asset.previewStatus === "pending"),
+        asset.watermarked && asset.previewStatus === "pending",
     );
   const isRevision = (latestDelivery?.revisionsUsed ?? 0) > 0;
 

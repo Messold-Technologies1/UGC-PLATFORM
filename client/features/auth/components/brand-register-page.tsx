@@ -6,9 +6,9 @@ import { BrandRegisterForm } from "./brand-register-form";
 
 export function BrandRegisterPage() {
   return (
-    <div className="grid min-h-dvh lg:h-dvh lg:overflow-hidden lg:grid-cols-[47.5%_52.5%] box-border">
+    <div className="grid min-h-dvh xl:h-dvh xl:overflow-hidden xl:grid-cols-[47.5%_52.5%] box-border">
       <div
-        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 lg:flex"
+        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 xl:flex"
         style={{
           background:
             "linear-gradient(165deg, #eef5fe 0%, #e8eefd 55%, #d7e4fb 100%)",
@@ -154,8 +154,8 @@ export function BrandRegisterPage() {
         </div>
       </div>
 
-      <div className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
-        <div className="shrink-0 border-b border-blue-100/80 px-4 pb-4 pt-4 dark:border-slate-800 lg:hidden">
+      <div className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:h-dvh xl:min-h-0 xl:overflow-hidden">
+        <div className="shrink-0 border-b border-blue-100/80 px-4 pb-4 pt-4 dark:border-slate-800 xl:hidden">
           <AuthLogoLink imageClassName="h-14 sm:h-16" />
           <p className="mt-3 text-base font-bold leading-snug text-slate-900">
             Manage creator collaborations{" "}
@@ -165,7 +165,7 @@ export function BrandRegisterPage() {
             Find creators, manage projects, and get high-performing content in one place.
           </p>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:overflow-hidden">
           <BrandRegisterForm />
         </div>
       </div>

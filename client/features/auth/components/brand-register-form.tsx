@@ -444,10 +444,10 @@ export function BrandRegisterForm() {
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex flex-col bg-[#fdfcfb] dark:bg-slate-950 lg:min-h-0 lg:h-full"
+      className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:min-h-0 xl:h-full"
     >
       <div className="shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
               Create your brand profile
@@ -467,7 +467,7 @@ export function BrandRegisterForm() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+      <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
@@ -570,7 +570,7 @@ export function BrandRegisterForm() {
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="space-y-1">
                   <Label
                     htmlFor="contactFullName"
@@ -674,7 +674,7 @@ export function BrandRegisterForm() {
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="space-y-1">
                   <Label
                     htmlFor="brandName"
@@ -721,7 +721,7 @@ export function BrandRegisterForm() {
                     Brand Logo
                   </Label>
                   <p className="mt-1 text-xs text-slate-500">
-                    Upload your brand's logo directly.
+                    Upload your brand&apos;s logo directly.
                   </p>
                 </div>
 
@@ -848,7 +848,7 @@ export function BrandRegisterForm() {
                 <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
                   Product Type <span className="text-red-500">*</span>
                 </Label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                   {([
                     { value: "PHYSICAL", label: "Physical", icon: Package },
                     { value: "DIGITAL", label: "Digital", icon: MonitorPlay },
@@ -958,7 +958,7 @@ export function BrandRegisterForm() {
 
                 {categoriesOpen && (
                   <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    <div className="grid grid-cols-1 gap-1 lg:grid-cols-2">
                       {BRAND_CATEGORIES.map((cat) => {
                         const isSelected = selectedCategories.includes(
                           cat.slug,
@@ -1038,7 +1038,7 @@ export function BrandRegisterForm() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="space-y-1">
                 <Label
                   htmlFor="website"
@@ -1094,7 +1094,7 @@ export function BrandRegisterForm() {
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
             checked={form.watch("termsAccepted")}
@@ -1103,24 +1103,24 @@ export function BrandRegisterForm() {
                 shouldValidate: true,
               })
             }
-            className="mt-[4px] shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
+            className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
           />
-          <div className="mt-0.5 space-y-1 leading-none">
+          <div className="min-w-0 flex-1 space-y-1">
             <Label
               htmlFor="terms"
-              className="text-[13px] font-normal text-slate-600 dark:text-slate-400"
+              className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
             >
               I agree to the{" "}
               <Link
                 href="/legal/terms"
-                className="font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
                 Terms of Service
               </Link>
               {", "}
               <Link
                 href="/legal/privacy"
-                className="font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
                 Privacy Policy
               </Link>
@@ -1140,12 +1140,12 @@ export function BrandRegisterForm() {
               Still needed: {signupBlockers.join(" · ")}
             </p>
           ) : null}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
             <Button
               type="submit"
               disabled={!isSignupComplete || pendingAny}
               className={cn(
-                "h-11 w-full rounded-full text-[15px] font-bold transition-colors sm:flex-1",
+                "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
                 isSignupComplete
                   ? "bg-[#3e76ef] text-white hover:bg-[#2d5cc5] disabled:opacity-70 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
                   : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
@@ -1165,7 +1165,7 @@ export function BrandRegisterForm() {
               )}
             </Button>
 
-            <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight sm:w-auto sm:shrink-0 sm:text-right">
+            <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
               Are you a creator? <br />
               <Link
                 href="/register/creator"

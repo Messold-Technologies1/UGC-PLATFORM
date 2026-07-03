@@ -67,12 +67,7 @@ export default function CreatorSettingsProfilePage() {
   const loaded = profile;
 
   return (
-    <div className="min-w-0 space-y-8">
-      {/* <PageHeader
-        title="Profile"
-        description="Update your display name, bio, packages, and how brands find you."
-      /> */}
-
+    <div className="flex flex-1 w-full min-w-0 flex-col min-h-full">
       <CreatorProfileUpdateForm
         variant="settings"
         mode="update"

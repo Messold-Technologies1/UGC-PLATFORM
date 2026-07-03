@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
+import { openSupportChat } from "@/components/tawk-to";
 
 interface CreatorOrderCancelledPanelProps {
   selectedOrderId: string;
@@ -156,37 +157,49 @@ function CancelledOrderSummaryCard({
       <h3 className="font-bold text-sm mb-4">Order Summary</h3>
 
       <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Video Type</span>
-          <span className="font-medium text-foreground text-right">
-            {briefData?.brief?.contentType
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Video Type</span>
+          <span className="font-medium text-foreground sm:text-right">
+            {briefData?.brief?.contentType?.length
               ? fmtEnum(briefData.brief.contentType)
-              : selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+              : selectedItem.order.packageNameSnapshot || "Not specified"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Key Points</span>
-          <span className="font-medium text-foreground text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Key Points</span>
+          <span className="font-medium text-foreground sm:text-right">
             {briefData?.brief?.keyNoteToInclude ? "Included in Brief" : "None"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Language</span>
-          <span className="font-medium text-foreground text-right">
-            {briefData?.brief?.language || "Hindi"}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Language</span>
+          <span className="font-medium text-foreground sm:text-right">
+            {briefData?.brief?.language || "Not specified"}
           </span>
         </div>
-        <div className="flex justify-between items-start">
-          <span className="text-muted-foreground">Deliverables</span>
-          <div className="text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Deliverables</span>
+          <div className="sm:text-right">
             <span className="font-medium text-foreground block">
-              1 {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+              1 {selectedItem.order.packageNameSnapshot || "Deliverable"}
             </span>
             <span className="text-xs text-muted-foreground">
               9:16 Aspect Ratio
             </span>
           </div>
         </div>
+      </div>
+
+      <div className="mt-auto pt-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${selectedItem.order.id}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
       </div>
     </div>
   );
@@ -208,6 +221,7 @@ function CancelledPayoutCard() {
       <Button
         variant="outline"
         className="w-full rounded-lg h-10 text-xs font-semibold border-border/50 gap-1.5"
+        onClick={openSupportChat}
       >
         <Headphones className="w-3.5 h-3.5" />
         Contact Support

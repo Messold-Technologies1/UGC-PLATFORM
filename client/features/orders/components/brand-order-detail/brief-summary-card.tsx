@@ -143,14 +143,13 @@ export function BriefSummaryCard({
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold text-foreground">Brief Summary</h3>
         <Button
-          variant="outline"
-          size="sm"
-          className="rounded-lg text-xs font-semibold px-4"
-          onClick={handleViewFullBrief}
-          disabled={!briefId}
-        >
-          View Full Brief
-        </Button>
+            variant="outline"
+            className="rounded-xl border border-border/50 text-pink hover:bg-pink/5 hover:text-pink font-semibold gap-2"
+            onClick={handleViewFullBrief}
+            disabled={!briefId}
+          >
+            View Full Brief <ExternalLink className="size-4" />
+          </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

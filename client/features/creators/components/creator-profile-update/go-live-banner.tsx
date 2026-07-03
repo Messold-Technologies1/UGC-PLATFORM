@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Rocket } from "lucide-react";
+import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 
 /**
  * Shown at the top of the creator profile editor while the profile has not yet
@@ -9,6 +10,7 @@ import { CheckCircle2, Rocket } from "lucide-react";
  */
 export function GoLiveBanner({ missing }: { missing: string[] }) {
   const ready = missing.length === 0;
+  const profileFirst = isProfileFirstOnboardingMode();
 
   return (
     <div
@@ -37,12 +39,24 @@ export function GoLiveBanner({ missing }: { missing: string[] }) {
           {ready ? (
             <>
               <p className="text-sm font-semibold text-foreground">
-                You&apos;re ready to go live
+                {profileFirst
+                  ? "You're ready to submit for review"
+                  : "You're ready to go live"}
               </p>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Everything looks complete. Hit{" "}
-                <span className="font-medium text-foreground">Go Live</span> to
-                publish your profile so brands can discover you.
+                {profileFirst ? (
+                  <>
+                    Everything looks complete. Hit{" "}
+                    <span className="font-medium text-foreground">Go Live</span>{" "}
+                    to submit your profile for admin review.
+                  </>
+                ) : (
+                  <>
+                    Everything looks complete. Hit{" "}
+                    <span className="font-medium text-foreground">Go Live</span>{" "}
+                    to publish your profile so brands can discover you.
+                  </>
+                )}
               </p>
             </>
           ) : (
@@ -51,8 +65,9 @@ export function GoLiveBanner({ missing }: { missing: string[] }) {
                 Complete these fields to go live
               </p>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Brands can only find you once your profile is complete. Still
-                needed:
+                {profileFirst
+                  ? "Complete your profile before submitting for admin review. Still needed:"
+                  : "Brands can only find you once your profile is complete. Still needed:"}
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {missing.map((item) => (

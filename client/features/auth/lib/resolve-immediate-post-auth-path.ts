@@ -1,4 +1,5 @@
 import type { AuthUser, WorkspaceRole } from "@/features/auth/hooks/use-me-query";
+import { resolveCreatorOnboardingPath } from "./resolve-creator-onboarding-path";
 import {
   pathAfterWorkspaceSelection,
   postAuthContinuePath,
@@ -18,20 +19,9 @@ export function resolveImmediatePostAuthPath(
     return "/admin";
   }
 
-  if (
-    user.primaryRole === "CREATOR" &&
-    user.creatorApprovalStatus === "PENDING"
-  ) {
-    return "/creator/under-review";
-  }
-
-  // Approved but not yet live: send them to finish their profile and go live.
-  if (
-    user.primaryRole === "CREATOR" &&
-    user.creatorApprovalStatus === "APPROVED" &&
-    user.creatorProfileComplete === false
-  ) {
-    return "/creator/settings/profile";
+  const creatorOnboardingPath = resolveCreatorOnboardingPath(user);
+  if (creatorOnboardingPath) {
+    return creatorOnboardingPath;
   }
 
   if (canUseWorkspaceRole(user, user.primaryRole)) {

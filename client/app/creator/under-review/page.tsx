@@ -5,8 +5,9 @@ import {
   Mail,
   Sparkles,
 } from "lucide-react";
+import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 
-const REVIEW_STEPS = [
+const APPROVAL_FIRST_STEPS = [
   {
     id: "submitted",
     label: "Application submitted",
@@ -27,7 +28,31 @@ const REVIEW_STEPS = [
   },
 ];
 
+const PROFILE_FIRST_STEPS = [
+  {
+    id: "profile",
+    label: "Profile completed",
+    description: "Your profile and portfolio are ready.",
+    status: "complete" as const,
+  },
+  {
+    id: "review",
+    label: "Under admin review",
+    description: "Our team is reviewing your profile.",
+    status: "active" as const,
+  },
+  {
+    id: "live",
+    label: "Go live on marketplace",
+    description: "Brands can discover you and send briefs.",
+    status: "upcoming" as const,
+  },
+];
+
 export default function UnderReviewPage() {
+  const profileFirst = isProfileFirstOnboardingMode();
+  const reviewSteps = profileFirst ? PROFILE_FIRST_STEPS : APPROVAL_FIRST_STEPS;
+
   return (
     <div className="relative -mx-4 -mt-4 -mb-8 flex min-h-[calc(100dvh-4rem)] items-center justify-center px-4 py-6 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12">
       <div
@@ -58,18 +83,30 @@ export default function UnderReviewPage() {
               Almost there
             </p>
             <h1 className="font-heading mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Your profile is under review
+              {profileFirst
+                ? "Your profile is under review"
+                : "Your application is under review"}
             </h1>
             <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-slate-600 dark:text-slate-300">
-              Thanks for joining Go Collab. We&apos;re reviewing your application
-              and will email you as soon as you&apos;re approved to work with
-              brands.
+              {profileFirst ? (
+                <>
+                  Thanks for completing your profile on Go Collab. We&apos;re
+                  reviewing your work and will email you as soon as you&apos;re
+                  approved to go live on the marketplace.
+                </>
+              ) : (
+                <>
+                  Thanks for joining Go Collab. We&apos;re reviewing your
+                  application and will email you as soon as you&apos;re approved
+                  to work with brands.
+                </>
+              )}
             </p>
           </div>
 
           <div className="flex flex-1 flex-col justify-center gap-6 px-8 py-7">
             <ol className="grid gap-3 sm:grid-cols-3">
-              {REVIEW_STEPS.map((step) => (
+              {reviewSteps.map((step) => (
                 <li
                   key={step.id}
                   className="flex flex-col rounded-2xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-800/50"
@@ -101,8 +138,9 @@ export default function UnderReviewPage() {
         </div>
 
         <p className="mt-5 text-center text-xs text-slate-500 dark:text-slate-500">
-          No action needed right now — sit tight and we&apos;ll take it from
-          here.
+          {profileFirst
+            ? "You can still edit your profile while we review — we'll notify you by email."
+            : "No action needed right now — sit tight and we'll take it from here."}
         </p>
       </div>
     </div>

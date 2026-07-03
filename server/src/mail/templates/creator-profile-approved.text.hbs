@@ -1,5 +1,15 @@
 Hi {{recipientName}}, 👋
 
+{{#if profileFirstMode}}
+You're live! 🎉
+
+Your creator profile has been approved on {{platformName}}. You're now live on the marketplace — brands can discover you and send briefs.
+
+What's next ✨
+Head to your dashboard to manage orders and start collaborating with brands.
+
+Go to my dashboard: {{actionUrl}}
+{{else}}
 You're in! 🎉
 
 Your creator profile just got the green light on {{platformName}}. Brands are scouting talent right now — complete your profile so they can discover you and send briefs.
@@ -8,5 +18,6 @@ Your next move ✨
 Complete your profile, add your best work, and go live on the marketplace.
 
 Complete my profile: {{actionUrl}}
+{{/if}}
 
 — The {{platformName}} team 💗

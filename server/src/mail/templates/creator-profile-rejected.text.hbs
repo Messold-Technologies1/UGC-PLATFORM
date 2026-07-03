@@ -1,14 +1,25 @@
 Hi {{recipientName}},
 
-Update on your application
+{{#if profileFirstMode}}Update on your profile submission{{else}}Update on your application{{/if}}
 
+{{#if profileFirstMode}}
+Thanks for submitting your profile to {{platformName}}. After review, we're not able to approve it at this time.
+{{else}}
 Thanks for applying to {{platformName}}. After review, we're not able to approve your creator profile at this time.
+{{/if}}
 
 {{#if rejectionReason}}
 Note from our team:
 {{rejectionReason}}
 {{/if}}
 
+{{#if profileFirstMode}}
+We appreciate your effort. You're welcome to update your profile and resubmit once you've made changes.
+{{#if actionUrl}}
+Update my profile: {{actionUrl}}
+{{/if}}
+{{else}}
 We appreciate your interest and the effort you put into your application. You're welcome to reapply once you've updated your portfolio or profile.
+{{/if}}
 
 — The {{platformName}} team

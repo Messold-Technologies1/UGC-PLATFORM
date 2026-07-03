@@ -203,5 +203,42 @@ describe('Client workspace routing helpers', () => {
         expect(resolveImmediatePostAuthPath(user, null)).toBe('/creator/account');
       });
     });
+
+    it('does not force brand-primary dual-role users into creator onboarding', () => {
+      withOnboardingMode('profile_first', () => {
+        const user = createUser({
+          roles: ['BRAND', 'CREATOR'],
+          primaryRole: 'BRAND',
+          hasBrandProfile: true,
+          hasCreatorProfile: true,
+          creatorApprovalStatus: 'APPROVED',
+          creatorProfileComplete: false,
+        });
+
+        expect(resolveCreatorOnboardingPath(user, null)).toBeNull();
+        expect(resolveImmediatePostAuthPath(user, null)).toBe('/brand/creators');
+        expect(resolvePostAuthRedirectPath(user, null)).toBe('/brand/creators');
+      });
+    });
+
+    it('still applies creator onboarding for brand-primary users targeting creator callback URLs', () => {
+      withOnboardingMode('profile_first', () => {
+        const user = createUser({
+          roles: ['BRAND', 'CREATOR'],
+          primaryRole: 'BRAND',
+          hasBrandProfile: true,
+          hasCreatorProfile: true,
+          creatorApprovalStatus: 'APPROVED',
+          creatorProfileComplete: false,
+        });
+
+        expect(
+          resolveCreatorOnboardingPath(user, '/creator/settings/profile'),
+        ).toBe('/creator/settings/profile');
+        expect(
+          resolveImmediatePostAuthPath(user, '/creator/settings/profile'),
+        ).toBe('/creator/settings/profile');
+      });
+    });
   });
 });

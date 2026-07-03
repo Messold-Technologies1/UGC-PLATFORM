@@ -19,7 +19,7 @@ export function resolveImmediatePostAuthPath(
     return "/admin";
   }
 
-  const creatorOnboardingPath = resolveCreatorOnboardingPath(user);
+  const creatorOnboardingPath = resolveCreatorOnboardingPath(user, callbackUrl);
   if (creatorOnboardingPath) {
     return creatorOnboardingPath;
   }

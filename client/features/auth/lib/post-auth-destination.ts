@@ -47,7 +47,7 @@ export function resolvePostAuthRedirectPath(
   ]);
 
   if (role === "CREATOR") {
-    const creatorOnboardingPath = resolveCreatorOnboardingPath(user);
+    const creatorOnboardingPath = resolveCreatorOnboardingPath(user, callbackUrl);
     if (creatorOnboardingPath) {
       return creatorOnboardingPath;
     }

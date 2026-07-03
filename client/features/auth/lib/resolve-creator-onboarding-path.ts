@@ -7,12 +7,39 @@ function isCreatorWorkspaceUser(user: AuthUser): boolean {
   );
 }
 
+function callbackTargetsCreatorWorkspace(callbackUrl?: string | null): boolean {
+  if (!callbackUrl?.trim()) return false;
+  const path = callbackUrl.split("?")[0] ?? callbackUrl;
+  return path.startsWith("/creator");
+}
+
+/**
+ * Creator onboarding redirects only apply when the user is entering the creator
+ * workspace — not merely because they also have a creator profile while their
+ * primary role is brand (or another workspace).
+ */
+export function shouldApplyCreatorOnboarding(
+  user: AuthUser,
+  callbackUrl?: string | null,
+): boolean {
+  if (!isCreatorWorkspaceUser(user)) {
+    return false;
+  }
+  if (user.primaryRole === "CREATOR") {
+    return true;
+  }
+  return callbackTargetsCreatorWorkspace(callbackUrl);
+}
+
 /**
  * Returns a creator onboarding redirect path, or null when the user may proceed
  * to the normal workspace.
  */
-export function resolveCreatorOnboardingPath(user: AuthUser): string | null {
-  if (!isCreatorWorkspaceUser(user)) {
+export function resolveCreatorOnboardingPath(
+  user: AuthUser,
+  callbackUrl?: string | null,
+): string | null {
+  if (!shouldApplyCreatorOnboarding(user, callbackUrl)) {
     return null;
   }
 

@@ -3,7 +3,6 @@ import {
   Circle,
   Clock3,
   Mail,
-  Sparkles,
 } from "lucide-react";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 
@@ -76,7 +75,7 @@ export default function UnderReviewPage() {
               <span className="absolute inset-0 animate-ping rounded-full bg-[#ef3e51]/20 [animation-duration:2.4s]" />
               <span className="absolute inset-2 rounded-full bg-[#ef3e51]/10" />
               <span className="relative flex size-14 sm:size-[3.75rem] items-center justify-center rounded-2xl bg-gradient-to-br from-[#ef3e51] to-[#c42d48] text-white shadow-lg shadow-[#ef3e51]/30">
-                <Sparkles className="size-7" strokeWidth={1.75} />
+                <Clock3 className="size-7" strokeWidth={1.75} />
               </span>
             </div>
 

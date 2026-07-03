@@ -8,6 +8,7 @@ import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-crea
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Spinner } from "@/components/ui/spinner";
 import { RejectDialog } from "./RejectDialog";

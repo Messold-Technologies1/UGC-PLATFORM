@@ -12,6 +12,7 @@ import {
   type AuthUser,
 } from "@/features/auth/hooks/use-me-query";
 import { postAuthContinuePath } from "@/features/auth/lib/post-auth-destination";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 
 function AuthCallbackInner() {
@@ -32,9 +33,7 @@ function AuthCallbackInner() {
         toast.error(message);
         beginClientNavigation();
         router.replace(
-          callbackUrl
-            ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-            : "/login",
+          callbackUrl ? buildLoginHref(callbackUrl) : "/login",
         );
         return;
       }

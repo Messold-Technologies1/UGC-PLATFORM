@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
@@ -104,10 +105,10 @@ export async function requireAuthenticatedUser(callbackPath: string) {
     if (auth.status === "unauthenticated") {
       await redirectToSessionRestoreIfPossible(
         callbackPath,
-        `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
+        buildLoginHref(callbackPath),
       );
     }
-    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+    redirect(buildLoginHref(callbackPath));
   }
 }
 
@@ -161,10 +162,10 @@ async function requireWorkspaceRole(
     if (auth.status === "unauthenticated") {
       await redirectToSessionRestoreIfPossible(
         callbackPath,
-        `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
+        buildLoginHref(callbackPath),
       );
     }
-    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+    redirect(buildLoginHref(callbackPath));
   }
 
   if (!canAccessWorkspaceRole(user, role)) {

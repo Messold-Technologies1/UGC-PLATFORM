@@ -7,6 +7,7 @@ import {
   writeStoredActiveBrandId,
 } from "@/features/brands/lib/active-brand";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
+import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
@@ -72,7 +73,7 @@ function notifySessionExpiredAndGoToLogin() {
     description: "Please log in again.",
   });
   const currentPath = window.location.pathname + window.location.search;
-  window.location.href = `/login?callbackUrl=${encodeURIComponent(currentPath)}`;
+  window.location.href = buildLoginHref(currentPath);
 }
 
 let refreshPromise: Promise<void> | null = null;

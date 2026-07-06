@@ -49,7 +49,6 @@ export const brandProfileUpdateSchema = z.object({
   contactEmail: z.string(),
   contactPhone: z.string(),
   brandName: z.string().trim().min(1, "Brand name is required"),
-  brandPronunciation: z.string(),
   website: z
     .string()
     .refine(
@@ -65,6 +64,8 @@ export const brandProfileUpdateSchema = z.object({
   productType: z.union([z.literal(""), z.enum(brandProductTypeValues)]),
   categories: z.array(z.enum(brandCategoryValues)),
   otherCategoryText: z.string(),
+  whatsappNotificationsEnabled: z.boolean(),
+  emailNotificationsEnabled: z.boolean(),
 });
 
 export type BrandProfileUpdateFormValues = z.infer<typeof brandProfileUpdateSchema>;

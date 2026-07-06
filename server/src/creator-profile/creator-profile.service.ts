@@ -365,6 +365,8 @@ export class CreatorProfileService {
       approvalStatus: mapped.creatorApproval?.status,
       completeProfile: mapped.completeProfile ?? false,
       isListed: mapped.isListed ?? false,
+      emailNotificationsEnabled: mapped.emailNotificationsEnabled ?? false,
+      whatsappNotificationsEnabled: mapped.whatsappNotificationsEnabled ?? false,
       rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
       profileLanguages: (mapped.profileLanguages ?? []).map((row: any) => ({
         id: row.id,
@@ -1750,6 +1752,12 @@ export class CreatorProfileService {
         }
         if (dto.onLocationAvailable !== undefined) {
           data.onLocationAvailable = dto.onLocationAvailable;
+        }
+        if (dto.whatsappNotificationsEnabled !== undefined) {
+          data.whatsappNotificationsEnabled = dto.whatsappNotificationsEnabled;
+        }
+        if (dto.emailNotificationsEnabled !== undefined) {
+          data.emailNotificationsEnabled = dto.emailNotificationsEnabled;
         }
         if (nextIntroVideoKey !== undefined) {
           data.introVideoKey = nextIntroVideoKey;

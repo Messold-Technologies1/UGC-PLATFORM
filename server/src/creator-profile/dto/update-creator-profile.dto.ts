@@ -220,4 +220,14 @@ export class UpdateCreatorProfileDto {
   @ArrayUnique()
   @IsString({ each: true })
   restrictions?: string[];
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  whatsappNotificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  emailNotificationsEnabled?: boolean;
 }

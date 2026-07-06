@@ -8,7 +8,7 @@ export type BrandProfileItemApi = {
   contactEmail: string | null;
   contactPhone: string | null;
   brandName: string;
-  brandPronunciation: string | null;
+
   brandPronunciationAudioKey: string | null;
   brandPronunciationAudioUrl: string | null;
   logoKey: string | null;
@@ -18,6 +18,8 @@ export type BrandProfileItemApi = {
   productType: BrandProductTypeApi | null;
   categories: BrandCategoryApi[];
   otherCategoryLabel: string | null;
+  whatsappNotificationsEnabled: boolean;
+  emailNotificationsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 };

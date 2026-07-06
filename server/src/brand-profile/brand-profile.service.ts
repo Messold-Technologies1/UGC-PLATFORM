@@ -210,6 +210,8 @@ export class BrandProfileService {
       productType: profile.productType ?? null,
       categories,
       otherCategoryLabel: profile.otherCategoryLabel ?? null,
+      emailNotificationsEnabled: profile.emailNotificationsEnabled ?? false,
+      whatsappNotificationsEnabled: profile.whatsappNotificationsEnabled ?? false,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     };
@@ -371,6 +373,7 @@ export class BrandProfileService {
         instagramUrl: true,
         productType: true,
         otherCategoryLabel: true,
+        whatsappNotificationsEnabled: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { email: true } },
@@ -581,6 +584,7 @@ export class BrandProfileService {
         instagramUrl: true,
         productType: true,
         otherCategoryLabel: true,
+        whatsappNotificationsEnabled: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { email: true } },
@@ -676,6 +680,14 @@ export class BrandProfileService {
 
     if (dto.productType !== undefined) {
       data.productType = dto.productType;
+    }
+
+    if (dto.whatsappNotificationsEnabled !== undefined) {
+      data.whatsappNotificationsEnabled = dto.whatsappNotificationsEnabled;
+    }
+
+    if (dto.emailNotificationsEnabled !== undefined) {
+      data.emailNotificationsEnabled = dto.emailNotificationsEnabled;
     }
 
     const logoKeyRaw = dto.logoKey;

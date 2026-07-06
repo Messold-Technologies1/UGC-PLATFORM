@@ -150,6 +150,8 @@ export type CreatorProfileItemApi = {
   completeProfile?: boolean;
   /** Discovery gate = approved AND completeProfile. */
   isListed?: boolean;
+  whatsappNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
 };
 
 export type SuggestedCreatorContentCategoryApi = {

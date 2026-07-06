@@ -3,12 +3,12 @@ import { ENDPOINTS } from "@/lib/endpoints";
 import type { BrandCategoryApi, BrandProductTypeApi } from "./brand-category-types";
 import type { BrandProfileItemApi } from "./types";
 
+
 export type UpdateBrandProfilePayload = {
   brandName?: string;
   contactFullName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  brandPronunciation?: string | null;
   brandPronunciationAudioKey?: string | null;
   website?: string | null;
   instagramUrl?: string | null;
@@ -16,6 +16,8 @@ export type UpdateBrandProfilePayload = {
   categories?: BrandCategoryApi[];
   otherCategoryLabel?: string | null;
   logoKey?: string | null;
+  whatsappNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
 };
 
 export async function updateBrandProfile(

@@ -75,6 +75,12 @@ export class BrandProfileResponseDto {
   })
   otherCategoryLabel!: string | null;
 
+  @ApiProperty({ example: true })
+  whatsappNotificationsEnabled!: boolean;
+
+  @ApiProperty({ example: true })
+  emailNotificationsEnabled!: boolean;
+
   @ApiProperty()
   createdAt!: Date;
 

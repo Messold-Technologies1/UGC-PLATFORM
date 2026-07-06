@@ -282,6 +282,12 @@ export class CreatorProfileResponseDto {
   })
   isListed!: boolean;
 
+  @ApiProperty({ example: true })
+  whatsappNotificationsEnabled!: boolean;
+
+  @ApiProperty({ example: true })
+  emailNotificationsEnabled!: boolean;
+
   @ApiPropertyOptional({
     example: 'Does not meet guidelines.',
   })

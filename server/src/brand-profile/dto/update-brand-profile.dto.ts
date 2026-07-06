@@ -3,6 +3,7 @@ import { BrandCategory, BrandProductType } from '@prisma/client';
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -110,4 +111,14 @@ export class UpdateBrandProfileDto {
   @IsOptional()
   @IsString()
   brandPronunciationAudioKey?: string | null;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  whatsappNotificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  emailNotificationsEnabled?: boolean;
 }

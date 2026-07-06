@@ -39,6 +39,8 @@ export type UpdateCreatorProfilePayload = {
   addOns?: CreatorAddOnCreatePayload[];
   /** True only on an explicit "Go Live"; omitted for draft saves. */
   goLive?: boolean;
+  whatsappNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
 };
 
 export async function updateCreatorProfile(

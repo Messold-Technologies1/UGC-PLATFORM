@@ -23,6 +23,7 @@ import { PhoneVerificationField } from "@/features/auth/components/phone-verific
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { useSubmitBrandProfileMutation } from "@/features/brands/hooks/use-brand-profile-form-mutation";
 import { useAuth } from "@/providers/auth-provider";
 import type { BrandProfileItemApi } from "@/features/brands/api/types";
@@ -100,12 +101,13 @@ function BrandProfileUpdateFormContent({
       contactEmail: initialProfile?.contactEmail ?? user?.email ?? "",
       contactPhone: initialProfile?.contactPhone ?? "",
       brandName: initialProfile?.brandName ?? "",
-      brandPronunciation: initialProfile?.brandPronunciation ?? "",
       website: initialProfile?.website ?? "",
       instagramUrl: initialProfile?.instagramUrl ?? "",
       productType: initialProfile?.productType ?? "",
       categories: initialProfile?.categories ?? [],
       otherCategoryText: initialProfile?.otherCategoryLabel ?? "",
+      whatsappNotificationsEnabled: initialProfile?.whatsappNotificationsEnabled ?? true,
+      emailNotificationsEnabled: initialProfile?.emailNotificationsEnabled ?? true,
     }),
     [initialProfile, user?.email, user?.name],
   );
@@ -275,10 +277,9 @@ function BrandProfileUpdateFormContent({
         otherCategoryLabel: values.categories.includes("OTHER")
           ? values.otherCategoryText.trim()
           : null,
-        brandPronunciation: values.brandPronunciation.trim()
-          ? values.brandPronunciation.trim()
-          : null,
         brandPronunciationAudioKey: pronunciation.pendingPronunciationAudioKey,
+        whatsappNotificationsEnabled: values.whatsappNotificationsEnabled,
+        emailNotificationsEnabled: values.emailNotificationsEnabled,
       };
 
       submitBrandProfileMutation.mutate({ payload });
@@ -365,19 +366,6 @@ function BrandProfileUpdateFormContent({
                   {form.formState.errors.brandName.message}
                 </span>
               )}
-            </div>
-            
-            <div className="pe-field">
-              <label htmlFor="brandPronunciation">Brand pronunciation</label>
-              <div className="pe-input-wrap">
-                <input
-                  id="brandPronunciation"
-                  className="pe-input"
-                  disabled={pending}
-                  {...form.register("brandPronunciation")}
-                  placeholder="e.g. Ack-mee"
-                />
-              </div>
             </div>
           </div>
 
@@ -603,6 +591,36 @@ function BrandProfileUpdateFormContent({
                 {form.formState.errors.contactPhone.message}
               </span>
             )}
+          </div>
+          
+          <div className="pe-grid pe-grid-2 mt-6" style={{ alignItems: "stretch" }}>
+            <div className="pe-switchrow">
+              <div>
+                <div className="pe-switchrow-title">
+                  Enable WhatsApp Notifications
+                </div>
+              </div>
+              <Switch
+                id="whatsappNotificationsEnabled"
+                disabled={pending}
+                checked={form.watch("whatsappNotificationsEnabled")}
+                onCheckedChange={(checked) => form.setValue("whatsappNotificationsEnabled", checked === true, { shouldDirty: true })}
+              />
+            </div>
+
+            <div className="pe-switchrow">
+              <div>
+                <div className="pe-switchrow-title">
+                  Enable Email Notifications
+                </div>
+              </div>
+              <Switch
+                id="emailNotificationsEnabled"
+                disabled={pending}
+                checked={form.watch("emailNotificationsEnabled")}
+                onCheckedChange={(checked) => form.setValue("emailNotificationsEnabled", checked === true, { shouldDirty: true })}
+              />
+            </div>
           </div>
         </div>
       </motion.section>

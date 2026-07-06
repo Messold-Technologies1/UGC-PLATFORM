@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { capitalizeFirstLetter } from "@/lib/string-lists";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
@@ -409,6 +410,12 @@ function CreatorProfileUpdateFormContent({
   const [onLocationAvailable, setOnLocationAvailable] = useState(
     () => initialProfile?.onLocationAvailable ?? false,
   );
+  const [whatsappNotificationsEnabled, setWhatsappNotificationsEnabled] = useState(
+    () => initialProfile?.whatsappNotificationsEnabled ?? true,
+  );
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(
+    () => initialProfile?.emailNotificationsEnabled ?? true,
+  );
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
 
@@ -761,6 +768,8 @@ function CreatorProfileUpdateFormContent({
         restrictions: selectedRestrictions,
         packages: builtPackages,
         addOns: builtAddOns,
+        whatsappNotificationsEnabled,
+        emailNotificationsEnabled,
       };
 
       let finalPayload = { ...payload };
@@ -771,7 +780,10 @@ function CreatorProfileUpdateFormContent({
         if (finalPayload.gender === (initialProfile.gender || undefined)) delete finalPayload.gender;
         if (finalPayload.dateOfBirth === (initialProfile.dateOfBirth || undefined)) delete finalPayload.dateOfBirth;
         if (finalPayload.shippingAddress === (initialProfile.shippingAddress || undefined)) delete finalPayload.shippingAddress;
+        if (finalPayload.contactEmail === (initialProfile.contactEmail || undefined)) delete finalPayload.contactEmail;
         if (finalPayload.instagramUrl === (initialProfile.instagramUrl || undefined)) delete finalPayload.instagramUrl;
+        if (finalPayload.whatsappNotificationsEnabled === (initialProfile.whatsappNotificationsEnabled ?? true)) delete finalPayload.whatsappNotificationsEnabled;
+        if (finalPayload.emailNotificationsEnabled === (initialProfile.emailNotificationsEnabled ?? true)) delete finalPayload.emailNotificationsEnabled;
         if (finalPayload.youtubeUrl === (initialProfile.youtubeUrl || undefined)) delete finalPayload.youtubeUrl;
         if (finalPayload.snapchatUrl === (initialProfile.snapchatUrl || undefined)) delete finalPayload.snapchatUrl;
         if (finalPayload.contentVolume === (initialProfile.contentVolume || undefined)) delete finalPayload.contentVolume;
@@ -1298,6 +1310,42 @@ function CreatorProfileUpdateFormContent({
               <span className="pe-help">
                 What do you create? Who do you love working with?
               </span>
+            </div>
+
+            <div className="pe-grid pe-grid-2 mt-4" style={{ alignItems: "stretch" }}>
+              <div className="pe-switchrow">
+                <div>
+                  <div className="pe-switchrow-title">
+                    Enable WhatsApp Notifications
+                  </div>
+                </div>
+                <Switch
+                  id="whatsappNotificationsEnabled"
+                  disabled={pending}
+                  checked={whatsappNotificationsEnabled}
+                  onCheckedChange={(checked) => {
+                    setWhatsappNotificationsEnabled(checked === true);
+                    markDirty();
+                  }}
+                />
+              </div>
+
+              <div className="pe-switchrow">
+                <div>
+                  <div className="pe-switchrow-title">
+                    Enable Email Notifications
+                  </div>
+                </div>
+                <Switch
+                  id="emailNotificationsEnabled"
+                  disabled={pending}
+                  checked={emailNotificationsEnabled}
+                  onCheckedChange={(checked) => {
+                    setEmailNotificationsEnabled(checked === true);
+                    markDirty();
+                  }}
+                />
+              </div>
             </div>
           </SectionCard>
         </motion.div>

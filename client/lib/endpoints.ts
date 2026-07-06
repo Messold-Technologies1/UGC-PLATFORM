@@ -132,6 +132,12 @@ export const ENDPOINTS = {
     MESSAGES: (orderId: string) =>
       `/api/chats/${encodeURIComponent(orderId)}/messages`,
   },
+  SOCIAL: {
+    CONNECTIONS: "/api/social/connections",
+    INSTAGRAM_CONNECT_URL: "/api/social/instagram/connect-url",
+    DISCONNECT: (platform: string) =>
+      `/api/social/${encodeURIComponent(platform.toLowerCase())}`,
+  },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
     VIDEOS: "/api/creator-portfolio/videos",

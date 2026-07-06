@@ -25,6 +25,7 @@ import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
 import { CitiesModule } from './cities/cities.module';
 import { LegalPagesModule } from './legal-pages/legal-pages.module';
+import { SocialConnectionsModule } from './social-connections/social-connections.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { LegalPagesModule } from './legal-pages/legal-pages.module';
     JobsModule,
     RealtimeModule,
     LegalPagesModule,
+    SocialConnectionsModule,
   ],
   controllers: [AppController],
   providers: [

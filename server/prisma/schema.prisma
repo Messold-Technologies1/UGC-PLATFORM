@@ -20,6 +20,23 @@ enum AuthProvider {
   GOOGLE
 }
 
+/// External platforms a creator can link as a metrics *data source*
+/// (distinct from AuthProvider, which is sign-in identity). Instagram is wired
+/// today; YouTube and Reddit are reserved so rows/UI can be added without a
+/// schema change when their fetchers land.
+enum SocialPlatform {
+  INSTAGRAM
+  YOUTUBE
+  REDDIT
+}
+
+enum SocialConnectionStatus {
+  ACTIVE // token valid, syncing normally
+  EXPIRED // token expired / refresh failed — needs reconnect
+  REVOKED // user disconnected or revoked access on the platform
+  ERROR // repeated sync failures; left connected for retry/diagnosis
+}
+
 enum EmailSuppressionReason {
   HARD_BOUNCE
   COMPLAINT
@@ -335,6 +352,7 @@ model CreatorProfile {
   payoutDetails       CreatorPayoutDetails?
   ratingReviews       CreatorRatingReview[]
   wishlistEntries     BrandWishlistCreator[]
+  socialConnections   SocialConnection[]
 
   @@index([city])
   @@index([countryName])
@@ -1122,4 +1140,109 @@ model LegalPageVersion {
   page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([pageId, createdAt])
+}
+
+/// A creator's linked external account used as a *data source* for audience
+/// metrics (Instagram now; YouTube/Reddit later). Distinct from AuthAccount,
+/// which is sign-in identity. Holds the OAuth tokens (encrypted at rest via the
+/// app-level crypto util) plus a small set of denormalized "latest" values for
+/// quick profile display without touching the snapshot tables.
+model SocialConnection {
+  id                String                 @id @default(uuid()) @db.Uuid
+  creatorProfileId  String                 @db.Uuid
+  platform          SocialPlatform
+  /// Platform's stable account id (IG user id / YT channel id / Reddit id).
+  providerAccountId String
+  username          String?
+  /// e.g. BUSINESS / CREATOR / PERSONAL when the platform reports it.
+  accountType       String?
+  /// Encrypted (AES-256-GCM). Never returned to clients.
+  accessToken       String
+  /// Encrypted. Null for platforms with non-refreshable long-lived tokens (IG).
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  scopes            String[]
+  status            SocialConnectionStatus @default(ACTIVE)
+
+  /// Denormalized latest values for quick display (source of truth is snapshots).
+  followersCount Int?
+  mediaCount     Int?
+
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  connectedAt    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  creator           CreatorProfile           @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  metricSnapshots   SocialMetricSnapshot[]
+  audienceSnapshots SocialAudienceSnapshot[]
+
+  /// One platform account maps to a single creator.
+  @@unique([platform, providerAccountId])
+  /// One connection per platform per creator.
+  @@unique([creatorProfileId, platform])
+  @@index([status])
+  @@index([creatorProfileId])
+  @@index([tokenExpiresAt])
+}
+
+/// Daily scalar time-series for a connected account. Upserted on
+/// (connectionId, metricDate) so a re-pulled/late-finalized day self-corrects.
+/// Every metric is nullable — platforms expose different subsets (Reddit will
+/// leave most null and carry its extras in `raw`).
+model SocialMetricSnapshot {
+  id               String         @id @default(uuid()) @db.Uuid
+  connectionId     String         @db.Uuid
+  /// Denormalized for fast per-creator time-series reads without a join.
+  creatorProfileId String         @db.Uuid
+  platform         SocialPlatform
+  metricDate       DateTime       @db.Date
+
+  reach         Int?
+  views         Int? // impressions / views
+  followerCount Int? // total followers on that date
+  followersDelta Int? // net new followers that day
+  profileViews  Int?
+
+  /// Platform-specific extras (YT watch time, Reddit karma, …).
+  raw         Json?
+  collectedAt DateTime @default(now())
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, metricDate])
+  @@index([creatorProfileId, platform, metricDate])
+}
+
+/// Dated snapshot of an account's *audience demographics*. Instagram
+/// `follower_demographics` (period=lifetime) per breakdown; requires >=100
+/// followers, otherwise the maps stay null. Full distributions are stored as
+/// JSON exactly as the platform returns them — "top 5 cities", "top countries",
+/// age/gender splits are derived at read time so nothing is lost and the cutoff
+/// can change without a re-fetch. Upserted on (connectionId, snapshotDate).
+model SocialAudienceSnapshot {
+  id               String         @id @default(uuid()) @db.Uuid
+  connectionId     String         @db.Uuid
+  creatorProfileId String         @db.Uuid
+  platform         SocialPlatform
+  snapshotDate     DateTime       @db.Date
+
+  /// Followers at snapshot time (context for interpreting the distributions).
+  followerCount Int?
+
+  ageBreakdown     Json? // { "18-24": 1200, "25-34": 3400, ... }
+  genderBreakdown  Json? // { "F": 5000, "M": 3000, "U": 200 }
+  cityBreakdown    Json? // { "Mumbai, Maharashtra": 800, ... }
+  countryBreakdown Json? // { "IN": 9000, "US": 500, ... }
+
+  /// Untouched API payload for audit / future breakdowns.
+  raw         Json?
+  collectedAt DateTime @default(now())
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, snapshotDate])
+  @@index([creatorProfileId, platform, snapshotDate])
 }

@@ -37,6 +37,11 @@ export function inferLoginRoleFromPath(path: string): LoginRole | null {
 export function buildLoginHref(callbackPath: string): string {
   const path = normalizeCallbackPath(callbackPath);
   const params = new URLSearchParams({ callbackUrl: path });
+  
+  if (path.startsWith("/admin")) {
+    return `/admin/login?${params.toString()}`;
+  }
+  
   const role = inferLoginRoleFromPath(path);
   if (role) {
     params.set("role", role);

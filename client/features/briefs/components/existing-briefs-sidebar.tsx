@@ -15,11 +15,13 @@ import {
 import styles from "./brief-studio.module.css";
 
 interface ExistingBriefsSidebarProps {
-  onUseTemplate: (brief: Brief) => void;
+  onAttachBrief?: (brief: Brief) => void;
+  attachingBriefId?: string;
 }
 
 export function ExistingBriefsSidebar({
-  onUseTemplate,
+  onAttachBrief,
+  attachingBriefId,
 }: ExistingBriefsSidebarProps) {
   const { data, isLoading, isError } = useListBriefsQuery({
     staleTime: 2 * 60_000,
@@ -32,14 +34,16 @@ export function ExistingBriefsSidebar({
         briefs={briefs}
         isLoading={isLoading}
         isError={isError}
-        onUseTemplate={onUseTemplate}
+        onAttachBrief={onAttachBrief}
+        attachingBriefId={attachingBriefId}
       />
     </section>
   );
 }
 
 export function BriefsDrawerButton({
-  onUseTemplate,
+  onAttachBrief,
+  attachingBriefId,
 }: ExistingBriefsSidebarProps) {
   const { data, isLoading, isError } = useListBriefsQuery({
     staleTime: 2 * 60_000,
@@ -47,8 +51,8 @@ export function BriefsDrawerButton({
   const briefs = data?.items ?? [];
   const [open, setOpen] = useState(false);
 
-  const handleUseTemplate = (brief: Brief) => {
-    onUseTemplate(brief);
+  const handleAttachBrief = (brief: Brief) => {
+    onAttachBrief?.(brief);
     setOpen(false);
   };
 
@@ -74,7 +78,8 @@ export function BriefsDrawerButton({
           briefs={briefs}
           isLoading={isLoading}
           isError={isError}
-          onUseTemplate={handleUseTemplate}
+          onAttachBrief={handleAttachBrief}
+          attachingBriefId={attachingBriefId}
           renderClose
         />
       </DrawerContent>
@@ -86,7 +91,8 @@ interface BriefsPanelContentProps {
   briefs: Brief[];
   isLoading: boolean;
   isError: boolean;
-  onUseTemplate: (brief: Brief) => void;
+  onAttachBrief?: (brief: Brief) => void;
+  attachingBriefId?: string;
   renderClose?: boolean;
 }
 
@@ -94,7 +100,8 @@ function BriefsPanelContent({
   briefs,
   isLoading,
   isError,
-  onUseTemplate,
+  onAttachBrief,
+  attachingBriefId,
   renderClose = false,
 }: BriefsPanelContentProps) {
   return (
@@ -106,7 +113,7 @@ function BriefsPanelContent({
         <div>
           <h2 className={styles.panelHeadTitle}>Your briefs</h2>
           <div className={styles.panelHeadSub}>
-            Reuse a template to start faster
+            {onAttachBrief ? "Attach an existing brief to this order" : "Select a brief to view details"}
           </div>
         </div>
         <span className={styles.panelHeadCount}>{briefs.length}</span>
@@ -150,7 +157,8 @@ function BriefsPanelContent({
               <BriefCard
                 key={brief.id}
                 brief={brief}
-                onUseTemplate={onUseTemplate}
+                onAttachBrief={onAttachBrief}
+                isAttaching={attachingBriefId === brief.id}
               />
             ))}
           </div>

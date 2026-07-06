@@ -67,7 +67,7 @@ export async function fetchServerAuthUserState(): Promise<ServerAuthUserState> {
         Accept: "application/json",
         ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       },
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     if (!res.ok) {

@@ -6,6 +6,8 @@ import { Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useGetOrderRatingReviewQuery } from "../../hooks/use-get-order-rating-review-query";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
@@ -158,6 +160,18 @@ function PaymentDetailsCard({
       <p className="mt-3 pt-3 border-t border-border/40 text-xs text-muted-foreground">
         Paid on {paidDate}
       </p>
+      
+      <div className="mt-auto pt-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${order?.id}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 import { MailService } from './mail.service';
 import { EmailTemplateKey } from './mail.types';
 
@@ -40,6 +41,7 @@ export class CreatorProfileMailNotifier {
         context: {
           recipientName: this.recipientName(profile),
           actionUrl: `${this.frontendBase()}/creator/account`,
+          profileFirstMode: this.profileFirstMode(),
         },
       });
     });
@@ -61,12 +63,16 @@ export class CreatorProfileMailNotifier {
         return;
       }
 
-      const context: Record<string, string> = {
+      const context: Record<string, string | boolean> = {
         recipientName: this.recipientName(profile),
+        profileFirstMode: this.profileFirstMode(),
       };
       const reason = rejectionReason?.trim();
       if (reason) {
         context.rejectionReason = reason;
+      }
+      if (this.profileFirstMode()) {
+        context.actionUrl = `${this.frontendBase()}/creator/settings/profile`;
       }
 
       await this.mail.send({
@@ -125,5 +131,11 @@ export class CreatorProfileMailNotifier {
 
   private frontendBase(): string {
     return this.config.get<string>('FRONTEND_URL')!.replace(/\/$/, '');
+  }
+
+  private profileFirstMode(): boolean {
+    return isProfileFirstOnboardingMode(
+      this.config.get<string>('CREATOR_ONBOARDING_MODE'),
+    );
   }
 }

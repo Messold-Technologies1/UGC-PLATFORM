@@ -77,12 +77,31 @@ export function useReorderPortfolioSectionsMutation() {
   return useMutation({
     mutationFn: (sections: { id: string; position: number }[]) =>
       reorderSections(sections),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PORTFOLIO_SECTIONS_QUERY_KEY });
+    onMutate: async (newSections) => {
+      await queryClient.cancelQueries({ queryKey: PORTFOLIO_SECTIONS_QUERY_KEY });
+      const previousSections = queryClient.getQueryData(PORTFOLIO_SECTIONS_QUERY_KEY);
+      
+      queryClient.setQueryData(PORTFOLIO_SECTIONS_QUERY_KEY, (old: any) => {
+        if (!old) return old;
+        const oldArray = [...old];
+        oldArray.sort((a, b) => {
+          const posA = newSections.find((s) => s.id === a.id)?.position ?? a.position;
+          const posB = newSections.find((s) => s.id === b.id)?.position ?? b.position;
+          return posA - posB;
+        });
+        return oldArray;
+      });
+      return { previousSections };
     },
-    onError: (err: any) => {
+    onError: (err: any, newSections, context) => {
+      if (context?.previousSections) {
+        queryClient.setQueryData(PORTFOLIO_SECTIONS_QUERY_KEY, context.previousSections);
+      }
       const msg = err.response?.data?.message || err.message;
       toast.error(`Failed to reorder sections: ${msg}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: PORTFOLIO_SECTIONS_QUERY_KEY });
     },
   });
 }

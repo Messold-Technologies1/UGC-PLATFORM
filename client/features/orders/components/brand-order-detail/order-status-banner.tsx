@@ -12,6 +12,7 @@ import type { OrderCreatorSnapshot } from "../../api/types";
 interface OrderStatusBannerProps {
   order: OrderDetailsPublic;
   creator?: OrderCreatorSnapshot;
+  isOrderCompleted?: boolean;
 }
 
 interface StatusConfig {
@@ -160,18 +161,31 @@ const ICON_STYLES = {
 
 import { useAcceptanceCountdown } from "../../hooks/use-acceptance-countdown";
 
-export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
+export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: OrderStatusBannerProps) {
   const creatorName = creator?.displayName ?? "Creator";
-  const config = getStatusConfig(
-    order.status,
-    creatorName,
-    order.requiresPhysicalProductShipment,
-  );
+  const config = isOrderCompleted
+    ? getStatusConfig("ACCEPTED", creatorName, order.requiresPhysicalProductShipment)
+    : getStatusConfig(
+        order.status,
+        creatorName,
+        order.requiresPhysicalProductShipment,
+      );
   const Icon = config.icon;
-  const { hours, minutes, seconds } = useAcceptanceCountdown(
+  const { hours, minutes, seconds, isExpired } = useAcceptanceCountdown(
     order.briefSubmittedAt,
     order.status,
   );
+
+  let displayTitle = config.title;
+  let displayDescription = config.description;
+  let displayVariant = config.variant;
+
+  if (!isOrderCompleted && config.showTimer && isExpired) {
+    displayTitle = "Creator acceptance time expired";
+    displayDescription = `${creatorName} did not accept your project in time. The order will be cancelled.`;
+    displayVariant = "warning";
+  }
+
   const { isGatewayReady, isProcessing, resumePayment } = useResumeOrderCheckout(
     order.id,
     order.packageNameSnapshot,
@@ -181,40 +195,49 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
     <div
       className={cn(
         "flex flex-col gap-4 rounded-xl border px-6 py-5 sm:flex-row sm:items-center sm:justify-between",
-        VARIANT_STYLES[config.variant],
+        VARIANT_STYLES[displayVariant],
       )}
     >
       <div className="flex items-start gap-4">
         <div
           className={cn(
             "flex size-10 shrink-0 items-center justify-center rounded-full",
-            ICON_STYLES[config.variant],
+            ICON_STYLES[displayVariant],
           )}
         >
           <Icon className="size-5" />
         </div>
         <div className="mt-0.5">
           <p className="text-[15px] font-bold text-foreground">
-            {config.title}
+            {displayTitle}
           </p>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            {config.description}
+            {displayDescription}
           </p>
         </div>
       </div>
 
-      {config.showTimer && (
-        <div className="flex items-center gap-2 rounded-lg bg-primary/5 dark:bg-primary/10 px-4 py-3 text-sm font-medium text-foreground shrink-0 sm:self-center">
-          <span className="text-muted-foreground text-[13px]">
-            Auto-cancel in
-          </span>
-          <span className="font-bold text-primary tracking-wide tabular-nums">
-            {hours}h : {minutes}m : {seconds}s
-          </span>
+      {!isOrderCompleted && config.showTimer && (
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shrink-0 sm:self-center",
+          isExpired ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" : "bg-primary/5 dark:bg-primary/10 text-foreground"
+        )}>
+          {isExpired ? (
+            <span className="font-bold">Time Expired</span>
+          ) : (
+            <>
+              <span className="text-muted-foreground text-[13px]">
+                Auto-cancel in
+              </span>
+              <span className="font-bold text-primary tracking-wide tabular-nums">
+                {hours}h : {minutes}m : {seconds}s
+              </span>
+            </>
+          )}
         </div>
       )}
 
-      {order.status === "BRIEF_ACCEPTED" &&
+      {!isOrderCompleted && order.status === "BRIEF_ACCEPTED" &&
         order.requiresPhysicalProductShipment && (
           <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
             <Link href={`/brand/orders/${order.id}/shipping`}>
@@ -223,7 +246,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
           </Button>
         )}
 
-      {order.status === "BRIEF_SUBMISSION_PENDING" && (
+      {!isOrderCompleted && order.status === "BRIEF_SUBMISSION_PENDING" && (
         <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white">
           <Link href={`/brand/briefs/create?orderId=${order.id}`}>
             Submit Brief
@@ -231,7 +254,7 @@ export function OrderStatusBanner({ order, creator }: OrderStatusBannerProps) {
         </Button>
       )}
 
-      {order.status === "PENDING_PAYMENT" && (
+      {!isOrderCompleted && order.status === "PENDING_PAYMENT" && (
         <Button
           className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white"
           disabled={!isGatewayReady || isProcessing}

@@ -4,11 +4,14 @@ import { useMemo } from "react";
 import {
   Clock,
   Info,
+  CheckCircle2,
 } from "lucide-react";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 interface CreatorOrderDeliveredPanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -18,6 +21,7 @@ interface CreatorOrderDeliveredPanelProps {
   onClose: () => void;
   previewStepId?: string | null;
   onStepClick?: (id: string) => void;
+  isOrderCompleted?: boolean;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -168,6 +172,27 @@ function WaitingForApprovalCard({ order }: { order: any }) {
   );
 }
 
+function ContentApprovedCard({ order }: { order: any }) {
+  const approvedDate = order?.acceptedAt ? fmtDateTime(order.acceptedAt) : null;
+
+  return (
+    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col justify-center items-center text-center">
+      <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mb-4">
+        <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+      </div>
+      <h3 className="font-bold text-sm mb-2">Content Approved</h3>
+      <p className="text-sm text-muted-foreground">
+        The brand has approved your delivered content. This order is now complete.
+      </p>
+      {approvedDate && (
+        <p className="mt-4 pt-3 border-t border-border/40 text-xs text-muted-foreground w-full text-center">
+          Approved on {approvedDate}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DeliveredOrderSummaryCard({
   briefData,
   selectedItem,
@@ -188,47 +213,47 @@ function DeliveredOrderSummaryCard({
       <h3 className="font-bold text-sm mb-4">Order Summary</h3>
 
       <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Video Type</span>
-          <span className="font-medium text-foreground text-right">
-            {briefData?.brief?.contentType
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Video Type</span>
+          <span className="font-medium text-foreground sm:text-right">
+            {briefData?.brief?.contentType?.length
               ? fmtEnum(briefData.brief.contentType)
-              : "UGC Testimonial"}
+              : selectedItem.order.packageNameSnapshot || "Not specified"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Key Points</span>
-          <span className="font-medium text-foreground text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Key Points</span>
+          <span className="font-medium text-foreground sm:text-right">
             {briefData?.brief?.keyNoteToInclude ? "Included in Brief" : "None"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Language</span>
-          <span className="font-medium text-foreground text-right">
-            {briefData?.brief?.language || "Hindi"}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Language</span>
+          <span className="font-medium text-foreground sm:text-right">
+            {briefData?.brief?.language || "Not specified"}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Tone</span>
-          <span className="font-medium text-foreground text-right">
-            {briefData?.brief?.toneStyle
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Tone</span>
+          <span className="font-medium text-foreground sm:text-right">
+            {briefData?.brief?.toneStyle?.length
               ? fmtEnum(briefData.brief.toneStyle)
-              : "Natural, Authentic"}
+              : "Not specified"}
           </span>
         </div>
-        <div className="flex justify-between items-start">
-          <span className="text-muted-foreground">Deliverables</span>
-          <div className="text-right">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+          <span className="text-muted-foreground shrink-0">Deliverables</span>
+          <div className="sm:text-right">
             <span className="font-medium text-foreground block">
-              1 {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
+              1 {selectedItem.order.packageNameSnapshot || "Deliverable"}
             </span>
             <span className="text-xs text-muted-foreground">
               9:16 Aspect Ratio
             </span>
           </div>
         </div>
-        <div className="flex justify-between pt-3 border-t border-border/40 mt-auto">
-          <span className="text-muted-foreground font-medium">Payout</span>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 pt-3 border-t border-border/40 mt-auto">
+          <span className="text-muted-foreground font-medium shrink-0">Payout</span>
           <span className="font-bold text-foreground">
             {new Intl.NumberFormat("en-IN", {
               style: "currency",
@@ -237,6 +262,18 @@ function DeliveredOrderSummaryCard({
             }).format(expectedAmount)}
           </span>
         </div>
+      </div>
+
+      <div className="mt-auto pt-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${selectedItem.order.id}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
       </div>
     </div>
   );
@@ -251,6 +288,7 @@ export function CreatorOrderDeliveredPanel({
   onClose,
   previewStepId,
   onStepClick,
+  isOrderCompleted = false,
 }: CreatorOrderDeliveredPanelProps) {
   const order = detailsData?.order ?? selectedItem?.order;
 
@@ -277,7 +315,11 @@ export function CreatorOrderDeliveredPanel({
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
         <DeliveredFilesCard orderId={selectedOrderId} />
-        <WaitingForApprovalCard order={order} />
+        {isOrderCompleted ? (
+          <ContentApprovedCard order={order} />
+        ) : (
+          <WaitingForApprovalCard order={order} />
+        )}
         <DeliveredOrderSummaryCard
           briefData={briefData}
           selectedItem={selectedItem}

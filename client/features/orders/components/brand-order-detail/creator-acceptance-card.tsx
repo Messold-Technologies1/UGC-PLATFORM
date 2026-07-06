@@ -34,14 +34,14 @@ export function CreatorAcceptanceCard({
   order,
 }: CreatorAcceptanceCardProps) {
   const creatorName = creator?.displayName ?? "Creator";
-  const { hours, minutes, seconds, percentage } = useAcceptanceCountdown(
+  const { hours, minutes, seconds, percentage, isExpired } = useAcceptanceCountdown(
     order.briefSubmittedAt,
     order.status,
   );
 
   const isAwaitingPayment = order.status === "PENDING_PAYMENT";
-  const isAwaitingAcceptance = order.status === "BRIEF_SUBMITTED";
-  const isAccepted = ACCEPTED_STATUSES.includes(order.status);
+  const isAccepted = ACCEPTED_STATUSES.includes(order.status) || !!order.briefAcceptedAt;
+  const isAwaitingAcceptance = order.status === "BRIEF_SUBMITTED" || (!!order.briefSubmittedAt && !order.briefAcceptedAt);
   const isPendingBrief =
     !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
 
@@ -122,79 +122,109 @@ export function CreatorAcceptanceCard({
         </div>
 
         <div className="mt-5">
-          <Button
-            asChild
-            className="w-full bg-[#6E42FF] hover:bg-[#5b33d6] text-white"
-          >
-            <Link href={`/brand/briefs/create?orderId=${order.id}`}>
+          {["DISPUTED", "REFUNDED", "REJECTED"].includes(order.status) ? (
+            <Button
+              disabled
+              className="w-full bg-[#6E42FF] text-white opacity-60 cursor-not-allowed"
+            >
               Submit Brief
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button
+              asChild
+              className="w-full bg-[#6E42FF] hover:bg-[#5b33d6] text-white"
+            >
+              <Link href={`/brand/briefs/create?orderId=${order.id}`}>
+                Submit Brief
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-primary/20 bg-card p-6 shadow-sm relative overflow-hidden">
+    <div className={cn(
+      "rounded-lg border bg-card p-6 shadow-sm relative overflow-hidden",
+      isExpired ? "border-amber-500/20" : "border-primary/20"
+    )}>
       <div className="flex items-center gap-3">
-        <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className={cn(
+          "relative flex size-10 shrink-0 items-center justify-center rounded-full",
+          isExpired ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary"
+        )}>
           <Hourglass className="size-4" />
 
-          <span
-            className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping"
-            style={{ animationDuration: "2s" }}
-          />
+          {!isExpired && (
+            <span
+              className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping"
+              style={{ animationDuration: "2s" }}
+            />
+          )}
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground">
-            Awaiting Creator Acceptance
+            {isExpired ? "Creator Acceptance Time Expired" : "Awaiting Creator Acceptance"}
           </h3>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {creatorName} has 48 hours to accept your project.
+            {isExpired 
+              ? `${creatorName} did not accept your project in time.` 
+              : `${creatorName} has 48 hours to accept your project.`}
           </p>
         </div>
       </div>
 
       <div className="mt-5 space-y-2">
         <p className="text-xs text-muted-foreground">Time remaining</p>
-        <div className="flex items-baseline gap-1">
-          {[
-            { value: hours, unit: "h" },
-            { value: minutes, unit: "m" },
-            { value: seconds, unit: "s" },
-          ].map(({ value, unit }, idx) => (
-            <div key={unit} className="flex items-baseline gap-0.5">
-              {idx > 0 && (
-                <span className="text-lg font-bold text-muted-foreground/50 mx-1">
-                  :
-                </span>
-              )}
-              <span
-                className={cn(
-                  "text-3xl font-bold tracking-tight font-mono tabular-nums",
-                  percentage <= 10
-                    ? "text-destructive"
-                    : percentage <= 35
-                      ? "text-amber-500"
-                      : "text-foreground",
-                )}
-              >
-                {value}
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">
-                {unit}
-              </span>
+        
+        {isExpired ? (
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold tracking-tight font-mono tabular-nums text-amber-500">
+              Time Expired
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-1">
+              {[
+                { value: hours, unit: "h" },
+                { value: minutes, unit: "m" },
+                { value: seconds, unit: "s" },
+              ].map(({ value, unit }, idx) => (
+                <div key={unit} className="flex items-baseline gap-0.5">
+                  {idx > 0 && (
+                    <span className="text-lg font-bold text-muted-foreground/50 mx-1">
+                      :
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "text-3xl font-bold tracking-tight font-mono tabular-nums",
+                      percentage <= 10
+                        ? "text-destructive"
+                        : percentage <= 35
+                          ? "text-amber-500"
+                          : "text-foreground",
+                    )}
+                  >
+                    {value}
+                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {unit}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1">
-          <div
-            className={`h-full ${progressColor} transition-all duration-1000 ease-linear rounded-full`}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1">
+              <div
+                className={`h-full ${progressColor} transition-all duration-1000 ease-linear rounded-full`}
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

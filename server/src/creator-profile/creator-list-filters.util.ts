@@ -7,6 +7,10 @@ import {
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import {
+  type CreatorOnboardingMode,
+  getCreatorOnboardingMode,
+} from '../config/creator-onboarding-mode';
+import {
   ageGroupToAgeRange,
   dateOfBirthRangeForAgeFilter,
 } from './creator-age.util';
@@ -377,15 +381,24 @@ export function buildAdminCreatorApprovalSearchWhere(
 export function buildAdminCreatorsListWhere(
   segment: AdminCreatorListSegment,
   search?: string,
+  onboardingMode: CreatorOnboardingMode = getCreatorOnboardingMode(
+    process.env.CREATOR_ONBOARDING_MODE,
+  ),
 ): Prisma.CreatorProfileWhereInput {
   const searchClause = buildAdminCreatorApprovalSearchWhere(search);
+  const profileFirst = onboardingMode === 'profile_first';
 
   let segmentClause: Prisma.CreatorProfileWhereInput;
   switch (segment) {
     case AdminCreatorListSegment.PENDING:
-      segmentClause = {
-        creatorApproval: { status: ApprovalStatus.PENDING },
-      };
+      segmentClause = profileFirst
+        ? {
+            creatorApproval: { status: ApprovalStatus.PENDING },
+            completeProfile: true,
+          }
+        : {
+            creatorApproval: { status: ApprovalStatus.PENDING },
+          };
       break;
     case AdminCreatorListSegment.APPROVED:
       segmentClause = {
@@ -398,10 +411,12 @@ export function buildAdminCreatorsListWhere(
       };
       break;
     case AdminCreatorListSegment.INCOMPLETE:
-      segmentClause = {
-        completeProfile: false,
-        creatorApproval: { status: ApprovalStatus.APPROVED },
-      };
+      segmentClause = profileFirst
+        ? { completeProfile: false }
+        : {
+            completeProfile: false,
+            creatorApproval: { status: ApprovalStatus.APPROVED },
+          };
       break;
     case AdminCreatorListSegment.LISTED:
       segmentClause = { isListed: true };

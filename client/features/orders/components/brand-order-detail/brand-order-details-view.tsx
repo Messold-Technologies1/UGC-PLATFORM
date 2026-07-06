@@ -2,21 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertCircle, /* AlertTriangle, */ ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// import {
-//   Drawer,
-//   DrawerClose,
-//   DrawerContent,
-//   DrawerDescription,
-//   DrawerFooter,
-//   DrawerHeader,
-//   DrawerTitle,
-// } from "@/components/ui/drawer";
-// import { Label } from "@/components/ui/label";
+
 import { Skeleton } from "@/components/ui/skeleton";
-// import { Spinner } from "@/components/ui/spinner";
-// import { Textarea } from "@/components/ui/textarea";
+
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
 import { useGetBrandOrderDeliveriesQuery } from "../../hooks/use-get-brand-order-deliveries-query";
@@ -36,7 +26,6 @@ import { NeedHelpCard, TipsCard } from "./support-tips-card";
 import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
 import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-details-card";
 import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
-import { QuickActionsCard } from "./quick-actions-card";
 import { ChatPreviewCard } from "./chat-preview-card";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { DeliveredNotificationBanner } from "./order-delivered/delivered-notification-banner";
@@ -95,7 +84,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
   const [previewState, setPreviewState] = useState<string | null>(null);
 
-  // Read preview state from URL if arriving from Shipping page
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const preview = params.get("preview");
@@ -104,15 +92,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
-  // const [disputeReason, setDisputeReason] = useState("");
-  // const openBrandDisputeMutation = useOpenBrandDisputeMutation({
-  //   onSuccess: () => {
-  //     setDisputeReason("");
-  //     setIsDisputeDrawerOpen(false);
-  //   },
-  // });
-  // const isDisputePending = openBrandDisputeMutation.isPending;
-  // const trimmedDisputeReason = disputeReason.trim();
 
   if (isLoading) {
     return <BrandOrderDetailsSkeleton />;
@@ -151,24 +130,13 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   const briefId = order.briefId ?? orderBriefData?.brief?.id ?? null;
   const brief = orderBriefData?.brief ?? null;
 
-  // const canOpenDispute = ![
-  //   "PENDING_PAYMENT",
-  //   "CREATOR_PAYMENT_DONE",
-  //   "REFUNDED",
-  //   "REJECTED",
-  // ].includes(order.status);
-
-  // function handleDisputeSubmit() {
-  //   if (trimmedDisputeReason.length < 3) return;
-  //   openBrandDisputeMutation.mutate({
-  //     orderId,
-  //     reason: trimmedDisputeReason,
-  //   });
   const inProgressStatuses = ["PRODUCT_SHIPPED", "PRODUCT_RECEIVED"];
   if (!order.requiresPhysicalProductShipment) {
     inProgressStatuses.push("BRIEF_ACCEPTED");
   }
-  const isActuallyInProgress = inProgressStatuses.includes(order.status);
+  const isActuallyInProgress =
+    inProgressStatuses.includes(order.status) ||
+    (order.status === "DISPUTED" && !order.deliveredAt && !!order.briefAcceptedAt);
 
   const showInProgressUI =
     previewState === "In Progress" ||
@@ -176,7 +144,9 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
 
   const deliveredStatuses = ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"];
-  const isActuallyDelivered = deliveredStatuses.includes(order.status);
+  const isActuallyDelivered =
+    deliveredStatuses.includes(order.status) ||
+    (order.status === "DISPUTED" && !!order.deliveredAt);
   const showDeliveredUI =
     previewState === "Delivered" ||
     (isActuallyDelivered && previewState === null);
@@ -231,10 +201,9 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           orderId={orderId}
         />
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <CreatorProfileCard creator={creator} order={order} />
           <ShareExperienceCard order={order} creatorName={creator?.displayName} />
-          <QuickActionsCard />
         </div>
 
         <SupportBanner />
@@ -260,12 +229,18 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           previewState={previewState}
         />
 
-        <DeliveredNotificationBanner
-          creatorName={creator?.displayName || "Creator"}
-          order={order}
-          previewPreparing={previewGenerating}
-          isRevision={isRevision}
-        />
+        {order.status === "DISPUTED" ? (
+          <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
+        ) : (
+          <DeliveredNotificationBanner
+            creatorName={creator?.displayName || "Creator"}
+            order={order}
+            previewPreparing={previewGenerating}
+            isRevision={isRevision}
+            isOrderCompleted={isActuallyCompleted}
+            completedAt={order.acceptedAt}
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
           <div className="flex flex-col gap-5 lg:col-span-8 h-full">
@@ -294,10 +269,9 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
         />
 
        
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <CreatorProfileCard creator={creator} order={order} />
           <ChatPreviewCard creator={creator} orderId={orderId} />
-          <QuickActionsCard />
         </div>
       </div>
     );
@@ -314,7 +288,11 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           previewState={previewState} 
         />
 
-        <InprogressNotificationBanner creatorName={creator?.displayName || "Creator"} />
+        {order.status === "DISPUTED" ? (
+          <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
+        ) : (
+          <InprogressNotificationBanner creatorName={creator?.displayName || "Creator"} isOrderCompleted={isActuallyCompleted} />
+        )}
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
@@ -338,7 +316,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           <aside className="flex flex-col gap-5 lg:col-span-4">
             <CreatorProfileCard creator={creator} order={order} />
             <OrderChatWidget orderId={orderId} role="brand" creator={creator} />
-            <QuickActionsCard />
           </aside>
         </div>
       </div>
@@ -355,7 +332,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
         previewState={previewState} 
       />
 
-      <OrderStatusBanner order={order} creator={creator} />
+      <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
 
       <div
         className={cn(
@@ -391,99 +368,8 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           <NeedHelpCard />
 
           <TipsCard />
-
-          {/* Raise Dispute – temporarily disabled
-          {canOpenDispute && (
-            <div className="flex justify-start">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/5 text-xs font-medium"
-                onClick={() => setIsDisputeDrawerOpen(true)}
-              >
-                <AlertTriangle className="size-3.5" />
-                Raise Dispute
-              </Button>
-            </div>
-          )}
-          */}
         </aside>
       </div>
     </div>
   );
-
-  /* Raise Dispute Drawer – temporarily disabled
-  <Drawer
-    open={isDisputeDrawerOpen}
-    onOpenChange={(open) => {
-      if (!open && isDisputePending) return;
-      setIsDisputeDrawerOpen(open);
-      if (!open) setDisputeReason("");
-    }}
-    direction="right"
-  >
-    <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-112.5 data-[vaul-drawer-direction=right]:rounded-none h-full border-l border-border/30 bg-background shadow-2xl flex flex-col p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-      <DrawerHeader className="sticky top-0 z-10 border-b border-border/20 bg-background/95 px-8 py-6 text-left backdrop-blur-sm">
-        <DrawerTitle className="text-xl font-bold tracking-tight text-destructive">
-          Raise Dispute
-        </DrawerTitle>
-        <DrawerDescription className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          Please provide a detailed reason for raising a dispute for this
-          order.
-        </DrawerDescription>
-      </DrawerHeader>
-
-      <div className="flex-1 overflow-y-auto px-8 py-6 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label
-              htmlFor="disputeReason"
-              className="text-[11px] font-bold tracking-wide text-foreground"
-            >
-              Reason for Dispute
-            </Label>
-            <Textarea
-              id="disputeReason"
-              placeholder="Describe the issue with the order in detail..."
-              className="min-h-37.5 resize-y rounded-lg border-border/50 bg-background p-3 text-xs shadow-none transition-colors placeholder:text-muted-foreground/50 focus-visible:ring-destructive/20"
-              value={disputeReason}
-              onChange={(event) => setDisputeReason(event.target.value)}
-              disabled={isDisputePending}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Enter at least 3 characters to submit the dispute.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <DrawerFooter className="sticky bottom-0 flex flex-col gap-3 border-t border-border/20 bg-background/95 px-8 py-6 backdrop-blur-sm">
-        <Button
-          variant="destructive"
-          className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          onClick={handleDisputeSubmit}
-          disabled={isDisputePending || trimmedDisputeReason.length < 3}
-        >
-          {isDisputePending ? (
-            <>
-              <Spinner className="size-4" aria-hidden />
-              Submitting...
-            </>
-          ) : (
-            "Submit Dispute"
-          )}
-        </Button>
-        <DrawerClose asChild>
-          <Button
-            variant="ghost"
-            className="w-full font-semibold text-muted-foreground hover:text-foreground"
-            disabled={isDisputePending}
-          >
-            Cancel
-          </Button>
-        </DrawerClose>
-      </DrawerFooter>
-    </DrawerContent>
-  </Drawer>
-  */
 }

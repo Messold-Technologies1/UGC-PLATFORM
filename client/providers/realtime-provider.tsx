@@ -214,6 +214,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       if (user.primaryRole === "BRAND") {
         refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+        
+        const isRevision = e.status === "REVISION_SUBMITTED";
+        const title = isRevision 
+          ? `Revision ${e.revisionNumber} submitted` 
+          : "Content delivered";
+          
+        toast.success(title, {
+          description: `Order ${e.orderId.slice(0, 8)}...`,
+        });
+        
+        addNotification({
+          type: "success",
+          title,
+          description: `Order ${e.orderId.slice(0, 8)}...`,
+          link: orderNotificationLink(e.orderId),
+        });
       }
     };
 

@@ -36,11 +36,26 @@ function formatEventDate(value?: string | null) {
 }
 
 function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
+  let effectiveStatus = order.status;
+  if (order.status === "DISPUTED") {
+    if (order.deliveredAt) {
+      effectiveStatus = "DELIVERED";
+    } else if (order.requiresPhysicalProductShipment) {
+      if (order.productReceivedAt) effectiveStatus = "PRODUCT_RECEIVED";
+      else if (order.dispatchedAt) effectiveStatus = "PRODUCT_SHIPPED";
+      else if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
+      else effectiveStatus = "BRIEF_SUBMITTED";
+    } else {
+      if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
+      else effectiveStatus = "BRIEF_SUBMITTED";
+    }
+  }
+
   const events: TimelineEvent[] = [];
   const briefSubmitted =
     Boolean(order.briefSubmittedAt) || order.hasBrief;
   const awaitingBriefSubmission =
-    order.status === "BRIEF_SUBMISSION_PENDING" && !briefSubmitted;
+    effectiveStatus === "BRIEF_SUBMISSION_PENDING" && !briefSubmitted;
 
   events.push({
     key: "payment",
@@ -84,12 +99,12 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
     date: formatEventDate(order.briefAcceptedAt),
     status: order.briefAcceptedAt
       ? "completed"
-      : order.status === "BRIEF_SUBMITTED"
+      : effectiveStatus === "BRIEF_SUBMITTED"
         ? "active"
         : "pending",
     color: order.briefAcceptedAt
       ? "green"
-      : order.status === "BRIEF_SUBMITTED"
+      : effectiveStatus === "BRIEF_SUBMITTED"
         ? "orange"
         : "gray",
   });
@@ -102,19 +117,19 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
       date: formatEventDate(order.dispatchedAt),
       status: order.dispatchedAt
         ? "completed"
-        : order.status === "BRIEF_ACCEPTED"
+        : effectiveStatus === "BRIEF_ACCEPTED"
           ? "active"
           : "pending",
       color: order.dispatchedAt
         ? "green"
-        : order.status === "BRIEF_ACCEPTED"
+        : effectiveStatus === "BRIEF_ACCEPTED"
           ? "orange"
           : "gray",
     });
   }
 
   const inProgressStatuses = ["PRODUCT_SHIPPED", "PRODUCT_RECEIVED"];
-  const isInProgress = inProgressStatuses.includes(order.status);
+  const isInProgress = inProgressStatuses.includes(effectiveStatus);
   const isPastInProgress = [
     "DELIVERED",
     "REVISION_REQUESTED",
@@ -122,7 +137,7 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
     "ACCEPTED",
     "CREATOR_PAYMENT_DONE",
     "REFUNDED",
-  ].includes(order.status);
+  ].includes(effectiveStatus);
   events.push({
     key: "in_progress",
     title: "In Progress",
@@ -147,7 +162,7 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
 
   const completedDate = order.acceptedAt ?? order.creatorPaidAt;
   const isCompleted = ["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(
-    order.status,
+    effectiveStatus,
   );
   events.push({
     key: "completed",

@@ -1,6 +1,7 @@
 import { isAxiosError } from "axios";
 import {
   useMutation,
+  useQueryClient,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,10 +20,16 @@ type OpenBrandDisputeMutationOptions = UseMutationOptions<
 export function useOpenBrandDisputeMutation(
   options?: OpenBrandDisputeMutationOptions,
 ) {
+  const queryClient = useQueryClient();
+  
   return useMutation({
     ...options,
     mutationFn: openBrandDispute,
-    onSuccess: (data, variables, onMutateResult, context) => {
+    onSuccess: async (data, variables, onMutateResult, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["orders", "brand"] }),
+        queryClient.invalidateQueries({ queryKey: ["orders", "brand", variables.orderId] })
+      ]);
       toast.success("Dispute submitted successfully");
       options?.onSuccess?.(data, variables, onMutateResult, context);
     },

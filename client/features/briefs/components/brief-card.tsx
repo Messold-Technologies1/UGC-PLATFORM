@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Calendar, FileText, Video, ClipboardCopy, ArrowRight } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import type { Brief } from "@/features/briefs/api/types";
 import styles from "./brief-studio.module.css";
 import { formatContentType, formatDuration, formatTone } from "../lib/format-enums";
@@ -42,11 +43,11 @@ function formatRelativeDate(iso: string): string {
 
 interface BriefCardProps {
   brief: Brief;
-  mode?: "template" | "link";
-  onUseTemplate?: (brief: Brief) => void;
+  onAttachBrief?: (brief: Brief) => void;
+  isAttaching?: boolean;
 }
 
-export function BriefCard({ brief, mode = "template", onUseTemplate }: BriefCardProps) {
+export function BriefCard({ brief, onAttachBrief, isAttaching }: BriefCardProps) {
   const color = categoryColor(brief.industry);
   const contentLabel =
     brief.contentType.length > 0 ? formatContentType(brief.contentType[0]) : "Brief";
@@ -98,25 +99,32 @@ export function BriefCard({ brief, mode = "template", onUseTemplate }: BriefCard
           <Calendar size={13} />
           {formatRelativeDate(brief.createdAt)}
         </span>
-        {mode === "template" ? (
-          <button
-            type="button"
-            className={styles.useTemplateBtn}
-            onClick={() => onUseTemplate?.(brief)}
-          >
-            <ClipboardCopy size={14} />
-            Use template
-          </button>
-        ) : (
+        <div style={{ display: "flex", gap: "8px" }}>
           <Link
             href={`/brand/briefs/${brief.id}`}
+            target="_blank"
             className={styles.useTemplateBtn}
-            style={{ textDecoration: "none", display: "flex", gap: "6px" }}
+            style={{ textDecoration: "none", display: "flex", gap: "6px", backgroundColor: "transparent", color: "inherit", border: "1px solid var(--border)" }}
           >
-            View Brief
+            View
             <ArrowRight size={14} />
           </Link>
-        )}
+          {onAttachBrief && (
+            <button
+              type="button"
+              className={styles.useTemplateBtn}
+              onClick={() => onAttachBrief(brief)}
+              disabled={isAttaching}
+            >
+              {isAttaching ? (
+                <Spinner className="mr-1 size-3" />
+              ) : (
+                <ClipboardCopy size={14} />
+              )}
+              Attach
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );

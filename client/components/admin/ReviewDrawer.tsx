@@ -1,19 +1,42 @@
 import React from "react";
 import Image from "next/image";
-import { PendingCreatorApprovalListItemDto } from "@/features/admin/types";
+import Link from "next/link";
+import type { AdminCreatorListItemDto } from "@/features/admin/types";
+import { formatInrPrice } from "@/features/admin/constants/admin-creator-tabs";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
+import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
+import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
+import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { Spinner } from "@/components/ui/spinner";
 import { RejectDialog } from "./RejectDialog";
 
-function formatLocation(creator: PendingCreatorApprovalListItemDto): string {
-  const parts = [creator.city, creator.stateName, creator.countryName].filter(
-    Boolean,
-  );
+const FACET_LABELS: Record<string, string> = {
+  CONTENT_FORMAT: "Content format",
+  APPEARANCE: "Appearance",
+  CONTENT_STYLE: "Content style",
+  CAPABILITY: "Capabilities",
+  LIFE_STYLE: "Lifestyle",
+  OCCUPATION: "Occupation",
+  CONTENT_CATEGORY: "Content category",
+  CATEGORY_EXPERIENCE: "Category experience",
+  CAN_CREATE_WITH: "Can create with",
+  AI_CONTENT_PERMISSION: "AI content",
+};
+
+function formatLocation(
+  city?: string | null,
+  stateName?: string | null,
+  countryName?: string | null,
+): string {
+  const parts = [city, stateName, countryName].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : "Not provided";
 }
 
-function formatSubmittedAt(iso: string): string {
+function formatSubmittedAt(iso?: string | null): string {
+  if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString(undefined, {
       dateStyle: "medium",
@@ -24,6 +47,448 @@ function formatSubmittedAt(iso: string): string {
   }
 }
 
+function formatGender(gender?: string | null): string {
+  if (!gender) return "—";
+  return gender.replace(/_/g, " ");
+}
+
+function DetailField({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <dt className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="text-sm font-medium break-words">{children}</dd>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="font-headline text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+      {children}
+    </h3>
+  );
+}
+
+function ExternalLink({ href, label }: { href: string; label?: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary hover:underline break-all"
+    >
+      {label ?? href}
+    </a>
+  );
+}
+
+function PortfolioGrid({
+  videos,
+}: {
+  videos: Array<{
+    id: string;
+    videoUrl: string;
+    thumbnailUrl?: string | null;
+    industryLabel?: string | null;
+    tags?: string[];
+  }>;
+}) {
+  if (videos.length === 0) {
+    return (
+      <div className="rounded-xl border border-border/20 bg-card/20 py-8 text-center">
+        <p className="text-sm font-medium text-muted-foreground">
+          No portfolio videos uploaded.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {videos.map((video, idx) => {
+        const mediaUrl = video.thumbnailUrl || video.videoUrl;
+        const isVideo =
+          mediaUrl.toLowerCase().includes(".mp4") ||
+          mediaUrl.toLowerCase().includes(".webm") ||
+          mediaUrl.toLowerCase().includes(".mov");
+
+        return (
+          <div
+            key={video.id}
+            className="space-y-2"
+          >
+            <div className="relative aspect-4/5 overflow-hidden rounded-xl border border-border/20 bg-card">
+              {isVideo ? (
+                <video
+                  src={video.videoUrl}
+                  className="h-full w-full object-cover"
+                  controls
+                  muted
+                  playsInline
+                  poster={video.thumbnailUrl || undefined}
+                />
+              ) : (
+                <Image
+                  alt={`Portfolio ${idx + 1}`}
+                  fill
+                  className="object-cover"
+                  src={mediaUrl}
+                  unoptimized
+                />
+              )}
+            </div>
+            {video.industryLabel ? (
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {video.industryLabel}
+              </p>
+            ) : null}
+            {video.tags && video.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {video.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-md border border-border/30 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReviewProfileSections({
+  profile,
+  listItem,
+  portfolioVideos,
+}: {
+  profile: CreatorProfileItemApi;
+  listItem: AdminCreatorListItemDto;
+  portfolioVideos: PortfolioVideoApi[];
+}) {
+  const facetsByDimension = (profile.facetSelections ?? []).reduce<
+    Record<string, Array<{ label: string; slug: string }>>
+  >((acc, facet) => {
+    const key = facet.dimension;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push({ label: facet.label, slug: facet.slug });
+    return acc;
+  }, {});
+
+  const publicPortfolio = portfolioVideos.filter(
+    (video) => video.visibilityStatus === "public",
+  );
+
+  return (
+    <div className="space-y-8 pb-4">
+      <section className="flex items-start gap-6">
+        <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/20">
+          {profile.profileImageUrl ? (
+            <Image
+              src={profile.profileImageUrl}
+              alt={profile.displayName}
+              fill
+              className="object-cover"
+              sizes="112px"
+            />
+          ) : (
+            <span className="font-headline text-4xl font-extrabold text-primary">
+              {profile.displayName.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-3xl font-headline font-extrabold tracking-tight">
+              {profile.displayName}
+            </h1>
+            {profile.completeProfile ? (
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                Profile complete
+              </span>
+            ) : (
+              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                Incomplete
+              </span>
+            )}
+          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {profile.bio || "No bio provided."}
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined text-base">location_on</span>
+              {formatLocation(profile.city, profile.stateName, profile.countryName)}
+            </span>
+            <span className="text-border">|</span>
+            <span>
+              Submitted {formatSubmittedAt(listItem.submittedAt ?? profile.createdAt)}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {profile.introVideoUrl ? (
+        <section className="space-y-3">
+          <SectionTitle>Intro video</SectionTitle>
+          <div className="overflow-hidden rounded-xl border border-border/20 bg-black">
+            <video
+              src={profile.introVideoUrl}
+              className="aspect-video w-full object-contain"
+              controls
+              playsInline
+              poster={profile.profileImageUrl || undefined}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-4">
+        <SectionTitle>Contact & identity</SectionTitle>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DetailField label="Email">
+            {profile.contactEmail || "—"}
+          </DetailField>
+          <DetailField label="Phone">
+            {profile.phone || "—"}
+            {profile.phoneVerified ? (
+              <span className="ml-2 text-[10px] font-bold uppercase text-primary">
+                Verified
+              </span>
+            ) : null}
+          </DetailField>
+          <DetailField label="Date of birth">
+            {profile.dateOfBirth
+              ? `${profile.dateOfBirth}${profile.age != null ? ` (${profile.age} yrs)` : ""}`
+              : profile.age != null
+                ? `${profile.age} years`
+                : "—"}
+          </DetailField>
+          <DetailField label="Gender">{formatGender(profile.gender)}</DetailField>
+          <DetailField label="Shipping address" className="sm:col-span-2">
+            {profile.shippingAddress || "—"}
+          </DetailField>
+        </dl>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle>Social & links</SectionTitle>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DetailField label="Instagram">
+            {profile.instagramUrl ? (
+              <ExternalLink href={profile.instagramUrl} />
+            ) : (
+              "—"
+            )}
+          </DetailField>
+          <DetailField label="YouTube">
+            {profile.youtubeUrl ? (
+              <ExternalLink href={profile.youtubeUrl} />
+            ) : (
+              "—"
+            )}
+          </DetailField>
+          <DetailField label="Snapchat">
+            {profile.snapchatUrl ? (
+              <ExternalLink href={profile.snapchatUrl} />
+            ) : (
+              "—"
+            )}
+          </DetailField>
+          {listItem.driveLink ? (
+            <DetailField label="Google Drive" className="sm:col-span-2">
+              <ExternalLink href={listItem.driveLink} label="Open Drive folder" />
+            </DetailField>
+          ) : null}
+        </dl>
+      </section>
+
+      {(profile.profileLanguages?.length ?? 0) > 0 ? (
+        <section className="space-y-3">
+          <SectionTitle>Languages</SectionTitle>
+          <div className="flex flex-wrap gap-2">
+            {profile.profileLanguages?.map((lang) => (
+              <span
+                key={`${lang.slug}-${lang.fluency}`}
+                className="rounded-md border border-border/30 bg-card/40 px-2.5 py-1 text-xs font-medium"
+              >
+                {lang.label}
+                <span className="ml-1 text-muted-foreground">
+                  · {lang.fluency.replace(/_/g, " ").toLowerCase()}
+                </span>
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {Object.keys(facetsByDimension).length > 0 ? (
+        <section className="space-y-4">
+          <SectionTitle>Profile facets</SectionTitle>
+          <div className="space-y-4">
+            {Object.entries(facetsByDimension).map(([dimension, facets]) => (
+              <div key={dimension}>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {FACET_LABELS[dimension] ?? dimension.replace(/_/g, " ")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {facets.map((facet) => (
+                    <span
+                      key={facet.slug}
+                      className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary"
+                    >
+                      {facet.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {(profile.packages?.length ?? 0) > 0 ? (
+        <section className="space-y-3">
+          <SectionTitle>Packages ({profile.packages.length})</SectionTitle>
+          <div className="space-y-3">
+            {profile.packages.map((pkg) => (
+              <div
+                key={pkg.id}
+                className="rounded-xl border border-border/20 bg-card/30 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-headline text-base font-bold">{pkg.name}</p>
+                  <p className="shrink-0 text-sm font-bold text-primary">
+                    {formatInrPrice(pkg.priceAmount)}
+                  </p>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-3">
+                  <div>
+                    <dt className="font-bold uppercase tracking-wider">Delivery</dt>
+                    <dd className="mt-0.5 text-foreground">{pkg.deliveryDays} days</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-wider">Video length</dt>
+                    <dd className="mt-0.5 text-foreground">{pkg.videoLengthSeconds}s</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-wider">Revisions</dt>
+                    <dd className="mt-0.5 text-foreground">{pkg.maxRevisions}</dd>
+                  </div>
+                </dl>
+                {pkg.deliverables.length > 0 ? (
+                  <ul className="mt-3 list-inside list-disc text-sm text-muted-foreground">
+                    {pkg.deliverables.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {(profile.addOns?.length ?? 0) > 0 ? (
+        <section className="space-y-3">
+          <SectionTitle>Add-ons ({profile.addOns?.length})</SectionTitle>
+          <div className="space-y-2">
+            {profile.addOns?.map((addOn) => (
+              <div
+                key={addOn.id}
+                className="flex items-start justify-between gap-3 rounded-xl border border-border/20 bg-card/20 px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold">{addOn.name}</p>
+                  {addOn.description ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {addOn.description}
+                    </p>
+                  ) : null}
+                  {addOn.deliveryDays != null ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {addOn.deliveryDays} day delivery
+                    </p>
+                  ) : null}
+                </div>
+                <p className="shrink-0 text-sm font-bold">
+                  {formatInrPrice(addOn.priceAmount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {(profile.restrictions?.length ?? 0) > 0 ? (
+        <section className="space-y-3">
+          <SectionTitle>Restrictions</SectionTitle>
+          <div className="flex flex-wrap gap-2">
+            {profile.restrictions?.map((item) => (
+              <span
+                key={item.id}
+                className="rounded-md border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs text-destructive"
+              >
+                {item.restriction}
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-4">
+        <SectionTitle>Work preferences</SectionTitle>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DetailField label="On-location available">
+            {profile.onLocationAvailable ? "Yes" : "No"}
+          </DetailField>
+          <DetailField label="Travel radius">
+            {profile.travelRadius != null ? `${profile.travelRadius} km` : "—"}
+          </DetailField>
+          <DetailField label="Collaborations completed">
+            {profile.collaborationCount ?? 0}
+          </DetailField>
+          <DetailField label="Content volume">
+            {profile.contentVolume
+              ? profile.contentVolume.replace(/_/g, " ")
+              : "—"}
+          </DetailField>
+        </dl>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle>
+          Portfolio ({publicPortfolio.length} public)
+        </SectionTitle>
+        <PortfolioGrid videos={publicPortfolio} />
+      </section>
+
+      <div className="border-t border-border/30 pt-4">
+        <Link
+          href={`/admin/creators/${profile.id}`}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Open full profile editor →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function ReviewDrawer({
   isOpen,
   onClose,
@@ -31,13 +496,30 @@ export default function ReviewDrawer({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  creator?: PendingCreatorApprovalListItemDto | null;
+  creator?: AdminCreatorListItemDto | null;
 }) {
   const { mutate: approve, isPending: isApproving } =
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } = useRejectCreatorMutation();
 
   const [isRejectOpen, setIsRejectOpen] = React.useState(false);
+
+  const creatorId = creator?.id ?? "";
+  const drawerOpen = isOpen && !!creator;
+
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+  } = useCreatorProfileQuery(creatorId, {
+    enabled: drawerOpen,
+  });
+
+  const { data: portfolioVideos = [], isLoading: portfolioLoading } =
+    useAdminPortfolioVideosQuery({
+      creatorId,
+      enabled: drawerOpen,
+    });
 
   const handleApprove = () => {
     if (!creator) return;
@@ -64,27 +546,26 @@ export default function ReviewDrawer({
   };
 
   const isWorking = isApproving || isRejecting;
-
-  const portfolioVideos = creator?.portfolioVideos ?? [];
+  const isLoading = profileLoading || portfolioLoading;
 
   return (
     <>
       <Drawer
-        open={isOpen && !!creator}
+        open={drawerOpen}
         onOpenChange={(open) => {
           if (!open) onClose();
         }}
         direction="right"
       >
-        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[500px] lg:data-[vaul-drawer-direction=right]:max-w-[600px] h-full data-[vaul-drawer-direction=right]:rounded-none border-l border-border/30 bg-background shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto overflow-x-hidden flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+        <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-full md:data-[vaul-drawer-direction=right]:max-w-[500px] lg:data-[vaul-drawer-direction=right]:max-w-[680px] h-full data-[vaul-drawer-direction=right]:rounded-none border-l border-border/30 bg-background shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto overflow-x-hidden flex flex-col [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           {creator && (
             <>
-              <div className="flex items-center justify-between px-8 py-6 border-b border-border/20 sticky top-0 bg-background z-10">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/20 bg-background px-8 py-6">
                 <DrawerTitle className="text-xl font-headline font-bold">
                   Review Creator
                 </DrawerTitle>
                 <button
-                  className="p-2 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
                   onClick={onClose}
                   disabled={isWorking}
                 >
@@ -92,216 +573,45 @@ export default function ReviewDrawer({
                 </button>
               </div>
 
-              <div className="p-8 space-y-8 flex-1">
-                <section className="flex items-start space-x-6">
-                  <div className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-primary/10 font-headline text-4xl font-extrabold text-primary ring-2 ring-primary/20">
-                    {creator.displayName.charAt(0).toUpperCase()}
+              <div className="flex-1 p-8">
+                {isLoading ? (
+                  <div className="flex min-h-[40vh] items-center justify-center">
+                    <Spinner className="size-8 text-muted-foreground" />
                   </div>
-                  <div className="flex-1 space-y-2">
-                    <h1 className="text-3xl font-headline font-extrabold tracking-tight">
-                      {creator.displayName}
-                    </h1>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {creator.bio || "No bio provided."}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-base">
-                          location_on
-                        </span>
-                        {formatLocation(creator)}
-                      </span>
-                      <span className="text-border">|</span>
-                      <span>
-                        Submitted {formatSubmittedAt(creator.submittedAt)}
-                      </span>
-                    </div>
+                ) : profileError || !profile ? (
+                  <div className="rounded-xl border border-border/20 bg-card/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                    Could not load the full creator profile. Try again or open
+                    the profile editor.
                   </div>
-                </section>
-
-                <section className="space-y-4">
-                  <h3 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Signup details
-                  </h3>
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
-                        Email
-                      </dt>
-                      <dd className="font-medium break-all">
-                        {creator.contactEmail || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
-                        Phone
-                      </dt>
-                      <dd className="font-medium">
-                        {creator.phone || "—"}
-                        {creator.phoneVerified && (
-                          <span className="ml-2 text-[10px] font-bold uppercase text-primary">
-                            Verified
-                          </span>
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
-                        Age
-                      </dt>
-                      <dd className="font-medium">
-                        {creator.age != null ? `${creator.age} years` : "—"}
-                        {creator.gender && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {creator.gender.replace(/_/g, " ")}
-                          </span>
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
-                        Instagram
-                      </dt>
-                      <dd className="font-medium break-all">
-                        {creator.instagramUrl ? (
-                          <a
-                            href={creator.instagramUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            {creator.instagramUrl}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
-                        Google Drive
-                      </dt>
-                      <dd className="font-medium break-all">
-                        {creator.driveLink ? (
-                          <a
-                            href={creator.driveLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            {creator.driveLink}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  {creator.contentCategories.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {creator.contentCategories.map((c) => (
-                        <span
-                          key={c.slug}
-                          className="text-[10px] font-bold px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-md uppercase tracking-wider"
-                        >
-                          {c.label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                <section className="space-y-4 pb-4">
-                  <h3 className="font-headline font-bold text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Portfolio ({portfolioVideos.length})
-                  </h3>
-                  {portfolioVideos.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {portfolioVideos.map((video, idx) => {
-                        const mediaUrl =
-                          video.thumbnailUrl || video.videoUrl;
-                        const isVideo =
-                          mediaUrl.toLowerCase().includes(".mp4") ||
-                          mediaUrl.toLowerCase().includes(".webm") ||
-                          mediaUrl.toLowerCase().includes(".mov");
-                        return (
-                          <div
-                            key={video.id}
-                            className="aspect-4/5 rounded-xl overflow-hidden bg-card border border-border/20 relative group/thumb"
-                          >
-                            {isVideo ? (
-                              <video
-                                src={video.videoUrl}
-                                className="w-full h-full object-cover"
-                                controls
-                                muted
-                                playsInline
-                                poster={video.thumbnailUrl || undefined}
-                              />
-                            ) : (
-                              <Image
-                                alt={`Portfolio ${idx + 1}`}
-                                fill
-                                className="object-cover transition-transform duration-700 group-hover/thumb:scale-110"
-                                src={mediaUrl}
-                                unoptimized
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : creator.driveLink ? (
-                    <div className="rounded-xl border border-border/20 bg-card/20 px-4 py-3 text-sm">
-                      <p className="text-muted-foreground font-medium">
-                        Portfolio provided via Google Drive at signup.
-                      </p>
-                      <a
-                        href={creator.driveLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-block break-all text-primary hover:underline"
-                      >
-                        Open Drive folder
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center bg-card/20 rounded-xl border border-border/20">
-                      <p className="text-muted-foreground text-sm font-medium">
-                        No portfolio videos uploaded at signup.
-                      </p>
-                    </div>
-                  )}
-                </section>
-
-                <p className="text-xs text-muted-foreground border-t border-border/30 pt-6">
-                  Packages, languages, and full profile details can be added
-                  after approval via the creator profile update flow.
-                </p>
+                ) : (
+                  <ReviewProfileSections
+                    profile={profile}
+                    listItem={creator}
+                    portfolioVideos={portfolioVideos}
+                  />
+                )}
               </div>
 
-              <div className="p-8 border-t border-border/20 bg-background/95 backdrop-blur-md sticky bottom-0 flex space-x-4">
+              <div className="sticky bottom-0 flex space-x-4 border-t border-border/20 bg-background/95 p-8 backdrop-blur-md">
                 <button
-                  className="flex-1 py-2 rounded-xl border border-border text-muted-foreground font-bold text-sm uppercase tracking-wider hover:bg-error/10 hover:text-error hover:border-error/30 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                  className="flex flex-1 items-center justify-center space-x-2 rounded-xl border border-border py-2 text-sm font-bold uppercase tracking-wider text-muted-foreground transition-all hover:border-error/30 hover:bg-error/10 hover:text-error disabled:opacity-50"
                   onClick={handleRejectClick}
                   disabled={isWorking}
                 >
                   {isRejecting && (
-                    <span className="material-symbols-outlined text-[18px] animate-spin">
+                    <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
                   )}
                   <span>{isRejecting ? "Rejecting..." : "Reject"}</span>
                 </button>
                 <button
-                  className="flex-2 w-full py-2 rounded-xl bg-primary text-primary-foreground font-bold text-sm uppercase tracking-wider hover:brightness-110 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                  className="flex w-full flex-2 items-center justify-center space-x-2 rounded-xl bg-primary py-2 text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:brightness-110 disabled:opacity-50"
                   onClick={handleApprove}
-                  disabled={isWorking}
+                  disabled={isWorking || isLoading}
                 >
                   {isApproving && (
-                    <span className="material-symbols-outlined text-[18px] animate-spin">
+                    <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
                   )}

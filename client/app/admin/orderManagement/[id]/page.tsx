@@ -580,19 +580,45 @@ export default function AdminOrderDetailsPage() {
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-between border-t border-border/50 bg-linear-to-r from-muted/50 to-muted/20 px-8 py-6 dark:border-border/10">
+                <div className="flex flex-col border-t border-border/50 bg-linear-to-r from-muted/50 to-muted/20 px-8 py-6 dark:border-border/10 space-y-4">
                   <div>
-                    <p className="mb-1 text-xs font-black uppercase tracking-[0.15em] text-muted-foreground">
-                      Total Value
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Add-ons total:{" "}
-                      {formatCurrency(addOnsTotal, order.currency)}
+                    <h4 className="font-headline text-lg font-bold mb-1">
+                      Total Value Breakdown
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      GoCollab takes 20% of the complete order value (base package + add-ons).
                     </p>
                   </div>
-                  <p className="text-right text-4xl font-extrabold tracking-tight text-primary">
-                    {formatCurrency(totalAmount, order.currency)}
-                  </p>
+                  
+                  <div className="space-y-3 rounded-xl border border-border/50 bg-background/50 p-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total order value</span>
+                      <span className="font-medium">
+                        {formatCurrency(totalAmount, order.currency)} 
+                        <span className="text-muted-foreground font-normal ml-1 hidden sm:inline">
+                          ({formatCurrency(order.priceAmountSnapshot, order.currency)} package + {formatCurrency(addOnsTotal, order.currency)} add-ons)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm sm:hidden">
+                      <span className="text-muted-foreground text-xs">
+                        ({formatCurrency(order.priceAmountSnapshot, order.currency)} package + {formatCurrency(addOnsTotal, order.currency)} add-ons)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">GoCollab platform fee (20%)</span>
+                      <span className="font-medium text-rose-500">
+                        -{formatCurrency(totalAmount * 0.2, order.currency)}
+                      </span>
+                    </div>
+                    <div className="border-t border-border/50"></div>
+                    <div className="flex items-center justify-between text-base font-bold">
+                      <span className="text-foreground">Creator receives</span>
+                      <span className="text-emerald-500">
+                        {formatCurrency(totalAmount * 0.8, order.currency)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

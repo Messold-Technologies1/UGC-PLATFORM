@@ -25,6 +25,11 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_SECRET: Joi.string().min(1).required(),
   GOOGLE_CALLBACK_URL: Joi.string().uri().required(),
   FRONTEND_URL: Joi.string().uri().required(),
+  /** Creator onboarding: approval_first (default) or profile_first */
+  CREATOR_ONBOARDING_MODE: Joi.string()
+    .valid('approval_first', 'profile_first')
+    .optional()
+    .default('approval_first'),
 
   // Storage: S3 + CDN
   AWS_REGION: Joi.string().min(1).required(),

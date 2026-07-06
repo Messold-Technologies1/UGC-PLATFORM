@@ -18,14 +18,8 @@ import {
 
 import { motion, type Variants } from "framer-motion";
 
-import {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useEffect,
-} from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -71,6 +65,8 @@ import { useCreatorRestrictionSuggestionsQuery } from "@/features/creators/hooks
 
 const PROFILE_OTP_VERIFICATION_ENABLED = false;
 import { useAuth, type AuthUser } from "@/providers/auth-provider";
+import { fetchAuthMe } from "@/features/auth/hooks/use-me-query";
+import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import type {
   CreatorContentVolumeBucket,
   CreatorFacetSelectionPayload,
@@ -220,6 +216,7 @@ function CreatorProfileUpdateFormContent({
   user,
   onRequestReset,
 }: CreatorProfileUpdateFormContentProps) {
+  const router = useRouter();
   const { refreshUser } = useAuth();
   const location = useCreatorLocationForm({ initialProfile, adminMode });
   const introVideo = useCreatorIntroVideo({ mode, profileId, initialProfile });
@@ -323,9 +320,26 @@ function CreatorProfileUpdateFormContent({
     mode,
     profileId,
     adminMode,
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setIsDirty(false);
       clearDraftRef.current();
+
+      if (
+        !adminMode &&
+        result.status === "updated" &&
+        result.goLive &&
+        isProfileFirstOnboardingMode()
+      ) {
+        await refreshUser();
+        const me = await fetchAuthMe();
+        if (
+          me?.creatorApprovalStatus === "PENDING" &&
+          me.creatorProfileComplete
+        ) {
+          router.push("/creator/under-review");
+        }
+      }
+
       await onSuccess();
     },
   });

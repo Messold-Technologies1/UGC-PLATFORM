@@ -9,26 +9,15 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  Calendar,
   ExternalLink,
   FileText,
-  ImageIcon,
   MapPin,
   Package,
   Send,
-  Video,
   Volume2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
@@ -49,7 +38,8 @@ import {
   formatContentType,
 } from "../lib/format-enums";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
-
+import styles from "@/features/briefs/components/brief-studio.module.css";
+import { cn } from "@/lib/utils";
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
@@ -147,250 +137,241 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
 
   return (
     <>
-      <div
-        className={`w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8`}
-      >
-        <div className={isFromOrder ? "flex gap-0 lg:items-start" : ""}>
-          <div className="flex-1 min-w-0 flex flex-col gap-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-3">
-                {/* <Button asChild variant="ghost" className="w-fit px-0">
-                <Link href="/brand/briefs">
-                  <ArrowLeft className="size-4" />
-                  Back to briefs
-                </Link>
-              </Button> */}
-                <div>
-                  {/* <Badge variant="outline" className="mb-3 bg-background">
-                  {formatEnumLabel(brief.contentType)}
-                </Badge> */}
-                  <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-                    {brief.productName || "Untitled Project"}
-                  </h1>
-                  {/* <p className="mt-2 text-muted-foreground">
-                  {brief.brandName || "Brand Name"}
-                </p> */}
-                </div>
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8 flex-1 flex flex-col min-w-0">
+        <div className={styles.studio} style={{ paddingTop: 0 }}>
+          <section className={cn(styles.panel, styles.leftPanel)}>
+            <div className={styles.panelHead}>
+              <div className={styles.panelHeadIconPrimary}>
+                <FileText size={19} />
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Calendar className="size-4" />
-                  <span>Created on {formatDate(brief.createdAt)}</span>
+              <div className="min-w-0">
+                <h2 className={styles.panelHeadTitle}>
+                  {brief.productName || "Untitled Project"}
+                </h2>
+                <div className={styles.panelHeadSub}>
+                  Created on {formatDate(brief.createdAt)}
                 </div>
-                {/* {brief.updatedAt && brief.updatedAt !== brief.createdAt && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="size-4" />
-                    <span>Updated {formatDate(brief.updatedAt)}</span>
-                  </div>
-                )} */}
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-              <div className="flex flex-col gap-6 lg:col-span-2">
-                <Card className="overflow-hidden border-border/60 shadow-sm">
-                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <ImageIcon className="size-4" />
-                      </div>
-                      Brand Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-6 md:grid-cols-2 pt-6">
-                    <DetailRow label="Brand Name" value={brief.brandName} />
-                    <DetailRow label="Industry" value={brief.industry} />
-                    {brief.brandLogoUrl ? (
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Brand Logo
-                        </p>
-                        <NextImage
-                          src={brief.brandLogoUrl}
-                          alt={`${brief.brandName || "Brand"} logo`}
-                          width={64}
-                          height={64}
-                          className="h-16 w-16 rounded-lg border border-border/40 object-contain bg-muted/20 p-1"
-                          unoptimized
-                        />
-                      </div>
-                    ) : (
-                      <DetailRow label="Brand Logo" value={null} />
-                    )}
-                    {brief.brandPronunciationAudioUrl ? (
-                      <div className="space-y-2 md:col-span-2">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                          <Volume2 className="size-3" />
-                          Brand Pronunciation Audio
-                        </p>
-                        <audio
-                          controls
-                          src={brief.brandPronunciationAudioUrl}
-                          className="w-full max-w-md h-10"
-                        >
-                          Your browser does not support the audio element.
-                        </audio>
-                      </div>
-                    ) : (
-                      <DetailRow label="Pronunciation Audio" value={null} />
-                    )}
-                  </CardContent>
-                </Card>
+            <div className={styles.panelBody}>
+              <div className={styles.formSection}>
+                <h3 className={styles.formSectionTitle}>
+                  <div className={styles.formSectionNum}>1</div>
+                  Brand Details
+                </h3>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <DetailRow label="Brand Name" value={brief.brandName} />
+                  <DetailRow label="Industry" value={brief.industry} />
+                  {brief.brandLogoUrl ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Brand Logo
+                      </p>
+                      <NextImage
+                        src={brief.brandLogoUrl}
+                        alt={`${brief.brandName || "Brand"} logo`}
+                        width={64}
+                        height={64}
+                        className="h-16 w-16 rounded-lg border border-border/40 object-contain bg-muted/20 p-1"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <DetailRow label="Brand Logo" value={null} />
+                  )}
+                  {brief.brandPronunciationAudioUrl ? (
+                    <div className="space-y-2 md:col-span-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Volume2 className="size-3" />
+                        Brand Pronunciation Audio
+                      </p>
+                      <audio
+                        controls
+                        src={brief.brandPronunciationAudioUrl}
+                        className="w-full max-w-md h-10"
+                      >
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  ) : (
+                    <DetailRow label="Pronunciation Audio" value={null} />
+                  )}
+                </div>
+              </div>
 
-                <Card className="overflow-hidden border-border/60 shadow-sm">
-                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        <Package className="size-4" />
-                      </div>
-                      {offerLabels.sectionInfoTitle}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-6 md:grid-cols-2 pt-6">
-                    <DetailRow label={offerLabels.name} value={brief.productName} />
-                    <DetailRow
-                      label={offerLabels.pageLink}
-                      value={brief.productPageUrl}
-                    />
-                    {brief.isProduct !== false ? (
+              <div className={styles.formSection}>
+                <h3 className={styles.formSectionTitle}>
+                  <div className={styles.formSectionNum}>2</div>
+                  {offerLabels.sectionInfoTitle}
+                </h3>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <DetailRow
+                    label={offerLabels.name}
+                    value={brief.productName}
+                  />
+                  {brief.productPageUrl ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {offerLabels.pageLink}
+                      </p>
+                      <a
+                        href={brief.productPageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                      >
+                        View Page
+                        <ExternalLink className="size-3.5" />
+                      </a>
+                    </div>
+                  ) : (
+                    <DetailRow label={offerLabels.pageLink} value={null} />
+                  )}
+                  {brief.isProduct !== false ? (
                     <DetailRow
                       label="Ship physical product"
                       value={
                         brief.willShipPhysicalProductToCreator ? "Yes" : "No"
                       }
                     />
-                    ) : null}
-                    <div className="space-y-1 md:col-span-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Description
-                      </p>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {brief.productDescription || "N/A"}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden border-border/60 shadow-sm">
-                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                        <FileText className="size-4" />
-                      </div>
-                      References & Notes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6 pt-6">
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Key points
-                      </p>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {brief.keyNoteToInclude || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Call to action
-                      </p>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {brief.ctaNote || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Reference links
-                      </p>
-                      {brief.referenceLinks.length > 0 ? (
-                        <div className="flex flex-col gap-2">
-                          {brief.referenceLinks.map((link) => (
-                            <a
-                              key={link}
-                              href={link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 rounded-xl border border-border/40 bg-background p-3 text-sm font-medium text-primary transition-colors hover:bg-muted"
-                            >
-                              <ExternalLink className="size-4" />
-                              <span className="truncate">{link}</span>
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No references added.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Script
-                      </p>
-                      <p className="text-sm font-medium text-foreground">
-                        {scriptSummary?.label || "N/A"}
-                      </p>
-                      {scriptSummary?.text ? (
-                        <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                          {scriptSummary.text}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Final notes
-                      </p>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {brief.finalNotes || "N/A"}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                  ) : null}
+                  <div className="space-y-1 md:col-span-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Description
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                      {brief.productDescription || "N/A"}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="lg:col-span-1 sticky top-8">
-                <Card className="overflow-hidden border-border/60 shadow-sm">
-                  <CardHeader className="bg-muted/30 border-b border-border/40 pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                        <Video className="size-4" />
-                      </div>
-                      Creative Needs
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-5 pt-6">
-                    <DetailRow
-                      label="Duration"
-                      value={formatDuration(brief.durationBucket)}
-                    />
-                    <DetailRow
-                      label="Tone"
-                      value={formatTone(brief.toneStyle?.[0])}
-                    />
-                    <DetailRow
-                      label="Location"
-                      value={formatLocation(brief.shootLocationKind)}
-                    />
-                    {brief.shootLocationAddress ? (
-                      <div className="flex gap-2 rounded-xl border border-border/40 bg-muted/20 p-3 text-sm">
+              <div className={styles.formSection}>
+                <h3 className={styles.formSectionTitle}>
+                  <div className={styles.formSectionNum}>3</div>
+                  Creative Needs
+                </h3>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <DetailRow
+                    label="Duration"
+                    value={formatDuration(brief.durationBucket)}
+                  />
+                  <DetailRow
+                    label="Tone"
+                    value={formatTone(brief.toneStyle?.[0])}
+                  />
+                  <DetailRow
+                    label="Location"
+                    value={formatLocation(brief.shootLocationKind)}
+                  />
+                  {brief.shootLocationAddress ? (
+                    <div className="space-y-1 md:col-span-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Location Address
+                      </p>
+                      <div className="flex gap-2 rounded-xl border border-border/40 bg-muted/20 p-3 text-sm max-w-md">
                         <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
                         <span>{brief.shootLocationAddress}</span>
                       </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className={styles.formSection}>
+                <h3 className={styles.formSectionTitle}>
+                  <div className={styles.formSectionNum}>4</div>
+                  References & Notes
+                </h3>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Key points
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                      {brief.keyNoteToInclude || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Call to action
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                      {brief.ctaNote || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Reference links
+                    </p>
+                    {brief.referenceLinks.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {brief.referenceLinks.map((link) => (
+                          <a
+                            key={link}
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 rounded-xl border border-border/40 bg-background p-3 text-sm font-medium text-primary transition-colors hover:bg-muted"
+                          >
+                            <ExternalLink className="size-4 shrink-0" />
+                            <span className="truncate">{link}</span>
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No references added.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Script
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      {scriptSummary?.label || "N/A"}
+                    </p>
+                    {scriptSummary?.text ? (
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/90 bg-muted/30 p-4 rounded-xl border border-border/40">
+                        {scriptSummary.text}
+                      </p>
                     ) : null}
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Final notes
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                      {brief.finalNotes || "N/A"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
+          </section>
 
-            {isFromOrder && (
-              <div className="flex justify-end">
+          {isFromOrder && (
+            <section className={cn(styles.panel, styles.rightPanel)}>
+              <div className={styles.panelHead}>
+                <div className={styles.panelHeadIconPrimary}>
+                  <Package size={19} />
+                </div>
+                <div>
+                  <h2 className={styles.panelHeadTitle}>Brief Review</h2>
+                  <div className={styles.panelHeadSub}>Submit to order</div>
+                </div>
+              </div>
+              <div className={styles.panelBody}>
                 <Button
                   onClick={() => setIsConfirmOpen(true)}
                   disabled={isSubmitting}
-                  className="rounded-xl font-bold px-8 py-3 shadow-sm transition-all hover:opacity-90 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full rounded-xl font-bold px-8 py-3 shadow-sm transition-all hover:opacity-90 bg-emerald-600 hover:bg-emerald-700 text-white mb-8 h-12"
                 >
                   {isSubmitting ? (
                     <>
@@ -404,35 +385,20 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                     </>
                   )}
                 </Button>
-              </div>
-            )}
-          </div>
 
-          {isFromOrder && (
-            <div className="hidden lg:flex items-start ml-auto">
-              <div className="flex items-start justify-center pt-10 px-6">
-                <Separator
-                  orientation="vertical"
-                  className="h-64 bg-border/50"
-                />
-              </div>
-
-              <div className="w-[340px] shrink-0">
-                <div className="sticky top-8 space-y-5">
-                  <div>
-                    <h3 className="text-lg font-bold">Existing Briefs</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Reference your previous campaign briefs.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3 max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
+                <div>
+                  <h3 className="text-[13px] font-bold text-foreground mb-1 font-[family-name:var(--bs-font-heading)] tracking-wide">Existing Briefs</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Reference your previous campaign briefs.
+                  </p>
+                  
+                  <div className="flex flex-col gap-3">
                     {isLoadingBriefs ? (
                       <div className="flex justify-center p-8">
                         <Spinner className="size-6" />
                       </div>
                     ) : existingBriefs.length === 0 ? (
-                      <div className="p-6 text-center text-sm text-muted-foreground">
+                      <div className="p-4 text-center text-xs text-muted-foreground border border-border/40 rounded-xl bg-muted/20">
                         No existing briefs found.
                       </div>
                     ) : (
@@ -440,24 +406,16 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                         {existingBriefs.map((b) => (
                           <div
                             key={b.id}
-                            className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 group ${b.id === briefId ? "bg-muted/40" : ""}`}
+                            className={`flex items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/30 group ${b.id === briefId ? "bg-muted/40" : ""}`}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold truncate">
+                                <span className="text-xs font-semibold truncate">
                                   {b.brandName || "Untitled Brief"}
                                 </span>
-                                {/* {b.contentType && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 text-[10px] uppercase"
-                                >
-                                  {formatEnumLabel(b.contentType)}
-                                </Badge>
-                              )} */}
                               </div>
                               {b.productName && (
-                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                                   {b.productName}
                                 </p>
                               )}
@@ -467,7 +425,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="shrink-0 size-8 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+                                className="shrink-0 size-7 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
                                 onClick={() =>
                                   router.push(
                                     `/brand/briefs/${b.id}?orderId=${orderId}`,
@@ -475,7 +433,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                                 }
                                 aria-label={`View brief ${b.brandName || b.id}`}
                               >
-                                <ArrowRight className="size-4" />
+                                <ArrowRight className="size-3.5" />
                               </Button>
                             )}
                           </div>
@@ -485,7 +443,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>

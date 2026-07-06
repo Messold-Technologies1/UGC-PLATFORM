@@ -126,7 +126,7 @@ export function OrderProgressStepper({
 
                 <span
                   className={cn(
-                    "mt-3 text-[11px] font-semibold text-center leading-tight whitespace-nowrap transition-colors",
+                    "mt-3 text-[11px] font-semibold text-center leading-tight transition-colors px-1",
                     (step.status === "completed" || step.status === "delivered") && "text-[#4F966B]",
                     step.status === "current" && "text-[#4318FF]",
                     step.status === "cancelled" && "text-red-600",
@@ -138,7 +138,7 @@ export function OrderProgressStepper({
                 </span>
 
                 {step.date && step.status !== "pending" && (
-                  <span className="mt-1 text-[10px] text-muted-foreground/80 text-center whitespace-nowrap">
+                  <span className="mt-1 text-[10px] text-muted-foreground/80 text-center px-1 leading-tight">
                     {step.status === "current"
                       ? `Since ${fmtDateTime(step.date, true)}`
                       : fmtDateTime(step.date)}

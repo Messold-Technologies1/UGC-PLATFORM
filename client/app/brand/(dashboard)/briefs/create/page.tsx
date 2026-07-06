@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/select";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
+import { useAttachBriefToOrderMutation } from "@/features/briefs/hooks/use-attach-brief-to-order-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
@@ -484,10 +485,24 @@ function CreateBriefPageContent() {
     },
   });
 
+  const attachBriefMutation = useAttachBriefToOrderMutation({
+    onSuccess: () => {
+      router.push(`/brand/orders/${orderId}`);
+    },
+  });
+
   const handleSubmitBrief = () => {
     if (!orderId || !savedBriefId) return;
     submitBriefMutation.mutate({ orderId, briefId: savedBriefId });
   };
+
+  const handleAttachBrief = useCallback(
+    (brief: Brief) => {
+      if (!orderId) return;
+      attachBriefMutation.mutate({ orderId, briefId: brief.id });
+    },
+    [orderId, attachBriefMutation],
+  );
 
   const watchShootLocation = useWatch({
     control: form.control,
@@ -698,51 +713,7 @@ function CreateBriefPageContent() {
     name: "productName",
   });
 
-  const applyTemplate = useCallback(
-    (brief: Brief) => {
-      const opts = { shouldDirty: true, shouldValidate: true } as const;
 
-      form.setValue("brandName", brief.brandName ?? "", opts);
-      form.setValue("industry", brief.industry ?? "", opts);
-      form.setValue("brandLogoUrl", brief.brandLogoUrl ?? "", opts);
-
-      form.setValue("productName", brief.productName ?? "", opts);
-      form.setValue("productDescription", brief.productDescription ?? "", opts);
-      form.setValue("productPageUrl", brief.productPageUrl ?? "", opts);
-      form.setValue("isProduct", brief.isProduct ?? true, opts);
-      form.setValue(
-        "willShipPhysicalProductToCreator",
-        brief.willShipPhysicalProductToCreator ?? false,
-        opts,
-      );
-      if (brief.shootLocationKind) {
-        form.setValue("shootLocationKind", brief.shootLocationKind, opts);
-      }
-      form.setValue("shootLocationAddress", brief.shootLocationAddress ?? "", opts);
-      if (brief.durationBucket) {
-        form.setValue("durationBucket", brief.durationBucket, opts);
-      }
-      if (brief.contentType && brief.contentType.length > 0) {
-        form.setValue("contentType", brief.contentType, opts);
-      }
-      if (brief.toneStyle && brief.toneStyle.length > 0) {
-        form.setValue("toneStyle", brief.toneStyle, opts);
-      }
-      form.setValue("keyNoteToInclude", brief.keyNoteToInclude ?? "", opts);
-      form.setValue("ctaNote", brief.ctaNote ?? "", opts);
-      form.setValue(
-        "referenceLinks",
-        (brief.referenceLinks ?? []).join("\n"),
-        opts,
-      );
-      form.setValue("finalNotes", brief.finalNotes ?? "", opts);
-
-      toast.success(
-        `Loaded "${brief.productName || "brief"}" into the form`,
-      );
-    },
-    [form],
-  );
 
   const scriptOptions = [
     {
@@ -795,7 +766,10 @@ function CreateBriefPageContent() {
                 </div>
               </div>
               <div className={styles.panelHeadActions}>
-                <BriefsDrawerButton onUseTemplate={applyTemplate} />
+                <BriefsDrawerButton 
+                  onAttachBrief={isFromOrder ? handleAttachBrief : undefined}
+                  attachingBriefId={attachBriefMutation.isPending ? attachBriefMutation.variables?.briefId : undefined}
+                />
                 <button
                   type="button"
                   className={styles.panelHeadAction}
@@ -1642,7 +1616,10 @@ function CreateBriefPageContent() {
             </div>
           </section>
 
-          <ExistingBriefsSidebar onUseTemplate={applyTemplate} />
+          <ExistingBriefsSidebar 
+            onAttachBrief={isFromOrder ? handleAttachBrief : undefined}
+            attachingBriefId={attachBriefMutation.isPending ? attachBriefMutation.variables?.briefId : undefined}
+          />
         </div>
       </div>
     </div>

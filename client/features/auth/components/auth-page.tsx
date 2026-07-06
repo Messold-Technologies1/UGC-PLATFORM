@@ -11,6 +11,10 @@ import {
   ROLE_CONFIGS,
   type LoginRole,
 } from "@/features/auth/lib/login-role-config";
+import {
+  inferLoginRoleFromPath,
+  normalizeCallbackPath,
+} from "@/features/auth/lib/login-redirect";
 import styles from "./login-page.module.css";
 
 export function AuthPage() {
@@ -25,14 +29,14 @@ function LoginRouter() {
   const searchParams = useSearchParams();
   const roleParam = parseLoginRole(searchParams.get("role"));
   const callbackUrl = searchParams.get("callbackUrl");
+  const callbackPath = callbackUrl
+    ? normalizeCallbackPath(callbackUrl, "")
+    : "";
 
   const [role, setRole] = useState<LoginRole>(() => {
     if (roleParam) return roleParam;
-    if (callbackUrl) {
-      const path = callbackUrl.split("?")[0];
-      if (path.startsWith("/creator")) return "creator";
-      if (path.startsWith("/brand")) return "brand";
-    }
+    const inferred = callbackPath ? inferLoginRoleFromPath(callbackPath) : null;
+    if (inferred) return inferred;
     const remembered = getRememberedRole();
     if (remembered) return remembered;
     return "brand";
@@ -43,22 +47,16 @@ function LoginRouter() {
       setRole(roleParam);
       return;
     }
-    if (callbackUrl) {
-      const path = callbackUrl.split("?")[0];
-      if (path.startsWith("/creator")) {
-        setRole("creator");
-        return;
-      }
-      if (path.startsWith("/brand")) {
-        setRole("brand");
-        return;
-      }
+    const inferred = callbackPath ? inferLoginRoleFromPath(callbackPath) : null;
+    if (inferred) {
+      setRole(inferred);
+      return;
     }
     const remembered = getRememberedRole();
     if (remembered) {
       setRole(remembered);
     }
-  }, [roleParam, callbackUrl]);
+  }, [roleParam, callbackPath]);
 
   const config = ROLE_CONFIGS[role];
 

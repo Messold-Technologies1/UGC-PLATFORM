@@ -1,4 +1,5 @@
 import type { AuthUser, WorkspaceRole } from "../hooks/use-me-query";
+import { resolveCreatorOnboardingPath } from "./resolve-creator-onboarding-path";
 import { canUseWorkspaceRole } from "./workspace-defaulting";
 
 export type PostAuthRole = "creator" | "brand" | "admin";
@@ -45,17 +46,11 @@ export function resolvePostAuthRedirectPath(
     ...user.roles,
   ]);
 
-  if (role === "CREATOR" && user.creatorApprovalStatus === "PENDING") {
-    return "/creator/under-review";
-  }
-
-  // Approved but not yet live: send them to finish their profile and go live.
-  if (
-    role === "CREATOR" &&
-    user.creatorApprovalStatus === "APPROVED" &&
-    user.creatorProfileComplete === false
-  ) {
-    return "/creator/settings/profile";
+  if (role === "CREATOR") {
+    const creatorOnboardingPath = resolveCreatorOnboardingPath(user, callbackUrl);
+    if (creatorOnboardingPath) {
+      return creatorOnboardingPath;
+    }
   }
 
   if (!role) {

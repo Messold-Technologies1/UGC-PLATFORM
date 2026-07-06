@@ -17,6 +17,7 @@ import {
   formatCreatorLocation,
   formatInrPrice,
 } from "@/features/admin/constants/admin-creator-tabs";
+import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
@@ -142,11 +143,18 @@ function PortfolioThumbnails({
 function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
   const categories = creator.contentCategories ?? [];
   const primaryCategory = categories[0]?.label ?? "Creator";
+  const profileFirst = isProfileFirstOnboardingMode();
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {creator.approvalStatus === "PENDING" ? (
-        <Badge variant="secondary">Pending</Badge>
+        <Badge variant="secondary">
+          {profileFirst && creator.completeProfile
+            ? "Awaiting review"
+            : profileFirst
+              ? "Building profile"
+              : "Pending"}
+        </Badge>
       ) : null}
       {creator.approvalStatus === "REJECTED" ? (
         <Badge
@@ -211,6 +219,9 @@ export function AdminCreatorListRow({
   const isPending = creator.approvalStatus === "PENDING";
   const isRejected = creator.approvalStatus === "REJECTED";
   const isApproved = creator.approvalStatus === "APPROVED";
+  const profileFirst = isProfileFirstOnboardingMode();
+  const canModeratePending =
+    isPending && (!profileFirst || creator.completeProfile);
   const isWorking = isApproving || isRejecting;
   const rating = Number.parseFloat(creator.avgRating ?? "0");
   const reviewCount = creator.reviewCount ?? 0;
@@ -285,7 +296,7 @@ export function AdminCreatorListRow({
             </RowMetric>
 
             <div className="flex items-center gap-2 self-center">
-              {(isPending || isRejected) && onReview ? (
+              {(canModeratePending || isRejected) && onReview ? (
                 <Button variant="ghost" size="sm" onClick={onReview}>
                   Review
                 </Button>
@@ -297,7 +308,7 @@ export function AdminCreatorListRow({
                 </Link>
               </Button>
 
-              {isPending ? (
+              {canModeratePending ? (
                 <>
                   <Button
                     variant="ghost"

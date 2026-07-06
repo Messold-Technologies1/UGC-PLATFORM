@@ -250,41 +250,98 @@ describe('creator-list-filters.util', () => {
 
   describe('buildAdminCreatorsListWhere', () => {
     it('filters pending creators', () => {
-      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.PENDING)).toEqual({
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.PENDING,
+          undefined,
+          'approval_first',
+        ),
+      ).toEqual({
         creatorApproval: { status: ApprovalStatus.PENDING },
       });
     });
 
+    it('filters pending submitted profiles in profile_first mode', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.PENDING,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        creatorApproval: { status: ApprovalStatus.PENDING },
+        completeProfile: true,
+      });
+    });
+
     it('filters approved creators', () => {
-      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.APPROVED)).toEqual({
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.APPROVED,
+          undefined,
+          'approval_first',
+        ),
+      ).toEqual({
         creatorApproval: { status: ApprovalStatus.APPROVED },
       });
     });
 
     it('filters rejected creators for non_approved segment', () => {
       expect(
-        buildAdminCreatorsListWhere(AdminCreatorListSegment.NON_APPROVED),
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.NON_APPROVED,
+          undefined,
+          'approval_first',
+        ),
       ).toEqual({
         creatorApproval: { status: ApprovalStatus.REJECTED },
       });
     });
 
-    it('filters incomplete profiles for approved creators only', () => {
-      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.INCOMPLETE)).toEqual({
+    it('filters incomplete profiles for approved creators only in approval_first mode', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.INCOMPLETE,
+          undefined,
+          'approval_first',
+        ),
+      ).toEqual({
         completeProfile: false,
         creatorApproval: { status: ApprovalStatus.APPROVED },
       });
     });
 
+    it('filters any incomplete profile in profile_first mode', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.INCOMPLETE,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        completeProfile: false,
+      });
+    });
+
     it('filters listed creators', () => {
-      expect(buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED)).toEqual({
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.LISTED,
+          undefined,
+          'approval_first',
+        ),
+      ).toEqual({
         isListed: true,
       });
     });
 
     it('combines segment with search', () => {
       expect(
-        buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED, 'jane'),
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.LISTED,
+          'jane',
+          'approval_first',
+        ),
       ).toEqual({
         AND: [
           { isListed: true },

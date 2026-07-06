@@ -6,20 +6,23 @@ import {
   ListTodo,
   UserX,
 } from "lucide-react";
+import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import type {
   AdminCreatorListItemDto,
   AdminCreatorListSegment,
   AdminCreatorSegmentCountsDto,
 } from "@/features/admin/types";
 
-export const ADMIN_CREATOR_TABS: {
+export type AdminCreatorTabConfig = {
   value: AdminCreatorListSegment;
   label: string;
   description: string;
   icon: LucideIcon;
   countKey: keyof AdminCreatorSegmentCountsDto;
   badgeClassName: string;
-}[] = [
+};
+
+const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
   {
     value: "pending",
     label: "Pending",
@@ -31,7 +34,8 @@ export const ADMIN_CREATOR_TABS: {
   {
     value: "approved",
     label: "Approved",
-    description: "Creators approved by admin, including those still completing their profile.",
+    description:
+      "Creators approved by admin, including those still completing their profile.",
     icon: CheckCircle2,
     countKey: "approved",
     badgeClassName: "bg-emerald-100 text-emerald-700",
@@ -62,10 +66,62 @@ export const ADMIN_CREATOR_TABS: {
   },
 ];
 
+const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
+  {
+    value: "pending",
+    label: "Awaiting review",
+    description: "Profiles completed and submitted — ready for your approval.",
+    icon: Clock3,
+    countKey: "pending",
+    badgeClassName: "bg-sky-100 text-sky-700",
+  },
+  {
+    value: "incomplete",
+    label: "Building profile",
+    description: "Creators still completing their profile before submission.",
+    icon: ListTodo,
+    countKey: "incomplete",
+    badgeClassName: "bg-amber-100 text-amber-800",
+  },
+  {
+    value: "approved",
+    label: "Approved",
+    description: "Creators you've approved, including those not yet listed.",
+    icon: CheckCircle2,
+    countKey: "approved",
+    badgeClassName: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    value: "non_approved",
+    label: "Rejected",
+    description: "Rejected profile submissions that can be reviewed again.",
+    icon: UserX,
+    countKey: "nonApproved",
+    badgeClassName: "bg-red-100 text-red-700",
+  },
+  {
+    value: "listed",
+    label: "Listed",
+    description: "Live on the marketplace — visible to brands.",
+    icon: Globe,
+    countKey: "listed",
+    badgeClassName: "bg-violet-100 text-violet-700",
+  },
+];
+
+export function getAdminCreatorTabs(): AdminCreatorTabConfig[] {
+  return isProfileFirstOnboardingMode()
+    ? PROFILE_FIRST_TABS
+    : APPROVAL_FIRST_TABS;
+}
+
+/** @deprecated Use getAdminCreatorTabs() for mode-aware tab config. */
+export const ADMIN_CREATOR_TABS = APPROVAL_FIRST_TABS;
+
 export function isAdminCreatorListSegment(
   value: string | null | undefined,
 ): value is AdminCreatorListSegment {
-  return ADMIN_CREATOR_TABS.some((tab) => tab.value === value);
+  return getAdminCreatorTabs().some((tab) => tab.value === value);
 }
 
 export function getAdminCreatorSegmentCount(
@@ -73,9 +129,39 @@ export function getAdminCreatorSegmentCount(
   segment: AdminCreatorListSegment,
 ): number | undefined {
   if (!counts) return undefined;
-  const tab = ADMIN_CREATOR_TABS.find((item) => item.value === segment);
+  const tab = getAdminCreatorTabs().find((item) => item.value === segment);
   if (!tab) return undefined;
   return counts[tab.countKey];
+}
+
+export function getAdminCreatorEmptyMessage(
+  segment: AdminCreatorListSegment,
+  hasSearch: boolean,
+): string {
+  if (hasSearch) return "No creators match your search.";
+
+  const profileFirst = isProfileFirstOnboardingMode();
+
+  switch (segment) {
+    case "pending":
+      return profileFirst
+        ? "No profiles awaiting review at the moment."
+        : "No pending applications at the moment.";
+    case "listed":
+      return "No listed creators on the marketplace yet.";
+    case "approved":
+      return "No approved creators yet.";
+    case "non_approved":
+      return profileFirst
+        ? "No rejected profile submissions at the moment."
+        : "No rejected creators at the moment.";
+    case "incomplete":
+      return profileFirst
+        ? "No creators are still building their profile."
+        : "No approved creators with incomplete profiles at the moment.";
+    default:
+      return "No creators found.";
+  }
 }
 
 export function formatCreatorLocation(

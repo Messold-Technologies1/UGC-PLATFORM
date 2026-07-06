@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CreatorOrderListItem } from "../../api/get-creator-orders";
 
@@ -77,6 +78,46 @@ export function CreatorOrdersTabs({
   allItems,
   totalCount,
 }: CreatorOrdersTabsProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [navArrows, setNavArrows] = useState({ left: false, right: false });
+
+  const updateNavArrows = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setNavArrows({
+      left: scrollLeft > 4,
+      right: scrollLeft + clientWidth < scrollWidth - 4,
+    });
+  }, []);
+
+  const scrollTabs = useCallback((dir: -1 | 1) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({
+      left: dir * Math.max(150, el.clientWidth * 0.5),
+      behavior: "smooth",
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateNavArrows();
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateNavArrows)
+        : null;
+    ro?.observe(el);
+    el.addEventListener("scroll", updateNavArrows, { passive: true });
+    window.addEventListener("resize", updateNavArrows);
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener("scroll", updateNavArrows);
+      window.removeEventListener("resize", updateNavArrows);
+    };
+  }, [updateNavArrows]);
+
   const dynamicTabs = useMemo(() => {
     return TAB_DEFINITIONS.map((tab) => {
       let count = 0;
@@ -100,35 +141,74 @@ export function CreatorOrdersTabs({
   }, [allItems, activeTab, totalCount]);
 
   return (
-    <div
-      data-tour="creator-orders-tabs"
-      className="flex items-center gap-2 sm:gap-6 border-b border-border/40 overflow-x-auto pb-px scrollbar-hide"
-    >
-      {dynamicTabs.map((tab) => (
-        <button
-          key={tab.id}
-          data-tour={`creator-orders-tab-${tab.id}`}
-          onClick={() => onTabChange(tab.id)}
+    <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border/40 pb-px pt-3">
+      <div className="relative group/tabs">
+        {/* Left Arrow Fade & Button */}
+        <div
           className={cn(
-            "flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors px-1",
-            tab.active
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted",
+            "absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background via-background/95 to-transparent z-10 flex items-center pl-1 pb-3 transition-opacity duration-200 pointer-events-none",
+            navArrows.left ? "opacity-100" : "opacity-0"
           )}
         >
-          {tab.label}
-          <span
-            className={cn(
-              "px-2 py-0.5 rounded-full text-xs font-bold",
-              tab.active
-                ? "bg-primary/10 text-primary"
-                : "bg-muted/50 text-muted-foreground",
-            )}
+          <button
+            type="button"
+            onClick={() => scrollTabs(-1)}
+            className="h-8 w-8 rounded-full border border-border bg-background shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors pointer-events-auto"
+            aria-label="Scroll left"
           >
-            {tab.count}
-          </span>
-        </button>
-      ))}
+            <ChevronLeft size={18} />
+          </button>
+        </div>
+
+        <div
+          ref={scrollRef}
+          data-tour="creator-orders-tabs"
+          className="flex items-center gap-2 sm:gap-6 overflow-x-auto scrollbar-hide relative px-2 sm:px-4"
+        >
+          {dynamicTabs.map((tab) => (
+            <button
+              key={tab.id}
+              data-tour={`creator-orders-tab-${tab.id}`}
+              onClick={() => onTabChange(tab.id)}
+              className={cn(
+                "flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors px-1",
+                tab.active
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted",
+              )}
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-xs font-bold",
+                  tab.active
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted/50 text-muted-foreground",
+                )}
+              >
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Right Arrow Fade & Button */}
+        <div
+          className={cn(
+            "absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background via-background/95 to-transparent z-10 flex items-center justify-end pr-1 pb-3 transition-opacity duration-200 pointer-events-none",
+            navArrows.right ? "opacity-100" : "opacity-0"
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => scrollTabs(1)}
+            className="h-8 w-8 rounded-full border border-border bg-background shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors pointer-events-auto"
+            aria-label="Scroll right"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

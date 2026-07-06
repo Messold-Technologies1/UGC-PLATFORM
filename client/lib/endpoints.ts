@@ -63,6 +63,8 @@ export const ENDPOINTS = {
     FIELD_OPTIONS: "/api/briefs/field-options",
     PRODUCT_IMAGE_PRESIGN: "/api/briefs/uploads/presign-product-image",
     DETAIL: (id: string) => `/api/briefs/${encodeURIComponent(id)}`,
+    ATTACH_TO_ORDER: (id: string) =>
+      `/api/briefs/${encodeURIComponent(id)}/attach-to-order`,
   },
   ORDERS: {
     BRAND_LIST: "/api/orders/brand",

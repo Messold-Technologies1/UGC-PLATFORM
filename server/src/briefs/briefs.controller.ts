@@ -13,6 +13,7 @@ import {
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -26,6 +27,7 @@ import { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response
 import { CreateBriefDto } from './dto/create-brief.dto';
 import { CreateBriefResponseDto } from './dto/create-brief-response.dto';
 import { ListBriefsResponseDto } from './dto/list-briefs-response.dto';
+import { AttachBriefToOrderDto } from './dto/attach-brief-to-order.dto';
 import { BriefDto } from './dto/brief.dto';
 import {
   PresignBriefProductImageUploadDto,
@@ -82,6 +84,28 @@ export class BriefsController {
     return this.briefsService.presignProductImageUpload({
       ...brandActorParams(req),
       dto,
+    });
+  }
+
+  @Post(':id/attach-to-order')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Attach a saved brief to an order',
+    description:
+      'Links an existing saved brief to an order awaiting brief submission and starts the delivery timeline.',
+  })
+  @ApiNoContentResponse({ description: 'Brief attached to order' })
+  async attachBriefToOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AttachBriefToOrderDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.briefsService.attachBriefToOrder({
+      ...brandActorParams(req),
+      briefId: id,
+      orderId: dto.orderId,
     });
   }
 

@@ -11,6 +11,7 @@ import {
   BriefToneStyle,
 } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
+import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
@@ -107,6 +108,7 @@ export class BriefsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   private assertTempBriefProductImageKeyOwner(
@@ -275,5 +277,31 @@ export class BriefsService {
     if (brief.brandId !== brand.id) throw new ForbiddenException('Not your brief');
 
     return mapBriefRow(brief);
+  }
+
+  async attachBriefToOrder(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    briefId: string;
+    orderId: string;
+  }): Promise<void> {
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const brief = await this.prisma.brief.findUnique({
+      where: { id: params.briefId },
+      select: { id: true, brandId: true },
+    });
+    if (!brief) throw new NotFoundException('Brief not found');
+    if (brief.brandId !== brand.id) throw new ForbiddenException('Not your brief');
+
+    await this.ordersService.submitBrief({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+      orderId: params.orderId,
+      briefId: params.briefId,
+    });
   }
 }

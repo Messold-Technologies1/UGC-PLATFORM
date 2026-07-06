@@ -6,6 +6,7 @@ import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 import { GoLiveBanner } from "./go-live-banner";
+import { CreatorSocialAccounts } from "./creator-social-accounts";
 import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import {
   computeGoLiveMissing,
@@ -109,6 +110,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "about", label: "About you", icon: MapPin },
   { id: "niche", label: "Niche & content", icon: Sparkles },
   { id: "social", label: "Social & activity", icon: Share2 },
+  { id: "social-accounts", label: "Connected accounts", icon: Instagram },
   { id: "packages", label: "Packages", icon: Layers },
   { id: "portfolio", label: "Portfolio", icon: Film },
 ];
@@ -1774,6 +1776,10 @@ function CreatorProfileUpdateFormContent({
               </div>
             </div>
           </SectionCard>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <CreatorSocialAccounts />
         </motion.div>
 
         <motion.div variants={itemVariants}>

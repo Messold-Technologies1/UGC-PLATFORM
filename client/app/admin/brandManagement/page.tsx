@@ -91,23 +91,6 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
 function BrandManagementLoadingShell({ limit }: { limit: number }) {
   return (
     <div className="space-y-8">
-      {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <StatsCard
-          label="Total Brands"
-          value="..."
-          helper="All active brands currently returned by the admin API."
-        />
-        <StatsCard
-          label="Logos Uploaded"
-          value="..."
-          helper="Brands on this page that have a logo configured."
-        />
-        <StatsCard
-          label="Industries"
-          value="..."
-          helper="Distinct industries represented on the current page."
-        />
-      </section> */}
 
       <section className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
@@ -179,29 +162,8 @@ function BrandManagementContent({
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
 
-  // const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
-  // const distinctContactNames = new Set(
-  //   items.map((item) => item.contactFullName?.trim()).filter(Boolean),
-  // ).size;
   return (
     <>
-      {/* <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <StatsCard
-          label="Total Brands"
-          value={total}
-          helper="All active brands currently returned by the admin API."
-        />
-        <StatsCard
-          label="Logos Uploaded"
-          value={withLogo}
-          helper="Brands on this page that have a logo configured."
-        />
-        <StatsCard
-          label="Contacts"
-          value={distinctContactNames}
-          helper="Distinct contact names on the current page."
-        />
-      </section> */}
 
       <section className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
@@ -494,13 +456,6 @@ export default function BrandManagementPage() {
   return (
     <>
       <div className="p-8 space-y-8">
-        <section className="space-y-4">
-          <h1 className="text-4xl font-headline font-bold">Brand Management</h1>
-          <p className="max-w-3xl text-muted-foreground font-body">
-            Review brands that currently have an active profile and remove brand
-            access.
-          </p>
-        </section>
 
         {isError && !isLoading ? (
           <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">

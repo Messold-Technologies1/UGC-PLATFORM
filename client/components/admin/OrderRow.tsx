@@ -47,10 +47,10 @@ export default function OrderRow({
 
   return (
     <tr
-      className="hover:bg-muted/50 hover:scale-[1.005] transition-all duration-300 ease-in-out group reveal-item"
+      className="hover:bg-muted/50 transition-all duration-300 ease-in-out group reveal-item"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <td className="px-8 py-6">
+      <td className="px-4 sm:px-8 py-6">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -101,7 +101,7 @@ export default function OrderRow({
           </div>
         </div>
       </td>
-      <td className="px-8 py-6">
+      <td className="px-4 sm:px-8 py-6">
         <p className="font-bold text-sm text-foreground">
           {order.packageNameSnapshot}
         </p>
@@ -109,7 +109,7 @@ export default function OrderRow({
           {formatDate(order.createdAt)}
         </p>
       </td>
-      <td className="px-8 py-6">
+      <td className="px-4 sm:px-8 py-6 hidden md:table-cell">
         <div className="flex flex-col">
           <span className="text-sm font-bold text-foreground">
             {formatMoney(order.priceAmountSnapshot, order.currency)}
@@ -119,7 +119,7 @@ export default function OrderRow({
           </span>
         </div>
       </td>
-      <td className="px-8 py-6">
+      <td className="px-4 sm:px-8 py-6 hidden sm:table-cell">
         <Badge
           variant="outline"
           className={`${statusClass} px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest`}
@@ -127,7 +127,7 @@ export default function OrderRow({
           {statusLabel}
         </Badge>
       </td>
-      <td className="px-8 py-6 text-right">
+      <td className="px-4 sm:px-8 py-6 text-right">
         <div className="flex items-center justify-end gap-2">
           <Link
             href={`/admin/orderManagement/${order.id}`}
@@ -138,22 +138,6 @@ export default function OrderRow({
               arrow_forward
             </span>
           </Link>
-          {/* <Link
-            href={`/admin/orderManagement/${order.id}`}
-            className="p-2 hover:bg-primary/10 rounded-lg text-muted-foreground hover:text-primary transition-all"
-            title="Edit"
-          >
-            <span className="material-symbols-outlined text-[20px]">edit</span>
-          </Link> */}
-          {/* <Link
-            href={`/admin/orderManagement/${order.id}`}
-            className="p-2 hover:bg-primary/10 rounded-lg text-muted-foreground hover:text-primary transition-all"
-            title="Messages"
-          >
-            <span className="material-symbols-outlined text-[20px]">
-              chat_bubble
-            </span>
-          </Link> */}
         </div>
       </td>
     </tr>

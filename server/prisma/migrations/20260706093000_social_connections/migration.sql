@@ -43,7 +43,6 @@ CREATE TABLE "SocialMetricSnapshot" (
     "reach" INTEGER,
     "views" INTEGER,
     "followerCount" INTEGER,
-    "followersDelta" INTEGER,
     "profileViews" INTEGER,
     "raw" JSONB,
     "collectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

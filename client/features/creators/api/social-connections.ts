@@ -28,7 +28,6 @@ export interface SocialMetricPointApi {
   reach?: number;
   views?: number;
   followerCount?: number;
-  followersDelta?: number;
   profileViews?: number;
 }
 

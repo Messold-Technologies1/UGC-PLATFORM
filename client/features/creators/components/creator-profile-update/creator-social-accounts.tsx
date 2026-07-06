@@ -38,14 +38,6 @@ function latestReach(conn: SocialConnectionApi): number | undefined {
   return withReach.length ? withReach[withReach.length - 1].reach : undefined;
 }
 
-function followersGained30d(conn: SocialConnectionApi): number | undefined {
-  const deltas = (conn.metrics ?? [])
-    .map((m) => m.followersDelta)
-    .filter((v): v is number => v != null);
-  if (!deltas.length) return undefined;
-  return deltas.reduce((a, b) => a + b, 0);
-}
-
 const GENDER_LABELS: Record<string, string> = {
   F: "Female",
   M: "Male",
@@ -166,7 +158,6 @@ function InstagramConnected({
   const expired = conn.status === "EXPIRED" || conn.status === "REVOKED";
   const audience = conn.audience;
   const reach = latestReach(conn);
-  const gained = followersGained30d(conn);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -253,12 +244,6 @@ function InstagramConnected({
         <MetricTile label="Posts" value={formatCount(conn.mediaCount)} />
         {reach != null && (
           <MetricTile label="Reach (latest)" value={formatCount(reach)} />
-        )}
-        {gained != null && (
-          <MetricTile
-            label="New followers (30d)"
-            value={`${gained >= 0 ? "+" : ""}${formatCount(gained)}`}
-          />
         )}
       </div>
 

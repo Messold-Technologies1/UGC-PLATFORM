@@ -36,6 +36,48 @@ export class SocialAudienceDto {
   topCountries!: DemographicBucketDto[];
 }
 
+/**
+ * Public, read-only Instagram insights for a creator's profile page / drawer.
+ * Exposes aggregate audience data only — never tokens or per-day rows.
+ */
+export class PublicInstagramInsightsDto {
+  @ApiProperty({
+    description: 'Whether the creator has an active IG connection.',
+  })
+  connected!: boolean;
+
+  @ApiPropertyOptional()
+  username?: string;
+
+  @ApiPropertyOptional()
+  followers?: number;
+
+  @ApiPropertyOptional({ description: 'Total reach over the last 30 days.' })
+  reach?: number;
+
+  @ApiPropertyOptional({
+    description: 'Total profile views over the last 30 days.',
+  })
+  profileViews?: number;
+
+  @ApiPropertyOptional({
+    description: 'Date of the demographics snapshot used.',
+  })
+  snapshotDate?: string;
+
+  @ApiProperty({ type: [DemographicBucketDto] })
+  ageRanges!: DemographicBucketDto[];
+
+  @ApiProperty({ type: [DemographicBucketDto] })
+  gender!: DemographicBucketDto[];
+
+  @ApiProperty({ type: [DemographicBucketDto] })
+  topCities!: DemographicBucketDto[];
+
+  @ApiProperty({ type: [DemographicBucketDto] })
+  topCountries!: DemographicBucketDto[];
+}
+
 /** One point in the daily metric time-series. */
 export class SocialMetricPointDto {
   @ApiProperty()
@@ -49,9 +91,6 @@ export class SocialMetricPointDto {
 
   @ApiPropertyOptional()
   followerCount?: number;
-
-  @ApiPropertyOptional()
-  followersDelta?: number;
 
   @ApiPropertyOptional()
   profileViews?: number;

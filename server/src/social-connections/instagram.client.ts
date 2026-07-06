@@ -62,7 +62,6 @@ export interface InstagramDailyMetric {
   date: string;
   reach: number | null;
   profileViews: number | null;
-  followersDelta: number | null;
 }
 
 export type DemographicMap = Record<string, number>;
@@ -228,9 +227,8 @@ export class InstagramClient {
   }
 
   /**
-   * Per-day metrics for [sinceUnix, untilUnix). Merges the time-series metrics
-   * and `follower_count` (daily new followers) into one row per date. Each
-   * metric is fetched independently; a failure yields null for that field.
+   * Per-day metrics for [sinceUnix, untilUnix), one row per date. Each metric is
+   * fetched independently; a failure yields null for that field.
    */
   async fetchDailyMetrics(
     accessToken: string,
@@ -241,7 +239,7 @@ export class InstagramClient {
     const ensure = (date: string): InstagramDailyMetric => {
       let row = byDate.get(date);
       if (!row) {
-        row = { date, reach: null, profileViews: null, followersDelta: null };
+        row = { date, reach: null, profileViews: null };
         byDate.set(date, row);
       }
       return row;
@@ -259,16 +257,6 @@ export class InstagramClient {
         if (metric === 'reach') row.reach = point.value;
         else if (metric === 'profile_views') row.profileViews = point.value;
       }
-    }
-
-    const followerSeries = await this.fetchTimeSeries(
-      accessToken,
-      'follower_count',
-      sinceUnix,
-      untilUnix,
-    );
-    for (const point of followerSeries) {
-      ensure(point.date).followersDelta = point.value;
     }
 
     return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));

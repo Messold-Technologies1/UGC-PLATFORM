@@ -22,6 +22,7 @@ import {
 } from './social-crypto.util';
 import {
   DemographicBucketDto,
+  PublicInstagramInsightsDto,
   SocialAudienceDto,
   SocialConnectionDto,
 } from './dto/social-connection-response.dto';
@@ -208,7 +209,6 @@ export class SocialConnectionsService {
             reach: m.reach ?? undefined,
             views: m.views ?? undefined,
             followerCount: m.followerCount ?? undefined,
-            followersDelta: m.followersDelta ?? undefined,
             profileViews: m.profileViews ?? undefined,
           })),
         audience: audience ? this.buildAudienceDto(audience) : undefined,
@@ -232,6 +232,69 @@ export class SocialConnectionsService {
       gender: topBuckets(audience.genderBreakdown, 5),
       topCities: topBuckets(audience.cityBreakdown, 5),
       topCountries: topBuckets(audience.countryBreakdown, 5),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public read: Instagram insights for a creator's public profile / drawer
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Aggregate, read-only Instagram insights for any creator by id — powers the
+   * public profile "Audience" section and the browse drawer. Exposes follower/
+   * reach/profile-view totals and demographic breakdowns only; never tokens or
+   * per-day rows. Returns `{ connected: false }` when there is no active link.
+   */
+  async getPublicInstagramInsights(
+    creatorProfileId: string,
+  ): Promise<PublicInstagramInsightsDto> {
+    const empty: PublicInstagramInsightsDto = {
+      connected: false,
+      ageRanges: [],
+      gender: [],
+      topCities: [],
+      topCountries: [],
+    };
+
+    const conn = await this.prisma.socialConnection.findUnique({
+      where: {
+        creatorProfileId_platform: {
+          creatorProfileId,
+          platform: SocialPlatform.INSTAGRAM,
+        },
+      },
+    });
+    if (!conn || conn.status !== SocialConnectionStatus.ACTIVE) return empty;
+
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - 30);
+
+    const [metrics, audience] = await Promise.all([
+      this.prisma.socialMetricSnapshot.findMany({
+        where: { connectionId: conn.id, metricDate: { gte: since } },
+        select: { reach: true, profileViews: true },
+      }),
+      this.prisma.socialAudienceSnapshot.findFirst({
+        where: { connectionId: conn.id },
+        orderBy: { snapshotDate: 'desc' },
+      }),
+    ]);
+
+    const reach = sumOrUndefined(metrics.map((m) => m.reach));
+    const profileViews = sumOrUndefined(metrics.map((m) => m.profileViews));
+    const derived = audience ? this.buildAudienceDto(audience) : null;
+
+    return {
+      connected: true,
+      username: conn.username ?? undefined,
+      followers: conn.followersCount ?? undefined,
+      reach,
+      profileViews,
+      snapshotDate: derived?.snapshotDate,
+      ageRanges: derived?.ageRanges ?? [],
+      gender: derived?.gender ?? [],
+      topCities: derived?.topCities ?? [],
+      topCountries: derived?.topCountries ?? [],
     };
   }
 
@@ -319,14 +382,12 @@ export class SocialConnectionsService {
           metricDate,
           reach: row.reach,
           profileViews: row.profileViews,
-          followersDelta: row.followersDelta,
           followerCount: isToday ? followersTotal : null,
           collectedAt,
         },
         update: {
           reach: row.reach,
           profileViews: row.profileViews,
-          followersDelta: row.followersDelta,
           ...(isToday ? { followerCount: followersTotal } : {}),
           collectedAt,
         },
@@ -496,6 +557,12 @@ export class SocialConnectionsService {
 
 function dateOnly(yyyyMmDd: string): Date {
   return new Date(`${yyyyMmDd}T00:00:00.000Z`);
+}
+
+/** Sum the non-null numbers, or undefined when there are none. */
+function sumOrUndefined(values: Array<number | null>): number | undefined {
+  const nums = values.filter((v): v is number => v != null);
+  return nums.length ? nums.reduce((a, b) => a + b, 0) : undefined;
 }
 
 function toJson(

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Req,
   Res,
   UseGuards,
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SocialConnectionsService } from './social-connections.service';
 import { SocialMetricsQueueService } from './social-metrics-queue.service';
 import {
+  PublicInstagramInsightsDto,
   SocialConnectionsResponseDto,
   SocialConnectUrlResponseDto,
 } from './dto/social-connection-response.dto';
@@ -66,6 +68,19 @@ export class SocialConnectionsController {
   ): Promise<SocialConnectionsResponseDto> {
     const connections = await this.service.getConnectionsForUser(req.user.id);
     return { connections };
+  }
+
+  @Get('creators/:creatorProfileId/instagram/insights')
+  @ApiOperation({
+    summary: 'Public Instagram audience insights for a creator',
+    description:
+      'Aggregate followers/reach/profile-views + demographic breakdowns. No auth; returns { connected: false } when the creator has no active Instagram link.',
+  })
+  @ApiOkResponse({ type: PublicInstagramInsightsDto })
+  async publicInstagramInsights(
+    @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
+  ): Promise<PublicInstagramInsightsDto> {
+    return this.service.getPublicInstagramInsights(creatorProfileId);
   }
 
   @Get('instagram/connect-url')

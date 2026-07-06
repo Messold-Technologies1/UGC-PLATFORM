@@ -1203,7 +1203,6 @@ model SocialMetricSnapshot {
   reach         Int?
   views         Int? // impressions / views
   followerCount Int? // total followers on that date
-  followersDelta Int? // net new followers that day
   profileViews  Int?
 
   /// Platform-specific extras (YT watch time, Reddit karma, …).

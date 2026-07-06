@@ -36,6 +36,11 @@ import type { Creator, CreatorProfile, AddOn } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
+import { usePublicInstagramInsightsQuery } from "@/features/creators/hooks/use-public-instagram-insights";
+import {
+  InstagramInsights,
+  hasInstagramInsightsData,
+} from "@/features/creators/components/instagram-insights/instagram-insights";
 import { mapProfileItemToCreatorProfile } from "../../api/map-profile-to-creator";
 import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
 import { tagColor } from "@/lib/utils";
@@ -58,6 +63,7 @@ interface ProfileDrawerProps {
 
 const TABS = [
   { id: "overview", label: "Overview" },
+  { id: "audience", label: "Audience" },
   { id: "packages", label: "Packages" },
   { id: "portfolio", label: "Portfolio" },
   { id: "reviews", label: "Reviews" },
@@ -348,6 +354,44 @@ const OverviewTab = React.memo(function OverviewTab({
           ))}
         </div>
       </div>
+    </div>
+  );
+});
+
+const AudienceTab = React.memo(function AudienceTab({
+  creatorId,
+}: {
+  creatorId: string;
+}) {
+  const { data: insights, isLoading } = usePublicInstagramInsightsQuery(
+    creatorId,
+    { enabled: true },
+  );
+
+  return (
+    <div className="dr-section" style={{ paddingTop: 18 }}>
+      <SectionHeading>Instagram audience</SectionHeading>
+      {isLoading ? (
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--muted-foreground)",
+          }}
+        >
+          Loading audience insights…
+        </p>
+      ) : insights && hasInstagramInsightsData(insights) ? (
+        <InstagramInsights insights={insights} variant="compact" />
+      ) : (
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--muted-foreground)",
+          }}
+        >
+          No Instagram data yet.
+        </p>
+      )}
     </div>
   );
 });
@@ -961,6 +1005,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           </div>
 
           {activeId && tab === "overview" && <OverviewTab profile={profile} />}
+          {activeId && tab === "audience" && (
+            <AudienceTab creatorId={activeId} />
+          )}
           {activeId && tab === "packages" && <PackagesTab profile={profile} />}
           {activeId && tab === "portfolio" && (
             <PortfolioTab

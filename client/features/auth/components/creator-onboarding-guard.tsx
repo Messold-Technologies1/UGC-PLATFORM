@@ -22,9 +22,8 @@ export function CreatorOnboardingGuard({ children }: { children: React.ReactNode
       return;
     }
 
-    const isCreator =
-      user.primaryRole === "CREATOR" || user.roles.includes("CREATOR");
-    if (!isCreator) {
+    const isCreatorPrimary = user.primaryRole === "CREATOR";
+    if (!isCreatorPrimary) {
       return;
     }
 

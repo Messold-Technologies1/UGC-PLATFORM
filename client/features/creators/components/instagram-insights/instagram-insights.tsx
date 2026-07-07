@@ -240,17 +240,19 @@ export function InstagramInsights({
             <span className="ig-tile-lbl">{reachLabel}</span>
           </span>
         </div>
-        <div className="ig-tile">
-          <span className="ig-tile-ic">
-            <Eye size={16} />
-          </span>
-          <span>
-            <span className="ig-tile-val">
-              {formatCompact(insights.profileViews)}
+        {insights.profileViews != null && (
+          <div className="ig-tile">
+            <span className="ig-tile-ic">
+              <Eye size={16} />
             </span>
-            <span className="ig-tile-lbl">{viewsLabel}</span>
-          </span>
-        </div>
+            <span>
+              <span className="ig-tile-val">
+                {formatCompact(insights.profileViews)}
+              </span>
+              <span className="ig-tile-lbl">{viewsLabel}</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {(insights.gender.length > 0 || insights.ageRanges.length > 0) && (

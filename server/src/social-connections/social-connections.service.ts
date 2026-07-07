@@ -27,12 +27,12 @@ import {
   SocialConnectionDto,
 } from './dto/social-connection-response.dto';
 
-/** How many trailing days each sync re-pulls and upserts (self-heals gaps). */
-const ROLLING_DAYS = 3;
+/** Rolling window (days) each sync summarises for reach/views/profile-views. */
+const METRICS_WINDOW_DAYS = 30;
+/** A connection is re-synced only if its last sync is older than this. */
+const SYNC_INTERVAL_DAYS = 3;
 /** Refresh a long-lived token when it is within this window of expiring. */
 const TOKEN_REFRESH_THRESHOLD_MS = 7 * 24 * 60 * 60_000;
-/** Days of metric history returned to the client. */
-const METRICS_HISTORY_DAYS = 30;
 
 interface DemographicRecord {
   [key: string]: number;
@@ -199,46 +199,26 @@ export class SocialConnectionsService {
     const connections = await this.prisma.socialConnection.findMany({
       where: { creatorProfileId: creatorId },
       orderBy: { platform: 'asc' },
+      include: { audience: true },
     });
 
-    const result: SocialConnectionDto[] = [];
-    for (const conn of connections) {
-      const [metrics, audience] = await Promise.all([
-        this.prisma.socialMetricSnapshot.findMany({
-          where: { connectionId: conn.id },
-          orderBy: { metricDate: 'desc' },
-          take: METRICS_HISTORY_DAYS,
-        }),
-        this.prisma.socialAudienceSnapshot.findFirst({
-          where: { connectionId: conn.id },
-          orderBy: { snapshotDate: 'desc' },
-        }),
-      ]);
-
-      result.push({
-        platform: conn.platform,
-        status: conn.status,
-        username: conn.username ?? undefined,
-        accountType: conn.accountType ?? undefined,
-        followersCount: conn.followersCount ?? undefined,
-        mediaCount: conn.mediaCount ?? undefined,
-        connectedAt: conn.connectedAt.toISOString(),
-        lastSyncedAt: conn.lastSyncedAt?.toISOString(),
-        lastSyncStatus: conn.lastSyncStatus ?? undefined,
-        metrics: metrics
-          .slice()
-          .reverse()
-          .map((m) => ({
-            date: m.metricDate.toISOString().slice(0, 10),
-            reach: m.reach ?? undefined,
-            views: m.views ?? undefined,
-            followerCount: m.followerCount ?? undefined,
-            profileViews: m.profileViews ?? undefined,
-          })),
-        audience: audience ? this.buildAudienceDto(audience) : undefined,
-      });
-    }
-    return result;
+    return connections.map((conn) => ({
+      platform: conn.platform,
+      status: conn.status,
+      username: conn.username ?? undefined,
+      accountType: conn.accountType ?? undefined,
+      followersCount: conn.followersCount ?? undefined,
+      mediaCount: conn.mediaCount ?? undefined,
+      reach30d: conn.reach30d ?? undefined,
+      views30d: conn.views30d ?? undefined,
+      profileViews30d: conn.profileViews30d ?? undefined,
+      connectedAt: conn.connectedAt.toISOString(),
+      lastSyncedAt: conn.lastSyncedAt?.toISOString(),
+      lastSyncStatus: conn.lastSyncStatus ?? undefined,
+      audience: conn.audience
+        ? this.buildAudienceDto(conn.audience)
+        : undefined,
+    }));
   }
 
   private buildAudienceDto(audience: {
@@ -287,33 +267,18 @@ export class SocialConnectionsService {
           platform: SocialPlatform.INSTAGRAM,
         },
       },
+      include: { audience: true },
     });
     if (!conn || conn.status !== SocialConnectionStatus.ACTIVE) return empty;
 
-    const since = new Date();
-    since.setUTCDate(since.getUTCDate() - 30);
-
-    const [metrics, audience] = await Promise.all([
-      this.prisma.socialMetricSnapshot.findMany({
-        where: { connectionId: conn.id, metricDate: { gte: since } },
-        select: { reach: true, profileViews: true },
-      }),
-      this.prisma.socialAudienceSnapshot.findFirst({
-        where: { connectionId: conn.id },
-        orderBy: { snapshotDate: 'desc' },
-      }),
-    ]);
-
-    const reach = sumOrUndefined(metrics.map((m) => m.reach));
-    const profileViews = sumOrUndefined(metrics.map((m) => m.profileViews));
-    const derived = audience ? this.buildAudienceDto(audience) : null;
+    const derived = conn.audience ? this.buildAudienceDto(conn.audience) : null;
 
     return {
       connected: true,
       username: conn.username ?? undefined,
       followers: conn.followersCount ?? undefined,
-      reach,
-      profileViews,
+      reach: conn.reach30d ?? undefined,
+      profileViews: conn.profileViews30d ?? undefined,
       snapshotDate: derived?.snapshotDate,
       ageRanges: derived?.ageRanges ?? [],
       gender: derived?.gender ?? [],
@@ -343,23 +308,11 @@ export class SocialConnectionsService {
     try {
       const token = await this.ensureFreshInstagramToken(conn);
       const account = await this.instagram.fetchAccount(token);
-
-      const untilUnix = Math.floor(Date.now() / 1000);
-      const sinceUnix = untilUnix - ROLLING_DAYS * 24 * 60 * 60;
-      const daily = await this.instagram.fetchDailyMetrics(
+      const totals = await this.instagram.fetch30DayTotals(
         token,
-        sinceUnix,
-        untilUnix,
+        METRICS_WINDOW_DAYS,
       );
       const demographics = await this.instagram.fetchDemographics(token);
-
-      await this.persistSnapshots(
-        conn.id,
-        conn.creatorProfileId,
-        account.followersCount,
-        daily,
-        demographics,
-      );
 
       await this.prisma.socialConnection.update({
         where: { id: conn.id },
@@ -368,10 +321,42 @@ export class SocialConnectionsService {
           accountType: account.accountType,
           followersCount: account.followersCount,
           mediaCount: account.mediaCount,
+          reach30d: totals.reach,
+          views30d: totals.views,
+          profileViews30d: totals.profileViews,
+          metricsUpdatedAt: new Date(),
           status: SocialConnectionStatus.ACTIVE,
           lastSyncedAt: new Date(),
           lastSyncStatus: 'ok',
           lastSyncError: null,
+        },
+      });
+
+      // Demographics: one row per connection, overwritten each sync.
+      await this.prisma.socialAudienceSnapshot.upsert({
+        where: { connectionId: conn.id },
+        create: {
+          connectionId: conn.id,
+          creatorProfileId: conn.creatorProfileId,
+          platform: SocialPlatform.INSTAGRAM,
+          snapshotDate: dateOnly(new Date().toISOString().slice(0, 10)),
+          followerCount: account.followersCount,
+          ageBreakdown: toJson(demographics.age),
+          genderBreakdown: toJson(demographics.gender),
+          cityBreakdown: toJson(demographics.city),
+          countryBreakdown: toJson(demographics.country),
+          raw: toJson(demographics.raw),
+          collectedAt: new Date(),
+        },
+        update: {
+          snapshotDate: dateOnly(new Date().toISOString().slice(0, 10)),
+          followerCount: account.followersCount,
+          ageBreakdown: toJson(demographics.age),
+          genderBreakdown: toJson(demographics.gender),
+          cityBreakdown: toJson(demographics.city),
+          countryBreakdown: toJson(demographics.country),
+          raw: toJson(demographics.raw),
+          collectedAt: new Date(),
         },
       });
 
@@ -389,91 +374,6 @@ export class SocialConnectionsService {
     } catch (err) {
       await this.recordSyncFailure(conn, err);
     }
-  }
-
-  private async persistSnapshots(
-    connectionId: string,
-    creatorProfileId: string,
-    followersTotal: number | null,
-    daily: Awaited<ReturnType<InstagramClient['fetchDailyMetrics']>>,
-    demographics: Awaited<ReturnType<InstagramClient['fetchDemographics']>>,
-  ): Promise<void> {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const collectedAt = new Date();
-
-    for (const row of daily) {
-      const metricDate = dateOnly(row.date);
-      const isToday = row.date === todayStr;
-      await this.prisma.socialMetricSnapshot.upsert({
-        where: {
-          connectionId_metricDate: { connectionId, metricDate },
-        },
-        create: {
-          connectionId,
-          creatorProfileId,
-          platform: SocialPlatform.INSTAGRAM,
-          metricDate,
-          reach: row.reach,
-          profileViews: row.profileViews,
-          followerCount: isToday ? followersTotal : null,
-          collectedAt,
-        },
-        update: {
-          reach: row.reach,
-          profileViews: row.profileViews,
-          ...(isToday ? { followerCount: followersTotal } : {}),
-          collectedAt,
-        },
-      });
-    }
-
-    // Ensure today's row carries the current total follower count even when the
-    // insights window returned no rows yet.
-    const todayDate = dateOnly(todayStr);
-    await this.prisma.socialMetricSnapshot.upsert({
-      where: {
-        connectionId_metricDate: { connectionId, metricDate: todayDate },
-      },
-      create: {
-        connectionId,
-        creatorProfileId,
-        platform: SocialPlatform.INSTAGRAM,
-        metricDate: todayDate,
-        followerCount: followersTotal,
-        collectedAt,
-      },
-      update: { followerCount: followersTotal, collectedAt },
-    });
-
-    // Demographics snapshot for today (upsert; captures drift over time).
-    const snapshotDate = dateOnly(todayStr);
-    await this.prisma.socialAudienceSnapshot.upsert({
-      where: {
-        connectionId_snapshotDate: { connectionId, snapshotDate },
-      },
-      create: {
-        connectionId,
-        creatorProfileId,
-        platform: SocialPlatform.INSTAGRAM,
-        snapshotDate,
-        followerCount: followersTotal,
-        ageBreakdown: toJson(demographics.age),
-        genderBreakdown: toJson(demographics.gender),
-        cityBreakdown: toJson(demographics.city),
-        countryBreakdown: toJson(demographics.country),
-        raw: toJson(demographics.raw),
-        collectedAt,
-      },
-      update: {
-        followerCount: followersTotal,
-        ageBreakdown: toJson(demographics.age),
-        genderBreakdown: toJson(demographics.gender),
-        cityBreakdown: toJson(demographics.city),
-        countryBreakdown: toJson(demographics.country),
-        raw: toJson(demographics.raw),
-        collectedAt,
-      },
-    });
   }
 
   private async recordSyncFailure(
@@ -529,13 +429,27 @@ export class SocialConnectionsService {
     }
   }
 
-  /** Connection ids that are due for a daily sync (used by the cron). */
-  async listActiveConnectionIds(): Promise<string[]> {
+  /**
+   * Connection ids due for a sync: never synced, last synced more than
+   * SYNC_INTERVAL_DAYS ago, or currently in ERROR (retry). Used by the cron so
+   * each connection refreshes roughly every 3 days rather than daily.
+   */
+  async listConnectionIdsDueForSync(): Promise<string[]> {
+    const staleBefore = new Date(
+      Date.now() - SYNC_INTERVAL_DAYS * 24 * 60 * 60_000,
+    );
     const rows = await this.prisma.socialConnection.findMany({
       where: {
-        status: {
-          in: [SocialConnectionStatus.ACTIVE, SocialConnectionStatus.ERROR],
-        },
+        OR: [
+          {
+            status: SocialConnectionStatus.ACTIVE,
+            OR: [
+              { lastSyncedAt: null },
+              { lastSyncedAt: { lte: staleBefore } },
+            ],
+          },
+          { status: SocialConnectionStatus.ERROR },
+        ],
       },
       select: { id: true },
     });
@@ -596,12 +510,6 @@ function dateOnly(yyyyMmDd: string): Date {
 function instagramUrlFromUsername(username: string | null): string | null {
   const handle = username?.trim().replace(/^@/, '');
   return handle ? `https://instagram.com/${handle}` : null;
-}
-
-/** Sum the non-null numbers, or undefined when there are none. */
-function sumOrUndefined(values: Array<number | null>): number | undefined {
-  const nums = values.filter((v): v is number => v != null);
-  return nums.length ? nums.reduce((a, b) => a + b, 0) : undefined;
 }
 
 function toJson(

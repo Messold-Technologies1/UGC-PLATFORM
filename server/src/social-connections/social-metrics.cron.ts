@@ -1,30 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { SocialConnectionStatus } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
 import { SocialConnectionsService } from './social-connections.service';
 import { SocialMetricsQueueService } from './social-metrics-queue.service';
 
 /**
- * Schedules the social-metrics pipeline. Instagram only exposes day-bucketed
- * insights with a short retention window, so we must snapshot daily to build our
- * own history. The cron only *enqueues* — the queue/worker does the fetching so
- * accounts are staggered and rate limits respected.
+ * Schedules the social-metrics pipeline. Each sync stores a single rolling
+ * 30-day summary per connection (de-duplicated reach/views/profile-views) plus
+ * current demographics — one row, overwritten each run. The cron only
+ * *enqueues*; the queue/worker does the fetching so accounts are staggered and
+ * rate limits respected.
  *
- * Exact timing is intentionally non-critical: each sync re-pulls a rolling
- * multi-day window and upserts by date, so a missed run or a day Instagram
- * finalizes late self-heals on the next pass.
+ * Cadence is ~every 3 days per connection: the cron runs daily but only enqueues
+ * connections whose last sync is older than the interval (or in ERROR). That
+ * gives even spacing, natural staggering, and automatic catch-up on missed runs.
  */
 @Injectable()
 export class SocialMetricsCron {
   private readonly logger = new Logger(SocialMetricsCron.name);
-  private dailyRunning = false;
-  private reconcileRunning = false;
+  private syncRunning = false;
 
   constructor(
     private readonly config: ConfigService,
-    private readonly prisma: PrismaService,
     private readonly service: SocialConnectionsService,
     private readonly queue: SocialMetricsQueueService,
   ) {}
@@ -34,58 +31,24 @@ export class SocialMetricsCron {
   }
 
   /**
-   * Daily snapshot. 19:30 UTC ≈ 01:00 IST — after the previous day closes for
-   * India-based creators. Enqueues a sync for every active connection.
+   * Daily at 18:30 UTC (≈00:00 IST). Enqueues connections due for a refresh
+   * (never synced, >3 days old, or in ERROR).
    */
-  @Cron('30 19 * * *')
-  async dailySync(): Promise<void> {
-    if (!this.enabled() || this.dailyRunning) return;
-    this.dailyRunning = true;
+  @Cron('30 18 * * *')
+  async syncDue(): Promise<void> {
+    if (!this.enabled() || this.syncRunning) return;
+    this.syncRunning = true;
     try {
-      const ids = await this.service.listActiveConnectionIds();
+      const ids = await this.service.listConnectionIdsDueForSync();
       if (ids.length === 0) return;
-      this.logger.log(
-        `social daily sync: enqueuing ${ids.length} connection(s)`,
-      );
+      this.logger.log(`social sync: enqueuing ${ids.length} due connection(s)`);
       for (const id of ids) {
         await this.queue.enqueue(id);
       }
     } catch (err) {
-      this.logger.error(`social daily sync failed: ${(err as Error)?.message}`);
+      this.logger.error(`social sync failed: ${(err as Error)?.message}`);
     } finally {
-      this.dailyRunning = false;
-    }
-  }
-
-  /**
-   * Hourly safety net: re-drive connections that have not synced in >26h (a
-   * missed daily run, a worker crash, or a Redis blip) or are stuck in ERROR.
-   */
-  @Cron('0 * * * *')
-  async reconcile(): Promise<void> {
-    if (!this.enabled() || this.reconcileRunning) return;
-    this.reconcileRunning = true;
-    try {
-      const staleBefore = new Date(Date.now() - 26 * 60 * 60_000);
-      const stale = await this.prisma.socialConnection.findMany({
-        where: {
-          status: {
-            in: [SocialConnectionStatus.ACTIVE, SocialConnectionStatus.ERROR],
-          },
-          OR: [{ lastSyncedAt: null }, { lastSyncedAt: { lte: staleBefore } }],
-        },
-        select: { id: true },
-        take: 100,
-      });
-      if (stale.length === 0) return;
-      this.logger.log(`social reconcile: re-enqueuing ${stale.length}`);
-      for (const c of stale) {
-        await this.queue.enqueue(c.id);
-      }
-    } catch (err) {
-      this.logger.error(`social reconcile failed: ${(err as Error)?.message}`);
-    } finally {
-      this.reconcileRunning = false;
+      this.syncRunning = false;
     }
   }
 

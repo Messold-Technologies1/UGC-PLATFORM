@@ -118,51 +118,75 @@ export class SocialConnectionsService {
     const account = await this.instagram.fetchAccount(token.accessToken);
     const encrypted = encryptSecret(token.accessToken, this.encKey());
 
-    const connection = await this.prisma.socialConnection.upsert({
-      where: {
-        creatorProfileId_platform: {
+    // The Instagram connection is the source of truth for the creator's public
+    // Instagram handle: upsert the connection and mirror the URL onto the
+    // CreatorProfile in one transaction so they never drift.
+    const connectionId = await this.prisma.$transaction(async (tx) => {
+      const connection = await tx.socialConnection.upsert({
+        where: {
+          creatorProfileId_platform: {
+            creatorProfileId: creator.id,
+            platform: SocialPlatform.INSTAGRAM,
+          },
+        },
+        create: {
           creatorProfileId: creator.id,
           platform: SocialPlatform.INSTAGRAM,
+          providerAccountId: account.userId,
+          username: account.username,
+          accountType: account.accountType,
+          accessToken: encrypted,
+          tokenExpiresAt: token.expiresAt,
+          scopes: token.scopes,
+          status: SocialConnectionStatus.ACTIVE,
+          followersCount: account.followersCount,
+          mediaCount: account.mediaCount,
+          connectedAt: new Date(),
         },
-      },
-      create: {
-        creatorProfileId: creator.id,
-        platform: SocialPlatform.INSTAGRAM,
-        providerAccountId: account.userId,
-        username: account.username,
-        accountType: account.accountType,
-        accessToken: encrypted,
-        tokenExpiresAt: token.expiresAt,
-        scopes: token.scopes,
-        status: SocialConnectionStatus.ACTIVE,
-        followersCount: account.followersCount,
-        mediaCount: account.mediaCount,
-        connectedAt: new Date(),
-      },
-      update: {
-        providerAccountId: account.userId,
-        username: account.username,
-        accountType: account.accountType,
-        accessToken: encrypted,
-        tokenExpiresAt: token.expiresAt,
-        scopes: token.scopes,
-        status: SocialConnectionStatus.ACTIVE,
-        followersCount: account.followersCount,
-        mediaCount: account.mediaCount,
-        lastSyncError: null,
-        connectedAt: new Date(),
-      },
-      select: { id: true },
+        update: {
+          providerAccountId: account.userId,
+          username: account.username,
+          accountType: account.accountType,
+          accessToken: encrypted,
+          tokenExpiresAt: token.expiresAt,
+          scopes: token.scopes,
+          status: SocialConnectionStatus.ACTIVE,
+          followersCount: account.followersCount,
+          mediaCount: account.mediaCount,
+          lastSyncError: null,
+          connectedAt: new Date(),
+        },
+        select: { id: true },
+      });
+
+      const igUrl = instagramUrlFromUsername(account.username);
+      if (igUrl) {
+        await tx.creatorProfile.update({
+          where: { id: creator.id },
+          data: { instagramUrl: igUrl },
+        });
+      }
+
+      return connection.id;
     });
 
-    return { connectionId: connection.id };
+    return { connectionId };
   }
 
   async disconnect(userId: string, platform: SocialPlatform): Promise<void> {
     const creatorId = await this.resolveCreatorProfileId(userId);
-    // Cascade removes snapshots. Tokens are destroyed with the row.
-    await this.prisma.socialConnection.deleteMany({
-      where: { creatorProfileId: creatorId, platform },
+    // Cascade removes snapshots. Tokens are destroyed with the row. The IG link
+    // is owned by the connection, so clear the mirrored URL when it goes away.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.socialConnection.deleteMany({
+        where: { creatorProfileId: creatorId, platform },
+      });
+      if (platform === SocialPlatform.INSTAGRAM) {
+        await tx.creatorProfile.update({
+          where: { id: creatorId },
+          data: { instagramUrl: null },
+        });
+      }
     });
   }
 
@@ -350,6 +374,15 @@ export class SocialConnectionsService {
           lastSyncError: null,
         },
       });
+
+      // Keep the creator's public Instagram URL in sync if the handle changed.
+      const igUrl = instagramUrlFromUsername(account.username);
+      if (igUrl) {
+        await this.prisma.creatorProfile.update({
+          where: { id: conn.creatorProfileId },
+          data: { instagramUrl: igUrl },
+        });
+      }
       this.logger.log(
         `social sync ok: instagram connection ${conn.id} (@${account.username ?? '?'})`,
       );
@@ -557,6 +590,12 @@ export class SocialConnectionsService {
 
 function dateOnly(yyyyMmDd: string): Date {
   return new Date(`${yyyyMmDd}T00:00:00.000Z`);
+}
+
+/** Canonical public Instagram profile URL from a handle. Null when unknown. */
+function instagramUrlFromUsername(username: string | null): string | null {
+  const handle = username?.trim().replace(/^@/, '');
+  return handle ? `https://instagram.com/${handle}` : null;
 }
 
 /** Sum the non-null numbers, or undefined when there are none. */

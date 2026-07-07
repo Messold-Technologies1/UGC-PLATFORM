@@ -14,7 +14,6 @@ import {
   EyeOff,
   Upload,
   Video,
-  Instagram,
   Check,
   Activity,
   Utensils,
@@ -98,10 +97,6 @@ const creatorSignupSchema = z.object({
     : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   bio: z.string().min(10, "Please write a short bio").max(5000),
-  instagramUrl: z
-    .string()
-    .min(1, "Instagram handle is required")
-    .max(500),
   driveLink: z
     .string()
     .optional()
@@ -129,7 +124,6 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   phoneOtpCode: "Phone verification code",
   email: "Email",
   bio: "Short bio (at least 10 characters)",
-  instagramUrl: "Instagram handle",
   driveLink: "Google Drive portfolio link",
   categories: "At least one category",
   password: "Password (at least 8 characters)",
@@ -317,7 +311,6 @@ export function CreatorRegisterForm() {
       country: "India",
       email: "",
       bio: "",
-      instagramUrl: "",
       driveLink: "",
       categories: [],
       password: "",
@@ -563,7 +556,6 @@ export function CreatorRegisterForm() {
         state: data.state.trim(),
         country: data.country.trim(),
         bio: normalizeOptionalText(data.bio),
-        instagramUrl: normalizeOptionalText(data.instagramUrl),
         driveLink: useDrivePortfolio ? driveLink : undefined,
         categorySlugs: data.categories,
         portfolioSignupVideoTempKeys:
@@ -1074,31 +1066,6 @@ export function CreatorRegisterForm() {
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="instagram"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Instagram handle <span className="text-red-500">*</span>
-                </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <Instagram className="size-4" />
-                  </div>
-                  <Input
-                    id="instagramUrl"
-                    placeholder="@yourhandle"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("instagramUrl")}
-                  />
-                </div>
-                {form.formState.errors.instagramUrl && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.instagramUrl.message}
-                  </p>
-                )}
-              </div>
-
               <div className="space-y-3">
                 <div>
                   <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">

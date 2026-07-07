@@ -84,15 +84,6 @@ export class RegisterCreatorDto {
   bio?: string;
 
   @ApiPropertyOptional({
-    example: '@jane',
-    description: 'Instagram handle or profile URL (plain string).',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  instagramUrl?: string;
-
-  @ApiPropertyOptional({
     example: 'https://drive.google.com/drive/folders/abc123',
     description:
       'Optional Google Drive sharing link (Anyone with the link → Viewer)',

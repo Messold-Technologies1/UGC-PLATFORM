@@ -115,6 +115,9 @@ export class InstagramClient {
     const clientId = this.config.get<string>('INSTAGRAM_CLIENT_ID')!;
     const redirectUri = this.config.get<string>('INSTAGRAM_CALLBACK_URL')!;
     const params = new URLSearchParams({
+      // Force the Instagram account chooser / re-login so a creator can pick
+      // which professional account to link (matches Meta's suggested embed URL).
+      force_reauth: 'true',
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',

@@ -78,24 +78,6 @@ export class PublicInstagramInsightsDto {
   topCountries!: DemographicBucketDto[];
 }
 
-/** One point in the daily metric time-series. */
-export class SocialMetricPointDto {
-  @ApiProperty()
-  date!: string;
-
-  @ApiPropertyOptional()
-  reach?: number;
-
-  @ApiPropertyOptional()
-  views?: number;
-
-  @ApiPropertyOptional()
-  followerCount?: number;
-
-  @ApiPropertyOptional()
-  profileViews?: number;
-}
-
 export class SocialConnectionDto {
   @ApiProperty({ enum: SocialPlatform })
   platform!: SocialPlatform;
@@ -115,6 +97,17 @@ export class SocialConnectionDto {
   @ApiPropertyOptional()
   mediaCount?: number;
 
+  @ApiPropertyOptional({
+    description: 'De-duplicated reach over the last 30 days.',
+  })
+  reach30d?: number;
+
+  @ApiPropertyOptional({ description: 'Views over the last 30 days.' })
+  views30d?: number;
+
+  @ApiPropertyOptional({ description: 'Profile views over the last 30 days.' })
+  profileViews30d?: number;
+
   @ApiPropertyOptional()
   connectedAt?: string;
 
@@ -123,11 +116,6 @@ export class SocialConnectionDto {
 
   @ApiPropertyOptional()
   lastSyncStatus?: string;
-
-  @ApiPropertyOptional({
-    description: 'Recent daily metrics (most recent last).',
-  })
-  metrics?: SocialMetricPointDto[];
 
   @ApiPropertyOptional({
     description: 'Derived audience demographics (may be empty).',

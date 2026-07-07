@@ -23,14 +23,6 @@ export interface SocialAudienceApi {
   topCountries: DemographicBucketApi[];
 }
 
-export interface SocialMetricPointApi {
-  date: string;
-  reach?: number;
-  views?: number;
-  followerCount?: number;
-  profileViews?: number;
-}
-
 export interface SocialConnectionApi {
   platform: SocialPlatformApi;
   status: SocialConnectionStatusApi;
@@ -38,10 +30,12 @@ export interface SocialConnectionApi {
   accountType?: string;
   followersCount?: number;
   mediaCount?: number;
+  reach30d?: number;
+  views30d?: number;
+  profileViews30d?: number;
   connectedAt?: string;
   lastSyncedAt?: string;
   lastSyncStatus?: string;
-  metrics?: SocialMetricPointApi[];
   audience?: SocialAudienceApi;
 }
 

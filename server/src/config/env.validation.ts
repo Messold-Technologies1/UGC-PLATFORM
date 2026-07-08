@@ -31,6 +31,24 @@ export const envValidationSchema = Joi.object({
     .optional()
     .default('approval_first'),
 
+  // Social connections: Instagram API with Instagram Login (data-source link for
+  // audience metrics). Optional until the feature is enabled — the module
+  // degrades to "not configured" so the app still boots without these set.
+  INSTAGRAM_CLIENT_ID: Joi.string().min(1).optional(),
+  INSTAGRAM_CLIENT_SECRET: Joi.string().min(1).optional(),
+  INSTAGRAM_CALLBACK_URL: Joi.string().uri().optional(),
+  /**
+   * 32-byte key (hex or base64) used to AES-256-GCM encrypt stored OAuth tokens
+   * and to sign the OAuth `state`. Required once Instagram connect is enabled.
+   */
+  SOCIAL_TOKEN_ENC_KEY: Joi.string().min(32).optional(),
+  /** Instagram Graph API version, e.g. v21.0. */
+  INSTAGRAM_GRAPH_VERSION: Joi.string().optional().default('v21.0'),
+  /** Toggle the daily social-metrics sync cron (default on). */
+  SOCIAL_METRICS_SYNC_ENABLED: Joi.string().valid('true', 'false').optional(),
+  /** BullMQ worker concurrency for social metric syncs. */
+  SOCIAL_METRICS_CONCURRENCY: Joi.number().integer().min(1).max(20).optional(),
+
   // Storage: S3 + CDN
   AWS_REGION: Joi.string().min(1).required(),
   AWS_S3_ACCESS_KEY_ID: Joi.string().min(1).required(),

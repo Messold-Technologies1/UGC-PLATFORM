@@ -32,7 +32,6 @@ export type RegisterCreatorPayload = {
   state: string;
   country: string;
   bio?: string;
-  instagramUrl?: string;
   driveLink?: string;
   categorySlugs: string[];
   portfolioSignupVideoTempKeys?: string[];

@@ -103,7 +103,6 @@ export class SignupRegistrationService {
             stateName: dto.state.trim(),
             countryName: dto.country.trim(),
             bio: dto.bio?.trim() || null,
-            instagramUrl: dto.instagramUrl?.trim() || null,
             driveLink: dto.driveLink?.trim() || null,
             categorySlugs: dto.categorySlugs,
           },

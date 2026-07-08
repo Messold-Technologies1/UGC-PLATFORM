@@ -6,6 +6,7 @@ import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 import { GoLiveBanner } from "./go-live-banner";
+import { CreatorSocialAccounts } from "./creator-social-accounts";
 import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import {
   computeGoLiveMissing,
@@ -36,8 +37,6 @@ import {
   Sparkles,
   User,
   Instagram,
-  Youtube,
-  Ghost,
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -110,6 +109,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "about", label: "About you", icon: MapPin },
   { id: "niche", label: "Niche & content", icon: Sparkles },
   { id: "social", label: "Social & activity", icon: Share2 },
+  { id: "social-accounts", label: "Connected accounts", icon: Instagram },
   { id: "packages", label: "Packages", icon: Layers },
   { id: "portfolio", label: "Portfolio", icon: Film },
 ];
@@ -1656,122 +1656,9 @@ function CreatorProfileUpdateFormContent({
           <SectionCard
             id="social"
             icon={Share2}
-            title="Social & activity"
-            desc="Optional links and how much you create."
+            title="Activity"
+            desc="How much you create."
           >
-            <div className="pe-grid pe-grid-3">
-              <div className="pe-field">
-                <label htmlFor="instagramUrl">
-                  Instagram
-                  <span className="pe-opt">optional</span>
-                </label>
-                <div className="pe-input-wrap">
-                  <span className="pe-lead">
-                    <Instagram size={15} />
-                  </span>
-                  <input
-                    id="instagramUrl"
-                    className="pe-input"
-                    disabled={pending}
-                    value={instagramUrl}
-                    onChange={(e) => {
-                      setInstagramUrl(e.target.value);
-                      if (formErrors.instagramUrl)
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          instagramUrl: undefined,
-                        }));
-                      markDirty();
-                    }}
-                    placeholder="https://instagram.com/…"
-                    aria-invalid={!!formErrors.instagramUrl}
-                  />
-                </div>
-                {formErrors.instagramUrl && (
-                  <p
-                    className="pe-help text-destructive"
-                    style={{ color: "var(--destructive)" }}
-                  >
-                    {formErrors.instagramUrl}
-                  </p>
-                )}
-              </div>
-              <div className="pe-field">
-                <label htmlFor="youtubeUrl">
-                  YouTube
-                  <span className="pe-opt">optional</span>
-                </label>
-                <div className="pe-input-wrap">
-                  <span className="pe-lead">
-                    <Youtube size={14} />
-                  </span>
-                  <input
-                    id="youtubeUrl"
-                    className="pe-input"
-                    disabled={pending}
-                    value={youtubeUrl}
-                    onChange={(e) => {
-                      setYoutubeUrl(e.target.value);
-                      if (formErrors.youtubeUrl)
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          youtubeUrl: undefined,
-                        }));
-                      markDirty();
-                    }}
-                    placeholder="https://youtube.com/@…"
-                    inputMode="url"
-                    aria-invalid={!!formErrors.youtubeUrl}
-                  />
-                </div>
-                {formErrors.youtubeUrl && (
-                  <p
-                    className="pe-help text-destructive"
-                    style={{ color: "var(--destructive)" }}
-                  >
-                    {formErrors.youtubeUrl}
-                  </p>
-                )}
-              </div>
-              <div className="pe-field">
-                <label htmlFor="snapchatUrl">
-                  Snapchat
-                  <span className="pe-opt">optional</span>
-                </label>
-                <div className="pe-input-wrap">
-                  <span className="pe-lead">
-                    <Ghost size={15} />
-                  </span>
-                  <input
-                    id="snapchatUrl"
-                    className="pe-input"
-                    disabled={pending}
-                    value={snapchatUrl}
-                    onChange={(e) => {
-                      setSnapchatUrl(e.target.value);
-                      if (formErrors.snapchatUrl)
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          snapchatUrl: undefined,
-                        }));
-                      markDirty();
-                    }}
-                    placeholder="https://snapchat.com/add/…"
-                    inputMode="url"
-                    aria-invalid={!!formErrors.snapchatUrl}
-                  />
-                </div>
-                {formErrors.snapchatUrl && (
-                  <p
-                    className="pe-help text-destructive"
-                    style={{ color: "var(--destructive)" }}
-                  >
-                    {formErrors.snapchatUrl}
-                  </p>
-                )}
-              </div>
-            </div>
-
             <div className="pe-grid pe-grid-2">
               <PeSelectField
                 id="contentVolume"
@@ -1822,6 +1709,10 @@ function CreatorProfileUpdateFormContent({
               </div>
             </div>
           </SectionCard>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <CreatorSocialAccounts />
         </motion.div>
 
         <motion.div variants={itemVariants}>

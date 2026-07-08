@@ -1,12 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [pgvector(map: "vector")]
 }
 
@@ -296,63 +296,63 @@ model UserRole {
 }
 
 model CreatorProfile {
-  id                  String                      @id @default(uuid()) @db.Uuid
-  userId              String                      @unique @db.Uuid
-  displayName         String
+  id                           String                      @id @default(uuid()) @db.Uuid
+  userId                       String                      @unique @db.Uuid
+  displayName                  String
   /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
-  publicSlug          String                      @unique
-  introVideoKey       String?
-  introVideoUrl       String?
-  profileImageKey     String?
-  profileImageUrl     String?
-  city                String?
-  countryName         String?
-  stateName           String?
-  bio                 String?
-  gender              CreatorGender?
-  dateOfBirth         DateTime?                   @db.Date
-  shippingAddress     String?
+  publicSlug                   String                      @unique
+  introVideoKey                String?
+  introVideoUrl                String?
+  profileImageKey              String?
+  profileImageUrl              String?
+  city                         String?
+  countryName                  String?
+  stateName                    String?
+  bio                          String?
+  gender                       CreatorGender?
+  dateOfBirth                  DateTime?                   @db.Date
+  shippingAddress              String?
   /// Primary contact email for orders and platform communication.
-  contactEmail        String?
-  instagramUrl        String?
+  contactEmail                 String?
+  instagramUrl                 String?
   /// Optional Google Drive folder/file link shared at signup (viewer access).
-  driveLink           String?
-  youtubeUrl          String?
-  snapchatUrl         String?
-  contentVolume       CreatorContentVolumeBucket?
-  collaborationCount  Int                         @default(0)
-  travelRadius        Int?
-  onLocationAvailable Boolean                     @default(false)
+  driveLink                    String?
+  youtubeUrl                   String?
+  snapchatUrl                  String?
+  contentVolume                CreatorContentVolumeBucket?
+  collaborationCount           Int                         @default(0)
+  travelRadius                 Int?
+  onLocationAvailable          Boolean                     @default(false)
   /// One-way latch: set true the first time the creator meets every Go-Live
   /// requirement. Never reverts — later edits/deletions do not clear it.
-  completeProfile     Boolean                     @default(false)
+  completeProfile              Boolean                     @default(false)
   /// Derived discovery gate = (approval APPROVED) AND completeProfile.
   /// Brands only ever see creators where this is true.
-  isListed            Boolean                     @default(false)
+  isListed                     Boolean                     @default(false)
   /// Opt-in for transactional/profile/order emails. Set true at signup; legacy rows backfilled false.
-  emailNotificationsEnabled    Boolean            @default(false)
+  emailNotificationsEnabled    Boolean                     @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
-  whatsappNotificationsEnabled Boolean            @default(false)
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
+  whatsappNotificationsEnabled Boolean                     @default(false)
+  createdAt                    DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
 
-  user             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  creatorApproval  CreatorApproval?
-  facetSelections  CreatorProfileFacetSelection[]
-  profileLanguages CreatorProfileLanguage[]
-  restrictions     CreatorRestriction[]
-  stats            CreatorStats?
-  features         CreatorFeature[]
-  packages         CreatorPackage[]
-  addOns           CreatorAddOn[]
-  portfolioVideos  CreatorPortfolioVideo[]
+  user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorApproval   CreatorApproval?
+  facetSelections   CreatorProfileFacetSelection[]
+  profileLanguages  CreatorProfileLanguage[]
+  restrictions      CreatorRestriction[]
+  stats             CreatorStats?
+  features          CreatorFeature[]
+  packages          CreatorPackage[]
+  addOns            CreatorAddOn[]
+  portfolioVideos   CreatorPortfolioVideo[]
   portfolioSections CreatorPortfolioSection[]
-  receivedOrders      Order[]                        @relation("OrderCreator")
-  orderDeliveries     OrderDelivery[]
-  payoutDetails       CreatorPayoutDetails?
-  ratingReviews       CreatorRatingReview[]
-  wishlistEntries     BrandWishlistCreator[]
-  socialConnections   SocialConnection[]
+  receivedOrders    Order[]                        @relation("OrderCreator")
+  orderDeliveries   OrderDelivery[]
+  payoutDetails     CreatorPayoutDetails?
+  ratingReviews     CreatorRatingReview[]
+  wishlistEntries   BrandWishlistCreator[]
+  socialConnections SocialConnection[]
 
   @@index([city])
   @@index([countryName])
@@ -486,24 +486,24 @@ model Order {
   expectedAmountPaise Int      @default(0)
 
   // Timeline
-  paidAt             DateTime?
-  briefId            String?   @db.Uuid
-  briefSubmittedAt   DateTime?
-  briefAcceptedAt    DateTime?
+  paidAt           DateTime?
+  briefId          String?   @db.Uuid
+  briefSubmittedAt DateTime?
+  briefAcceptedAt  DateTime?
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
-  requiresPhysicalProductShipment Boolean @default(false)
+  requiresPhysicalProductShipment Boolean   @default(false)
   courierName                     String?
   trackingId                      String?
   dispatchedAt                    DateTime?
   productReceivedAt               DateTime?
 
-  deliveryDueAt             DateTime?
-  deliveryGraceDeadlineAt     DateTime?
-  deliveredAt        DateTime?
-  acceptedAt         DateTime?
-  creatorPaidAt      DateTime?
-  revisionCount      Int       @default(0)
+  deliveryDueAt           DateTime?
+  deliveryGraceDeadlineAt DateTime?
+  deliveredAt             DateTime?
+  acceptedAt              DateTime?
+  creatorPaidAt           DateTime?
+  revisionCount           Int       @default(0)
 
   // Razorpay Payments
   razorpayOrderId   String?   @unique
@@ -512,9 +512,9 @@ model Order {
   refundedAt        DateTime?
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
-  lastChatActivityAt          DateTime @default(now())
-  lastChatMessageId           String?  @db.Uuid
-  lastChatMessageSenderUserId String?  @db.Uuid
+  lastChatActivityAt          DateTime              @default(now())
+  lastChatMessageId           String?               @db.Uuid
+  lastChatMessageSenderUserId String?               @db.Uuid
   lastChatMessageType         OrderChatMessageType?
   lastChatMessageText         String?
 
@@ -634,16 +634,16 @@ enum OrderChatMessageType {
 }
 
 model OrderChatMessage {
-  id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @db.Uuid
-  senderUserId    String   @db.Uuid
+  id              String               @id @default(uuid()) @db.Uuid
+  orderId         String               @db.Uuid
+  senderUserId    String               @db.Uuid
   type            OrderChatMessageType @default(TEXT)
   text            String?
   audioKey        String?
   audioDurationMs Int?
   audioMimeType   String?
   clientMessageId String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime             @default(now())
 
   order      Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sender     User                 @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
@@ -741,8 +741,8 @@ model CreatorPortfolioVideo {
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
-  creator CreatorProfile             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  tags    CreatorPortfolioVideoTag[]
+  creator       CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  tags          CreatorPortfolioVideoTag[]
   sectionVideos CreatorPortfolioSectionVideo[]
 
   @@index([creatorId, visibilityStatus, createdAt])
@@ -859,45 +859,45 @@ model Agency {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  owner            User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  brands           BrandProfile[]
-  lastActiveBrand  BrandProfile? @relation("AgencyLastActiveBrand", fields: [lastActiveBrandProfileId], references: [id], onDelete: SetNull)
+  owner           User           @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  brands          BrandProfile[]
+  lastActiveBrand BrandProfile?  @relation("AgencyLastActiveBrand", fields: [lastActiveBrandProfileId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId])
 }
 
 model BrandProfile {
-  id                         String            @id @default(uuid()) @db.Uuid
-  userId                     String?           @unique @db.Uuid
-  agencyId                   String?           @db.Uuid
-  brandName                  String
-  logoKey                    String?
-  logoUrl                    String?
-  website                    String?
+  id                           String            @id @default(uuid()) @db.Uuid
+  userId                       String?           @unique @db.Uuid
+  agencyId                     String?           @db.Uuid
+  brandName                    String
+  logoKey                      String?
+  logoUrl                      String?
+  website                      String?
   /// Primary contact name on the brand profile form.
-  contactFullName            String?
-  contactEmail               String?
-  contactPhone               String?
-  brandPronunciationAudioKey String?
-  brandPronunciationAudioUrl String?
-  instagramUrl               String?
-  productType                BrandProductType?
-  otherCategoryLabel         String?
+  contactFullName              String?
+  contactEmail                 String?
+  contactPhone                 String?
+  brandPronunciationAudioKey   String?
+  brandPronunciationAudioUrl   String?
+  instagramUrl                 String?
+  productType                  BrandProductType?
+  otherCategoryLabel           String?
   /// Opt-in for transactional/order emails. Set true at signup; legacy rows backfilled false.
-  emailNotificationsEnabled    Boolean         @default(false)
+  emailNotificationsEnabled    Boolean           @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
-  whatsappNotificationsEnabled Boolean         @default(false)
-  createdAt                  DateTime          @default(now())
-  updatedAt                  DateTime          @updatedAt
+  whatsappNotificationsEnabled Boolean           @default(false)
+  createdAt                    DateTime          @default(now())
+  updatedAt                    DateTime          @updatedAt
 
-  user            User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agency          Agency?                     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  agencyLastActiveFor Agency?                 @relation("AgencyLastActiveBrand")
-  orders          Order[]
-  briefs          Brief[]
-  wishlists       BrandWishlist[]
-  brandCategories BrandProfileBrandCategory[]
-  ratingReviews   CreatorRatingReview[]
+  user                User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency              Agency?                     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyLastActiveFor Agency?                     @relation("AgencyLastActiveBrand")
+  orders              Order[]
+  briefs              Brief[]
+  wishlists           BrandWishlist[]
+  brandCategories     BrandProfileBrandCategory[]
+  ratingReviews       CreatorRatingReview[]
 
   @@index([agencyId])
 }
@@ -1018,16 +1018,16 @@ model CreatorPackage {
 }
 
 model CreatorAddOn {
-  id          String   @id @default(uuid()) @db.Uuid
-  creatorId   String   @db.Uuid
-  name        String
-  priceAmount Decimal  @db.Decimal(12, 2)
-  description String?
+  id           String   @id @default(uuid()) @db.Uuid
+  creatorId    String   @db.Uuid
+  name         String
+  priceAmount  Decimal  @db.Decimal(12, 2)
+  description  String?
   /// Only set for delivery-affecting add-ons (e.g. Faster Delivery): the
   /// promised delivery time in days. Must be < the creator's package deliveryDays.
   deliveryDays Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
@@ -1107,35 +1107,33 @@ model LegalPage {
   updatedBy     String?  @db.Uuid
 
   // Draft State
-  draftStatus        LegalDraftStatus?
-  draftTitle         String?
-  draftDescription   String?
-  draftEffectiveDate String?
-  draftSections      Json?
-  draftChangeNote    String?
-  draftCreatedBy     String?           @db.Uuid
-  draftReviewNote    String?
-  draftCreatedAt     DateTime?
-  draftUpdatedAt     DateTime?
-  draftRestoredFromVersionId String? @db.Uuid
+  draftStatus                LegalDraftStatus?
+  draftTitle                 String?
+  draftDescription           String?
+  draftEffectiveDate         String?
+  draftSections              Json?
+  draftChangeNote            String?
+  draftCreatedBy             String?           @db.Uuid
+  draftReviewNote            String?
+  draftCreatedAt             DateTime?
+  draftUpdatedAt             DateTime?
+  draftRestoredFromVersionId String?           @db.Uuid
 
   versions LegalPageVersion[]
 
   @@index([slug])
 }
 
-
-
 /// Immutable snapshot created each time a draft is published. Captures the
 /// entire page state (meta + sections) so admins can review history.
 model LegalPageVersion {
-  id         String   @id @default(uuid()) @db.Uuid
-  pageId     String   @db.Uuid
-  snapshot   Json
-  changedBy  String   @db.Uuid
-  changeNote String?
-  restoredFromVersionId String? @db.Uuid
-  createdAt  DateTime @default(now())
+  id                    String   @id @default(uuid()) @db.Uuid
+  pageId                String   @db.Uuid
+  snapshot              Json
+  changedBy             String   @db.Uuid
+  changeNote            String?
+  restoredFromVersionId String?  @db.Uuid
+  createdAt             DateTime @default(now())
 
   page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
@@ -1164,9 +1162,18 @@ model SocialConnection {
   scopes            String[]
   status            SocialConnectionStatus @default(ACTIVE)
 
-  /// Denormalized latest values for quick display (source of truth is snapshots).
-  followersCount Int?
-  mediaCount     Int?
+  /// Denormalized "latest" values, overwritten each sync — this row is the
+  /// single source of truth for a connection's current numbers (no per-day rows).
+  followersCount   Int?
+  mediaCount       Int?
+  /// De-duplicated reach over the last 30 days (Instagram `total_value`).
+  reach30d         Int?
+  /// Views over the last 30 days.
+  views30d         Int?
+  /// Profile views over the last 30 days.
+  profileViews30d  Int?
+  /// When the 30-day metrics above were last refreshed.
+  metricsUpdatedAt DateTime?
 
   lastSyncedAt   DateTime?
   lastSyncStatus String?
@@ -1175,9 +1182,8 @@ model SocialConnection {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  creator           CreatorProfile           @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  metricSnapshots   SocialMetricSnapshot[]
-  audienceSnapshots SocialAudienceSnapshot[]
+  creator  CreatorProfile          @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  audience SocialAudienceSnapshot?
 
   /// One platform account maps to a single creator.
   @@unique([platform, providerAccountId])
@@ -1188,44 +1194,18 @@ model SocialConnection {
   @@index([tokenExpiresAt])
 }
 
-/// Daily scalar time-series for a connected account. Upserted on
-/// (connectionId, metricDate) so a re-pulled/late-finalized day self-corrects.
-/// Every metric is nullable — platforms expose different subsets (Reddit will
-/// leave most null and carry its extras in `raw`).
-model SocialMetricSnapshot {
-  id               String         @id @default(uuid()) @db.Uuid
-  connectionId     String         @db.Uuid
-  /// Denormalized for fast per-creator time-series reads without a join.
-  creatorProfileId String         @db.Uuid
-  platform         SocialPlatform
-  metricDate       DateTime       @db.Date
-
-  reach         Int?
-  views         Int? // impressions / views
-  followerCount Int? // total followers on that date
-  profileViews  Int?
-
-  /// Platform-specific extras (YT watch time, Reddit karma, …).
-  raw         Json?
-  collectedAt DateTime @default(now())
-
-  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-
-  @@unique([connectionId, metricDate])
-  @@index([creatorProfileId, platform, metricDate])
-}
-
-/// Dated snapshot of an account's *audience demographics*. Instagram
-/// `follower_demographics` (period=lifetime) per breakdown; requires >=100
-/// followers, otherwise the maps stay null. Full distributions are stored as
-/// JSON exactly as the platform returns them — "top 5 cities", "top countries",
-/// age/gender splits are derived at read time so nothing is lost and the cutoff
-/// can change without a re-fetch. Upserted on (connectionId, snapshotDate).
+/// An account's *audience demographics* — one row per connection, overwritten
+/// each sync. Instagram `follower_demographics` (period=lifetime) per breakdown;
+/// requires >=100 followers, otherwise the maps stay null. Full distributions
+/// are stored as JSON exactly as the platform returns them — "top 5 cities",
+/// "top countries", age/gender splits are derived at read time so nothing is
+/// lost and the cutoff can change without a re-fetch.
 model SocialAudienceSnapshot {
   id               String         @id @default(uuid()) @db.Uuid
-  connectionId     String         @db.Uuid
+  connectionId     String         @unique @db.Uuid
   creatorProfileId String         @db.Uuid
   platform         SocialPlatform
+  /// "As of" date of this demographics snapshot (overwritten each sync).
   snapshotDate     DateTime       @db.Date
 
   /// Followers at snapshot time (context for interpreting the distributions).
@@ -1242,6 +1222,5 @@ model SocialAudienceSnapshot {
 
   connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
-  @@unique([connectionId, snapshotDate])
-  @@index([creatorProfileId, platform, snapshotDate])
+  @@index([creatorProfileId, platform])
 }

@@ -33,11 +33,6 @@ function formatCount(n?: number): string {
   return String(n);
 }
 
-function latestReach(conn: SocialConnectionApi): number | undefined {
-  const withReach = (conn.metrics ?? []).filter((m) => m.reach != null);
-  return withReach.length ? withReach[withReach.length - 1].reach : undefined;
-}
-
 const GENDER_LABELS: Record<string, string> = {
   F: "Female",
   M: "Male",
@@ -157,7 +152,7 @@ function InstagramConnected({
 }) {
   const expired = conn.status === "EXPIRED" || conn.status === "REVOKED";
   const audience = conn.audience;
-  const reach = latestReach(conn);
+  const reach = conn.reach30d;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -243,7 +238,13 @@ function InstagramConnected({
         />
         <MetricTile label="Posts" value={formatCount(conn.mediaCount)} />
         {reach != null && (
-          <MetricTile label="Reach (latest)" value={formatCount(reach)} />
+          <MetricTile label="Reach (30d)" value={formatCount(reach)} />
+        )}
+        {conn.profileViews30d != null && (
+          <MetricTile
+            label="Profile views (30d)"
+            value={formatCount(conn.profileViews30d)}
+          />
         )}
       </div>
 

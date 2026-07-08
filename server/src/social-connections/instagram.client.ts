@@ -20,8 +20,6 @@ const SCOPES = [
   'instagram_business_manage_insights',
 ];
 
-/** Day-period, per-day time-series metrics we snapshot. */
-const DAY_TIME_SERIES = ['reach', 'profile_views'];
 /** Demographic breakdown dimensions we pull (one call each). */
 const DEMOGRAPHIC_BREAKDOWNS = ['age', 'gender', 'city', 'country'] as const;
 
@@ -57,10 +55,10 @@ export interface InstagramAccount {
   mediaCount: number | null;
 }
 
-export interface InstagramDailyMetric {
-  /** UTC date (YYYY-MM-DD) the activity occurred. */
-  date: string;
+/** Rolling-window totals for a connection (de-duplicated reach). */
+export interface InstagramTotals {
   reach: number | null;
+  views: number | null;
   profileViews: number | null;
 }
 
@@ -115,6 +113,9 @@ export class InstagramClient {
     const clientId = this.config.get<string>('INSTAGRAM_CLIENT_ID')!;
     const redirectUri = this.config.get<string>('INSTAGRAM_CALLBACK_URL')!;
     const params = new URLSearchParams({
+      // Force the Instagram account chooser / re-login so a creator can pick
+      // which professional account to link (matches Meta's suggested embed URL).
+      force_reauth: 'true',
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
@@ -227,39 +228,23 @@ export class InstagramClient {
   }
 
   /**
-   * Per-day metrics for [sinceUnix, untilUnix), one row per date. Each metric is
-   * fetched independently; a failure yields null for that field.
+   * Single rolling-window totals (default 30 days). Uses `metric_type=total_value`
+   * so `reach` comes back **de-duplicated** over the whole window (summing daily
+   * reach would double-count repeat viewers). Each metric is fetched
+   * independently; a failure yields null for that field.
    */
-  async fetchDailyMetrics(
+  async fetch30DayTotals(
     accessToken: string,
-    sinceUnix: number,
-    untilUnix: number,
-  ): Promise<InstagramDailyMetric[]> {
-    const byDate = new Map<string, InstagramDailyMetric>();
-    const ensure = (date: string): InstagramDailyMetric => {
-      let row = byDate.get(date);
-      if (!row) {
-        row = { date, reach: null, profileViews: null };
-        byDate.set(date, row);
-      }
-      return row;
-    };
-
-    for (const metric of DAY_TIME_SERIES) {
-      const series = await this.fetchTimeSeries(
-        accessToken,
-        metric,
-        sinceUnix,
-        untilUnix,
-      );
-      for (const point of series) {
-        const row = ensure(point.date);
-        if (metric === 'reach') row.reach = point.value;
-        else if (metric === 'profile_views') row.profileViews = point.value;
-      }
-    }
-
-    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+    windowDays = 30,
+  ): Promise<InstagramTotals> {
+    const until = Math.floor(Date.now() / 1000);
+    const since = until - windowDays * 24 * 60 * 60;
+    const [reach, views, profileViews] = await Promise.all([
+      this.fetchTotalValue(accessToken, 'reach', since, until),
+      this.fetchTotalValue(accessToken, 'views', since, until),
+      this.fetchTotalValue(accessToken, 'profile_views', since, until),
+    ]);
+    return { reach, views, profileViews };
   }
 
   /** Follower demographics (period=lifetime). Needs >=100 followers. */
@@ -307,16 +292,18 @@ export class InstagramClient {
     return out;
   }
 
-  private async fetchTimeSeries(
+  /** Single de-duplicated total for one metric over [sinceUnix, untilUnix). */
+  private async fetchTotalValue(
     accessToken: string,
     metric: string,
     sinceUnix: number,
     untilUnix: number,
-  ): Promise<Array<{ date: string; value: number | null }>> {
+  ): Promise<number | null> {
     try {
       const url = new URL(`${GRAPH_BASE}/${this.version()}/me/insights`);
       url.searchParams.set('metric', metric);
       url.searchParams.set('period', 'day');
+      url.searchParams.set('metric_type', 'total_value');
       url.searchParams.set('since', String(sinceUnix));
       url.searchParams.set('until', String(untilUnix));
       url.searchParams.set('access_token', accessToken);
@@ -329,22 +316,15 @@ export class InstagramClient {
         this.logger.debug(
           `instagram metric ${metric} skipped: ${data.error?.message}`,
         );
-        return [];
+        return null;
       }
-      const values = data.data?.[0]?.values ?? [];
-      return values.map((v) => ({
-        // IG stamps `end_time` at the *start of the next day*; subtract a day to
-        // label the activity date. Off-by-one is consistent because we upsert a
-        // rolling window keyed by this date.
-        date: toActivityDate(v.end_time),
-        value: numOrNull(v.value),
-      }));
+      return numOrNull(data.data?.[0]?.total_value?.value);
     } catch (err) {
       if (err instanceof InstagramApiError && err.isAuthError) throw err;
       this.logger.warn(
         `instagram metric ${metric} failed: ${(err as Error)?.message}`,
       );
-      return [];
+      return null;
     }
   }
 
@@ -360,12 +340,6 @@ export class InstagramClient {
 
 function numOrNull(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
-}
-
-function toActivityDate(endTime: string | undefined): string {
-  const base = endTime ? new Date(endTime) : new Date();
-  const d = new Date(base.getTime() - 24 * 60 * 60_000);
-  return d.toISOString().slice(0, 10);
 }
 
 function parseBreakdown(data: InsightsResponse): DemographicMap | null {

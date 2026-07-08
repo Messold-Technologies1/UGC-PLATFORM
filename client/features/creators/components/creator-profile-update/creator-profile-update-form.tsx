@@ -37,8 +37,6 @@ import {
   Sparkles,
   User,
   Instagram,
-  Youtube,
-  Ghost,
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -1610,122 +1608,9 @@ function CreatorProfileUpdateFormContent({
           <SectionCard
             id="social"
             icon={Share2}
-            title="Social & activity"
-            desc="Optional links and how much you create."
+            title="Activity"
+            desc="How much you create."
           >
-            <div className="pe-grid pe-grid-3">
-              <div className="pe-field">
-                <label htmlFor="instagramUrl">
-                  Instagram
-                  <span className="pe-opt">optional</span>
-                </label>
-                <div className="pe-input-wrap">
-                  <span className="pe-lead">
-                    <Instagram size={15} />
-                  </span>
-                  <input
-                    id="instagramUrl"
-                    className="pe-input"
-                    disabled={pending}
-                    value={instagramUrl}
-                    onChange={(e) => {
-                      setInstagramUrl(e.target.value);
-                      if (formErrors.instagramUrl)
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          instagramUrl: undefined,
-                        }));
-                      markDirty();
-                    }}
-                    placeholder="https://instagram.com/…"
-                    aria-invalid={!!formErrors.instagramUrl}
-                  />
-                </div>
-                {formErrors.instagramUrl && (
-                  <p
-                    className="pe-help text-destructive"
-                    style={{ color: "var(--destructive)" }}
-                  >
-                    {formErrors.instagramUrl}
-                  </p>
-                )}
-              </div>
-              <div className="pe-field">
-                <label htmlFor="youtubeUrl">
-                  YouTube
-                  <span className="pe-opt">optional</span>
-                </label>
-                <div className="pe-input-wrap">
-                  <span className="pe-lead">
-                    <Youtube size={14} />
-                  </span>
-                  <input
-                    id="youtubeUrl"
-                    className="pe-input"
-                    disabled={pending}
-                    value={youtubeUrl}
-                    onChange={(e) => {
-                      setYoutubeUrl(e.target.value);
-                      if (formErrors.youtubeUrl)
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          youtubeUrl: undefined,
-                        }));
-                      markDirty();
-                    }}
-                    placeholder="https://youtube.com/@…"
-                    inputMode="url"
-                    aria-invalid={!!formErrors.youtubeUrl}
-                  />
-                </div>
-                {formErrors.youtubeUrl && (
-                  <p
-                    className="pe-help text-destructive"
-                    style={{ color: "var(--destructive)" }}
-                  >
-                    {formErrors.youtubeUrl}
-                  </p>
-                )}
-              </div>
-              <div className="pe-field">
-                <label htmlFor="snapchatUrl">
-                  Snapchat
-                  <span className="pe-opt">optional</span>
-                </label>
-                <div className="pe-input-wrap">
-                  <span className="pe-lead">
-                    <Ghost size={15} />
-                  </span>
-                  <input
-                    id="snapchatUrl"
-                    className="pe-input"
-                    disabled={pending}
-                    value={snapchatUrl}
-                    onChange={(e) => {
-                      setSnapchatUrl(e.target.value);
-                      if (formErrors.snapchatUrl)
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          snapchatUrl: undefined,
-                        }));
-                      markDirty();
-                    }}
-                    placeholder="https://snapchat.com/add/…"
-                    inputMode="url"
-                    aria-invalid={!!formErrors.snapchatUrl}
-                  />
-                </div>
-                {formErrors.snapchatUrl && (
-                  <p
-                    className="pe-help text-destructive"
-                    style={{ color: "var(--destructive)" }}
-                  >
-                    {formErrors.snapchatUrl}
-                  </p>
-                )}
-              </div>
-            </div>
-
             <div className="pe-grid pe-grid-2">
               <PeSelectField
                 id="contentVolume"

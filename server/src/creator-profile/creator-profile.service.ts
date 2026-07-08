@@ -870,7 +870,8 @@ export class CreatorProfileService {
         dateOfBirth:
           !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
         contactEmail: input.contactEmail.trim(),
-        instagramUrl: input.instagramUrl?.trim() || null,
+        // instagramUrl is no longer collected at signup — it is set from the
+        // Instagram connection (source of truth) once the creator links their account.
         driveLink: input.driveLink?.trim() || null,
         emailNotificationsEnabled: true,
         whatsappNotificationsEnabled: true,

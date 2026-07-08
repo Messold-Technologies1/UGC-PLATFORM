@@ -194,6 +194,7 @@ export class OrderWhatsAppNotifier {
         order,
         WhatsAppTemplateKey.ORDER_REFUNDED_FOR_BRAND,
         [order.packageNameSnapshot, this.formatMoney(order.priceAmountSnapshot, order.currency)],
+        [order.id],
       );
     });
   }

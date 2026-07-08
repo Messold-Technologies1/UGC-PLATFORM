@@ -311,7 +311,7 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('filters any incomplete profile in profile_first mode', () => {
+    it('filters incomplete pending or approved profiles in profile_first mode', () => {
       expect(
         buildAdminCreatorsListWhere(
           AdminCreatorListSegment.INCOMPLETE,
@@ -320,6 +320,23 @@ describe('creator-list-filters.util', () => {
         ),
       ).toEqual({
         completeProfile: false,
+        creatorApproval: {
+          status: {
+            in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED],
+          },
+        },
+      });
+    });
+
+    it('puts all rejected creators in non_approved regardless of completeProfile', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.NON_APPROVED,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        creatorApproval: { status: ApprovalStatus.REJECTED },
       });
     });
 

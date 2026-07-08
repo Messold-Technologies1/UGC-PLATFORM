@@ -411,8 +411,18 @@ export function buildAdminCreatorsListWhere(
       };
       break;
     case AdminCreatorListSegment.INCOMPLETE:
+      // profile_first "Building profile": incomplete profiles that are not
+      // rejected (PENDING or APPROVED). Rejected incomplete → NON_APPROVED.
+      // approval_first: approved creators who haven't finished go-live.
       segmentClause = profileFirst
-        ? { completeProfile: false }
+        ? {
+            completeProfile: false,
+            creatorApproval: {
+              status: {
+                in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED],
+              },
+            },
+          }
         : {
             completeProfile: false,
             creatorApproval: { status: ApprovalStatus.APPROVED },

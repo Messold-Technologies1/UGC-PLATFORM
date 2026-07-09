@@ -224,7 +224,7 @@ export class AuthService {
     dto: RegisterCreatorDto,
     meta?: { ipAddress?: string; userAgent?: string },
   ): Promise<AuthResult> {
-    const userId = await this.signupRegistration.registerCreatorUser(dto);
+    const userId = await this.signupRegistration.registerCreatorUser(dto, meta);
     return this.authResultAfterSignup(userId, meta);
   }
 

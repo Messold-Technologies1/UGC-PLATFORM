@@ -243,6 +243,7 @@ describe('CreatorProfileService', () => {
         notifyRejected: jest.fn(),
       } as any,
       creatorReviewsMock as unknown as CreatorReviewsService,
+      { enabled: false, sendEvent: jest.fn() } as any,
     );
   });
 

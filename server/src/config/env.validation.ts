@@ -75,4 +75,17 @@ export const envValidationSchema = Joi.object({
     .default(10_000),
   /** Dev only: skip SNS signature verification on POST /api/webhooks/ses */
   SES_SNS_SKIP_SIGNATURE_VERIFY: Joi.string().valid('true', 'false').optional(),
+
+  // Meta (Facebook) Conversions API — server-side event tracking.
+  // All optional: when the token or dataset id is unset the CAPI service
+  // short-circuits and sends nothing (server-side kill switch).
+  META_CAPI_ACCESS_TOKEN: Joi.string().optional(),
+  META_CAPI_DATASET_ID: Joi.string().optional(),
+  /** Graph API version, e.g. "v21.0". */
+  META_CAPI_API_VERSION: Joi.string()
+    .pattern(/^v\d+\.\d+$/)
+    .optional()
+    .default('v21.0'),
+  /** Set while testing to route server events to Events Manager > Test Events. */
+  META_CAPI_TEST_EVENT_CODE: Joi.string().optional(),
 });

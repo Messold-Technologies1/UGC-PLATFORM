@@ -1,0 +1,70 @@
+import { env } from "@/lib/env";
+
+/**
+ * Thin, self-contained wrapper around the Meta (Facebook) Pixel `fbq` global.
+ *
+ * Everything here is a no-op when {@link env.metaPixelId} is empty or when
+ * `window.fbq` has not loaded yet, so callers never have to guard. Removal
+ * later is just: delete this file, the `<Script>` block in `app/layout.tsx`,
+ * and the handful of `trackPixel*` call sites.
+ *
+ * The base pixel (init + PageView) is injected in `app/layout.tsx`; this module
+ * only fires additional events and reads the Meta attribution cookies.
+ */
+
+/** True only in the browser once the pixel loader has installed `fbq`. */
+function pixelReady(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    Boolean(env.metaPixelId) &&
+    typeof window.fbq === "function"
+  );
+}
+
+/** Fire a Meta *standard* event (e.g. "CompleteRegistration", "Lead"). */
+export function trackPixelEvent(
+  event: string,
+  params?: Record<string, unknown>,
+): void {
+  if (!pixelReady()) return;
+  try {
+    window.fbq?.("track", event, params);
+  } catch {
+    // Never let analytics break a user flow.
+  }
+}
+
+/** Fire a Meta *custom* event (anything not in the standard event list). */
+export function trackPixelCustom(
+  event: string,
+  params?: Record<string, unknown>,
+): void {
+  if (!pixelReady()) return;
+  try {
+    window.fbq?.("trackCustom", event, params);
+  } catch {
+    // Never let analytics break a user flow.
+  }
+}
+
+/** Read a single cookie value in the browser, or undefined. */
+function readCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name.replace(/[.$?*|{}()[\]\\/+^]/g, "\\$&")}=([^;]*)`),
+  );
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
+/**
+ * The Meta attribution cookies the pixel drops in the visitor's browser:
+ * - `_fbp` — browser/pixel identifier
+ * - `_fbc` — the specific ad click (fbclid) that brought them here
+ *
+ * We read these at signup (in the user's own browser) so the server can replay
+ * them later via the Conversions API for events that fire out-of-band — e.g.
+ * when an admin approves a creator days after they signed up.
+ */
+export function getMetaBrowserIds(): { fbp?: string; fbc?: string } {
+  return { fbp: readCookie("_fbp"), fbc: readCookie("_fbc") };
+}

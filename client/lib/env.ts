@@ -40,6 +40,12 @@ export const env = {
   spotlightContactEmail:
     process.env.NEXT_PUBLIC_SPOTLIGHT_CONTACT_EMAIL?.trim() ||
     "hello@gocollab.io",
+  /**
+   * Meta (Facebook) Pixel ID. When empty the base pixel never loads and every
+   * browser tracking call becomes a silent no-op — the client-side kill switch
+   * for Meta tracking. Set NEXT_PUBLIC_META_PIXEL_ID to enable.
+   */
+  metaPixelId: process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || "",
   get creatorOnboardingMode(): CreatorOnboardingMode {
     return readCreatorOnboardingMode();
   },

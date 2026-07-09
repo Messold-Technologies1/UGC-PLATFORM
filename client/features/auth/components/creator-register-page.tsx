@@ -1,8 +1,56 @@
 "use client";
 
-import { Sparkles, Wallet, Target, CheckCircle2 } from "lucide-react";
+import {
+  CalendarCheck,
+  CheckCircle2,
+  Handshake,
+  IndianRupee,
+  Sparkles,
+  UserCheck,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AuthLogoLink } from "./auth-logo-link";
 import { CreatorRegisterForm } from "./creator-register-form";
+
+const featureCards: {
+  icon: LucideIcon;
+  iconBg: string;
+  starColor: string;
+  title: string;
+  description: string;
+}[] = [
+  {
+    icon: UserCheck,
+    iconBg: "bg-[#f9a8c4]",
+    starColor: "text-[#CCFF00]",
+    title: "Get booked, not ghosted.",
+    description: "Your profile works for you even while you're offline.",
+  },
+  {
+    icon: IndianRupee,
+    iconBg: "bg-[#d9f99d]",
+    starColor: "text-[#f9a8c4]",
+    title: "Extra revisions? Charge for them.",
+    description:
+      "Protect your time with clear deliverables and revision limits.",
+  },
+  {
+    icon: CalendarCheck,
+    iconBg: "bg-[#ddd6fe]",
+    starColor: "text-[#CCFF00]",
+    title: "More creating. Less admin.",
+    description:
+      "No spreadsheets. No payment reminders. No messy WhatsApp threads.",
+  },
+  {
+    icon: Handshake,
+    iconBg: "bg-[#fed7aa]",
+    starColor: "text-[#c4b5fd]",
+    title: "Professional brand collaborations",
+    description:
+      "Clear briefs, fixed deliverables, and organized communication from start to finish.",
+  },
+];
 
 export function CreatorRegisterPage() {
   return (
@@ -45,80 +93,41 @@ export function CreatorRegisterPage() {
           </div> */}
 
           <h1 className="text-4xl font-extrabold tracking-tight xl:text-[40px] mb-4 leading-tight">
-            Get booked by brands. <br />
+            Get booked,{" "}
             <span className="relative inline-block">
-              <span className="relative z-10">Stop chasing DMs.</span>
-              <div className="absolute bottom-2 left-0 h-4 w-full bg-[#CCFF00] -z-10 rounded-sm"></div>
+              <span className="relative z-10">not ghosted.</span>
+              <div className="absolute bottom-2 left-0 h-4 w-full bg-[#CCFF00] -z-10 rounded-sm" />
             </span>
           </h1>
 
           <p className="text-base text-slate-700/80 max-w-lg mb-6">
-            Join 10,000+ creators making paid UGC for India&apos;s most exciting
-            D2C brands. Set your rates, pick the briefs you love.
+            Build your creator profile, set your rates, and collaborate with D2C
+            brands — on your terms.
           </p>
 
           <div className="space-y-3 w-full">
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-red-500 text-white">
-                <Sparkles className="size-4" />
+            {featureCards.map((card) => (
+              <div
+                key={card.title}
+                className="relative grid items-center gap-3 rounded-2xl bg-white py-3.5 px-4 shadow-sm"
+                style={{ gridTemplateColumns: "40px 1fr" }}
+              >
+                <Sparkles
+                  className={`absolute top-3 right-3 size-3.5 ${card.starColor}`}
+                />
+                <div
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${card.iconBg} text-slate-900`}
+                >
+                  <card.icon className="size-5" />
+                </div>
+                <div className="pr-6">
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {card.title}
+                  </h3>
+                  <p className="text-xs text-slate-600">{card.description}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Get discovered by D2C brands
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Brands browse and request you directly — no DM chasing.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                <Wallet className="size-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Get paid securely, on time
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Escrow-held payments released the moment your video is
-                  approved.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white">
-                <Target className="size-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Niche-fit briefs only
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Smart matching by niche, language and style. No spammy
-                  requests.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -159,16 +168,16 @@ export function CreatorRegisterPage() {
                 ))}
               </div>
               <p className="text-sm font-medium leading-relaxed max-w-[420px] pr-12">
-                "Booked 4 brands in my first month. The escrow makes saying yes
-                so much easier."
+                &ldquo;GoCollab changed how I work with brands. Better projects,
+                on time payments, and zero DM chasing.&rdquo;
               </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                 <span className="font-bold text-white">Aanya Kapoor</span>
                 <span className="text-white/50">
                   · Skincare creator, Mumbai
                 </span>
-                <span className="rounded bg-[#CCFF00]/20 px-1.5 py-0.5 font-semibold text-[#CCFF00]">
-                  ₹42k/mo
+                <span className="rounded-full bg-[#CCFF00] px-2 py-0.5 font-semibold text-slate-950">
+                  Verified Creator
                 </span>
               </div>
             </div>
@@ -180,11 +189,12 @@ export function CreatorRegisterPage() {
         <div className="shrink-0 border-b border-pink-100/80 px-4 pb-4 pt-4 dark:border-slate-800 xl:hidden">
           <AuthLogoLink imageClassName="h-14 sm:h-16" />
           <p className="mt-3 text-base font-bold leading-snug text-slate-900">
-            Get booked by brands.{" "}
-            <span className="text-[#ef3e51]">Stop chasing DMs.</span>
+            Get booked,{" "}
+            <span className="text-[#ef3e51]">not ghosted.</span>
           </p>
           <p className="mt-1.5 text-sm text-slate-600">
-            Set your rates, showcase your work, and get discovered by D2C brands.
+            Build your creator profile, set your rates, and collaborate with D2C
+            brands — on your terms.
           </p>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:overflow-hidden">

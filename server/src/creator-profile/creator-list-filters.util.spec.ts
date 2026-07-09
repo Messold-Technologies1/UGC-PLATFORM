@@ -7,6 +7,7 @@ import {
   buildAdminCreatorApprovalSearchWhere,
   buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
+  buildCreatorListSearchWhere,
   buildListCreatorsWhere,
   buildPortfolioVideoMatchWhere,
 } from './creator-list-filters.util';
@@ -200,6 +201,29 @@ describe('creator-list-filters.util', () => {
         ],
       });
     });
+
+    it('searches by name, location, or bio', () => {
+      expect(buildListCreatorsWhere({ search: 'mumbai' })).toEqual({
+        AND: [
+          { isListed: true },
+          {
+            OR: [
+              { displayName: { contains: 'mumbai', mode: 'insensitive' } },
+              { city: { contains: 'mumbai', mode: 'insensitive' } },
+              { stateName: { contains: 'mumbai', mode: 'insensitive' } },
+              { countryName: { contains: 'mumbai', mode: 'insensitive' } },
+              { bio: { contains: 'mumbai', mode: 'insensitive' } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  describe('buildCreatorListSearchWhere', () => {
+    it('returns undefined for blank search', () => {
+      expect(buildCreatorListSearchWhere('   ')).toBeUndefined();
+    });
   });
 
   describe('buildCreatorListRelationsInclude', () => {
@@ -311,7 +335,7 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('filters any incomplete profile in profile_first mode', () => {
+    it('filters incomplete pending or approved profiles in profile_first mode', () => {
       expect(
         buildAdminCreatorsListWhere(
           AdminCreatorListSegment.INCOMPLETE,
@@ -320,6 +344,23 @@ describe('creator-list-filters.util', () => {
         ),
       ).toEqual({
         completeProfile: false,
+        creatorApproval: {
+          status: {
+            in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED],
+          },
+        },
+      });
+    });
+
+    it('puts all rejected creators in non_approved regardless of completeProfile', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.NON_APPROVED,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        creatorApproval: { status: ApprovalStatus.REJECTED },
       });
     });
 

@@ -63,12 +63,14 @@ export function LoginHero({ config }: LoginHeroProps) {
       </div>
 
       <div className={styles.heroBottom}>
-        <div className={styles.heroStat}>
-          <span className={`${styles.heroStatBig} font-heading`}>
-            {config.stat.big}
-          </span>
-          <span className={styles.heroStatLabel}>{config.stat.label}</span>
-        </div>
+        {config.stat ? (
+          <div className={styles.heroStat}>
+            <span className={`${styles.heroStatBig} font-heading`}>
+              {config.stat.big}
+            </span>
+            <span className={styles.heroStatLabel}>{config.stat.label}</span>
+          </div>
+        ) : null}
 
         <div className={styles.heroProof}>
           <span className={`${styles.heroQuoteMark} font-heading`}>

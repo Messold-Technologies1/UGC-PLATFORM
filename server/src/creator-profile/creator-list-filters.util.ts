@@ -152,12 +152,8 @@ export function buildListCreatorsWhere(
     });
   }
 
-  const search = query.search?.trim();
-  if (search) {
-    clauses.push({
-      displayName: { contains: search, mode: 'insensitive' },
-    });
-  }
+  const searchClause = buildCreatorListSearchWhere(query.search);
+  if (searchClause) clauses.push(searchClause);
 
   if (query.gender !== undefined) {
     clauses.push({ gender: query.gender });
@@ -366,6 +362,23 @@ export function buildCreatorListRelationsInclude(
   };
 }
 
+/** Public creator browse: match name, location, or bio. */
+export function buildCreatorListSearchWhere(
+  search?: string,
+): Prisma.CreatorProfileWhereInput | undefined {
+  const q = search?.trim();
+  if (!q) return undefined;
+  return {
+    OR: [
+      { displayName: { contains: q, mode: 'insensitive' } },
+      { city: { contains: q, mode: 'insensitive' } },
+      { stateName: { contains: q, mode: 'insensitive' } },
+      { countryName: { contains: q, mode: 'insensitive' } },
+      { bio: { contains: q, mode: 'insensitive' } },
+    ],
+  };
+}
+
 /** Admin pending/rejected queues: search by creator display name only. */
 export function buildAdminCreatorApprovalSearchWhere(
   search?: string,
@@ -411,8 +424,18 @@ export function buildAdminCreatorsListWhere(
       };
       break;
     case AdminCreatorListSegment.INCOMPLETE:
+      // profile_first "Building profile": incomplete profiles that are not
+      // rejected (PENDING or APPROVED). Rejected incomplete → NON_APPROVED.
+      // approval_first: approved creators who haven't finished go-live.
       segmentClause = profileFirst
-        ? { completeProfile: false }
+        ? {
+            completeProfile: false,
+            creatorApproval: {
+              status: {
+                in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED],
+              },
+            },
+          }
         : {
             completeProfile: false,
             creatorApproval: { status: ApprovalStatus.APPROVED },

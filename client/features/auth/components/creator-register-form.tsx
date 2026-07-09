@@ -56,7 +56,7 @@ import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   getMetaBrowserIds,
   newMetaEventId,
-  trackPixelEvent,
+  trackPixelCustom,
 } from "@/lib/meta-pixel";
 import { useCreatorCategorySuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 import { cn } from "@/lib/utils";
@@ -398,9 +398,9 @@ export function CreatorRegisterForm() {
       // browser, in-attribution-window). This is the ad-optimization event; the
       // true "listed" outcome is sent server-side (CAPI) on admin approval.
       // eventId dedupes this against the server-side CAPI twin fired at signup.
-      trackPixelEvent(
-        "CompleteRegistration",
-        { content_name: "creator_registration" },
+      trackPixelCustom(
+        "CreatorRegistration",
+        undefined,
         variables.metaSignupEventId,
       );
       toast.success("Creator profile created");

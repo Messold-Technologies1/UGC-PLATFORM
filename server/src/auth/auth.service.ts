@@ -231,7 +231,7 @@ export class AuthService {
     // via the shared metaSignupEventId. Best-effort / fire-and-forget.
     if (this.metaCapi.enabled) {
       void this.metaCapi.sendEvent({
-        eventName: 'CompleteRegistration',
+        eventName: 'CreatorRegistration',
         eventId: dto.metaSignupEventId,
         actionSource: 'website',
         eventSourceUrl:
@@ -244,7 +244,6 @@ export class AuthService {
           clientIpAddress: meta?.ipAddress,
           clientUserAgent: meta?.userAgent,
         },
-        customData: { content_name: 'creator_registration' },
       });
     }
     return this.authResultAfterSignup(userId, meta);

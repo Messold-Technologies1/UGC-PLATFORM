@@ -52,14 +52,24 @@ export function newMetaEventId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Fire a Meta *custom* event (anything not in the standard event list). */
+/**
+ * Fire a Meta *custom* event (anything not in the standard event list).
+ *
+ * Pass `eventId` to deduplicate against a matching server-side Conversions API
+ * event (same event name + id → Meta counts them once).
+ */
 export function trackPixelCustom(
   event: string,
   params?: Record<string, unknown>,
+  eventId?: string,
 ): void {
   if (!pixelReady()) return;
   try {
-    window.fbq?.("trackCustom", event, params);
+    if (eventId) {
+      window.fbq?.("trackCustom", event, params, { eventID: eventId });
+    } else {
+      window.fbq?.("trackCustom", event, params);
+    }
   } catch {
     // Never let analytics break a user flow.
   }

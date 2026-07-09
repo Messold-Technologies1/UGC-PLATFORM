@@ -54,6 +54,7 @@ describe('AuthService', () => {
       jwt as unknown as JwtService,
       config as unknown as ConfigService,
       signupRegistration as any,
+      { enabled: false, sendEvent: jest.fn() } as any,
     );
   });
 

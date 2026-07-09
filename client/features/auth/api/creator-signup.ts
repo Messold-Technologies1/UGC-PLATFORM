@@ -40,6 +40,8 @@ export type RegisterCreatorPayload = {
    * replayed server-side via the Conversions API when the creator is listed. */
   metaFbp?: string;
   metaFbc?: string;
+  /** Shared id so the browser + server CompleteRegistration events dedupe. */
+  metaSignupEventId?: string;
 };
 
 export type RegisterCreatorResponse = {

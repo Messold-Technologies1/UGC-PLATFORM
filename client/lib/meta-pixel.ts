@@ -21,17 +21,35 @@ function pixelReady(): boolean {
   );
 }
 
-/** Fire a Meta *standard* event (e.g. "CompleteRegistration", "Lead"). */
+/**
+ * Fire a Meta *standard* event (e.g. "CompleteRegistration", "Lead").
+ *
+ * Pass `eventId` to deduplicate against a matching server-side Conversions API
+ * event (same event name + id → Meta counts them once).
+ */
 export function trackPixelEvent(
   event: string,
   params?: Record<string, unknown>,
+  eventId?: string,
 ): void {
   if (!pixelReady()) return;
   try {
-    window.fbq?.("track", event, params);
+    if (eventId) {
+      window.fbq?.("track", event, params, { eventID: eventId });
+    } else {
+      window.fbq?.("track", event, params);
+    }
   } catch {
     // Never let analytics break a user flow.
   }
+}
+
+/** Generate a unique id for browser/server event deduplication. */
+export function newMetaEventId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 /** Fire a Meta *custom* event (anything not in the standard event list). */

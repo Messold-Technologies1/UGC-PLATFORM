@@ -144,4 +144,13 @@ export class RegisterCreatorDto {
   @IsString()
   @MaxLength(1024)
   metaFbc?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Shared event id for deduplicating the browser + server CompleteRegistration events in Meta.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  metaSignupEventId?: string;
 }

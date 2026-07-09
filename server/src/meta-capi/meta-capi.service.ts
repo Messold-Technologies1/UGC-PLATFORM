@@ -24,6 +24,14 @@ export interface MetaCapiEvent {
   eventId?: string;
   /** Unix seconds. Defaults to now. Must be within the last 7 days. */
   eventTime?: number;
+  /**
+   * Where the event originated. Use "website" for events also fired by the
+   * browser pixel (enables dedup); "system_generated" for backend-only events
+   * such as a delayed admin approval. Defaults to "system_generated".
+   */
+  actionSource?: 'website' | 'system_generated' | 'app' | 'other';
+  /** Page URL for website events (recommended by Meta when action_source=website). */
+  eventSourceUrl?: string;
   userData: MetaCapiUserData;
   customData?: Record<string, unknown>;
 }
@@ -105,8 +113,11 @@ export class MetaCapiService {
         {
           event_name: event.eventName,
           event_time: event.eventTime ?? Math.floor(Date.now() / 1000),
-          action_source: 'system_generated' as const,
+          action_source: event.actionSource ?? 'system_generated',
           ...(event.eventId ? { event_id: event.eventId } : {}),
+          ...(event.eventSourceUrl
+            ? { event_source_url: event.eventSourceUrl }
+            : {}),
           user_data: this.buildUserData(event.userData),
           ...(event.customData ? { custom_data: event.customData } : {}),
         },

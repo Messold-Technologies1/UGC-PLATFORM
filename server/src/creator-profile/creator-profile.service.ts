@@ -1521,12 +1521,11 @@ export class CreatorProfileService {
   ): Promise<CreatorProfileResponseDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
-      select: { id: true, isListed: true },
+      select: { id: true },
     });
     if (!profile) {
       throw new NotFoundException('Creator not found');
     }
-    const wasListed = profile.isListed;
 
     await this.prisma.creatorApproval.upsert({
       where: { creatorId: creatorProfileId },
@@ -1550,9 +1549,9 @@ export class CreatorProfileService {
       creatorProfileId,
     );
 
-    // Fire the Meta "listed" conversion only on the false -> true transition,
-    // so re-approving an already-listed creator doesn't double-count.
-    if (!wasListed && listingState?.isListed) {
+    // Fire the Meta "listed" conversion only on the isListed false -> true
+    // transition, so re-approving an already-listed creator doesn't re-count.
+    if (listingState?.becameListed) {
       void this.fireCreatorListedMetaEvent(creatorProfileId);
     }
 
@@ -1693,7 +1692,7 @@ export class CreatorProfileService {
     //   await this.assertPhoneVerifiedForCreator(actingUserId);
     // }
 
-    return this.prisma.$transaction(
+    const { response, becameListed } = await this.prisma.$transaction(
       async (tx) => {
         const profile = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },
@@ -1906,7 +1905,7 @@ export class CreatorProfileService {
         // Latch completeProfile / recompute isListed after all writes land.
         // Only an explicit Go Live (dto.goLive) may flip completeProfile to
         // true; a draft save persists data without publishing.
-        await recomputeCreatorListingState(
+        const listingState = await recomputeCreatorListingState(
           tx,
           creatorProfileId,
           dto.goLive === true,
@@ -1921,10 +1920,22 @@ export class CreatorProfileService {
           throw new Error('Creator profile update failed');
         }
 
-        return this.mapCreatorProfileResponseDto(updated);
+        return {
+          response: this.mapCreatorProfileResponseDto(updated),
+          becameListed: listingState?.becameListed === true,
+        };
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
+
+    // Fire the Meta "listed" conversion after the transaction commits, only on
+    // the isListed false -> true transition (e.g. a creator completing their
+    // profile after an earlier admin approval). Best-effort / fire-and-forget.
+    if (becameListed) {
+      void this.fireCreatorListedMetaEvent(creatorProfileId);
+    }
+
+    return response;
   }
 
   async addOrUpdateAddOns(

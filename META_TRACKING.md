@@ -14,11 +14,13 @@ Both are **env-gated**: clear the env vars and all tracking becomes a silent no-
 | `PageView` | every page load | Browser pixel | — |
 | `BrandRegistration` | a brand finishes signup (their own browser) | Browser pixel | — |
 | `CreatorRegistration` | a creator finishes signup (their own browser) | Browser pixel **+** server CAPI | ✅ shared `event_id` |
-| `CreatorProfileListed` | admin approval flips the creator to *listed* | Server CAPI | — |
+| `CreatorProfileListed` | the creator's `isListed` flips false→true (admin approval of a complete profile, or the creator completing their profile after an earlier approval) | Server CAPI | — |
 
 **Deduplication:** `CreatorRegistration` fires from both the browser and the server with the same `event_id` (`metaSignupEventId`), so Meta counts it once. The browser gives a real-time signal; the server copy survives ad-blockers and carries extra match keys (hashed phone, IP, user-agent).
 
-**Attribution note:** `CreatorProfileListed` is sent server-side and replays the creator's `_fbp`/`_fbc` (+ IP/UA) captured *at signup*, so a delayed admin approval still attributes to the ad the creator originally clicked. Meta's click-attribution window is ~7 days, so listings approved long after signup are still counted/audience-eligible but may fall outside ad-optimization credit.
+**When it fires:** `CreatorProfileListed` is driven by the `isListed` false→true transition itself (computed in `recomputeCreatorListingState`), not by the approve button — so it fires correctly in both onboarding modes (`profile_first`, where approval is the final step, and `approval_first`, where the creator may complete their profile after approval) and never double-counts (the event also uses a stable `event_id` per creator, so any duplicate send is deduped by Meta).
+
+**Attribution note:** `CreatorProfileListed` is sent server-side and replays the creator's `_fbp`/`_fbc` (+ IP/UA) captured *at signup*, so a delayed listing still attributes to the ad the creator originally clicked. Meta's click-attribution window is ~7 days, so listings approved long after signup are still counted/audience-eligible but may fall outside ad-optimization credit.
 
 ## Environment variables
 

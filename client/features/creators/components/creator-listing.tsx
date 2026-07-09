@@ -41,7 +41,7 @@ import {
 } from "../hooks/use-creators-list-query";
 
 const BROWSE_LIST_LIMIT = 24;
-const LANDING_PAGE_CREATOR_LIMIT = 10;
+const LANDING_PAGE_CREATOR_LIMIT = 12;
 
 const BRAND_CREATOR_MATCH_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform";
@@ -442,12 +442,10 @@ export function CreatorListing({
 
       <div
         className={cn(
-          "flex flex-1 flex-col bg-[#f4f4f5]",
-          browseContentPaddingClass,
-          "pb-10 pt-6",
+          "flex flex-1 flex-col",
           landingPage
-            ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -mb-8"
-            : "",
+            ? "pb-10 pt-4"
+            : cn(browseContentPaddingClass, "bg-[#f4f4f5] pb-10 pt-6"),
         )}
         {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
       >
@@ -456,7 +454,9 @@ export function CreatorListing({
             className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
             aria-label="Loading creators"
           >
-            {Array.from({ length: 10 }, (_, index) => (
+            {Array.from(
+              { length: landingPage ? LANDING_PAGE_CREATOR_LIMIT : 10 },
+              (_, index) => (
               <div key={index} className="min-w-0 h-full">
                 <CreatorCardSkeleton appearance="browse" />
               </div>

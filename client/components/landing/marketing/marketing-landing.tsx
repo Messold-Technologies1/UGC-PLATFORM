@@ -491,7 +491,7 @@ export function MarketingLanding() {
       </section>
 
       {/* BROWSE CREATORS */}
-      <section id="featured" className="border-border bg-secondary/50 border-y">
+      <section id="featured" className="border-border border-y">
         <div className={`${marketingShell} ${marketingSectionPadY}`}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
@@ -506,7 +506,7 @@ export function MarketingLanding() {
             </div>
           </div>
 
-          <div className="mt-10 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+          <div className="mt-10">
             <CreatorListing landingPage />
           </div>
         </div>

@@ -7,6 +7,7 @@ import {
   buildAdminCreatorApprovalSearchWhere,
   buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
+  buildCreatorListSearchWhere,
   buildListCreatorsWhere,
   buildPortfolioVideoMatchWhere,
 } from './creator-list-filters.util';
@@ -199,6 +200,29 @@ describe('creator-list-filters.util', () => {
           },
         ],
       });
+    });
+
+    it('searches by name, location, or bio', () => {
+      expect(buildListCreatorsWhere({ search: 'mumbai' })).toEqual({
+        AND: [
+          { isListed: true },
+          {
+            OR: [
+              { displayName: { contains: 'mumbai', mode: 'insensitive' } },
+              { city: { contains: 'mumbai', mode: 'insensitive' } },
+              { stateName: { contains: 'mumbai', mode: 'insensitive' } },
+              { countryName: { contains: 'mumbai', mode: 'insensitive' } },
+              { bio: { contains: 'mumbai', mode: 'insensitive' } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  describe('buildCreatorListSearchWhere', () => {
+    it('returns undefined for blank search', () => {
+      expect(buildCreatorListSearchWhere('   ')).toBeUndefined();
     });
   });
 

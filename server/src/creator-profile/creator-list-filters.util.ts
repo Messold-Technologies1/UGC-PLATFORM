@@ -152,12 +152,8 @@ export function buildListCreatorsWhere(
     });
   }
 
-  const search = query.search?.trim();
-  if (search) {
-    clauses.push({
-      displayName: { contains: search, mode: 'insensitive' },
-    });
-  }
+  const searchClause = buildCreatorListSearchWhere(query.search);
+  if (searchClause) clauses.push(searchClause);
 
   if (query.gender !== undefined) {
     clauses.push({ gender: query.gender });
@@ -363,6 +359,23 @@ export function buildCreatorListRelationsInclude(
     },
     stats: { select: { avgRating: true, reviewCount: true } },
     addOns: { select: { name: true, deliveryDays: true } },
+  };
+}
+
+/** Public creator browse: match name, location, or bio. */
+export function buildCreatorListSearchWhere(
+  search?: string,
+): Prisma.CreatorProfileWhereInput | undefined {
+  const q = search?.trim();
+  if (!q) return undefined;
+  return {
+    OR: [
+      { displayName: { contains: q, mode: 'insensitive' } },
+      { city: { contains: q, mode: 'insensitive' } },
+      { stateName: { contains: q, mode: 'insensitive' } },
+      { countryName: { contains: q, mode: 'insensitive' } },
+      { bio: { contains: q, mode: 'insensitive' } },
+    ],
   };
 }
 

@@ -1,6 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
+import { Country } from 'country-state-city';
+
+/**
+ * Convert a country name (or code) to the ISO 3166-1 alpha-2 code Meta expects
+ * (lowercase, e.g. "India" -> "in"). Returns undefined if it can't be resolved.
+ */
+export function countryToIso2(
+  value: string | null | undefined,
+): string | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  if (/^[A-Za-z]{2}$/.test(v)) return v.toLowerCase();
+  const match = Country.getAllCountries().find(
+    (c) => c.name.toLowerCase() === v.toLowerCase(),
+  );
+  return match?.isoCode.toLowerCase();
+}
 
 /**
  * Split a full name into first/last for Meta advanced matching. First token is
@@ -28,6 +45,8 @@ export interface MetaCapiUserData {
   lastName?: string | null;
   city?: string | null;
   state?: string | null;
+  /** Country name or ISO-2 code; normalized to ISO-2 before hashing. */
+  country?: string | null;
   /** Meta _fbp browser cookie captured at signup. */
   fbp?: string | null;
   /** Meta _fbc ad-click cookie captured at signup. */
@@ -122,6 +141,7 @@ export class MetaCapiService {
     const ln = this.hashCompact(user.lastName);
     const ct = this.hashCompact(user.city);
     const st = this.hashCompact(user.state);
+    const country = this.hashCompact(countryToIso2(user.country));
     return {
       ...(em ? { em: [em] } : {}),
       ...(ph ? { ph: [ph] } : {}),
@@ -129,6 +149,7 @@ export class MetaCapiService {
       ...(ln ? { ln: [ln] } : {}),
       ...(ct ? { ct: [ct] } : {}),
       ...(st ? { st: [st] } : {}),
+      ...(country ? { country: [country] } : {}),
       ...(user.fbp ? { fbp: user.fbp } : {}),
       ...(user.fbc ? { fbc: user.fbc } : {}),
       ...(user.clientIpAddress

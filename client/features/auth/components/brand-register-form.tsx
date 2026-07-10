@@ -256,11 +256,14 @@ export function BrandRegisterForm() {
   const registerBrandMutation = useMutation({
     mutationKey: ["auth", "register", "brand"],
     mutationFn: registerBrand,
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       setRegisteredUser(result.user);
       // Meta conversion: brand registration completed (fires in the brand's own
       // browser, so attribution is correct). Fired before the redirect below.
-      trackPixelCustom("BrandRegistration");
+      // brand_name is reporting metadata (custom_data), not a matching key.
+      trackPixelCustom("BrandRegistration", {
+        brand_name: variables.brandName,
+      });
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");

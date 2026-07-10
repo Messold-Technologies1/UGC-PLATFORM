@@ -1,4 +1,21 @@
+import { Country } from "country-state-city";
 import { env } from "@/lib/env";
+
+/**
+ * Convert a country name (or code) to the ISO 3166-1 alpha-2 code Meta expects
+ * (lowercase, e.g. "India" -> "in"). Returns undefined if it can't be resolved.
+ */
+export function countryToIso2(
+  value: string | null | undefined,
+): string | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  if (/^[A-Za-z]{2}$/.test(v)) return v.toLowerCase();
+  const match = Country.getAllCountries().find(
+    (c) => c.name.toLowerCase() === v.toLowerCase(),
+  );
+  return match?.isoCode.toLowerCase();
+}
 
 /**
  * Thin, self-contained wrapper around the Meta (Facebook) Pixel `fbq` global.
@@ -34,6 +51,7 @@ export function identifyPixelUser(data: {
   lastName?: string | null;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
   phone?: string | null;
 }): void {
   if (!pixelReady()) return;
@@ -43,6 +61,8 @@ export function identifyPixelUser(data: {
   if (data.lastName) userData.ln = data.lastName;
   if (data.city) userData.ct = data.city;
   if (data.state) userData.st = data.state;
+  const country = countryToIso2(data.country);
+  if (country) userData.country = country;
   if (data.phone) userData.ph = data.phone;
   if (Object.keys(userData).length === 0) return;
   try {

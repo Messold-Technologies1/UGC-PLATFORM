@@ -242,6 +242,7 @@ export class AuthService {
           ...splitFullName(dto.name),
           city: dto.city,
           state: dto.state,
+          country: dto.country,
           fbp: dto.metaFbp,
           fbc: dto.metaFbc,
           clientIpAddress: meta?.ipAddress,

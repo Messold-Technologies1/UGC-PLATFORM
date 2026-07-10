@@ -406,6 +406,7 @@ export function CreatorRegisterForm() {
         ...splitFullName(variables.name),
         city: variables.city,
         state: variables.state,
+        country: variables.country,
         phone: variables.phone,
       });
       trackPixelCustom(

@@ -40,7 +40,6 @@ import {
   marketingShell,
   marketingSectionPadY,
 } from "@/components/landing/marketing/marketing-layout";
-import { MARKETING_CREATOR_IMAGES } from "@/components/landing/marketing/marketing-creator-images";
 import { PillButton } from "@/components/landing/marketing/pill-button";
 import { Sticker } from "@/components/landing/marketing/sticker";
 import { SITE_NAME } from "@/config/site";
@@ -251,13 +250,6 @@ const MARKETING_FAQS = [
 export function MarketingLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  const heroTiny = [
-    MARKETING_CREATOR_IMAGES.tech,
-    MARKETING_CREATOR_IMAGES.fashion,
-    MARKETING_CREATOR_IMAGES.food,
-    MARKETING_CREATOR_IMAGES.fitness,
-  ];
-
   return (
     <div className="text-foreground bg-background overflow-x-clip">
       {/* HERO */}
@@ -303,26 +295,6 @@ export function MarketingLanding() {
               <PillButton variant="lime" arrow href="/register/creator">
                 Join as Creator
               </PillButton>
-            </div>
-            <div className="flex items-center gap-5 pt-2">
-              <div className="-space-x-2 flex">
-                {heroTiny.map((src) => (
-                  <Image
-                    key={src}
-                    src={src}
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="border-background h-9 w-9 rounded-full border-2 object-cover"
-                  />
-                ))}
-              </div>
-              <p className="text-muted-foreground text-sm">
-                <span className="text-foreground font-semibold">
-                  10,000+ creators
-                </span>{" "}
-                trusted by new-age brands
-              </p>
             </div>
           </div>
 

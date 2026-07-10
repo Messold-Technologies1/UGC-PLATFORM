@@ -3,6 +3,17 @@ export function capitalizeFirstLetter(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+/** Title-case each alphanumeric word (e.g. "real estate" → "Real Estate"). */
+export function toTitleCaseLabel(value: string): string {
+  if (!value) return value;
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[A-Za-z0-9]+/g, (word) =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    );
+}
+
 export function splitCommaSeparatedList(raw: string): string[] {
   return raw
     .split(",")

@@ -18,7 +18,7 @@ export class CreatePortfolioVideoDto extends PortfolioActingCreatorDto {
   @IsString()
   thumbnailKey?: string;
 
-  @ApiPropertyOptional({ example: 'gym' })
+  @ApiPropertyOptional({ example: 'Gym' })
   @IsOptional()
   @IsString()
   industryLabel?: string;

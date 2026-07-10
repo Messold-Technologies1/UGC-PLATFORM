@@ -20,6 +20,7 @@ import {
 import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import {
   capitalizeFirstLetter,
+  toTitleCaseLabel,
   splitCommaSeparatedList,
   toggleCommaSeparatedItem,
 } from "@/lib/string-lists";
@@ -56,7 +57,7 @@ export function CreatorPortfolioTagsModal({
   const industrySuggestions = useMemo(
     () =>
       (industrySuggestionsQuery.data ?? []).map((name) =>
-        capitalizeFirstLetter(name),
+        toTitleCaseLabel(name),
       ),
     [industrySuggestionsQuery.data],
   );
@@ -75,7 +76,7 @@ export function CreatorPortfolioTagsModal({
   useEffect(() => {
     if (open && video) {
       setDescription(video.description || "");
-      setIndustryLabel(capitalizeFirstLetter(video.industryLabel || ""));
+      setIndustryLabel(toTitleCaseLabel(video.industryLabel || ""));
       setLanguage(video.language || "");
       setTagsRaw(video.tags ? video.tags.join(", ") : "");
       setVisibility(video.visibilityStatus || "public");
@@ -89,7 +90,7 @@ export function CreatorPortfolioTagsModal({
     const tags = parseTags(tagsRaw).map((tag) => capitalizeFirstLetter(tag));
     const payload: UpdatePortfolioVideoPayload = {
       description: description.trim(),
-      industryLabel: capitalizeFirstLetter(industryLabel.trim()),
+      industryLabel: toTitleCaseLabel(industryLabel.trim()),
       language: language.trim(),
       tags,
       visibilityStatus: visibility,

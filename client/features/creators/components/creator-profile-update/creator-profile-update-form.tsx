@@ -41,7 +41,10 @@ import {
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { capitalizeFirstLetter } from "@/lib/string-lists";
+import {
+  capitalizeFirstLetter,
+  toTitleCaseLabel,
+} from "@/lib/string-lists";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -261,7 +264,7 @@ function CreatorProfileUpdateFormContent({
   const portfolioIndustrySuggestions = useMemo(
     () =>
       (industrySuggestionsQuery.data ?? []).map((name) =>
-        capitalizeFirstLetter(name),
+        toTitleCaseLabel(name),
       ),
     [industrySuggestionsQuery.data],
   );

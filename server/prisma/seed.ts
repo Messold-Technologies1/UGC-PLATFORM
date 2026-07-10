@@ -44,14 +44,14 @@ import {
 } from './creator-restriction-suggestions';
 
 const portfolioIndustryLabels = [
-  'coworking',
-  'clinic',
-  'salon',
-  'gym',
-  'restaurant',
-  'real estate',
-  'fashion',
-  'skincare',
+  'Coworking',
+  'Clinic',
+  'Salon',
+  'Gym',
+  'Restaurant',
+  'Real Estate',
+  'Fashion',
+  'Skincare',
 ];
 
 const portfolioTags = [
@@ -137,13 +137,14 @@ async function seedCreatorSuggestions(): Promise<void> {
 }
 
 async function seedPortfolioSuggestions(): Promise<void> {
-  await db.portfolioIndustrySuggestion.createMany({
-    data: portfolioIndustryLabels.map((name) => ({
-      name,
-      normalizedName: normalizeSuggestion(name),
-    })),
-    skipDuplicates: true,
-  });
+  for (const name of portfolioIndustryLabels) {
+    const normalizedName = normalizeSuggestion(name);
+    await db.portfolioIndustrySuggestion.upsert({
+      where: { normalizedName },
+      create: { name, normalizedName },
+      update: { name },
+    });
+  }
 
   await db.portfolioTagSuggestion.createMany({
     data: portfolioTags.map((name) => ({

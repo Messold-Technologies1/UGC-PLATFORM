@@ -2,6 +2,7 @@
 
 import { AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { CLARITY_MASK } from "@/lib/clarity";
 
 interface ShippingAddressCardProps {
   creatorName: string;
@@ -27,7 +28,7 @@ export function ShippingAddressCard({ creatorName }: ShippingAddressCardProps) {
       </div>
 
       <div className="px-6 pb-6 space-y-4">
-        <div className="space-y-1">
+        <div className="space-y-1" {...CLARITY_MASK}>
           <p className="text-sm font-medium text-foreground">{address.name}</p>
           <p className="text-sm text-muted-foreground">{address.line1}</p>
           <p className="text-sm text-muted-foreground">{address.line2}</p>

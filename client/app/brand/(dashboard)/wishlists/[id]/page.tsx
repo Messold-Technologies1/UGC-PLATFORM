@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -70,6 +70,19 @@ export default function WishlistDetailPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // On mobile the sidebar (wishlist list) sits above the content, so opening a
+  // wishlist leaves its creators off-screen at the bottom. Scroll the content
+  // into view once it's ready. Re-runs when switching between wishlists.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (detailLoading || !wishlist) return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+    contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [id, detailLoading, wishlist]);
 
   const openDrawer = useCallback((creator: Creator) => {
     setSelectedCreator(creator);
@@ -154,7 +167,10 @@ export default function WishlistDetailPage() {
         />
       </aside>
 
-      <div className="flex-1 min-w-0 w-full pr-4 sm:pr-6 lg:pr-8 xl:pr-10 2xl:pr-12 pl-4 pt-6 pb-6">
+      <div
+        ref={contentRef}
+        className="flex-1 min-w-0 w-full pr-4 sm:pr-6 lg:pr-8 xl:pr-10 2xl:pr-12 pl-4 pt-6 pb-6 scroll-mt-20"
+      >
         {detailLoading ? (
           <div className="space-y-4">
             <div className="h-8 w-56 rounded-xl bg-muted animate-pulse" />

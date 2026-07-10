@@ -18,6 +18,21 @@ Both are **env-gated**: clear the env vars and all tracking becomes a silent no-
 
 **Deduplication:** `CreatorRegistration` fires from both the browser and the server with the same `event_id` (`metaSignupEventId`), so Meta counts it once. The browser gives a real-time signal; the server copy survives ad-blockers and carries extra match keys (hashed phone, IP, user-agent).
 
+**Advanced Matching (identifiers sent for match quality):**
+
+| Identifier | Browser pixel | Server CAPI |
+|---|---|---|
+| email (`em`) | ✅ | ✅ |
+| phone (`ph`) | ✅ | ✅ |
+| first name (`fn`), last name (`ln`) | ✅ | ✅ |
+| city (`ct`), state (`st`), country | ✅ | ✅ |
+| `_fbp` / `_fbc` | ✅ (auto) | ✅ (replayed) |
+| IP / user-agent | ✅ (auto) | ✅ |
+
+All PII (email, phone, name, city, state, country) is SHA-256 hashed before it reaches Meta — the browser pixel SDK hashes it client-side (we pass raw values to `identifyPixelUser`), and `MetaCapiService` hashes it server-side. Name is split into first/last via `splitFullName`; city/state are lowercased with spaces/punctuation stripped; country is normalized to its ISO 3166-1 alpha-2 code (e.g. "India" → "in") via `countryToIso2` before hashing, per Meta's normalization rules.
+
+`BrandRegistration` additionally carries the brand name in `custom_data.brand_name` for reporting/segmentation (this is metadata, not a matching identifier).
+
 **When it fires:** `CreatorProfileListed` is driven by the `isListed` false→true transition itself (computed in `recomputeCreatorListingState`), not by the approve button — so it fires correctly in both onboarding modes (`profile_first`, where approval is the final step, and `approval_first`, where the creator may complete their profile after approval) and never double-counts (the event also uses a stable `event_id` per creator, so any duplicate send is deduped by Meta).
 
 **Attribution note:** `CreatorProfileListed` is sent server-side and replays the creator's `_fbp`/`_fbc` (+ IP/UA) captured *at signup*, so a delayed listing still attributes to the ad the creator originally clicked. Meta's click-attribution window is ~7 days, so listings approved long after signup are still counted/audience-eligible but may fall outside ad-optimization credit.

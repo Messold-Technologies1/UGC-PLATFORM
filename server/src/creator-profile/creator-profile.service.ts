@@ -25,7 +25,7 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
-import { MetaCapiService } from '../meta-capi/meta-capi.service';
+import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
@@ -1583,6 +1583,9 @@ export class CreatorProfileService {
         where: { id: creatorProfileId },
         select: {
           contactEmail: true,
+          displayName: true,
+          city: true,
+          stateName: true,
           publicSlug: true,
           metaFbp: true,
           metaFbc: true,
@@ -1599,6 +1602,9 @@ export class CreatorProfileService {
         userData: {
           email: creator.contactEmail ?? creator.user?.email ?? null,
           phone: creator.user?.phone ?? null,
+          ...splitFullName(creator.displayName),
+          city: creator.city,
+          state: creator.stateName,
           fbp: creator.metaFbp,
           fbc: creator.metaFbc,
           clientIpAddress: creator.metaSignupIp,

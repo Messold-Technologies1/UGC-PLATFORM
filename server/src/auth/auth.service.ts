@@ -16,7 +16,7 @@ import type { RegisterCreatorDto } from './dto/register-creator.dto';
 import type { RegisterBrandDto } from './dto/register-brand.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
-import { MetaCapiService } from '../meta-capi/meta-capi.service';
+import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 
 const SALT_ROUNDS = 10;
 const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
@@ -239,6 +239,9 @@ export class AuthService {
         userData: {
           email: dto.email,
           phone: dto.phone,
+          ...splitFullName(dto.name),
+          city: dto.city,
+          state: dto.state,
           fbp: dto.metaFbp,
           fbc: dto.metaFbc,
           clientIpAddress: meta?.ipAddress,

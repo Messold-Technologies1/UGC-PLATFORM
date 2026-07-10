@@ -3,6 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 
 /**
+ * Split a full name into first/last for Meta advanced matching. First token is
+ * the first name; the remainder (if any) is the last name.
+ */
+export function splitFullName(name: string | null | undefined): {
+  firstName?: string;
+  lastName?: string;
+} {
+  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return { firstName: parts[0] };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+/**
  * User identity + attribution data for a Conversions API event. Everything is
  * optional; more fields = higher Event Match Quality. Email/phone are hashed
  * here before they leave the process.
@@ -10,6 +24,10 @@ import { createHash } from 'node:crypto';
 export interface MetaCapiUserData {
   email?: string | null;
   phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  city?: string | null;
+  state?: string | null;
   /** Meta _fbp browser cookie captured at signup. */
   fbp?: string | null;
   /** Meta _fbc ad-click cookie captured at signup. */
@@ -84,12 +102,33 @@ export class MetaCapiService {
     return createHash('sha256').update(digits).digest('hex');
   }
 
+  /**
+   * Hash a city/state/name-like value the way Meta expects: lowercased with all
+   * whitespace and punctuation stripped (e.g. "New Delhi" -> "newdelhi").
+   */
+  private hashCompact(value: string | null | undefined): string | undefined {
+    const normalized = value
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    if (!normalized) return undefined;
+    return createHash('sha256').update(normalized).digest('hex');
+  }
+
   private buildUserData(user: MetaCapiUserData): Record<string, unknown> {
     const em = this.hash(user.email);
     const ph = this.hashPhone(user.phone);
+    const fn = this.hashCompact(user.firstName);
+    const ln = this.hashCompact(user.lastName);
+    const ct = this.hashCompact(user.city);
+    const st = this.hashCompact(user.state);
     return {
       ...(em ? { em: [em] } : {}),
       ...(ph ? { ph: [ph] } : {}),
+      ...(fn ? { fn: [fn] } : {}),
+      ...(ln ? { ln: [ln] } : {}),
+      ...(ct ? { ct: [ct] } : {}),
+      ...(st ? { st: [st] } : {}),
       ...(user.fbp ? { fbp: user.fbp } : {}),
       ...(user.fbc ? { fbc: user.fbc } : {}),
       ...(user.clientIpAddress

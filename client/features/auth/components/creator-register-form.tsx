@@ -55,7 +55,9 @@ import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immedi
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   getMetaBrowserIds,
+  identifyPixelUser,
   newMetaEventId,
+  splitFullName,
   trackPixelCustom,
 } from "@/lib/meta-pixel";
 import { useCreatorCategorySuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
@@ -397,7 +399,16 @@ export function CreatorRegisterForm() {
       // Meta conversion: creator signup completed (fires in the creator's own
       // browser, in-attribution-window). This is the ad-optimization event; the
       // true "listed" outcome is sent server-side (CAPI) on admin approval.
-      // eventId dedupes this against the server-side CAPI twin fired at signup.
+      // Attach Advanced Matching (email/name/city/…) first so the event carries
+      // it, then fire. eventId dedupes against the server-side CAPI twin.
+      identifyPixelUser({
+        email: variables.email,
+        ...splitFullName(variables.name),
+        city: variables.city,
+        state: variables.state,
+        country: variables.country,
+        phone: variables.phone,
+      });
       trackPixelCustom(
         "CreatorRegistration",
         undefined,

@@ -25,6 +25,7 @@ import { CreatorPayoutDetailsBanner } from "@/components/dashboard/creator-payou
 import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import { SnapchatIcon } from "@/components/icons/social-icons";
 import { formatINR } from "@/lib/format-currency";
+import { CLARITY_MASK } from "@/lib/clarity";
 import {
   PLATFORM_FEE_RATE,
   calculateOrderEarningsPreview,
@@ -416,7 +417,11 @@ export function CreatorAccountProfileView({
                 )}
               </div>
 
-              <ul className="mt-4 space-y-3.5" aria-label="Creator highlights">
+              <ul
+                className="mt-4 space-y-3.5"
+                aria-label="Creator highlights"
+                {...CLARITY_MASK}
+              >
                 <li className="flex items-center gap-2.5 text-sm">
                   {/* <Phone className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">

@@ -8,6 +8,7 @@ import { AppShellProviders } from "@/providers/app-providers";
 import { GlobalVideoManager } from "@/components/global-video-manager";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { TawkToChat } from "@/components/tawk-to";
+import { ClarityInit, ClarityUserSync } from "@/components/clarity";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -124,10 +125,12 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           <AppShellProviders>
+            <ClarityUserSync />
             <ErrorBoundary>{children}</ErrorBoundary>
           </AppShellProviders>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
+        <ClarityInit />
         <Analytics />
         <SpeedInsights />
         <TawkToChat />

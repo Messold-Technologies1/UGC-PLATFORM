@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Send, Lock, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CLARITY_MASK } from "@/lib/clarity";
 import type { MessageConversation } from "../mock/messages-mock-data";
 
 interface Props {
@@ -78,7 +79,10 @@ export function MessagesChatThread({ conversation }: Props) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+      <div
+        className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4"
+        {...CLARITY_MASK}
+      >
         {grouped.map(({ date, messages }) => (
           <div key={date} className="flex flex-col gap-3">
             <div className="flex items-center gap-3">

@@ -46,6 +46,12 @@ export const env = {
    * for Meta tracking. Set NEXT_PUBLIC_META_PIXEL_ID to enable.
    */
   metaPixelId: process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || "",
+  /**
+   * Microsoft Clarity project id. When empty Clarity never initializes and every
+   * helper in lib/clarity.ts is a silent no-op — the kill switch for session
+   * recordings/heatmaps. Set NEXT_PUBLIC_CLARITY_PROJECT_ID to enable.
+   */
+  clarityProjectId: process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID?.trim() || "",
   get creatorOnboardingMode(): CreatorOnboardingMode {
     return readCreatorOnboardingMode();
   },

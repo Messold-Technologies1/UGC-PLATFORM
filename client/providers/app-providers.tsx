@@ -29,6 +29,7 @@ export function PublicAppProviders({
 }
 
 import { NotificationProvider } from "@/providers/notification-provider";
+import { ClarityIdentify } from "@/components/clarity-identify";
 
 export function AuthenticatedAppProviders({
   children,
@@ -37,6 +38,7 @@ export function AuthenticatedAppProviders({
 }) {
   return (
     <AuthProvider>
+      <ClarityIdentify />
       <NotificationProvider>
         <RealtimeProvider>{children}</RealtimeProvider>
       </NotificationProvider>

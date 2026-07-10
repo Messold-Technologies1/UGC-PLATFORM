@@ -25,6 +25,7 @@ import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
+import { MetaCapiService } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
@@ -174,6 +175,7 @@ export class CreatorProfileService {
     private readonly storage: StorageService,
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
     private readonly creatorReviews: CreatorReviewsService,
+    private readonly metaCapi: MetaCapiService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -872,6 +874,10 @@ export class CreatorProfileService {
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
         driveLink: input.driveLink?.trim() || null,
+        metaFbp: input.metaFbp?.trim() || null,
+        metaFbc: input.metaFbc?.trim() || null,
+        metaSignupIp: input.metaSignupIp?.trim() || null,
+        metaSignupUserAgent: input.metaSignupUserAgent?.trim() || null,
         emailNotificationsEnabled: true,
         whatsappNotificationsEnabled: true,
         creatorApproval: {
@@ -1538,7 +1544,16 @@ export class CreatorProfileService {
     });
 
     // Approval can flip isListed true (if the profile is already complete).
-    await recomputeCreatorListingState(this.prisma, creatorProfileId);
+    const listingState = await recomputeCreatorListingState(
+      this.prisma,
+      creatorProfileId,
+    );
+
+    // Fire the Meta "listed" conversion only on the isListed false -> true
+    // transition, so re-approving an already-listed creator doesn't re-count.
+    if (listingState?.becameListed) {
+      void this.fireCreatorListedMetaEvent(creatorProfileId);
+    }
 
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
@@ -1551,6 +1566,51 @@ export class CreatorProfileService {
     this.creatorProfileMail.notifyApproved(creatorProfileId);
 
     return this.mapCreatorProfileResponseDto(updated);
+  }
+
+  /**
+   * Send the Meta "CreatorProfileListed" conversion via the Conversions API,
+   * replaying the creator's own signup attribution (fbp/fbc/ip/ua) plus hashed
+   * email/phone. Best-effort and fire-and-forget: never blocks or fails the
+   * approval. No-op when Meta CAPI is not configured.
+   */
+  private async fireCreatorListedMetaEvent(
+    creatorProfileId: string,
+  ): Promise<void> {
+    if (!this.metaCapi.enabled) return;
+    try {
+      const creator = await this.prisma.creatorProfile.findUnique({
+        where: { id: creatorProfileId },
+        select: {
+          contactEmail: true,
+          publicSlug: true,
+          metaFbp: true,
+          metaFbc: true,
+          metaSignupIp: true,
+          metaSignupUserAgent: true,
+          user: { select: { email: true, phone: true } },
+        },
+      });
+      if (!creator) return;
+
+      await this.metaCapi.sendEvent({
+        eventName: 'CreatorProfileListed',
+        eventId: `creator-listed-${creatorProfileId}`,
+        userData: {
+          email: creator.contactEmail ?? creator.user?.email ?? null,
+          phone: creator.user?.phone ?? null,
+          fbp: creator.metaFbp,
+          fbc: creator.metaFbc,
+          clientIpAddress: creator.metaSignupIp,
+          clientUserAgent: creator.metaSignupUserAgent,
+        },
+        customData: { content_name: 'creator_profile_listed' },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send CreatorProfileListed Meta event for ${creatorProfileId}: ${(error as Error).message}`,
+      );
+    }
   }
 
   async rejectCreatorProfile(
@@ -1632,7 +1692,7 @@ export class CreatorProfileService {
     //   await this.assertPhoneVerifiedForCreator(actingUserId);
     // }
 
-    return this.prisma.$transaction(
+    const { response, becameListed } = await this.prisma.$transaction(
       async (tx) => {
         const profile = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },
@@ -1845,7 +1905,7 @@ export class CreatorProfileService {
         // Latch completeProfile / recompute isListed after all writes land.
         // Only an explicit Go Live (dto.goLive) may flip completeProfile to
         // true; a draft save persists data without publishing.
-        await recomputeCreatorListingState(
+        const listingState = await recomputeCreatorListingState(
           tx,
           creatorProfileId,
           dto.goLive === true,
@@ -1860,10 +1920,22 @@ export class CreatorProfileService {
           throw new Error('Creator profile update failed');
         }
 
-        return this.mapCreatorProfileResponseDto(updated);
+        return {
+          response: this.mapCreatorProfileResponseDto(updated),
+          becameListed: listingState?.becameListed === true,
+        };
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
+
+    // Fire the Meta "listed" conversion after the transaction commits, only on
+    // the isListed false -> true transition (e.g. a creator completing their
+    // profile after an earlier admin approval). Best-effort / fire-and-forget.
+    if (becameListed) {
+      void this.fireCreatorListedMetaEvent(creatorProfileId);
+    }
+
+    return response;
   }
 
   async addOrUpdateAddOns(

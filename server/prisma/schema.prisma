@@ -316,6 +316,14 @@ model CreatorProfile {
   emailNotificationsEnabled    Boolean            @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
   whatsappNotificationsEnabled Boolean            @default(false)
+  /// Meta (Facebook) attribution identifiers captured in the creator's browser
+  /// at signup. Replayed via the Conversions API when the creator is listed so
+  /// the (out-of-band, admin-triggered) conversion attributes to the ad the
+  /// creator originally clicked. All optional — tracking is best-effort.
+  metaFbp             String?
+  metaFbc             String?
+  metaSignupIp        String?
+  metaSignupUserAgent String?
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 

@@ -48,7 +48,10 @@ export class SignupRegistrationService {
     return rest as CreateBrandProfileDto;
   }
 
-  async registerCreatorUser(dto: RegisterCreatorDto): Promise<string> {
+  async registerCreatorUser(
+    dto: RegisterCreatorDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<string> {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({
       where: { email },
@@ -106,6 +109,10 @@ export class SignupRegistrationService {
             instagramUrl: dto.instagramUrl?.trim() || null,
             driveLink: dto.driveLink?.trim() || null,
             categorySlugs: dto.categorySlugs,
+            metaFbp: dto.metaFbp?.trim() || null,
+            metaFbc: dto.metaFbc?.trim() || null,
+            metaSignupIp: meta?.ipAddress ?? null,
+            metaSignupUserAgent: meta?.userAgent ?? null,
           },
         );
         return { userId: user.id, creatorProfileId: id };

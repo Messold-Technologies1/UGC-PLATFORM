@@ -26,7 +26,12 @@ export async function recomputeCreatorListingState(
    * `completeProfile` is true it stays true (one-way latch).
    */
   evaluateCompleteness = false,
-): Promise<{ completeProfile: boolean; isListed: boolean } | null> {
+): Promise<{
+  completeProfile: boolean;
+  isListed: boolean;
+  /** True only on the isListed false -> true transition made by this call. */
+  becameListed: boolean;
+} | null> {
   const profile = await client.creatorProfile.findUnique({
     where: { id: creatorProfileId },
     select: {
@@ -100,5 +105,7 @@ export async function recomputeCreatorListingState(
     });
   }
 
-  return { completeProfile, isListed };
+  const becameListed = !profile.isListed && isListed;
+
+  return { completeProfile, isListed, becameListed };
 }

@@ -39,6 +39,7 @@ import {
 import { authMeQueryKey, type AuthUser } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import { trackPixelCustom } from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
@@ -257,6 +258,9 @@ export function BrandRegisterForm() {
     mutationFn: registerBrand,
     onSuccess: (result) => {
       setRegisteredUser(result.user);
+      // Meta conversion: brand registration completed (fires in the brand's own
+      // browser, so attribution is correct). Fired before the redirect below.
+      trackPixelCustom("BrandRegistration");
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");

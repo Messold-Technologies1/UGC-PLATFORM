@@ -53,6 +53,11 @@ import {
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import {
+  getMetaBrowserIds,
+  newMetaEventId,
+  trackPixelCustom,
+} from "@/lib/meta-pixel";
 import { useCreatorCategorySuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 import { cn } from "@/lib/utils";
 
@@ -388,7 +393,16 @@ export function CreatorRegisterForm() {
   const registerCreatorMutation = useMutation({
     mutationKey: ["auth", "register", "creator"],
     mutationFn: registerCreator,
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
+      // Meta conversion: creator signup completed (fires in the creator's own
+      // browser, in-attribution-window). This is the ad-optimization event; the
+      // true "listed" outcome is sent server-side (CAPI) on admin approval.
+      // eventId dedupes this against the server-side CAPI twin fired at signup.
+      trackPixelCustom(
+        "CreatorRegistration",
+        undefined,
+        variables.metaSignupEventId,
+      );
       toast.success("Creator profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");
@@ -549,6 +563,8 @@ export function CreatorRegisterForm() {
       const portfolioVideoKeys = useDrivePortfolio
         ? []
         : await uploadPortfolioVideos(email);
+      const { fbp: metaFbp, fbc: metaFbc } = getMetaBrowserIds();
+      const metaSignupEventId = newMetaEventId();
       registerCreatorMutation.mutate({
         email,
         password: data.password,
@@ -568,6 +584,9 @@ export function CreatorRegisterForm() {
         categorySlugs: data.categories,
         portfolioSignupVideoTempKeys:
           portfolioVideoKeys.length > 0 ? portfolioVideoKeys : undefined,
+        ...(metaFbp ? { metaFbp } : {}),
+        ...(metaFbc ? { metaFbc } : {}),
+        metaSignupEventId,
       });
     } catch (error) {
       setPortfolioVideoStatus("idle");

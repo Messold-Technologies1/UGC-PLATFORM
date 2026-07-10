@@ -126,4 +126,31 @@ export class RegisterCreatorDto {
   @IsArray()
   @IsString({ each: true })
   portfolioSignupVideoTempKeys?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Meta Pixel _fbp cookie captured in the browser at signup (for Conversions API attribution).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  metaFbp?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Meta Pixel _fbc cookie (ad-click id) captured in the browser at signup.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  metaFbc?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Shared event id for deduplicating the browser + server CompleteRegistration events in Meta.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  metaSignupEventId?: string;
 }

@@ -60,4 +60,7 @@ interface RazorpayConstructor {
 
 interface Window {
   Razorpay?: RazorpayConstructor;
+  /** Meta (Facebook) Pixel queue, installed by the loader in app/layout.tsx. */
+  fbq?: (...args: unknown[]) => void;
+  _fbq?: unknown;
 }

@@ -842,16 +842,29 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   return (
     <div
       className={cn(
-        "sticky top-0 z-40 border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6]",
-        landingPage ? "-mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12" : "",
+        "sticky top-0 z-40",
+        landingPage
+          ? "bg-transparent"
+          : "border-b border-gray-200/80 bg-white/90 backdrop-blur-md backdrop-saturate-[1.6]",
       )}
       role="search"
       aria-label="Creator filters"
       {...(!landingPage ? { "data-tour": "brand-creators-filters" } : {})}
     >
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 lg:py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3">
-          <div className="flex items-start">
+      <div
+        className={cn(
+          "w-full py-3 lg:py-4",
+          landingPage ? "px-0" : "px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12",
+        )}
+      >
+        <div
+          className={cn(
+            landingPage
+              ? "flex min-w-0 flex-wrap items-center gap-2.5"
+              : "grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3",
+          )}
+        >
+          <div className="flex shrink-0 items-start">
             <div
               className="inline-flex gap-[3px] rounded-[13px] border border-gray-200 bg-gray-100/80 p-1"
               role="tablist"
@@ -869,12 +882,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 )}
                 onClick={() => setMode("smart")}
               >
-                {/* <Sparkles
-                className={cn(
-                  "size-[15px]",
-                  mode === "smart" && "text-primary",
-                )}
-              /> */}
                 Smart search
                 <span className="rounded-full bg-primary px-1.5 py-px text-[9px] font-extrabold tracking-wide text-white">
                   AI
@@ -904,20 +911,36 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
           </div>
 
           {mode === "smart" ? (
-            <SmartSearchBar
-              onSubmit={(val) => {
-                // TODO: Wire up smart search logic here once backend is ready
-                console.log("Smart search query:", val);
-              }}
-            />
+            <div className={cn(landingPage && "min-w-0 flex-1")}>
+              <SmartSearchBar
+                onSubmit={(val) => {
+                  // TODO: Wire up smart search logic here once backend is ready
+                  console.log("Smart search query:", val);
+                }}
+              />
+            </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="relative min-w-[200px] flex-1 max-w-[480px] lg:max-w-[420px] xl:max-w-[360px] 2xl:max-w-[480px]">
+              <div
+                className={cn(
+                  "flex items-center gap-2.5",
+                  landingPage
+                    ? "min-w-0 flex-1 flex-wrap"
+                    : "flex-wrap",
+                )}
+              >
+                <div
+                  className={cn(
+                    "relative shrink-0",
+                    landingPage
+                      ? "w-[200px]"
+                      : "min-w-[200px] flex-1 max-w-[480px] lg:max-w-[420px] xl:max-w-[360px] 2xl:max-w-[480px]",
+                  )}
+                >
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search name, city or bio…"
+                    placeholder="Search name or city…"
                     value={localSearch}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -935,7 +958,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                         debouncedSearchChange(localSearch.trim());
                       }
                     }}
-                    aria-label="Search creators by name, city or bio"
+                    aria-label="Search creators by name or city"
                     className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-9 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200"
                   />
                   {localSearch && (
@@ -954,7 +977,14 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   )}
                 </div>
 
-                <div className="hidden xl:flex flex-wrap items-center gap-2.5">
+                <div
+                  className={cn(
+                    "items-center gap-2.5",
+                    landingPage
+                      ? "hidden lg:flex flex-nowrap shrink-0"
+                      : "hidden xl:flex flex-wrap",
+                  )}
+                >
                   <FilterPopover
                     id="category"
                     openId={openPopover}
@@ -1238,7 +1268,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   </FilterPopover>
                 </div>
 
-                <div className="flex xl:hidden">
+                <div className={cn(landingPage ? "flex lg:hidden" : "flex xl:hidden")}>
                   <Drawer>
                     <DrawerTrigger asChild>
                       <button className="inline-flex h-[44px] items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 text-[13.5px] font-semibold text-foreground shadow-sm transition-colors hover:bg-gray-50">
@@ -1455,7 +1485,9 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="xl:col-span-2 overflow-hidden"
+                    className={cn(
+                      landingPage ? "w-full overflow-hidden" : "xl:col-span-2 overflow-hidden",
+                    )}
                   >
                     <div className="flex flex-wrap items-center gap-2 mt-2.5 xl:mt-0 pt-1 pb-1">
                       <span className="text-[13.5px] font-bold text-foreground">

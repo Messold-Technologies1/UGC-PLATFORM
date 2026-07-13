@@ -35,7 +35,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const DEFAULT_TAB: AdminCreatorListSegment = "pending";
+const DEFAULT_TAB: AdminCreatorListSegment =
+  getAdminCreatorTabs()[0]?.value ?? "pending";
 
 function AdminCreatorsPageInner() {
   const router = useRouter();

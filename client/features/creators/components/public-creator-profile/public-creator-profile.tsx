@@ -513,7 +513,6 @@ export function PublicCreatorProfile({
   const handle = `@${handleFromName(profile.displayName)}`;
   const firstName = profile.displayName.split(" ")[0] || profile.displayName;
   const initials = getInitials(profile.displayName);
-  const collabCount = profile.collaborationCount ?? 0;
   const isTopCreator = (profile.totalOrders ?? profile.completedOrders ?? 0) >= 10 || overallRating >= 4.5;
   const primaryNiche = contentCategories[0]?.label ?? null;
 
@@ -637,31 +636,6 @@ export function PublicCreatorProfile({
                     {isBrand ? "Place order" : "Message"}
                   </button>
                 </div>
-
-                {collabCount > 0 && (
-                  <div className="mt-2 flex items-center gap-3">
-                    <div className="flex -space-x-2">
-                      {["bg-rose-400", "bg-amber-400", "bg-emerald-400"].map(
-                        (c, i) => (
-                          <span
-                            key={i}
-                            className={cn(
-                              "size-6 rounded-full border-2 border-white",
-                              c,
-                            )}
-                          />
-                        ),
-                      )}
-                    </div>
-                    <p className="text-xs font-medium text-neutral-600">
-                      Trusted by{" "}
-                      <strong className="text-neutral-900">
-                        {collabCount}
-                      </strong>{" "}
-                      + brands
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>

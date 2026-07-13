@@ -31,7 +31,7 @@ export interface LoginRoleConfig {
   headline: [string, string];
   sub: string;
   bullets: [LoginBullet, LoginBullet, LoginBullet];
-  stat: { big: string; label: string };
+  stat?: { big: string; label: string };
   quote: string;
   author: string;
   authorRole: string;
@@ -162,7 +162,6 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
         desc: "Funds held in escrow until you deliver.",
       },
     ],
-    stat: { big: "₹2.4Cr+", label: "paid out to creators so far" },
     quote:
       "I went from 2 brand deals a month to fully booked. The packages feature changed everything.",
     author: "Aanya Kapoor",

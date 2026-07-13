@@ -68,6 +68,15 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
 
 const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
   {
+    value: "incomplete",
+    label: "Building profile",
+    description:
+      "Incomplete profiles (pending or approved) still finishing go-live — excludes rejected.",
+    icon: ListTodo,
+    countKey: "incomplete",
+    badgeClassName: "bg-amber-100 text-amber-800",
+  },
+  {
     value: "pending",
     label: "Awaiting review",
     description: "Profiles completed and submitted — ready for your approval.",
@@ -76,36 +85,22 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     badgeClassName: "bg-sky-100 text-sky-700",
   },
   {
-    value: "incomplete",
-    label: "Building profile",
-    description: "Creators still completing their profile before submission.",
-    icon: ListTodo,
-    countKey: "incomplete",
-    badgeClassName: "bg-amber-100 text-amber-800",
-  },
-  {
-    value: "approved",
-    label: "Approved",
-    description: "Creators you've approved, including those not yet listed.",
-    icon: CheckCircle2,
-    countKey: "approved",
-    badgeClassName: "bg-emerald-100 text-emerald-700",
+    value: "listed",
+    label: "Listed",
+    description:
+      "Approved and complete — live on the marketplace for brands.",
+    icon: Globe,
+    countKey: "listed",
+    badgeClassName: "bg-violet-100 text-violet-700",
   },
   {
     value: "non_approved",
     label: "Rejected",
-    description: "Rejected profile submissions that can be reviewed again.",
+    description:
+      "Rejected profiles (complete or incomplete) that can be reviewed again.",
     icon: UserX,
     countKey: "nonApproved",
     badgeClassName: "bg-red-100 text-red-700",
-  },
-  {
-    value: "listed",
-    label: "Listed",
-    description: "Live on the marketplace — visible to brands.",
-    icon: Globe,
-    countKey: "listed",
-    badgeClassName: "bg-violet-100 text-violet-700",
   },
 ];
 
@@ -148,7 +143,9 @@ export function getAdminCreatorEmptyMessage(
         ? "No profiles awaiting review at the moment."
         : "No pending applications at the moment.";
     case "listed":
-      return "No listed creators on the marketplace yet.";
+      return profileFirst
+        ? "No listed creators yet. Approve a completed profile and it will appear here."
+        : "No listed creators on the marketplace yet.";
     case "approved":
       return "No approved creators yet.";
     case "non_approved":

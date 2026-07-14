@@ -12,7 +12,6 @@ import { isAxiosError } from "axios";
 import {
   Eye,
   EyeOff,
-  Upload,
   Video,
   Instagram,
   Check,
@@ -74,17 +73,6 @@ const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
   "video/quicktime",
   "video/webm",
 ] as const;
-const GOOGLE_DRIVE_LINK_REGEX =
-  /^https:\/\/(drive\.google\.com|docs\.google\.com)\/.+/i;
-
-type PortfolioInputMode = "upload" | "drive";
-
-function isValidGoogleDriveLink(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  return GOOGLE_DRIVE_LINK_REGEX.test(trimmed);
-}
-
 const creatorSignupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   age: z
@@ -109,13 +97,6 @@ const creatorSignupSchema = z.object({
     .string()
     .min(1, "Instagram handle is required")
     .max(500),
-  driveLink: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => !val || isValidGoogleDriveLink(val), {
-      message: "Enter a valid Google Drive sharing link",
-    }),
   categories: z.array(z.string()).min(1, "Select at least one category"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   termsAccepted: z.boolean().refine((val) => val === true, {
@@ -137,7 +118,6 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   email: "Email",
   bio: "Short bio (at least 10 characters)",
   instagramUrl: "Instagram handle",
-  driveLink: "Google Drive portfolio link",
   categories: "At least one category",
   password: "Password (at least 8 characters)",
   termsAccepted: "Terms acceptance",
@@ -148,15 +128,10 @@ function getCreatorSignupBlockers(
   ctx: {
     activeOtpPhone: string | null;
     hasPortfolioVideo: boolean;
-    portfolioInputMode: PortfolioInputMode;
   },
 ): string[] {
   const blockers: string[] = [];
-  if (ctx.portfolioInputMode === "drive") {
-    if (!isValidGoogleDriveLink(values.driveLink ?? "")) {
-      blockers.push("Google Drive portfolio link");
-    }
-  } else if (!ctx.hasPortfolioVideo) {
+  if (!ctx.hasPortfolioVideo) {
     blockers.push("Upload at least one portfolio video");
   }
   // if (SIGNUP_OTP_VERIFICATION_ENABLED) {
@@ -182,7 +157,6 @@ function isCreatorSignupReady(
   ctx: {
     activeOtpPhone: string | null;
     hasPortfolioVideo: boolean;
-    portfolioInputMode: PortfolioInputMode;
   },
 ): boolean {
   return getCreatorSignupBlockers(values, ctx).length === 0;
@@ -287,8 +261,6 @@ export function CreatorRegisterForm() {
   const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
     "idle" | "uploading" | "uploaded"
   >("idle");
-  const [portfolioInputMode, setPortfolioInputMode] =
-    useState<PortfolioInputMode>("upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
@@ -325,7 +297,6 @@ export function CreatorRegisterForm() {
       email: "",
       bio: "",
       instagramUrl: "",
-      driveLink: "",
       categories: [],
       password: "",
       termsAccepted: false,
@@ -443,9 +414,8 @@ export function CreatorRegisterForm() {
       getCreatorSignupBlockers(signupFormValues, {
         activeOtpPhone,
         hasPortfolioVideo,
-        portfolioInputMode,
       }),
-    [signupFormValues, activeOtpPhone, hasPortfolioVideo, portfolioInputMode],
+    [signupFormValues, activeOtpPhone, hasPortfolioVideo],
   );
   const isSignupComplete = signupBlockers.length === 0;
 
@@ -547,18 +517,7 @@ export function CreatorRegisterForm() {
     //   }
     // }
 
-    const driveLink = normalizeOptionalText(data.driveLink);
-    const useDrivePortfolio = portfolioInputMode === "drive";
-
-    if (useDrivePortfolio) {
-      if (!isValidGoogleDriveLink(driveLink ?? "")) {
-        const message =
-          "Paste a valid Google Drive link (Anyone with the link → Viewer).";
-        form.setError("driveLink", { message });
-        toast.error(message);
-        return;
-      }
-    } else if (
+    if (
       portfolioVideoFiles.length === 0 &&
       portfolioVideoTempKeys.length === 0
     ) {
@@ -571,9 +530,7 @@ export function CreatorRegisterForm() {
 
     try {
       const email = data.email.trim().toLowerCase();
-      const portfolioVideoKeys = useDrivePortfolio
-        ? []
-        : await uploadPortfolioVideos(email);
+      const portfolioVideoKeys = await uploadPortfolioVideos(email);
       const { fbp: metaFbp, fbc: metaFbc } = getMetaBrowserIds();
       const metaSignupEventId = newMetaEventId();
       registerCreatorMutation.mutate({
@@ -591,7 +548,6 @@ export function CreatorRegisterForm() {
         country: data.country.trim(),
         bio: normalizeOptionalText(data.bio),
         instagramUrl: normalizeOptionalText(data.instagramUrl),
-        driveLink: useDrivePortfolio ? driveLink : undefined,
         categorySlugs: data.categories,
         portfolioSignupVideoTempKeys:
           portfolioVideoKeys.length > 0 ? portfolioVideoKeys : undefined,
@@ -1135,84 +1091,10 @@ export function CreatorRegisterForm() {
                     Portfolio <span className="text-red-500">*</span>
                   </Label>
                   <p className="mt-1 text-xs text-slate-500">
-                    Upload reels directly or share a Google Drive folder.
+                    Upload your portfolio reels directly.
                   </p>
                 </div>
 
-                <div className="flex w-full gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900 sm:w-fit">
-                  <button
-                    type="button"
-                    disabled={pendingAny}
-                    onClick={() => {
-                      setPortfolioInputMode("upload");
-                      setPortfolioVideoError(null);
-                      form.clearErrors("driveLink");
-                    }}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 sm:flex-none sm:px-4",
-                      portfolioInputMode === "upload"
-                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
-                    )}
-                  >
-                    <Upload className="size-3.5" />
-                    Upload file
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pendingAny}
-                    onClick={() => {
-                      setPortfolioInputMode("drive");
-                      setPortfolioVideoError(null);
-                    }}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 sm:flex-none sm:px-4",
-                      portfolioInputMode === "drive"
-                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
-                    )}
-                  >
-                    <svg
-                      className="size-3.5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M12.01 2.25 2.61 18.52h6.14l6.33-10.96-3.07-5.31Zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56Zm-15.53-2.02 3.07-5.31 9.4 16.28h-6.14l-6.33-10.97Z" />
-                    </svg>
-                    Drive link
-                  </button>
-                </div>
-
-                {portfolioInputMode === "drive" ? (
-                  <div className="space-y-2">
-                    <Input
-                      id="driveLink"
-                      placeholder="https://drive.google.com/drive/folders/..."
-                      disabled={pendingAny}
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] bg-white text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] dark:border-slate-800 dark:bg-slate-950"
-                      {...form.register("driveLink")}
-                    />
-                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs leading-relaxed text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-                      <p className="font-bold">Before you paste your link</p>
-                      <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
-                        In Google Drive, open <span className="font-semibold">Share</span>{" "}
-                        and enable{" "}
-                        <span className="font-semibold">
-                          &quot;Anyone with the link&quot;
-                        </span>{" "}
-                        → <span className="font-semibold">Viewer</span> access so
-                        our team can review your portfolio.
-                      </p>
-                    </div>
-                    {form.formState.errors.driveLink && (
-                      <p className="text-xs text-red-500">
-                        {form.formState.errors.driveLink.message}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                <>
                 <div
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -1310,8 +1192,6 @@ export function CreatorRegisterForm() {
                       </div>
                     ))}
                   </div>
-                )}
-                </>
                 )}
               </div>
             </div>

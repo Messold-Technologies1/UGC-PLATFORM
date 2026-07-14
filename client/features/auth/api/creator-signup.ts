@@ -33,7 +33,6 @@ export type RegisterCreatorPayload = {
   country: string;
   bio?: string;
   instagramUrl?: string;
-  driveLink?: string;
   categorySlugs: string[];
   portfolioSignupVideoTempKeys?: string[];
   /** Meta attribution cookies captured in the creator's browser at signup,

@@ -873,7 +873,6 @@ export class CreatorProfileService {
           !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
-        driveLink: input.driveLink?.trim() || null,
         metaFbp: input.metaFbp?.trim() || null,
         metaFbc: input.metaFbc?.trim() || null,
         metaSignupIp: input.metaSignupIp?.trim() || null,

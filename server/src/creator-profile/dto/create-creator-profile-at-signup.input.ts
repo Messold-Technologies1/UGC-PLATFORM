@@ -12,7 +12,6 @@ export type CreateCreatorProfileAtSignupInput = {
   countryName: string;
   bio?: string | null;
   instagramUrl?: string | null;
-  driveLink?: string | null;
   categorySlugs: string[];
   /** Meta attribution identifiers captured in the creator's browser at signup. */
   metaFbp?: string | null;

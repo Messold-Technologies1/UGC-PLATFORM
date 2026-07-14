@@ -7,7 +7,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  extensions = [pgvector(map: "vector")]
+  extensions = [pgvector(map: "vector"), pg_trgm]
 }
 
 enum UserStatus {
@@ -353,6 +353,13 @@ model CreatorProfile {
   @@index([completeProfile])
   @@index([completeProfile, isListed])
   @@index([createdAt])
+  // Matches the browse-list hot path: WHERE isListed = true ORDER BY createdAt DESC.
+  @@index([isListed, createdAt])
+  // Trigram GIN indexes on displayName/city/stateName/countryName/bio (for the
+  // free-text `contains`/ILIKE search in buildCreatorListSearchWhere) are added
+  // via raw SQL in migration 20260714153600_creator_list_perf_indexes — Prisma's
+  // declarative @@index API has no way to specify the gin_trgm_ops operator
+  // class a plain-text GIN index needs, so they're intentionally not declared here.
 }
 
 /// Canonical Indian states for AI-search location resolution. Names mirror the
@@ -825,6 +832,9 @@ model CreatorRestriction {
 
   @@unique([creatorId, restriction])
   @@index([restriction])
+  // Trigram GIN index on restriction (for buildRestrictionRowMatch's ILIKE
+  // search) added via raw SQL in migration 20260714153600_creator_list_perf_indexes;
+  // see the note on CreatorProfile above.
 }
 
 model CreatorRestrictionSuggestion {

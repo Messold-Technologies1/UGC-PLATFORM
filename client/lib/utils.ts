@@ -72,3 +72,24 @@ export function formatReelDuration(index: number): string {
   const seconds = 18 + ((index * 7) % 40);
   return `0:${seconds.toString().padStart(2, "0")}`;
 }
+
+const POSTER_IMAGE_WIDTH = 384;
+const POSTER_IMAGE_QUALITY = 75;
+
+/**
+ * Runs an image URL through Next.js's built-in image optimizer (resize +
+ * format negotiation), for places that need a plain string URL rather than
+ * a <Image> element — e.g. the `poster` attribute on a native <video>,
+ * which can't render a React component. Falls back to the original URL if
+ * given nothing, so callers don't need their own guard.
+ *
+ * `w` must be one of the widths Next actually serves (its default
+ * imageSizes/deviceSizes list); 384 is the largest configured `imageSizes`
+ * bucket and comfortably covers this app's card widths.
+ */
+export function buildOptimizedPosterUrl(
+  url: string | undefined | null,
+): string | undefined {
+  if (!url) return undefined;
+  return `/_next/image?url=${encodeURIComponent(url)}&w=${POSTER_IMAGE_WIDTH}&q=${POSTER_IMAGE_QUALITY}`;
+}

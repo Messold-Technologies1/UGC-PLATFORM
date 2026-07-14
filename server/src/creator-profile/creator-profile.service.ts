@@ -27,6 +27,7 @@ import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
+import { CreatorListCacheService } from './creator-list-cache.service';
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import {
@@ -73,6 +74,30 @@ import type {
 const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.ACCEPTED
 ];
+
+/**
+ * Scalar CreatorProfile columns actually read by mapCreatorPublicListItemDto.
+ * Used with `select` (merged with buildCreatorListRelationsInclude's relation
+ * keys) instead of `include` in listCreators, so the public browse/search
+ * query doesn't pull every CreatorProfile column (payout/meta-attribution
+ * fields, etc.) it never uses.
+ */
+const CREATOR_LIST_BASE_SELECT = {
+  id: true,
+  userId: true,
+  displayName: true,
+  introVideoUrl: true,
+  profileImageUrl: true,
+  city: true,
+  countryName: true,
+  stateName: true,
+  bio: true,
+  gender: true,
+  dateOfBirth: true,
+  contentVolume: true,
+  collaborationCount: true,
+  onLocationAvailable: true,
+} as const;
 
 const creatorProfileWithRelationsInclude = {
   user: { select: { phone: true, phoneVerified: true } },
@@ -176,6 +201,7 @@ export class CreatorProfileService {
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
     private readonly creatorReviews: CreatorReviewsService,
     private readonly metaCapi: MetaCapiService,
+    private readonly creatorListCache: CreatorListCacheService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -904,6 +930,12 @@ export class CreatorProfileService {
   async listCreators(
     query: ListCreatorsQueryDto,
   ): Promise<CreatorsPublicListResponseDto> {
+    const cacheKey = this.creatorListCache.buildKey(query);
+    const cached = await this.creatorListCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 4;
     const skip = (page - 1) * limit;
@@ -917,32 +949,32 @@ export class CreatorProfileService {
       );
     }
 
-    const [total, items] = await this.prisma.$transaction([
+    const [total, items] = (await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
       this.prisma.creatorProfile.findMany({
         where,
         take: limit,
         skip,
         orderBy: { createdAt: 'desc' },
-        include: include as any,
+        select: { ...CREATOR_LIST_BASE_SELECT, ...include } as any,
       }),
-    ]);
+    ])) as [number, any[]];
 
     const orderCountsByCreatorId = await this.countCreatorOrdersBatch(
       items.map((profile) => profile.id),
     );
 
-    return {
+    const response: CreatorsPublicListResponseDto = {
       items: items.map((p) =>
-        this.mapCreatorPublicListItemDto(
-          p,
-          orderCountsByCreatorId.get(p.id),
-        ),
+        this.mapCreatorPublicListItemDto(p, orderCountsByCreatorId.get(p.id)),
       ),
       total,
       page,
       limit,
     };
+
+    await this.creatorListCache.set(cacheKey, response);
+    return response;
   }
 
   /** Approved creators only; preserves caller order and skips missing/unapproved ids. */

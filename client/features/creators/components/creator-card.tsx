@@ -22,6 +22,7 @@ import {
   posterColor,
   tagColor,
   formatReelDuration,
+  buildOptimizedPosterUrl,
 } from "@/lib/utils";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
@@ -122,7 +123,9 @@ export const CreatorCard = memo(function CreatorCard({
           <video
             ref={videoRef}
             src={creator.previewVideoUrl!}
-            poster={creator.previewVideoThumbnail || creator.thumbnail}
+            poster={buildOptimizedPosterUrl(
+              creator.previewVideoThumbnail || creator.thumbnail,
+            )}
             className="real-media"
             muted={isMuted}
             loop

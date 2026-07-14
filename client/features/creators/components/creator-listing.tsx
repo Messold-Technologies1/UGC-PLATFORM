@@ -469,7 +469,14 @@ export function CreatorListing({
               totalCount={visibleCreators.length}
               components={virtuosoGridComponents}
               endReached={landingPage ? undefined : handleEndReached}
-              increaseViewportBy={{ top: 800, bottom: 1200 }}
+              // Kept small on purpose: each mounted card can carry a <video
+              // preload="metadata"> that fires its own network request just
+              // from being mounted (see CreatorCard). A large overscan window
+              // means many off-screen videos issuing metadata requests
+              // simultaneously during fast scroll — this is the main scroll
+              // jank/slow-thumbnail complaint. 300/600 still avoids blank
+              // flashes on scroll while keeping fewer cards mounted at once.
+              increaseViewportBy={{ top: 300, bottom: 600 }}
               computeItemKey={(index) =>
                 visibleCreators[index]?.id
                   ? `${visibleCreators[index].id}-${index}`

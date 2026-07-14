@@ -3,6 +3,7 @@ import { CreatorProfileController } from './creator-profile.controller';
 import { AdminCreatorController } from './admin-creator.controller';
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
+import { CreatorListCacheService } from './creator-list-cache.service';
 import { CreatorPackageModule } from '../creator-package/creator-package.module';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
@@ -14,7 +15,11 @@ import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module'
     CreatorReviewsModule,
   ],
   controllers: [CreatorProfileController, AdminCreatorController],
-  providers: [CreatorProfileService, CreatorPayoutDetailsService],
+  providers: [
+    CreatorProfileService,
+    CreatorPayoutDetailsService,
+    CreatorListCacheService,
+  ],
   exports: [CreatorProfileService],
 })
 export class CreatorProfileModule {}

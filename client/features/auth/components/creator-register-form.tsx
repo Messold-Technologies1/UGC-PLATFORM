@@ -12,7 +12,6 @@ import { isAxiosError } from "axios";
 import {
   Eye,
   EyeOff,
-  Upload,
   Video,
   Check,
   Activity,
@@ -52,6 +51,13 @@ import {
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import {
+  getMetaBrowserIds,
+  identifyPixelUser,
+  newMetaEventId,
+  splitFullName,
+  trackPixelCustom,
+} from "@/lib/meta-pixel";
 import { useCreatorCategorySuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 import { cn } from "@/lib/utils";
 
@@ -66,17 +72,6 @@ const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
   "video/quicktime",
   "video/webm",
 ] as const;
-const GOOGLE_DRIVE_LINK_REGEX =
-  /^https:\/\/(drive\.google\.com|docs\.google\.com)\/.+/i;
-
-type PortfolioInputMode = "upload" | "drive";
-
-function isValidGoogleDriveLink(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  return GOOGLE_DRIVE_LINK_REGEX.test(trimmed);
-}
-
 const creatorSignupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   age: z
@@ -97,13 +92,10 @@ const creatorSignupSchema = z.object({
     : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   bio: z.string().min(10, "Please write a short bio").max(5000),
-  driveLink: z
+  instagramUrl: z
     .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => !val || isValidGoogleDriveLink(val), {
-      message: "Enter a valid Google Drive sharing link",
-    }),
+    .min(1, "Instagram handle is required")
+    .max(500),
   categories: z.array(z.string()).min(1, "Select at least one category"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   termsAccepted: z.boolean().refine((val) => val === true, {
@@ -124,7 +116,7 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   phoneOtpCode: "Phone verification code",
   email: "Email",
   bio: "Short bio (at least 10 characters)",
-  driveLink: "Google Drive portfolio link",
+  instagramUrl: "Instagram handle",
   categories: "At least one category",
   password: "Password (at least 8 characters)",
   termsAccepted: "Terms acceptance",
@@ -135,15 +127,10 @@ function getCreatorSignupBlockers(
   ctx: {
     activeOtpPhone: string | null;
     hasPortfolioVideo: boolean;
-    portfolioInputMode: PortfolioInputMode;
   },
 ): string[] {
   const blockers: string[] = [];
-  if (ctx.portfolioInputMode === "drive") {
-    if (!isValidGoogleDriveLink(values.driveLink ?? "")) {
-      blockers.push("Google Drive portfolio link");
-    }
-  } else if (!ctx.hasPortfolioVideo) {
+  if (!ctx.hasPortfolioVideo) {
     blockers.push("Upload at least one portfolio video");
   }
   // if (SIGNUP_OTP_VERIFICATION_ENABLED) {
@@ -169,11 +156,20 @@ function isCreatorSignupReady(
   ctx: {
     activeOtpPhone: string | null;
     hasPortfolioVideo: boolean;
-    portfolioInputMode: PortfolioInputMode;
   },
 ): boolean {
   return getCreatorSignupBlockers(values, ctx).length === 0;
 }
+
+/** Mobile-only wizard steps. Desktop (xl:) shows all of these at once. */
+const STEP_TITLES = ["Account", "Profile basics", "About & content", "Portfolio"];
+const STEP_FIELDS: (keyof CreatorSignupData)[][] = [
+  ["name", "phone", "email", "password"],
+  ["age", "gender", "country", "state", "city"],
+  ["bio", "categories"],
+  ["instagramUrl", "termsAccepted"],
+];
+const LAST_STEP = STEP_TITLES.length - 1;
 
 const CATEGORY_SUGGESTIONS_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -274,9 +270,11 @@ export function CreatorRegisterForm() {
   const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
     "idle" | "uploading" | "uploaded"
   >("idle");
-  const [portfolioInputMode, setPortfolioInputMode] =
-    useState<PortfolioInputMode>("upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Mobile-only step wizard (see STEP_TITLES/STEP_FIELDS below). Desktop (xl:
+  // and up) ignores this and shows every step at once, as before.
+  const [currentStep, setCurrentStep] = useState(0);
 
   const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
     staleTime: CATEGORY_SUGGESTIONS_CACHE_MS,
@@ -311,7 +309,7 @@ export function CreatorRegisterForm() {
       country: "India",
       email: "",
       bio: "",
-      driveLink: "",
+      instagramUrl: "",
       categories: [],
       password: "",
       termsAccepted: false,
@@ -381,7 +379,25 @@ export function CreatorRegisterForm() {
   const registerCreatorMutation = useMutation({
     mutationKey: ["auth", "register", "creator"],
     mutationFn: registerCreator,
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
+      // Meta conversion: creator signup completed (fires in the creator's own
+      // browser, in-attribution-window). This is the ad-optimization event; the
+      // true "listed" outcome is sent server-side (CAPI) on admin approval.
+      // Attach Advanced Matching (email/name/city/…) first so the event carries
+      // it, then fire. eventId dedupes against the server-side CAPI twin.
+      identifyPixelUser({
+        email: variables.email,
+        ...splitFullName(variables.name),
+        city: variables.city,
+        state: variables.state,
+        country: variables.country,
+        phone: variables.phone,
+      });
+      trackPixelCustom(
+        "CreatorRegistration",
+        undefined,
+        variables.metaSignupEventId,
+      );
       toast.success("Creator profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");
@@ -411,9 +427,8 @@ export function CreatorRegisterForm() {
       getCreatorSignupBlockers(signupFormValues, {
         activeOtpPhone,
         hasPortfolioVideo,
-        portfolioInputMode,
       }),
-    [signupFormValues, activeOtpPhone, hasPortfolioVideo, portfolioInputMode],
+    [signupFormValues, activeOtpPhone, hasPortfolioVideo],
   );
   const isSignupComplete = signupBlockers.length === 0;
 
@@ -426,6 +441,16 @@ export function CreatorRegisterForm() {
     );
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
+
+  const handleNextStep = useCallback(async () => {
+    const valid = await form.trigger(STEP_FIELDS[currentStep]);
+    if (!valid) return;
+    setCurrentStep((step) => Math.min(step + 1, LAST_STEP));
+  }, [form, currentStep]);
+
+  const handlePrevStep = useCallback(() => {
+    setCurrentStep((step) => Math.max(step - 1, 0));
+  }, []);
 
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForSignup(phoneInput);
@@ -515,18 +540,7 @@ export function CreatorRegisterForm() {
     //   }
     // }
 
-    const driveLink = normalizeOptionalText(data.driveLink);
-    const useDrivePortfolio = portfolioInputMode === "drive";
-
-    if (useDrivePortfolio) {
-      if (!isValidGoogleDriveLink(driveLink ?? "")) {
-        const message =
-          "Paste a valid Google Drive link (Anyone with the link → Viewer).";
-        form.setError("driveLink", { message });
-        toast.error(message);
-        return;
-      }
-    } else if (
+    if (
       portfolioVideoFiles.length === 0 &&
       portfolioVideoTempKeys.length === 0
     ) {
@@ -539,9 +553,9 @@ export function CreatorRegisterForm() {
 
     try {
       const email = data.email.trim().toLowerCase();
-      const portfolioVideoKeys = useDrivePortfolio
-        ? []
-        : await uploadPortfolioVideos(email);
+      const portfolioVideoKeys = await uploadPortfolioVideos(email);
+      const { fbp: metaFbp, fbc: metaFbc } = getMetaBrowserIds();
+      const metaSignupEventId = newMetaEventId();
       registerCreatorMutation.mutate({
         email,
         password: data.password,
@@ -556,10 +570,13 @@ export function CreatorRegisterForm() {
         state: data.state.trim(),
         country: data.country.trim(),
         bio: normalizeOptionalText(data.bio),
-        driveLink: useDrivePortfolio ? driveLink : undefined,
+        instagramUrl: normalizeOptionalText(data.instagramUrl),
         categorySlugs: data.categories,
         portfolioSignupVideoTempKeys:
           portfolioVideoKeys.length > 0 ? portfolioVideoKeys : undefined,
+        ...(metaFbp ? { metaFbp } : {}),
+        ...(metaFbc ? { metaFbc } : {}),
+        metaSignupEventId,
       });
     } catch (error) {
       setPortfolioVideoStatus("idle");
@@ -614,17 +631,40 @@ export function CreatorRegisterForm() {
             </p>
           </div>
         </div>
+
+        <div className="mt-3 space-y-1.5 xl:hidden">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span>
+              Step {currentStep + 1} of {STEP_TITLES.length}: {STEP_TITLES[currentStep]}
+            </span>
+            <span>{Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%</span>
+          </div>
+          <div className="flex gap-1.5">
+            {STEP_TITLES.map((title, i) => (
+              <div
+                key={title}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors",
+                  i <= currentStep
+                    ? "bg-[#ef3e51]"
+                    : "bg-slate-200 dark:bg-slate-800",
+                )}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
-          <div className="space-y-3">
+          {/* STEP 1: Account (mobile-only step 0; always visible on desktop) */}
+          <div className={cn(currentStep === 0 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
                 1
               </div>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                About You
+                Account
               </h2>
             </div>
 
@@ -649,169 +689,6 @@ export function CreatorRegisterForm() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="age"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Age <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    placeholder="e.g. 24"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                    {...form.register("age", { valueAsNumber: true })}
-                  />
-                  {form.formState.errors.age && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.age.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="gender"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Gender <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={form.watch("gender")}
-                    onValueChange={(val) =>
-                      form.setValue("gender", val as CreatorSignupData["gender"], {
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger
-                      id="gender"
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
-                    >
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.gender && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.gender.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="country"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Country <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="country"
-                  value="India"
-                  readOnly
-                  className="h-[42px] rounded-[11px] border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900 text-slate-500 dark:text-slate-400"
-                  {...form.register("country")}
-                />
-                {form.formState.errors.country && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.country.message}
-                  </p>
-                )}
-              </div>
-           
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="state"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    State <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    onValueChange={(val) => {
-                      const selectedState = indiaStates.find((s) => s.isoCode === val);
-                      if (selectedState) {
-                        form.setValue("state", selectedState.name, { shouldValidate: true });
-                        form.setValue("city", "", { shouldValidate: true });
-                      }
-                    }}
-                    value={selectedStateCode}
-                  >
-                    <SelectTrigger
-                      id="state"
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
-                    >
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {indiaStates.map((state) => (
-                        <SelectItem key={state.isoCode} value={state.isoCode}>
-                          {state.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.state && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.state.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="city"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    City <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    onValueChange={(val) => form.setValue("city", val, { shouldValidate: true })}
-                    value={form.watch("city")}
-                    disabled={!selectedStateCode}
-                  >
-                    <SelectTrigger
-                      id="city"
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
-                    >
-                      <SelectValue placeholder="Select city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stateCities.map((cityName) => (
-                        <SelectItem key={cityName} value={cityName}>
-                          {cityName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.city && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.city.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                2
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                {SIGNUP_OTP_VERIFICATION_ENABLED
-                  ? "Contact & Verification"
-                  : "Contact"}
-              </h2>
-            </div>
-
-            <div className="space-y-3">
               <div className="space-y-1">
                 <Label
                   htmlFor="phone"
@@ -1007,55 +884,408 @@ export function CreatorRegisterForm() {
                   </p>
                 )}
               </div>
+
+              <div className="space-y-1">
+                <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
+                  <Label
+                    htmlFor="password"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    Password <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="text-[11px] text-slate-400">
+                    min 8 chars, mix letters + numbers + symbol
+                  </span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••••"
+                    className="h-[42px] pr-10 rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                    {...form.register("password")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </button>
+                </div>
+                {form.formState.errors.password && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.password.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3">
+          {/* STEP 2: Profile basics (mobile-only step 1; always visible on desktop) */}
+          <div className={cn(currentStep === 1 ? "block" : "hidden", "xl:block", "space-y-3")}>
+            <div className="inline-flex items-center gap-2">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
+                2
+              </div>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+                Profile basics
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="age"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    Age <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="age"
+                    type="number"
+                    placeholder="e.g. 24"
+                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                    {...form.register("age", { valueAsNumber: true })}
+                  />
+                  {form.formState.errors.age && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.age.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="gender"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={form.watch("gender")}
+                    onValueChange={(val) =>
+                      form.setValue("gender", val as CreatorSignupData["gender"], {
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      id="gender"
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
+                    >
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.gender && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.gender.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="country"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Country <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="country"
+                  value="India"
+                  readOnly
+                  className="h-[42px] rounded-[11px] border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900 text-slate-500 dark:text-slate-400"
+                  {...form.register("country")}
+                />
+                {form.formState.errors.country && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.country.message}
+                  </p>
+                )}
+              </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="state"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    State <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    onValueChange={(val) => {
+                      const selectedState = indiaStates.find((s) => s.isoCode === val);
+                      if (selectedState) {
+                        form.setValue("state", selectedState.name, { shouldValidate: true });
+                        form.setValue("city", "", { shouldValidate: true });
+                      }
+                    }}
+                    value={selectedStateCode}
+                  >
+                    <SelectTrigger
+                      id="state"
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
+                    >
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {indiaStates.map((state) => (
+                        <SelectItem key={state.isoCode} value={state.isoCode}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.state && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.state.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="city"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    City <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    onValueChange={(val) => form.setValue("city", val, { shouldValidate: true })}
+                    value={form.watch("city")}
+                    disabled={!selectedStateCode}
+                  >
+                    <SelectTrigger
+                      id="city"
+                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
+                    >
+                      <SelectValue placeholder="Select city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stateCities.map((cityName) => (
+                        <SelectItem key={cityName} value={cityName}>
+                          {cityName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.city && (
+                    <p className="text-xs text-red-500">
+                      {form.formState.errors.city.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* STEP 3: About & content (mobile-only step 2; always visible on desktop) */}
+          <div className={cn(currentStep === 2 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
                 3
               </div>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                About Your Content
+                About &amp; Content
               </h2>
             </div>
 
-            <div className="space-y-1">
-              <div className="flex justify-between items-end">
-                <Label
-                  htmlFor="bio"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Short bio <span className="text-red-500">*</span>
-                </Label>
-                <span
-                  className={cn(
-                    "text-[11px]",
-                    (form.watch("bio")?.length ?? 0) < 10
-                      ? "text-slate-400"
-                      : "text-green-600 dark:text-green-500",
-                  )}
-                >
-                  {(form.watch("bio")?.length ?? 0) < 10
-                    ? `${form.watch("bio")?.length ?? 0}/10 characters minimum`
-                    : "2-3 sentences"}
-                </span>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex justify-between items-end">
+                  <Label
+                    htmlFor="bio"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    Short bio <span className="text-red-500">*</span>
+                  </Label>
+                  <span
+                    className={cn(
+                      "text-[11px]",
+                      (form.watch("bio")?.length ?? 0) < 10
+                        ? "text-slate-400"
+                        : "text-green-600 dark:text-green-500",
+                    )}
+                  >
+                    {(form.watch("bio")?.length ?? 0) < 10
+                      ? `${form.watch("bio")?.length ?? 0}/10 characters minimum`
+                      : "2-3 sentences"}
+                  </span>
+                </div>
+                <Textarea
+                  id="bio"
+                  placeholder="Skincare-first creator with a soft, studio-lit style. I craft glow-up demos and ritual reels for D2C beauty brands."
+                  className="min-h-[80px] resize-y rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white p-3 text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                  {...form.register("bio")}
+                />
+                {form.formState.errors.bio && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.bio.message}
+                  </p>
+                )}
               </div>
-              <Textarea
-                id="bio"
-                placeholder="Skincare-first creator with a soft, studio-lit style. I craft glow-up demos and ritual reels for D2C beauty brands."
-                className="min-h-[80px] resize-y rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white p-3 text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                {...form.register("bio")}
-              />
-              {form.formState.errors.bio && (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.bio.message}
-                </p>
-              )}
+
+              <div className="space-y-1">
+                <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+                  Categories <span className="text-red-500">*</span>{" "}
+                  <span className="text-[10px] font-normal lowercase tracking-normal text-slate-400">
+                    (multi-select)
+                  </span>
+                </Label>
+                <div ref={categoriesRef}>
+                  <div
+                    role="combobox"
+                    aria-expanded={categoriesOpen}
+                    tabIndex={0}
+                    onClick={() => setCategoriesOpen(!categoriesOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setCategoriesOpen(!categoriesOpen);
+                      }
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 dark:bg-slate-950 cursor-pointer outline-none",
+                      selectedCategories.length === 0
+                        ? "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] text-slate-500 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                        : "border-red-400 text-slate-900 dark:text-slate-50 dark:border-red-500 focus-visible:ring-2 focus-visible:ring-red-100 dark:focus-visible:ring-red-900",
+                    )}
+                  >
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {selectedCategories.length > 0
+                        ? selectedCategories.map((slug) => {
+                            const label = categoryLabelBySlug.get(slug) ?? slug;
+                            return (
+                              <div
+                                key={slug}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-red-50 pl-3 pr-1.5 py-1 text-sm font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                              >
+                                {label}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const next = selectedCategories.filter(
+                                      (c) => c !== slug,
+                                    );
+                                    form.setValue("categories", next, {
+                                      shouldValidate: true,
+                                    });
+                                  }}
+                                  className="flex size-4 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
+                                >
+                                  <X className="size-2.5" />
+                                </button>
+                              </div>
+                            );
+                          })
+                        : "Select your categories..."}
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        "ml-2 size-4 shrink-0 opacity-50 transition-transform",
+                        categoriesOpen && "rotate-180",
+                      )}
+                    />
+                  </div>
+                  {categoriesOpen && (
+                    <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+                      {categorySuggestionsQuery.isLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Spinner className="size-5" />
+                        </div>
+                      ) : categorySuggestionsQuery.isError ? (
+                        <p className="px-2 py-3 text-xs text-red-500">
+                          Could not load categories. Please refresh and try again.
+                        </p>
+                      ) : categoryOptions.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-slate-500">
+                          No categories available.
+                        </p>
+                      ) : (
+                        categoryOptions.map((category) => {
+                          const isSelected = selectedCategories.includes(
+                            category.slug,
+                          );
+                          const CategoryIcon =
+                            CATEGORY_ICON_BY_SLUG[category.slug] ??
+                            DEFAULT_CATEGORY_ICON;
+                          return (
+                            <button
+                              type="button"
+                              key={category.slug}
+                              onClick={() => {
+                                const current = form.getValues("categories");
+                                const checked = !isSelected;
+                                const next = checked
+                                  ? [...current, category.slug]
+                                  : current.filter((c) => c !== category.slug);
+                                form.setValue("categories", next, {
+                                  shouldValidate: true,
+                                });
+                              }}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 my-1 cursor-pointer text-left",
+                                isSelected
+                                  ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                  : "text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900",
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                                  isSelected
+                                    ? "bg-red-500 text-white"
+                                    : "bg-slate-100 text-slate-500 dark:bg-slate-800",
+                                )}
+                              >
+                                <CategoryIcon className="size-4" />
+                              </div>
+                              <span className="flex-1 font-medium">
+                                {category.label}
+                              </span>
+                              <div
+                                className={cn(
+                                  "flex size-5 shrink-0 items-center justify-center rounded border",
+                                  isSelected
+                                    ? "border-red-500 bg-red-500 text-white"
+                                    : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-950",
+                                )}
+                              >
+                                {isSelected && (
+                                  <Check className="size-3.5 stroke-[3]" />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+                {form.formState.errors.categories && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.categories.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3">
+          {/* STEP 4: Portfolio (mobile-only step 3; always visible on desktop) */}
+          <div className={cn(currentStep === 3 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
                 4
@@ -1066,90 +1296,41 @@ export function CreatorRegisterForm() {
             </div>
 
             <div className="space-y-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="instagram"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Instagram handle <span className="text-red-500">*</span>
+                </Label>
+                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
+                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
+                    <Instagram className="size-4" />
+                  </div>
+                  <Input
+                    id="instagramUrl"
+                    placeholder="@yourhandle"
+                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                    {...form.register("instagramUrl")}
+                  />
+                </div>
+                {form.formState.errors.instagramUrl && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.instagramUrl.message}
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <div>
                   <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
                     Portfolio <span className="text-red-500">*</span>
                   </Label>
                   <p className="mt-1 text-xs text-slate-500">
-                    Upload reels directly or share a Google Drive folder.
+                    Upload your portfolio reels directly.
                   </p>
                 </div>
 
-                <div className="flex w-full gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900 sm:w-fit">
-                  <button
-                    type="button"
-                    disabled={pendingAny}
-                    onClick={() => {
-                      setPortfolioInputMode("upload");
-                      setPortfolioVideoError(null);
-                      form.clearErrors("driveLink");
-                    }}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 sm:flex-none sm:px-4",
-                      portfolioInputMode === "upload"
-                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
-                    )}
-                  >
-                    <Upload className="size-3.5" />
-                    Upload file
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pendingAny}
-                    onClick={() => {
-                      setPortfolioInputMode("drive");
-                      setPortfolioVideoError(null);
-                    }}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 sm:flex-none sm:px-4",
-                      portfolioInputMode === "drive"
-                        ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
-                    )}
-                  >
-                    <svg
-                      className="size-3.5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M12.01 2.25 2.61 18.52h6.14l6.33-10.96-3.07-5.31Zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56Zm-15.53-2.02 3.07-5.31 9.4 16.28h-6.14l-6.33-10.97Z" />
-                    </svg>
-                    Drive link
-                  </button>
-                </div>
-
-                {portfolioInputMode === "drive" ? (
-                  <div className="space-y-2">
-                    <Input
-                      id="driveLink"
-                      placeholder="https://drive.google.com/drive/folders/..."
-                      disabled={pendingAny}
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] bg-white text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] dark:border-slate-800 dark:bg-slate-950"
-                      {...form.register("driveLink")}
-                    />
-                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs leading-relaxed text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-                      <p className="font-bold">Before you paste your link</p>
-                      <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
-                        In Google Drive, open <span className="font-semibold">Share</span>{" "}
-                        and enable{" "}
-                        <span className="font-semibold">
-                          &quot;Anyone with the link&quot;
-                        </span>{" "}
-                        → <span className="font-semibold">Viewer</span> access so
-                        our team can review your portfolio.
-                      </p>
-                    </div>
-                    {form.formState.errors.driveLink && (
-                      <p className="text-xs text-red-500">
-                        {form.formState.errors.driveLink.message}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                <>
                 <div
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -1248,221 +1429,41 @@ export function CreatorRegisterForm() {
                     ))}
                   </div>
                 )}
-                </>
-                )}
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                5
-              </div>
-              <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Categories
-                <span className="text-[10px] lowercase tracking-normal opacity-70">
-                  (multi-select)
-                </span>
-              </h2>
-            </div>
-
-            <div className="space-y-1">
-              <div ref={categoriesRef}>
-                <div
-                  role="combobox"
-                  aria-expanded={categoriesOpen}
-                  tabIndex={0}
-                  onClick={() => setCategoriesOpen(!categoriesOpen)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setCategoriesOpen(!categoriesOpen);
-                    }
-                  }}
-                  className={cn(
-                    "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 dark:bg-slate-950 cursor-pointer outline-none",
-                    selectedCategories.length === 0
-                      ? "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] text-slate-500 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                      : "border-red-400 text-slate-900 dark:text-slate-50 dark:border-red-500 focus-visible:ring-2 focus-visible:ring-red-100 dark:focus-visible:ring-red-900",
-                  )}
-                >
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {selectedCategories.length > 0
-                      ? selectedCategories.map((slug) => {
-                          const label = categoryLabelBySlug.get(slug) ?? slug;
-                          return (
-                            <div
-                              key={slug}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-red-50 pl-3 pr-1.5 py-1 text-sm font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                            >
-                              {label}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = selectedCategories.filter(
-                                    (c) => c !== slug,
-                                  );
-                                  form.setValue("categories", next, {
-                                    shouldValidate: true,
-                                  });
-                                }}
-                                className="flex size-4 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
-                              >
-                                <X className="size-2.5" />
-                              </button>
-                            </div>
-                          );
-                        })
-                      : "Select your categories..."}
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      "ml-2 size-4 shrink-0 opacity-50 transition-transform",
-                      categoriesOpen && "rotate-180",
-                    )}
-                  />
-                </div>
-                {categoriesOpen && (
-                  <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
-                    {categorySuggestionsQuery.isLoading ? (
-                      <div className="flex items-center justify-center py-6">
-                        <Spinner className="size-5" />
-                      </div>
-                    ) : categorySuggestionsQuery.isError ? (
-                      <p className="px-2 py-3 text-xs text-red-500">
-                        Could not load categories. Please refresh and try again.
-                      </p>
-                    ) : categoryOptions.length === 0 ? (
-                      <p className="px-2 py-3 text-xs text-slate-500">
-                        No categories available.
-                      </p>
-                    ) : (
-                      categoryOptions.map((category) => {
-                        const isSelected = selectedCategories.includes(
-                          category.slug,
-                        );
-                        const CategoryIcon =
-                          CATEGORY_ICON_BY_SLUG[category.slug] ??
-                          DEFAULT_CATEGORY_ICON;
-                        return (
-                          <button
-                            type="button"
-                            key={category.slug}
-                            onClick={() => {
-                              const current = form.getValues("categories");
-                              const checked = !isSelected;
-                              const next = checked
-                                ? [...current, category.slug]
-                                : current.filter((c) => c !== category.slug);
-                              form.setValue("categories", next, {
-                                shouldValidate: true,
-                              });
-                            }}
-                            className={cn(
-                              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 my-1 cursor-pointer text-left",
-                              isSelected
-                                ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                : "text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900",
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                                isSelected
-                                  ? "bg-red-500 text-white"
-                                  : "bg-slate-100 text-slate-500 dark:bg-slate-800",
-                              )}
-                            >
-                              <CategoryIcon className="size-4" />
-                            </div>
-                            <span className="flex-1 font-medium">
-                              {category.label}
-                            </span>
-                            <div
-                              className={cn(
-                                "flex size-5 shrink-0 items-center justify-center rounded border",
-                                isSelected
-                                  ? "border-red-500 bg-red-500 text-white"
-                                  : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-950",
-                              )}
-                            >
-                              {isSelected && (
-                                <Check className="size-3.5 stroke-[3]" />
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-              {form.formState.errors.categories && (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.categories.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                6
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Secure Your Account
-              </h2>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
-                <Label
-                  htmlFor="password"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Password <span className="text-red-500">*</span>
-                </Label>
-                <span className="text-[11px] text-slate-400">
-                  min 8 chars, mix letters + numbers + symbol
-                </span>
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••••"
-                  className="h-[42px] pr-10 rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                  {...form.register("password")}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
-                </button>
-              </div>
-              {form.formState.errors.password && (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.password.message}
-                </p>
-              )}
             </div>
           </div>
         </div>
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
+        {currentStep < LAST_STEP ? (
+          <div className="flex items-center gap-3 xl:hidden">
+            {currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevStep}
+                className="h-11 rounded-full px-6 text-[15px] font-bold"
+              >
+                Back
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handleNextStep}
+              className="h-11 flex-1 rounded-full bg-[#ef3e51] text-[15px] font-bold text-white hover:bg-[#d63647] dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
+            >
+              Next
+            </Button>
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            currentStep === LAST_STEP ? "space-y-4" : "hidden",
+            "xl:block xl:space-y-4",
+          )}
+        >
         <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
@@ -1540,6 +1541,7 @@ export function CreatorRegisterForm() {
             </Link>
           </div>
           </div>
+        </div>
         </div>
       </div>
     </form>

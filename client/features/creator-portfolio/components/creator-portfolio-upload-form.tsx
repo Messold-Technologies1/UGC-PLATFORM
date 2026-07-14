@@ -24,6 +24,7 @@ import { SuggestionChips } from "@/components/ui/suggestion-chips";
 import {
   splitCommaSeparatedList,
   toggleCommaSeparatedItem,
+  toTitleCaseLabel,
 } from "@/lib/string-lists";
 import { useCreatePortfolioVideoFlowMutation } from "../hooks/use-create-portfolio-video-flow-mutation";
 import {
@@ -49,7 +50,7 @@ function buildMetadataPatch(input: {
 
   const patch: UpdatePortfolioVideoPayload = {};
   if (description) patch.description = description;
-  if (industryLabel) patch.industryLabel = industryLabel;
+  if (industryLabel) patch.industryLabel = toTitleCaseLabel(industryLabel);
   if (language) patch.language = language;
   if (tags.length) patch.tags = tags;
 
@@ -192,29 +193,35 @@ export function CreatorPortfolioUploadForm({
                   value={industryLabel}
                   disabled={submitting}
                   onChange={(e) => setIndustryLabel(e.target.value)}
-                  placeholder="e.g. fitness"
+                  placeholder="e.g. Fitness"
                   list="portfolio-industry-suggestions"
                 />
                 {industrySuggestionsQuery.isSuccess &&
                 industrySuggestionsQuery.data.length > 0 ? (
                   <datalist id="portfolio-industry-suggestions">
-                    {industrySuggestionsQuery.data.map((name) => (
-                      <option key={name} value={name} />
-                    ))}
+                    {industrySuggestionsQuery.data.map((name) => {
+                      const label = toTitleCaseLabel(name);
+                      return <option key={name} value={label} />;
+                    })}
                   </datalist>
                 ) : null}
                 {industrySuggestionsQuery.isSuccess &&
                 industrySuggestionsQuery.data.length > 0 ? (
                   <SuggestionChips
-                    items={industrySuggestionsQuery.data.map((name) => ({
-                      key: name,
-                      label: name,
-                      ariaLabel: `Use ${name} as industry`,
-                    }))}
+                    items={industrySuggestionsQuery.data.map((name) => {
+                      const label = toTitleCaseLabel(name);
+                      return {
+                        key: name,
+                        label,
+                        ariaLabel: `Use ${label} as industry`,
+                      };
+                    })}
                     disabled={submitting}
                     selectedLabels={industryLabel ? [industryLabel] : []}
                     onSelect={(name, nextSelected) =>
-                      setIndustryLabel(nextSelected ? name : "")
+                      setIndustryLabel(
+                        nextSelected ? toTitleCaseLabel(name) : "",
+                      )
                     }
                   />
                 ) : null}

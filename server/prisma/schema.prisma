@@ -332,9 +332,17 @@ model CreatorProfile {
   /// Opt-in for transactional/profile/order emails. Set true at signup; legacy rows backfilled false.
   emailNotificationsEnabled    Boolean                     @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
-  whatsappNotificationsEnabled Boolean                     @default(false)
-  createdAt                    DateTime                    @default(now())
-  updatedAt                    DateTime                    @updatedAt
+  whatsappNotificationsEnabled Boolean            @default(false)
+  /// Meta (Facebook) attribution identifiers captured in the creator's browser
+  /// at signup. Replayed via the Conversions API when the creator is listed so
+  /// the (out-of-band, admin-triggered) conversion attributes to the ad the
+  /// creator originally clicked. All optional — tracking is best-effort.
+  metaFbp             String?
+  metaFbc             String?
+  metaSignupIp        String?
+  metaSignupUserAgent String?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
 
   user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   creatorApproval   CreatorApproval?

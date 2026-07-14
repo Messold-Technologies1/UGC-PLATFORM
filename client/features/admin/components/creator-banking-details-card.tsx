@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CLARITY_MASK } from "@/lib/clarity";
 import type { AdminCreatorPayoutDetailsDto } from "@/features/admin/types";
 import { adminCreatorPayoutDetailsQueryKey } from "@/features/admin/api/fetch-admin-creator-payout-details";
 import { useAdminCreatorPayoutDetailsQuery } from "@/features/admin/hooks/use-admin-creator-payout-details-query";
@@ -40,7 +41,9 @@ function CopyableField({ id, label }: { id?: string | null; label: string }) {
         disabled={!id}
         className="flex w-full items-center justify-between rounded-lg border border-transparent bg-secondary/40 p-2.5 text-left transition-all duration-200 hover:border-border/50 hover:bg-secondary/80 disabled:cursor-default disabled:hover:border-transparent disabled:hover:bg-secondary/40"
       >
-        <span className="truncate font-mono text-sm">{id}</span>
+        <span className="truncate font-mono text-sm" {...CLARITY_MASK}>
+          {id}
+        </span>
         {copied ? (
           <span className="shrink-0 text-xs font-medium text-emerald-600">
             Copied

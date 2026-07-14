@@ -39,6 +39,7 @@ import {
 import { authMeQueryKey, type AuthUser } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import { trackPixelCustom } from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
@@ -130,6 +131,23 @@ function isBrandSignupReady(
 ): boolean {
   return getBrandSignupBlockers(values, ctx).length === 0;
 }
+
+/** Mobile-only wizard steps. Desktop (xl:) shows all of these at once. */
+const STEP_TITLES = [
+  "Account",
+  "Contact",
+  "About your brand",
+  "Product details",
+  "Online presence",
+];
+const STEP_FIELDS: (keyof BrandSignupData)[][] = [
+  ["email", "password"],
+  ["contactFullName", "contactEmail", "contactPhone"],
+  ["brandName"],
+  ["productType", "categories", "otherCategoryLabel"],
+  ["website", "instagramUrl", "termsAccepted"],
+];
+const LAST_STEP = STEP_TITLES.length - 1;
 
 const BRAND_CATEGORIES = [
   { slug: "APPAREL_AND_FASHION", label: "Apparel & Fashion" },
@@ -231,6 +249,10 @@ export function BrandRegisterForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<AuthUser | null>(null);
 
+  // Mobile-only step wizard (see STEP_TITLES/STEP_FIELDS above). Desktop (xl:
+  // and up) ignores this and shows every step at once, as before.
+  const [currentStep, setCurrentStep] = useState(0);
+
   const form = useForm<BrandSignupData>({
     resolver: zodResolver(brandSignupSchema),
     mode: "onChange",
@@ -255,8 +277,14 @@ export function BrandRegisterForm() {
   const registerBrandMutation = useMutation({
     mutationKey: ["auth", "register", "brand"],
     mutationFn: registerBrand,
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       setRegisteredUser(result.user);
+      // Meta conversion: brand registration completed (fires in the brand's own
+      // browser, so attribution is correct). Fired before the redirect below.
+      // brand_name is reporting metadata (custom_data), not a matching key.
+      trackPixelCustom("BrandRegistration", {
+        brand_name: variables.brandName,
+      });
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");
@@ -295,6 +323,16 @@ export function BrandRegisterForm() {
       }
     };
   }, [pronunciationAudioPreviewUrl]);
+
+  const handleNextStep = useCallback(async () => {
+    const valid = await form.trigger(STEP_FIELDS[currentStep]);
+    if (!valid) return;
+    setCurrentStep((step) => Math.min(step + 1, LAST_STEP));
+  }, [form, currentStep]);
+
+  const handlePrevStep = useCallback(() => {
+    setCurrentStep((step) => Math.max(step - 1, 0));
+  }, []);
 
   const handleLogoFile = useCallback((file: File | null) => {
     if (!file) return;
@@ -465,11 +503,33 @@ export function BrandRegisterForm() {
             </p>
           </div>
         </div>
+
+        <div className="mt-3 space-y-1.5 xl:hidden">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span>
+              Step {currentStep + 1} of {STEP_TITLES.length}: {STEP_TITLES[currentStep]}
+            </span>
+            <span>{Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%</span>
+          </div>
+          <div className="flex gap-1.5">
+            {STEP_TITLES.map((title, i) => (
+              <div
+                key={title}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors",
+                  i <= currentStep
+                    ? "bg-[#3e76ef]"
+                    : "bg-slate-200 dark:bg-slate-800",
+                )}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
-          <div className="space-y-3">
+          <div className={cn(currentStep === 0 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 1
@@ -559,7 +619,7 @@ export function BrandRegisterForm() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className={cn(currentStep === 1 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 2
@@ -663,7 +723,7 @@ export function BrandRegisterForm() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className={cn(currentStep === 2 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 3
@@ -833,7 +893,7 @@ export function BrandRegisterForm() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className={cn(currentStep === 3 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 4
@@ -1028,7 +1088,7 @@ export function BrandRegisterForm() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className={cn(currentStep === 4 ? "block" : "hidden", "xl:block", "space-y-3")}>
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 5
@@ -1094,6 +1154,34 @@ export function BrandRegisterForm() {
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
+        {currentStep < LAST_STEP ? (
+          <div className="flex items-center gap-3 xl:hidden">
+            {currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevStep}
+                className="h-11 rounded-full px-6 text-[15px] font-bold"
+              >
+                Back
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handleNextStep}
+              className="h-11 flex-1 rounded-full bg-[#3e76ef] text-[15px] font-bold text-white hover:bg-[#2d5cc5] dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
+            >
+              Next
+            </Button>
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            currentStep === LAST_STEP ? "space-y-4" : "hidden",
+            "xl:block xl:space-y-4",
+          )}
+        >
         <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
@@ -1175,6 +1263,7 @@ export function BrandRegisterForm() {
               </Link>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </form>

@@ -16,6 +16,7 @@ import type { RegisterCreatorDto } from './dto/register-creator.dto';
 import type { RegisterBrandDto } from './dto/register-brand.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
+import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 
 const SALT_ROUNDS = 10;
 const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
@@ -112,6 +113,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly signupRegistration: SignupRegistrationService,
+    private readonly metaCapi: MetaCapiService,
   ) {}
 
   private hashRefreshToken(token: string): string {
@@ -224,7 +226,30 @@ export class AuthService {
     dto: RegisterCreatorDto,
     meta?: { ipAddress?: string; userAgent?: string },
   ): Promise<AuthResult> {
-    const userId = await this.signupRegistration.registerCreatorUser(dto);
+    const userId = await this.signupRegistration.registerCreatorUser(dto, meta);
+    // Server-side twin of the browser CompleteRegistration event, deduplicated
+    // via the shared metaSignupEventId. Best-effort / fire-and-forget.
+    if (this.metaCapi.enabled) {
+      void this.metaCapi.sendEvent({
+        eventName: 'CreatorRegistration',
+        eventId: dto.metaSignupEventId,
+        actionSource: 'website',
+        eventSourceUrl:
+          this.config.get<string>('FRONTEND_URL') || undefined,
+        userData: {
+          email: dto.email,
+          phone: dto.phone,
+          ...splitFullName(dto.name),
+          city: dto.city,
+          state: dto.state,
+          country: dto.country,
+          fbp: dto.metaFbp,
+          fbc: dto.metaFbc,
+          clientIpAddress: meta?.ipAddress,
+          clientUserAgent: meta?.userAgent,
+        },
+      });
+    }
     return this.authResultAfterSignup(userId, meta);
   }
 

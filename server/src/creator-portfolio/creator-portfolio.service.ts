@@ -30,6 +30,16 @@ function normalizeSuggestion(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+/** Title-case each alphanumeric word (e.g. "real estate" → "Real Estate"). */
+function toTitleCaseLabel(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[A-Za-z0-9]+/g, (word) =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    );
+}
+
 const MAX_SECTIONS_PER_CREATOR = 10;
 
 @Injectable()
@@ -147,19 +157,20 @@ export class CreatorPortfolioService {
         ? PortfolioVisibilityStatus.PUBLIC
         : PortfolioVisibilityStatus.PRIVATE;
 
-    const industryLabel = dto.industryLabel?.trim();
+    const industryLabel = dto.industryLabel?.trim()
+      ? toTitleCaseLabel(dto.industryLabel)
+      : undefined;
     const language = dto.language?.trim();
 
     await Promise.all([
       industryLabel
-        ? this.prisma.portfolioIndustrySuggestion.createMany({
-            data: [
-              {
-                name: industryLabel,
-                normalizedName: normalizeSuggestion(industryLabel),
-              },
-            ],
-            skipDuplicates: true,
+        ? this.prisma.portfolioIndustrySuggestion.upsert({
+            where: { normalizedName: normalizeSuggestion(industryLabel) },
+            create: {
+              name: industryLabel,
+              normalizedName: normalizeSuggestion(industryLabel),
+            },
+            update: { name: industryLabel },
           })
         : Promise.resolve(),
       language
@@ -329,19 +340,22 @@ export class CreatorPortfolioService {
       }
 
       const industryLabel =
-        dto.industryLabel !== undefined ? dto.industryLabel.trim() : undefined;
+        dto.industryLabel !== undefined
+          ? dto.industryLabel.trim()
+            ? toTitleCaseLabel(dto.industryLabel)
+            : ''
+          : undefined;
       const language = dto.language !== undefined ? dto.language.trim() : undefined;
 
       await Promise.all([
         industryLabel
-          ? tx.portfolioIndustrySuggestion.createMany({
-              data: [
-                {
-                  name: industryLabel,
-                  normalizedName: normalizeSuggestion(industryLabel),
-                },
-              ],
-              skipDuplicates: true,
+          ? tx.portfolioIndustrySuggestion.upsert({
+              where: { normalizedName: normalizeSuggestion(industryLabel) },
+              create: {
+                name: industryLabel,
+                normalizedName: normalizeSuggestion(industryLabel),
+              },
+              update: { name: industryLabel },
             })
           : Promise.resolve(),
         language

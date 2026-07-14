@@ -32,9 +32,15 @@ export type RegisterCreatorPayload = {
   state: string;
   country: string;
   bio?: string;
-  driveLink?: string;
+  instagramUrl?: string;
   categorySlugs: string[];
   portfolioSignupVideoTempKeys?: string[];
+  /** Meta attribution cookies captured in the creator's browser at signup,
+   * replayed server-side via the Conversions API when the creator is listed. */
+  metaFbp?: string;
+  metaFbc?: string;
+  /** Shared id so the browser + server CreatorRegistration events dedupe. */
+  metaSignupEventId?: string;
 };
 
 export type RegisterCreatorResponse = {

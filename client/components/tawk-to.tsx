@@ -90,7 +90,7 @@ function ensureTawkScript() {
   script.async = true;
   script.src = TAWK_SRC;
   script.charset = "UTF-8";
-  script.setAttribute("crossorigin", "*");
+  script.crossOrigin = "anonymous";
   document.body.appendChild(script);
 }
 

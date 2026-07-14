@@ -20,7 +20,10 @@ import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { UpdatePortfolioVideoPayload } from "@/features/creator-portfolio/api/update-portfolio-video";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
-import { capitalizeFirstLetter } from "@/lib/string-lists";
+import {
+  capitalizeFirstLetter,
+  toTitleCaseLabel,
+} from "@/lib/string-lists";
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -311,7 +314,7 @@ export function PortfolioEditDrawer({
 }) {
   const isCreate = video == null;
   const [industry, setIndustry] = useState(
-    capitalizeFirstLetter(video?.industryLabel ?? ""),
+    toTitleCaseLabel(video?.industryLabel ?? ""),
   );
   const [description, setDescription] = useState(video?.description ?? "");
   const [tags, setTags] = useState<string[]>(video?.tags ?? []);
@@ -322,7 +325,7 @@ export function PortfolioEditDrawer({
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    setIndustry(capitalizeFirstLetter(video?.industryLabel ?? ""));
+    setIndustry(toTitleCaseLabel(video?.industryLabel ?? ""));
     setDescription(video?.description ?? "");
     setTags(video?.tags ?? []);
     setLanguage(video?.language ?? "");
@@ -341,7 +344,7 @@ export function PortfolioEditDrawer({
 
   function handleSave() {
     onSave({
-      industryLabel: industry ? capitalizeFirstLetter(industry) : undefined,
+      industryLabel: industry ? toTitleCaseLabel(industry) : undefined,
       description: description || undefined,
       tags,
       language: language || undefined,

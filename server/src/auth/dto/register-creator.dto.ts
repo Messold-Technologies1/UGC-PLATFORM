@@ -84,18 +84,13 @@ export class RegisterCreatorDto {
   bio?: string;
 
   @ApiPropertyOptional({
-    example: 'https://drive.google.com/drive/folders/abc123',
-    description:
-      'Optional Google Drive sharing link (Anyone with the link → Viewer)',
+    example: '@jane',
+    description: 'Instagram handle or profile URL (plain string).',
   })
   @IsOptional()
   @IsString()
-  @MaxLength(2048)
-  @Matches(/^https:\/\/(drive\.google\.com|docs\.google\.com)\/.+/i, {
-    message:
-      'driveLink must be a Google Drive or Google Docs URL (https://drive.google.com/... or https://docs.google.com/...)',
-  })
-  driveLink?: string;
+  @MaxLength(500)
+  instagramUrl?: string;
 
   @ApiProperty({
     type: [String],
@@ -117,4 +112,31 @@ export class RegisterCreatorDto {
   @IsArray()
   @IsString({ each: true })
   portfolioSignupVideoTempKeys?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Meta Pixel _fbp cookie captured in the browser at signup (for Conversions API attribution).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  metaFbp?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Meta Pixel _fbc cookie (ad-click id) captured in the browser at signup.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  metaFbc?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Shared event id for deduplicating the browser + server CompleteRegistration events in Meta.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  metaSignupEventId?: string;
 }

@@ -8,6 +8,7 @@ import { AppShellProviders } from "@/providers/app-providers";
 import { GlobalVideoManager } from "@/components/global-video-manager";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { TawkToChat } from "@/components/tawk-to";
+import { ClarityInit, ClarityUserSync } from "@/components/clarity";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -20,6 +21,26 @@ try {
   }
 } catch {}
 `;
+
+// Meta (Facebook) Pixel base loader. Only injected when NEXT_PUBLIC_META_PIXEL_ID
+// is set (see lib/env.ts) — leaving it empty is the kill switch. Initializes the
+// pixel and fires PageView; all other events are fired via lib/meta-pixel.ts.
+const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
+const metaPixelScript = metaPixelId
+  ? `
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.crossOrigin='anonymous';
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${metaPixelId}');
+fbq('track', 'PageView');
+`
+  : null;
 
 const dmSans = DM_Sans({
   variable: "--font-heading",
@@ -76,6 +97,25 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: themeColorScript }}
         />
+        {metaPixelScript ? (
+          <>
+            <Script
+              id="meta-pixel"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{ __html: metaPixelScript }}
+            />
+            <noscript>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                height="1"
+                width="1"
+                style={{ display: "none" }}
+                alt=""
+                src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
+              />
+            </noscript>
+          </>
+        ) : null}
         <GlobalVideoManager />
         <BoneyardBootstrap />
         <a
@@ -86,10 +126,12 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           <AppShellProviders>
+            <ClarityUserSync />
             <ErrorBoundary>{children}</ErrorBoundary>
           </AppShellProviders>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
+        <ClarityInit />
         <Analytics />
         <SpeedInsights />
         <TawkToChat />

@@ -25,7 +25,7 @@ import { AgencyModule } from './agency/agency.module';
 import { MailModule } from './mail/mail.module';
 import { CitiesModule } from './cities/cities.module';
 import { LegalPagesModule } from './legal-pages/legal-pages.module';
-import { SocialConnectionsModule } from './social-connections/social-connections.module';
+import { MetaCapiModule } from './meta-capi/meta-capi.module';
 
 @Module({
   imports: [
@@ -42,6 +42,7 @@ import { SocialConnectionsModule } from './social-connections/social-connections
     ]),
     PrismaModule,
     MailModule,
+    MetaCapiModule,
     BrandAccessModule,
     StorageModule,
     HealthModule,

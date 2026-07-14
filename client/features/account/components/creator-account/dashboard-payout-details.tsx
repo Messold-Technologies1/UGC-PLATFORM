@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreatorPayoutDetailsQuery } from "@/features/creators/hooks/use-creator-payout-details-query";
 import { useCreatorPayoutDetailsMutation } from "@/features/creators/hooks/use-creator-payout-details-mutation";
 import { useAuth } from "@/providers/auth-provider";
+import { CLARITY_MASK } from "@/lib/clarity";
 
 const payoutSchema = z.discriminatedUnion("method", [
   z.object({
@@ -111,6 +112,7 @@ export function DashboardPayoutDetails() {
     <div
       id="payment-details"
       className="rounded-lg border border-border bg-card p-5 shadow-sm"
+      {...CLARITY_MASK}
     >
       <div className="flex flex-col">
         <div className="flex items-center justify-between">

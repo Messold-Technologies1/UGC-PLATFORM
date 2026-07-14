@@ -156,7 +156,7 @@ export function BrandRegisterPage() {
 
       <div className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:h-dvh xl:min-h-0 xl:overflow-hidden">
         <div className="shrink-0 border-b border-blue-100/80 px-4 pb-4 pt-4 dark:border-slate-800 xl:hidden">
-          <AuthLogoLink imageClassName="h-14 sm:h-16" />
+          <AuthLogoLink className="flex justify-center" imageClassName="h-20 sm:h-24" />
           <p className="mt-3 text-base font-bold leading-snug text-slate-900">
             Manage creator collaborations{" "}
             <span className="text-[#5138ed]">without the chaos.</span>

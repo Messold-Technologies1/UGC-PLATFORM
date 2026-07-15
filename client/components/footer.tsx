@@ -1,82 +1,139 @@
 import { memo } from "react";
 import Link from "next/link";
-import { Sticker } from "@/components/landing/marketing/sticker";
 import { SITE_NAME } from "@/config/site";
 
 const shell = "mx-auto w-full max-w-site px-4 sm:px-6 lg:px-8";
 
-const columns = [
-  {
-    title: "Platform",
-    links: [
-      { href: "/brand/creators", label: "For Brands" },
-      { href: "/login?role=creator", label: "For Creators" },
-      { href: "/brand/creators", label: "Browse Creators" },
-      { href: "/#pricing", label: "Pricing" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { href: "/about", label: "About" },
-      { href: "/contact", label: "Contact Us" },
-      { href: "/blog", label: "Blog" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { href: "/legal/privacy", label: "Privacy Policy" },
-      { href: "/legal/terms", label: "Terms of Service" },
-      { href: "/legal/terms#refunds-cancellations-and-disputes", label: "Refund Policy" },
-      { href: "/legal/terms#brand-content-product-claims-and-regulated-categories", label: "Creator Guidelines" },
-    ],
-  },
-];
-
 export const Footer = memo(function Footer() {
   return (
     <footer className="bg-foreground text-background">
-      <div
-        className={`${shell} grid gap-10 py-16 md:grid-cols-2 lg:grid-cols-5`}
-      >
-        <div className="lg:col-span-2">
-          <Link href="/" prefetch className="inline-flex shrink-0 items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element -- footer brand mark matches navbar asset */}
-            <img
-              src="/brand-logo.png"
-              alt={SITE_NAME}
-              width={688}
-              height={160}
-              className="h-11 max-h-none w-auto max-w-[min(260px,calc(100vw-48px))] object-contain object-left sm:h-12"
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-            />
-          </Link>
-          <p className="mt-4 max-w-sm text-background/70">
-            UGC without the DM drama. The marketplace where creators and brands
-            collaborate to create authentic content that actually sells.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Sticker tone="lime">Pay Safe</Sticker>
-            <Sticker tone="pink">Refund Safe</Sticker>
-            <Sticker tone="sky">Verified Creators</Sticker>
+      <div className={`${shell} py-16 pb-8`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr] gap-10 lg:gap-8 pb-11 border-b border-background/15">
+          <div>
+            <Link href="/" prefetch className="mb-3.5 flex items-center gap-2">
+              <img
+                src="/assets/logo.png"
+                alt={SITE_NAME}
+                width={24}
+                height={24}
+                className="h-6 w-6 rounded-md object-contain"
+                loading="lazy"
+                decoding="async"
+              />
+              <span className="font-heading text-base font-extrabold text-background tracking-tight">
+                {SITE_NAME}
+              </span>
+            </Link>
+            <p className="max-w-[240px] text-sm text-background/65">
+              Built with ✦ for the creator economy.
+            </p>
+            <p className="mt-4.5 text-xs text-background/55 leading-relaxed">
+              GoCollab is a technology platform owned and operated by Messold
+              Technologies, facilitating discovery, communication, and campaign
+              management between brands and creators. Use is subject to the
+              Terms of Service, Privacy Policy, and Cookie Policy. All content,
+              software, and trademarks remain the property of Messold
+              Technologies or its licensors.
+            </p>
           </div>
-        </div>
 
-        {columns.map(({ title, links }) => (
-          <div key={title}>
-            <h4 className="font-heading text-lg font-bold text-lime">
-              {title}
-            </h4>
-            <ul className="mt-4 space-y-2.5">
-              {links.map(({ href, label }) => (
-                <li key={`${title}-${label}`}>
+          <div>
+            <div className="mb-3.5 text-sm font-semibold uppercase tracking-wider text-background/55">
+              Company
+            </div>
+            <ul className="mb-5 grid gap-2.5 text-sm">
+              <li>
+                <Link
+                  href="/about"
+                  className="text-background/85 hover:text-background"
+                >
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  className="text-background/85 hover:text-background"
+                >
+                  Contact Us
+                </Link>
+              </li>
+            </ul>
+            <p className="text-sm font-semibold text-background/80">
+              {SITE_NAME}
+            </p>
+            <p className="mt-1 text-xs text-background/60">
+              Owned & operated by Messold Technologies
+            </p>
+            <p className="mt-4.5 text-sm leading-relaxed text-background/80">
+              Synergy Building, IIT Delhi
+              <br />
+              Hauz Khas – 110016
+              <br />
+              New Delhi, India
+            </p>
+            <p className="mt-3.5 text-sm leading-relaxed text-background/80">
+              J-6, Block J, Reserve Bank Enclave
+              <br />
+              Paschim Vihar
+              <br />
+              New Delhi – 110063, India
+            </p>
+          </div>
+
+          <div>
+            <div className="mb-3.5 text-sm font-semibold uppercase tracking-wider text-background/55">
+              Contact
+            </div>
+            <p className="mb-2.5 text-sm">
+              <a
+                href="mailto:support@gocollab.io"
+                className="text-background/85 hover:text-background"
+              >
+                support@gocollab.io
+              </a>
+            </p>
+            <p className="mb-2.5 text-sm">
+              <a
+                href="mailto:hello@messold.com"
+                className="text-background/85 hover:text-background"
+              >
+                hello@messold.com
+              </a>
+            </p>
+            <p className="text-sm text-background/80">+91 72919 88880</p>
+
+            <div className="mt-6 mb-3 text-sm font-semibold uppercase tracking-wider text-background/55">
+              Compliance
+            </div>
+            <ul className="grid gap-1.5 text-xs text-background/60">
+              <li>Information Technology Act, 2000</li>
+              <li>Digital Personal Data Protection Act, 2023</li>
+              <li>Copyright Act, 1957</li>
+              <li>Trade Marks Act, 1999</li>
+              <li>Consumer protection & e-commerce regulations (India)</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="mb-3.5 text-sm font-semibold uppercase tracking-wider text-background/55">
+              Policies
+            </div>
+            <ul className="grid gap-2.5 text-sm">
+              {[
+                { label: "Privacy Policy", href: "/legal/privacy" },
+                { label: "Terms of Service", href: "/legal/terms" },
+                { label: "Cookie Policy", href: "/legal/cookie" },
+                { label: "Community Guidelines", href: "/legal/guidelines" },
+                {
+                  label: "Refund & Cancellation Policy",
+                  href: "/legal/terms#refunds-cancellations-and-disputes",
+                },
+              ].map(({ label, href }) => (
+                <li key={label}>
                   <Link
                     href={href}
-                    prefetch
-                    className="text-sm text-background/70 hover:text-background"
+                    className="text-background/85 hover:text-background"
                   >
                     {label}
                   </Link>
@@ -84,18 +141,14 @@ export const Footer = memo(function Footer() {
               ))}
             </ul>
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div className="border-t border-background/10">
-        <div
-          className={`${shell} flex flex-col items-center justify-between gap-3 py-6 text-center text-sm text-background/60 sm:flex-row sm:text-left`}
-        >
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-6 text-xs text-background/45">
           <p>
-            © {new Date().getFullYear()} {SITE_NAME}. Made for brands that need
-            content and creators who want to get paid.
+            © {new Date().getFullYear()} Messold Technologies. All rights
+            reserved.
           </p>
-          <p>Built with ✦ for the creator economy.</p>
+          <p>Technology Platform & Creator Marketplace</p>
         </div>
       </div>
     </footer>

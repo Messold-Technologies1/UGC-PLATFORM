@@ -26,6 +26,7 @@ import { MailModule } from './mail/mail.module';
 import { CitiesModule } from './cities/cities.module';
 import { LegalPagesModule } from './legal-pages/legal-pages.module';
 import { MetaCapiModule } from './meta-capi/meta-capi.module';
+import { ContactUsModule } from './contact-us/contact-us.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { MetaCapiModule } from './meta-capi/meta-capi.module';
     JobsModule,
     RealtimeModule,
     LegalPagesModule,
+    ContactUsModule,
   ],
   controllers: [AppController],
   providers: [

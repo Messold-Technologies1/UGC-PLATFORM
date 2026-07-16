@@ -755,10 +755,19 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
 
   useEffect(() => {
     if (open) {
+      // Compensate for the scrollbar width so hiding body overflow doesn't
+      // reflow/shift the whole page behind the drawer just as it slides in —
+      // that layout jump is a visible hitch on the open animation.
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
       document.body.style.overflow = "hidden";
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
     }
     return () => {
       document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
     };
   }, [open]);
 
@@ -882,7 +891,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                   {validPortfolioTiles.length + (showIntro ? 1 : 0)} reels
                 </span>
               </div>
-              <div className="dr-reelstrip">
+              {/* Key by creator so the reel <video>/<img> elements remount
+                  fresh when switching creators — otherwise React reuses the
+                  same DOM node and the browser keeps painting the previous
+                  creator's poster until the new one loads. */}
+              <div className="dr-reelstrip" key={activeId ?? "reelstrip"}>
                 {showIntro && c.introVideoUrl && (
                   <div className="dr-reeltile intro">
                     {reelsReady ? (

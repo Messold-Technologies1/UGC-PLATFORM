@@ -12,6 +12,14 @@ export const ENDPOINTS = {
     SIGNUP_PHONE_SEND_OTP: "/api/auth/signup/phone/send-otp",
     SIGNUP_CREATOR_PORTFOLIO_VIDEO_PRESIGN:
       "/api/auth/signup/presign/creator-portfolio-video",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_CREATE:
+      "/api/auth/signup/multipart/creator-portfolio-video/create",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_SIGN_PART:
+      "/api/auth/signup/multipart/creator-portfolio-video/sign-part",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_COMPLETE:
+      "/api/auth/signup/multipart/creator-portfolio-video/complete",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_ABORT:
+      "/api/auth/signup/multipart/creator-portfolio-video/abort",
     SIGNUP_BRAND_LOGO_PRESIGN: "/api/auth/signup/presign/brand-logo",
     SIGNUP_BRAND_PRONUNCIATION_PRESIGN:
       "/api/auth/signup/presign/brand-pronunciation",
@@ -136,6 +144,14 @@ export const ENDPOINTS = {
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
+    UPLOADS_MULTIPART_CREATE:
+      "/api/creator-portfolio/uploads/multipart/create",
+    UPLOADS_MULTIPART_SIGN_PART:
+      "/api/creator-portfolio/uploads/multipart/sign-part",
+    UPLOADS_MULTIPART_COMPLETE:
+      "/api/creator-portfolio/uploads/multipart/complete",
+    UPLOADS_MULTIPART_ABORT:
+      "/api/creator-portfolio/uploads/multipart/abort",
     VIDEOS: "/api/creator-portfolio/videos",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
     VIDEOS_ADMIN: "/api/creator-portfolio/videos/admin",

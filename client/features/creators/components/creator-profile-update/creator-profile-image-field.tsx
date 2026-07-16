@@ -71,7 +71,7 @@ export function CreatorProfileImageField({
         </button>
       </div>
       <p className="pe-media-field-hint">
-        JPG, PNG, or WEBP · Max {PROFILE_IMAGE_MAX_MB} MB
+        JPG, PNG, WEBP, or HEIC · Max {PROFILE_IMAGE_MAX_MB} MB
       </p>
     </div>
   );

@@ -3,6 +3,11 @@ import React from "react";
 import { Manrope, Inter } from "next/font/google";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
+// Auth-gated workspace: the segment template reads the session cookie and calls
+// the auth guard, so these routes are always per-request. Force dynamic so the
+// build never prerenders them (which would run the guard with no API reachable).
+export const dynamic = "force-dynamic";
+
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-heading" });
 const inter = Inter({
   subsets: ["latin"],

@@ -32,6 +32,15 @@ import {
   PresignPortfolioUploadDto,
   PresignPortfolioUploadResponseDto,
 } from './dto/presign-portfolio-upload.dto';
+import {
+  AbortMultipartUploadDto,
+  CompleteMultipartUploadDto,
+  CompleteMultipartUploadResponseDto,
+  CreateMultipartUploadDto,
+  CreateMultipartUploadResponseDto,
+  SignMultipartPartDto,
+  SignMultipartPartResponseDto,
+} from './dto/multipart-portfolio-upload.dto';
 import { PortfolioVideoResponseDto } from './dto/portfolio-video-response.dto';
 import { DeletePortfolioVideoQueryDto } from './dto/delete-portfolio-video-query.dto';
 import { ListAdminPortfolioVideosQueryDto } from './dto/list-admin-portfolio-videos-query.dto';
@@ -64,6 +73,62 @@ export class CreatorPortfolioController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<PresignPortfolioUploadResponseDto> {
     return this.service.presignUpload(req.user.id, dto, dto.creatorId);
+  }
+
+  @Post('uploads/multipart/create')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Begin a multipart S3 upload for large portfolio media',
+    description:
+      'Used for large videos so each part uploads against its own presigned URL, avoiding the single-PUT expiry. Follow with sign-part (per part) then complete.',
+  })
+  @ApiCreatedResponse({ type: CreateMultipartUploadResponseDto })
+  async createMultipartUpload(
+    @Body() dto: CreateMultipartUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreateMultipartUploadResponseDto> {
+    return this.service.createMultipartUpload(req.user.id, dto);
+  }
+
+  @Post('uploads/multipart/sign-part')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Presign a single part of a multipart upload' })
+  @ApiCreatedResponse({ type: SignMultipartPartResponseDto })
+  async signMultipartPart(
+    @Body() dto: SignMultipartPartDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<SignMultipartPartResponseDto> {
+    return this.service.signMultipartPart(req.user.id, dto);
+  }
+
+  @Post('uploads/multipart/complete')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Finalize a multipart upload once all parts are done' })
+  @ApiCreatedResponse({ type: CompleteMultipartUploadResponseDto })
+  async completeMultipartUpload(
+    @Body() dto: CompleteMultipartUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CompleteMultipartUploadResponseDto> {
+    return this.service.completeMultipartUpload(req.user.id, dto);
+  }
+
+  @Post('uploads/multipart/abort')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Multipart upload aborted' })
+  @ApiOperation({ summary: 'Cancel a multipart upload and discard uploaded parts' })
+  async abortMultipartUpload(
+    @Body() dto: AbortMultipartUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.service.abortMultipartUpload(req.user.id, dto);
   }
 
   @Post('videos')

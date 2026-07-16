@@ -19,3 +19,19 @@ export interface PresignedUploadResult {
   cdnUrl: string;
 }
 
+/** One finished part of a multipart upload, as reported back by the browser. */
+export interface CompletedUploadPart {
+  partNumber: number;
+  /** ETag returned by S3 in the UploadPart response (quoted). */
+  etag: string;
+}
+
+export interface MultipartUploadInit {
+  key: string;
+  uploadId: string;
+  cdnUrl: string;
+  /** Byte size the client should slice each part to (except the final one). */
+  partSizeBytes: number;
+  expiresInSeconds: number;
+}
+

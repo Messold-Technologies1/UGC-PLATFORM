@@ -9,6 +9,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
 import { PresignPortfolioUploadDto } from './dto/presign-portfolio-upload.dto';
+import {
+  AbortMultipartUploadDto,
+  CompleteMultipartUploadDto,
+  CreateMultipartUploadDto,
+  SignMultipartPartDto,
+} from './dto/multipart-portfolio-upload.dto';
 import { UpdatePortfolioVideoDto } from './dto/update-portfolio-video.dto';
 import { PortfolioVideoResponseDto } from './dto/portfolio-video-response.dto';
 import { CreatePortfolioSectionDto } from './dto/create-portfolio-section.dto';
@@ -135,6 +141,85 @@ export class CreatorPortfolioService {
       key,
       contentType: dto.contentType,
       contentLength: dto.contentLength,
+    });
+  }
+
+  /** Owner check for a portfolio media key covering both videos and thumbnails. */
+  private assertOwnedMediaKey(creatorId: string, key: string): void {
+    const videoPrefix = `creator-portfolio/${creatorId}/videos/`;
+    const thumbPrefix = `creator-portfolio/${creatorId}/thumbnails/`;
+    if (!key.startsWith(videoPrefix) && !key.startsWith(thumbPrefix)) {
+      throw new ForbiddenException('Invalid upload key');
+    }
+  }
+
+  async createMultipartUpload(
+    actingUserId: string,
+    dto: CreateMultipartUploadDto,
+  ) {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      dto.creatorId,
+    );
+    const kind =
+      dto.kind === 'video'
+        ? 'creator_portfolio_video'
+        : 'creator_portfolio_thumbnail';
+    const key = this.storage.buildObjectKey({
+      kind,
+      userId: profile.userId,
+      creatorProfileId: profile.id,
+      contentType: dto.contentType,
+    });
+    return this.storage.createMultipartUpload({
+      key,
+      contentType: dto.contentType,
+    });
+  }
+
+  async signMultipartPart(actingUserId: string, dto: SignMultipartPartDto) {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      dto.creatorId,
+    );
+    this.assertOwnedMediaKey(profile.id, dto.key);
+    const url = await this.storage.signUploadPart({
+      key: dto.key,
+      uploadId: dto.uploadId,
+      partNumber: dto.partNumber,
+    });
+    return { url };
+  }
+
+  async completeMultipartUpload(
+    actingUserId: string,
+    dto: CompleteMultipartUploadDto,
+  ) {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      dto.creatorId,
+    );
+    this.assertOwnedMediaKey(profile.id, dto.key);
+    const key = await this.storage.completeMultipartUpload({
+      key: dto.key,
+      uploadId: dto.uploadId,
+      parts: dto.parts,
+    });
+    return { key, cdnUrl: this.storage.buildCdnUrl(key) };
+  }
+
+  async abortMultipartUpload(
+    actingUserId: string,
+    dto: AbortMultipartUploadDto,
+  ): Promise<void> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      dto.creatorId,
+    );
+    this.assertOwnedMediaKey(profile.id, dto.key);
+    await this.storage.abortMultipartUpload({
+      key: dto.key,
+      uploadId: dto.uploadId,
     });
   }
 

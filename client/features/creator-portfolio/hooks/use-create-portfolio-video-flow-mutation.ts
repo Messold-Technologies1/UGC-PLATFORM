@@ -17,6 +17,11 @@ import {
   presignPortfolioUpload,
   putPortfolioFileToPresignedUrl,
 } from "../api/presign-portfolio-upload";
+import {
+  PORTFOLIO_VIDEO_MAX_BYTES,
+  formatBytes,
+  uploadPortfolioVideo,
+} from "../lib/upload-portfolio-video";
 
 type CreatePortfolioVideoFlowVariables = {
   videoFile: File;
@@ -24,6 +29,8 @@ type CreatePortfolioVideoFlowVariables = {
   visibility: "public" | "private";
   metadataPatch: UpdatePortfolioVideoPayload | null;
   adminCreatorId?: string;
+  /** Reports video upload progress as a 0..1 fraction. */
+  onProgress?: (fraction: number) => void;
 };
 
 function resolveVideoContentType(file: File): string {
@@ -87,20 +94,21 @@ export function useCreatePortfolioVideoFlowMutation(options?: { preventRedirect?
       visibility,
       metadataPatch,
       adminCreatorId,
+      onProgress,
     }: CreatePortfolioVideoFlowVariables) => {
-      const requestOptions = adminCreatorId ? { adminCreatorId } : undefined;
-      const uploadVideo = async () => {
-        const videoPresign = await presignPortfolioUpload(
-          {
-            kind: "video",
-            contentType: resolveVideoContentType(videoFile),
-            contentLength: videoFile.size,
-          },
-          requestOptions,
+      if (videoFile.size > PORTFOLIO_VIDEO_MAX_BYTES) {
+        throw new Error(
+          `Video is too large (max ${formatBytes(PORTFOLIO_VIDEO_MAX_BYTES)}).`,
         );
-        await putPortfolioFileToPresignedUrl(videoFile, videoPresign);
-        return videoPresign.key;
-      };
+      }
+      const requestOptions = adminCreatorId ? { adminCreatorId } : undefined;
+      const uploadVideo = () =>
+        uploadPortfolioVideo(
+          videoFile,
+          resolveVideoContentType(videoFile),
+          requestOptions,
+          onProgress,
+        );
 
       const uploadThumbnail = async () => {
         if (!thumbnailFile) return undefined;

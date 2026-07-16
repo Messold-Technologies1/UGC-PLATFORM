@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
   Post,
@@ -15,6 +16,15 @@ import {
 import { PhoneVerificationService } from './phone-verification.service';
 import { SignupSendPhoneOtpDto } from './dto/signup-send-phone-otp.dto';
 import { SignupPresignUploadDto } from './dto/signup-presign-upload.dto';
+import {
+  SignupAbortMultipartUploadDto,
+  SignupCompleteMultipartUploadDto,
+  SignupCompleteMultipartUploadResponseDto,
+  SignupCreateMultipartUploadDto,
+  SignupCreateMultipartUploadResponseDto,
+  SignupSignMultipartPartDto,
+  SignupSignMultipartPartResponseDto,
+} from './dto/signup-multipart-upload.dto';
 import { StorageService } from '../storage/storage.service';
 import { PresignUploadResponseDto } from '../brand-profile/dto/presign-brand-logo-upload.dto';
 
@@ -54,6 +64,82 @@ export class AuthSignupController {
       contentType: dto.contentType,
       contentLength: dto.contentLength,
     });
+  }
+
+  @Post('multipart/creator-portfolio-video/create')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Begin a multipart upload for a signup portfolio video',
+  })
+  @ApiCreatedResponse({ type: SignupCreateMultipartUploadResponseDto })
+  async createCreatorPortfolioVideoMultipart(
+    @Body() dto: SignupCreateMultipartUploadDto,
+  ): Promise<SignupCreateMultipartUploadResponseDto> {
+    const key = this.storage.buildTempCreatorPortfolioVideoKeyForSignup(
+      dto.email,
+      dto.contentType,
+    );
+    return this.storage.createMultipartUpload({
+      key,
+      contentType: dto.contentType,
+    });
+  }
+
+  @Post('multipart/creator-portfolio-video/sign-part')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 200, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Presign one part of a signup portfolio video upload' })
+  @ApiCreatedResponse({ type: SignupSignMultipartPartResponseDto })
+  async signCreatorPortfolioVideoPart(
+    @Body() dto: SignupSignMultipartPartDto,
+  ): Promise<SignupSignMultipartPartResponseDto> {
+    this.assertSignupVideoKeyOwner(dto.email, dto.key);
+    const url = await this.storage.signUploadPart({
+      key: dto.key,
+      uploadId: dto.uploadId,
+      partNumber: dto.partNumber,
+    });
+    return { url };
+  }
+
+  @Post('multipart/creator-portfolio-video/complete')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Finalize a signup portfolio video multipart upload' })
+  @ApiCreatedResponse({ type: SignupCompleteMultipartUploadResponseDto })
+  async completeCreatorPortfolioVideoMultipart(
+    @Body() dto: SignupCompleteMultipartUploadDto,
+  ): Promise<SignupCompleteMultipartUploadResponseDto> {
+    this.assertSignupVideoKeyOwner(dto.email, dto.key);
+    const key = await this.storage.completeMultipartUpload({
+      key: dto.key,
+      uploadId: dto.uploadId,
+      parts: dto.parts,
+    });
+    return { key, cdnUrl: this.storage.buildCdnUrl(key) };
+  }
+
+  @Post('multipart/creator-portfolio-video/abort')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Cancel a signup portfolio video multipart upload' })
+  @ApiNoContentResponse({ description: 'Multipart upload aborted' })
+  async abortCreatorPortfolioVideoMultipart(
+    @Body() dto: SignupAbortMultipartUploadDto,
+  ): Promise<void> {
+    this.assertSignupVideoKeyOwner(dto.email, dto.key);
+    await this.storage.abortMultipartUpload({
+      key: dto.key,
+      uploadId: dto.uploadId,
+    });
+  }
+
+  /** The temp key embeds a hash of the email; reject keys that don't match. */
+  private assertSignupVideoKeyOwner(email: string, key: string): void {
+    if (!this.storage.isTempCreatorPortfolioVideoKeyForSignup(email, key)) {
+      throw new ForbiddenException('Invalid upload key');
+    }
   }
 
   @Post('presign/brand-logo')

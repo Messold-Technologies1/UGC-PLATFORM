@@ -42,13 +42,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 
 import {
-  presignCreatorPortfolioVideo,
-  putFileToPresignedUrl,
   registerCreator,
   sendSignupPhoneOtp,
 } from "@/features/auth/api/creator-signup";
+import { uploadSignupPortfolioVideo } from "@/features/auth/lib/upload-signup-portfolio-video";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
@@ -67,7 +67,8 @@ const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
 /** Set to true when signup OTP verification is re-enabled (matches server). */
 const SIGNUP_OTP_VERIFICATION_ENABLED = false;
-const MAX_PORTFOLIO_VIDEO_BYTES = 200 * 1024 * 1024;
+const MAX_PORTFOLIO_VIDEO_BYTES = 1024 * 1024 * 1024; // 1 GB
+const MAX_PORTFOLIO_VIDEO_LABEL = "1 GB";
 const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
   "video/mp4",
   "video/quicktime",
@@ -236,7 +237,7 @@ function validatePortfolioVideoFile(file: File): string | null {
     return "Upload an MP4, MOV, or WebM video.";
   }
   if (file.size > MAX_PORTFOLIO_VIDEO_BYTES) {
-    return "Portfolio video must be 200 MB or smaller.";
+    return `Portfolio video must be ${MAX_PORTFOLIO_VIDEO_LABEL} or smaller.`;
   }
   return null;
 }
@@ -268,6 +269,9 @@ export function CreatorRegisterForm() {
   const [portfolioVideoError, setPortfolioVideoError] = useState<string | null>(
     null,
   );
+  const [videoUploadProgress, setVideoUploadProgress] = useState<
+    Record<number, number>
+  >({});
   const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
     "idle" | "uploading" | "uploaded"
   >("idle");
@@ -512,16 +516,18 @@ export function CreatorRegisterForm() {
 
       setPortfolioVideoStatus("uploading");
       setPortfolioVideoError(null);
+      setVideoUploadProgress({});
 
       const keys: string[] = [];
-      for (const file of portfolioVideoFiles) {
-        const presign = await presignCreatorPortfolioVideo({
+      for (let index = 0; index < portfolioVideoFiles.length; index += 1) {
+        const file = portfolioVideoFiles[index];
+        const key = await uploadSignupPortfolioVideo(
+          file,
           email,
-          contentType: file.type,
-          contentLength: file.size,
-        });
-        await putFileToPresignedUrl(file, presign);
-        keys.push(presign.key);
+          (fraction) =>
+            setVideoUploadProgress((prev) => ({ ...prev, [index]: fraction })),
+        );
+        keys.push(key);
       }
 
       setPortfolioVideoTempKeys(keys);
@@ -1372,7 +1378,8 @@ export function CreatorRegisterForm() {
                       </span>
                     </p>
                     <p className="mt-0.5 text-[13px] text-slate-500">
-                      MP4, MOV up to 200 MB per file &middot; 9:16 vertical preferred
+                      MP4, MOV up to {MAX_PORTFOLIO_VIDEO_LABEL} per file
+                      &middot; 9:16 vertical preferred
                     </p>
                     {portfolioVideoError ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -1404,9 +1411,19 @@ export function CreatorRegisterForm() {
                             {formatBytes(file.size)} &middot;{" "}
                             {file.type || "video"}
                             {portfolioVideoStatus === "uploading" &&
-                              " (Uploading...)"}
+                              ` (Uploading… ${Math.round(
+                                (videoUploadProgress[index] ?? 0) * 100,
+                              )}%)`}
                             {portfolioVideoStatus === "uploaded" && " (Uploaded)"}
                           </p>
+                          {portfolioVideoStatus === "uploading" ? (
+                            <Progress
+                              className="mt-2"
+                              value={Math.round(
+                                (videoUploadProgress[index] ?? 0) * 100,
+                              )}
+                            />
+                          ) : null}
                         </div>
                         <button
                           type="button"

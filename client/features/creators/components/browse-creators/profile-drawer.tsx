@@ -6,6 +6,7 @@ import React, {
   useRef,
   useCallback,
   useMemo,
+  startTransition,
   type ReactNode,
 } from "react";
 import { OrderModal } from "./order-modal";
@@ -106,6 +107,35 @@ const SkeletonBlock = React.memo(function SkeletonBlock({
       className="dr-skeleton-bar"
       style={{ width: "100%", height, ...style }}
     />
+  );
+});
+
+// Lightweight placeholder shown in a reel tile before the real <video> is
+// mounted. Renders just the poster image (if any) plus a play affordance so
+// the tile looks identical to the loaded state, without the cost of a media
+// element.
+const ReelPoster = React.memo(function ReelPoster({
+  poster,
+}: {
+  poster?: string | null;
+}) {
+  return (
+    <>
+      {poster ? (
+        // eslint-disable-next-line @next/next/no-img-element -- remote media poster; sized by CSS
+        <img
+          src={poster}
+          alt=""
+          className="real-media"
+          decoding="async"
+          loading="lazy"
+          draggable={false}
+        />
+      ) : null}
+      <span className="dr-reel-ph" aria-hidden="true">
+        <Play size={18} />
+      </span>
+    </>
   );
 });
 
@@ -671,6 +701,12 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
 
   const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
   const [introFailed, setIntroFailed] = useState(false);
+  // Defer mounting the reel <video> elements until the open animation has
+  // finished. Mounting several media elements (each firing its own metadata
+  // request + poster decode) at the same instant as the slide-in animation is
+  // what makes the drawer stutter on a cold cache. Until then we show cheap
+  // poster images, then swap in the real players.
+  const [reelsReady, setReelsReady] = useState(false);
 
   const creatorIndex = useMemo(
     () =>
@@ -684,9 +720,18 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     if (open) {
       setTab("overview");
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
-    } else {
-      setOrderOpen(false);
+      // Hold the reels back until just after the slide-in transition (0.34s)
+      // completes, then mount them as a non-urgent (interruptible) update so
+      // it never competes with the open animation.
+      setReelsReady(false);
+      const timer = window.setTimeout(() => {
+        startTransition(() => setReelsReady(true));
+      }, 380);
+      return () => window.clearTimeout(timer);
     }
+    setOrderOpen(false);
+    setReelsReady(false);
+    return undefined;
   }, [open, activeId]);
 
   const onCloseRef = useRef(onClose);
@@ -802,6 +847,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   });
 
   const showIntro = !!c.introVideoUrl && !introFailed;
+  const introPoster = c.previewVideoThumbnail || c.thumbnail;
 
   return (
     <>
@@ -839,15 +885,19 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               <div className="dr-reelstrip">
                 {showIntro && c.introVideoUrl && (
                   <div className="dr-reeltile intro">
-                    <video
-                      src={c.introVideoUrl}
-                      className="real-media"
-                      controls
-                      playsInline
-                      preload="metadata"
-                      poster={c.previewVideoThumbnail || c.thumbnail}
-                      onError={handleIntroError}
-                    />
+                    {reelsReady ? (
+                      <video
+                        src={c.introVideoUrl}
+                        className="real-media"
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={introPoster}
+                        onError={handleIntroError}
+                      />
+                    ) : (
+                      <ReelPoster poster={introPoster} />
+                    )}
                     <div className="tscrim" style={{ pointerEvents: "none" }} />
                     <span className="tbadge" style={{ pointerEvents: "none" }}>
                       Intro reel
@@ -861,15 +911,19 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                     className="dr-reeltile"
                     style={{ background: "#111" }}
                   >
-                    <video
-                      src={tile.videoUrl}
-                      className="real-media"
-                      controls
-                      playsInline
-                      preload="metadata"
-                      poster={tile.thumbnailUrl || undefined}
-                      onError={() => handleVideoError(tile.id)}
-                    />
+                    {reelsReady ? (
+                      <video
+                        src={tile.videoUrl}
+                        className="real-media"
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={tile.thumbnailUrl || undefined}
+                        onError={() => handleVideoError(tile.id)}
+                      />
+                    ) : (
+                      <ReelPoster poster={tile.thumbnailUrl || undefined} />
+                    )}
                     <div className="tscrim" style={{ pointerEvents: "none" }} />
                   </div>
                 ))}

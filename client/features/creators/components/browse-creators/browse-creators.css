@@ -312,8 +312,10 @@
 .browse-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(18, 14, 14, 0.42);
-  backdrop-filter: blur(2px);
+  /* A slightly deeper tint replaces the previous backdrop-filter: blur(),
+     which forced a full-viewport repaint on every frame of the fade and
+     competed with the drawer's slide-in for main-thread time. */
+  background: rgba(18, 14, 14, 0.5);
   z-index: 60;
   opacity: 0;
   pointer-events: none;
@@ -336,6 +338,9 @@
   box-shadow: var(--shadow-lg);
   transform: translateX(100%);
   transition: transform 0.34s cubic-bezier(0.22, 0.61, 0.27, 1);
+  /* Promote to its own compositor layer so the slide-in is a cheap GPU
+     transform instead of repainting the panel each frame. */
+  will-change: transform;
   display: flex;
   flex-direction: column;
 }
@@ -521,6 +526,25 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Play affordance shown on the poster placeholder before the <video> mounts */
+.dr-reeltile .dr-reel-ph {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.dr-reeltile .dr-reel-ph svg {
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(7px);
 }
 
 .dr-identity {

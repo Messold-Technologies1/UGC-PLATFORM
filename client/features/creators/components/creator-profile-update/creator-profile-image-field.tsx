@@ -27,10 +27,14 @@ export function CreatorProfileImageField({
     <div className="pe-media-field">
       <div className="pe-media-field-preview pe-media-field-preview--photo">
         {imagePreviewUrl ? (
+          // unoptimized: loaded straight from the CDN. The Next image optimizer
+          // chokes on these large source photos and leaves them broken, while
+          // the raw URL loads fine (same approach as the admin creator list).
           <Image
             src={imagePreviewUrl}
             alt="Profile"
             fill
+            unoptimized
             style={{ objectFit: "cover" }}
           />
         ) : (

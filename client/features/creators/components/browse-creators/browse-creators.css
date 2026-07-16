@@ -424,7 +424,7 @@
 .dr-reeltile {
   position: relative;
   flex-shrink: 0;
-  width: 150px;
+  width: 190px;
   aspect-ratio: 9 / 16;
   border-radius: 14px;
   overflow: hidden;
@@ -441,7 +441,7 @@
   box-shadow: var(--shadow-md);
 }
 .dr-reeltile.intro {
-  width: 178px;
+  width: 226px;
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent),
     var(--shadow-md);
 }
@@ -604,21 +604,23 @@
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  padding: 7px 12px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--primary);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
   text-decoration: none;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--background);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--primary);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s, border-color 0.15s;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .dr-tabs-profile-link:hover {
-  background: color-mix(in srgb, var(--primary) 6%, var(--background));
-  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: color-mix(in srgb, var(--primary) 88%, #000);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 40%, transparent);
+  transform: translateY(-1px);
 }
 .dr-tabs button {
   border: 0;
@@ -1031,10 +1033,10 @@
     padding: 0 16px 11px;
   }
   .dr-reeltile {
-    width: 130px;
+    width: 165px;
   }
   .dr-reeltile.intro {
-    width: 155px;
+    width: 196px;
   }
   .dr-details-grid {
     grid-template-columns: 1fr 1fr;
@@ -1107,10 +1109,10 @@
     padding: 0 12px 11px;
   }
   .dr-reeltile {
-    width: 115px;
+    width: 140px;
   }
   .dr-reeltile.intro {
-    width: 140px;
+    width: 168px;
   }
   .dr-details-grid {
     grid-template-columns: 1fr 1fr;

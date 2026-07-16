@@ -1016,7 +1016,10 @@ function CreatorProfileUpdateFormContent({
         )}
 
         {isSettings ? (
-          <div className="pe-savebar" data-visible={isDirty || pending}>
+          <div
+            className="pe-savebar"
+            data-visible={isDirty || pending || !completeProfile}
+          >
             <div className="pe-savebar-inner">
               {pending ? (
                 <Spinner

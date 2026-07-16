@@ -225,6 +225,7 @@ export const ENDPOINTS = {
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}/restore`,
     },
   },
+  CONTACT_US: "/api/contact-us",
 } as const;
 
 export function creatorPortfolioVideoPath(id: string): string {

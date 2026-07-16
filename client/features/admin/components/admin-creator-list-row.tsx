@@ -70,10 +70,14 @@ function CreatorAvatar({ creator }: { creator: AdminCreatorListItemDto }) {
   if (creator.profileImageUrl) {
     return (
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted">
+        {/* unoptimized: 56px avatar loaded straight from the CDN. The Next image
+            optimizer chokes when a whole list of large source photos is resized
+            at once, which left the avatars broken while the raw URLs load fine. */}
         <Image
           src={creator.profileImageUrl}
           alt={`${creator.displayName} profile`}
           fill
+          unoptimized
           className="object-cover"
           sizes="56px"
         />

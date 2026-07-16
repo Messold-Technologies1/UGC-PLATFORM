@@ -5,6 +5,11 @@ import { PostLoginSetupShell } from "@/components/post-login/post-login-setup-sh
 import { CreatorOnboardingGuard } from "@/features/auth/components/creator-onboarding-guard";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
+// Auth-gated workspace: the segment template reads the session cookie and calls
+// the auth guard, so these routes are always per-request. Force dynamic so the
+// build never prerenders them (which would run the guard with no API reachable).
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "Creator Workspace",

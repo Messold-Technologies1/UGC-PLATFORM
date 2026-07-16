@@ -67,7 +67,8 @@ const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
 /** Set to true when signup OTP verification is re-enabled (matches server). */
 const SIGNUP_OTP_VERIFICATION_ENABLED = false;
-const MAX_PORTFOLIO_VIDEO_BYTES = 200 * 1024 * 1024;
+const MAX_PORTFOLIO_VIDEO_BYTES = 1024 * 1024 * 1024; // 1 GB
+const MAX_PORTFOLIO_VIDEO_LABEL = "1 GB";
 const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
   "video/mp4",
   "video/quicktime",
@@ -236,7 +237,7 @@ function validatePortfolioVideoFile(file: File): string | null {
     return "Upload an MP4, MOV, or WebM video.";
   }
   if (file.size > MAX_PORTFOLIO_VIDEO_BYTES) {
-    return "Portfolio video must be 200 MB or smaller.";
+    return `Portfolio video must be ${MAX_PORTFOLIO_VIDEO_LABEL} or smaller.`;
   }
   return null;
 }
@@ -1377,7 +1378,8 @@ export function CreatorRegisterForm() {
                       </span>
                     </p>
                     <p className="mt-0.5 text-[13px] text-slate-500">
-                      MP4, MOV up to 200 MB per file &middot; 9:16 vertical preferred
+                      MP4, MOV up to {MAX_PORTFOLIO_VIDEO_LABEL} per file
+                      &middot; 9:16 vertical preferred
                     </p>
                     {portfolioVideoError ? (
                       <p className="mt-1 text-xs text-red-500">

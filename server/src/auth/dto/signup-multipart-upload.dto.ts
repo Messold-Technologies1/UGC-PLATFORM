@@ -15,7 +15,7 @@ import {
 } from 'class-validator';
 
 /** Matches the client cap for signup portfolio videos. */
-export const SIGNUP_PORTFOLIO_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
+export const SIGNUP_PORTFOLIO_VIDEO_MAX_BYTES = 1024 * 1024 * 1024; // 1 GiB
 
 const S3_MAX_PARTS = 10_000;
 

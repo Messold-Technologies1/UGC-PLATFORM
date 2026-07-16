@@ -1054,7 +1054,7 @@ function PortfolioCarousel({
         {videos.map((video) => (
           <div
             key={video.id}
-            className="w-[46%] shrink-0 snap-start sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)]"
+            className="w-[62%] shrink-0 snap-start sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-2rem)/3)]"
           >
             <PortfolioTile
               video={video}

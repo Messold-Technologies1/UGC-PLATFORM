@@ -424,7 +424,7 @@
 .dr-reeltile {
   position: relative;
   flex-shrink: 0;
-  width: 190px;
+  width: 150px;
   aspect-ratio: 9 / 16;
   border-radius: 14px;
   overflow: hidden;
@@ -441,7 +441,7 @@
   box-shadow: var(--shadow-md);
 }
 .dr-reeltile.intro {
-  width: 226px;
+  width: 178px;
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent),
     var(--shadow-md);
 }
@@ -1033,10 +1033,10 @@
     padding: 0 16px 11px;
   }
   .dr-reeltile {
-    width: 165px;
+    width: 130px;
   }
   .dr-reeltile.intro {
-    width: 196px;
+    width: 155px;
   }
   .dr-details-grid {
     grid-template-columns: 1fr 1fr;
@@ -1109,10 +1109,10 @@
     padding: 0 12px 11px;
   }
   .dr-reeltile {
-    width: 140px;
+    width: 115px;
   }
   .dr-reeltile.intro {
-    width: 168px;
+    width: 140px;
   }
   .dr-details-grid {
     grid-template-columns: 1fr 1fr;

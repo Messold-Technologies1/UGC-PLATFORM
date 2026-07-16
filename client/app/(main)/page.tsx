@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
 import { LandingPageContent } from "@/components/landing/landing-page-content";
-import {
-  fetchServerAuthUserState,
-  redirectToSessionRestoreIfPossible,
-} from "@/lib/server-auth-guard";
+import { fetchServerAuthUserState } from "@/lib/server-auth-guard";
 
 export const dynamic = "force-dynamic";
 function canUseWorkspaceRole(
@@ -25,12 +22,13 @@ function workspacePath(
 }
 
 export default async function Home() {
+  // Only forward visitors who are ACTIVELY authenticated (a valid access token
+  // makes /me return 200). We deliberately do NOT attempt session-restore here:
+  // the public landing must stay reachable, and bouncing off a lingering
+  // refresh-token cookie (e.g. right after logout) would send the user through
+  // /auth/session-restore instead of showing the page.
   const auth = await fetchServerAuthUserState();
   const user = auth.user;
-
-  if (!user && auth.status === "unauthenticated") {
-    await redirectToSessionRestoreIfPossible("/", "/");
-  }
 
   let target = canUseWorkspaceRole(
     user?.brandAccessRevoked,

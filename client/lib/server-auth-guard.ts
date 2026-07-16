@@ -1,10 +1,25 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
+
+/**
+ * Thrown when the auth API can't be reached (network error / 5xx) rather than
+ * returning a definitive authenticated/unauthenticated answer. Guards throw this
+ * instead of redirecting to login so a transient API blip does NOT sign a
+ * creator out — the nearest error boundary renders a "try again" instead, and
+ * the still-valid session cookies survive the retry.
+ */
+export class WorkspaceUnavailableError extends Error {
+  constructor() {
+    super("WORKSPACE_TEMPORARILY_UNAVAILABLE");
+    this.name = "WorkspaceUnavailableError";
+  }
+}
 
 type ServerWorkspaceRole = "CREATOR" | "BRAND" | "ADMIN" | "AGENCY";
 
@@ -53,7 +68,14 @@ export async function redirectToSessionRestoreIfPossible(
   }
 }
 
-export async function fetchServerAuthUserState(): Promise<ServerAuthUserState> {
+/**
+ * Memoized for the lifetime of a single server request (React `cache`). A page
+ * render commonly hits a guard in the segment template AND an auth-aware loader;
+ * without this they would each fire a separate `/auth/me` round-trip. The memo
+ * collapses them into one request-scoped fetch and never leaks across requests.
+ */
+export const fetchServerAuthUserState = cache(
+  async function fetchServerAuthUserState(): Promise<ServerAuthUserState> {
   try {
     const cookieStore = await cookies();
     const cookieHeader = cookieStore
@@ -98,7 +120,8 @@ export async function fetchServerAuthUserState(): Promise<ServerAuthUserState> {
       status: "unavailable",
     };
   }
-}
+  },
+);
 
 export async function fetchServerAuthUser(): Promise<ServerAuthUser | null> {
   const result = await fetchServerAuthUserState();
@@ -109,6 +132,9 @@ export async function requireAuthenticatedUser(callbackPath: string) {
   const auth = await fetchServerAuthUserState();
   const user = auth.user;
   if (!user) {
+    if (auth.status === "unavailable") {
+      throw new WorkspaceUnavailableError();
+    }
     if (auth.status === "unauthenticated") {
       await redirectToSessionRestoreIfPossible(
         callbackPath,
@@ -166,6 +192,9 @@ async function requireWorkspaceRole(
   const auth = await fetchServerAuthUserState();
   const user = auth.user;
   if (!user) {
+    if (auth.status === "unavailable") {
+      throw new WorkspaceUnavailableError();
+    }
     if (auth.status === "unauthenticated") {
       await redirectToSessionRestoreIfPossible(
         callbackPath,

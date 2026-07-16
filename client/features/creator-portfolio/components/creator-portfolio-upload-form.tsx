@@ -32,6 +32,7 @@ import {
   PORTFOLIO_VIDEO_MAX_BYTES,
   formatBytes,
 } from "../lib/upload-portfolio-video";
+import { convertHeicIfNeeded } from "@/lib/heic-to-web-image";
 import {
   usePortfolioIndustrySuggestionsQuery,
   usePortfolioTagSuggestionsQuery,
@@ -177,6 +178,10 @@ export function CreatorPortfolioUploadForm({
                     setVideoFile(f);
                   }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  MP4, MOV, or WEBM · up to{" "}
+                  {formatBytes(PORTFOLIO_VIDEO_MAX_BYTES)}
+                </p>
                 {videoFile ? (
                   <p className="text-xs text-muted-foreground">
                     {videoFile.name} · {formatBytes(videoFile.size)}
@@ -188,11 +193,23 @@ export function CreatorPortfolioUploadForm({
                 <Input
                   id="portfolio-thumb"
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
                   disabled={submitting}
                   onChange={(ev) => {
-                    const f = ev.target.files?.[0];
-                    setThumbnailFile(f ?? null);
+                    const f = ev.target.files?.[0] ?? null;
+                    if (!f) {
+                      setThumbnailFile(null);
+                      return;
+                    }
+                    void convertHeicIfNeeded(f)
+                      .then((converted) => setThumbnailFile(converted))
+                      .catch(() => {
+                        toast.error(
+                          "Couldn't process this HEIC image. Try a JPG or PNG.",
+                        );
+                        ev.target.value = "";
+                        setThumbnailFile(null);
+                      });
                   }}
                 />
               </div>

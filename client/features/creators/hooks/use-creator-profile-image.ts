@@ -3,9 +3,11 @@ import { toast } from "sonner";
 
 import { useUploadCreatorProfileImageMutation } from "./use-creator-profile-form-mutation";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
+import { convertHeicIfNeeded, isHeicImage } from "@/lib/heic-to-web-image";
 
 export const MAX_PROFILE_IMAGE_BYTES = 10 * 1024 * 1024;
-export const PROFILE_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
+export const PROFILE_IMAGE_ACCEPT =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
 
 function getProfileImageContentType(file: File): string | null {
   const contentType = file.type?.trim();
@@ -47,24 +49,42 @@ export function useCreatorProfileImage({
     string | null
   >(null);
   const [profileImageRemoved, setProfileImageRemoved] = useState(false);
-  const uploadingProfileImage = uploadMutation.isPending;
+  const [convertingProfileImage, setConvertingProfileImage] = useState(false);
+  const uploadingProfileImage =
+    uploadMutation.isPending || convertingProfileImage;
 
   const handleProfileImageSelected = useCallback(
     async (file: File | null) => {
       if (!file) return;
 
-      const contentType = getProfileImageContentType(file);
+      let workingFile = file;
+      if (isHeicImage(file)) {
+        try {
+          setConvertingProfileImage(true);
+          workingFile = await convertHeicIfNeeded(file, "image/jpeg");
+        } catch {
+          toast.error("Couldn't process this HEIC photo. Try a JPG or PNG.");
+          if (profileImageInputRef.current) {
+            profileImageInputRef.current.value = "";
+          }
+          return;
+        } finally {
+          setConvertingProfileImage(false);
+        }
+      }
+
+      const contentType = getProfileImageContentType(workingFile);
       if (!contentType) {
         toast.error("Use JPEG, PNG, or WEBP image.");
         return;
       }
-      if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+      if (workingFile.size > MAX_PROFILE_IMAGE_BYTES) {
         toast.error("Profile image must be 10 MB or smaller.");
         return;
       }
 
       uploadMutation.mutate(
-        { file, contentType },
+        { file: workingFile, contentType },
         {
           onSuccess: (result) => {
             if (!result) return;

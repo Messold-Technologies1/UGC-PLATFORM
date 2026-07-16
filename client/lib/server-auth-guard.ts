@@ -61,13 +61,20 @@ export async function fetchServerAuthUserState(): Promise<ServerAuthUserState> {
       .map((cookie) => `${cookie.name}=${cookie.value}`)
       .join("; ");
 
+    // Auth identity is per-request and must never be cached. Next.js's fetch
+    // Data Cache keys on URL + options but NOT on the Cookie header, so a cached
+    // `revalidate` response would (a) leak one user's identity to another and
+    // (b) keep returning a stale 401 for up to 60s after a token refresh —
+    // bouncing the viewer through /auth/session-restore in a loop, which is the
+    // "pages keep loading" symptom creators hit when their 15m access token
+    // expires. `no-store` guarantees a fresh check on every navigation.
     const res = await fetch(`${env.apiUrl}${ENDPOINTS.AUTH.ME}`, {
       method: "GET",
       headers: {
         Accept: "application/json",
         ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       },
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     if (!res.ok) {

@@ -27,6 +27,8 @@ import {
   Tag,
   User,
   Briefcase,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
@@ -656,26 +658,14 @@ export function PublicCreatorProfile({
                 }
               />
               {portfolioVideos.length > 0 ? (
-                <div className="relative mt-5 w-full">
-                  {/* Fixed 2-row viewport height (padding % is relative to width) */}
-                  <div
-                    className="h-0 w-full pb-[calc(2*((100%-1rem)/2*16/9)+1rem)] sm:pb-[calc(2*((100%-2rem)/3*16/9)+1rem)]"
-                    aria-hidden="true"
-                  />
-                  <div className="absolute inset-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                      {portfolioVideos.map((video) => (
-                        <PortfolioTile
-                          key={video.id}
-                          video={video}
-                          isPlayingElsewhere={playingPortfolioId !== null && playingPortfolioId !== video.id}
-                          onPlay={() => setPlayingPortfolioId(video.id)}
-                          onStop={() => setPlayingPortfolioId((prev) => prev === video.id ? null : prev)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <PortfolioCarousel
+                  videos={portfolioVideos}
+                  playingPortfolioId={playingPortfolioId}
+                  onPlay={setPlayingPortfolioId}
+                  onStop={(id) =>
+                    setPlayingPortfolioId((prev) => (prev === id ? null : prev))
+                  }
+                />
               ) : (
                 <p className="mt-5 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-10 text-center text-sm text-neutral-500">
                   No portfolio videos yet.
@@ -1010,6 +1000,102 @@ function SectionTitle({
       </div>
       {trailing && (
         <p className="text-xs font-medium text-neutral-500">{trailing}</p>
+      )}
+    </div>
+  );
+}
+
+function PortfolioCarousel({
+  videos,
+  playingPortfolioId,
+  onPlay,
+  onStop,
+}: {
+  videos: PortfolioVideoApi[];
+  playingPortfolioId: string | null;
+  onPlay: (id: string) => void;
+  onStop: (id: string) => void;
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const updateArrows = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanLeft(el.scrollLeft > 8);
+    setCanRight(el.scrollLeft < maxScroll - 8);
+  };
+
+  useEffect(() => {
+    updateArrows();
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onResize = () => updateArrows();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [videos.length]);
+
+  const scrollByCards = (dir: 1 | -1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    // Scroll by roughly one visible "page" (~80% of viewport width)
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+  };
+
+  return (
+    <div className="group/carousel relative mt-5">
+      <div
+        ref={scrollerRef}
+        onScroll={updateArrows}
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {videos.map((video) => (
+          <div
+            key={video.id}
+            className="w-[46%] shrink-0 snap-start sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)]"
+          >
+            <PortfolioTile
+              video={video}
+              isPlayingElsewhere={
+                playingPortfolioId !== null && playingPortfolioId !== video.id
+              }
+              onPlay={() => onPlay(video.id)}
+              onStop={() => onStop(video.id)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Nav arrows — desktop hover, always tappable when scrollable */}
+      {canLeft && (
+        <button
+          type="button"
+          onClick={() => scrollByCards(-1)}
+          aria-label="Previous reels"
+          className="absolute -left-3 top-1/2 z-20 hidden -translate-y-1/2 size-10 items-center justify-center rounded-full border border-neutral-200 bg-white/95 text-neutral-800 shadow-md backdrop-blur transition hover:bg-white hover:text-neutral-950 sm:flex"
+        >
+          <ChevronLeft className="size-5" strokeWidth={2.5} />
+        </button>
+      )}
+      {canRight && (
+        <button
+          type="button"
+          onClick={() => scrollByCards(1)}
+          aria-label="Next reels"
+          className="absolute -right-3 top-1/2 z-20 hidden -translate-y-1/2 size-10 items-center justify-center rounded-full border border-neutral-200 bg-white/95 text-neutral-800 shadow-md backdrop-blur transition hover:bg-white hover:text-neutral-950 sm:flex"
+        >
+          <ChevronRight className="size-5" strokeWidth={2.5} />
+        </button>
+      )}
+
+      {/* Edge fade hints so users sense there is more to swipe */}
+      {canLeft && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent" />
+      )}
+      {canRight && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent" />
       )}
     </div>
   );

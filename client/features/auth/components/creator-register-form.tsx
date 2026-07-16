@@ -42,13 +42,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 
 import {
-  presignCreatorPortfolioVideo,
-  putFileToPresignedUrl,
   registerCreator,
   sendSignupPhoneOtp,
 } from "@/features/auth/api/creator-signup";
+import { uploadSignupPortfolioVideo } from "@/features/auth/lib/upload-signup-portfolio-video";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
@@ -268,6 +268,9 @@ export function CreatorRegisterForm() {
   const [portfolioVideoError, setPortfolioVideoError] = useState<string | null>(
     null,
   );
+  const [videoUploadProgress, setVideoUploadProgress] = useState<
+    Record<number, number>
+  >({});
   const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
     "idle" | "uploading" | "uploaded"
   >("idle");
@@ -512,16 +515,18 @@ export function CreatorRegisterForm() {
 
       setPortfolioVideoStatus("uploading");
       setPortfolioVideoError(null);
+      setVideoUploadProgress({});
 
       const keys: string[] = [];
-      for (const file of portfolioVideoFiles) {
-        const presign = await presignCreatorPortfolioVideo({
+      for (let index = 0; index < portfolioVideoFiles.length; index += 1) {
+        const file = portfolioVideoFiles[index];
+        const key = await uploadSignupPortfolioVideo(
+          file,
           email,
-          contentType: file.type,
-          contentLength: file.size,
-        });
-        await putFileToPresignedUrl(file, presign);
-        keys.push(presign.key);
+          (fraction) =>
+            setVideoUploadProgress((prev) => ({ ...prev, [index]: fraction })),
+        );
+        keys.push(key);
       }
 
       setPortfolioVideoTempKeys(keys);
@@ -1404,9 +1409,19 @@ export function CreatorRegisterForm() {
                             {formatBytes(file.size)} &middot;{" "}
                             {file.type || "video"}
                             {portfolioVideoStatus === "uploading" &&
-                              " (Uploading...)"}
+                              ` (Uploading… ${Math.round(
+                                (videoUploadProgress[index] ?? 0) * 100,
+                              )}%)`}
                             {portfolioVideoStatus === "uploaded" && " (Uploaded)"}
                           </p>
+                          {portfolioVideoStatus === "uploading" ? (
+                            <Progress
+                              className="mt-2"
+                              value={Math.round(
+                                (videoUploadProgress[index] ?? 0) * 100,
+                              )}
+                            />
+                          ) : null}
                         </div>
                         <button
                           type="button"

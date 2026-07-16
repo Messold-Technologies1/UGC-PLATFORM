@@ -12,6 +12,14 @@ export const ENDPOINTS = {
     SIGNUP_PHONE_SEND_OTP: "/api/auth/signup/phone/send-otp",
     SIGNUP_CREATOR_PORTFOLIO_VIDEO_PRESIGN:
       "/api/auth/signup/presign/creator-portfolio-video",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_CREATE:
+      "/api/auth/signup/multipart/creator-portfolio-video/create",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_SIGN_PART:
+      "/api/auth/signup/multipart/creator-portfolio-video/sign-part",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_COMPLETE:
+      "/api/auth/signup/multipart/creator-portfolio-video/complete",
+    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_ABORT:
+      "/api/auth/signup/multipart/creator-portfolio-video/abort",
     SIGNUP_BRAND_LOGO_PRESIGN: "/api/auth/signup/presign/brand-logo",
     SIGNUP_BRAND_PRONUNCIATION_PRESIGN:
       "/api/auth/signup/presign/brand-pronunciation",

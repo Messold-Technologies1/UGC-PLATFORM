@@ -136,6 +136,14 @@ export const ENDPOINTS = {
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
+    UPLOADS_MULTIPART_CREATE:
+      "/api/creator-portfolio/uploads/multipart/create",
+    UPLOADS_MULTIPART_SIGN_PART:
+      "/api/creator-portfolio/uploads/multipart/sign-part",
+    UPLOADS_MULTIPART_COMPLETE:
+      "/api/creator-portfolio/uploads/multipart/complete",
+    UPLOADS_MULTIPART_ABORT:
+      "/api/creator-portfolio/uploads/multipart/abort",
     VIDEOS: "/api/creator-portfolio/videos",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
     VIDEOS_ADMIN: "/api/creator-portfolio/videos/admin",

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,6 +28,10 @@ import {
   toTitleCaseLabel,
 } from "@/lib/string-lists";
 import { useCreatePortfolioVideoFlowMutation } from "../hooks/use-create-portfolio-video-flow-mutation";
+import {
+  PORTFOLIO_VIDEO_MAX_BYTES,
+  formatBytes,
+} from "../lib/upload-portfolio-video";
 import {
   usePortfolioIndustrySuggestionsQuery,
   usePortfolioTagSuggestionsQuery,
@@ -80,6 +85,7 @@ export function CreatorPortfolioUploadForm({
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [industryLabel, setIndustryLabel] = useState("");
   const [language, setLanguage] = useState("");
@@ -98,6 +104,7 @@ export function CreatorPortfolioUploadForm({
       return;
     }
 
+    setUploadProgress(0);
     createPortfolioVideoFlowMutation.mutate(
       {
         videoFile,
@@ -110,10 +117,14 @@ export function CreatorPortfolioUploadForm({
           tagsRaw,
         }),
         adminCreatorId: adminMode ? adminCreatorId : undefined,
+        onProgress: (fraction) => setUploadProgress(fraction),
       },
       {
         onSuccess: () => {
           onSuccess?.();
+        },
+        onSettled: () => {
+          setUploadProgress(null);
         },
       },
     );
@@ -152,10 +163,25 @@ export function CreatorPortfolioUploadForm({
                   accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
                   disabled={submitting}
                   onChange={(ev) => {
-                    const f = ev.target.files?.[0];
-                    setVideoFile(f ?? null);
+                    const f = ev.target.files?.[0] ?? null;
+                    if (f && f.size > PORTFOLIO_VIDEO_MAX_BYTES) {
+                      toast.error(
+                        `Video is too large. Max ${formatBytes(
+                          PORTFOLIO_VIDEO_MAX_BYTES,
+                        )}.`,
+                      );
+                      ev.target.value = "";
+                      setVideoFile(null);
+                      return;
+                    }
+                    setVideoFile(f);
                   }}
                 />
+                {videoFile ? (
+                  <p className="text-xs text-muted-foreground">
+                    {videoFile.name} · {formatBytes(videoFile.size)}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="portfolio-thumb">Thumbnail (optional)</Label>
@@ -327,6 +353,15 @@ export function CreatorPortfolioUploadForm({
               </Select>
             </div>
 
+            {submitting && uploadProgress !== null ? (
+              <div className="space-y-1.5" aria-live="polite">
+                <Progress value={Math.round(uploadProgress * 100)} />
+                <p className="text-xs text-muted-foreground">
+                  Uploading… {Math.round(uploadProgress * 100)}%
+                </p>
+              </div>
+            ) : null}
+
             <Button
               type="submit"
               disabled={submitting || !videoFile}
@@ -335,7 +370,9 @@ export function CreatorPortfolioUploadForm({
               {submitting ? (
                 <>
                   <Spinner className="size-4" aria-hidden />
-                  Uploading…
+                  {uploadProgress !== null && uploadProgress < 1
+                    ? `Uploading… ${Math.round(uploadProgress * 100)}%`
+                    : "Finishing…"}
                 </>
               ) : (
                 "Upload and publish"

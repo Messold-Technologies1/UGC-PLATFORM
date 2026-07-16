@@ -2,15 +2,24 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   CopyObjectCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from '@aws-sdk/client-s3';
 import type { Readable } from 'node:stream';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { PresignedUploadResult, StorageUploadKind } from './storage.types';
+import type {
+  CompletedUploadPart,
+  MultipartUploadInit,
+  PresignedUploadResult,
+  StorageUploadKind,
+} from './storage.types';
 
 function normalizeCdnBaseUrl(value: string): string {
   return value.endsWith('/') ? value.slice(0, -1) : value;
@@ -100,6 +109,8 @@ export class StorageService {
   private readonly bucket: string;
   private readonly ttlSeconds: number;
   private readonly cdnBaseUrl: string;
+  /** Part size used for multipart uploads. S3 requires >= 5 MiB per part (last part exempt). */
+  readonly multipartPartSizeBytes: number;
 
   constructor(private readonly config: ConfigService) {
     // Browser PUTs cannot satisfy SDK-default CRC32 checksums baked into presigned URLs.
@@ -116,6 +127,16 @@ export class StorageService {
     this.ttlSeconds = Number(
       config.get<number>('S3_UPLOAD_URL_TTL_SECONDS', 900),
     );
+    // Default 10 MiB parts. S3's floor is 5 MiB; clamp to stay valid even if
+    // misconfigured. Each part gets its own presigned URL with its own TTL, so
+    // large files are never bound by a single-PUT expiry window.
+    const configuredPartSize = Number(
+      config.get<number>('S3_MULTIPART_PART_SIZE_BYTES', 10 * 1024 * 1024),
+    );
+    this.multipartPartSizeBytes =
+      Number.isFinite(configuredPartSize) && configuredPartSize >= 5 * 1024 * 1024
+        ? Math.floor(configuredPartSize)
+        : 10 * 1024 * 1024;
     this.cdnBaseUrl = normalizeCdnBaseUrl(
       config.getOrThrow<string>('CDN_BASE_URL'),
     );
@@ -551,6 +572,91 @@ export class StorageService {
       expiresInSeconds: this.ttlSeconds,
       cdnUrl: this.buildCdnUrl(input.key),
     };
+  }
+
+  /**
+   * Begin a multipart upload. The browser then uploads the file in parts, each
+   * against its own presigned URL (see {@link signUploadPart}), and finally
+   * calls {@link completeMultipartUpload}. This is how large videos upload
+   * without hitting the single-PUT presigned-URL expiry.
+   */
+  async createMultipartUpload(input: {
+    key: string;
+    contentType: string;
+  }): Promise<MultipartUploadInit> {
+    const res = await this.s3.send(
+      new CreateMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        ContentType: input.contentType,
+      }),
+    );
+    if (!res.UploadId) {
+      throw new Error('Failed to initiate multipart upload');
+    }
+    return {
+      key: input.key,
+      uploadId: res.UploadId,
+      cdnUrl: this.buildCdnUrl(input.key),
+      partSizeBytes: this.multipartPartSizeBytes,
+      expiresInSeconds: this.ttlSeconds,
+    };
+  }
+
+  /** Presign a single UploadPart request. Part numbers are 1-based (1..10000). */
+  async signUploadPart(input: {
+    key: string;
+    uploadId: string;
+    partNumber: number;
+  }): Promise<string> {
+    return getSignedUrl(
+      this.s3,
+      new UploadPartCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        UploadId: input.uploadId,
+        PartNumber: input.partNumber,
+      }),
+      { expiresIn: this.ttlSeconds },
+    );
+  }
+
+  /** Finalize a multipart upload once every part has been uploaded. */
+  async completeMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+    parts: CompletedUploadPart[];
+  }): Promise<string> {
+    if (input.parts.length === 0) {
+      throw new Error('Cannot complete a multipart upload with no parts');
+    }
+    const orderedParts = [...input.parts]
+      .sort((a, b) => a.partNumber - b.partNumber)
+      .map((part) => ({ ETag: part.etag, PartNumber: part.partNumber }));
+
+    await this.s3.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        UploadId: input.uploadId,
+        MultipartUpload: { Parts: orderedParts },
+      }),
+    );
+    return input.key;
+  }
+
+  /** Cancel a multipart upload and discard any uploaded parts. */
+  async abortMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+  }): Promise<void> {
+    await this.s3.send(
+      new AbortMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        UploadId: input.uploadId,
+      }),
+    );
   }
 
   /**

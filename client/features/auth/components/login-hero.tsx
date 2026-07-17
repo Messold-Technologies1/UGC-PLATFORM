@@ -25,7 +25,7 @@ export function LoginHero({ config }: LoginHeroProps) {
       <div className={styles.grain} aria-hidden="true" />
 
       <div className={styles.heroTop}>
-        <AuthLogoLink className="-ml-4" imageClassName="h-24 md:h-32" />
+        <AuthLogoLink className="-ml-3" imageClassName="h-24 lg:h-32" />
       </div>
 
       <div className={styles.heroMid}>

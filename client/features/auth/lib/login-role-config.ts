@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Users,
   Zap,
+  HandCoinsIcon,
 } from "lucide-react";
 
 export const LOGIN_ROLES = ["brand", "creator", "agency"] as const;
@@ -30,7 +31,7 @@ export interface LoginRoleConfig {
   tag: string;
   headline: [string, string];
   sub: string;
-  bullets: [LoginBullet, LoginBullet, LoginBullet];
+  bullets: LoginBullet[];
   stat?: { big: string; label: string };
   quote: string;
   author: string;
@@ -100,26 +101,31 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     bullets: [
       {
         icon: Search,
-        title: "Browse 12,000+ vetted creators",
-        desc: "Filter by niche, language, budget & style.",
+        title: "Browse vetted creators",
+        desc: "Filter by niche, language, budget, content style & platform.",
       },
       {
         icon: Film,
-        title: "Brief & book in minutes",
-        desc: "Pick a package, add-ons, and check out securely.",
+        title: "Create and send briefs",
+        desc: "Share campaign details, deliverables,references & requirements to get started.",
+      },
+      {
+        icon: HandCoinsIcon,
+        title: "Book the right creator",
+        desc: "Pick a package, add-ons, timeline and check out securely.",
       },
       {
         icon: ShoppingBag,
         title: "Manage every order in one place",
-        desc: "Track delivery, revisions and approvals.",
+        desc: "Track delivery, revisions, approvals, files & communication.",
       },
     ],
-    stat: { big: "12,000+", label: "creators ready to collaborate" },
+
     quote:
       "We shipped 40 ad-ready videos in a month — CTR beat our benchmark by 28%.",
-    author: "Priya Menon",
-    authorRole: "Growth Lead, Plix",
-    authorInitials: "PM",
+    author: "Yuti Edward",
+    authorRole: "Growth Lead, Udd Studio",
+    authorInitials: "YW",
     formTitle: "Log in to your brand workspace",
     formSub: "Welcome back. Pick up right where your campaigns left off.",
     signupCta: "Create a brand account",
@@ -164,9 +170,9 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     ],
     quote:
       "I went from 2 brand deals a month to fully booked. The packages feature changed everything.",
-    author: "Aanya Kapoor",
+    author: "Elina Sadh",
     authorRole: "Beauty creator, Mumbai",
-    authorInitials: "AK",
+    authorInitials: "ES",
     formTitle: "Log in to your creator studio",
     formSub: "Welcome back. Your next collab could be one login away.",
     signupCta: "Create a creator account",

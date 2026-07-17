@@ -1,0 +1,52 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">You're almost there ✨</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You just started your creator profile on <strong>{{platformName}}</strong> — nice work. You're one step away from going live. Finish your setup (about 5 minutes) to appear in search and start receiving briefs from brands:
+</p>
+<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">
+    • Add your portfolio videos<br />
+    • Set your packages &amp; pricing<br />
+    • Complete your bio and niches
+  </p>
+</div>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Complete my profile →"}}
+</div>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Brands are looking for creators like you 👀</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your <strong>{{platformName}}</strong> profile is still in draft, so brands can't find you yet. Creators who complete their profile start getting briefs much faster. Here's what's left to go live:
+</p>
+<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">
+    • Portfolio videos that show your best work<br />
+    • Packages &amp; pricing so brands can book you<br />
+    • A short bio so brands know your style
+  </p>
+</div>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Finish my profile →"}}
+</div>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Your profile isn't live yet</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  It's been a couple of days and your creator profile still isn't live — which means brands searching <strong>{{platformName}}</strong> can't discover you or send you paid work. The good news: you're almost there. Finish the last steps (about 5 minutes) and go live today.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Go live now →"}}
+</div>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Stuck or have questions?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 💗</p>

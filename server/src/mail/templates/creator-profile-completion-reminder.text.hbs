@@ -1,0 +1,29 @@
+Hi {{recipientName}},
+
+{{#if isStage1}}
+You just started your creator profile on {{platformName}} — nice work. You're one step away from going live. Finish your setup (about 5 minutes) to appear in search and start receiving briefs from brands:
+
+- Add your portfolio videos
+- Set your packages & pricing
+- Complete your bio and niches
+
+Complete my profile: {{actionUrl}}
+{{/if}}
+{{#if isStage2}}
+Your {{platformName}} profile is still in draft, so brands can't find you yet. Creators who complete their profile start getting briefs much faster. Here's what's left to go live:
+
+- Portfolio videos that show your best work
+- Packages & pricing so brands can book you
+- A short bio so brands know your style
+
+Finish my profile: {{actionUrl}}
+{{/if}}
+{{#if isStage3}}
+It's been a couple of days and your creator profile still isn't live — which means brands searching {{platformName}} can't discover you or send you paid work. The good news: you're almost there. Finish the last steps (about 5 minutes) and go live today.
+
+Go live now: {{actionUrl}}
+
+Stuck or have questions? Contact us: {{frontendUrl}}/contact
+{{/if}}
+
+— The {{platformName}} team

@@ -2,6 +2,7 @@
 export enum EmailTemplateKey {
   CREATOR_PROFILE_APPROVED = 'creator-profile-approved',
   CREATOR_PROFILE_REJECTED = 'creator-profile-rejected',
+  CREATOR_PROFILE_COMPLETION_REMINDER = 'creator-profile-completion-reminder',
   ORDER_BRIEF_SUBMITTED_FOR_CREATOR = 'order-brief-submitted-for-creator',
   ORDER_BRIEF_ACCEPTED_FOR_BRAND = 'order-brief-accepted-for-brand',
   ORDER_PRODUCT_SHIPPED_FOR_CREATOR = 'order-product-shipped-for-creator',

@@ -87,6 +87,45 @@ export class CreatorProfileMailNotifier {
     });
   }
 
+  /**
+   * Reminder to finish a still-building profile. `stage` selects the copy:
+   * 1 = +30min nudge, 2 = +24h, 3 = +48h last call. Awaitable so the caller can
+   * stamp its bookkeeping only after the send has been attempted.
+   */
+  notifyCompletionReminder(
+    creatorProfileId: string,
+    stage: 1 | 2 | 3,
+  ): Promise<void> {
+    return this.run('creator_profile_completion_reminder', async () => {
+      const profile = await this.loadProfile(creatorProfileId);
+      if (!profile) return;
+
+      const email = this.recipientEmail(profile);
+      if (!email) {
+        this.logger.warn(
+          `creator completion reminder: no email for profile ${creatorProfileId}`,
+        );
+        return;
+      }
+
+      await this.mail.send({
+        to: email,
+        templateKey: EmailTemplateKey.CREATOR_PROFILE_COMPLETION_REMINDER,
+        notificationGate: {
+          profileType: 'creator',
+          profileId: creatorProfileId,
+        },
+        context: {
+          recipientName: this.recipientName(profile),
+          actionUrl: `${this.frontendBase()}/creator/settings/profile`,
+          isStage1: stage === 1,
+          isStage2: stage === 2,
+          isStage3: stage === 3,
+        },
+      });
+    });
+  }
+
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
     try {
       await fn();

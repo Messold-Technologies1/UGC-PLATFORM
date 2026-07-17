@@ -324,6 +324,12 @@ model CreatorProfile {
   metaFbc             String?
   metaSignupIp        String?
   metaSignupUserAgent String?
+  /// Profile-completion reminder emails sent while the profile is still building
+  /// (completeProfile = false). Each stamp is set once, when its reminder is
+  /// handled, so the reminder job stays idempotent. All nullable/additive.
+  completionReminder30mAt DateTime?
+  completionReminder24hAt DateTime?
+  completionReminder48hAt DateTime?
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
@@ -352,6 +358,8 @@ model CreatorProfile {
   @@index([isListed])
   @@index([completeProfile])
   @@index([completeProfile, isListed])
+  // Serves the completion-reminder poll: WHERE completeProfile = false AND createdAt in window.
+  @@index([completeProfile, createdAt])
   @@index([createdAt])
   // Matches the browse-list hot path: WHERE isListed = true ORDER BY createdAt DESC.
   @@index([isListed, createdAt])

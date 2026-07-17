@@ -7,13 +7,14 @@ COPY package*.json ./
 COPY prisma ./prisma/
 COPY prisma.config.ts ./
 
+# Prisma generate needs DATABASE_URL/DIRECT_URL (does not connect). These must
+# be set before `npm ci` because the postinstall hook runs `prisma generate`.
+ENV DATABASE_URL="postgresql://localhost:5432/db"
+ENV DIRECT_URL="postgresql://localhost:5432/db"
+
 RUN npm ci
 
 COPY . .
-
-# Prisma generate needs DATABASE_URL/DIRECT_URL (does not connect)
-ENV DATABASE_URL="postgresql://localhost:5432/db"
-ENV DIRECT_URL="postgresql://localhost:5432/db"
 
 RUN npx prisma generate
 RUN npm run build

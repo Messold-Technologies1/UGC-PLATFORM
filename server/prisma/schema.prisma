@@ -358,6 +358,8 @@ model CreatorProfile {
   @@index([isListed])
   @@index([completeProfile])
   @@index([completeProfile, isListed])
+  // Serves the completion-reminder poll: WHERE completeProfile = false AND createdAt in window.
+  @@index([completeProfile, createdAt])
   @@index([createdAt])
   // Matches the browse-list hot path: WHERE isListed = true ORDER BY createdAt DESC.
   @@index([isListed, createdAt])

@@ -1,11 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Cron } from '@nestjs/schedule';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+const INTERVAL_NAME = 'creator-completion-reminders';
+const DEFAULT_POLL_MINUTES = 10;
+const DEFAULT_BACKFILL_DAYS = 7;
 
 /**
  * Emails creators whose profile is still building (completeProfile = false) to
@@ -13,14 +18,18 @@ const HOUR = 60 * MINUTE;
  *
  * - Idempotent: each stage is stamped on CreatorProfile once handled.
  * - Stops automatically once the profile goes live (completeProfile = true).
- * - Backfill guard: ignores profiles older than 7 days so enabling the feature
- *   never blasts the existing backlog.
+ * - Backfill guard: ignores profiles older than the backfill window so enabling
+ *   the feature never blasts the existing backlog.
  * - Off by default; enable with CREATOR_COMPLETION_REMINDERS_ENABLED=true.
  * - Delivery still respects each creator's emailNotificationsEnabled toggle and
  *   the SES suppression list (enforced in MailService).
+ *
+ * Tunables (env):
+ * - CREATOR_COMPLETION_REMINDER_POLL_MINUTES  (default 10)
+ * - CREATOR_COMPLETION_REMINDER_BACKFILL_DAYS (default 7)
  */
 @Injectable()
-export class CreatorCompletionReminderJob {
+export class CreatorCompletionReminderJob implements OnModuleInit {
   private readonly logger = new Logger(CreatorCompletionReminderJob.name);
   private running = false;
 
@@ -28,7 +37,24 @@ export class CreatorCompletionReminderJob {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly notifier: CreatorProfileMailNotifier,
+    private readonly scheduler: SchedulerRegistry,
   ) {}
+
+  onModuleInit(): void {
+    if (!this.isEnabled()) {
+      this.logger.log('creator completion reminders disabled');
+      return;
+    }
+    const minutes = this.pollMinutes();
+    const timer = setInterval(() => {
+      void this.sendReminders();
+    }, minutes * MINUTE);
+    this.scheduler.addInterval(INTERVAL_NAME, timer);
+    this.logger.log(
+      `creator completion reminders enabled: poll every ${minutes}m, ` +
+        `backfill window ${this.backfillDays()}d`,
+    );
+  }
 
   private isEnabled(): boolean {
     return (
@@ -36,7 +62,25 @@ export class CreatorCompletionReminderJob {
     );
   }
 
-  @Cron('*/10 * * * *') // every 10 minutes
+  private positiveIntConfig(key: string, fallback: number): number {
+    const raw = Number(this.config.get<string>(key));
+    return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : fallback;
+  }
+
+  private pollMinutes(): number {
+    return this.positiveIntConfig(
+      'CREATOR_COMPLETION_REMINDER_POLL_MINUTES',
+      DEFAULT_POLL_MINUTES,
+    );
+  }
+
+  private backfillDays(): number {
+    return this.positiveIntConfig(
+      'CREATOR_COMPLETION_REMINDER_BACKFILL_DAYS',
+      DEFAULT_BACKFILL_DAYS,
+    );
+  }
+
   async sendReminders(): Promise<void> {
     if (!this.isEnabled() || this.running) return;
     this.running = true;
@@ -46,7 +90,7 @@ export class CreatorCompletionReminderJob {
       const t30 = new Date(now - 30 * MINUTE);
       const t24 = new Date(now - 24 * HOUR);
       const t48 = new Date(now - 48 * HOUR);
-      const backfillFloor = new Date(now - 7 * 24 * HOUR);
+      const backfillFloor = new Date(now - this.backfillDays() * DAY);
 
       const candidates = await this.prisma.creatorProfile.findMany({
         where: {

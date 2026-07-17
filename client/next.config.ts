@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react", "radix-ui"],
   },
   images: {
-    formats: ["image/avif", "image/webp"],
+    // Bypass Vercel Image Optimization (avoids OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED)
+    unoptimized: true,
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
   async rewrites() {

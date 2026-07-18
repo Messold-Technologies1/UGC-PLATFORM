@@ -342,6 +342,16 @@ export interface AdminRejectOrderPayload extends AdminOrderActionPayload {
   resolutionNotes?: string;
 }
 
+export interface AdminResolveDisputePayload extends AdminOrderActionPayload {
+  resolutionNotes?: string;
+}
+
+export interface SendAdminOrderChatMessagePayload {
+  orderId: string;
+  text: string;
+  clientMessageId?: string;
+}
+
 export interface AdminOrderRefundResponseDto {
   refundId: string;
   refundStatus: string;

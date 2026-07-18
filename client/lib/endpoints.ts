@@ -112,6 +112,10 @@ export const ENDPOINTS = {
       `/api/orders/${encodeURIComponent(id)}/disputes/brand`,
     CREATOR_DISPUTE: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/disputes/creator`,
+    BRAND_DISPUTE_WITHDRAW: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/disputes/brand/withdraw`,
+    CREATOR_DISPUTE_WITHDRAW: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/disputes/creator/withdraw`,
     ACCEPT: (id: string) => `/api/orders/${encodeURIComponent(id)}/accept`,
     REQUEST_REVISION: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions/request`,
@@ -201,6 +205,10 @@ export const ENDPOINTS = {
         `/api/admin/orders/${encodeURIComponent(id)}/reject`,
       REFUND: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/refund`,
+      RESOLVE_CONTINUE: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/resolve-continue`,
+      CLOSE_DISPUTE: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/close-dispute`,
     },
     LEGAL_PAGES: {
       LIST: "/api/admin/legal-pages",

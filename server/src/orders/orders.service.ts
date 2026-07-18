@@ -7,7 +7,13 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Prisma, RoleName, OrderStatus } from '@prisma/client';
+import {
+  Prisma,
+  RoleName,
+  OrderStatus,
+  OrderDisputeStatus,
+  OrderDisputeOpenedBy,
+} from '@prisma/client';
 import type { CreatorAddOn } from '@prisma/client';
 import type { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
 import type { AdminOrderListItemDto } from './dto/admin-order-list-item.dto';
@@ -1521,6 +1527,29 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Load the currently open dispute for an order (if any) so detail views can
+   * surface who raised it, the reason, and offer a withdrawal to the opener.
+   */
+  private async loadActiveDispute(orderId: string): Promise<{
+    status: OrderDisputeStatus;
+    openedBy: OrderDisputeOpenedBy;
+    reason: string;
+    openedAt: Date;
+  } | null> {
+    const dispute = await this.prisma.orderDispute.findFirst({
+      where: { orderId, status: 'OPEN' },
+      orderBy: { openedAt: 'desc' },
+      select: {
+        status: true,
+        openedBy: true,
+        reason: true,
+        openedAt: true,
+      },
+    });
+    return dispute ?? null;
+  }
+
   async getOrderDetailsForBrand(params: {
     orderId: string;
     actorUserId: string;
@@ -1609,6 +1638,11 @@ export class OrdersService {
           requestedAt: currentRevision.createdAt,
         };
       }
+    }
+
+    if (order.status === 'DISPUTED') {
+      const dispute = await this.loadActiveDispute(order.id);
+      if (dispute) mappedOrder.dispute = dispute;
     }
 
     return {
@@ -1705,6 +1739,11 @@ export class OrdersService {
           requestedAt: currentRevision.createdAt,
         };
       }
+    }
+
+    if (order.status === 'DISPUTED') {
+      const dispute = await this.loadActiveDispute(order.id);
+      if (dispute) mappedOrder.dispute = dispute;
     }
 
     return {
@@ -2311,11 +2350,160 @@ export class OrdersService {
       await this.updateOrder(
         {
           where: { id: order.id },
-          data: { status: 'DISPUTED' },
+          // Remember where the order was so the dispute can be unwound to the
+          // exact prior state on resolution / withdrawal.
+          data: { status: 'DISPUTED', preDisputeStatus: order.status },
         },
         tx,
       );
     });
+  }
+
+  /**
+   * Opener withdraws their own open dispute. The order returns to the state it
+   * was in before the dispute was raised.
+   */
+  async withdrawDispute(params: {
+    orderId: string;
+    openedBy: 'BRAND' | 'CREATOR';
+    openerUserId: string;
+    brandProfileId?: string | null;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        creatorId: true,
+        status: true,
+        preDisputeStatus: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (params.openedBy === 'BRAND') {
+      const { brand } = await this.resolveBrandActor({
+        actorUserId: params.openerUserId,
+        brandProfileId: params.brandProfileId,
+      });
+      if (order.brandId !== brand.id)
+        throw new ForbiddenException('Not your order');
+    } else {
+      const creator = await this.prisma.creatorProfile.findUnique({
+        where: { userId: params.openerUserId },
+        select: { id: true },
+      });
+      if (!creator) throw new NotFoundException('Creator profile not found');
+      if (order.creatorId !== creator.id)
+        throw new ForbiddenException('Not your order');
+    }
+
+    const existing = await this.prisma.orderDispute.findFirst({
+      where: { orderId: order.id, status: 'OPEN' },
+      select: { id: true, openedBy: true },
+    });
+    if (!existing) {
+      throw new BadRequestException('No open dispute to withdraw');
+    }
+    // Only the party that raised the dispute may withdraw it.
+    if (String(existing.openedBy) !== params.openedBy) {
+      throw new ForbiddenException(
+        'Only the party who opened the dispute can withdraw it',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderDispute.update({
+        where: { id: existing.id },
+        data: {
+          status: 'RESOLVED_CLOSED',
+          resolvedAt: new Date(),
+          resolutionNotes: 'Withdrawn by opener',
+        },
+      });
+      await this.restoreOrderFromDispute(tx, order.id, order.preDisputeStatus);
+    });
+  }
+
+  /**
+   * Admin: resolve an open dispute without a refund and let the order continue
+   * from where it left off (creator's favour). Order returns to its
+   * pre-dispute status.
+   */
+  async adminResolveDisputeContinue(params: {
+    orderId: string;
+    adminUserId: string;
+    resolutionNotes?: string;
+  }): Promise<void> {
+    await this.adminUnwindDispute({
+      ...params,
+      disputeStatus: 'RESOLVED_CONTINUE',
+    });
+  }
+
+  /**
+   * Admin: close an open dispute without a refund (e.g. resolved amicably /
+   * no action needed). Order returns to its pre-dispute status.
+   */
+  async adminCloseDispute(params: {
+    orderId: string;
+    adminUserId: string;
+    resolutionNotes?: string;
+  }): Promise<void> {
+    await this.adminUnwindDispute({
+      ...params,
+      disputeStatus: 'RESOLVED_CLOSED',
+    });
+  }
+
+  private async adminUnwindDispute(params: {
+    orderId: string;
+    adminUserId: string;
+    resolutionNotes?: string;
+    disputeStatus: 'RESOLVED_CONTINUE' | 'RESOLVED_CLOSED';
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, status: true, preDisputeStatus: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (String(order.status) !== 'DISPUTED') {
+      throw new BadRequestException('Order is not currently disputed');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderDispute.updateMany({
+        where: { orderId: order.id, status: 'OPEN' },
+        data: {
+          status: params.disputeStatus,
+          resolvedAt: new Date(),
+          resolvedByUserId: params.adminUserId,
+          resolutionNotes: params.resolutionNotes ?? null,
+        },
+      });
+      await this.restoreOrderFromDispute(tx, order.id, order.preDisputeStatus);
+    });
+  }
+
+  /**
+   * Move an order out of DISPUTED and back to the status it held before the
+   * dispute was raised, clearing the remembered status. Falls back to
+   * DELIVERED when the pre-dispute status is unknown (older disputes).
+   */
+  private async restoreOrderFromDispute(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    preDisputeStatus: OrderStatus | null,
+  ): Promise<void> {
+    const restored = preDisputeStatus ?? 'DELIVERED';
+    await this.updateOrder(
+      {
+        where: { id: orderId },
+        data: { status: restored, preDisputeStatus: null },
+      },
+      tx,
+    );
   }
 
   /**

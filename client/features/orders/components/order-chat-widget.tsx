@@ -195,6 +195,25 @@ export function OrderChatWidget({
       roleLabel: "Creator",
     },
   ];
+  // Any sender that is neither the brand nor the creator is platform Support
+  // (an admin who joined the conversation while the order was disputed).
+  const knownParticipantIds = new Set([
+    state.brandUserId,
+    state.creatorUserId,
+  ]);
+  const supportSenderIds = new Set(
+    rawMessages
+      .map((message) => message.senderUserId)
+      .filter((id) => !knownParticipantIds.has(id)),
+  );
+  for (const supportId of supportSenderIds) {
+    participants.push({
+      id: supportId,
+      name: "Support",
+      roleLabel: "Support",
+    });
+  }
+
   const otherParticipant =
     role === "brand" ? participants[1] : participants[0];
 

@@ -510,6 +510,11 @@ model Order {
   creatorPaidAt      DateTime?
   revisionCount      Int       @default(0)
 
+  /// Order status captured at the moment a dispute is opened, so an admin
+  /// resolution ("continue") or an opener withdrawal can restore the order
+  /// to exactly the state it was in before the dispute.
+  preDisputeStatus OrderStatus?
+
   // Razorpay Payments
   razorpayOrderId   String?   @unique
   razorpayPaymentId String?

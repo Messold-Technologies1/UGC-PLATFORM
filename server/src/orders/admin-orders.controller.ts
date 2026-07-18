@@ -23,6 +23,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminRejectOrderDto } from './dto/admin-reject-order.dto';
+import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { OrdersService } from './orders.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
@@ -31,6 +32,8 @@ import { OrderChatService } from '../order-chat/order-chat.service';
 import { ListOrderChatMessagesQueryDto } from '../order-chat/dto/list-order-chat-messages-query.dto';
 import { OrderChatMessagesResponseDto } from '../order-chat/dto/order-chat-messages-response.dto';
 import { OrderChatStateDto } from '../order-chat/dto/order-chat-state.dto';
+import { OrderChatMessageDto } from '../order-chat/dto/order-chat-message.dto';
+import { SendOrderChatMessageDto } from '../order-chat/dto/send-order-chat-message.dto';
 import { toOrderChatMessageDto } from '../order-chat/order-chat-message.mapper';
 
 @ApiTags('Admin Orders')
@@ -102,6 +105,65 @@ export class AdminOrdersController {
       adminUserId: req.user.id,
       resolutionNotes: dto.resolutionNotes,
     });
+  }
+
+  @Post(':id/resolve-continue')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Resolve dispute in the creator’s favour; order returns to its pre-dispute state (RESOLVED_CONTINUE)',
+  })
+  @ApiNoContentResponse()
+  async resolveContinue(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResolveDisputeDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.orders.adminResolveDisputeContinue({
+      orderId: id,
+      adminUserId: req.user.id,
+      resolutionNotes: dto.resolutionNotes,
+    });
+  }
+
+  @Post(':id/close-dispute')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Close dispute without a refund; order returns to its pre-dispute state (RESOLVED_CLOSED)',
+  })
+  @ApiNoContentResponse()
+  async closeDispute(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResolveDisputeDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.orders.adminCloseDispute({
+      orderId: id,
+      adminUserId: req.user.id,
+      resolutionNotes: dto.resolutionNotes,
+    });
+  }
+
+  @Post(':id/chat/messages')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Admin posts a message into the order chat (group chat with brand + creator; disputed orders only)',
+  })
+  @ApiCreatedResponse({ type: OrderChatMessageDto })
+  async sendChatMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SendOrderChatMessageDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<OrderChatMessageDto> {
+    const message = await this.chat.sendMessageAsAdmin({
+      orderId: id,
+      adminUserId: req.user.id,
+      text: dto.text,
+      clientMessageId: dto.clientMessageId,
+    });
+    return toOrderChatMessageDto(message);
   }
 
   @Post(':id/refund')

@@ -1,5 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
+import {
+  OrderDisputeOpenedBy,
+  OrderDisputeStatus,
+  OrderStatus,
+} from '@prisma/client';
+
+export class OrderActiveDisputeDto {
+  @ApiProperty({ enum: OrderDisputeStatus })
+  status!: OrderDisputeStatus;
+
+  @ApiProperty({ enum: OrderDisputeOpenedBy })
+  openedBy!: OrderDisputeOpenedBy;
+
+  @ApiProperty({ example: 'Creator missed delivery deadline' })
+  reason!: string;
+
+  @ApiProperty()
+  openedAt!: Date;
+}
 
 export class OrderCurrentRevisionDto {
   @ApiProperty({
@@ -132,6 +150,13 @@ export class OrderDetailsPublicDto {
       'Present when status is REVISION_REQUESTED or REVISION_SUBMITTED — the active brand revision request',
   })
   currentRevision?: OrderCurrentRevisionDto;
+
+  @ApiPropertyOptional({
+    type: () => OrderActiveDisputeDto,
+    description:
+      'Present when status is DISPUTED — the currently open dispute for this order',
+  })
+  dispute?: OrderActiveDisputeDto;
 
   @ApiPropertyOptional()
   refundedAt?: Date | null;

@@ -12,16 +12,19 @@ import type {
   OrderCreatorSnapshot,
 } from "@/features/orders/api/types";
 import { cn } from "@/lib/utils";
+import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 import {
   useAdminOrderChatMessagesInfiniteQuery,
   useAdminOrderChatStateQuery,
 } from "../hooks/use-admin-order-chat";
+import { useSendAdminOrderChatMessageMutation } from "../hooks/use-send-admin-order-chat-message";
 import type { OrderChatMessageDto } from "../types";
 
 type AdminOrderChatProps = {
   orderId: string;
   brand: OrderBrandSnapshot;
   creator: OrderCreatorSnapshot;
+  orderStatus: string;
   className?: string;
 };
 
@@ -85,11 +88,16 @@ export function AdminOrderChat({
   orderId,
   brand,
   creator,
+  orderStatus,
   className,
 }: AdminOrderChatProps) {
   const stateQuery = useAdminOrderChatStateQuery(orderId);
   const messagesQuery = useAdminOrderChatMessagesInfiniteQuery(orderId);
+  const meQuery = useMeQuery();
+  const sendMutation = useSendAdminOrderChatMessageMutation(orderId);
   const state = stateQuery.data;
+  const isDisputed = orderStatus === "DISPUTED";
+  const adminUserId = meQuery.data?.id ?? null;
 
   const isInitialLoading = stateQuery.isPending || messagesQuery.isPending;
   const errorMessage =
@@ -142,19 +150,32 @@ export function AdminOrderChat({
       roleLabel: "Creator",
     },
   ];
+  if (adminUserId) {
+    participants.push({
+      id: adminUserId,
+      name: "You",
+      roleLabel: "Support",
+    });
+  }
   const messages = mapMessages(
     messagesQuery.data?.pages.map((page) => page.items) ?? [],
   );
 
+  // While the order is disputed, the admin joins the brand/creator conversation
+  // as "Support", turning it into a three-way group chat. Outside a dispute the
+  // history stays read-only.
+  const canSend = isDisputed && Boolean(adminUserId);
+
   return (
     <MessagingConversation
-      alignRightUserId={state.brandUserId}
+      alignRightUserId={adminUserId ?? state.brandUserId}
       className={className}
       emptyState="No chat messages have been sent for this order."
       hasMoreMessages={messagesQuery.hasNextPage}
       headerAvatarUrl={creator.profileImageUrl ?? brand.logoUrl}
       headerSubtitle={`${brand.brandName} and ${creator.displayName}`}
-      headerTitle="Order Chat History"
+      headerTitle={isDisputed ? "Dispute Group Chat" : "Order Chat History"}
+      inputPlaceholder="Message the brand and creator as Support"
       isLoadingMore={messagesQuery.isFetchingNextPage}
       messages={messages}
       onLoadMore={
@@ -164,8 +185,20 @@ export function AdminOrderChat({
             }
           : undefined
       }
+      onSendMessage={
+        canSend
+          ? async (text) => {
+              await sendMutation.mutateAsync(text);
+            }
+          : undefined
+      }
       participants={participants}
-      readOnly
+      readOnly={!canSend}
+      sendError={
+        sendMutation.isError
+          ? "Unable to send the message. Please try again."
+          : null
+      }
       showSenderNames
     />
   );

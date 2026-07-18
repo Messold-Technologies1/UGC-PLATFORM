@@ -50,6 +50,15 @@ export interface OrderCurrentRevision {
   requestedAt: string;
 }
 
+export type OrderDisputeOpenedBy = "BRAND" | "CREATOR";
+
+export interface OrderActiveDispute {
+  status: "OPEN" | "RESOLVED_CONTINUE" | "RESOLVED_REFUNDED" | "RESOLVED_CLOSED";
+  openedBy: OrderDisputeOpenedBy;
+  reason: string;
+  openedAt: string;
+}
+
 export interface OrderDetailsPublic extends OrderListSummary {
   deliverablesSnapshot: string[];
   maxRevisionsSnapshot: number;
@@ -61,6 +70,7 @@ export interface OrderDetailsPublic extends OrderListSummary {
   creatorPaidAt?: string | null;
   revisionCount: number;
   currentRevision?: OrderCurrentRevision;
+  dispute?: OrderActiveDispute;
   refundedAt?: string | null;
 }
 

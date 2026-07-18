@@ -21,6 +21,8 @@ import {
   ClipboardCheck,
   BadgeDollarSign,
   RotateCcw,
+  ShieldCheck,
+  CircleSlash,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,9 +39,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  useCloseDisputeAdminOrderMutation,
   useMarkAdminOrderCreatorPaidMutation,
   useRefundAdminOrderMutation,
   useRejectAdminOrderMutation,
+  useResolveContinueAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
 import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
@@ -184,12 +188,18 @@ export default function AdminOrderDetailsPage() {
   >(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
+  const [disputeAction, setDisputeAction] = useState<
+    "resolve-continue" | "close-dispute" | null
+  >(null);
+  const [disputeNotes, setDisputeNotes] = useState("");
   const { data, isLoading, isError, error } = useAdminOrderDetailsQuery(
     orderId ?? "",
   );
   const markCreatorPaidMutation = useMarkAdminOrderCreatorPaidMutation();
   const rejectOrderMutation = useRejectAdminOrderMutation();
   const refundOrderMutation = useRefundAdminOrderMutation();
+  const resolveContinueMutation = useResolveContinueAdminOrderMutation();
+  const closeDisputeMutation = useCloseDisputeAdminOrderMutation();
 
   if (isLoading) {
     return <AdminOrderDetailsSkeleton />;
@@ -229,10 +239,13 @@ export default function AdminOrderDetailsPage() {
     order.status === "ACCEPTED" && !order.creatorPaidAt;
   const canRejectOrder = order.status === "DISPUTED";
   const canRefundOrder = order.status === "REJECTED" && !order.refundedAt;
+  const canResolveDispute = order.status === "DISPUTED";
   const isActionPending =
     markCreatorPaidMutation.isPending ||
     rejectOrderMutation.isPending ||
-    refundOrderMutation.isPending;
+    refundOrderMutation.isPending ||
+    resolveContinueMutation.isPending ||
+    closeDisputeMutation.isPending;
   const totalAmount = order.expectedAmountPaise / 100;
   const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
 
@@ -269,6 +282,43 @@ export default function AdminOrderDetailsPage() {
       },
     );
   };
+
+  const handleResolveDispute = () => {
+    if (!disputeAction) return;
+    const resolutionNotes = disputeNotes.trim() || undefined;
+    const mutation =
+      disputeAction === "resolve-continue"
+        ? resolveContinueMutation
+        : closeDisputeMutation;
+
+    mutation.mutate(
+      { orderId: order.id, resolutionNotes },
+      {
+        onSuccess: () => {
+          setDisputeAction(null);
+          setDisputeNotes("");
+        },
+      },
+    );
+  };
+
+  const disputeDialogCopy =
+    disputeAction === "resolve-continue"
+      ? {
+          title: "Resolve in Creator's Favour",
+          description:
+            "This dismisses the dispute without a refund and returns the order to the state it was in before the dispute, so it can continue.",
+          action: "Resolve & Continue",
+          icon: ShieldCheck,
+        }
+      : {
+          title: "Close Dispute",
+          description:
+            "This closes the dispute without a refund (e.g. resolved amicably) and returns the order to its pre-dispute state.",
+          action: "Close Dispute",
+          icon: CircleSlash,
+        };
+  const DisputeIcon = disputeDialogCopy.icon;
 
   const confirmActionCopy =
     confirmAction === "mark-creator-paid"
@@ -640,6 +690,34 @@ export default function AdminOrderDetailsPage() {
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-10 w-full justify-start rounded-xl border-sky-500/20 bg-sky-500/10 text-sky-700 shadow-none hover:bg-sky-500/20 hover:text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20 dark:hover:text-sky-300"
+                  disabled={!canResolveDispute || isActionPending}
+                  onClick={() => setDisputeAction("resolve-continue")}
+                >
+                  {resolveContinueMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
+                  Resolve &amp; continue
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full justify-start rounded-xl border-slate-500/20 bg-slate-500/10 text-slate-700 shadow-none hover:bg-slate-500/20 hover:text-slate-800 dark:border-slate-500/20 dark:bg-slate-500/10 dark:text-slate-300 dark:hover:bg-slate-500/20 dark:hover:text-slate-200"
+                  disabled={!canResolveDispute || isActionPending}
+                  onClick={() => setDisputeAction("close-dispute")}
+                >
+                  {closeDisputeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CircleSlash className="h-4 w-4" />
+                  )}
+                  Close dispute (no refund)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
                   className="h-10 w-full justify-start rounded-xl border-amber-500/20 bg-amber-500/10 text-amber-700 shadow-none hover:bg-amber-500/20 hover:text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
                   disabled={!canRefundOrder || isActionPending}
                   onClick={() => setConfirmAction("refund")}
@@ -722,7 +800,12 @@ export default function AdminOrderDetailsPage() {
         </div>
 
         <motion.div variants={itemVariants} className="xl:col-span-2">
-          <AdminOrderChat orderId={order.id} brand={brand} creator={creator} />
+          <AdminOrderChat
+            orderId={order.id}
+            brand={brand}
+            creator={creator}
+            orderStatus={order.status}
+          />
         </motion.div>
 
         <motion.div variants={itemVariants}>
@@ -829,6 +912,64 @@ export default function AdminOrderDetailsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
               Reject Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(disputeAction)}
+        onOpenChange={(open) => {
+          if (!open && !isActionPending) {
+            setDisputeAction(null);
+            setDisputeNotes("");
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!isActionPending}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DisputeIcon className="h-4 w-4 text-primary" />
+              {disputeDialogCopy.title}
+            </DialogTitle>
+            <DialogDescription>
+              {disputeDialogCopy.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Resolution notes
+            </p>
+            <Textarea
+              value={disputeNotes}
+              onChange={(event) => setDisputeNotes(event.target.value)}
+              disabled={isActionPending}
+              maxLength={2000}
+              placeholder="Optional admin notes"
+              className="min-h-28"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isActionPending}
+              onClick={() => {
+                setDisputeAction(null);
+                setDisputeNotes("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isActionPending}
+              onClick={handleResolveDispute}
+            >
+              {isActionPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              {disputeDialogCopy.action}
             </Button>
           </DialogFooter>
         </DialogContent>

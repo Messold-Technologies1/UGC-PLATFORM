@@ -54,6 +54,44 @@ export interface ProfileCompletenessResult {
   missing: string[];
 }
 
+/** A single Go-Live requirement: a stable machine `key` and its `label`. */
+export interface GoLiveRequirement {
+  key: string;
+  label: string;
+}
+
+/**
+ * Ordered catalog of every Go-Live requirement. The `label` of each entry is
+ * exactly the string `evaluateProfileCompleteness` pushes into `missing` when
+ * that requirement is unmet, so analytics can tally `missing` labels back to a
+ * stable key. Keep in lockstep with `evaluateProfileCompleteness` below.
+ */
+export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
+  { key: 'profilePhoto', label: 'Profile photo' },
+  { key: 'introReel', label: 'Intro reel' },
+  { key: 'displayName', label: 'Display name' },
+  { key: 'contactEmail', label: 'Contact email' },
+  { key: 'bio', label: 'Bio' },
+  { key: 'country', label: 'Country' },
+  { key: 'state', label: 'State' },
+  { key: 'city', label: 'City' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'dateOfBirth', label: 'Date of birth' },
+  { key: 'shippingAddress', label: 'Shipping address' },
+  { key: 'contentFormat', label: FACET_LABELS[CreatorFacetDimension.CONTENT_FORMAT] },
+  { key: 'contentCategory', label: FACET_LABELS[CreatorFacetDimension.CONTENT_CATEGORY] },
+  {
+    key: 'categoryExperience',
+    label: FACET_LABELS[CreatorFacetDimension.CATEGORY_EXPERIENCE],
+  },
+  { key: 'language', label: 'At least one language' },
+  { key: 'package', label: 'At least one package' },
+  {
+    key: 'portfolioVideos',
+    label: `At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`,
+  },
+] as const;
+
 function hasText(value?: string | null): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }

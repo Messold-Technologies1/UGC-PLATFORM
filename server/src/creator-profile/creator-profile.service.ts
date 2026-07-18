@@ -61,6 +61,11 @@ import {
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
+import {
+  GO_LIVE_REQUIREMENTS,
+  evaluateProfileCompleteness,
+} from './creator-profile-completeness.util';
+import { AdminBuildingProfileAnalyticsDto } from './dto/admin-building-profile-analytics.dto';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
@@ -1462,6 +1467,90 @@ export class CreatorProfileService {
       incomplete: counts[3],
       listed: counts[4],
     };
+  }
+
+  /**
+   * Analytics for the admin "Building profile" segment: for every profile that
+   * has not yet gone live (completeProfile = false, matching the INCOMPLETE
+   * segment), tally how many are still missing each Go-Live requirement.
+   *
+   * Reuses `evaluateProfileCompleteness` — the single source of truth for what
+   * "complete" means — so the counts never drift from the go-live checklist.
+   */
+  async getBuildingProfileAnalytics(): Promise<AdminBuildingProfileAnalyticsDto> {
+    const where = buildAdminCreatorsListWhere(
+      AdminCreatorListSegment.INCOMPLETE,
+    );
+
+    const profiles = await this.prisma.creatorProfile.findMany({
+      where,
+      select: {
+        profileImageUrl: true,
+        introVideoUrl: true,
+        displayName: true,
+        contactEmail: true,
+        bio: true,
+        countryName: true,
+        stateName: true,
+        city: true,
+        gender: true,
+        dateOfBirth: true,
+        shippingAddress: true,
+        facetSelections: {
+          select: { option: { select: { dimension: true } } },
+        },
+        profileLanguages: { select: { id: true } },
+        packages: { select: { id: true } },
+        portfolioVideos: {
+          where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+          select: { id: true },
+        },
+      },
+    });
+
+    const totalProfiles = profiles.length;
+    const missingByLabel = new Map<string, number>();
+
+    for (const profile of profiles) {
+      const { missing } = evaluateProfileCompleteness({
+        profileImageUrl: profile.profileImageUrl,
+        introVideoUrl: profile.introVideoUrl,
+        displayName: profile.displayName,
+        contactEmail: profile.contactEmail,
+        bio: profile.bio,
+        countryName: profile.countryName,
+        stateName: profile.stateName,
+        city: profile.city,
+        gender: profile.gender,
+        dateOfBirth: profile.dateOfBirth,
+        shippingAddress: profile.shippingAddress,
+        selectedFacetDimensions: profile.facetSelections.map(
+          (selection) => selection.option.dimension,
+        ),
+        languageCount: profile.profileLanguages.length,
+        packageCount: profile.packages.length,
+        publicVideoCount: profile.portfolioVideos.length,
+      });
+
+      for (const label of missing) {
+        missingByLabel.set(label, (missingByLabel.get(label) ?? 0) + 1);
+      }
+    }
+
+    const fields = GO_LIVE_REQUIREMENTS.map((requirement) => {
+      const incompleteCount = missingByLabel.get(requirement.label) ?? 0;
+      return {
+        key: requirement.key,
+        label: requirement.label,
+        incompleteCount,
+        percentage:
+          totalProfiles === 0
+            ? 0
+            : Math.round((incompleteCount / totalProfiles) * 100),
+      };
+    }).sort((a, b) => b.incompleteCount - a.incompleteCount);
+
+    return { totalProfiles, fields };
   }
 
   async listPendingCreatorApprovals(

@@ -36,6 +36,7 @@ import {
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { AdminCreatorPayoutDetailsDto } from './dto/admin-creator-payout-details.dto';
+import { AdminBuildingProfileAnalyticsDto } from './dto/admin-building-profile-analytics.dto';
 
 @ApiTags('Admin - Creators')
 @ApiBearerAuth()
@@ -52,6 +53,16 @@ export class AdminCreatorController {
   @ApiOkResponse({ type: AdminCreatorSegmentCountsDto })
   async getSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
     return this.creatorProfileService.getAdminCreatorSegmentCounts();
+  }
+
+  @Get('building-profile-analytics')
+  @ApiOperation({
+    summary:
+      'Incomplete-field analytics across profiles still building (completeProfile = false)',
+  })
+  @ApiOkResponse({ type: AdminBuildingProfileAnalyticsDto })
+  async getBuildingProfileAnalytics(): Promise<AdminBuildingProfileAnalyticsDto> {
+    return this.creatorProfileService.getBuildingProfileAnalytics();
   }
 
   @Get()

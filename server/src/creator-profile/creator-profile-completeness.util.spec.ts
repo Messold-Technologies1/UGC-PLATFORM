@@ -1,6 +1,7 @@
 import { CreatorFacetDimension, CreatorGender } from '@prisma/client';
 import {
   evaluateProfileCompleteness,
+  GO_LIVE_REQUIREMENTS,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
   type ProfileCompletenessInput,
@@ -101,5 +102,41 @@ describe('evaluateProfileCompleteness', () => {
     });
     expect(result.missing).toContain('At least one language');
     expect(result.missing).toContain('At least one package');
+  });
+});
+
+describe('GO_LIVE_REQUIREMENTS catalog', () => {
+  it('has a stable entry for every label a fully-empty profile reports', () => {
+    // The building-profile analytics tally `missing` labels back to catalog
+    // keys, so every label the evaluator can emit must exist in the catalog.
+    const emptyProfile = evaluateProfileCompleteness({
+      profileImageUrl: null,
+      introVideoUrl: null,
+      displayName: null,
+      contactEmail: null,
+      bio: null,
+      countryName: null,
+      stateName: null,
+      city: null,
+      gender: null,
+      dateOfBirth: null,
+      shippingAddress: null,
+      selectedFacetDimensions: [],
+      languageCount: 0,
+      packageCount: 0,
+      publicVideoCount: 0,
+    });
+
+    const catalogLabels = new Set(GO_LIVE_REQUIREMENTS.map((r) => r.label));
+    for (const label of emptyProfile.missing) {
+      expect(catalogLabels.has(label)).toBe(true);
+    }
+    // Every requirement should surface for a completely empty profile.
+    expect(emptyProfile.missing.length).toBe(GO_LIVE_REQUIREMENTS.length);
+  });
+
+  it('uses unique keys', () => {
+    const keys = GO_LIVE_REQUIREMENTS.map((r) => r.key);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

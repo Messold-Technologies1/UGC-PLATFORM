@@ -174,6 +174,8 @@ export const ENDPOINTS = {
     CREATORS: {
       LIST: "/api/admin/creators",
       SEGMENT_COUNTS: "/api/admin/creators/segment-counts",
+      BUILDING_PROFILE_ANALYTICS:
+        "/api/admin/creators/building-profile-analytics",
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
       REJECTED_APPROVALS: "/api/admin/creators/rejected-approvals",
       APPROVE: (id: string) =>

@@ -6,6 +6,7 @@ import ReviewDrawer from "@/components/admin/ReviewDrawer";
 import { AdminCreatorListRow } from "@/features/admin/components/admin-creator-list-row";
 import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 import { AdminCreatorSegmentTabs } from "@/features/admin/components/admin-creator-segment-tabs";
+import { AdminBuildingProfileAnalytics } from "@/features/admin/components/admin-building-profile-analytics";
 import {
   getAdminCreatorEmptyMessage,
   getAdminCreatorTabs,
@@ -42,6 +43,8 @@ function AdminCreatorsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+  const viewParam = searchParams.get("view");
+  const analyticsActive = viewParam === "analytics";
   const highlightedCreatorId = searchParams.get("highlightedCreatorId");
 
   const [segment, setSegment] = useState<AdminCreatorListSegment>(
@@ -82,6 +85,14 @@ function AdminCreatorsPageInner() {
     setPage(1);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", next);
+    params.delete("view");
+    params.delete("highlightedCreatorId");
+    router.replace(`/admin/creators?${params.toString()}`);
+  };
+
+  const handleSelectAnalytics = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "analytics");
     params.delete("highlightedCreatorId");
     router.replace(`/admin/creators?${params.toString()}`);
   };
@@ -96,20 +107,26 @@ function AdminCreatorsPageInner() {
           counts={counts}
           countsLoading={countsLoading}
           onChange={handleTabChange}
+          analyticsActive={analyticsActive}
+          onSelectAnalytics={handleSelectAnalytics}
           trailing={
-            <AdminCreatorListSearch
-              value={search}
-              isLoading={searchLoading}
-              onChange={(next) => {
-                setSearch(next);
-                setPage(1);
-              }}
-              className="relative w-full sm:w-64"
-            />
+            analyticsActive ? null : (
+              <AdminCreatorListSearch
+                value={search}
+                isLoading={searchLoading}
+                onChange={(next) => {
+                  setSearch(next);
+                  setPage(1);
+                }}
+                className="relative w-full sm:w-64"
+              />
+            )
           }
         />
 
-        {isError && !isLoading ? (
+        {analyticsActive ? (
+          <AdminBuildingProfileAnalytics enabled={analyticsActive} />
+        ) : isError && !isLoading ? (
           <div className="rounded-2xl border border-border/10 bg-card/10 py-20 text-center text-sm text-muted-foreground glass-panel">
             We could not load creators right now. Try again shortly.
           </div>

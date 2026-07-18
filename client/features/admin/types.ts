@@ -204,6 +204,18 @@ export interface AdminCreatorSegmentCountsDto {
   listed: number;
 }
 
+export interface BuildingProfileFieldStatDto {
+  key: string;
+  label: string;
+  incompleteCount: number;
+  percentage: number;
+}
+
+export interface AdminBuildingProfileAnalyticsDto {
+  totalProfiles: number;
+  fields: BuildingProfileFieldStatDto[];
+}
+
 export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemDto {
   profileImageUrl?: string | null;
   completeProfile: boolean;

@@ -107,25 +107,6 @@ export class AdminOrdersController {
     });
   }
 
-  @Post(':id/resolve-continue')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary:
-      'Resolve dispute in the creator’s favour; order returns to its pre-dispute state (RESOLVED_CONTINUE)',
-  })
-  @ApiNoContentResponse()
-  async resolveContinue(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ResolveDisputeDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.orders.adminResolveDisputeContinue({
-      orderId: id,
-      adminUserId: req.user.id,
-      resolutionNotes: dto.resolutionNotes,
-    });
-  }
-
   @Post(':id/close-dispute')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

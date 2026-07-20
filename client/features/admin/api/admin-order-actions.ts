@@ -33,15 +33,6 @@ export async function refundAdminOrder({
   return data;
 }
 
-export async function resolveContinueAdminOrder({
-  orderId,
-  resolutionNotes,
-}: AdminResolveDisputePayload): Promise<void> {
-  await api.post(ENDPOINTS.ADMIN.ORDERS.RESOLVE_CONTINUE(orderId), {
-    resolutionNotes,
-  });
-}
-
 export async function closeDisputeAdminOrder({
   orderId,
   resolutionNotes,

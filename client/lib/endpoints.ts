@@ -205,8 +205,6 @@ export const ENDPOINTS = {
         `/api/admin/orders/${encodeURIComponent(id)}/reject`,
       REFUND: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/refund`,
-      RESOLVE_CONTINUE: (id: string) =>
-        `/api/admin/orders/${encodeURIComponent(id)}/resolve-continue`,
       CLOSE_DISPUTE: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/close-dispute`,
     },

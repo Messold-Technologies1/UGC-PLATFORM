@@ -6,7 +6,6 @@ import {
   markAdminOrderCreatorPaid,
   refundAdminOrder,
   rejectAdminOrder,
-  resolveContinueAdminOrder,
 } from "../api/admin-order-actions";
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -48,22 +47,6 @@ export function useRejectAdminOrderMutation() {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to reject this order."));
-    },
-  });
-}
-
-export function useResolveContinueAdminOrderMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ["admin", "orders", "resolve-continue"],
-    mutationFn: resolveContinueAdminOrder,
-    onSuccess: async () => {
-      toast.success("Dispute resolved; the order will continue.");
-      await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Unable to resolve this dispute."));
     },
   });
 }

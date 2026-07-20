@@ -2426,41 +2426,14 @@ export class OrdersService {
   }
 
   /**
-   * Admin: resolve an open dispute without a refund and let the order continue
-   * from where it left off (creator's favour). Order returns to its
-   * pre-dispute status.
-   */
-  async adminResolveDisputeContinue(params: {
-    orderId: string;
-    adminUserId: string;
-    resolutionNotes?: string;
-  }): Promise<void> {
-    await this.adminUnwindDispute({
-      ...params,
-      disputeStatus: 'RESOLVED_CONTINUE',
-    });
-  }
-
-  /**
-   * Admin: close an open dispute without a refund (e.g. resolved amicably /
-   * no action needed). Order returns to its pre-dispute status.
+   * Admin: close an open dispute without a refund (e.g. resolved amicably or in
+   * the creator's favour). The dispute is recorded as RESOLVED_CLOSED and the
+   * order returns to its pre-dispute status so it can continue.
    */
   async adminCloseDispute(params: {
     orderId: string;
     adminUserId: string;
     resolutionNotes?: string;
-  }): Promise<void> {
-    await this.adminUnwindDispute({
-      ...params,
-      disputeStatus: 'RESOLVED_CLOSED',
-    });
-  }
-
-  private async adminUnwindDispute(params: {
-    orderId: string;
-    adminUserId: string;
-    resolutionNotes?: string;
-    disputeStatus: 'RESOLVED_CONTINUE' | 'RESOLVED_CLOSED';
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -2476,7 +2449,7 @@ export class OrdersService {
       await tx.orderDispute.updateMany({
         where: { orderId: order.id, status: 'OPEN' },
         data: {
-          status: params.disputeStatus,
+          status: 'RESOLVED_CLOSED',
           resolvedAt: new Date(),
           resolvedByUserId: params.adminUserId,
           resolutionNotes: params.resolutionNotes ?? null,

@@ -21,7 +21,6 @@ import {
   ClipboardCheck,
   BadgeDollarSign,
   RotateCcw,
-  ShieldCheck,
   CircleSlash,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -43,7 +42,6 @@ import {
   useMarkAdminOrderCreatorPaidMutation,
   useRefundAdminOrderMutation,
   useRejectAdminOrderMutation,
-  useResolveContinueAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
 import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
@@ -188,9 +186,7 @@ export default function AdminOrderDetailsPage() {
   >(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
-  const [disputeAction, setDisputeAction] = useState<
-    "resolve-continue" | "close-dispute" | null
-  >(null);
+  const [closeDisputeDialogOpen, setCloseDisputeDialogOpen] = useState(false);
   const [disputeNotes, setDisputeNotes] = useState("");
   const { data, isLoading, isError, error } = useAdminOrderDetailsQuery(
     orderId ?? "",
@@ -198,7 +194,6 @@ export default function AdminOrderDetailsPage() {
   const markCreatorPaidMutation = useMarkAdminOrderCreatorPaidMutation();
   const rejectOrderMutation = useRejectAdminOrderMutation();
   const refundOrderMutation = useRefundAdminOrderMutation();
-  const resolveContinueMutation = useResolveContinueAdminOrderMutation();
   const closeDisputeMutation = useCloseDisputeAdminOrderMutation();
 
   if (isLoading) {
@@ -244,7 +239,6 @@ export default function AdminOrderDetailsPage() {
     markCreatorPaidMutation.isPending ||
     rejectOrderMutation.isPending ||
     refundOrderMutation.isPending ||
-    resolveContinueMutation.isPending ||
     closeDisputeMutation.isPending;
   const totalAmount = order.expectedAmountPaise / 100;
   const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
@@ -283,42 +277,19 @@ export default function AdminOrderDetailsPage() {
     );
   };
 
-  const handleResolveDispute = () => {
-    if (!disputeAction) return;
+  const handleCloseDispute = () => {
     const resolutionNotes = disputeNotes.trim() || undefined;
-    const mutation =
-      disputeAction === "resolve-continue"
-        ? resolveContinueMutation
-        : closeDisputeMutation;
 
-    mutation.mutate(
+    closeDisputeMutation.mutate(
       { orderId: order.id, resolutionNotes },
       {
         onSuccess: () => {
-          setDisputeAction(null);
+          setCloseDisputeDialogOpen(false);
           setDisputeNotes("");
         },
       },
     );
   };
-
-  const disputeDialogCopy =
-    disputeAction === "resolve-continue"
-      ? {
-          title: "Resolve in Creator's Favour",
-          description:
-            "This dismisses the dispute without a refund and returns the order to the state it was in before the dispute, so it can continue.",
-          action: "Resolve & Continue",
-          icon: ShieldCheck,
-        }
-      : {
-          title: "Close Dispute",
-          description:
-            "This closes the dispute without a refund (e.g. resolved amicably) and returns the order to its pre-dispute state.",
-          action: "Close Dispute",
-          icon: CircleSlash,
-        };
-  const DisputeIcon = disputeDialogCopy.icon;
 
   const confirmActionCopy =
     confirmAction === "mark-creator-paid"
@@ -690,23 +661,9 @@ export default function AdminOrderDetailsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 w-full justify-start rounded-xl border-sky-500/20 bg-sky-500/10 text-sky-700 shadow-none hover:bg-sky-500/20 hover:text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20 dark:hover:text-sky-300"
-                  disabled={!canResolveDispute || isActionPending}
-                  onClick={() => setDisputeAction("resolve-continue")}
-                >
-                  {resolveContinueMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="h-4 w-4" />
-                  )}
-                  Resolve &amp; continue
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
                   className="h-10 w-full justify-start rounded-xl border-slate-500/20 bg-slate-500/10 text-slate-700 shadow-none hover:bg-slate-500/20 hover:text-slate-800 dark:border-slate-500/20 dark:bg-slate-500/10 dark:text-slate-300 dark:hover:bg-slate-500/20 dark:hover:text-slate-200"
                   disabled={!canResolveDispute || isActionPending}
-                  onClick={() => setDisputeAction("close-dispute")}
+                  onClick={() => setCloseDisputeDialogOpen(true)}
                 >
                   {closeDisputeMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -918,10 +875,10 @@ export default function AdminOrderDetailsPage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(disputeAction)}
+        open={closeDisputeDialogOpen}
         onOpenChange={(open) => {
           if (!open && !isActionPending) {
-            setDisputeAction(null);
+            setCloseDisputeDialogOpen(false);
             setDisputeNotes("");
           }
         }}
@@ -929,11 +886,12 @@ export default function AdminOrderDetailsPage() {
         <DialogContent showCloseButton={!isActionPending}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <DisputeIcon className="h-4 w-4 text-primary" />
-              {disputeDialogCopy.title}
+              <CircleSlash className="h-4 w-4 text-primary" />
+              Close Dispute
             </DialogTitle>
             <DialogDescription>
-              {disputeDialogCopy.description}
+              This closes the dispute without a refund and returns the order to
+              the state it was in before the dispute, so it can continue.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -955,7 +913,7 @@ export default function AdminOrderDetailsPage() {
               variant="outline"
               disabled={isActionPending}
               onClick={() => {
-                setDisputeAction(null);
+                setCloseDisputeDialogOpen(false);
                 setDisputeNotes("");
               }}
             >
@@ -964,12 +922,12 @@ export default function AdminOrderDetailsPage() {
             <Button
               type="button"
               disabled={isActionPending}
-              onClick={handleResolveDispute}
+              onClick={handleCloseDispute}
             >
               {isActionPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
-              {disputeDialogCopy.action}
+              Close Dispute
             </Button>
           </DialogFooter>
         </DialogContent>

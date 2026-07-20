@@ -417,31 +417,10 @@ export async function seedLegalPages(prisma: PrismaClient): Promise<void> {
     },
   ];
 
-  for (let i = 0; i < privacySections.length; i++) {
-    const s = privacySections[i];
-    await db.legalSection.upsert({
-      where: {
-        pageId_anchorId: {
-          pageId: privacyPage.id,
-          anchorId: s.anchorId,
-        },
-      },
-      update: {
-        title: s.title,
-        tocLabel: s.tocLabel,
-        content: s.content,
-        sortOrder: s.sortOrder,
-      },
-      create: {
-        pageId: privacyPage.id,
-        anchorId: s.anchorId,
-        title: s.title,
-        tocLabel: s.tocLabel,
-        content: s.content,
-        sortOrder: s.sortOrder,
-      },
-    });
-  }
+  await db.legalPage.update({
+    where: { id: privacyPage.id },
+    data: { sections: privacySections },
+  });
 
   console.log(
     `[seed] Legal page "privacy-policy" seeded with ${privacySections.length} sections`,
@@ -677,31 +656,10 @@ export async function seedLegalPages(prisma: PrismaClient): Promise<void> {
     },
   ];
 
-  for (let i = 0; i < termsSections.length; i++) {
-    const s = termsSections[i];
-    await db.legalSection.upsert({
-      where: {
-        pageId_anchorId: {
-          pageId: termsPage.id,
-          anchorId: s.anchorId,
-        },
-      },
-      update: {
-        title: s.title,
-        tocLabel: s.tocLabel,
-        content: s.content,
-        sortOrder: s.sortOrder,
-      },
-      create: {
-        pageId: termsPage.id,
-        anchorId: s.anchorId,
-        title: s.title,
-        tocLabel: s.tocLabel,
-        content: s.content,
-        sortOrder: s.sortOrder,
-      },
-    });
-  }
+  await db.legalPage.update({
+    where: { id: termsPage.id },
+    data: { sections: termsSections },
+  });
 
   console.log(
     `[seed] Legal page "terms-of-service" seeded with ${termsSections.length} sections`,
@@ -783,31 +741,10 @@ export async function seedLegalPages(prisma: PrismaClient): Promise<void> {
     },
   ];
 
-  for (let i = 0; i < guidelinesSections.length; i++) {
-    const s = guidelinesSections[i];
-    await db.legalSection.upsert({
-      where: {
-        pageId_anchorId: {
-          pageId: guidelinesPage.id,
-          anchorId: s.anchorId,
-        },
-      },
-      update: {
-        title: s.title,
-        tocLabel: s.tocLabel,
-        content: s.content,
-        sortOrder: s.sortOrder,
-      },
-      create: {
-        pageId: guidelinesPage.id,
-        anchorId: s.anchorId,
-        title: s.title,
-        tocLabel: s.tocLabel,
-        content: s.content,
-        sortOrder: s.sortOrder,
-      },
-    });
-  }
+  await db.legalPage.update({
+    where: { id: guidelinesPage.id },
+    data: { sections: guidelinesSections },
+  });
 
   console.log(
     `[seed] Legal page "creator-quality-guidelines" seeded with ${guidelinesSections.length} sections`,

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PortfolioVisibilityStatus, RoleName } from '@prisma/client';
@@ -50,6 +51,8 @@ const MAX_SECTIONS_PER_CREATOR = 10;
 
 @Injectable()
 export class CreatorPortfolioService {
+  private readonly logger = new Logger(CreatorPortfolioService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -413,28 +416,59 @@ export class CreatorPortfolioService {
           ? PortfolioVisibilityStatus.PUBLIC
           : PortfolioVisibilityStatus.PRIVATE;
 
-    return this.prisma.$transaction(async (tx) => {
-      if (tags) {
-        await tx.creatorPortfolioVideoTag.deleteMany({ where: { videoId } });
-        if (tags.length) {
-          await tx.creatorPortfolioVideoTag.createMany({
-            data: tags.map((tag) => ({ videoId, tag })),
-            skipDuplicates: true,
-          });
+    const industryLabel =
+      dto.industryLabel !== undefined
+        ? dto.industryLabel.trim()
+          ? toTitleCaseLabel(dto.industryLabel)
+          : ''
+        : undefined;
+    const language = dto.language !== undefined ? dto.language.trim() : undefined;
+
+    // Keep only the writes that must be atomic with the video update inside the
+    // transaction: the video's own tags, the video row, and the listing-state
+    // recompute (flipping a video to public may complete the ≥3-videos rule).
+    // The interactive-transaction timeout is raised from the 5s default because
+    // this ran long enough under production load to trip P2028.
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        if (tags) {
+          await tx.creatorPortfolioVideoTag.deleteMany({ where: { videoId } });
+          if (tags.length) {
+            await tx.creatorPortfolioVideoTag.createMany({
+              data: tags.map((tag) => ({ videoId, tag })),
+              skipDuplicates: true,
+            });
+          }
         }
-      }
 
-      const industryLabel =
-        dto.industryLabel !== undefined
-          ? dto.industryLabel.trim()
-            ? toTitleCaseLabel(dto.industryLabel)
-            : ''
-          : undefined;
-      const language = dto.language !== undefined ? dto.language.trim() : undefined;
+        const video = await tx.creatorPortfolioVideo.update({
+          where: { id: videoId },
+          data: {
+            industryLabel:
+              industryLabel !== undefined ? industryLabel || null : undefined,
+            language: language !== undefined ? language || null : undefined,
+            description:
+              dto.description !== undefined ? dto.description.trim() || null : undefined,
+            visibilityStatus: visibility,
+          } as any,
+          include: { tags: true },
+        });
 
+        await recomputeCreatorListingState(tx, profile.id);
+
+        return video;
+      },
+      { timeout: 15000, maxWait: 10000 },
+    );
+
+    // Best-effort autocomplete catalog upserts. These are not critical to the
+    // video write and do not need to be atomic with it, so they run outside the
+    // transaction to keep its duration short. A failure here must not fail the
+    // update the creator already made.
+    try {
       await Promise.all([
         industryLabel
-          ? tx.portfolioIndustrySuggestion.upsert({
+          ? this.prisma.portfolioIndustrySuggestion.upsert({
               where: { normalizedName: normalizeSuggestion(industryLabel) },
               create: {
                 name: industryLabel,
@@ -444,7 +478,7 @@ export class CreatorPortfolioService {
             })
           : Promise.resolve(),
         language
-          ? tx.portfolioLanguageSuggestion.createMany({
+          ? this.prisma.portfolioLanguageSuggestion.createMany({
               data: [
                 {
                   name: language,
@@ -455,7 +489,7 @@ export class CreatorPortfolioService {
             })
           : Promise.resolve(),
         tags?.length
-          ? tx.portfolioTagSuggestion.createMany({
+          ? this.prisma.portfolioTagSuggestion.createMany({
               data: tags.map((tag) => ({
                 name: tag,
                 normalizedName: normalizeSuggestion(tag),
@@ -464,25 +498,15 @@ export class CreatorPortfolioService {
             })
           : Promise.resolve(),
       ]);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update portfolio suggestion catalog for video ${videoId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
-      const updated = await tx.creatorPortfolioVideo.update({
-        where: { id: videoId },
-        data: {
-          industryLabel:
-            industryLabel !== undefined ? industryLabel || null : undefined,
-          language: language !== undefined ? language || null : undefined,
-          description:
-            dto.description !== undefined ? dto.description.trim() || null : undefined,
-          visibilityStatus: visibility,
-        } as any,
-        include: { tags: true },
-      });
-
-      // Flipping a video to public may complete the ≥3-videos rule.
-      await recomputeCreatorListingState(tx, profile.id);
-
-      return this.mapVideo(updated);
-    });
+    return this.mapVideo(updated);
   }
 
   async deleteVideo(

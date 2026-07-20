@@ -124,7 +124,10 @@ export const Footer = memo(function Footer() {
                 { label: "Privacy Policy", href: "/legal/privacy" },
                 { label: "Terms of Service", href: "/legal/terms" },
                 { label: "Cookie Policy", href: "/legal/cookie" },
-                { label: "Community Guidelines", href: "/legal/guidelines" },
+                {
+                  label: "Creator Quality Guidelines",
+                  href: "/legal/guidelines",
+                },
                 {
                   label: "Refund & Cancellation Policy",
                   href: "/legal/terms#refunds-cancellations-and-disputes",

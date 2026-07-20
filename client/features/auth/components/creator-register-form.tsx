@@ -121,7 +121,7 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   instagramUrl: "Instagram handle",
   categories: "At least one category",
   password: "Password (at least 8 characters)",
-  termsAccepted: "Terms acceptance",
+  termsAccepted: "Terms & guidelines acceptance",
 };
 
 function getCreatorSignupBlockers(
@@ -1511,6 +1511,13 @@ export function CreatorRegisterForm() {
                 className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
               >
                 Privacy Policy
+              </Link>
+              {", "}
+              <Link
+                href="/legal/guidelines"
+                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+              >
+                Creator Quality Guidelines
               </Link>
               {", and confirm I'm over 13."}
             </Label>

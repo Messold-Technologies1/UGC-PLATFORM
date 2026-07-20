@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -92,11 +93,22 @@ export function CreatorPortfolioUploadForm({
   const [language, setLanguage] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  // Admin uploads on a creator's behalf don't require the creator's consent box.
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState<boolean>(
+    () => adminMode,
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!videoFile) {
       toast.error("Choose a video file");
+      return;
+    }
+
+    if (!guidelinesAccepted) {
+      toast.error(
+        "Please confirm your content follows the Creator Quality Guidelines.",
+      );
       return;
     }
 
@@ -379,9 +391,37 @@ export function CreatorPortfolioUploadForm({
               </div>
             ) : null}
 
+            {!adminMode ? (
+              <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
+                <Checkbox
+                  id="portfolio-guidelines"
+                  checked={guidelinesAccepted}
+                  disabled={submitting}
+                  onCheckedChange={(checked) =>
+                    setGuidelinesAccepted(checked === true)
+                  }
+                  className="mt-0.5 shrink-0"
+                />
+                <Label
+                  htmlFor="portfolio-guidelines"
+                  className="text-sm font-normal leading-snug text-muted-foreground"
+                >
+                  I confirm this content follows the{" "}
+                  <Link
+                    href="/legal/guidelines"
+                    target="_blank"
+                    className="font-semibold text-foreground underline underline-offset-2"
+                  >
+                    Creator Quality Guidelines
+                  </Link>
+                  .
+                </Label>
+              </div>
+            ) : null}
+
             <Button
               type="submit"
-              disabled={submitting || !videoFile}
+              disabled={submitting || !videoFile || !guidelinesAccepted}
               className="gap-2 bg-foreground text-background hover:opacity-90"
             >
               {submitting ? (

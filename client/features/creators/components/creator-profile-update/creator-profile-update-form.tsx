@@ -1085,34 +1085,39 @@ function CreatorProfileUpdateFormContent({
                     {isSavingDraft ? "Saving…" : "Save draft"}
                   </button>
                 ) : null}
-                <button
-                  type="submit"
-                  className="pe-btn pe-btn-primary"
-                  disabled={
-                    pending ||
-                    introVideo.uploadingIntroVideo ||
-                    profileImage.uploadingProfileImage ||
-                    facets.facetOptionsQuery.isLoading ||
-                    addOns.addOnOptionsQuery.isLoading
-                  }
-                >
-                  {isPrimarySubmitting ? (
-                    <>
-                      <Spinner className="size-4" aria-hidden />
-                      {completeProfile ? "Saving…" : "Going live…"}
-                    </>
-                  ) : completeProfile ? (
-                    <>
-                      <Check size={16} />
-                      Save changes
-                    </>
-                  ) : (
-                    <>
-                      <Rocket size={16} />
-                      Go Live
-                    </>
-                  )}
-                </button>
+                {/* Hide "Go Live" until the profile is actually complete — a
+                    not-yet-live creator can only Save draft until every
+                    requirement is met. Live profiles always show "Save changes". */}
+                {completeProfile || goLiveMissing.length === 0 ? (
+                  <button
+                    type="submit"
+                    className="pe-btn pe-btn-primary"
+                    disabled={
+                      pending ||
+                      introVideo.uploadingIntroVideo ||
+                      profileImage.uploadingProfileImage ||
+                      facets.facetOptionsQuery.isLoading ||
+                      addOns.addOnOptionsQuery.isLoading
+                    }
+                  >
+                    {isPrimarySubmitting ? (
+                      <>
+                        <Spinner className="size-4" aria-hidden />
+                        {completeProfile ? "Saving…" : "Going live…"}
+                      </>
+                    ) : completeProfile ? (
+                      <>
+                        <Check size={16} />
+                        Save changes
+                      </>
+                    ) : (
+                      <>
+                        <Rocket size={16} />
+                        Go Live
+                      </>
+                    )}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

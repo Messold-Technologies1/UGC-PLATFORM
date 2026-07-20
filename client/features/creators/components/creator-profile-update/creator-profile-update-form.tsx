@@ -981,32 +981,6 @@ function CreatorProfileUpdateFormContent({
           <div className="mb-4 space-y-4">
             <CreatorSpotlightProgram />
             {!completeProfile ? <GoLiveBanner missing={goLiveMissing} /> : null}
-            {!completeProfile && !adminMode ? (
-              <div className="flex items-start gap-3 rounded-2xl border border-border bg-card/50 px-4 py-4 sm:px-5">
-                <Checkbox
-                  id="creator-quality-guidelines"
-                  checked={guidelinesAccepted}
-                  onCheckedChange={(checked) =>
-                    setGuidelinesAccepted(checked === true)
-                  }
-                  className="mt-0.5 shrink-0"
-                />
-                <label
-                  htmlFor="creator-quality-guidelines"
-                  className="min-w-0 flex-1 text-sm leading-snug text-muted-foreground"
-                >
-                  I have read and agree to follow the{" "}
-                  <Link
-                    href="/legal/guidelines"
-                    target="_blank"
-                    className="font-semibold text-foreground underline underline-offset-2"
-                  >
-                    Creator Quality Guidelines
-                  </Link>{" "}
-                  when creating and delivering content.
-                </label>
-              </div>
-            ) : null}
           </div>
         </>
       ) : null}
@@ -1952,6 +1926,38 @@ function CreatorProfileUpdateFormContent({
                 onAdd={() => openPortfolioDrawer(null)}
               />
             )}
+
+            {!adminMode ? (
+              <div className="mt-5 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-4 sm:px-5">
+                <Checkbox
+                  id="creator-quality-guidelines"
+                  checked={guidelinesAccepted}
+                  onCheckedChange={(checked) =>
+                    setGuidelinesAccepted(checked === true)
+                  }
+                  className="mt-0.5 shrink-0"
+                />
+                <label
+                  htmlFor="creator-quality-guidelines"
+                  className="min-w-0 flex-1 text-sm leading-snug text-muted-foreground"
+                >
+                  I have read and agree to follow the{" "}
+                  <Link
+                    href="/legal/guidelines"
+                    target="_blank"
+                    className="font-semibold text-foreground underline underline-offset-2"
+                  >
+                    Creator Quality Guidelines
+                  </Link>{" "}
+                  when creating and delivering content.{" "}
+                  {!completeProfile ? (
+                    <span className="font-medium text-foreground">
+                      Required to go live.
+                    </span>
+                  ) : null}
+                </label>
+              </div>
+            ) : null}
           </SectionCard>
         </motion.div>
       </>

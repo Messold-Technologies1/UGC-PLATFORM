@@ -4,6 +4,9 @@ import type {
   AdminOrderActionPayload,
   AdminOrderRefundResponseDto,
   AdminRejectOrderPayload,
+  AdminResolveDisputePayload,
+  OrderChatMessageDto,
+  SendAdminOrderChatMessagePayload,
 } from "../types";
 
 export async function markAdminOrderCreatorPaid({
@@ -26,6 +29,27 @@ export async function refundAdminOrder({
 }: AdminOrderActionPayload): Promise<AdminOrderRefundResponseDto> {
   const { data } = await api.post<AdminOrderRefundResponseDto>(
     ENDPOINTS.ADMIN.ORDERS.REFUND(orderId),
+  );
+  return data;
+}
+
+export async function closeDisputeAdminOrder({
+  orderId,
+  resolutionNotes,
+}: AdminResolveDisputePayload): Promise<void> {
+  await api.post(ENDPOINTS.ADMIN.ORDERS.CLOSE_DISPUTE(orderId), {
+    resolutionNotes,
+  });
+}
+
+export async function sendAdminOrderChatMessage({
+  orderId,
+  text,
+  clientMessageId,
+}: SendAdminOrderChatMessagePayload): Promise<OrderChatMessageDto> {
+  const { data } = await api.post<OrderChatMessageDto>(
+    ENDPOINTS.ADMIN.ORDERS.CHAT_MESSAGES(orderId),
+    { text, clientMessageId },
   );
   return data;
 }

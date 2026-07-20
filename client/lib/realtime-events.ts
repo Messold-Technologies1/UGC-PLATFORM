@@ -84,6 +84,13 @@ export interface OrderContentDeliveredEvent {
   deliveredAt: string;
 }
 
+export interface ClientToServerEvents {
+  /** Admin joins an order's live chat room (dispute group chat). */
+  "order-chat:subscribe": (payload: { orderId: string }) => void;
+  /** Admin leaves an order's live chat room. */
+  "order-chat:unsubscribe": (payload: { orderId: string }) => void;
+}
+
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useResumeOrderCheckout } from "@/features/payments/hooks/use-resume-order-checkout";
+import { useWithdrawBrandDisputeMutation } from "../../hooks/use-withdraw-brand-dispute-mutation";
 import type { OrderDetailsPublic } from "../../api/types";
 import type { OrderCreatorSnapshot } from "../../api/types";
 
@@ -191,6 +192,19 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
     order.packageNameSnapshot,
   );
 
+  const withdrawDisputeMutation = useWithdrawBrandDisputeMutation();
+  const canWithdrawDispute =
+    !isOrderCompleted &&
+    order.status === "DISPUTED" &&
+    order.dispute?.openedBy === "BRAND";
+
+  if (order.status === "DISPUTED" && order.dispute) {
+    displayDescription =
+      order.dispute.openedBy === "BRAND"
+        ? `You raised this dispute: “${order.dispute.reason}”. Our team is reviewing the case.`
+        : `${creatorName} raised this dispute: “${order.dispute.reason}”. Our team is reviewing the case.`;
+  }
+
   return (
     <div
       className={cn(
@@ -269,6 +283,24 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
             </>
           ) : (
             "Complete payment"
+          )}
+        </Button>
+      )}
+
+      {canWithdrawDispute && (
+        <Button
+          variant="outline"
+          className="shrink-0 sm:self-center mt-2 sm:mt-0"
+          disabled={withdrawDisputeMutation.isPending}
+          onClick={() => withdrawDisputeMutation.mutate({ orderId: order.id })}
+        >
+          {withdrawDisputeMutation.isPending ? (
+            <>
+              <Spinner className="size-4" aria-hidden />
+              Withdrawing...
+            </>
+          ) : (
+            "Withdraw dispute"
           )}
         </Button>
       )}

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ChatGateway } from './chat.gateway';
+import { ChatGateway, orderRoom } from './chat.gateway';
 
 export type OrderChatRealtimeMessagePayload = {
   id: string;
@@ -43,15 +43,29 @@ export class OrderChatRealtimeNotifier {
     return { brandUserId, creatorUserId: order.creator.userId };
   }
 
+  /**
+   * Recipients of an order's live chat events: the brand and creator (via their
+   * user rooms) plus any admin viewing the order (via the order room). Passing
+   * them as a single array lets socket.io deliver one copy per socket even when
+   * a socket belongs to more than one of these rooms.
+   */
+  private async chatRooms(orderId: string): Promise<string[]> {
+    const { brandUserId, creatorUserId } = await this.getParticipants(orderId);
+    return [
+      ...new Set([
+        `user:${brandUserId}`,
+        `user:${creatorUserId}`,
+        orderRoom(orderId),
+      ]),
+    ];
+  }
+
   async emitChatMessage(params: {
     orderId: string;
     message: OrderChatRealtimeMessagePayload;
   }): Promise<void> {
-    const { brandUserId, creatorUserId } = await this.getParticipants(params.orderId);
-    this.gateway.server.to(`user:${brandUserId}`).emit('chat.message', params);
-    if (creatorUserId !== brandUserId) {
-      this.gateway.server.to(`user:${creatorUserId}`).emit('chat.message', params);
-    }
+    const rooms = await this.chatRooms(params.orderId);
+    this.gateway.server.to(rooms).emit('chat.message', params);
   }
 
   async emitReadUpdated(params: {
@@ -60,10 +74,7 @@ export class OrderChatRealtimeNotifier {
     lastReadMessageId: string | null;
     lastReadAt: string | null;
   }): Promise<void> {
-    const { brandUserId, creatorUserId } = await this.getParticipants(params.orderId);
-    this.gateway.server.to(`user:${brandUserId}`).emit('chat.read_updated', params);
-    if (creatorUserId !== brandUserId) {
-      this.gateway.server.to(`user:${creatorUserId}`).emit('chat.read_updated', params);
-    }
+    const rooms = await this.chatRooms(params.orderId);
+    this.gateway.server.to(rooms).emit('chat.read_updated', params);
   }
 }

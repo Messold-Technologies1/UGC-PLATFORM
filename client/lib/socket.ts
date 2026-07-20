@@ -1,11 +1,14 @@
 "use client";
 import { io, type Socket } from "socket.io-client";
 import { env } from "@/lib/env";
-import type { ServerToClientEvents } from "@/lib/realtime-events";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from "@/lib/realtime-events";
 
-let socket: Socket<ServerToClientEvents> | null = null;
+let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-export function getSocket(): Socket<ServerToClientEvents> {
+export function getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> {
   if (socket) return socket;
   socket = io(env.socketUrl, {
     withCredentials: true,

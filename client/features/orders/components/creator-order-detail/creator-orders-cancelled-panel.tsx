@@ -15,9 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { openSupportChat } from "@/components/tawk-to";
+import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
 
 interface CreatorOrderCancelledPanelProps {
   selectedOrderId: string;
@@ -205,6 +207,52 @@ function CancelledOrderSummaryCard({
   );
 }
 
+function DisputeNoticeCard({
+  order,
+}: {
+  order: {
+    id: string;
+    dispute?: { openedBy?: string; reason?: string };
+  };
+}) {
+  const withdrawMutation = useWithdrawCreatorDisputeMutation();
+  const openedByCreator = order?.dispute?.openedBy === "CREATOR";
+  const reason = order?.dispute?.reason;
+
+  return (
+    <div className="bg-amber-50 dark:bg-amber-500/5 rounded-lg border border-amber-200 dark:border-amber-500/20 p-5 shadow-sm xl:col-span-2 2xl:col-span-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="font-bold text-sm mb-1">Order under dispute</h3>
+          <p className="text-sm text-muted-foreground">
+            {openedByCreator
+              ? "You raised this dispute. Our team is reviewing the case."
+              : "The brand raised this dispute. Our team is reviewing the case."}
+            {reason ? ` Reason: “${reason}”.` : ""}
+          </p>
+        </div>
+        {openedByCreator && (
+          <Button
+            variant="outline"
+            className="shrink-0"
+            disabled={withdrawMutation.isPending}
+            onClick={() => withdrawMutation.mutate({ orderId: order.id })}
+          >
+            {withdrawMutation.isPending ? (
+              <>
+                <Spinner className="size-4" aria-hidden />
+                Withdrawing...
+              </>
+            ) : (
+              "Withdraw dispute"
+            )}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CancelledPayoutCard() {
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
@@ -241,6 +289,7 @@ export function CreatorOrderCancelledPanel({
   onStepClick,
 }: CreatorOrderCancelledPanelProps) {
   const order = detailsData?.order ?? selectedItem?.order;
+  const isDisputed = order?.status === "DISPUTED";
 
   const steps = useMemo(() => buildCancelledSteps(order), [order]);
 
@@ -252,14 +301,22 @@ export function CreatorOrderCancelledPanel({
       selectedItem={selectedItem}
       isLoading={isLoading}
       onClose={onClose}
-      statusBadgeLabel="Cancelled"
-      statusBadgeColor="bg-red-500/10 text-red-600"
+      statusBadgeLabel={isDisputed ? "Disputed" : "Cancelled"}
+      statusBadgeColor={
+        isDisputed
+          ? "bg-amber-500/10 text-amber-600"
+          : "bg-red-500/10 text-red-600"
+      }
       payoutAmountDisplay="₹0"
       payoutLabelDisplay="No Payout"
       steps={steps}
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
-        <CancellationReasonCard order={order} />
+        {order?.status === "DISPUTED" ? (
+          <DisputeNoticeCard order={order} />
+        ) : (
+          <CancellationReasonCard order={order} />
+        )}
         <CancelledOrderSummaryCard
           briefData={briefData}
           selectedItem={selectedItem}

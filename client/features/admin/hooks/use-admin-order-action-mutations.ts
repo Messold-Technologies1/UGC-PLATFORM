@@ -2,6 +2,7 @@ import { isAxiosError } from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  closeDisputeAdminOrder,
   markAdminOrderCreatorPaid,
   refundAdminOrder,
   rejectAdminOrder,
@@ -46,6 +47,22 @@ export function useRejectAdminOrderMutation() {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to reject this order."));
+    },
+  });
+}
+
+export function useCloseDisputeAdminOrderMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "orders", "close-dispute"],
+    mutationFn: closeDisputeAdminOrder,
+    onSuccess: async () => {
+      toast.success("Dispute closed without a refund.");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to close this dispute."));
     },
   });
 }

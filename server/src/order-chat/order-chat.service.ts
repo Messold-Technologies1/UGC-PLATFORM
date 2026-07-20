@@ -183,6 +183,55 @@ export class OrderChatService {
     };
   }
 
+  /**
+   * Admin sends a message into the order chat, turning it into a three-way
+   * group chat with the brand and creator. Only allowed while the order is
+   * under dispute. The message is authored by the admin user and is delivered
+   * to both the brand and the creator in realtime.
+   */
+  async sendMessageAsAdmin(params: {
+    orderId: string;
+    adminUserId: string;
+    text: string;
+    clientMessageId?: string;
+  }): Promise<FormattedOrderChatMessage> {
+    await this.assertOrderDisputed(params.orderId);
+
+    const text = params.text.trim();
+    if (!text) throw new BadRequestException('Message text is required');
+    if (text.length > 5000) throw new BadRequestException('Message too long');
+
+    const created = await this.createMessageWithIdempotency({
+      orderId: params.orderId,
+      senderUserId: params.adminUserId,
+      clientMessageId: params.clientMessageId,
+      data: {
+        orderId: params.orderId,
+        senderUserId: params.adminUserId,
+        type: OrderChatMessageType.TEXT,
+        text,
+        clientMessageId: params.clientMessageId ?? null,
+      },
+    });
+
+    const formatted = this.formatMessage(created);
+    await this.emitFormattedMessage(params.orderId, formatted);
+    return formatted;
+  }
+
+  private async assertOrderDisputed(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (String(order.status) !== 'DISPUTED') {
+      throw new BadRequestException(
+        'Admin can only message the order chat while it is under dispute',
+      );
+    }
+  }
+
   async presignVoiceUpload(params: {
     orderId: string;
     senderUserId: string;

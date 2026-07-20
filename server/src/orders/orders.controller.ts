@@ -532,4 +532,49 @@ export class OrdersController {
       reason: dto.reason,
     });
   }
+
+  @Post(':id/disputes/brand/withdraw')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Brand withdraws its own open dispute' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
+  @ApiNoContentResponse({ description: 'Dispute withdrawn' })
+  async withdrawBrandDispute(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.withdrawDispute({
+      orderId: id,
+      openedBy: 'BRAND',
+      openerUserId: req.user.id,
+      ...brandActorParams(req),
+    });
+  }
+
+  @Post(':id/disputes/creator/withdraw')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Creator withdraws its own open dispute' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order ID (UUID)',
+    format: 'uuid',
+  })
+  @ApiNoContentResponse({ description: 'Dispute withdrawn' })
+  async withdrawCreatorDispute(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.withdrawDispute({
+      orderId: id,
+      openedBy: 'CREATOR',
+      openerUserId: req.user.id,
+    });
+  }
 }

@@ -46,7 +46,9 @@ import {
   toTitleCaseLabel,
 } from "@/lib/string-lists";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
@@ -412,6 +414,13 @@ function CreatorProfileUpdateFormContent({
   const [onLocationAvailable, setOnLocationAvailable] = useState(
     () => initialProfile?.onLocationAvailable ?? false,
   );
+  // Client-only consent gate for the Creator Quality Guidelines. Acceptance is
+  // not persisted server-side; a live profile (completeProfile) or an admin
+  // editing on the creator's behalf is treated as already accepted so the gate
+  // never blocks them.
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState<boolean>(
+    () => Boolean(initialProfile?.completeProfile) || Boolean(adminMode),
+  );
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
 
@@ -493,6 +502,7 @@ function CreatorProfileUpdateFormContent({
       languageCount: facets.languageDrafts.length,
       hasPackage,
       publicVideoCount,
+      guidelinesAccepted,
     };
   }, [
     facets.selectedFacets,
@@ -510,6 +520,7 @@ function CreatorProfileUpdateFormContent({
     gender,
     dateOfBirth,
     shippingAddress,
+    guidelinesAccepted,
   ]);
 
   const goLiveMissing = useMemo(
@@ -970,6 +981,32 @@ function CreatorProfileUpdateFormContent({
           <div className="mb-4 space-y-4">
             <CreatorSpotlightProgram />
             {!completeProfile ? <GoLiveBanner missing={goLiveMissing} /> : null}
+            {!completeProfile && !adminMode ? (
+              <div className="flex items-start gap-3 rounded-2xl border border-border bg-card/50 px-4 py-4 sm:px-5">
+                <Checkbox
+                  id="creator-quality-guidelines"
+                  checked={guidelinesAccepted}
+                  onCheckedChange={(checked) =>
+                    setGuidelinesAccepted(checked === true)
+                  }
+                  className="mt-0.5 shrink-0"
+                />
+                <label
+                  htmlFor="creator-quality-guidelines"
+                  className="min-w-0 flex-1 text-sm leading-snug text-muted-foreground"
+                >
+                  I have read and agree to follow the{" "}
+                  <Link
+                    href="/legal/guidelines"
+                    target="_blank"
+                    className="font-semibold text-foreground underline underline-offset-2"
+                  >
+                    Creator Quality Guidelines
+                  </Link>{" "}
+                  when creating and delivering content.
+                </label>
+              </div>
+            ) : null}
           </div>
         </>
       ) : null}

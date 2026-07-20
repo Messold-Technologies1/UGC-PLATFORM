@@ -706,4 +706,110 @@ export async function seedLegalPages(prisma: PrismaClient): Promise<void> {
   console.log(
     `[seed] Legal page "terms-of-service" seeded with ${termsSections.length} sections`,
   );
+
+  // ───────────────────────────────────────────────────────────────
+  // 3. Creator Quality Guidelines
+  // ───────────────────────────────────────────────────────────────
+
+  const guidelinesPage = await db.legalPage.upsert({
+    where: { slug: 'creator-quality-guidelines' },
+    update: {},
+    create: {
+      slug: 'creator-quality-guidelines',
+      title: 'Creator Quality Guidelines',
+      description:
+        'These Creator Quality Guidelines set the standards every creator agrees to follow when producing and delivering content on GoCollab. Following them keeps your content brand-ready and helps you get booked.',
+      effectiveDate: 'June 16, 2026',
+    },
+    select: { id: true },
+  });
+
+  const guidelinesSections = [
+    {
+      anchorId: 'high-quality-video',
+      title: '🎥 High-Quality Video',
+      tocLabel: 'High-Quality Video',
+      sortOrder: 0,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Record in 1080p or higher with stable, sharp footage. Avoid blurry or shaky videos.</p>`,
+    },
+    {
+      anchorId: 'good-lighting',
+      title: '💡 Good Lighting',
+      tocLabel: 'Good Lighting',
+      sortOrder: 1,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Use natural light or soft indoor lighting. Ensure both you and the product are clearly visible.</p>`,
+    },
+    {
+      anchorId: 'clear-audio',
+      title: '🎙️ Clear Audio',
+      tocLabel: 'Clear Audio',
+      sortOrder: 2,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Record in a quiet environment. Your voice should be crisp and free from background noise or echoes.</p>`,
+    },
+    {
+      anchorId: 'clean-editing',
+      title: '✂️ Clean Editing',
+      tocLabel: 'Clean Editing',
+      sortOrder: 3,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Keep edits smooth and engaging. Avoid excessive transitions, distracting effects, or heavy filters unless requested.</p>`,
+    },
+    {
+      anchorId: 'vertical-format',
+      title: '📱 Vertical Format',
+      tocLabel: 'Vertical Format',
+      sortOrder: 4,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Shoot in 9:16 for Reels, TikTok, and Shorts unless the campaign specifies another format.</p>`,
+    },
+    {
+      anchorId: 'showcase-the-product',
+      title: '📦 Showcase the Product',
+      tocLabel: 'Showcase the Product',
+      sortOrder: 5,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Keep the product in focus, highlight its key features naturally, and avoid blocking it with your hands.</p>`,
+    },
+    {
+      anchorId: 'follow-the-brief',
+      title: '📋 Follow the Brief',
+      tocLabel: 'Follow the Brief',
+      sortOrder: 6,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Read the campaign instructions carefully and include all required talking points, shots, and deliverables.</p>`,
+    },
+    {
+      anchorId: 'be-professional',
+      title: '🤝 Be Professional',
+      tocLabel: 'Be Professional',
+      sortOrder: 7,
+      content: `<p class="mb-4 leading-relaxed text-muted-foreground">Submit your content on time, communicate clearly, and deliver your best work every time.</p>`,
+    },
+  ];
+
+  for (let i = 0; i < guidelinesSections.length; i++) {
+    const s = guidelinesSections[i];
+    await db.legalSection.upsert({
+      where: {
+        pageId_anchorId: {
+          pageId: guidelinesPage.id,
+          anchorId: s.anchorId,
+        },
+      },
+      update: {
+        title: s.title,
+        tocLabel: s.tocLabel,
+        content: s.content,
+        sortOrder: s.sortOrder,
+      },
+      create: {
+        pageId: guidelinesPage.id,
+        anchorId: s.anchorId,
+        title: s.title,
+        tocLabel: s.tocLabel,
+        content: s.content,
+        sortOrder: s.sortOrder,
+      },
+    });
+  }
+
+  console.log(
+    `[seed] Legal page "creator-quality-guidelines" seeded with ${guidelinesSections.length} sections`,
+  );
 }

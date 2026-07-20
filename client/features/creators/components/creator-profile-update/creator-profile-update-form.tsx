@@ -499,7 +499,13 @@ function CreatorProfileUpdateFormContent({
       dateOfBirth,
       shippingAddress,
       selectedFacetDimensions,
-      languageCount: facets.languageDrafts.length,
+      // Count only rows with a language actually selected — empty rows are
+      // dropped from the payload, so they don't count toward completeness. This
+      // must match the server (which counts persisted languages); otherwise the
+      // client lets a creator "Go Live" with blank language rows while the
+      // server keeps the profile incomplete and it never reaches review.
+      languageCount: facets.languageDrafts.filter((row) => row.slug !== "")
+        .length,
       hasPackage,
       publicVideoCount,
       guidelinesAccepted,

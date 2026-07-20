@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Play,
@@ -14,7 +14,7 @@ import {
   getInitials,
   posterColor,
   tagColor,
-  buildOptimizedPosterUrl,
+  cn,
 } from "@/lib/utils";
 import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
@@ -24,6 +24,13 @@ export interface CreatorCardProps {
   creator: Creator;
   index: number;
   onOpen: (creator: Creator) => void;
+}
+
+function isHttpUrl(url: string | null | undefined): url is string {
+  return (
+    typeof url === "string" &&
+    (url.startsWith("http://") || url.startsWith("https://"))
+  );
 }
 
 export const CreatorCard = memo(function CreatorCard({
@@ -41,9 +48,52 @@ export const CreatorCard = memo(function CreatorCard({
   const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
   const deliveryLabel = `Guaranteed ${creator.deliveryDays}-day delivery`;
 
-  const posterSrc =
-    buildOptimizedPosterUrl(creator.previewVideoThumbnail) ||
-    buildOptimizedPosterUrl(creator.thumbnail);
+  const profileImage = isHttpUrl(creator.thumbnail) ? creator.thumbnail : "";
+  const videoThumbnail = isHttpUrl(creator.previewVideoThumbnail)
+    ? creator.previewVideoThumbnail
+    : "";
+  const stillImageSrc = videoThumbnail || profileImage;
+
+  const hasVideo =
+    typeof creator.previewVideoUrl === "string" &&
+    (creator.previewVideoUrl.startsWith("http://") ||
+      creator.previewVideoUrl.startsWith("https://"));
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [imageSrc, setImageSrc] = useState(stillImageSrc);
+  const [videoVisible, setVideoVisible] = useState(false);
+
+  useEffect(() => {
+    setImageSrc(stillImageSrc);
+    setVideoVisible(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  }, [creator.id, stillImageSrc]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (!hasVideo || !videoRef.current) return;
+    setVideoVisible(true);
+    videoRef.current.play().catch(() => {
+      setVideoVisible(false);
+    });
+  }, [hasVideo]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!hasVideo || !videoRef.current) return;
+    videoRef.current.pause();
+    videoRef.current.currentTime = 0;
+    setVideoVisible(false);
+  }, [hasVideo]);
+
+  const handleImageError = useCallback(() => {
+    if (profileImage && imageSrc !== profileImage) {
+      setImageSrc(profileImage);
+      return;
+    }
+    setImageSrc("");
+  }, [profileImage, imageSrc]);
 
   const handleArticleClick = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -80,19 +130,25 @@ export const CreatorCard = memo(function CreatorCard({
     <article
       className="rcard"
       onClick={handleArticleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       role="button"
       tabIndex={0}
       aria-label={`View ${creator.name}'s profile`}
       onKeyDown={handleKeyDown}
     >
       <div className="reel">
-        {posterSrc ? (
+        {imageSrc ? (
           <Image
-            src={posterSrc}
+            src={imageSrc}
             alt={`${creator.name}'s content`}
             fill
-            className="real-media"
+            className={cn(
+              "real-media",
+              hasVideo && videoVisible && "opacity-0",
+            )}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
+            onError={handleImageError}
           />
         ) : (
           <div
@@ -104,6 +160,22 @@ export const CreatorCard = memo(function CreatorCard({
             <span className="mono">{initials}</span>
           </div>
         )}
+
+        {hasVideo ? (
+          <video
+            ref={videoRef}
+            src={creator.previewVideoUrl!}
+            poster={videoThumbnail || profileImage || undefined}
+            className={cn(
+              "real-media",
+              !videoVisible && "opacity-0",
+            )}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+          />
+        ) : null}
 
         <div className="scrim" />
 

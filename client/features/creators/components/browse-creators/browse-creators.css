@@ -146,6 +146,10 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
+.rcard .reel .real-media {
+  transition: opacity 0.2s ease;
+}
+
 .rcard .reel .play {
   position: absolute;
   inset: 0;
@@ -153,6 +157,10 @@
   place-items: center;
   opacity: 1;
   pointer-events: none;
+  transition: opacity 0.2s;
+}
+.rcard:hover .reel .play {
+  opacity: 0;
 }
 .rcard .reel .play .pb {
   width: 50px;

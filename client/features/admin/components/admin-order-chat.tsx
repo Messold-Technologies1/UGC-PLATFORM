@@ -17,6 +17,7 @@ import {
   useAdminOrderChatMessagesInfiniteQuery,
   useAdminOrderChatStateQuery,
 } from "../hooks/use-admin-order-chat";
+import { useAdminOrderChatRealtime } from "../hooks/use-admin-order-chat-realtime";
 import { useSendAdminOrderChatMessageMutation } from "../hooks/use-send-admin-order-chat-message";
 import type { OrderChatMessageDto } from "../types";
 
@@ -95,6 +96,7 @@ export function AdminOrderChat({
   const messagesQuery = useAdminOrderChatMessagesInfiniteQuery(orderId);
   const meQuery = useMeQuery();
   const sendMutation = useSendAdminOrderChatMessageMutation(orderId);
+  useAdminOrderChatRealtime(orderId);
   const state = stateQuery.data;
   const isDisputed = orderStatus === "DISPUTED";
   const adminUserId = meQuery.data?.id ?? null;

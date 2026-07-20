@@ -145,7 +145,7 @@ export function mapProfileToListingCreator(
   const previewVideoUrl =
     introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
-    trimString(firstPortfolioVideo?.thumbnailUrl) || thumbnail;
+    trimString(firstPortfolioVideo?.thumbnailUrl) || null;
   const industryLabel =
     trimString(firstPortfolioVideo?.industryLabel) || undefined;
   const fasterDelivery = getFasterDeliveryFromProfile(profile);

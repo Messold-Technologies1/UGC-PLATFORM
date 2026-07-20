@@ -848,8 +848,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     return null;
   }
 
-  const verified = c.rating >= 4.8;
-  const profileUrl = `/brand/creators?creatorId=${c.id}`;
+
   const publicProfilePath = creatorPublicProfilePathForProfile({
     publicSlug: profileApi?.publicSlug,
     displayName: profileApi?.displayName ?? c.name,
@@ -881,7 +880,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
         </button>
 
         <div className="drawer-scroll" ref={scrollRef}>
-          {(validPortfolioTiles.length > 0 || showIntro) && (
+          {validPortfolioTiles.length > 0 || showIntro ? (
             <div className="dr-work">
               <div className="dr-work-head">
                 <span className="dr-work-lbl">
@@ -942,34 +941,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="dr-identity">
-            <div className="dr-identity-head">
-              <div>
-                <div className="dr-name">
-                  {c.name}
-                  {verified ? <CheckCircle size={19} className="verif" /> : null}
-                </div>
-                <div className="dr-sub" style={{ marginTop: 5 }}>
-                  <MapPin size={14} /> {c.location}
-                  <span style={{ opacity: 0.4 }}>·</span>
-                  <Globe size={14} /> {c.languages.join(", ")}
-                </div>
-              </div>
-              {publicProfilePath ? (
-                <Link
-                  href={publicProfilePath}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="dr-tabs-profile-link"
-                >
-                  View profile
-                  <ExternalLink size={13} />
-                </Link>
-              ) : null}
-            </div>
-
             <div className="dr-stats">
               {c.reviewCount > 0 ? (
                 <div className="dr-stat">
@@ -1025,6 +999,17 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 );
               })}
             </div>
+            {publicProfilePath ? (
+              <Link
+                href={publicProfilePath}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dr-tabs-profile-link"
+              >
+                View profile
+                <ExternalLink size={13} />
+              </Link>
+            ) : null}
           </div>
 
           {activeId && tab === "overview" && <OverviewTab profile={profile} />}

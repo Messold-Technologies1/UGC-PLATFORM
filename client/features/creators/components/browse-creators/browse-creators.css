@@ -152,10 +152,7 @@
   display: grid;
   place-items: center;
   opacity: 1;
-  transition: opacity 0.2s;
-}
-.rcard:hover .reel .play {
-  opacity: 0;
+  pointer-events: none;
 }
 .rcard .reel .play .pb {
   width: 50px;
@@ -170,34 +167,7 @@
 }
 
 .rcard .reel .scrubline {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.22);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.rcard:hover .reel .scrubline {
-  opacity: 1;
-}
-.rcard .reel .scrubline i {
-  display: block;
-  height: 100%;
-  background: var(--primary);
-  width: 0%;
-}
-.rcard:hover .reel .scrubline i {
-  animation: rcard-scrub 4.5s linear forwards;
-}
-@keyframes rcard-scrub {
-  from {
-    width: 4%;
-  }
-  to {
-    width: 100%;
-  }
+  display: none;
 }
 
 .rcard .reel .who {
@@ -252,10 +222,33 @@
 }
 .rcard .fbottom {
   margin-top: auto;
+}
+.rcard .factions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
+  width: 100%;
+}
+.rcard .fwishlist {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1.5px solid #fecdd3;
+  background: #fff5f5;
+  color: #e11d48;
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.rcard .fwishlist:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
 }
 .rcard .fprice {
   display: flex;
@@ -304,6 +297,7 @@
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease;
+  flex-shrink: 0;
 }
 .rcard .fview:hover {
   background: var(--primary);
@@ -584,7 +578,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 0;
 }
 .dr-stat {
   background: var(--muted);

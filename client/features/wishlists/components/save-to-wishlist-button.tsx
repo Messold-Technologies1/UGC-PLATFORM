@@ -71,7 +71,7 @@ interface SaveToWishlistButtonProps {
   creatorId: string;
   creatorName: string;
   creatorImageUrl?: string | null;
-  variant?: "icon" | "full";
+  variant?: "icon" | "full" | "card";
 }
 
 export function SaveToWishlistButton({
@@ -176,6 +176,28 @@ export function SaveToWishlistButton({
             className={isSaved ? "fill-rose-500 text-rose-500" : "text-gray-500"}
           />
         )}
+      </button>
+    ) : variant === "card" ? (
+      <button
+        type="button"
+        data-save-wishlist
+        className="fwishlist"
+        onClick={(e) => {
+          e.stopPropagation();
+          extendCreatorCardNavigationSuppress();
+          setOpen(true);
+        }}
+        aria-label="Add to wishlist"
+      >
+        {isTriggerBusy ? (
+          <Loader2 size={14} className="animate-spin text-rose-500" />
+        ) : (
+          <Heart
+            size={14}
+            className={isSaved ? "fill-rose-500 text-rose-500" : "text-rose-500"}
+          />
+        )}
+        Add to wishlist
       </button>
     ) : (
       <button

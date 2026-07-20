@@ -1,18 +1,11 @@
 "use client";
 
-import React, { memo, useCallback, useRef, useState } from "react";
+import React, { memo, useCallback } from "react";
 import Image from "next/image";
 import {
   Play,
-  Star,
   MapPin,
-  CheckCircle,
   ArrowRight,
-  Volume2,
-  VolumeX,
-  Package,
-  Clock,
-  Zap,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,12 +14,11 @@ import {
   getInitials,
   posterColor,
   tagColor,
-  formatReelDuration,
   buildOptimizedPosterUrl,
 } from "@/lib/utils";
-import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
+import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 
 export interface CreatorCardProps {
   creator: Creator;
@@ -42,34 +34,16 @@ export const CreatorCard = memo(function CreatorCard({
   const { data: meUser } = usePublicAuthUser();
   const isBrand =
     meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY");
-  const [isMuted, setIsMuted] = useState(true);
   const [g1, g2] = posterColor(index);
   const tags = (creator.categories?.length ? creator.categories : creator.tags).slice(0, 2);
-  const reelDuration = formatReelDuration(index);
   const initials = getInitials(creator.name);
-  const verified = creator.rating >= 4.8;
   const locationLabel = creator.location || "Location not set";
+  const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
+  const deliveryLabel = `Guaranteed ${creator.deliveryDays}-day delivery`;
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const hasVideo =
-    typeof creator.previewVideoUrl === "string" &&
-    (creator.previewVideoUrl.startsWith("http://") ||
-      creator.previewVideoUrl.startsWith("https://"));
-  const hasImage = Boolean(creator.thumbnail);
-
-  const handleMouseEnter = useCallback(() => {
-    if (hasVideo && videoRef.current) {
-      videoRef.current.play().catch(() => {});
-    }
-  }, [hasVideo]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (hasVideo && videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
-  }, [hasVideo]);
+  const posterSrc =
+    buildOptimizedPosterUrl(creator.previewVideoThumbnail) ||
+    buildOptimizedPosterUrl(creator.thumbnail);
 
   const handleArticleClick = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -102,39 +76,19 @@ export const CreatorCard = memo(function CreatorCard({
     [creator, onOpen],
   );
 
-  const handleToggleMute = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMuted((prev) => !prev);
-  }, []);
-
   return (
     <article
       className="rcard"
       onClick={handleArticleClick}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       role="button"
       tabIndex={0}
       aria-label={`View ${creator.name}'s profile`}
       onKeyDown={handleKeyDown}
     >
       <div className="reel">
-        {hasVideo ? (
-          <video
-            ref={videoRef}
-            src={creator.previewVideoUrl!}
-            poster={buildOptimizedPosterUrl(
-              creator.previewVideoThumbnail || creator.thumbnail,
-            )}
-            className="real-media"
-            muted={isMuted}
-            loop
-            playsInline
-            preload="metadata"
-          />
-        ) : hasImage ? (
+        {posterSrc ? (
           <Image
-            src={creator.thumbnail}
+            src={posterSrc}
             alt={`${creator.name}'s content`}
             fill
             className="real-media"
@@ -157,13 +111,7 @@ export const CreatorCard = memo(function CreatorCard({
           <i />
         </div>
         <div className="top">
-          <span className="vchip">
-            <Play size={10} /> {reelDuration}
-          </span>
-          <span className="vchip">
-            <Star size={10} style={{ color: "#ffd24a" }} />{" "}
-            {creator.rating.toFixed(1)}
-          </span>
+          <span className="vchip">{deliveryLabel}</span>
         </div>
 
         <div className="play">
@@ -173,35 +121,13 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
 
         <div className="who">
-          <div className="nm">
-            {creator.name}
-            {verified ? <CheckCircle size={14} className="vf" /> : null}
-          </div>
+          <div className="nm">{priceLabel}</div>
           <div className="lc">
             <MapPin size={11} /> {locationLabel}
             <span style={{ opacity: 0.5 }}>·</span>
             {creator.languages.slice(0, 2).join(", ")}
           </div>
         </div>
-
-        {isBrand && (
-          <SaveToWishlistButton
-            creatorId={creator.id}
-            creatorName={creator.name}
-            creatorImageUrl={creator.thumbnail}
-            variant="icon"
-          />
-        )}
-        {hasVideo && (
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            className="absolute bottom-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-all hover:bg-black/60"
-            aria-label={isMuted ? "Unmute video" : "Mute video"}
-          >
-            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          </button>
-        )}
       </div>
 
       <div className="foot">
@@ -221,31 +147,19 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
 
         <div className="fbottom">
-          <div className="fprice">
-            <b>₹{creator.startingPrice.toLocaleString("en-IN")}</b>
-            <small className="fmeta">
-              {creator.ordersCompleted > 0 ? (
-                <span className="fmeta-item">
-                  <Package size={10} aria-hidden />
-                  {creator.ordersCompleted}{" "}
-                  {creator.ordersCompleted === 1 ? "order" : "orders"}
-                </span>
-              ) : null}
-              <span className="fmeta-item">
-                <Clock size={10} aria-hidden />
-                {creator.deliveryDays}d
-              </span>
-              {creator.hasFasterDelivery ? (
-                <span className="fmeta-item fmeta-fast">
-                  <Zap size={10} aria-hidden />
-                  Faster delivery
-                </span>
-              ) : null}
-            </small>
+          <div className="factions">
+            {isBrand ? (
+              <SaveToWishlistButton
+                creatorId={creator.id}
+                creatorName={creator.name}
+                creatorImageUrl={creator.thumbnail}
+                variant="card"
+              />
+            ) : null}
+            <button type="button" className="fview" onClick={handleViewClick}>
+              View <ArrowRight size={14} />
+            </button>
           </div>
-          <button type="button" className="fview" onClick={handleViewClick}>
-            View <ArrowRight size={14} />
-          </button>
         </div>
       </div>
     </article>

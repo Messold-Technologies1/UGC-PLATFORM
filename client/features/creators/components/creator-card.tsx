@@ -20,6 +20,9 @@ import {
 } from "@/lib/utils";
 import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
+import { useQueryClient } from "@tanstack/react-query";
+import { creatorProfileQueryKey } from "../hooks/use-creator-profile-query";
+import { getCreatorProfileClient } from "../api/get-creator-profile-client";
 
 export interface CreatorCardProps {
   creator: Creator;
@@ -80,12 +83,22 @@ export const CreatorCard = memo(function CreatorCard({
     }
   }, [creator.id, stillImageSrc]);
 
+  const queryClient = useQueryClient();
+
   const handleMouseEnter = useCallback(() => {
     // Only flag the video as visible — its src is attached lazily (see the
     // <video> element), so we can't call play() synchronously here; the effect
     // below starts playback once the source is actually attached.
     if (hasVideo) setVideoVisible(true);
-  }, [hasVideo]);
+    // Warm the profile-drawer data so the Overview tab is (usually) already
+    // cached by the time the card is clicked, instead of starting the fetch on
+    // open. `prefetchQuery` is a no-op when the data is still fresh.
+    void queryClient.prefetchQuery({
+      queryKey: creatorProfileQueryKey(creator.id),
+      queryFn: () => getCreatorProfileClient(creator.id),
+      staleTime: 2 * 60_000,
+    });
+  }, [hasVideo, queryClient, creator.id]);
 
   // Start playback on the render after `videoVisible` flips true, i.e. once the
   // lazily-attached source exists.

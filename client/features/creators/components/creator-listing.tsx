@@ -18,7 +18,10 @@ import { Sparkles, Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useDebouncedCallback } from "@/hooks/use-debounce";
+import { useDebouncedCallback, useDebouncedValue } from "@/hooks/use-debounce";
+import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
+import { WishlistsProvider } from "@/features/wishlists/hooks/use-wishlists-data";
+import { BROWSE_LIST_LIMIT } from "@/features/creators/lib/browse-constants";
 import { cn } from "@/lib/utils";
 import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
@@ -40,7 +43,6 @@ import {
   type CreatorsListResult,
 } from "../hooks/use-creators-list-query";
 
-const BROWSE_LIST_LIMIT = 24;
 const LANDING_PAGE_CREATOR_LIMIT = 12;
 
 const BRAND_CREATOR_MATCH_FORM_URL =
@@ -191,6 +193,13 @@ export function CreatorListing({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Resolve the viewer's brand/agency status once for the whole list instead of
+  // subscribing to the auth query from every card.
+  const { data: meUser } = usePublicAuthUser();
+  const isBrand = Boolean(
+    meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY"),
+  );
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
@@ -281,10 +290,14 @@ export function CreatorListing({
     ? LANDING_PAGE_CREATOR_LIMIT
     : BROWSE_LIST_LIMIT;
 
+  // Debounce the value that feeds the API query key so typing doesn't fire a
+  // request per keystroke. The input stays bound to the immediate `search`.
+  const debouncedSearch = useDebouncedValue(search.trim(), 350);
+
   const apiFilters = useMemo(
     () => ({
       limit: listLimit,
-      search: search.trim() || undefined,
+      search: debouncedSearch || undefined,
       city: filters.city || undefined,
       categories: filters.categories,
       gender: filters.gender || undefined,
@@ -318,7 +331,7 @@ export function CreatorListing({
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
-    [filters, search, listLimit],
+    [filters, debouncedSearch, listLimit],
   );
 
   const {
@@ -427,6 +440,7 @@ export function CreatorListing({
   }
 
   return (
+    <WishlistsProvider enabled={isBrand}>
     <div className="flex flex-1 w-full min-w-0 flex-col">
       <CreatorFilterBar
         filters={filters}
@@ -491,6 +505,7 @@ export function CreatorListing({
                     creator={creator}
                     index={index}
                     onOpen={openDrawer}
+                    isBrand={isBrand}
                   />
                 );
               }}
@@ -559,5 +574,6 @@ export function CreatorListing({
         landingPage={landingPage}
       />
     </div>
+    </WishlistsProvider>
   );
 }

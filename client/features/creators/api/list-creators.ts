@@ -115,9 +115,10 @@ export async function fetchCreatorsPage(
   page: number,
   limit: number,
   filters: Omit<CreatorListApiFilters, "page" | "limit"> = {},
+  signal?: AbortSignal,
 ): Promise<CreatorsListResponse> {
   const qs = serializeCreatorListApiParams({ ...filters, page, limit });
   const url = qs ? `${ENDPOINTS.CREATORS.LIST}?${qs}` : ENDPOINTS.CREATORS.LIST;
-  const { data } = await api.get<CreatorsListResponse>(url);
+  const { data } = await api.get<CreatorsListResponse>(url, { signal });
   return data;
 }

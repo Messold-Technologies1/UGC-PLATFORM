@@ -450,6 +450,7 @@ export default function WishlistDetailPage() {
                     creator={creator}
                     index={index}
                     onOpen={openDrawer}
+                    isBrand
                   />
                 ))}
               </div>

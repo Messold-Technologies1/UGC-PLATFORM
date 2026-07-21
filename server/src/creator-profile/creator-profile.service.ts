@@ -89,7 +89,6 @@ const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
  */
 const CREATOR_LIST_BASE_SELECT = {
   id: true,
-  userId: true,
   displayName: true,
   introVideoUrl: true,
   profileImageUrl: true,
@@ -978,7 +977,9 @@ export class CreatorProfileService {
       limit,
     };
 
-    await this.creatorListCache.set(cacheKey, response);
+    // Fire-and-forget: don't add a Redis round-trip to the response latency.
+    // The cache service catches and logs its own errors internally.
+    void this.creatorListCache.set(cacheKey, response);
     return response;
   }
 
@@ -1207,7 +1208,6 @@ export class CreatorProfileService {
 
     return {
       id: profile.id,
-      userId: profile.userId,
       name: profile.displayName,
       introVideoUrl: profile.introVideoUrl ?? null,
       profileImageUrl: profile.profileImageUrl ?? null,

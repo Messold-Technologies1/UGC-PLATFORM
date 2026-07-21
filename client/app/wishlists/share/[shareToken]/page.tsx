@@ -488,6 +488,7 @@ export default function PublicWishlistPage({
                       creator={creator}
                       index={index}
                       onOpen={openDrawer}
+                      isBrand={canUseBrand}
                     />
                   ))}
                 </div>

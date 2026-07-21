@@ -72,7 +72,6 @@ export type CreatorPublicListPackageApi = {
 
 export type CreatorPublicListItemApi = {
   id: string;
-  userId: string;
   name: string;
   profileImageUrl?: string | null;
   introVideoUrl?: string | null;

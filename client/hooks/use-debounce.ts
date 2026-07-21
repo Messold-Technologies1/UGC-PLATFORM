@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useState,
+} from "react";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -28,4 +34,21 @@ export function useDebouncedCallback<Args extends unknown[]>(
     },
     [delay],
   );
+}
+
+/**
+ * Returns a debounced copy of `value` that only updates after `delay`ms without
+ * changes. Use it to keep an input responsive (bind the input to the raw value)
+ * while deferring expensive work keyed off the debounced value — e.g. an API
+ * query key — so it doesn't fire on every keystroke.
+ */
+export function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timeout);
+  }, [value, delay]);
+
+  return debouncedValue;
 }

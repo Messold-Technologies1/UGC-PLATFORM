@@ -19,13 +19,18 @@ import {
   cn,
 } from "@/lib/utils";
 import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
-import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 
 export interface CreatorCardProps {
   creator: Creator;
   index: number;
   onOpen: (creator: Creator) => void;
+  /**
+   * Whether the current viewer is a brand/agency (drives the wishlist button).
+   * Resolved once by the parent list so each card doesn't subscribe to the
+   * auth query independently.
+   */
+  isBrand: boolean;
 }
 
 function isHttpUrl(url: string | null | undefined): url is string {
@@ -39,10 +44,8 @@ export const CreatorCard = memo(function CreatorCard({
   creator,
   index,
   onOpen,
+  isBrand,
 }: CreatorCardProps) {
-  const { data: meUser } = usePublicAuthUser();
-  const isBrand =
-    meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY");
   const [g1, g2] = posterColor(index);
   const tags = (creator.categories?.length ? creator.categories : creator.tags).slice(0, 2);
   const initials = getInitials(creator.name);
@@ -78,13 +81,20 @@ export const CreatorCard = memo(function CreatorCard({
   }, [creator.id, stillImageSrc]);
 
   const handleMouseEnter = useCallback(() => {
-    if (!hasVideo || !videoRef.current) return;
-    setVideoVisible(true);
-    videoRef.current.muted = isMuted;
-    videoRef.current.play().catch(() => {
-      setVideoVisible(false);
-    });
-  }, [hasVideo, isMuted]);
+    // Only flag the video as visible — its src is attached lazily (see the
+    // <video> element), so we can't call play() synchronously here; the effect
+    // below starts playback once the source is actually attached.
+    if (hasVideo) setVideoVisible(true);
+  }, [hasVideo]);
+
+  // Start playback on the render after `videoVisible` flips true, i.e. once the
+  // lazily-attached source exists.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoVisible) return;
+    video.muted = isMuted;
+    void video.play().catch(() => {});
+  }, [videoVisible, isMuted]);
 
   const handleMouseLeave = useCallback(() => {
     if (!hasVideo || !videoRef.current) return;
@@ -186,7 +196,7 @@ export const CreatorCard = memo(function CreatorCard({
         {hasVideo ? (
           <video
             ref={videoRef}
-            src={creator.previewVideoUrl!}
+            src={videoVisible ? creator.previewVideoUrl! : undefined}
             poster={videoThumbnail || profileImage || undefined}
             className={cn(
               "real-media",
@@ -195,7 +205,7 @@ export const CreatorCard = memo(function CreatorCard({
             muted={isMuted}
             loop
             playsInline
-            preload="metadata"
+            preload="none"
           />
         ) : null}
 

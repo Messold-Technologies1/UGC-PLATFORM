@@ -21,7 +21,7 @@ import {
   registerWishlistOverlayClose,
   registerWishlistOverlayOpen,
 } from "../lib/suppress-creator-card-navigation";
-import { useWishlistsQuery } from "../hooks/use-wishlists-query";
+import { useWishlistsData } from "../hooks/use-wishlists-data";
 import { useCreateWishlistMutation } from "../hooks/use-create-wishlist-mutation";
 import { useAddWishlistCreatorMutation } from "../hooks/use-add-wishlist-creator-mutation";
 import { useRemoveWishlistCreatorMutation } from "../hooks/use-remove-wishlist-creator-mutation";
@@ -85,8 +85,7 @@ export function SaveToWishlistButton({
   const [newName, setNewName] = useState("");
   const [imageError, setImageError] = useState(false);
 
-  const { data, isLoading } = useWishlistsQuery();
-  const wishlists: Wishlist[] = data?.items ?? [];
+  const { wishlists, isLoading } = useWishlistsData();
 
   const addMutation = useAddWishlistCreatorMutation();
   const removeMutation = useRemoveWishlistCreatorMutation();

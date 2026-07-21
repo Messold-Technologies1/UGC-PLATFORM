@@ -71,9 +71,6 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'uuid' })
-  userId!: string;
-
   @ApiProperty({ example: 'Jane Doe' })
   name!: string;
 

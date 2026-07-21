@@ -31,7 +31,18 @@ export class CreatorListCacheService implements OnModuleDestroy {
       this.client = null;
       return;
     }
-    this.client = new Redis(redisUrl, { maxRetriesPerRequest: null });
+    // Fail-open settings for an HTTP request path: individual commands fail
+    // fast (short command timeout, no offline queueing) so a Redis outage never
+    // stalls the response — get()/set() catch the error and fall through to
+    // Postgres. `retryStrategy` keeps reconnecting in the background with a
+    // capped backoff so the cache recovers after a transient outage.
+    this.client = new Redis(redisUrl, {
+      connectTimeout: 1_000,
+      commandTimeout: 500,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      retryStrategy: (times) => Math.min(times * 200, 2_000),
+    });
     this.client.on('error', (err) =>
       this.logger.warn(`creator list cache redis error: ${err.message}`),
     );

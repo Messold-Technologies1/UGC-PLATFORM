@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CreatorAgeGroup, CreatorGender } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -10,6 +11,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   Validate,
   ValidationArguments,
@@ -90,6 +92,7 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @ApiPropertyOptional({ example: 1 })
@@ -97,6 +100,7 @@ export class ListCreatorsQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(10_000)
   page?: number;
 
   @ApiPropertyOptional({ example: 20 })
@@ -115,6 +119,7 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))
   @IsString()
+  @MaxLength(100)
   industry?: string;
 
   @ApiPropertyOptional({
@@ -125,6 +130,7 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))
   @IsString()
+  @MaxLength(100)
   portfolioTag?: string;
 
   @ApiPropertyOptional({
@@ -134,6 +140,7 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))
   @IsString()
+  @MaxLength(100)
   city?: string;
 
   @ApiPropertyOptional({ enum: CreatorGender })
@@ -178,42 +185,54 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   contentFormat?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   appearance?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   contentStyle?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   capability?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   lifeStyle?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   occupation?: string[];
 
   @ApiPropertyOptional({
@@ -224,7 +243,9 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   contentCategory?: string[];
 
   @ApiPropertyOptional({
@@ -235,14 +256,18 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   categoryExperience?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   canCreateWith?: string[];
 
   @ApiPropertyOptional({
@@ -252,7 +277,9 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   aiContentPermission?: string[];
 
   @ApiPropertyOptional({
@@ -262,7 +289,9 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   language?: string[];
 
   @ApiPropertyOptional({
@@ -282,7 +311,9 @@ export class ListCreatorsQueryDto {
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(64, { each: true })
   restrictions?: string[];
 
   @ApiPropertyOptional({

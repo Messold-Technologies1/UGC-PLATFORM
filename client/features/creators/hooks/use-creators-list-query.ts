@@ -41,10 +41,11 @@ export const infiniteCreatorsListQueryKey = (
 
 export async function fetchCreatorsList(
   filters: CreatorListApiFilters = {},
+  signal?: AbortSignal,
 ): Promise<CreatorsListResult> {
   const page = filters.page ?? 1;
   const limit = filters.limit ?? 20;
-  const data = await fetchCreatorsPage(page, limit, filters);
+  const data = await fetchCreatorsPage(page, limit, filters, signal);
 
   return {
     creators: data.items.map(mapProfileToListingCreator),
@@ -67,7 +68,7 @@ export function useCreatorsListQuery({
 } = {}) {
   return useQuery({
     queryKey: creatorsListQueryKey(filters),
-    queryFn: () => fetchCreatorsList(filters),
+    queryFn: ({ signal }) => fetchCreatorsList(filters, signal),
     ...(initialData
       ? {
           initialData,
@@ -98,8 +99,8 @@ export function useInfiniteCreatorsListQuery({
 
   return useInfiniteQuery({
     queryKey: infiniteCreatorsListQueryKey(queryFilters),
-    queryFn: ({ pageParam }) =>
-      fetchCreatorsList({ ...queryFilters, page: pageParam }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchCreatorsList({ ...queryFilters, page: pageParam }, signal),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       const loadedThrough = lastPage.page * lastPage.limit;

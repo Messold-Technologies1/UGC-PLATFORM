@@ -6,6 +6,8 @@ import {
   Play,
   MapPin,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,30 +64,50 @@ export const CreatorCard = memo(function CreatorCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [imageSrc, setImageSrc] = useState(stillImageSrc);
   const [videoVisible, setVideoVisible] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
     setImageSrc(stillImageSrc);
     setVideoVisible(false);
+    setIsMuted(true);
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+      videoRef.current.muted = true;
     }
   }, [creator.id, stillImageSrc]);
 
   const handleMouseEnter = useCallback(() => {
     if (!hasVideo || !videoRef.current) return;
     setVideoVisible(true);
+    videoRef.current.muted = isMuted;
     videoRef.current.play().catch(() => {
       setVideoVisible(false);
     });
-  }, [hasVideo]);
+  }, [hasVideo, isMuted]);
 
   const handleMouseLeave = useCallback(() => {
     if (!hasVideo || !videoRef.current) return;
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
+    videoRef.current.muted = true;
     setVideoVisible(false);
+    setIsMuted(true);
   }, [hasVideo]);
+
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (videoRef.current) {
+        videoRef.current.muted = next;
+        if (!next) {
+          void videoRef.current.play().catch(() => {});
+        }
+      }
+      return next;
+    });
+  }, []);
 
   const handleImageError = useCallback(() => {
     if (profileImage && imageSrc !== profileImage) {
@@ -170,7 +192,7 @@ export const CreatorCard = memo(function CreatorCard({
               "real-media",
               !videoVisible && "opacity-0",
             )}
-            muted
+            muted={isMuted}
             loop
             playsInline
             preload="metadata"
@@ -200,6 +222,17 @@ export const CreatorCard = memo(function CreatorCard({
             {creator.languages.slice(0, 2).join(", ")}
           </div>
         </div>
+
+        {hasVideo ? (
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            className="absolute bottom-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-all hover:bg-black/60"
+            aria-label={isMuted ? "Unmute video" : "Mute video"}
+          >
+            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+        ) : null}
       </div>
 
       <div className="foot">

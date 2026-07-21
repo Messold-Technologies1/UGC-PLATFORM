@@ -27,6 +27,7 @@ import {
   PawPrint,
   User,
   ExternalLink,
+  Briefcase,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -146,6 +147,13 @@ const OverviewTab = React.memo(function OverviewTab({
 }) {
   const specialties = useMemo(() => {
     if (!profile) return [];
+    const contentCategories = (profile.facetSelections ?? [])
+      .filter((f) => f.dimension === "CONTENT_CATEGORY")
+      .map((f) => f.label)
+      .filter(Boolean);
+    if (contentCategories.length > 0) {
+      return [...new Set(contentCategories)].slice(0, 10);
+    }
     return [...new Set([...profile.categories, ...profile.tags])].slice(0, 10);
   }, [profile]);
 
@@ -158,6 +166,16 @@ const OverviewTab = React.memo(function OverviewTab({
       </div>
     );
   }
+
+  const occupationLabels = (profile.facetSelections ?? [])
+    .filter((f) => f.dimension === "OCCUPATION")
+    .map((f) => f.label)
+    .filter(Boolean);
+
+  const categoryExperienceLabels = (profile.facetSelections ?? [])
+    .filter((f) => f.dimension === "CATEGORY_EXPERIENCE")
+    .map((f) => f.label)
+    .filter(Boolean);
 
   const detailRows = [
     {
@@ -178,7 +196,12 @@ const OverviewTab = React.memo(function OverviewTab({
       icon: User,
     },
     {
-      key: "Turnaround",
+      key: "Occupation",
+      value: occupationLabels.length > 0 ? occupationLabels.join(", ") : "—",
+      icon: Briefcase,
+    },
+    {
+      key: "Delivery time",
       value: `~${profile.deliveryDays} days`,
       icon: Clock,
     },
@@ -201,9 +224,27 @@ const OverviewTab = React.memo(function OverviewTab({
     Pets: PawPrint,
   };
 
+  const collaborationCount = profile.collaborationCount ?? 0;
   const whatYouGet = [
-    `Delivery within ${profile.deliveryDays} days`,
-    profile.basicEditing ? "Basic editing included" : "Editing as add-on",
+    ...(profile.hasFasterDelivery
+      ? [
+          profile.fasterDeliveryDays != null
+            ? `Faster delivery available (${profile.fasterDeliveryDays} days)`
+            : "Faster delivery available as add-on",
+        ]
+      : []),
+    ...(collaborationCount > 0
+      ? [
+          `${collaborationCount} previous collaboration${collaborationCount === 1 ? "" : "s"}`,
+        ]
+      : []),
+    ...(categoryExperienceLabels.length > 0
+      ? [
+          categoryExperienceLabels.length === 1
+            ? `Experienced with ${categoryExperienceLabels[0]}`
+            : `Experienced with ${categoryExperienceLabels.slice(0, -1).join(", ")} & ${categoryExperienceLabels.at(-1)}`,
+        ]
+      : []),
     profile.storeVisit
       ? "On-location shoots available"
       : "Studio & at-home shoots",
@@ -943,46 +984,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             </div>
           ) : null}
 
-          <div className="dr-identity">
-            <div className="dr-stats">
-              {c.reviewCount > 0 ? (
-                <div className="dr-stat">
-                  <div className="v">
-                    <Star
-                      size={16}
-                      style={{ color: "#f5a623" }}
-                      fill="#f5a623"
-                    />{" "}
-                    {c.rating.toFixed(1)}
-                  </div>
-                  <div className="k">{c.reviewCount} reviews</div>
-                </div>
-              ) : (profileApi?.collaborationCount ?? c.collaborationCount ?? 0) > 0 ? (
-                <div className="dr-stat">
-                  <div className="v">
-                    {profileApi?.collaborationCount ??
-                      c.collaborationCount ??
-                      0}
-                  </div>
-                  <div className="k">Collaborations</div>
-                </div>
-              ) : null}
-              {(profileApi?.completedOrders ?? c.ordersCompleted ?? 0) > 0 && (
-                <div className="dr-stat">
-                  <div className="v">
-                    {profileApi?.completedOrders ?? c.ordersCompleted ?? 0}
-                  </div>
-                  <div className="k">Orders completed</div>
-                </div>
-              )}
-              {(c.reviewCount > 0 || (profileApi?.collaborationCount ?? c.collaborationCount ?? 0) > 0) && (
-                <div className="dr-stat">
-                  <div className="v">{c.deliveryDays} days</div>
-                  <div className="k">Delivery time</div>
-                </div>
-              )}
-            </div>
-          </div>
           <div className="dr-tabs">
             <div className="dr-tabs-list">
               {TABS.map((t) => {

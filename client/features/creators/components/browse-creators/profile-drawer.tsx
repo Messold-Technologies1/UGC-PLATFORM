@@ -141,10 +141,35 @@ const ReelPoster = React.memo(function ReelPoster({
 });
 
 const OverviewTab = React.memo(function OverviewTab({
-  profile,
+  profile: profileProp,
+  preview,
 }: {
   profile: CreatorProfile | null;
+  preview: Creator | null;
 }) {
+  // Progressive render: until the full profile has loaded, fall back to the
+  // data we already have from the list card (a `Creator`, which `CreatorProfile`
+  // extends) so the at-a-glance details paint immediately instead of a full
+  // skeleton. Profile-only fields (bio, facets, restrictions) stay empty and
+  // fill in when the fetch resolves.
+  const hasFullProfile = !!profileProp;
+  const profile = useMemo<CreatorProfile | null>(() => {
+    if (profileProp) return profileProp;
+    if (!preview) return null;
+    return {
+      ...preview,
+      bio: "",
+      profileLanguages: [],
+      personaTags: [],
+      restrictions: [],
+      travelRadiusKm: null,
+      facetSelections: [],
+      packages: [],
+      addOns: [],
+      reviews: [],
+    };
+  }, [profileProp, preview]);
+
   const specialties = useMemo(() => {
     if (!profile) return [];
     const contentCategories = (profile.facetSelections ?? [])
@@ -253,15 +278,19 @@ const OverviewTab = React.memo(function OverviewTab({
   return (
     <div>
       <div className="dr-section" style={{ paddingTop: 18 }}>
-        <p
-          style={{
-            fontSize: 14,
-            lineHeight: 1.6,
-            color: "var(--foreground)",
-          }}
-        >
-          {profile.bio}
-        </p>
+        {profile.bio ? (
+          <p
+            style={{
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: "var(--foreground)",
+            }}
+          >
+            {profile.bio}
+          </p>
+        ) : !hasFullProfile ? (
+          <SkeletonBlock height={44} />
+        ) : null}
       </div>
 
       {specialties.length > 0 && (
@@ -1013,7 +1042,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             ) : null}
           </div>
 
-          {activeId && tab === "overview" && <OverviewTab profile={profile} />}
+          {activeId && tab === "overview" && (
+            <OverviewTab profile={profile} preview={c ?? null} />
+          )}
           {activeId && tab === "packages" && <PackagesTab profile={profile} />}
           {activeId && tab === "portfolio" && (
             <PortfolioTab

@@ -1580,6 +1580,54 @@ export class CreatorProfileService {
     });
   }
 
+  async listFeaturedCreators(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<AdminCreatorsListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+    const now = new Date();
+
+    const searchClause = query.search?.trim()
+      ? {
+          displayName: {
+            contains: query.search.trim(),
+            mode: 'insensitive' as const,
+          },
+        }
+      : {};
+
+    const where = {
+      creator: {
+        isListed: true,
+        ...searchClause,
+      },
+      OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.creatorFeature.count({ where }),
+      this.prisma.creatorFeature.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          creator: { include: adminCreatorListInclude as any },
+        },
+      }),
+    ]);
+
+    const items = rows
+      .map((row) => row.creator)
+      .filter((c): c is NonNullable<typeof c> => !!c)
+      .map((p) => this.mapAdminCreatorListItem(p));
+
+    return { items, total, page, limit };
+  }
+
   async getAdminCreatorSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
     const segments = [
       AdminCreatorListSegment.PENDING,
@@ -1589,13 +1637,23 @@ export class CreatorProfileService {
       AdminCreatorListSegment.LISTED,
     ] as const;
 
-    const counts = await this.prisma.$transaction(
-      segments.map((segment) =>
-        this.prisma.creatorProfile.count({
-          where: buildAdminCreatorsListWhere(segment),
-        }),
+    const now = new Date();
+
+    const [counts, featuredCount] = await Promise.all([
+      this.prisma.$transaction(
+        segments.map((segment) =>
+          this.prisma.creatorProfile.count({
+            where: buildAdminCreatorsListWhere(segment),
+          }),
+        ),
       ),
-    );
+      this.prisma.creatorFeature.count({
+        where: {
+          creator: { isListed: true },
+          OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
+        },
+      }),
+    ]);
 
     return {
       pending: counts[0],
@@ -1603,6 +1661,7 @@ export class CreatorProfileService {
       nonApproved: counts[2],
       incomplete: counts[3],
       listed: counts[4],
+      featured: featuredCount,
     };
   }
 

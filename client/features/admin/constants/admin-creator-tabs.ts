@@ -4,6 +4,7 @@ import {
   Clock3,
   Globe,
   ListTodo,
+  Sparkles,
   UserX,
 } from "lucide-react";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
@@ -64,6 +65,14 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
     countKey: "listed",
     badgeClassName: "bg-violet-100 text-violet-700",
   },
+  {
+    value: "featured",
+    label: "Featured",
+    description: "Creators pinned to the top of browse results, ordered by rank.",
+    icon: Sparkles,
+    countKey: "featured",
+    badgeClassName: "bg-amber-100 text-amber-700",
+  },
 ];
 
 const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
@@ -101,6 +110,14 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     icon: UserX,
     countKey: "nonApproved",
     badgeClassName: "bg-red-100 text-red-700",
+  },
+  {
+    value: "featured",
+    label: "Featured",
+    description: "Creators pinned to the top of browse results, ordered by rank.",
+    icon: Sparkles,
+    countKey: "featured",
+    badgeClassName: "bg-amber-100 text-amber-700",
   },
 ];
 
@@ -156,6 +173,8 @@ export function getAdminCreatorEmptyMessage(
       return profileFirst
         ? "No creators are still building their profile."
         : "No approved creators with incomplete profiles at the moment.";
+    case "featured":
+      return "No featured creators yet. Feature a listed creator to pin them to the top of browse results.";
     default:
       return "No creators found.";
   }

@@ -190,7 +190,8 @@ export type AdminCreatorListSegment =
   | "approved"
   | "non_approved"
   | "incomplete"
-  | "listed";
+  | "listed"
+  | "featured";
 
 export interface AdminCreatorsListQueryDto extends PendingApprovalsQueryDto {
   segment: AdminCreatorListSegment;
@@ -202,6 +203,7 @@ export interface AdminCreatorSegmentCountsDto {
   nonApproved: number;
   incomplete: number;
   listed: number;
+  featured: number;
 }
 
 export interface BuildingProfileFieldStatDto {

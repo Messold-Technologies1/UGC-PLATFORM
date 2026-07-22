@@ -197,4 +197,7 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 30 })
   listed!: number;
+
+  @ApiProperty({ example: 5 })
+  featured!: number;
 }

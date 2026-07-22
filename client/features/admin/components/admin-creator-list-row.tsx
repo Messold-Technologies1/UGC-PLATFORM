@@ -242,6 +242,8 @@ export function AdminCreatorListRow({
   const isRejected = creator.approvalStatus === "REJECTED";
   const isApproved = creator.approvalStatus === "APPROVED";
   const isListedSegment = segment === "listed";
+  const isFeaturedSegment = segment === "featured";
+  const showFeatureControls = isListedSegment || isFeaturedSegment;
   const profileFirst = isProfileFirstOnboardingMode();
   const canModeratePending =
     isPending && (!profileFirst || creator.completeProfile);
@@ -337,7 +339,7 @@ export function AdminCreatorListRow({
               </div>
             </RowMetric>
 
-            {isListedSegment ? (
+            {showFeatureControls ? (
               <RowMetric label="Featured Rank" className="min-w-[140px]">
                 <div className="flex items-center gap-2">
                   <input
@@ -349,15 +351,24 @@ export function AdminCreatorListRow({
                     className="h-9 w-20 rounded-lg border border-border bg-background px-2 text-sm font-semibold"
                   />
                   {creator.isFeatured ? (
-                    <button
-                      type="button"
-                      onClick={handleUnfeatureClick}
-                      disabled={isWorking}
-                      className="inline-flex h-9 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 text-xs font-bold text-amber-700"
-                    >
-                      <Sparkles className="size-3" />
-                      Unfeature
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleFeatureClick}
+                        disabled={isWorking}
+                        className="inline-flex h-9 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 text-xs font-bold text-primary"
+                      >
+                        Update
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUnfeatureClick}
+                        disabled={isWorking}
+                        className="inline-flex h-9 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 text-xs font-bold text-amber-700"
+                      >
+                        Unfeature
+                      </button>
+                    </>
                   ) : (
                     <button
                       type="button"

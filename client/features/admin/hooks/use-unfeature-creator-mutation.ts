@@ -9,6 +9,7 @@ export function useUnfeatureCreatorMutation() {
     mutationFn: (id: string) => unfeatureCreator(id),
     onSuccess: () => {
       toast.success("Creator unfeatured");
+      void fetch("/api/internal/revalidate-creators-list", { method: "POST" });
     },
     onError: () => {
       toast.error("Failed to unfeature creator");

@@ -9,14 +9,17 @@ import type { CreatorsListResult } from "../hooks/use-creators-list-query";
  * page can hand it to `CreatorListing` as `initialData`. React Query then skips
  * the initial client request (the component only consumes it for page 1 with
  * default filters). Fail-open: any error returns null and the client fetches as
- * before. Cached for 60s to match the API's own list-cache TTL.
+ * before. Cached for 60s, but tagged so admin actions can explicitly
+ * invalidate it when featured ordering changes.
  */
 export async function fetchInitialCreatorsList(
   limit: number,
 ): Promise<CreatorsListResult | null> {
   try {
     const url = `${env.apiUrl}${ENDPOINTS.CREATORS.LIST}?page=1&limit=${limit}`;
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, {
+      next: { revalidate: 60, tags: ["creators-list"] },
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as CreatorsListResponse;
     return {

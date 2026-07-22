@@ -10,6 +10,7 @@ export function useFeatureCreatorMutation() {
       featureCreator(id, { rank, featuredUntil }),
     onSuccess: () => {
       toast.success("Creator featured");
+      void fetch("/api/internal/revalidate-creators-list", { method: "POST" });
     },
     onError: () => {
       toast.error("Failed to feature creator");

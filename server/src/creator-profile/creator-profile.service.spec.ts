@@ -133,6 +133,10 @@ describe('CreatorProfileService', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
+    creatorFeature: {
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     creatorFacetOption: {
       findMany: jest.fn(),
     },
@@ -169,11 +173,6 @@ describe('CreatorProfileService', () => {
   };
 
   let service: CreatorProfileService;
-  let creatorListCacheMock: {
-    buildKey: jest.Mock;
-    get: jest.Mock;
-    set: jest.Mock;
-  };
 
   beforeEach(() => {
     txMock.creatorProfile.findUnique.mockReset();
@@ -239,12 +238,6 @@ describe('CreatorProfileService', () => {
       listTopForCreator: jest.fn().mockResolvedValue([]),
     };
 
-    creatorListCacheMock = {
-      buildKey: jest.fn(() => 'cache-key'),
-      get: jest.fn().mockResolvedValue(null),
-      set: jest.fn().mockResolvedValue(undefined),
-    };
-
     service = new CreatorProfileService(
       prismaMock as unknown as PrismaService,
       creatorPackageService as unknown as CreatorPackageService,
@@ -255,7 +248,6 @@ describe('CreatorProfileService', () => {
       } as any,
       creatorReviewsMock as unknown as CreatorReviewsService,
       { enabled: false, sendEvent: jest.fn() } as any,
-      creatorListCacheMock as any,
     );
   });
 
@@ -558,7 +550,7 @@ describe('CreatorProfileService', () => {
   });
 
   describe('listCreators', () => {
-    it('on a cache miss, queries Postgres, maps items, and stores the result in the cache', async () => {
+    it('queries Postgres and maps items', async () => {
       const row = {
         id: 'creator-1',
         userId: 'user-1',
@@ -576,7 +568,7 @@ describe('CreatorProfileService', () => {
         onLocationAvailable: false,
       };
 
-      prismaMock.creatorProfile.count.mockResolvedValueOnce(1);
+      prismaMock.creatorProfile.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
       prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
       prismaMock.$transaction.mockImplementationOnce((arg: unknown) =>
         Array.isArray(arg)
@@ -586,26 +578,10 @@ describe('CreatorProfileService', () => {
 
       const result = await service.listCreators({ page: 1, limit: 24 } as any);
 
-      expect(creatorListCacheMock.get).toHaveBeenCalledWith('cache-key');
       expect(prismaMock.creatorProfile.count).toHaveBeenCalled();
       expect(prismaMock.creatorProfile.findMany).toHaveBeenCalled();
       expect(result.total).toBe(1);
       expect(result.items[0]).toMatchObject({ id: 'creator-1', name: 'Jane' });
-      expect(creatorListCacheMock.set).toHaveBeenCalledWith('cache-key', result);
-    });
-
-    it('on a cache hit, returns the cached response without querying Postgres', async () => {
-      prismaMock.creatorProfile.count.mockClear();
-      prismaMock.creatorProfile.findMany.mockClear();
-      const cachedResponse = { items: [], total: 0, page: 1, limit: 24 };
-      creatorListCacheMock.get.mockResolvedValueOnce(cachedResponse);
-
-      const result = await service.listCreators({ page: 1, limit: 24 } as any);
-
-      expect(result).toBe(cachedResponse);
-      expect(prismaMock.creatorProfile.count).not.toHaveBeenCalled();
-      expect(prismaMock.creatorProfile.findMany).not.toHaveBeenCalled();
-      expect(creatorListCacheMock.set).not.toHaveBeenCalled();
     });
   });
 });

@@ -27,7 +27,7 @@ import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
-import { CreatorListCacheService } from './creator-list-cache.service';
+
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import {
@@ -242,7 +242,6 @@ export class CreatorProfileService {
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
     private readonly creatorReviews: CreatorReviewsService,
     private readonly metaCapi: MetaCapiService,
-    private readonly creatorListCache: CreatorListCacheService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -971,12 +970,6 @@ export class CreatorProfileService {
   async listCreators(
     query: ListCreatorsQueryDto,
   ): Promise<CreatorsPublicListResponseDto> {
-    const cacheKey = this.creatorListCache.buildKey(query);
-    const cached = await this.creatorListCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     const page = query.page ?? 1;
     const limit = query.limit ?? 4;
     const skip = (page - 1) * limit;
@@ -1057,9 +1050,6 @@ export class CreatorProfileService {
       limit,
     };
 
-    // Fire-and-forget: don't add a Redis round-trip to the response latency.
-    // The cache service catches and logs its own errors internally.
-    void this.creatorListCache.set(cacheKey, response);
     return response;
   }
 

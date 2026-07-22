@@ -5,7 +5,7 @@ import { Redis } from 'ioredis';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 
-const CACHE_KEY_PREFIX = 'creators:list:v1:';
+const CACHE_KEY_PREFIX = 'creators:list:v2:';
 const CACHE_TTL_SECONDS = 60;
 
 /**

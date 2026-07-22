@@ -339,7 +339,7 @@ model CreatorProfile {
   profileLanguages CreatorProfileLanguage[]
   restrictions     CreatorRestriction[]
   stats            CreatorStats?
-  features         CreatorFeature[]
+  feature          CreatorFeature?
   packages         CreatorPackage[]
   addOns           CreatorAddOn[]
   portfolioVideos  CreatorPortfolioVideo[]
@@ -996,8 +996,8 @@ model CreatorRatingReview {
 
 model CreatorFeature {
   id            String    @id @default(uuid()) @db.Uuid
-  creatorId     String    @db.Uuid
-  isFeatured    Boolean   @default(false)
+  creatorId     String    @unique @db.Uuid
+  rank          Int       @default(1000000)
   featuredById  String?   @db.Uuid
   featuredUntil DateTime?
   createdAt     DateTime  @default(now())
@@ -1006,7 +1006,7 @@ model CreatorFeature {
   creator    CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   featuredBy User?          @relation("CreatorFeaturedBy", fields: [featuredById], references: [id], onDelete: SetNull)
 
-  @@index([creatorId, isFeatured])
+  @@index([rank])
   @@index([featuredUntil])
 }
 

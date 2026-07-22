@@ -2,24 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Banknote,
   MapPin,
   Pencil,
   Play,
+  Sparkles,
   Star,
   UserX,
   Video,
 } from "lucide-react";
-import type { AdminCreatorListItemDto } from "@/features/admin/types";
+import type {
+  AdminCreatorListItemDto,
+  AdminCreatorListSegment,
+} from "@/features/admin/types";
 import {
   formatCreatorLocation,
   formatInrPrice,
 } from "@/features/admin/constants/admin-creator-tabs";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
+import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
+import { useUnfeatureCreatorMutation } from "@/features/admin/hooks/use-unfeature-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -181,6 +187,11 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
           Listed
         </Badge>
       ) : null}
+      {creator.isFeatured ? (
+        <Badge className="border-amber-500/20 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20">
+          Featured{creator.featureRank != null ? ` #${creator.featureRank}` : ""}
+        </Badge>
+      ) : null}
       <span className="shrink-0 rounded-md border border-primary/20 bg-primary-container/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
         {primaryCategory}
       </span>
@@ -209,27 +220,39 @@ function RowMetric({
 
 export function AdminCreatorListRow({
   creator,
+  segment,
   onReview,
 }: {
   creator: AdminCreatorListItemDto;
+  segment: AdminCreatorListSegment;
   onReview?: () => void;
 }) {
   const { mutate: approve, isPending: isApproving } =
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } =
     useRejectCreatorMutation();
+  const { mutate: featureCreator, isPending: isFeaturing } =
+    useFeatureCreatorMutation();
+  const { mutate: unfeatureCreator, isPending: isUnfeaturing } =
+    useUnfeatureCreatorMutation();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [rank, setRank] = useState(String(creator.featureRank ?? 0));
 
   const isPending = creator.approvalStatus === "PENDING";
   const isRejected = creator.approvalStatus === "REJECTED";
   const isApproved = creator.approvalStatus === "APPROVED";
+  const isListedSegment = segment === "listed";
   const profileFirst = isProfileFirstOnboardingMode();
   const canModeratePending =
     isPending && (!profileFirst || creator.completeProfile);
-  const isWorking = isApproving || isRejecting;
+  const isWorking = isApproving || isRejecting || isFeaturing || isUnfeaturing;
   const rating = Number.parseFloat(creator.avgRating ?? "0");
   const reviewCount = creator.reviewCount ?? 0;
   const dateColumn = getRowDateColumn(creator);
+
+  useEffect(() => {
+    setRank(String(creator.featureRank ?? 0));
+  }, [creator.id, creator.featureRank]);
 
   const handleApprove = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -244,6 +267,21 @@ export function AdminCreatorListRow({
   const handleConfirmReject = (reason: string) => {
     setIsRejectOpen(false);
     reject({ id: creator.id, rejectionReason: reason });
+  };
+
+  const handleFeatureClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const parsed = Number.parseInt(rank.trim(), 10);
+    featureCreator({
+      id: creator.id,
+      rank: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0,
+      featuredUntil: null,
+    });
+  };
+
+  const handleUnfeatureClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    unfeatureCreator(creator.id);
   };
 
   return (
@@ -298,6 +336,42 @@ export function AdminCreatorListRow({
                 <span>{formatInrPrice(creator.startingPrice)}</span>
               </div>
             </RowMetric>
+
+            {isListedSegment ? (
+              <RowMetric label="Featured Rank" className="min-w-[140px]">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={rank}
+                    onChange={(e) => setRank(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-9 w-20 rounded-lg border border-border bg-background px-2 text-sm font-semibold"
+                  />
+                  {creator.isFeatured ? (
+                    <button
+                      type="button"
+                      onClick={handleUnfeatureClick}
+                      disabled={isWorking}
+                      className="inline-flex h-9 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 text-xs font-bold text-amber-700"
+                    >
+                      <Sparkles className="size-3" />
+                      Unfeature
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleFeatureClick}
+                      disabled={isWorking}
+                      className="inline-flex h-9 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 text-xs font-bold text-primary"
+                    >
+                      <Sparkles className="size-3" />
+                      Feature
+                    </button>
+                  )}
+                </div>
+              </RowMetric>
+            ) : null}
 
             <div className="flex items-center gap-2 self-center">
               {(canModeratePending || isRejected) && onReview ? (

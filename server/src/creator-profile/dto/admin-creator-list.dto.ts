@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -115,6 +116,15 @@ export class AdminCreatorListItemDto {
   @ApiProperty({ example: false })
   isListed!: boolean;
 
+  @ApiProperty({ example: false })
+  isFeatured!: boolean;
+
+  @ApiPropertyOptional({ example: 1, nullable: true })
+  featureRank?: number | null;
+
+  @ApiPropertyOptional({ example: '2026-08-01T00:00:00.000Z', nullable: true })
+  featuredUntil?: Date | null;
+
   @ApiPropertyOptional({ nullable: true })
   rejectionReason?: string | null;
 
@@ -152,6 +162,24 @@ export class AdminCreatorsListResponseDto {
 
   @ApiProperty({ example: 20 })
   limit!: number;
+}
+
+export class AdminFeatureCreatorDto {
+  @ApiPropertyOptional({ example: 1, description: 'Lower rank appears first' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000)
+  rank: number = 0;
+
+  @ApiPropertyOptional({
+    example: '2026-08-01T00:00:00.000Z',
+    nullable: true,
+    description: 'Optional expiry. Null/omitted means featured until manually removed.',
+  })
+  @IsOptional()
+  @IsDateString()
+  featuredUntil?: string | null;
 }
 
 export class AdminCreatorSegmentCountsDto {

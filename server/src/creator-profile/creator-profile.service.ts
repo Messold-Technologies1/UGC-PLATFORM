@@ -41,6 +41,7 @@ import { RejectedCreatorApprovalListItemDto } from './dto/rejected-creator-appro
 import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
 import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
 import {
+  AdminFeatureCreatorDto,
   AdminCreatorListItemDto,
   AdminCreatorListSegment,
   AdminCreatorsListQueryDto,
@@ -128,6 +129,41 @@ const creatorProfileWithRelationsInclude = {
   stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
 
+function buildActiveFeaturedCreatorWhere(
+  baseWhere: Prisma.CreatorProfileWhereInput,
+  now: Date,
+): Prisma.CreatorProfileWhereInput {
+  return {
+    AND: [
+      baseWhere,
+      {
+        feature: {
+          is: {
+            OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
+          },
+        },
+      },
+    ],
+  };
+}
+
+function buildNonFeaturedCreatorWhere(
+  baseWhere: Prisma.CreatorProfileWhereInput,
+  now: Date,
+): Prisma.CreatorProfileWhereInput {
+  return {
+    AND: [
+      baseWhere,
+      {
+        OR: [
+          { feature: { is: null } },
+          { feature: { is: { featuredUntil: { lte: now } } } },
+        ],
+      },
+    ],
+  };
+}
+
 /** Lighter include for admin pending-approval queue (signup fields only). */
 const pendingCreatorApprovalInclude = {
   user: { select: { phone: true, phoneVerified: true } },
@@ -153,6 +189,7 @@ const adminCreatorListInclude = {
   user: { select: { phone: true, phoneVerified: true } },
   facetSelections: { include: { option: true } },
   creatorApproval: true,
+  feature: { select: { rank: true, featuredUntil: true } },
   packages: {
     orderBy: { priceAmount: 'asc' as const },
     take: 1,
@@ -943,9 +980,12 @@ export class CreatorProfileService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 4;
     const skip = (page - 1) * limit;
+    const now = new Date();
 
     const where = buildListCreatorsWhere(query, { requireApproved: true });
     const include = buildCreatorListRelationsInclude(query);
+    const activeFeaturedWhere = buildActiveFeaturedCreatorWhere(where, now);
+    const nonFeaturedWhere = buildNonFeaturedCreatorWhere(where, now);
 
     if (process.env.DEBUG_CREATORS_LIST === '1') {
       this.logger.debug(
@@ -953,16 +993,56 @@ export class CreatorProfileService {
       );
     }
 
-    const [total, items] = (await this.prisma.$transaction([
+    const [total, featuredTotal] = (await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
-      this.prisma.creatorProfile.findMany({
-        where,
-        take: limit,
-        skip,
-        orderBy: { createdAt: 'desc' },
-        select: { ...CREATOR_LIST_BASE_SELECT, ...include } as any,
-      }),
-    ])) as [number, any[]];
+      this.prisma.creatorProfile.count({ where: activeFeaturedWhere }),
+    ])) as [number, number];
+
+    const featuredSkip = Math.min(skip, featuredTotal);
+    const featuredTake = Math.max(0, Math.min(limit, featuredTotal - featuredSkip));
+    const regularSkip = Math.max(0, skip - featuredTotal);
+    const regularTake = Math.max(0, limit - featuredTake);
+
+    const featuredRowsPromise =
+      featuredTake > 0
+        ? this.prisma.creatorFeature.findMany({
+            where: {
+              creator: where,
+              OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
+            },
+            take: featuredTake,
+            skip: featuredSkip,
+            orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              creator: {
+                select: { ...CREATOR_LIST_BASE_SELECT, ...include } as any,
+              },
+            },
+          })
+        : Promise.resolve([] as Array<{ creator: any | null }>);
+
+    const regularItemsPromise =
+      regularTake > 0
+        ? this.prisma.creatorProfile.findMany({
+            where: nonFeaturedWhere,
+            take: regularTake,
+            skip: regularSkip,
+            orderBy: { createdAt: 'desc' },
+            select: { ...CREATOR_LIST_BASE_SELECT, ...include } as any,
+          })
+        : Promise.resolve([] as any[]);
+
+    const [featuredRows, regularItems] = await Promise.all([
+      featuredRowsPromise,
+      regularItemsPromise,
+    ]);
+
+    const items = [
+      ...featuredRows
+        .map((row) => row.creator)
+        .filter((profile): profile is NonNullable<typeof profile> => !!profile),
+      ...regularItems,
+    ];
 
     const orderCountsByCreatorId = await this.countCreatorOrdersBatch(
       items.map((profile) => profile.id),
@@ -1386,12 +1466,20 @@ export class CreatorProfileService {
   ): AdminCreatorListItemDto {
     const base = this.mapPendingCreatorApprovalListItem(profile);
     const startingPkg = profile.packages?.[0];
+    const now = new Date();
+    const isFeatured =
+      !!profile.feature &&
+      (!profile.feature.featuredUntil ||
+        new Date(profile.feature.featuredUntil).getTime() > now.getTime());
 
     return {
       ...base,
       profileImageUrl: profile.profileImageUrl ?? null,
       completeProfile: profile.completeProfile ?? false,
       isListed: profile.isListed ?? false,
+      isFeatured,
+      featureRank: profile.feature?.rank ?? null,
+      featuredUntil: profile.feature?.featuredUntil ?? null,
       rejectionReason: profile.creatorApproval?.rejectionReason ?? null,
       rejectedAt:
         base.approvalStatus === ApprovalStatus.REJECTED
@@ -1406,6 +1494,19 @@ export class CreatorProfileService {
       startingPrice: startingPkg?.priceAmount?.toString?.() ?? null,
       onLocationAvailable: !!profile.onLocationAvailable,
     };
+  }
+
+  private async getAdminCreatorListItemById(
+    creatorProfileId: string,
+  ): Promise<AdminCreatorListItemDto> {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      include: adminCreatorListInclude as any,
+    });
+    if (!profile) {
+      throw new NotFoundException('Creator not found');
+    }
+    return this.mapAdminCreatorListItem(profile);
   }
 
   async listAdminCreators(
@@ -1441,6 +1542,52 @@ export class CreatorProfileService {
       page,
       limit,
     };
+  }
+
+  async featureCreatorProfile(
+    adminUserId: string,
+    creatorProfileId: string,
+    dto: AdminFeatureCreatorDto,
+  ): Promise<AdminCreatorListItemDto> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { id: true, isListed: true },
+    });
+
+    if (!creator) {
+      throw new NotFoundException('Creator not found');
+    }
+    if (!creator.isListed) {
+      throw new BadRequestException('Only listed creators can be featured');
+    }
+
+    const featuredUntil = dto.featuredUntil ? new Date(dto.featuredUntil) : null;
+    if (featuredUntil && Number.isNaN(featuredUntil.getTime())) {
+      throw new BadRequestException('featuredUntil must be a valid ISO date');
+    }
+
+    await this.prisma.creatorFeature.upsert({
+      where: { creatorId: creatorProfileId },
+      create: {
+        creatorId: creatorProfileId,
+        rank: dto.rank ?? 0,
+        featuredUntil,
+        featuredById: adminUserId,
+      },
+      update: {
+        rank: dto.rank ?? 0,
+        featuredUntil,
+        featuredById: adminUserId,
+      },
+    });
+
+    return this.getAdminCreatorListItemById(creatorProfileId);
+  }
+
+  async unfeatureCreatorProfile(creatorProfileId: string): Promise<void> {
+    await this.prisma.creatorFeature.deleteMany({
+      where: { creatorId: creatorProfileId },
+    });
   }
 
   async getAdminCreatorSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {

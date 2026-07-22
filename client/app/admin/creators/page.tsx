@@ -171,6 +171,7 @@ function AdminCreatorsPageInner() {
                     >
                       <AdminCreatorListRow
                         creator={creator}
+                        segment={segment}
                         onReview={() => setSelectedCreator(creator)}
                       />
                     </div>

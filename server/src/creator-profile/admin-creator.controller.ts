@@ -1,4 +1,5 @@
 import {
+  Delete,
   Body,
   Controller,
   Get,
@@ -29,6 +30,8 @@ import {
   RejectCreatorProfileDto,
 } from './dto/admin-creator-approval.dto';
 import {
+  AdminCreatorListItemDto,
+  AdminFeatureCreatorDto,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
   AdminCreatorSegmentCountsDto,
@@ -124,6 +127,27 @@ export class AdminCreatorController {
       id,
       dto.rejectionReason,
     );
+  }
+
+  @Patch(':id/feature')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Feature a listed creator for discovery ordering' })
+  @ApiOkResponse({ type: AdminCreatorListItemDto })
+  async featureCreator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminFeatureCreatorDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AdminCreatorListItemDto> {
+    return this.creatorProfileService.featureCreatorProfile(req.user.id, id, dto);
+  }
+
+  @Delete(':id/feature')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a creator from featured discovery ordering' })
+  async unfeatureCreator(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.creatorProfileService.unfeatureCreatorProfile(id);
   }
 
   @Patch(':id')

@@ -220,6 +220,9 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   profileImageUrl?: string | null;
   completeProfile: boolean;
   isListed: boolean;
+  isFeatured: boolean;
+  featureRank?: number | null;
+  featuredUntil?: string | null;
   rejectionReason?: string | null;
   rejectedAt?: string | null;
   approvedAt?: string | null;
@@ -234,6 +237,11 @@ export interface AdminCreatorsListResponseDto {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface AdminFeatureCreatorDto {
+  rank?: number;
+  featuredUntil?: string | null;
 }
 
 export interface RejectedCreatorApprovalListItemDto

@@ -186,6 +186,8 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/reject`,
+      FEATURE: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/feature`,
       PAYOUT_DETAILS: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/payout-details`,
     },

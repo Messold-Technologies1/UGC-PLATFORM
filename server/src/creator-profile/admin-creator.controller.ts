@@ -129,19 +129,6 @@ export class AdminCreatorController {
     );
   }
 
-  @Get('featured')
-  @ApiOperation({ summary: 'List all currently featured creators sorted by rank' })
-  @ApiOkResponse({ type: AdminCreatorsListResponseDto })
-  async listFeaturedCreators(
-    @Query() query: AdminCreatorsListQueryDto,
-  ): Promise<AdminCreatorsListResponseDto> {
-    return this.creatorProfileService.listFeaturedCreators({
-      page: query.page,
-      limit: query.limit,
-      search: query.search,
-    });
-  }
-
   @Patch(':id/feature')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Feature a listed creator for discovery ordering' })

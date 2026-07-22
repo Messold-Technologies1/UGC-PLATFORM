@@ -20,6 +20,7 @@ export enum AdminCreatorListSegment {
   NON_APPROVED = 'non_approved',
   INCOMPLETE = 'incomplete',
   LISTED = 'listed',
+  FEATURED = 'featured',
 }
 
 export class AdminCreatorsListQueryDto {

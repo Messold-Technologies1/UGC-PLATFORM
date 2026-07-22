@@ -1506,6 +1506,10 @@ export class CreatorProfileService {
     const limit = Math.min(query.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
+    if (query.segment === AdminCreatorListSegment.FEATURED) {
+      return this.listFeaturedCreators({ page, limit, skip, search: query.search });
+    }
+
     const where = buildAdminCreatorsListWhere(query.segment, query.search);
 
     const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
@@ -1580,14 +1584,13 @@ export class CreatorProfileService {
     });
   }
 
-  async listFeaturedCreators(query: {
-    page?: number;
-    limit?: number;
+  private async listFeaturedCreators(query: {
+    page: number;
+    limit: number;
+    skip: number;
     search?: string;
   }): Promise<AdminCreatorsListResponseDto> {
-    const page = query.page ?? 1;
-    const limit = Math.min(query.limit ?? 20, 50);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = query;
     const now = new Date();
 
     const searchClause = query.search?.trim()

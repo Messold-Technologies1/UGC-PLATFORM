@@ -2,22 +2,11 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  Play,
-  MapPin,
-  ArrowRight,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { Play, MapPin, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
-import {
-  getInitials,
-  posterColor,
-  tagColor,
-  cn,
-} from "@/lib/utils";
+import { getInitials, posterColor, tagColor, cn } from "@/lib/utils";
 import { shouldSuppressCreatorCardNavigation } from "@/features/wishlists/lib/suppress-creator-card-navigation";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,7 +39,9 @@ export const CreatorCard = memo(function CreatorCard({
   isBrand,
 }: CreatorCardProps) {
   const [g1, g2] = posterColor(index);
-  const tags = (creator.categories?.length ? creator.categories : creator.tags).slice(0, 2);
+  const tags = (
+    creator.categories?.length ? creator.categories : creator.tags
+  ).slice(0, 2);
   const initials = getInitials(creator.name);
   const locationLabel = creator.location || "Location not set";
   const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
@@ -103,6 +94,18 @@ export const CreatorCard = memo(function CreatorCard({
   // Start playback on the render after `videoVisible` flips true, i.e. once the
   // lazily-attached source exists.
   useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoVisible) return;
+    video.muted = isMuted;
+    void video.play().catch(() => {});
+  }, [videoVisible, isMuted]);
+
+  // The source is attached lazily with preload="none", so the effect above
+  // often calls play() before any frame data has buffered — that play() can
+  // reject/stall, leaving the card on its poster (the reason hover didn't
+  // reliably start the video). Retry once the media signals it can play, as
+  // long as the pointer is still on the card.
+  const handleCanPlay = useCallback(() => {
     const video = videoRef.current;
     if (!video || !videoVisible) return;
     video.muted = isMuted;
@@ -211,14 +214,13 @@ export const CreatorCard = memo(function CreatorCard({
             ref={videoRef}
             src={videoVisible ? creator.previewVideoUrl! : undefined}
             poster={videoThumbnail || profileImage || undefined}
-            className={cn(
-              "real-media",
-              !videoVisible && "opacity-0",
-            )}
+            className={cn("real-media", !videoVisible && "opacity-0")}
             muted={isMuted}
             loop
             playsInline
             preload="none"
+            onCanPlay={handleCanPlay}
+            onLoadedData={handleCanPlay}
           />
         ) : null}
 

@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
+  Calendar,
+  Eye,
   Film,
   Globe,
   Grid3X3,
@@ -72,7 +74,6 @@ const MORE_FACET_SECTIONS: {
     label: "Content Style",
     filterKey: "contentStyle",
   },
-  { dimension: "APPEARANCE", label: "Appearance", filterKey: "appearance" },
   { dimension: "CAPABILITY", label: "Capability", filterKey: "capability" },
   { dimension: "LIFE_STYLE", label: "Life Style", filterKey: "lifeStyle" },
   { dimension: "OCCUPATION", label: "Occupation", filterKey: "occupation" },
@@ -803,9 +804,11 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const priceCount = filters.minPrice || filters.maxPrice ? 1 : 0;
   const deliveryCount = filters.maxDeliveryDays ? 1 : 0;
 
+  const appearanceCount = filters.appearance.length;
+  const ageCount = filters.ageGroup ? 1 : 0;
+
   const moreCount =
     filters.contentStyle.length +
-    filters.appearance.length +
     filters.capability.length +
     filters.lifeStyle.length +
     filters.occupation.length +
@@ -814,7 +817,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     filters.aiContentPermission.length +
     filters.restrictions.length +
     (filters.gender ? 1 : 0) +
-    (filters.ageGroup ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
     (filters.city ? 1 : 0) +
     (filters.industry ? 1 : 0) +
@@ -826,6 +828,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     langCount +
     priceCount +
     deliveryCount +
+    appearanceCount +
+    ageCount +
     moreCount;
 
   return (
@@ -1029,6 +1033,43 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     </FilterPopover>
                   </div>
 
+                  <FilterPopover
+                    id="appearance"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Appearance"
+                    icon={<Eye className="size-[15px]" />}
+                    activeCount={appearanceCount}
+                    wide
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Appearance
+                    </h5>
+                    <ChipGrid
+                      items={getFacetItems("APPEARANCE")}
+                      selected={filters.appearance}
+                      onToggle={(slug) => toggleArrayField("appearance", slug)}
+                    />
+                  </FilterPopover>
+
+                  <FilterPopover
+                    id="age"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Age"
+                    icon={<Calendar className="size-[15px]" />}
+                    activeCount={ageCount}
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Age Group
+                    </h5>
+                    <CheckboxRow
+                      items={AGE_GROUP_OPTIONS}
+                      selected={filters.ageGroup}
+                      onToggle={(v) => commitField("ageGroup", v)}
+                    />
+                  </FilterPopover>
+
                   <div
                     className="mx-0.5 h-[26px] w-px bg-gray-200"
                     aria-hidden
@@ -1098,17 +1139,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           items={GENDER_OPTIONS}
                           selected={filters.gender}
                           onToggle={(v) => commitField("gender", v)}
-                        />
-                      </div>
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Age Group
-                        </h5>
-                        <CheckboxRow
-                          items={AGE_GROUP_OPTIONS}
-                          selected={filters.ageGroup}
-                          onToggle={(v) => commitField("ageGroup", v)}
                         />
                       </div>
 
@@ -1289,6 +1319,28 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             }
                           />
                         </div>
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Appearance
+                          </h5>
+                          <ChipGrid
+                            items={getFacetItems("APPEARANCE")}
+                            selected={filters.appearance}
+                            onToggle={(slug) =>
+                              toggleArrayField("appearance", slug)
+                            }
+                          />
+                        </div>
+                        <div>
+                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Age Group
+                          </h5>
+                          <CheckboxRow
+                            items={AGE_GROUP_OPTIONS}
+                            selected={filters.ageGroup}
+                            onToggle={(v) => commitField("ageGroup", v)}
+                          />
+                        </div>
                         <div className="h-px bg-gray-200" aria-hidden />
                         {MORE_FACET_SECTIONS.map(
                           ({ dimension, label, filterKey }) => {
@@ -1321,16 +1373,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             items={GENDER_OPTIONS}
                             selected={filters.gender}
                             onToggle={(v) => commitField("gender", v)}
-                          />
-                        </div>
-                        <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Age Group
-                          </h5>
-                          <CheckboxRow
-                            items={AGE_GROUP_OPTIONS}
-                            selected={filters.ageGroup}
-                            onToggle={(v) => commitField("ageGroup", v)}
                           />
                         </div>
                         {restrictionNames.length > 0 && (

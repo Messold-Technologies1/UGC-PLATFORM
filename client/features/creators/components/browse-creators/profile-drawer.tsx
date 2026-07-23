@@ -1073,6 +1073,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               creatorId={activeId}
               creatorName={c?.name ?? ""}
               creatorImageUrl={c?.thumbnail}
+              creatorCity={
+                c?.location && c.location !== "Location not set"
+                  ? c.location
+                  : null
+              }
             />
           )}
           <button

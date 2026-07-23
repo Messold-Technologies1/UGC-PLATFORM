@@ -60,6 +60,41 @@
   }
 }
 
+/* Wishlist detail page: cap at 5 cards per row */
+.reelgrid.reelgrid-wishlist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 380px) {
+  .reelgrid.reelgrid-wishlist {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 640px) {
+  .reelgrid.reelgrid-wishlist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .reelgrid.reelgrid-wishlist {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .reelgrid.reelgrid-wishlist {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1536px) {
+  .reelgrid.reelgrid-wishlist {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 .rcard {
   display: flex;
   flex-direction: column;
@@ -144,6 +179,44 @@
   border-radius: 999px;
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.rcard .reel .availchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  max-width: min(100%, 180px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rcard .reel .availchip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.rcard .reel .availchip.online {
+  background: rgba(6, 95, 70, 0.72);
+  color: #ecfdf5;
+}
+.rcard .reel .availchip.online i {
+  background: #34d399;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
+}
+.rcard .reel .availchip.offline {
+  background: rgba(127, 29, 29, 0.72);
+  color: #fef2f2;
+}
+.rcard .reel .availchip.offline i {
+  background: #f87171;
 }
 
 .rcard .reel .real-media {
@@ -309,6 +382,19 @@
 }
 .rcard .fview:hover {
   background: var(--primary);
+}
+
+@media (max-width: 767px) {
+  .rcard .factions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .rcard .fwishlist,
+  .rcard .fview {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .browse-scrim {

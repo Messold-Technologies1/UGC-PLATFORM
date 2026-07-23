@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -45,8 +46,13 @@ import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-option
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 import { AddCreatorAddOnsDto } from './dto/add-creator-addons.dto';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
+import { CreatorUnavailabilityService } from './creator-unavailability.service';
 import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
 import { CreatorPayoutDetailsMaskedDto } from './dto/creator-payout-details-masked.dto';
+import {
+  CreatorUnavailabilityDto,
+  UpsertCreatorUnavailabilityDto,
+} from './dto/creator-unavailability.dto';
 import { SuggestedCreatorsResponseDto } from './dto/suggested-creators-response.dto';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import { ListCreatorRatingReviewsQueryDto } from '../creator-reviews/dto/list-creator-rating-reviews-query.dto';
@@ -59,6 +65,7 @@ export class CreatorProfileController {
   constructor(
     private readonly creatorProfileService: CreatorProfileService,
     private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
+    private readonly creatorUnavailabilityService: CreatorUnavailabilityService,
     private readonly creatorReviewsService: CreatorReviewsService,
   ) {}
 
@@ -202,6 +209,53 @@ export class CreatorProfileController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {
     return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
+  }
+
+  @Get('profile/me/unavailability')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiOperation({
+    summary:
+      'Get the authenticated creator scheduled unavailability (null when available / no schedule)',
+  })
+  @ApiOkResponse({ type: CreatorUnavailabilityDto })
+  async getMyUnavailability(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorUnavailabilityDto | null> {
+    return this.creatorUnavailabilityService.getForCurrentCreator(req.user.id);
+  }
+
+  @Put('profile/me/unavailability')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Set or update the authenticated creator unavailability date range (can be future-dated)',
+  })
+  @ApiOkResponse({ type: CreatorUnavailabilityDto })
+  async upsertMyUnavailability(
+    @Body() dto: UpsertCreatorUnavailabilityDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorUnavailabilityDto> {
+    return this.creatorUnavailabilityService.upsertForCurrentCreator(
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Delete('profile/me/unavailability')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
+  @ApiOperation({
+    summary: 'Clear scheduled unavailability (creator becomes available)',
+  })
+  async clearMyUnavailability(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.creatorUnavailabilityService.clearForCurrentCreator(req.user.id);
   }
 
   @Get(':id/rating-reviews')

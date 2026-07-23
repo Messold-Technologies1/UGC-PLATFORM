@@ -35,6 +35,7 @@ export const ENDPOINTS = {
     PROFILE: "/api/creators/profile",
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",
+    PROFILE_UNAVAILABILITY: "/api/creators/profile/me/unavailability",
     PROFILE_IMAGE_PRESIGN:
       "/api/creators/profile/uploads/presign-profile-image",
     PROFILE_INTRO_VIDEO_PRESIGN:

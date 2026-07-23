@@ -164,7 +164,9 @@ export function mapProfileToListingCreator(
     introVideoUrl: introVideoUrl || null,
     previewVideoThumbnail,
     tags: buildTags(profile),
-    available: true,
+    available: profile.available !== false,
+    unavailableFrom: profile.unavailableFrom ?? null,
+    unavailableTo: profile.unavailableTo ?? null,
     storeVisit: profile.onLocationAvailable ?? false,
     travelAvailable:
       (travelRadius != null && travelRadius > 0) ||

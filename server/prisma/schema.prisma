@@ -349,6 +349,7 @@ model CreatorProfile {
   payoutDetails       CreatorPayoutDetails?
   ratingReviews       CreatorRatingReview[]
   wishlistEntries     BrandWishlistCreator[]
+  unavailability      CreatorUnavailability?
 
   @@index([city])
   @@index([countryName])
@@ -1008,6 +1009,22 @@ model CreatorFeature {
 
   @@index([rank])
   @@index([featuredUntil])
+}
+
+/// Scheduled time range when a creator is unavailable. Absence of a row (or a
+/// range that does not cover today) means the creator is available by default.
+/// One active schedule per creator; can be set for future dates.
+model CreatorUnavailability {
+  id        String   @id @default(uuid()) @db.Uuid
+  creatorId String   @unique @db.Uuid
+  startsOn  DateTime @db.Date
+  endsOn    DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([startsOn, endsOn])
 }
 
 model CreatorPackage {

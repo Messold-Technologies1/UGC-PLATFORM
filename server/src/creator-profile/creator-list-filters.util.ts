@@ -359,6 +359,7 @@ export function buildCreatorListRelationsInclude(
     },
     stats: { select: { avgRating: true, reviewCount: true } },
     addOns: { select: { name: true, deliveryDays: true } },
+    unavailability: { select: { startsOn: true, endsOn: true } },
   };
 }
 

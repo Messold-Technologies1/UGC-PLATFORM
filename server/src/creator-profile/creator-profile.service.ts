@@ -29,6 +29,7 @@ import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
+import { mapUnavailabilityToPublicAvailability } from './creator-unavailability.util';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import {
   allocateUniqueCreatorPublicSlug,
@@ -113,6 +114,7 @@ const creatorProfileWithRelationsInclude = {
   packages: true,
   addOns: true,
   creatorApproval: true,
+  unavailability: { select: { startsOn: true, endsOn: true } },
   portfolioVideos: {
     where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
     orderBy: { createdAt: 'desc' },
@@ -1280,6 +1282,10 @@ export class CreatorProfileService {
         ? fasterDeliveryAddOn.deliveryDays
         : null;
 
+    const availability = mapUnavailabilityToPublicAvailability(
+      profile.unavailability ?? null,
+    );
+
     return {
       id: profile.id,
       // Brands see the opaque public slug, never the creator's real name.
@@ -1329,6 +1335,9 @@ export class CreatorProfileService {
       completedOrders: orderCounts?.completedOrders ?? 0,
       hasFasterDelivery,
       fasterDeliveryDays,
+      available: availability.available,
+      unavailableFrom: availability.startsOn,
+      unavailableTo: availability.endsOn,
     };
   }
 

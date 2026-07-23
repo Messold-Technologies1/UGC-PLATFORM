@@ -164,4 +164,25 @@ export class CreatorPublicListItemDto {
     description: 'Promised delivery days when Faster Delivery add-on is enabled',
   })
   fasterDeliveryDays?: number | null;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'True when the creator has no unavailability covering today. Default true when no schedule exists.',
+  })
+  available!: boolean;
+
+  @ApiPropertyOptional({
+    example: '2026-08-10',
+    nullable: true,
+    description: 'Unavailable range start when a schedule exists (active or upcoming)',
+  })
+  unavailableFrom?: string | null;
+
+  @ApiPropertyOptional({
+    example: '2026-08-20',
+    nullable: true,
+    description: 'Unavailable range end when a schedule exists (active or upcoming)',
+  })
+  unavailableTo?: string | null;
 }

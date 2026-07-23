@@ -32,6 +32,24 @@ function isHttpUrl(url: string | null | undefined): url is string {
   );
 }
 
+function formatUnavailableRange(
+  from?: string | null,
+  to?: string | null,
+): string | null {
+  if (!from || !to) return null;
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${from} – ${to}`;
+  }
+  const fmt = new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+  return `${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
 export const CreatorCard = memo(function CreatorCard({
   creator,
   index,
@@ -46,6 +64,11 @@ export const CreatorCard = memo(function CreatorCard({
   const locationLabel = creator.location || "Location not set";
   const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
   const deliveryLabel = `Guaranteed ${creator.deliveryDays}-day delivery`;
+  const isAvailable = creator.available !== false;
+  const unavailableRangeLabel = formatUnavailableRange(
+    creator.unavailableFrom,
+    creator.unavailableTo,
+  );
 
   const profileImage = isHttpUrl(creator.thumbnail) ? creator.thumbnail : "";
   const videoThumbnail = isHttpUrl(creator.previewVideoThumbnail)
@@ -231,6 +254,16 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
         <div className="top">
           <span className="vchip">{deliveryLabel}</span>
+          {isAvailable ? (
+            <span className="availchip online">
+              <i /> Online
+            </span>
+          ) : (
+            <span className="availchip offline">
+              <i /> Offline
+              {unavailableRangeLabel ? ` · ${unavailableRangeLabel}` : ""}
+            </span>
+          )}
         </div>
 
         <div className="play">
@@ -283,6 +316,11 @@ export const CreatorCard = memo(function CreatorCard({
                 creatorId={creator.id}
                 creatorName={creator.name}
                 creatorImageUrl={creator.thumbnail}
+                creatorCity={
+                  creator.location !== "Location not set"
+                    ? creator.location
+                    : null
+                }
                 variant="card"
               />
             ) : null}

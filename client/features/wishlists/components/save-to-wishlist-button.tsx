@@ -71,6 +71,7 @@ interface SaveToWishlistButtonProps {
   creatorId: string;
   creatorName: string;
   creatorImageUrl?: string | null;
+  creatorCity?: string | null;
   variant?: "icon" | "full" | "card";
 }
 
@@ -78,6 +79,7 @@ export function SaveToWishlistButton({
   creatorId,
   creatorName,
   creatorImageUrl,
+  creatorCity,
   variant = "full",
 }: SaveToWishlistButtonProps) {
   const [open, setOpen] = useState(false);
@@ -259,7 +261,9 @@ export function SaveToWishlistButton({
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Save to wishlist
               </p>
-              <p className="text-base font-bold truncate">@{creatorName}</p>
+              {creatorCity ? (
+                <p className="text-base font-bold truncate">{creatorCity}</p>
+              ) : null}
             </div>
             <button
               type="button"

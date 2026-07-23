@@ -175,7 +175,7 @@ export default function WishlistDetailPage() {
           <div className="space-y-4">
             <div className="h-8 w-56 rounded-xl bg-muted animate-pulse" />
             <div className="h-4 w-72 rounded-lg bg-muted animate-pulse" />
-            <div className="reelgrid browse-redesign-scope mt-6">
+            <div className="reelgrid reelgrid-wishlist browse-redesign-scope mt-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <CreatorCardSkeleton key={i} appearance="browse" />
               ))}
@@ -441,7 +441,7 @@ export default function WishlistDetailPage() {
               </div>
             ) : (
               <div
-                className="reelgrid browse-redesign-scope !mt-0"
+                className="reelgrid reelgrid-wishlist browse-redesign-scope !mt-0"
                 data-tour="brand-wishlists-creators"
               >
                 {listingCreators.map((creator, index) => (

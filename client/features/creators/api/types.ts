@@ -98,6 +98,9 @@ export type CreatorPublicListItemApi = {
   portfolioVideos: CreatorPortfolioVideoPreviewApi[];
   hasFasterDelivery?: boolean;
   fasterDeliveryDays?: number | null;
+  available?: boolean;
+  unavailableFrom?: string | null;
+  unavailableTo?: string | null;
 };
 
 export type CreatorProfileItemApi = {

@@ -16,6 +16,7 @@ import type { PublicWishlistResponseDto } from './dto/public-wishlist-response.d
 import type { ImportSharedWishlistDto } from './dto/import-shared-wishlist.dto';
 import type { ImportSharedWishlistResponseDto } from './dto/import-shared-wishlist-response.dto';
 import type { CreatorPublicListItemDto } from '../creator-profile/dto/creator-public-list-item.dto';
+import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import { PortfolioVisibilityStatus } from '@prisma/client';
 
 const creatorWithRelationsInclude = {
@@ -23,6 +24,7 @@ const creatorWithRelationsInclude = {
   profileLanguages: { include: { option: true } },
   restrictions: true,
   packages: true,
+  unavailability: { select: { startsOn: true, endsOn: true } },
   portfolioVideos: {
     where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
     orderBy: { createdAt: 'desc' as const },
@@ -77,6 +79,10 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
         .filter((x: any) => x.slug && x.dimension)
     : [];
 
+  const availability = mapUnavailabilityToPublicAvailability(
+    profile.unavailability ?? null,
+  );
+
   return {
     id: profile.id,
     userId: profile.userId,
@@ -125,6 +131,11 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
     reviewCount: profile.stats?.reviewCount ?? 0,
     totalOrders: 0,
     completedOrders: 0,
+    hasFasterDelivery: false,
+    fasterDeliveryDays: null,
+    available: availability.available,
+    unavailableFrom: availability.startsOn,
+    unavailableTo: availability.endsOn,
   };
 }
 

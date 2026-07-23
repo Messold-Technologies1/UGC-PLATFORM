@@ -20,7 +20,9 @@ import type { WishlistCreator } from "../api/types";
 import { cn } from "@/lib/utils";
 
 function getInitials(name: string) {
-  return name
+  const cleaned = name.trim();
+  if (!cleaned || cleaned === "Creator") return "CR";
+  return cleaned
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -61,11 +63,16 @@ export function RemoveCreatorsDialog({
   }
 
   async function handleRemove(creator: WishlistCreator) {
+    const label =
+      creator.city ||
+      creator.stateName ||
+      creator.countryName ||
+      "creator";
     // Optimistically hide the row immediately
     setRemovedIds((prev) => new Set(prev).add(creator.id));
     try {
       await removeMutation.mutateAsync({ wishlistId, creatorId: creator.id });
-      toast.success(`Removed ${creator.name} from "${wishlistName}"`);
+      toast.success(`Removed ${label} from "${wishlistName}"`);
       const remaining = creators.filter((c) => !removedIds.has(c.id) && c.id !== creator.id);
       if (remaining.length === 0) {
         onOpenChange(false);
@@ -128,16 +135,35 @@ export function RemoveCreatorsDialog({
                       />
                     ) : (
                       <span className="flex size-full items-center justify-center text-xs font-bold text-white">
-                        {getInitials(creator.name)}
+                        {getInitials(
+                          creator.city ||
+                            creator.stateName ||
+                            creator.countryName ||
+                            "Creator",
+                        )}
                       </span>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">@{creator.name}</p>
-                    {creator.city ? (
+                    <p className="font-semibold text-sm truncate">
+                      {creator.city ||
+                        creator.stateName ||
+                        creator.countryName ||
+                        "Creator"}
+                    </p>
+                    {(creator.city &&
+                      (creator.stateName || creator.countryName)) ||
+                    (!creator.city &&
+                      creator.stateName &&
+                      creator.countryName) ? (
                       <p className="text-xs text-muted-foreground truncate">
-                        {creator.city}
+                        {[
+                          creator.city ? creator.stateName : null,
+                          creator.countryName,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
                       </p>
                     ) : null}
                   </div>
@@ -150,7 +176,12 @@ export function RemoveCreatorsDialog({
                         className="size-8 shrink-0 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                         onClick={() => handleRemove(creator)}
                         disabled={isRemoving}
-                        aria-label={`Remove ${creator.name}`}
+                        aria-label={`Remove ${
+                          creator.city ||
+                          creator.stateName ||
+                          creator.countryName ||
+                          "creator"
+                        }`}
                       >
                         {isRemoving ? (
                           <Loader2 size={13} className="animate-spin" />

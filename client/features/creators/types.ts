@@ -26,6 +26,9 @@ export interface Creator {
   basicEditing?: boolean;
   hasFasterDelivery?: boolean;
   fasterDeliveryDays?: number | null;
+  /** Present when unavailable now — ISO date YYYY-MM-DD */
+  unavailableFrom?: string | null;
+  unavailableTo?: string | null;
 }
 
 export interface CreatorProfile extends Creator {

@@ -1,6 +1,6 @@
 import {
   allocateUniqueCreatorPublicSlug,
-  deriveCreatorPublicSlugBase,
+  generateCreatorPublicSlug,
   normalizeCreatorPublicProfileSlug,
 } from './creator-public-slug.util';
 
@@ -15,9 +15,16 @@ describe('creator-public-slug.util', () => {
     });
   });
 
-  describe('deriveCreatorPublicSlugBase', () => {
-    it('falls back to creator when display name normalizes to empty', () => {
-      expect(deriveCreatorPublicSlugBase('   ')).toBe('creator');
+  describe('generateCreatorPublicSlug', () => {
+    it('returns an 8-char token from the unambiguous alphabet only', () => {
+      for (let i = 0; i < 50; i++) {
+        expect(generateCreatorPublicSlug()).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/);
+      }
+    });
+
+    it('does not derive from any input (no name leakage)', () => {
+      // The generator takes no arguments — nothing about a creator can shape it.
+      expect(generateCreatorPublicSlug.length).toBe(0);
     });
   });
 
@@ -31,20 +38,26 @@ describe('creator-public-slug.util', () => {
       },
     });
 
-    it('returns base slug when available', async () => {
-      const slug = await allocateUniqueCreatorPublicSlug(
-        makeClient(new Set()),
-        'Jane Doe',
-      );
-      expect(slug).toBe('janedoe');
+    it('returns an opaque 8-char token', async () => {
+      const slug = await allocateUniqueCreatorPublicSlug(makeClient(new Set()));
+      expect(slug).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/);
     });
 
-    it('appends numeric suffix when base is taken', async () => {
-      const slug = await allocateUniqueCreatorPublicSlug(
-        makeClient(new Set(['janedoe'])),
-        'Jane Doe',
-      );
-      expect(slug).toMatch(/^janedoe-\d{4}$/);
+    it('retries past collisions and still returns a unique token', async () => {
+      // Everything is "taken" for the first few checks, forcing retries; the
+      // client only reports the first candidate as free after some attempts.
+      let calls = 0;
+      const client: Parameters<typeof allocateUniqueCreatorPublicSlug>[0] = {
+        creatorProfile: {
+          findFirst: async () => {
+            calls += 1;
+            return calls <= 3 ? { id: 'other' } : null;
+          },
+        },
+      };
+      const slug = await allocateUniqueCreatorPublicSlug(client);
+      expect(slug).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/);
+      expect(calls).toBeGreaterThan(3);
     });
   });
 });

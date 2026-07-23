@@ -18,7 +18,7 @@ import { Sparkles, Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useDebouncedCallback, useDebouncedValue } from "@/hooks/use-debounce";
+import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import { WishlistsProvider } from "@/features/wishlists/hooks/use-wishlists-data";
 import { BROWSE_LIST_LIMIT } from "@/features/creators/lib/browse-constants";
@@ -241,17 +241,18 @@ export function CreatorListing({
   );
 
   const [filters, setFilters] = useState<Filters>(() => parsedInitial.filters);
-  const [search, setSearch] = useState<string>(() => parsedInitial.search);
 
-  const listingRef = useRef({ filters, search });
+  const listingRef = useRef({ filters });
 
   useEffect(() => {
-    listingRef.current = { filters, search };
-  }, [filters, search]);
+    listingRef.current = { filters };
+  }, [filters]);
 
   const syncUrlImmediate = useCallback(
-    (nextFilters: Filters, nextSearch: string) => {
-      const qs = serializeBrowseListingParams(nextFilters, nextSearch);
+    (nextFilters: Filters) => {
+      // Free-text search was removed (brands can't search creators by name);
+      // the URL only carries structured filters now.
+      const qs = serializeBrowseListingParams(nextFilters, "");
       if (qs === searchParamsKey) return;
       const nextUrl = qs ? `?${qs}` : window.location.pathname;
       window.history.replaceState(null, "", nextUrl);
@@ -260,9 +261,7 @@ export function CreatorListing({
   );
 
   const debouncedPushUrl = useDebouncedCallback(() => {
-    const { filters: currentFilters, search: currentSearch } =
-      listingRef.current;
-    syncUrlImmediate(currentFilters, currentSearch);
+    syncUrlImmediate(listingRef.current.filters);
   }, 500);
 
   useEffect(() => {
@@ -280,9 +279,6 @@ export function CreatorListing({
       setFilters((previous) =>
         filtersEqual(previous, parsed.filters) ? previous : parsed.filters,
       );
-      setSearch((previous) =>
-        previous === parsed.search ? previous : parsed.search,
-      );
     });
   }, [router, searchParamsKey]);
 
@@ -290,14 +286,9 @@ export function CreatorListing({
     ? LANDING_PAGE_CREATOR_LIMIT
     : BROWSE_LIST_LIMIT;
 
-  // Debounce the value that feeds the API query key so typing doesn't fire a
-  // request per keystroke. The input stays bound to the immediate `search`.
-  const debouncedSearch = useDebouncedValue(search.trim(), 350);
-
   const apiFilters = useMemo(
     () => ({
       limit: listLimit,
-      search: debouncedSearch || undefined,
       city: filters.city || undefined,
       categories: filters.categories,
       gender: filters.gender || undefined,
@@ -331,7 +322,7 @@ export function CreatorListing({
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),
-    [filters, debouncedSearch, listLimit],
+    [filters, listLimit],
   );
 
   const {
@@ -349,8 +340,7 @@ export function CreatorListing({
       initialData &&
       initialData.page === 1 &&
       initialData.limit === listLimit &&
-      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS) &&
-      parsedInitial.search === ""
+      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
         ? initialData
         : undefined,
   });
@@ -378,21 +368,10 @@ export function CreatorListing({
     [debouncedPushUrl],
   );
 
-  const handleSearchChange = useCallback(
-    (next: string) => {
-      listingRef.current.search = next;
-      setSearch(next);
-      debouncedPushUrl();
-    },
-    [debouncedPushUrl],
-  );
-
   const handleResetFilters = useCallback(() => {
     listingRef.current.filters = DEFAULT_FILTERS;
-    listingRef.current.search = "";
     setFilters(DEFAULT_FILTERS);
-    setSearch("");
-    syncUrlImmediate(DEFAULT_FILTERS, "");
+    syncUrlImmediate(DEFAULT_FILTERS);
   }, [syncUrlImmediate]);
 
   const displayedCount = data?.pages.at(-1)?.total ?? 0;
@@ -445,8 +424,6 @@ export function CreatorListing({
       <CreatorFilterBar
         filters={filters}
         onChange={handleFiltersChange}
-        search={search}
-        onSearchChange={handleSearchChange}
         total={displayedCount}
         isPending={isPending && !data}
         onClear={handleResetFilters}

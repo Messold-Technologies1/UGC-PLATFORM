@@ -303,7 +303,8 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorProfile.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          publicSlug: 'jane',
+          // Opaque random token, never derived from the display name.
+          publicSlug: expect.stringMatching(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/),
         }),
       }),
     );
@@ -555,6 +556,7 @@ describe('CreatorProfileService', () => {
         id: 'creator-1',
         userId: 'user-1',
         displayName: 'Jane',
+        publicSlug: 'ab12cd34',
         introVideoUrl: null,
         profileImageUrl: 'https://cdn.example.com/jane.jpg',
         city: 'Bengaluru',
@@ -581,7 +583,11 @@ describe('CreatorProfileService', () => {
       expect(prismaMock.creatorProfile.count).toHaveBeenCalled();
       expect(prismaMock.creatorProfile.findMany).toHaveBeenCalled();
       expect(result.total).toBe(1);
-      expect(result.items[0]).toMatchObject({ id: 'creator-1', name: 'Jane' });
+      // Brands see the opaque public slug as the name, never the real name.
+      expect(result.items[0]).toMatchObject({
+        id: 'creator-1',
+        name: 'ab12cd34',
+      });
     });
   });
 });

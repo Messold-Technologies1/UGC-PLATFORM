@@ -18,12 +18,14 @@ export async function generateMetadata({
   const result = await fetchCreatorProfileByPublicSlug(displayName);
   if (!result.ok) return { title: "Creator" };
 
-  const name = result.profile.displayName;
+  // Creators are anonymous to brands — the title/description never carry the
+  // real name, only the opaque handle.
+  const handle = result.profile.publicSlug ?? displayName;
   return {
-    title: `${name} · UGC Creator on GoCollab`,
+    title: `@${handle} · UGC Creator on GoCollab`,
     description:
       result.profile.bio?.slice(0, 160) ??
-      `${name} — book this UGC creator on GoCollab. Portfolio, packages, and reviews.`,
+      `Book this UGC creator on GoCollab. Portfolio, packages, and reviews.`,
   };
 }
 

@@ -202,13 +202,12 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('searches by name, location, or bio', () => {
+    it('searches by location or bio, never by creator name', () => {
       expect(buildListCreatorsWhere({ search: 'mumbai' })).toEqual({
         AND: [
           { isListed: true },
           {
             OR: [
-              { displayName: { contains: 'mumbai', mode: 'insensitive' } },
               { city: { contains: 'mumbai', mode: 'insensitive' } },
               { stateName: { contains: 'mumbai', mode: 'insensitive' } },
               { countryName: { contains: 'mumbai', mode: 'insensitive' } },

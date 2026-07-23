@@ -362,7 +362,10 @@ export function buildCreatorListRelationsInclude(
   };
 }
 
-/** Public creator browse: match name, location, or bio. */
+/**
+ * Public creator browse: match location or bio only. The creator's real name
+ * is intentionally excluded so brands can never search by (or infer) it.
+ */
 export function buildCreatorListSearchWhere(
   search?: string,
 ): Prisma.CreatorProfileWhereInput | undefined {
@@ -370,7 +373,6 @@ export function buildCreatorListSearchWhere(
   if (!q) return undefined;
   return {
     OR: [
-      { displayName: { contains: q, mode: 'insensitive' } },
       { city: { contains: q, mode: 'insensitive' } },
       { stateName: { contains: q, mode: 'insensitive' } },
       { countryName: { contains: q, mode: 'insensitive' } },

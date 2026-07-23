@@ -259,7 +259,7 @@ export function SaveToWishlistButton({
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Save to wishlist
               </p>
-              <p className="text-base font-bold truncate">{creatorName}</p>
+              <p className="text-base font-bold truncate">@{creatorName}</p>
             </div>
             <button
               type="button"

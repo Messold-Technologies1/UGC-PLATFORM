@@ -134,7 +134,7 @@ export function RemoveCreatorsDialog({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{creator.name}</p>
+                    <p className="font-semibold text-sm truncate">@{creator.name}</p>
                     {creator.city ? (
                       <p className="text-xs text-muted-foreground truncate">
                         {creator.city}

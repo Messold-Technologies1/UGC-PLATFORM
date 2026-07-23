@@ -616,8 +616,6 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
 export interface CreatorFilterBarProps {
   filters: Filters;
   onChange: (next: Filters) => void;
-  search: string;
-  onSearchChange: (next: string) => void;
   total: number;
   isPending: boolean;
   onClear: () => void;
@@ -628,21 +626,12 @@ export interface CreatorFilterBarProps {
 export const CreatorFilterBar = memo(function CreatorFilterBar({
   filters,
   onChange,
-  search,
-  onSearchChange,
   total,
   isPending,
   onClear,
   categoryOptions,
   landingPage,
 }: CreatorFilterBarProps) {
-  const [localSearch, setLocalSearch] = useState(search);
-  useEffect(() => {
-    setLocalSearch(search);
-  }, [search]);
-  const debouncedSearchChange = useDebouncedCallback((value: string) => {
-    onSearchChange(value);
-  }, 1500);
   const [mode, setMode] = useState<"smart" | "manual">("manual");
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [localCity, setLocalCity] = useState(filters.city);
@@ -929,54 +918,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     : "flex-wrap",
                 )}
               >
-                <div
-                  className={cn(
-                    "relative shrink-0",
-                    landingPage
-                      ? "w-[200px]"
-                      : "min-w-[200px] flex-1 max-w-[480px] lg:max-w-[420px] xl:max-w-[360px] 2xl:max-w-[480px]",
-                  )}
-                >
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search name or city…"
-                    value={localSearch}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setLocalSearch(val);
-                      if (val.endsWith(" ") || val === "") {
-                        onSearchChange(val.trim());
-                        debouncedSearchChange(val.trim());
-                      } else {
-                        debouncedSearchChange(val.trim());
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        onSearchChange(localSearch.trim());
-                        debouncedSearchChange(localSearch.trim());
-                      }
-                    }}
-                    aria-label="Search creators by name or city"
-                    className="h-[44px] w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-9 text-[13.5px] font-medium text-foreground shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/60 focus:border-gray-300 focus:ring-1 focus:ring-gray-200"
-                  />
-                  {localSearch && (
-                    <button
-                      type="button"
-                      className="absolute right-2.5 top-1/2 flex size-[18px] -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground"
-                      onClick={() => {
-                        setLocalSearch("");
-                        onSearchChange("");
-                        debouncedSearchChange("");
-                      }}
-                      aria-label="Clear search"
-                    >
-                      <X className="size-[12px]" />
-                    </button>
-                  )}
-                </div>
-
                 <div
                   className={cn(
                     "items-center gap-2.5",

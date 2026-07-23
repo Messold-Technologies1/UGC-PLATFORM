@@ -80,7 +80,8 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
   return {
     id: profile.id,
     userId: profile.userId,
-    name: profile.displayName,
+    // Brands see the opaque public slug, never the creator's real name.
+    name: profile.publicSlug,
     introVideoUrl: profile.introVideoUrl ?? null,
     profileImageUrl: profile.profileImageUrl ?? null,
     city: profile.city ?? null,

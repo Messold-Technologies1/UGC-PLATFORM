@@ -13,17 +13,16 @@ export function normalizePublicProfileSlug(slug: string): string {
   }
 }
 
-/** Base slug from display name: lowercase, no spaces. */
-export function creatorPublicProfileSlug(displayName: string): string {
-  return displayName.trim().toLowerCase().replace(/\s+/g, "");
-}
-
 export type CreatorPublicProfileLinkInput = {
   publicSlug?: string | null;
   displayName: string;
 };
 
-/** Prefer API publicSlug; fall back to display name until migration/API is live. */
+/**
+ * Resolve the opaque public slug. Only the API-provided `publicSlug` is used —
+ * we never derive a URL from the display name, which would leak the creator's
+ * real identity.
+ */
 export function resolveCreatorPublicProfileSlug(
   profile: CreatorPublicProfileLinkInput,
 ): string | null {
@@ -35,8 +34,7 @@ export function resolveCreatorPublicProfileSlug(
     }
   }
 
-  const fromName = creatorPublicProfileSlug(profile.displayName ?? "");
-  return fromName || null;
+  return null;
 }
 
 export function creatorPublicProfilePath(publicSlug: string): string {

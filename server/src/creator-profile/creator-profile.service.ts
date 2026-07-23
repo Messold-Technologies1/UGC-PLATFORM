@@ -91,6 +91,7 @@ const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
 const CREATOR_LIST_BASE_SELECT = {
   id: true,
   displayName: true,
+  publicSlug: true,
   introVideoUrl: true,
   profileImageUrl: true,
   city: true,
@@ -561,7 +562,12 @@ export class CreatorProfileService {
       snapchatUrl: _snapchatUrl,
       ...rest
     } = dto;
-    return rest as CreatorProfileResponseDto;
+    // Brands/public never see the creator's real name — expose the opaque
+    // public slug as the identifier instead.
+    return {
+      ...rest,
+      displayName: rest.publicSlug,
+    } as CreatorProfileResponseDto;
   }
 
   private async normalizeCreatorAddOns(
@@ -920,10 +926,7 @@ export class CreatorProfileService {
       slug,
     }));
     const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
-    const publicSlug = await allocateUniqueCreatorPublicSlug(
-      tx,
-      input.displayName,
-    );
+    const publicSlug = await allocateUniqueCreatorPublicSlug(tx);
 
     const creatorProfile = await tx.creatorProfile.create({
       data: {
@@ -1207,7 +1210,8 @@ export class CreatorProfileService {
 
     return {
       id: profile.id,
-      creatorName: String(profile.displayName ?? ''),
+      // Opaque handle only — never the creator's real name.
+      creatorName: String(profile.publicSlug ?? ''),
       contentCategories,
       priceAmount,
       city: profile.city ?? null,
@@ -1278,7 +1282,8 @@ export class CreatorProfileService {
 
     return {
       id: profile.id,
-      name: profile.displayName,
+      // Brands see the opaque public slug, never the creator's real name.
+      name: profile.publicSlug,
       introVideoUrl: profile.introVideoUrl ?? null,
       profileImageUrl: profile.profileImageUrl ?? null,
       city: profile.city ?? null,

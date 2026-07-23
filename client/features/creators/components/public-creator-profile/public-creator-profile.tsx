@@ -54,18 +54,6 @@ const CATEGORY_PILL_TONES = [
   "bg-pink-100 text-pink-700",
 ];
 
-function getInitials(name: string): string {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "?"
-  );
-}
-
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : Number(value);
@@ -76,9 +64,6 @@ function formatINR(value: number): string {
   return `₹${value.toLocaleString("en-IN")}`;
 }
 
-function handleFromName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ".");
-}
 
 type AboutTone =
   | "rose"
@@ -501,9 +486,10 @@ export function PublicCreatorProfile({
     router.push(isBrand ? brandBookHref : bookHref);
   };
 
-  const handle = `@${handleFromName(profile.displayName)}`;
-  const firstName = profile.displayName.split(" ")[0] || profile.displayName;
-  const initials = getInitials(profile.displayName);
+  // Creators are anonymous to brands: the opaque public slug is the only
+  // identifier shown — never the real name.
+  const handle = profile.publicSlug ? `@${profile.publicSlug}` : "@creator";
+  const initials = (profile.publicSlug ?? "cr").slice(0, 2).toUpperCase();
   const isTopCreator = (profile.totalOrders ?? profile.completedOrders ?? 0) >= 10 || overallRating >= 4.5;
   const primaryNiche = contentCategories[0]?.label ?? null;
 
@@ -539,7 +525,7 @@ export function PublicCreatorProfile({
             onClick={handleBookClick}
             className="hidden items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 sm:inline-flex"
           >
-            Book {firstName}
+            Book now
             <ArrowRight className="size-3.5" />
           </button>
         </div>
@@ -562,7 +548,7 @@ export function PublicCreatorProfile({
 
               <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <h1 className="flex items-center gap-2 font-display text-4xl font-bold leading-tight tracking-tight text-neutral-900 sm:text-5xl">
-                  <span className="truncate">{profile.displayName}</span>
+                  <span className="truncate">{handle}</span>
                   <VerifiedBadge />
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-600">
@@ -616,7 +602,7 @@ export function PublicCreatorProfile({
                     style={{ backgroundColor: BRAND_RED }}
                   >
                     <Zap className="size-4 fill-white" strokeWidth={0} />
-                    {isBrand ? `Book ${firstName}` : "Book me on GoCollab"}
+                    {isBrand ? "Book now" : "Book me on GoCollab"}
                   </button>
                   <button
                     type="button"
@@ -675,7 +661,7 @@ export function PublicCreatorProfile({
 
             {/* ABOUT SECTION */}
             <div>
-              <SectionTitle icon={Layers} title={`About ${firstName}`} />
+              <SectionTitle icon={Layers} title="About this creator" />
               <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
                 {profile.bio && (
                   <div className="relative overflow-hidden border-b border-neutral-200 bg-gradient-to-br from-rose-50 via-amber-50 to-emerald-50 p-6">
@@ -803,7 +789,7 @@ export function PublicCreatorProfile({
               Ready to make scroll-stopping content?
             </h2>
             <p className="mt-3 text-sm text-neutral-600">
-              Brief {firstName} in minutes, pay securely through GoCollab, and
+              Brief this creator in minutes, pay securely through GoCollab, and
               get ad-ready videos delivered on time.
             </p>
           </div>
@@ -814,7 +800,7 @@ export function PublicCreatorProfile({
             style={{ backgroundColor: BRAND_RED }}
           >
             <Zap className="size-4 fill-white" strokeWidth={0} />
-            Place order with {firstName}
+            Place order
           </button>
         </div>
       </section>

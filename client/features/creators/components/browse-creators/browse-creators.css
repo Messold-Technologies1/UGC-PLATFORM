@@ -192,10 +192,7 @@
   border-radius: 999px;
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  max-width: min(100%, 180px);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .rcard .reel .availchip i {
   width: 6px;
@@ -1013,6 +1010,17 @@
   color: var(--muted-foreground);
   font-weight: 600;
   margin-top: 6px;
+}
+
+.dr-unavailable {
+  margin: 0;
+  padding: 10px 24px;
+  border-top: 1px solid rgba(248, 113, 113, 0.25);
+  background: rgba(254, 226, 226, 0.9);
+  color: #991b1b;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .dr-foot {

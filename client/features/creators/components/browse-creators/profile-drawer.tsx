@@ -58,6 +58,17 @@ interface ProfileDrawerProps {
   landingPage?: boolean;
 }
 
+function formatUnavailableEndDate(isoDate: string): string {
+  const end = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(end.getTime())) return isoDate;
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(end);
+}
+
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "packages", label: "Packages" },
@@ -1061,6 +1072,14 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           <div style={{ height: 8 }} />
         </div>
 
+        {c.available === false ? (
+          <div className="dr-unavailable" role="status">
+            {c.unavailableTo
+              ? `Not available right now · until ${formatUnavailableEndDate(c.unavailableTo)}`
+              : "Not available right now"}
+          </div>
+        ) : null}
+
         <div className="dr-foot">
           <div style={{ marginRight: "auto" }}>
             <div className="from">Starting from</div>
@@ -1082,11 +1101,23 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
           )}
           <button
             type="button"
-            className={`dr-btn dr-btn-primary flex-1 ${!landingPage && (!profile || isProfileLoading || isProfileError) ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`dr-btn dr-btn-primary flex-1 ${
+              c.available === false ||
+              (!landingPage &&
+                (!profile || isProfileLoading || isProfileError))
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
             disabled={
-              !landingPage && (!profile || isProfileLoading || isProfileError)
+              c.available === false ||
+              (!landingPage &&
+                (!profile || isProfileLoading || isProfileError))
             }
             onClick={() => {
+              if (c.available === false) {
+                toast.error("This creator is not available right now.");
+                return;
+              }
               if (landingPage) {
                 router.push(
                   isBrand && activeId

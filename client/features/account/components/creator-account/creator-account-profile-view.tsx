@@ -3,6 +3,7 @@
 import { useState, Fragment } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
+  CalendarDays,
   CheckCircle,
   ClipboardList,
   ExternalLink,
@@ -35,9 +36,11 @@ import { VerifiedBadge, GreenCheck } from "@/components/icons/status-icons";
 import { StatCard } from "./stat-card";
 import { PortfolioCard } from "./portfolio-card";
 import { DashboardPayoutDetails } from "./dashboard-payout-details";
+import { CreatorAvailabilityDialog } from "./creator-availability-dialog";
 import { CreatorReviewsCard } from "./creator-reviews-card";
 import { creatorPublicProfilePathForProfile } from "@/features/creators/lib/creator-public-profile-url";
 import { formatContentPreferenceLabel } from "@/features/creators/lib/format-content-preference-label";
+import { useCreatorUnavailabilityQuery } from "@/features/creators/hooks/use-creator-unavailability";
 
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -65,6 +68,8 @@ export function CreatorAccountProfileView({
 }) {
   const [aboutExpanded, setAboutExpanded] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
+  const { data: unavailability } = useCreatorUnavailabilityQuery();
   const publicProfilePath = creatorPublicProfilePathForProfile(profile);
 
   let displayVideos = [...videos];
@@ -221,10 +226,28 @@ export function CreatorAccountProfileView({
         >
           <motion.section
             variants={fadeInUp}
-            className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+            className="relative overflow-hidden rounded-lg border border-border bg-card shadow-sm"
             aria-label="Profile overview"
             data-tour="creator-profile-overview"
           >
+            <div className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-full bg-background/90 shadow-sm backdrop-blur-sm"
+                onClick={() => setAvailabilityOpen(true)}
+                data-tour="creator-profile-availability"
+              >
+                <CalendarDays className="size-3.5" />
+                {unavailability?.isCurrentlyUnavailable
+                  ? "Unavailable"
+                  : unavailability
+                    ? "Scheduled time off"
+                    : "Availability"}
+              </Button>
+            </div>
+
             {/* <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-slate-100">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_40%,rgba(255,255,255,0.4),transparent_50%)]" />
 
@@ -254,7 +277,7 @@ export function CreatorAccountProfileView({
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-6 xl:flex-row xl:items-stretch">
-                <div className="min-w-0 flex-1 text-center sm:text-left">
+                <div className="min-w-0 flex-1 text-center sm:text-left sm:pr-36">
                   <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start">
                     <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
                       {profile.displayName}
@@ -748,6 +771,11 @@ export function CreatorAccountProfileView({
           </motion.section>
         </motion.aside>
       </div>
+
+      <CreatorAvailabilityDialog
+        open={availabilityOpen}
+        onOpenChange={setAvailabilityOpen}
+      />
     </motion.div>
   );
 }

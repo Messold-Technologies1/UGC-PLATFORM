@@ -488,10 +488,19 @@ export function PublicCreatorProfile({
 
   // Creators are anonymous to brands: the opaque public slug is the only
   // identifier shown — never the real name.
-  const handle = profile.publicSlug ? `@${profile.publicSlug}` : "@creator";
-  const initials = (profile.publicSlug ?? "cr").slice(0, 2).toUpperCase();
   const isTopCreator = (profile.totalOrders ?? profile.completedOrders ?? 0) >= 10 || overallRating >= 4.5;
   const primaryNiche = contentCategories[0]?.label ?? null;
+  // Creators are anonymous to brands — no name or handle. Lead with what
+  // actually matters: their niche. Fall back to a neutral title.
+  const headline = primaryNiche ? `${primaryNiche} Creator` : "UGC Creator";
+  const initials =
+    (primaryNiche ?? "UGC")
+      .split(/[\s/]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase() || "GC";
 
   return (
     <div className="min-h-screen bg-white font-sans text-neutral-900 antialiased">
@@ -548,7 +557,7 @@ export function PublicCreatorProfile({
 
               <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <h1 className="flex items-center gap-2 font-display text-4xl font-bold leading-tight tracking-tight text-neutral-900 sm:text-5xl">
-                  <span className="truncate">{handle}</span>
+                  <span className="truncate">{headline}</span>
                   <VerifiedBadge />
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-600">
@@ -564,10 +573,15 @@ export function PublicCreatorProfile({
                       {languages.map((l) => l.label).join(", ")}
                     </span>
                   )}
-                  {primaryNiche && (
+                  {overallRating > 0 && (
                     <span className="inline-flex items-center gap-1.5">
-                      <Sparkles className="size-3.5" />
-                      {primaryNiche.toLowerCase()} creator
+                      <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                      {overallRating.toFixed(1)}
+                      {totalReviews > 0 && (
+                        <span className="text-neutral-400">
+                          ({totalReviews})
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>

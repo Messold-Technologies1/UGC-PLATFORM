@@ -19,10 +19,15 @@ export async function generateMetadata({
   if (!result.ok) return { title: "Creator" };
 
   // Creators are anonymous to brands — the title/description never carry the
-  // real name, only the opaque handle.
-  const handle = result.profile.publicSlug ?? displayName;
+  // real name or the opaque slug. Lead with the niche when available.
+  const niche = result.profile.facetSelections?.find(
+    (f) => f.dimension === "CONTENT_CATEGORY",
+  )?.label;
+  const title = niche
+    ? `${niche} Creator · GoCollab`
+    : "UGC Creator · GoCollab";
   return {
-    title: `@${handle} · UGC Creator on GoCollab`,
+    title,
     description:
       result.profile.bio?.slice(0, 160) ??
       `Book this UGC creator on GoCollab. Portfolio, packages, and reviews.`,

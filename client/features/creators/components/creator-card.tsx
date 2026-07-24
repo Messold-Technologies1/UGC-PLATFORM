@@ -293,6 +293,9 @@ export const CreatorCard = memo(function CreatorCard({
                 creatorId={creator.id}
                 creatorName={creator.name}
                 creatorImageUrl={creator.thumbnail}
+                creatorCategory={
+                  creator.categories?.[0] || creator.category || null
+                }
                 creatorCity={
                   creator.location !== "Location not set"
                     ? creator.location

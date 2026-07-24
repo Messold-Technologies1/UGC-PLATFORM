@@ -37,6 +37,34 @@ function isValidImageUrl(url?: string | null): url is string {
   );
 }
 
+function getCreatorCategory(creator: WishlistCreator): string | null {
+  const fromFacets = (creator.facetSelections ?? [])
+    .filter((facet) => facet.dimension === "CONTENT_CATEGORY")
+    .map((facet) => facet.label?.trim())
+    .filter(Boolean);
+  if (fromFacets[0]) return fromFacets[0]!;
+  const fromCategories = (creator.categories ?? [])
+    .map((value) => value?.trim())
+    .filter(Boolean);
+  return fromCategories[0] ?? null;
+}
+
+function getCreatorLocation(creator: WishlistCreator): string | null {
+  return (
+    creator.city?.trim() ||
+    creator.stateName?.trim() ||
+    creator.countryName?.trim() ||
+    null
+  );
+}
+
+function formatCreatorMeta(creator: WishlistCreator): string {
+  const parts = [getCreatorCategory(creator), getCreatorLocation(creator)].filter(
+    Boolean,
+  );
+  return parts.length > 0 ? parts.join(", ") : "Creator";
+}
+
 interface RemoveCreatorsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -63,11 +91,7 @@ export function RemoveCreatorsDialog({
   }
 
   async function handleRemove(creator: WishlistCreator) {
-    const label =
-      creator.city ||
-      creator.stateName ||
-      creator.countryName ||
-      "creator";
+    const label = formatCreatorMeta(creator);
     // Optimistically hide the row immediately
     setRemovedIds((prev) => new Set(prev).add(creator.id));
     try {
@@ -113,6 +137,11 @@ export function RemoveCreatorsDialog({
               const profileUrl = isValidImageUrl(creator.profileImageUrl)
                 ? creator.profileImageUrl
                 : null;
+              const metaLabel = formatCreatorMeta(creator);
+              const initialsSource =
+                getCreatorLocation(creator) ||
+                getCreatorCategory(creator) ||
+                "Creator";
 
               return (
                 <div
@@ -128,29 +157,21 @@ export function RemoveCreatorsDialog({
                     {profileUrl ? (
                       <Image
                         src={profileUrl}
-                        alt={creator.name}
+                        alt={metaLabel}
                         fill
                         className="object-cover"
                         sizes="40px"
                       />
                     ) : (
                       <span className="flex size-full items-center justify-center text-xs font-bold text-white">
-                        {getInitials(
-                          creator.city ||
-                            creator.stateName ||
-                            creator.countryName ||
-                            "Creator",
-                        )}
+                        {getInitials(initialsSource)}
                       </span>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">
-                      {creator.city ||
-                        creator.stateName ||
-                        creator.countryName ||
-                        "Creator"}
+                      {metaLabel}
                     </p>
                     {(creator.city &&
                       (creator.stateName || creator.countryName)) ||
@@ -176,12 +197,7 @@ export function RemoveCreatorsDialog({
                         className="size-8 shrink-0 rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                         onClick={() => handleRemove(creator)}
                         disabled={isRemoving}
-                        aria-label={`Remove ${
-                          creator.city ||
-                          creator.stateName ||
-                          creator.countryName ||
-                          "creator"
-                        }`}
+                        aria-label={`Remove ${metaLabel}`}
                       >
                         {isRemoving ? (
                           <Loader2 size={13} className="animate-spin" />

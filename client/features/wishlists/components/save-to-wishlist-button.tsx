@@ -72,7 +72,16 @@ interface SaveToWishlistButtonProps {
   creatorName: string;
   creatorImageUrl?: string | null;
   creatorCity?: string | null;
+  creatorCategory?: string | null;
   variant?: "icon" | "full" | "card";
+}
+
+function formatCreatorMeta(
+  category?: string | null,
+  city?: string | null,
+): string | null {
+  const parts = [category?.trim(), city?.trim()].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 export function SaveToWishlistButton({
@@ -80,6 +89,7 @@ export function SaveToWishlistButton({
   creatorName,
   creatorImageUrl,
   creatorCity,
+  creatorCategory,
   variant = "full",
 }: SaveToWishlistButtonProps) {
   const [open, setOpen] = useState(false);
@@ -149,6 +159,7 @@ export function SaveToWishlistButton({
   const gradient = pickGradient(creatorName);
   const isSaved = savedCount > 0;
   const showProfileImage = isValidImageUrl(creatorImageUrl) && !imageError;
+  const creatorMeta = formatCreatorMeta(creatorCategory, creatorCity);
 
   useEffect(() => {
     setImageError(false);
@@ -261,8 +272,8 @@ export function SaveToWishlistButton({
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Save to wishlist
               </p>
-              {creatorCity ? (
-                <p className="text-base font-bold truncate">{creatorCity}</p>
+              {creatorMeta ? (
+                <p className="text-base font-bold truncate">{creatorMeta}</p>
               ) : null}
             </div>
             <button

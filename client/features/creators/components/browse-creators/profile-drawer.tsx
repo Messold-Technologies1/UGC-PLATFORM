@@ -1092,6 +1092,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               creatorId={activeId}
               creatorName={c?.name ?? ""}
               creatorImageUrl={c?.thumbnail}
+              creatorCategory={
+                c?.categories?.[0] || c?.category || null
+              }
               creatorCity={
                 c?.location && c.location !== "Location not set"
                   ? c.location

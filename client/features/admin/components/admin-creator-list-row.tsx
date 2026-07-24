@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Banknote,
+  Bookmark,
+  BookmarkX,
   MapPin,
   Pencil,
   Play,
@@ -25,7 +27,9 @@ import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboar
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
+import { useShortlistCreatorMutation } from "@/features/admin/hooks/use-shortlist-creator-mutation";
 import { useUnfeatureCreatorMutation } from "@/features/admin/hooks/use-unfeature-creator-mutation";
+import { useUnshortlistCreatorMutation } from "@/features/admin/hooks/use-unshortlist-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +59,12 @@ function getRowDateColumn(creator: AdminCreatorListItemDto): {
   if (creator.approvalStatus === "APPROVED") {
     return {
       label: "Approved",
+      value: formatRowDate(creator.approvedAt),
+    };
+  }
+  if (creator.approvalStatus === "SHORTLISTED") {
+    return {
+      label: "Shortlisted",
       value: formatRowDate(creator.approvedAt),
     };
   }
@@ -166,6 +176,11 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
               : "Pending"}
         </Badge>
       ) : null}
+      {creator.approvalStatus === "SHORTLISTED" ? (
+        <Badge className="border-indigo-500/20 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20">
+          Shortlisted
+        </Badge>
+      ) : null}
       {creator.approvalStatus === "REJECTED" ? (
         <Badge
           variant="outline"
@@ -231,6 +246,10 @@ export function AdminCreatorListRow({
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } =
     useRejectCreatorMutation();
+  const { mutate: shortlist, isPending: isShortlisting } =
+    useShortlistCreatorMutation();
+  const { mutate: unshortlist, isPending: isUnshortlisting } =
+    useUnshortlistCreatorMutation();
   const { mutate: featureCreator, isPending: isFeaturing } =
     useFeatureCreatorMutation();
   const { mutate: unfeatureCreator, isPending: isUnfeaturing } =
@@ -241,13 +260,21 @@ export function AdminCreatorListRow({
   const isPending = creator.approvalStatus === "PENDING";
   const isRejected = creator.approvalStatus === "REJECTED";
   const isApproved = creator.approvalStatus === "APPROVED";
+  const isIncompleteSegment = segment === "incomplete";
+  const isShortlistedSegment = segment === "shortlisted";
   const isListedSegment = segment === "listed";
   const isFeaturedSegment = segment === "featured";
   const showFeatureControls = isListedSegment || isFeaturedSegment;
   const profileFirst = isProfileFirstOnboardingMode();
   const canModeratePending =
     isPending && (!profileFirst || creator.completeProfile);
-  const isWorking = isApproving || isRejecting || isFeaturing || isUnfeaturing;
+  const isWorking =
+    isApproving ||
+    isRejecting ||
+    isShortlisting ||
+    isUnshortlisting ||
+    isFeaturing ||
+    isUnfeaturing;
   const rating = Number.parseFloat(creator.avgRating ?? "0");
   const reviewCount = creator.reviewCount ?? 0;
   const dateColumn = getRowDateColumn(creator);
@@ -269,6 +296,16 @@ export function AdminCreatorListRow({
   const handleConfirmReject = (reason: string) => {
     setIsRejectOpen(false);
     reject({ id: creator.id, rejectionReason: reason });
+  };
+
+  const handleShortlistClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    shortlist(creator.id);
+  };
+
+  const handleUnshortlistClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    unshortlist(creator.id);
   };
 
   const handleFeatureClick = (event: React.MouseEvent) => {
@@ -397,7 +434,59 @@ export function AdminCreatorListRow({
                 </Link>
               </Button>
 
-              {canModeratePending ? (
+              {isIncompleteSegment ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 text-muted-foreground hover:text-destructive"
+                    onClick={handleRejectClick}
+                    disabled={isWorking}
+                    aria-label="Reject creator"
+                  >
+                    <UserX className="size-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={handleShortlistClick}
+                    disabled={isWorking}
+                  >
+                    <Bookmark className="size-3.5" />
+                    {isShortlisting ? "Shortlisting…" : "Shortlist"}
+                  </Button>
+                </>
+              ) : null}
+
+              {isShortlistedSegment ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 text-muted-foreground hover:text-destructive"
+                    onClick={handleRejectClick}
+                    disabled={isWorking}
+                    aria-label="Reject creator"
+                  >
+                    <UserX className="size-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={handleUnshortlistClick}
+                    disabled={isWorking}
+                  >
+                    <BookmarkX className="size-3.5" />
+                    {isUnshortlisting ? "Removing…" : "Remove"}
+                  </Button>
+                </>
+              ) : null}
+
+              {canModeratePending &&
+              !isIncompleteSegment &&
+              !isShortlistedSegment ? (
                 <>
                   <Button
                     variant="ghost"
@@ -419,7 +508,7 @@ export function AdminCreatorListRow({
                 </>
               ) : null}
 
-              {isRejected ? (
+              {isRejected && !isIncompleteSegment && !isShortlistedSegment ? (
                 <Button
                   size="sm"
                   className="rounded-full"
@@ -430,7 +519,9 @@ export function AdminCreatorListRow({
                 </Button>
               ) : null}
 
-              {isApproved ? (
+              {isApproved &&
+              !isIncompleteSegment &&
+              !isShortlistedSegment ? (
                 <Button
                   variant="ghost"
                   size="icon"

@@ -62,6 +62,7 @@ import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
+import { getCreatorOnboardingMode } from '../config/creator-onboarding-mode';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
@@ -1651,6 +1652,7 @@ export class CreatorProfileService {
       AdminCreatorListSegment.APPROVED,
       AdminCreatorListSegment.NON_APPROVED,
       AdminCreatorListSegment.INCOMPLETE,
+      AdminCreatorListSegment.SHORTLISTED,
       AdminCreatorListSegment.LISTED,
     ] as const;
 
@@ -1677,7 +1679,8 @@ export class CreatorProfileService {
       approved: counts[1],
       nonApproved: counts[2],
       incomplete: counts[3],
-      listed: counts[4],
+      shortlisted: counts[4],
+      listed: counts[5],
       featured: featuredCount,
     };
   }
@@ -1854,10 +1857,20 @@ export class CreatorProfileService {
   ): Promise<CreatorProfileResponseDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
-      select: { id: true },
+      select: {
+        id: true,
+        completeProfile: true,
+        creatorApproval: { select: { status: true } },
+      },
     });
     if (!profile) {
       throw new NotFoundException('Creator not found');
+    }
+
+    if (profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED) {
+      throw new BadRequestException(
+        'Shortlisted creators cannot be approved until they complete their profile and enter awaiting review',
+      );
     }
 
     await this.prisma.creatorApproval.upsert({
@@ -1897,6 +1910,120 @@ export class CreatorProfileService {
     }
 
     this.creatorProfileMail.notifyApproved(creatorProfileId);
+
+    return this.mapCreatorProfileResponseDto(updated);
+  }
+
+  async shortlistCreatorProfile(
+    adminUserId: string,
+    creatorProfileId: string,
+  ): Promise<CreatorProfileResponseDto> {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: {
+        id: true,
+        completeProfile: true,
+        creatorApproval: { select: { status: true } },
+      },
+    });
+    if (!profile) {
+      throw new NotFoundException('Creator not found');
+    }
+    if (profile.completeProfile) {
+      throw new BadRequestException(
+        'Only incomplete (building) profiles can be shortlisted',
+      );
+    }
+
+    const status = profile.creatorApproval?.status ?? ApprovalStatus.PENDING;
+    if (status === ApprovalStatus.REJECTED) {
+      throw new BadRequestException(
+        'Rejected creators cannot be shortlisted — shortlist only from Building profile',
+      );
+    }
+    if (status === ApprovalStatus.SHORTLISTED) {
+      throw new BadRequestException('Creator is already shortlisted');
+    }
+    if (
+      status !== ApprovalStatus.PENDING &&
+      status !== ApprovalStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        'Only building-profile creators can be shortlisted',
+      );
+    }
+
+    await this.prisma.creatorApproval.upsert({
+      where: { creatorId: creatorProfileId },
+      create: {
+        creatorId: creatorProfileId,
+        status: ApprovalStatus.SHORTLISTED,
+        approvedById: adminUserId,
+        approvedAt: new Date(),
+      },
+      update: {
+        status: ApprovalStatus.SHORTLISTED,
+        approvedById: adminUserId,
+        approvedAt: new Date(),
+        rejectionReason: null,
+      },
+    });
+
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
+
+    const updated = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      include: creatorProfileWithRelationsInclude as any,
+    });
+    if (!updated) {
+      throw new Error('Creator profile load failed');
+    }
+
+    return this.mapCreatorProfileResponseDto(updated);
+  }
+
+  async unshortlistCreatorProfile(
+    adminUserId: string,
+    creatorProfileId: string,
+  ): Promise<CreatorProfileResponseDto> {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: {
+        id: true,
+        creatorApproval: { select: { status: true } },
+      },
+    });
+    if (!profile) {
+      throw new NotFoundException('Creator not found');
+    }
+    if (profile.creatorApproval?.status !== ApprovalStatus.SHORTLISTED) {
+      throw new BadRequestException('Creator is not shortlisted');
+    }
+
+    await this.prisma.creatorApproval.update({
+      where: { creatorId: creatorProfileId },
+      data: {
+        // profile_first Building = PENDING incomplete; approval_first Incomplete = APPROVED incomplete
+        status:
+          getCreatorOnboardingMode(process.env.CREATOR_ONBOARDING_MODE) ===
+          'profile_first'
+            ? ApprovalStatus.PENDING
+            : ApprovalStatus.APPROVED,
+        approvedById: adminUserId,
+        approvedAt: new Date(),
+        rejectionReason: null,
+      },
+    });
+
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
+
+    const updated = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      include: creatorProfileWithRelationsInclude as any,
+    });
+    if (!updated) {
+      throw new Error('Creator profile load failed');
+    }
 
     return this.mapCreatorProfileResponseDto(updated);
   }

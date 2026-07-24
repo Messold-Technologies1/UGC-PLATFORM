@@ -6,7 +6,11 @@ import type {
 } from "@/features/orders/api/types";
 import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
 
-export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ApprovalStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "SHORTLISTED";
 
 export type CreatorLanguageFluency = "NATIVE" | "FLUENT" | "CONVERSATIONAL";
 
@@ -190,6 +194,7 @@ export type AdminCreatorListSegment =
   | "approved"
   | "non_approved"
   | "incomplete"
+  | "shortlisted"
   | "listed"
   | "featured";
 
@@ -202,6 +207,7 @@ export interface AdminCreatorSegmentCountsDto {
   approved: number;
   nonApproved: number;
   incomplete: number;
+  shortlisted: number;
   listed: number;
   featured: number;
 }

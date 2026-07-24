@@ -19,6 +19,7 @@ export enum AdminCreatorListSegment {
   APPROVED = 'approved',
   NON_APPROVED = 'non_approved',
   INCOMPLETE = 'incomplete',
+  SHORTLISTED = 'shortlisted',
   LISTED = 'listed',
   FEATURED = 'featured',
 }
@@ -195,6 +196,9 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 12 })
   incomplete!: number;
+
+  @ApiProperty({ example: 8 })
+  shortlisted!: number;
 
   @ApiProperty({ example: 30 })
   listed!: number;

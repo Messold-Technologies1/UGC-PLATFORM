@@ -57,6 +57,7 @@ export async function recomputeCreatorListingState(
   if (!profile) return null;
 
   let completeProfile = profile.completeProfile;
+  const wasComplete = profile.completeProfile;
 
   // Latch only flips false -> true; never re-evaluate once already complete,
   // and never auto-latch on a draft save (evaluateCompleteness === false).
@@ -89,6 +90,23 @@ export async function recomputeCreatorListingState(
     });
 
     completeProfile = complete;
+  }
+
+  // Shortlisted creators move to awaiting review (PENDING) once the profile
+  // completes — clears shortlist automatically with no email.
+  if (
+    !wasComplete &&
+    completeProfile &&
+    profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED
+  ) {
+    await client.creatorApproval.update({
+      where: { creatorId: creatorProfileId },
+      data: {
+        status: ApprovalStatus.PENDING,
+        rejectionReason: null,
+      },
+    });
+    profile.creatorApproval = { status: ApprovalStatus.PENDING };
   }
 
   const isListed =

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Bookmark,
   CheckCircle2,
   Clock3,
   Globe,
@@ -58,6 +59,15 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
     badgeClassName: "bg-amber-100 text-amber-800",
   },
   {
+    value: "shortlisted",
+    label: "Shortlisted",
+    description:
+      "Promising incomplete profiles held for later review once they finish building.",
+    icon: Bookmark,
+    countKey: "shortlisted",
+    badgeClassName: "bg-indigo-100 text-indigo-700",
+  },
+  {
     value: "listed",
     label: "Listed",
     description: "Live on the marketplace — visible to brands.",
@@ -80,10 +90,19 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "incomplete",
     label: "Building profile",
     description:
-      "Incomplete profiles (pending or approved) still finishing go-live — excludes rejected.",
+      "Incomplete profiles still finishing go-live — excludes shortlisted and rejected.",
     icon: ListTodo,
     countKey: "incomplete",
     badgeClassName: "bg-amber-100 text-amber-800",
+  },
+  {
+    value: "shortlisted",
+    label: "Shortlisted",
+    description:
+      "Incomplete profiles shortlisted by admin. They move to Awaiting review when complete.",
+    icon: Bookmark,
+    countKey: "shortlisted",
+    badgeClassName: "bg-indigo-100 text-indigo-700",
   },
   {
     value: "pending",
@@ -173,6 +192,8 @@ export function getAdminCreatorEmptyMessage(
       return profileFirst
         ? "No creators are still building their profile."
         : "No approved creators with incomplete profiles at the moment.";
+    case "shortlisted":
+      return "No shortlisted creators yet.";
     case "featured":
       return "No featured creators yet. Feature a listed creator to pin them to the top of browse results.";
     default:

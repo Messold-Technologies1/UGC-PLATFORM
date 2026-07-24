@@ -10,7 +10,7 @@ export function useRejectCreatorMutation() {
   return useMutation({
     mutationFn: rejectCreator,
     onMutate: async ({ id }) => {
-      toast.success("Creator rejected. They have been notified.");
+      toast.success("Creator rejected.");
       await queryClient.cancelQueries({ queryKey: ["admin", "pending-approvals"] });
       const previousQueries = queryClient.getQueriesData({ queryKey: ["admin", "pending-approvals"] });
 

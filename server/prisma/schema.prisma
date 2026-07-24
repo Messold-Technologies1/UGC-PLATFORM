@@ -29,6 +29,7 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  SHORTLISTED
 }
 
 enum RoleName {

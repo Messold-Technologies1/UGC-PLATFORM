@@ -351,6 +351,19 @@ describe('creator-list-filters.util', () => {
       });
     });
 
+    it('filters shortlisted incomplete profiles', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.SHORTLISTED,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        completeProfile: false,
+        creatorApproval: { status: ApprovalStatus.SHORTLISTED },
+      });
+    });
+
     it('puts all rejected creators in non_approved regardless of completeProfile', () => {
       expect(
         buildAdminCreatorsListWhere(

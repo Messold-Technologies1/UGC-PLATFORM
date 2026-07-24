@@ -129,6 +129,37 @@ export class AdminCreatorController {
     );
   }
 
+  @Patch(':id/shortlist')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Shortlist an incomplete (building) creator profile. No email is sent.',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async shortlistCreator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.shortlistCreatorProfile(req.user.id, id);
+  }
+
+  @Patch(':id/unshortlist')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Remove a creator from the shortlist (back to building profile). No email is sent.',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async unshortlistCreator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.unshortlistCreatorProfile(
+      req.user.id,
+      id,
+    );
+  }
+
   @Patch(':id/feature')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Feature a listed creator for discovery ordering' })

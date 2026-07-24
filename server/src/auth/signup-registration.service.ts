@@ -3,7 +3,6 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
-import { PortfolioVisibilityStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { AgencyService } from '../agency/agency.service';
 import { BrandProfileService } from '../brand-profile/brand-profile.service';
@@ -62,25 +61,9 @@ export class SignupRegistrationService {
 
     // await this.assertSignupPhoneOtpApproved(dto.phone, dto.phoneOtpCode);
 
-    const portfolioKeys = dto.portfolioSignupVideoTempKeys ?? [];
-    if (portfolioKeys.length === 0) {
-      throw new BadRequestException(
-        'Upload at least one portfolio video',
-      );
-    }
-
-    for (const k of portfolioKeys) {
-      const key = k.trim();
-      if (!this.storage.isTempCreatorPortfolioVideoKeyForSignup(email, key)) {
-        throw new BadRequestException('Invalid portfolioSignupVideoTempKeys entry');
-      }
-    }
-
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const signupYear = new Date().getUTCFullYear();
-    const dateOfBirth = `${signupYear - dto.age}-01-01`;
 
-    const { userId, creatorProfileId } = await this.prisma.$transaction(
+    const { userId } = await this.prisma.$transaction(
       async (tx) => {
         const user = await tx.user.create({
           data: {
@@ -99,14 +82,7 @@ export class SignupRegistrationService {
           {
             displayName: dto.name.trim(),
             contactEmail: email,
-            dateOfBirth,
-            gender: dto.gender,
-            city: dto.city.trim(),
-            stateName: dto.state.trim(),
-            countryName: dto.country.trim(),
-            bio: dto.bio?.trim() || null,
             instagramUrl: dto.instagramUrl?.trim() || null,
-            categorySlugs: dto.categorySlugs,
             metaFbp: dto.metaFbp?.trim() || null,
             metaFbc: dto.metaFbc?.trim() || null,
             metaSignupIp: meta?.ipAddress ?? null,
@@ -117,24 +93,6 @@ export class SignupRegistrationService {
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
-
-    for (const k of portfolioKeys) {
-      const tempKey = k.trim();
-      const finalKey =
-        await this.storage.finalizeCreatorPortfolioVideoFromTempKey({
-          tempKey,
-          creatorProfileId,
-          deleteTemp: true,
-        });
-      await this.prisma.creatorPortfolioVideo.create({
-        data: {
-          creatorId: creatorProfileId,
-          videoKey: finalKey,
-          videoUrl: this.storage.buildCdnUrl(finalKey),
-          visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
-        } as any,
-      });
-    }
 
     return userId;
   }

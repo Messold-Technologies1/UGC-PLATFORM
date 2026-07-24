@@ -254,12 +254,7 @@ describe('CreatorProfileService', () => {
   const signupInput = (): CreateCreatorProfileAtSignupInput => ({
     displayName: 'Jane',
     contactEmail: 'jane@example.com',
-    dateOfBirth: '1998-01-01',
-    gender: 'FEMALE',
-    city: 'Bengaluru',
-    stateName: 'Karnataka',
-    countryName: 'India',
-    categorySlugs: ['beauty'],
+    instagramUrl: '@jane',
   });
 
   it('throws ConflictException if profile already exists on signup tx', async () => {
@@ -279,7 +274,7 @@ describe('CreatorProfileService', () => {
     expect(txMock.creatorProfile.create).not.toHaveBeenCalled();
   });
 
-  it('creates signup profile, CONTENT_CATEGORY facets, and CREATOR role', async () => {
+  it('creates signup profile and CREATOR role without profile details', async () => {
     const profileId = 'profile-1';
     const role = { id: 'role-creator' };
 
@@ -287,9 +282,6 @@ describe('CreatorProfileService', () => {
     txMock.creatorProfile.findFirst.mockResolvedValue(null);
     txMock.creatorProfile.create.mockResolvedValueOnce({ id: profileId });
     txMock.role.findUnique.mockResolvedValueOnce(role);
-    txMock.creatorFacetOption.findUnique.mockResolvedValueOnce({
-      id: 'facet-beauty',
-    });
 
     const id = await service.createCreatorProfileInTransaction(
       txMock as unknown as Parameters<
@@ -305,11 +297,14 @@ describe('CreatorProfileService', () => {
         data: expect.objectContaining({
           // Opaque random token, never derived from the display name.
           publicSlug: expect.stringMatching(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/),
+          displayName: 'Jane',
+          contactEmail: 'jane@example.com',
+          instagramUrl: '@jane',
         }),
       }),
     );
-    expect(txMock.creatorProfileFacetSelection.deleteMany).toHaveBeenCalled();
-    expect(txMock.creatorProfileFacetSelection.createMany).toHaveBeenCalled();
+    expect(txMock.creatorProfileFacetSelection.deleteMany).not.toHaveBeenCalled();
+    expect(txMock.creatorProfileFacetSelection.createMany).not.toHaveBeenCalled();
     expect(txMock.creatorProfileLanguage.deleteMany).not.toHaveBeenCalled();
     expect(creatorPackageService.createPackages).not.toHaveBeenCalled();
     expect(txMock.creatorAddOn.createMany).not.toHaveBeenCalled();
@@ -317,16 +312,6 @@ describe('CreatorProfileService', () => {
     expect(txMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { primaryRoleId: role.id },
-      }),
-    );
-    expect(txMock.creatorFacetOption.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          dimension_slug: {
-            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
-            slug: 'beauty',
-          },
-        },
       }),
     );
   });

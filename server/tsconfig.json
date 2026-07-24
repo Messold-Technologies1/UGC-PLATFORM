@@ -1,5 +1,16 @@
 {
-  "exclude": ["node_modules", "dist"],
+  "include": [
+    "src/**/*",
+    "prisma/**/*",
+    "prisma.config.ts",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/auth/client-workspace-routing.spec.ts",
+    "src/auth/login-redirect.spec.ts"
+  ],
   "compilerOptions": {
     "strict": true,
     "module": "nodenext",
@@ -15,7 +26,9 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./",
     "baseUrl": "./",
+    "types": ["node", "jest"],
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,

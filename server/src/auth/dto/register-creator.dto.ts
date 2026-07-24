@@ -1,18 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CreatorGender } from '@prisma/client';
 import {
-  ArrayMinSize,
-  ArrayUnique,
-  IsArray,
   IsEmail,
-  IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   Matches,
-  Max,
   MaxLength,
-  Min,
   MinLength,
 } from 'class-validator';
 
@@ -49,69 +41,14 @@ export class RegisterCreatorDto {
   @MaxLength(10)
   phoneOtpCode?: string;
 
-  @ApiProperty({ example: 28, description: 'Age in years; stored as Jan 1 dateOfBirth' })
-  @IsInt()
-  @Min(13)
-  @Max(120)
-  age!: number;
-
-  @ApiProperty({ enum: CreatorGender })
-  @IsEnum(CreatorGender)
-  gender!: CreatorGender;
-
-  @ApiProperty({ example: 'Bengaluru' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  city!: string;
-
-  @ApiProperty({ example: 'Karnataka' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  state!: string;
-
-  @ApiProperty({ example: 'India' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  country!: string;
-
-  @ApiPropertyOptional({ example: 'Short bio' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  bio?: string;
-
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: '@jane',
     description: 'Instagram handle or profile URL (plain string).',
   })
-  @IsOptional()
   @IsString()
+  @MinLength(1)
   @MaxLength(500)
-  instagramUrl?: string;
-
-  @ApiProperty({
-    type: [String],
-    description: 'CONTENT_CATEGORY facet slugs',
-    example: ['beauty'],
-  })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayUnique()
-  @IsString({ each: true })
-  @MaxLength(120, { each: true })
-  categorySlugs!: string[];
-
-  @ApiPropertyOptional({
-    type: [String],
-    description: 'Keys from signup portfolio presign (same email as registration)',
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  portfolioSignupVideoTempKeys?: string[];
+  instagramUrl!: string;
 
   @ApiPropertyOptional({
     description:

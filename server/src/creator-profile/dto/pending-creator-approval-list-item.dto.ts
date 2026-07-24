@@ -67,7 +67,7 @@ export class PendingCreatorApprovalListItemDto {
 
   @ApiProperty({
     type: () => [PendingCreatorContentCategoryDto],
-    description: 'CONTENT_CATEGORY facets from signup categorySlugs',
+    description: 'CONTENT_CATEGORY facets from profile (Edit Profile)',
   })
   contentCategories!: PendingCreatorContentCategoryDto[];
 

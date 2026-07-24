@@ -899,7 +899,8 @@ export class CreatorProfileService {
 
   /**
    * Creates creator profile + CREATOR role inside an existing transaction (signup only).
-   * Other profile fields are filled later via updateCreatorProfile.
+   * Profile details (DOB, gender, location, bio, categories, portfolio) are filled
+   * later via updateCreatorProfile / Edit Profile.
    */
   async createCreatorProfileInTransaction(
     tx: PrismaTransactionClient,
@@ -923,12 +924,6 @@ export class CreatorProfileService {
 
     await this.syncUserDisplayName(tx, userId, input.displayName);
 
-    const dateOfBirth = new Date(input.dateOfBirth);
-    const facetInputs = input.categorySlugs.map((slug) => ({
-      dimension: CreatorFacetDimension.CONTENT_CATEGORY,
-      slug,
-    }));
-    const facetIds = await this.resolveFacetOptionIds(tx, facetInputs);
     const publicSlug = await allocateUniqueCreatorPublicSlug(tx);
 
     const creatorProfile = await tx.creatorProfile.create({
@@ -936,13 +931,6 @@ export class CreatorProfileService {
         userId,
         displayName: input.displayName.trim(),
         publicSlug,
-        city: input.city.trim(),
-        countryName: input.countryName.trim(),
-        stateName: input.stateName.trim(),
-        bio: input.bio?.trim() || null,
-        gender: input.gender,
-        dateOfBirth:
-          !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth : null,
         contactEmail: input.contactEmail.trim(),
         instagramUrl: input.instagramUrl?.trim() || null,
         metaFbp: input.metaFbp?.trim() || null,
@@ -956,8 +944,6 @@ export class CreatorProfileService {
         },
       },
     });
-
-    await this.replaceFacetSelections(tx, creatorProfile.id, facetIds);
 
     await tx.userRole.upsert({
       where: { userId_roleId: { userId, roleId: creatorRole.id } },

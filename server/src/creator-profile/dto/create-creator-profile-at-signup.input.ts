@@ -1,18 +1,10 @@
-import { CreatorGender } from '@prisma/client';
-
-/** Fields persisted when a creator registers via POST /auth/register?role=creator */
+/** Fields persisted when a creator registers via POST /auth/register?role=creator.
+ * Profile details (DOB, gender, location, bio, categories, portfolio) are filled later via Edit Profile.
+ */
 export type CreateCreatorProfileAtSignupInput = {
   displayName: string;
   contactEmail: string;
-  /** ISO date string (YYYY-MM-DD), derived from signup age */
-  dateOfBirth: string;
-  gender: CreatorGender;
-  city: string;
-  stateName: string;
-  countryName: string;
-  bio?: string | null;
   instagramUrl?: string | null;
-  categorySlugs: string[];
   /** Meta attribution identifiers captured in the creator's browser at signup. */
   metaFbp?: string | null;
   metaFbc?: string | null;

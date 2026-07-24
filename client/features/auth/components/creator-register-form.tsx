@@ -2,53 +2,24 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { State, City } from "country-state-city";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import {
-  Eye,
-  EyeOff,
-  Video,
-  Instagram,
-  Check,
-  Activity,
-  Utensils,
-  Plane,
-  Smartphone,
-  Home,
-  Heart,
-  Shirt,
-  Sparkles,
-  Tag,
-  X,
-  ChevronDown,
-  type LucideIcon,
-} from "lucide-react";
+import { Eye, EyeOff, Instagram } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
 
 import {
   registerCreator,
   sendSignupPhoneOtp,
 } from "@/features/auth/api/creator-signup";
-import { uploadSignupPortfolioVideo } from "@/features/auth/lib/upload-signup-portfolio-video";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
@@ -59,7 +30,6 @@ import {
   splitFullName,
   trackPixelCustom,
 } from "@/lib/meta-pixel";
-import { useCreatorCategorySuggestionsQuery } from "@/features/creators/hooks/use-creator-suggestion-queries";
 import { cn } from "@/lib/utils";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
@@ -67,25 +37,9 @@ const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
 /** Set to true when signup OTP verification is re-enabled (matches server). */
 const SIGNUP_OTP_VERIFICATION_ENABLED = false;
-const MAX_PORTFOLIO_VIDEO_BYTES = 1024 * 1024 * 1024; // 1 GB
-const MAX_PORTFOLIO_VIDEO_LABEL = "1 GB";
-const ACCEPTED_PORTFOLIO_VIDEO_TYPES = [
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
-] as const;
+
 const creatorSignupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
-  age: z
-    .number({ message: "Age is required and must be a number" })
-    .min(13, "Must be at least 13")
-    .max(120, "Invalid age"),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"], {
-    message: "Gender is required",
-  }),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  country: z.string().min(1, "Country is required"),
   phone: z.string().min(1, "Phone is required"),
   phoneOtpCode: SIGNUP_OTP_VERIFICATION_ENABLED
     ? z
@@ -93,13 +47,11 @@ const creatorSignupSchema = z.object({
         .regex(OTP_CODE_REGEX, "Enter the verification code from the SMS")
     : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
-  bio: z.string().min(10, "Please write a short bio").max(5000),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   instagramUrl: z
     .string()
     .min(1, "Instagram handle is required")
     .max(500),
-  categories: z.array(z.string()).min(1, "Select at least one category"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
   }),
@@ -109,39 +61,16 @@ type CreatorSignupData = z.infer<typeof creatorSignupSchema>;
 
 const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   name: "Full name",
-  age: "Age",
-  gender: "Gender",
-  city: "City",
-  state: "State",
-  country: "Country",
   phone: "Phone number",
   phoneOtpCode: "Phone verification code",
   email: "Email",
-  bio: "Short bio (at least 10 characters)",
-  instagramUrl: "Instagram handle",
-  categories: "At least one category",
   password: "Password (at least 8 characters)",
+  instagramUrl: "Instagram handle",
   termsAccepted: "Terms & guidelines acceptance",
 };
 
-function getCreatorSignupBlockers(
-  values: CreatorSignupData,
-  ctx: {
-    activeOtpPhone: string | null;
-    hasPortfolioVideo: boolean;
-  },
-): string[] {
+function getCreatorSignupBlockers(values: CreatorSignupData): string[] {
   const blockers: string[] = [];
-  if (!ctx.hasPortfolioVideo) {
-    blockers.push("Upload at least one portfolio video");
-  }
-  // if (SIGNUP_OTP_VERIFICATION_ENABLED) {
-  //   const phone = values.phone.trim();
-  //   if (!ctx.activeOtpPhone || phone !== ctx.activeOtpPhone) {
-  //     blockers.push("Verify your phone with OTP");
-  //   }
-  // }
-
   const parsed = creatorSignupSchema.safeParse(values);
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
@@ -152,41 +81,6 @@ function getCreatorSignupBlockers(
   }
   return blockers;
 }
-
-function isCreatorSignupReady(
-  values: CreatorSignupData,
-  ctx: {
-    activeOtpPhone: string | null;
-    hasPortfolioVideo: boolean;
-  },
-): boolean {
-  return getCreatorSignupBlockers(values, ctx).length === 0;
-}
-
-/** Mobile-only wizard steps. Desktop (xl:) shows all of these at once. */
-const STEP_TITLES = ["Account", "Profile basics", "About & content", "Portfolio"];
-const STEP_FIELDS: (keyof CreatorSignupData)[][] = [
-  ["name", "phone", "email", "password"],
-  ["age", "gender", "country", "state", "city"],
-  ["bio", "categories"],
-  ["instagramUrl", "termsAccepted"],
-];
-const LAST_STEP = STEP_TITLES.length - 1;
-
-const CATEGORY_SUGGESTIONS_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
-
-const CATEGORY_ICON_BY_SLUG: Record<string, LucideIcon> = {
-  fashion: Shirt,
-  beauty_skincare: Sparkles,
-  fitness_gym: Activity,
-  food_cooking: Utensils,
-  travel: Plane,
-  technology_gadgets: Smartphone,
-  home_lifestyle: Home,
-  health_wellness: Heart,
-};
-
-const DEFAULT_CATEGORY_ICON = Tag;
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -223,34 +117,6 @@ function normalizePhoneForSignup(raw: string): string {
   return `+${trimmed.replace(/\D/g, "")}`;
 }
 
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
-function validatePortfolioVideoFile(file: File): string | null {
-  if (
-    !ACCEPTED_PORTFOLIO_VIDEO_TYPES.includes(
-      file.type as (typeof ACCEPTED_PORTFOLIO_VIDEO_TYPES)[number],
-    )
-  ) {
-    return "Upload an MP4, MOV, or WebM video.";
-  }
-  if (file.size > MAX_PORTFOLIO_VIDEO_BYTES) {
-    return `Portfolio video must be ${MAX_PORTFOLIO_VIDEO_LABEL} or smaller.`;
-  }
-  return null;
-}
-
-function formatBytes(bytes: number, decimals = 1) {
-  if (!+bytes) return "0 Bytes";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
 export function CreatorRegisterForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -262,45 +128,6 @@ export function CreatorRegisterForm() {
     number | null
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
-  const [portfolioVideoFiles, setPortfolioVideoFiles] = useState<File[]>([]);
-  const [portfolioVideoTempKeys, setPortfolioVideoTempKeys] = useState<string[]>(
-    [],
-  );
-  const [portfolioVideoError, setPortfolioVideoError] = useState<string | null>(
-    null,
-  );
-  const [videoUploadProgress, setVideoUploadProgress] = useState<
-    Record<number, number>
-  >({});
-  const [portfolioVideoStatus, setPortfolioVideoStatus] = useState<
-    "idle" | "uploading" | "uploaded"
-  >("idle");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Mobile-only step wizard (see STEP_TITLES/STEP_FIELDS below). Desktop (xl:
-  // and up) ignores this and shows every step at once, as before.
-  const [currentStep, setCurrentStep] = useState(0);
-
-  const categorySuggestionsQuery = useCreatorCategorySuggestionsQuery({
-    staleTime: CATEGORY_SUGGESTIONS_CACHE_MS,
-    gcTime: CATEGORY_SUGGESTIONS_CACHE_MS,
-  });
-
-  const categoryOptions = useMemo(
-    () =>
-      (categorySuggestionsQuery.data ?? [])
-        .map((item) => ({
-          slug: item.slug?.trim() ?? "",
-          label: item.name.trim(),
-        }))
-        .filter((item) => item.slug && item.label),
-    [categorySuggestionsQuery.data],
-  );
-
-  const categoryLabelBySlug = useMemo(
-    () => new Map(categoryOptions.map((c) => [c.slug, c.label])),
-    [categoryOptions],
-  );
 
   const form = useForm<CreatorSignupData>({
     resolver: zodResolver(creatorSignupSchema),
@@ -308,34 +135,14 @@ export function CreatorRegisterForm() {
     reValidateMode: "onChange",
     defaultValues: {
       name: "",
-      age: "" as unknown as number,
-      city: "",
-      state: "",
-      country: "India",
       email: "",
-      bio: "",
       instagramUrl: "",
-      categories: [],
       password: "",
       termsAccepted: false,
       phone: "",
       phoneOtpCode: "",
     },
   });
-
-  const watchState = form.watch("state");
-  
-  const indiaStates = useMemo(() => State.getStatesOfCountry("IN"), []);
-  
-  const selectedStateCode = useMemo(() => {
-    return indiaStates.find((s) => s.name === watchState)?.isoCode || "";
-  }, [indiaStates, watchState]);
-
-  const stateCities = useMemo(() => {
-    if (!selectedStateCode) return [];
-    const cities = City.getCitiesOfState("IN", selectedStateCode);
-    return Array.from(new Set(cities.map((c) => c.name)));
-  }, [selectedStateCode]);
 
   const normalizedPhone = normalizePhoneForSignup(phoneInput);
   const activeOtpPhone =
@@ -385,17 +192,9 @@ export function CreatorRegisterForm() {
     mutationKey: ["auth", "register", "creator"],
     mutationFn: registerCreator,
     onSuccess: (result, variables) => {
-      // Meta conversion: creator signup completed (fires in the creator's own
-      // browser, in-attribution-window). This is the ad-optimization event; the
-      // true "listed" outcome is sent server-side (CAPI) on admin approval.
-      // Attach Advanced Matching (email/name/city/…) first so the event carries
-      // it, then fire. eventId dedupes against the server-side CAPI twin.
       identifyPixelUser({
         email: variables.email,
         ...splitFullName(variables.name),
-        city: variables.city,
-        state: variables.state,
-        country: variables.country,
         phone: variables.phone,
       });
       trackPixelCustom(
@@ -420,20 +219,13 @@ export function CreatorRegisterForm() {
     },
   });
 
-  const pendingSubmit =
-    registerCreatorMutation.isPending || portfolioVideoStatus === "uploading";
+  const pendingSubmit = registerCreatorMutation.isPending;
   const pendingAny = pendingSubmit || sendSignupPhoneOtpMutation.isPending;
 
   const signupFormValues = form.watch();
-  const hasPortfolioVideo =
-    portfolioVideoFiles.length > 0 || portfolioVideoTempKeys.length > 0;
   const signupBlockers = useMemo(
-    () =>
-      getCreatorSignupBlockers(signupFormValues, {
-        activeOtpPhone,
-        hasPortfolioVideo,
-      }),
-    [signupFormValues, activeOtpPhone, hasPortfolioVideo],
+    () => getCreatorSignupBlockers(signupFormValues),
+    [signupFormValues],
   );
   const isSignupComplete = signupBlockers.length === 0;
 
@@ -446,16 +238,6 @@ export function CreatorRegisterForm() {
     );
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
-
-  const handleNextStep = useCallback(async () => {
-    const valid = await form.trigger(STEP_FIELDS[currentStep]);
-    if (!valid) return;
-    setCurrentStep((step) => Math.min(step + 1, LAST_STEP));
-  }, [form, currentStep]);
-
-  const handlePrevStep = useCallback(() => {
-    setCurrentStep((step) => Math.max(step - 1, 0));
-  }, []);
 
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForSignup(phoneInput);
@@ -475,144 +257,24 @@ export function CreatorRegisterForm() {
     sendSignupPhoneOtpMutation.mutate({ phone });
   }, [form, phoneInput, sendSignupPhoneOtpMutation]);
 
-  const handlePortfolioVideoFiles = useCallback(
-    (files: FileList | File[] | null) => {
-      if (!files || files.length === 0) return;
-
-      const newFiles = Array.from(files);
-      let error: string | null = null;
-      for (const file of newFiles) {
-        error = validatePortfolioVideoFile(file);
-        if (error) break;
-      }
-
-      if (error) {
-        setPortfolioVideoError(error);
-        toast.error(error);
-        return;
-      }
-
-      setPortfolioVideoFiles((prev) => [...prev, ...newFiles]);
-      setPortfolioVideoTempKeys([]);
-      setPortfolioVideoStatus("idle");
-      setPortfolioVideoError(null);
-    },
-    [],
-  );
-
-  const uploadPortfolioVideos = useCallback(
-    async (email: string): Promise<string[]> => {
-      if (
-        portfolioVideoTempKeys.length === portfolioVideoFiles.length &&
-        portfolioVideoFiles.length > 0
-      ) {
-        return portfolioVideoTempKeys;
-      }
-      if (portfolioVideoFiles.length === 0) {
-        throw new Error(
-          "Upload at least one portfolio video before creating your profile.",
-        );
-      }
-
-      setPortfolioVideoStatus("uploading");
-      setPortfolioVideoError(null);
-      setVideoUploadProgress({});
-
-      const keys: string[] = [];
-      for (let index = 0; index < portfolioVideoFiles.length; index += 1) {
-        const file = portfolioVideoFiles[index];
-        const key = await uploadSignupPortfolioVideo(
-          file,
-          email,
-          (fraction) =>
-            setVideoUploadProgress((prev) => ({ ...prev, [index]: fraction })),
-        );
-        keys.push(key);
-      }
-
-      setPortfolioVideoTempKeys(keys);
-      setPortfolioVideoStatus("uploaded");
-      return keys;
-    },
-    [portfolioVideoFiles, portfolioVideoTempKeys],
-  );
-
-  const onSubmit = async (data: CreatorSignupData) => {
-    // if (SIGNUP_OTP_VERIFICATION_ENABLED) {
-    //   if (!activeOtpPhone || data.phone !== activeOtpPhone) {
-    //     const message = "Send a verification code for this mobile number.";
-    //     setPhoneError(message);
-    //     toast.error(message);
-    //     return;
-    //   }
-    // }
-
-    if (
-      portfolioVideoFiles.length === 0 &&
-      portfolioVideoTempKeys.length === 0
-    ) {
-      const message =
-        "Upload at least one portfolio video before creating your profile.";
-      setPortfolioVideoError(message);
-      toast.error(message);
-      return;
-    }
-
-    try {
-      const email = data.email.trim().toLowerCase();
-      const portfolioVideoKeys = await uploadPortfolioVideos(email);
-      const { fbp: metaFbp, fbc: metaFbc } = getMetaBrowserIds();
-      const metaSignupEventId = newMetaEventId();
-      registerCreatorMutation.mutate({
-        email,
-        password: data.password,
-        name: data.name.trim(),
-        phone: data.phone.trim(),
-        ...(SIGNUP_OTP_VERIFICATION_ENABLED
-          ? { phoneOtpCode: data.phoneOtpCode?.trim() ?? "" }
-          : {}),
-        age: data.age,
-        gender: data.gender,
-        city: data.city.trim(),
-        state: data.state.trim(),
-        country: data.country.trim(),
-        bio: normalizeOptionalText(data.bio),
-        instagramUrl: normalizeOptionalText(data.instagramUrl),
-        categorySlugs: data.categories,
-        portfolioSignupVideoTempKeys:
-          portfolioVideoKeys.length > 0 ? portfolioVideoKeys : undefined,
-        ...(metaFbp ? { metaFbp } : {}),
-        ...(metaFbc ? { metaFbc } : {}),
-        metaSignupEventId,
-      });
-    } catch (error) {
-      setPortfolioVideoStatus("idle");
-      const message = creatorSignupErrorMessage(
-        error,
-        "Could not upload portfolio video. Please try again.",
-      );
-      setPortfolioVideoError(message);
-      toast.error(message);
-    }
+  const onSubmit = (data: CreatorSignupData) => {
+    const email = data.email.trim().toLowerCase();
+    const { fbp: metaFbp, fbc: metaFbc } = getMetaBrowserIds();
+    const metaSignupEventId = newMetaEventId();
+    registerCreatorMutation.mutate({
+      email,
+      password: data.password,
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      ...(SIGNUP_OTP_VERIFICATION_ENABLED
+        ? { phoneOtpCode: data.phoneOtpCode?.trim() ?? "" }
+        : {}),
+      instagramUrl: data.instagramUrl.trim(),
+      ...(metaFbp ? { metaFbp } : {}),
+      ...(metaFbc ? { metaFbc } : {}),
+      metaSignupEventId,
+    });
   };
-
-  const selectedCategories = form.watch("categories");
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const categoriesRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!categoriesOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        categoriesRef.current &&
-        !categoriesRef.current.contains(e.target as Node)
-      ) {
-        setCategoriesOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [categoriesOpen]);
 
   return (
     <form
@@ -625,863 +287,185 @@ export function CreatorRegisterForm() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
               Create your creator profile
             </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Account details only — finish your profile after signup to go live.
+            </p>
           </div>
           <div className="flex flex-col items-start gap-2 text-sm lg:items-end">
-            <p className="text-slate-500">
-              Already a creator?{" "}
+            <p className="text-slate-500 dark:text-slate-400">
+              Already have an account?{" "}
               <Link
-                href="/login?role=creator"
-                className="font-semibold text-slate-900 hover:underline dark:text-slate-50"
+                href="/login"
+                className="font-bold text-slate-900 underline-offset-2 hover:underline dark:text-slate-100"
               >
-                Log in
+                Sign in
               </Link>
             </p>
           </div>
         </div>
-
-        <div className="mt-3 space-y-1.5 xl:hidden">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>
-              Step {currentStep + 1} of {STEP_TITLES.length}: {STEP_TITLES[currentStep]}
-            </span>
-            <span>{Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%</span>
-          </div>
-          <div className="flex gap-1.5">
-            {STEP_TITLES.map((title, i) => (
-              <div
-                key={title}
-                className={cn(
-                  "h-1.5 flex-1 rounded-full transition-colors",
-                  i <= currentStep
-                    ? "bg-[#ef3e51]"
-                    : "bg-slate-200 dark:bg-slate-800",
-                )}
-              />
-            ))}
-          </div>
-        </div>
       </div>
 
-      <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
-        <div className="space-y-6">
-          {/* STEP 1: Account (mobile-only step 0; always visible on desktop) */}
-          <div className={cn(currentStep === 0 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                1
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Account
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="name"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Full name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  placeholder="Jane Doe"
-                  className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                  {...form.register("name")}
-                />
-                {form.formState.errors.name && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <Label
-                  htmlFor="phone"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Phone number <span className="text-red-500">*</span>
-                </Label>
-                <div className="grid gap-3">
-                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
-                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
-                      +91
-                    </div>
-                    <Input
-                      id="creator-signup-phone"
-                      placeholder="0123456789"
-                      autoComplete="tel-national"
-                      inputMode="tel"
-                      disabled={pendingAny}
-                      aria-invalid={phoneError ? true : undefined}
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
-                      value={
-                        phoneInput.startsWith("+91")
-                          ? phoneInput.slice(3)
-                          : phoneInput
-                      }
-                      onChange={(event) => {
-                        let val = event.target.value;
-                        if (val.startsWith("+91")) val = val.slice(3);
-                        const digits = val.replace(/\D/g, "");
-                        const next = digits ? `+91${digits}` : "";
-                        setPhoneInput(next);
-                        setOtpSentToPhone(null);
-                        setPhoneError(null);
-                        form.setValue("phone", next, {
-                          shouldValidate: true,
-                        });
-                        form.setValue("phoneOtpCode", "");
-                        form.clearErrors("phoneOtpCode");
-                      }}
-                    />
-                    {SIGNUP_OTP_VERIFICATION_ENABLED ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={handleSendPhoneOtp}
-                        disabled={
-                          pendingAny ||
-                          !PHONE_E164_REGEX.test(normalizedPhone) ||
-                          (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
-                        }
-                        className={cn(
-                          "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
-                          activeOtpPhone
-                            ? "bg-[#f4f1f1] text-[#ef3e51] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black disabled:text-slate-400 disabled:bg-[#f4f1f1] dark:disabled:bg-slate-900 disabled:opacity-70"
-                            : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black dark:text-slate-300 disabled:opacity-70",
-                        )}
-                      >
-                        {sendSignupPhoneOtpMutation.isPending
-                          ? "Sending..."
-                          : resendSecondsRemaining > 0 && activeOtpPhone
-                            ? `Resend ${resendSecondsRemaining}s`
-                            : activeOtpPhone
-                              ? "Resend"
-                              : "Send OTP"}
-                      </Button>
-                    ) : null}
-                  </div>
-                  {SIGNUP_OTP_VERIFICATION_ENABLED ? (
-                    <>
-                      {phoneError ? (
-                        <p className="text-xs text-red-500">{phoneError}</p>
-                      ) : activeOtpPhone ? (
-                        <p className="text-xs font-medium text-green-600 dark:text-green-500">
-                          Enter the verification code from the SMS
-                        </p>
-                      ) : null}
-                      {activeOtpPhone ? (
-                        <div className="mt-[10px] overflow-x-auto rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-3 py-2.5 dark:border-red-500/20 dark:bg-red-500/10 sm:px-[12px] sm:py-[10px]">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-[10px]">
-                            <Label
-                              htmlFor="creator-signup-phone-otp"
-                              className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
-                            >
-                              Enter OTP
-                            </Label>
-                            <div className="relative flex items-center gap-1.5 group sm:gap-2">
-                              <style>{`
-                            @keyframes otp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-                          `}</style>
-                              <Input
-                                id="creator-signup-phone-otp"
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                maxLength={6}
-                                disabled={pendingAny}
-                                className="absolute inset-0 z-10 w-full h-full bg-transparent text-transparent caret-transparent border-0 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 cursor-text p-0 m-0 opacity-0"
-                                value={form.watch("phoneOtpCode")}
-                                onChange={(e) => {
-                                  form.setValue(
-                                    "phoneOtpCode",
-                                    e.target.value.replace(/\D/g, "").slice(0, 6),
-                                    { shouldValidate: true },
-                                  );
-                                }}
-                              />
-                              {Array.from({ length: 6 }).map((_, i) => {
-                                const code = form.watch("phoneOtpCode") || "";
-                                const char = code[i];
-                                const isActive = code.length === i;
-                                return (
-                                  <div
-                                    key={i}
-                                    className={cn(
-                                      "relative flex size-9 items-center justify-center rounded-xl border bg-white text-lg font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors sm:size-[42px] sm:text-[20px] dark:bg-slate-900",
-                                      char
-                                        ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
-                                        : "border-slate-200 text-transparent dark:border-slate-800",
-                                    )}
-                                  >
-                                    {char || ""}
-                                    {isActive && (
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-focus-within:opacity-100">
-                                        <div
-                                          className="w-[1.5px] h-5 bg-slate-900 dark:bg-white"
-                                          style={{
-                                            animation:
-                                              "otp-blink 1s step-end infinite",
-                                          }}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : phoneError ? (
-                    <p className="text-xs text-red-500">{phoneError}</p>
-                  ) : null}
-                </div>
-                {form.formState.errors.phone && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.phone.message}
-                  </p>
-                )}
-                {SIGNUP_OTP_VERIFICATION_ENABLED &&
-                form.formState.errors.phoneOtpCode ? (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.phoneOtpCode.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-1">
-                <Label
-                  htmlFor="email"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Email <span className="text-red-500">*</span>
-                </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect width="20" height="16" x="2" y="4" rx="2" />
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                    </svg>
-                  </div>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("email")}
-                  />
-                </div>
-                {form.formState.errors.email && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
-                  <Label
-                    htmlFor="password"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Password <span className="text-red-500">*</span>
-                  </Label>
-                  <span className="text-[11px] text-slate-400">
-                    min 8 chars, mix letters + numbers + symbol
-                  </span>
-                </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••••"
-                    className="h-[42px] pr-10 rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                    {...form.register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
-                {form.formState.errors.password && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-            </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 md:px-8">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-5">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full name</Label>
+            <Input
+              id="name"
+              autoComplete="name"
+              placeholder="Your name"
+              disabled={pendingAny}
+              {...form.register("name")}
+            />
+            {form.formState.errors.name ? (
+              <p className="text-xs text-red-500">
+                {form.formState.errors.name.message}
+              </p>
+            ) : null}
           </div>
 
-          {/* STEP 2: Profile basics (mobile-only step 1; always visible on desktop) */}
-          <div className={cn(currentStep === 1 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                2
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Profile basics
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="age"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Age <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    placeholder="e.g. 24"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                    {...form.register("age", { valueAsNumber: true })}
-                  />
-                  {form.formState.errors.age && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.age.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="gender"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Gender <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={form.watch("gender")}
-                    onValueChange={(val) =>
-                      form.setValue("gender", val as CreatorSignupData["gender"], {
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger
-                      id="gender"
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
-                    >
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.gender && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.gender.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="country"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone number</Label>
+            <div className="flex gap-2">
+              <Input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                placeholder="+919876543210"
+                disabled={pendingAny}
+                value={phoneInput}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setPhoneInput(next);
+                  form.setValue("phone", normalizePhoneForSignup(next), {
+                    shouldValidate: true,
+                  });
+                  setPhoneError(null);
+                }}
+              />
+              {SIGNUP_OTP_VERIFICATION_ENABLED ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={
+                    pendingAny ||
+                    resendSecondsRemaining > 0 ||
+                    !PHONE_E164_REGEX.test(normalizedPhone)
+                  }
+                  onClick={handleSendPhoneOtp}
+                  className="shrink-0"
                 >
-                  Country <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="country"
-                  value="India"
-                  readOnly
-                  className="h-[42px] rounded-[11px] border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900 text-slate-500 dark:text-slate-400"
-                  {...form.register("country")}
-                />
-                {form.formState.errors.country && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.country.message}
-                  </p>
-                )}
-              </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="state"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    State <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    onValueChange={(val) => {
-                      const selectedState = indiaStates.find((s) => s.isoCode === val);
-                      if (selectedState) {
-                        form.setValue("state", selectedState.name, { shouldValidate: true });
-                        form.setValue("city", "", { shouldValidate: true });
-                      }
-                    }}
-                    value={selectedStateCode}
-                  >
-                    <SelectTrigger
-                      id="state"
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
-                    >
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {indiaStates.map((state) => (
-                        <SelectItem key={state.isoCode} value={state.isoCode}>
-                          {state.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.state && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.state.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="city"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    City <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    onValueChange={(val) => form.setValue("city", val, { shouldValidate: true })}
-                    value={form.watch("city")}
-                    disabled={!selectedStateCode}
-                  >
-                    <SelectTrigger
-                      id="city"
-                      className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus:border-[#ef3e51] focus:ring-[3px] focus:ring-[#ef3e51]/[0.13] focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus:border-slate-700 dark:focus:ring-slate-800"
-                    >
-                      <SelectValue placeholder="Select city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stateCities.map((cityName) => (
-                        <SelectItem key={cityName} value={cityName}>
-                          {cityName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.city && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.city.message}
-                    </p>
-                  )}
-                </div>
-              </div>
+                  {sendSignupPhoneOtpMutation.isPending
+                    ? "Sending…"
+                    : resendSecondsRemaining > 0
+                      ? `Resend (${resendSecondsRemaining}s)`
+                      : activeOtpPhone
+                        ? "Resend code"
+                        : "Send code"}
+                </Button>
+              ) : null}
             </div>
+            {phoneError || form.formState.errors.phone ? (
+              <p className="text-xs text-red-500">
+                {phoneError ?? form.formState.errors.phone?.message}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">
+                Use E.164 format, e.g. +919876543210
+              </p>
+            )}
           </div>
 
-          {/* STEP 3: About & content (mobile-only step 2; always visible on desktop) */}
-          <div className={cn(currentStep === 2 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                3
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                About &amp; Content
-              </h2>
+          {SIGNUP_OTP_VERIFICATION_ENABLED ? (
+            <div className="space-y-2">
+              <Label htmlFor="phoneOtpCode">Verification code</Label>
+              <Input
+                id="phoneOtpCode"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="Enter SMS code"
+                disabled={pendingAny}
+                {...form.register("phoneOtpCode")}
+              />
+              {form.formState.errors.phoneOtpCode ? (
+                <p className="text-xs text-red-500">
+                  {form.formState.errors.phoneOtpCode.message}
+                </p>
+              ) : null}
             </div>
+          ) : null}
 
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between items-end">
-                  <Label
-                    htmlFor="bio"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Short bio <span className="text-red-500">*</span>
-                  </Label>
-                  <span
-                    className={cn(
-                      "text-[11px]",
-                      (form.watch("bio")?.length ?? 0) < 10
-                        ? "text-slate-400"
-                        : "text-green-600 dark:text-green-500",
-                    )}
-                  >
-                    {(form.watch("bio")?.length ?? 0) < 10
-                      ? `${form.watch("bio")?.length ?? 0}/10 characters minimum`
-                      : "2-3 sentences"}
-                  </span>
-                </div>
-                <Textarea
-                  id="bio"
-                  placeholder="Skincare-first creator with a soft, studio-lit style. I craft glow-up demos and ritual reels for D2C beauty brands."
-                  className="min-h-[80px] resize-y rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white p-3 text-sm transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                  {...form.register("bio")}
-                />
-                {form.formState.errors.bio && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.bio.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                  Categories <span className="text-red-500">*</span>{" "}
-                  <span className="text-[10px] font-normal lowercase tracking-normal text-slate-400">
-                    (multi-select)
-                  </span>
-                </Label>
-                <div ref={categoriesRef}>
-                  <div
-                    role="combobox"
-                    aria-expanded={categoriesOpen}
-                    tabIndex={0}
-                    onClick={() => setCategoriesOpen(!categoriesOpen)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setCategoriesOpen(!categoriesOpen);
-                      }
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 dark:bg-slate-950 cursor-pointer outline-none",
-                      selectedCategories.length === 0
-                        ? "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] text-slate-500 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                        : "border-red-400 text-slate-900 dark:text-slate-50 dark:border-red-500 focus-visible:ring-2 focus-visible:ring-red-100 dark:focus-visible:ring-red-900",
-                    )}
-                  >
-                    <div className="flex flex-wrap gap-2 items-center">
-                      {selectedCategories.length > 0
-                        ? selectedCategories.map((slug) => {
-                            const label = categoryLabelBySlug.get(slug) ?? slug;
-                            return (
-                              <div
-                                key={slug}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-red-50 pl-3 pr-1.5 py-1 text-sm font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }}
-                              >
-                                {label}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const next = selectedCategories.filter(
-                                      (c) => c !== slug,
-                                    );
-                                    form.setValue("categories", next, {
-                                      shouldValidate: true,
-                                    });
-                                  }}
-                                  className="flex size-4 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
-                                >
-                                  <X className="size-2.5" />
-                                </button>
-                              </div>
-                            );
-                          })
-                        : "Select your categories..."}
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        "ml-2 size-4 shrink-0 opacity-50 transition-transform",
-                        categoriesOpen && "rotate-180",
-                      )}
-                    />
-                  </div>
-                  {categoriesOpen && (
-                    <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 max-h-80 overflow-y-auto dark:bg-slate-950 dark:border-slate-800 [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
-                      {categorySuggestionsQuery.isLoading ? (
-                        <div className="flex items-center justify-center py-6">
-                          <Spinner className="size-5" />
-                        </div>
-                      ) : categorySuggestionsQuery.isError ? (
-                        <p className="px-2 py-3 text-xs text-red-500">
-                          Could not load categories. Please refresh and try again.
-                        </p>
-                      ) : categoryOptions.length === 0 ? (
-                        <p className="px-2 py-3 text-xs text-slate-500">
-                          No categories available.
-                        </p>
-                      ) : (
-                        categoryOptions.map((category) => {
-                          const isSelected = selectedCategories.includes(
-                            category.slug,
-                          );
-                          const CategoryIcon =
-                            CATEGORY_ICON_BY_SLUG[category.slug] ??
-                            DEFAULT_CATEGORY_ICON;
-                          return (
-                            <button
-                              type="button"
-                              key={category.slug}
-                              onClick={() => {
-                                const current = form.getValues("categories");
-                                const checked = !isSelected;
-                                const next = checked
-                                  ? [...current, category.slug]
-                                  : current.filter((c) => c !== category.slug);
-                                form.setValue("categories", next, {
-                                  shouldValidate: true,
-                                });
-                              }}
-                              className={cn(
-                                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 my-1 cursor-pointer text-left",
-                                isSelected
-                                  ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                  : "text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900",
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                                  isSelected
-                                    ? "bg-red-500 text-white"
-                                    : "bg-slate-100 text-slate-500 dark:bg-slate-800",
-                                )}
-                              >
-                                <CategoryIcon className="size-4" />
-                              </div>
-                              <span className="flex-1 font-medium">
-                                {category.label}
-                              </span>
-                              <div
-                                className={cn(
-                                  "flex size-5 shrink-0 items-center justify-center rounded border",
-                                  isSelected
-                                    ? "border-red-500 bg-red-500 text-white"
-                                    : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-950",
-                                )}
-                              >
-                                {isSelected && (
-                                  <Check className="size-3.5 stroke-[3]" />
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-                {form.formState.errors.categories && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.categories.message}
-                  </p>
-                )}
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              disabled={pendingAny}
+              {...form.register("email")}
+            />
+            {form.formState.errors.email ? (
+              <p className="text-xs text-red-500">
+                {form.formState.errors.email.message}
+              </p>
+            ) : null}
           </div>
 
-          {/* STEP 4: Portfolio (mobile-only step 3; always visible on desktop) */}
-          <div className={cn(currentStep === 3 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                4
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Portfolio
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="instagram"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Instagram handle <span className="text-red-500">*</span>
-                </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <Instagram className="size-4" />
-                  </div>
-                  <Input
-                    id="instagramUrl"
-                    placeholder="@yourhandle"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("instagramUrl")}
-                  />
-                </div>
-                {form.formState.errors.instagramUrl && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.instagramUrl.message}
-                  </p>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                disabled={pendingAny}
+                className="pr-10"
+                {...form.register("password")}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
                 )}
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                    Portfolio <span className="text-red-500">*</span>
-                  </Label>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Upload your portfolio reels directly.
-                  </p>
-                </div>
-
-                <div
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (pendingAny) return;
-                    handlePortfolioVideoFiles(event.dataTransfer.files);
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    "flex flex-col items-start gap-3 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-4 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer lg:flex-row lg:items-center lg:gap-4 lg:px-6",
-                    portfolioVideoError
-                      ? "border-red-300"
-                      : "border-slate-200 hover:bg-slate-50 hover:border-[#ef3e51] dark:border-slate-800 dark:hover:border-[#ef3e51]",
-                  )}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept={ACCEPTED_PORTFOLIO_VIDEO_TYPES.join(",")}
-                    className="hidden"
-                    disabled={pendingAny}
-                    onChange={(event) => {
-                      handlePortfolioVideoFiles(event.target.files);
-                      event.target.value = "";
-                    }}
-                  />
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffebed] text-[#ef3e51] dark:bg-red-500/20">
-                    <Video className="size-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 sm:text-[15px] dark:text-white">
-                      Drop your reels here, or{" "}
-                      <span className="text-[#ef3e51] hover:text-[#d93849] underline decoration-[#ef3e51] underline-offset-2">
-                        browse
-                      </span>
-                    </p>
-                    <p className="mt-0.5 text-[13px] text-slate-500">
-                      MP4, MOV up to {MAX_PORTFOLIO_VIDEO_LABEL} per file
-                      &middot; 9:16 vertical preferred
-                    </p>
-                    {portfolioVideoError ? (
-                      <p className="mt-1 text-xs text-red-500">
-                        {portfolioVideoError}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {portfolioVideoFiles.length > 0 && (
-                  <div className="grid grid-cols-1 gap-3 mt-3 lg:grid-cols-3">
-                    {portfolioVideoFiles.map((file, index) => (
-                      <div
-                        key={`${file.name}-${index}`}
-                        className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 lg:flex-row lg:items-center lg:gap-4 lg:px-4"
-                      >
-                        <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ef3e51] to-[#8b5cf6] text-white">
-                          {portfolioVideoStatus === "uploading" ? (
-                            <Spinner className="size-6 text-white" aria-hidden />
-                          ) : (
-                            <Video className="size-6" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-slate-900 truncate dark:text-white sm:text-[16px]">
-                            {file.name}
-                          </p>
-                          <p className="text-[13px] text-slate-500 mt-0.5">
-                            {formatBytes(file.size)} &middot;{" "}
-                            {file.type || "video"}
-                            {portfolioVideoStatus === "uploading" &&
-                              ` (Uploading… ${Math.round(
-                                (videoUploadProgress[index] ?? 0) * 100,
-                              )}%)`}
-                            {portfolioVideoStatus === "uploaded" && " (Uploaded)"}
-                          </p>
-                          {portfolioVideoStatus === "uploading" ? (
-                            <Progress
-                              className="mt-2"
-                              value={Math.round(
-                                (videoUploadProgress[index] ?? 0) * 100,
-                              )}
-                            />
-                          ) : null}
-                        </div>
-                        <button
-                          type="button"
-                          disabled={pendingAny}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPortfolioVideoFiles((prev) =>
-                              prev.filter((_, i) => i !== index),
-                            );
-                            setPortfolioVideoTempKeys([]);
-                            setPortfolioVideoStatus("idle");
-                            if (portfolioVideoFiles.length === 1) {
-                              setPortfolioVideoError(null);
-                            }
-                          }}
-                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 sm:ml-2 self-end sm:self-auto"
-                        >
-                          <X className="size-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              </button>
             </div>
+            {form.formState.errors.password ? (
+              <p className="text-xs text-red-500">
+                {form.formState.errors.password.message}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="instagramUrl">Instagram handle</Label>
+            <div className="relative">
+              <Instagram className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                id="instagramUrl"
+                autoComplete="off"
+                placeholder="@yourhandle"
+                disabled={pendingAny}
+                className="pl-9"
+                {...form.register("instagramUrl")}
+              />
+            </div>
+            {form.formState.errors.instagramUrl ? (
+              <p className="text-xs text-red-500">
+                {form.formState.errors.instagramUrl.message}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        {currentStep < LAST_STEP ? (
-          <div className="flex items-center gap-3 xl:hidden">
-            {currentStep > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevStep}
-                className="h-11 rounded-full px-6 text-[15px] font-bold"
-              >
-                Back
-              </Button>
-            )}
-            <Button
-              type="button"
-              onClick={handleNextStep}
-              className="h-11 flex-1 rounded-full bg-[#ef3e51] text-[15px] font-bold text-white hover:bg-[#d63647] dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
-            >
-              Next
-            </Button>
-          </div>
-        ) : null}
-
-        <div
-          className={cn(
-            currentStep === LAST_STEP ? "space-y-4" : "hidden",
-            "xl:block xl:space-y-4",
-          )}
-        >
         <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
@@ -1556,17 +540,16 @@ export function CreatorRegisterForm() {
               )}
             </Button>
 
-          <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
-            Hiring instead? <br />
-            <Link
-              href="/register/brand"
-              className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
-            >
-              Sign up as a brand
-            </Link>
+            <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
+              Hiring instead? <br />
+              <Link
+                href="/register/brand"
+                className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
+              >
+                Sign up as a brand
+              </Link>
+            </div>
           </div>
-          </div>
-        </div>
         </div>
       </div>
     </form>

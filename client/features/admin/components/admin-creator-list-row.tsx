@@ -508,7 +508,10 @@ export function AdminCreatorListRow({
                 </>
               ) : null}
 
-              {isRejected && !isIncompleteSegment && !isShortlistedSegment ? (
+              {isRejected &&
+              creator.completeProfile &&
+              !isIncompleteSegment &&
+              !isShortlistedSegment ? (
                 <Button
                   size="sm"
                   className="rounded-full"

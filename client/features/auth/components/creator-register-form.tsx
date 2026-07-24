@@ -48,10 +48,7 @@ const creatorSignupSchema = z.object({
     : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  instagramUrl: z
-    .string()
-    .min(1, "Instagram handle is required")
-    .max(500),
+  instagramUrl: z.string().min(1, "Instagram handle is required").max(500),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
   }),
@@ -117,6 +114,14 @@ function normalizePhoneForSignup(raw: string): string {
   return `+${trimmed.replace(/\D/g, "")}`;
 }
 
+/** Mobile-only wizard steps. Desktop (xl:) shows all sections at once. */
+const STEP_TITLES = ["Account", "Social"] as const;
+const STEP_FIELDS: (keyof CreatorSignupData)[][] = [
+  ["name", "phone", "email", "password"],
+  ["instagramUrl", "termsAccepted"],
+];
+const LAST_STEP = STEP_TITLES.length - 1;
+
 export function CreatorRegisterForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -128,6 +133,7 @@ export function CreatorRegisterForm() {
     number | null
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const form = useForm<CreatorSignupData>({
     resolver: zodResolver(creatorSignupSchema),
@@ -239,6 +245,16 @@ export function CreatorRegisterForm() {
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
 
+  const handleNextStep = useCallback(async () => {
+    const valid = await form.trigger(STEP_FIELDS[currentStep]);
+    if (!valid) return;
+    setCurrentStep((step) => Math.min(step + 1, LAST_STEP));
+  }, [form, currentStep]);
+
+  const handlePrevStep = useCallback(() => {
+    setCurrentStep((step) => Math.max(step - 1, 0));
+  }, []);
+
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForSignup(phoneInput);
     if (!PHONE_E164_REGEX.test(phone)) {
@@ -287,267 +303,482 @@ export function CreatorRegisterForm() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
               Create your creator profile
             </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Account details only — finish your profile after signup to go live.
-            </p>
           </div>
           <div className="flex flex-col items-start gap-2 text-sm lg:items-end">
-            <p className="text-slate-500 dark:text-slate-400">
-              Already have an account?{" "}
+            <p className="text-slate-500">
+              Already a creator?{" "}
               <Link
-                href="/login"
-                className="font-bold text-slate-900 underline-offset-2 hover:underline dark:text-slate-100"
+                href="/login?role=creator"
+                className="font-semibold text-slate-900 hover:underline dark:text-slate-50"
               >
-                Sign in
+                Log in
               </Link>
             </p>
           </div>
         </div>
+
+        <div className="mt-3 space-y-1.5 xl:hidden">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span>
+              Step {currentStep + 1} of {STEP_TITLES.length}:{" "}
+              {STEP_TITLES[currentStep]}
+            </span>
+            <span>
+              {Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%
+            </span>
+          </div>
+          <div className="flex gap-1.5">
+            {STEP_TITLES.map((title, i) => (
+              <div
+                key={title}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors",
+                  i <= currentStep
+                    ? "bg-[#ef3e51]"
+                    : "bg-slate-200 dark:bg-slate-800",
+                )}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 md:px-8">
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-5">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full name</Label>
-            <Input
-              id="name"
-              autoComplete="name"
-              placeholder="Your name"
-              disabled={pendingAny}
-              {...form.register("name")}
-            />
-            {form.formState.errors.name ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.name.message}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone number</Label>
-            <div className="flex gap-2">
-              <Input
-                id="phone"
-                type="tel"
-                autoComplete="tel"
-                placeholder="+919876543210"
-                disabled={pendingAny}
-                value={phoneInput}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setPhoneInput(next);
-                  form.setValue("phone", normalizePhoneForSignup(next), {
-                    shouldValidate: true,
-                  });
-                  setPhoneError(null);
-                }}
-              />
-              {SIGNUP_OTP_VERIFICATION_ENABLED ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={
-                    pendingAny ||
-                    resendSecondsRemaining > 0 ||
-                    !PHONE_E164_REGEX.test(normalizedPhone)
-                  }
-                  onClick={handleSendPhoneOtp}
-                  className="shrink-0"
-                >
-                  {sendSignupPhoneOtpMutation.isPending
-                    ? "Sending…"
-                    : resendSecondsRemaining > 0
-                      ? `Resend (${resendSecondsRemaining}s)`
-                      : activeOtpPhone
-                        ? "Resend code"
-                        : "Send code"}
-                </Button>
-              ) : null}
-            </div>
-            {phoneError || form.formState.errors.phone ? (
-              <p className="text-xs text-red-500">
-                {phoneError ?? form.formState.errors.phone?.message}
-              </p>
-            ) : (
-              <p className="text-xs text-slate-500">
-                Use E.164 format, e.g. +919876543210
-              </p>
+      <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
+        <div className="space-y-6">
+          {/* STEP 1: Account */}
+          <div
+            className={cn(
+              currentStep === 0 ? "block" : "hidden",
+              "xl:block",
+              "space-y-3",
             )}
-          </div>
-
-          {SIGNUP_OTP_VERIFICATION_ENABLED ? (
-            <div className="space-y-2">
-              <Label htmlFor="phoneOtpCode">Verification code</Label>
-              <Input
-                id="phoneOtpCode"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="Enter SMS code"
-                disabled={pendingAny}
-                {...form.register("phoneOtpCode")}
-              />
-              {form.formState.errors.phoneOtpCode ? (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.phoneOtpCode.message}
-                </p>
-              ) : null}
+          >
+            <div className="inline-flex items-center gap-2">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
+                1
+              </div>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+                Account
+              </h2>
             </div>
-          ) : null}
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              disabled={pendingAny}
-              {...form.register("email")}
-            />
-            {form.formState.errors.email ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.email.message}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="At least 8 characters"
-                disabled={pendingAny}
-                className="pr-10"
-                {...form.register("password")}
-              />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="name"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Full name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="Jane Doe"
+                  className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                  {...form.register("name")}
+                />
+                {form.formState.errors.name && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.name.message}
+                  </p>
                 )}
-              </button>
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="phone"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Phone number <span className="text-red-500">*</span>
+                </Label>
+                <div className="grid gap-3">
+                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
+                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
+                      +91
+                    </div>
+                    <Input
+                      id="creator-signup-phone"
+                      placeholder="0123456789"
+                      autoComplete="tel-national"
+                      inputMode="tel"
+                      disabled={pendingAny}
+                      aria-invalid={phoneError ? true : undefined}
+                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                      value={
+                        phoneInput.startsWith("+91")
+                          ? phoneInput.slice(3)
+                          : phoneInput
+                      }
+                      onChange={(event) => {
+                        let val = event.target.value;
+                        if (val.startsWith("+91")) val = val.slice(3);
+                        const digits = val.replace(/\D/g, "");
+                        const next = digits ? `+91${digits}` : "";
+                        setPhoneInput(next);
+                        setOtpSentToPhone(null);
+                        setPhoneError(null);
+                        form.setValue("phone", next, {
+                          shouldValidate: true,
+                        });
+                        form.setValue("phoneOtpCode", "");
+                        form.clearErrors("phoneOtpCode");
+                      }}
+                    />
+                    {SIGNUP_OTP_VERIFICATION_ENABLED ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleSendPhoneOtp}
+                        disabled={
+                          pendingAny ||
+                          !PHONE_E164_REGEX.test(normalizedPhone) ||
+                          (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
+                        }
+                        className={cn(
+                          "h-full rounded-none px-5 text-[14px] font-bold transition-colors border-l border-slate-200 dark:border-slate-800",
+                          activeOtpPhone
+                            ? "bg-[#f4f1f1] text-[#ef3e51] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black disabled:text-slate-400 disabled:bg-[#f4f1f1] dark:disabled:bg-slate-900 disabled:opacity-70"
+                            : "bg-[#f4f1f1] text-[#8b8489] hover:bg-black hover:text-white dark:bg-slate-900 dark:hover:bg-white dark:hover:text-black dark:text-slate-300 disabled:opacity-70",
+                        )}
+                      >
+                        {sendSignupPhoneOtpMutation.isPending
+                          ? "Sending..."
+                          : resendSecondsRemaining > 0 && activeOtpPhone
+                            ? `Resend ${resendSecondsRemaining}s`
+                            : activeOtpPhone
+                              ? "Resend"
+                              : "Send OTP"}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {SIGNUP_OTP_VERIFICATION_ENABLED ? (
+                    <>
+                      {phoneError ? (
+                        <p className="text-xs text-red-500">{phoneError}</p>
+                      ) : activeOtpPhone ? (
+                        <p className="text-xs font-medium text-green-600 dark:text-green-500">
+                          Enter the verification code from the SMS
+                        </p>
+                      ) : null}
+                      {activeOtpPhone ? (
+                        <div className="mt-[10px] overflow-x-auto rounded-[11px] border border-[#ffebed] bg-[#fff5f6] px-3 py-2.5 dark:border-red-500/20 dark:bg-red-500/10 sm:px-[12px] sm:py-[10px]">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-[10px]">
+                            <Label
+                              htmlFor="creator-signup-phone-otp"
+                              className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap"
+                            >
+                              Enter OTP
+                            </Label>
+                            <div className="relative flex items-center gap-1.5 group sm:gap-2">
+                              <style>{`
+                            @keyframes otp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+                          `}</style>
+                              <Input
+                                id="creator-signup-phone-otp"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={6}
+                                disabled={pendingAny}
+                                className="absolute inset-0 z-10 w-full h-full bg-transparent text-transparent caret-transparent border-0 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 cursor-text p-0 m-0 opacity-0"
+                                value={form.watch("phoneOtpCode")}
+                                onChange={(e) => {
+                                  form.setValue(
+                                    "phoneOtpCode",
+                                    e.target.value.replace(/\D/g, "").slice(0, 6),
+                                    { shouldValidate: true },
+                                  );
+                                }}
+                              />
+                              {Array.from({ length: 6 }).map((_, i) => {
+                                const code = form.watch("phoneOtpCode") || "";
+                                const char = code[i];
+                                const isActive = code.length === i;
+                                return (
+                                  <div
+                                    key={i}
+                                    className={cn(
+                                      "relative flex size-9 items-center justify-center rounded-xl border bg-white text-lg font-bold shadow-[0_2px_4px_rgb(0,0,0,0.02)] transition-colors sm:size-[42px] sm:text-[20px] dark:bg-slate-900",
+                                      char
+                                        ? "border-slate-300 text-slate-900 dark:border-slate-600 dark:text-white"
+                                        : "border-slate-200 text-transparent dark:border-slate-800",
+                                    )}
+                                  >
+                                    {char || ""}
+                                    {isActive && (
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-focus-within:opacity-100">
+                                        <div
+                                          className="w-[1.5px] h-5 bg-slate-900 dark:bg-white"
+                                          style={{
+                                            animation:
+                                              "otp-blink 1s step-end infinite",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : phoneError ? (
+                    <p className="text-xs text-red-500">{phoneError}</p>
+                  ) : null}
+                </div>
+                {form.formState.errors.phone && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.phone.message}
+                  </p>
+                )}
+                {SIGNUP_OTP_VERIFICATION_ENABLED &&
+                form.formState.errors.phoneOtpCode ? (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.phoneOtpCode.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="email"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Email <span className="text-red-500">*</span>
+                </Label>
+                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
+                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="20" height="16" x="2" y="4" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                  </div>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                    {...form.register("email")}
+                  />
+                </div>
+                {form.formState.errors.email && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
+                  <Label
+                    htmlFor="password"
+                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                  >
+                    Password <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="text-[11px] text-slate-400">
+                    min 8 chars, mix letters + numbers + symbol
+                  </span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••••"
+                    className="h-[42px] pr-10 rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                    {...form.register("password")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </button>
+                </div>
+                {form.formState.errors.password && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.password.message}
+                  </p>
+                )}
+              </div>
             </div>
-            {form.formState.errors.password ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.password.message}
-              </p>
-            ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="instagramUrl">Instagram handle</Label>
-            <div className="relative">
-              <Instagram className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="instagramUrl"
-                autoComplete="off"
-                placeholder="@yourhandle"
-                disabled={pendingAny}
-                className="pl-9"
-                {...form.register("instagramUrl")}
-              />
+          {/* STEP 2: Social (Instagram only) */}
+          <div
+            className={cn(
+              currentStep === 1 ? "block" : "hidden",
+              "xl:block",
+              "space-y-3",
+            )}
+          >
+            <div className="inline-flex items-center gap-2">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
+                2
+              </div>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+                Social
+              </h2>
             </div>
-            {form.formState.errors.instagramUrl ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.instagramUrl.message}
-              </p>
-            ) : null}
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="instagramUrl"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
+                >
+                  Instagram handle <span className="text-red-500">*</span>
+                </Label>
+                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
+                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
+                    <Instagram className="size-4" />
+                  </div>
+                  <Input
+                    id="instagramUrl"
+                    placeholder="@yourhandle"
+                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                    {...form.register("instagramUrl")}
+                  />
+                </div>
+                {form.formState.errors.instagramUrl && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.instagramUrl.message}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="terms"
-            checked={form.watch("termsAccepted")}
-            onCheckedChange={(checked) =>
-              form.setValue("termsAccepted", checked === true, {
-                shouldValidate: true,
-              })
-            }
-            className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#ef3e51] data-[state=checked]:bg-[#ef3e51] data-[state=checked]:border-[#ef3e51] data-[state=checked]:text-white dark:border-slate-600"
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <Label
-              htmlFor="terms"
-              className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
-            >
-              I agree to the{" "}
-              <Link
-                href="/legal/terms"
-                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+        {currentStep < LAST_STEP ? (
+          <div className="flex items-center gap-3 xl:hidden">
+            {currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevStep}
+                className="h-11 rounded-full px-6 text-[15px] font-bold"
               >
-                Terms of Service
-              </Link>
-              {", "}
-              <Link
-                href="/legal/privacy"
-                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-              >
-                Privacy Policy
-              </Link>
-              {", "}
-              <Link
-                href="/legal/guidelines"
-                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-              >
-                Creator Quality Guidelines
-              </Link>
-              {", and confirm I'm over 13."}
-            </Label>
-            {form.formState.errors.termsAccepted && (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.termsAccepted.message}
-              </p>
+                Back
+              </Button>
             )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Still needed: {signupBlockers.join(" · ")}
-            </p>
-          ) : null}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
             <Button
-              type="submit"
-              disabled={!isSignupComplete || pendingSubmit}
-              className={cn(
-                "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
-                isSignupComplete
-                  ? "bg-[#ef3e51] text-white hover:bg-[#d63647] disabled:opacity-70 dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
-                  : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
-              )}
+              type="button"
+              onClick={handleNextStep}
+              className="h-11 flex-1 rounded-full bg-[#ef3e51] text-[15px] font-bold text-white hover:bg-[#d63647] dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
             >
-              {pendingSubmit ? (
-                <>
-                  <Spinner className="size-4" aria-hidden />
-                  Creating profile...
-                </>
-              ) : (
-                <>Create my creator profile &rarr;</>
-              )}
+              Next
             </Button>
+          </div>
+        ) : null}
 
-            <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
-              Hiring instead? <br />
-              <Link
-                href="/register/brand"
-                className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
+        <div
+          className={cn(
+            currentStep === LAST_STEP ? "space-y-4" : "hidden",
+            "xl:block xl:space-y-4",
+          )}
+        >
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="terms"
+              checked={form.watch("termsAccepted")}
+              onCheckedChange={(checked) =>
+                form.setValue("termsAccepted", checked === true, {
+                  shouldValidate: true,
+                })
+              }
+              className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#ef3e51] data-[state=checked]:bg-[#ef3e51] data-[state=checked]:border-[#ef3e51] data-[state=checked]:text-white dark:border-slate-600"
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label
+                htmlFor="terms"
+                className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
               >
-                Sign up as a brand
-              </Link>
+                I agree to the{" "}
+                <Link
+                  href="/legal/terms"
+                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                >
+                  Terms of Service
+                </Link>
+                {", "}
+                <Link
+                  href="/legal/privacy"
+                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                >
+                  Privacy Policy
+                </Link>
+                {", "}
+                <Link
+                  href="/legal/guidelines"
+                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                >
+                  Creator Quality Guidelines
+                </Link>
+                {", and confirm I'm over 13."}
+              </Label>
+              {form.formState.errors.termsAccepted && (
+                <p className="text-xs text-red-500">
+                  {form.formState.errors.termsAccepted.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Still needed: {signupBlockers.join(" · ")}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+              <Button
+                type="submit"
+                disabled={!isSignupComplete || pendingSubmit}
+                className={cn(
+                  "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
+                  isSignupComplete
+                    ? "bg-[#ef3e51] text-white hover:bg-[#d63647] disabled:opacity-70 dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
+                    : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
+                )}
+              >
+                {pendingSubmit ? (
+                  <>
+                    <Spinner className="size-4" aria-hidden />
+                    Creating profile...
+                  </>
+                ) : (
+                  <>Create my creator profile &rarr;</>
+                )}
+              </Button>
+
+              <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
+                Hiring instead? <br />
+                <Link
+                  href="/register/brand"
+                  className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
+                >
+                  Sign up as a brand
+                </Link>
+              </div>
             </div>
           </div>
         </div>

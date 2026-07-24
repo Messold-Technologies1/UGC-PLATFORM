@@ -1995,8 +1995,6 @@ export class CreatorProfileService {
       throw new Error('Creator profile load failed');
     }
 
-    this.creatorProfileMail.notifyRejected(creatorProfileId, rejectionReason);
-
     return this.mapCreatorProfileResponseDto(updated);
   }
 

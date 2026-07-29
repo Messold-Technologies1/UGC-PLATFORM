@@ -46,6 +46,7 @@ import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-v
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
 import { useMyPortfolioSectionsQuery } from "../hooks/use-portfolio-sections";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
+import { MIN_PORTFOLIO_VIDEOS } from "@/features/creators/lib/go-live-requirements";
 import {
   creatorPublicProfileDisplayUrlForProfile,
   creatorPublicProfilePathForProfile,
@@ -211,8 +212,21 @@ export function CreatorPortfolioManager() {
     return filtered;
   }, [videos, selectedCategory, selectedSort]);
 
+  const canDeleteVideos = videos.length > MIN_PORTFOLIO_VIDEOS;
+
   const handleDelete = useCallback(
     async (video: PortfolioVideoApi) => {
+      if (!canDeleteVideos) {
+        toast.error(
+          `A portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos`,
+          {
+            description:
+              "Replace an existing video instead of deleting one.",
+          },
+        );
+        return;
+      }
+
       const label = video.description?.trim() || "this video";
       if (
         !window.confirm(
@@ -233,7 +247,7 @@ export function CreatorPortfolioManager() {
         },
       );
     },
-    [deletePortfolioVideoMutation],
+    [canDeleteVideos, deletePortfolioVideoMutation],
   );
 
   if (videosQuery.isError) {
@@ -583,8 +597,13 @@ export function CreatorPortfolioManager() {
                                 variant="ghost"
                                 size="icon"
                                 className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
-                                disabled={deletingId === v.id}
+                                disabled={deletingId === v.id || !canDeleteVideos}
                                 onClick={() => void handleDelete(v)}
+                                title={
+                                  canDeleteVideos
+                                    ? "Delete video"
+                                    : `Your portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos — replace one instead of deleting.`
+                                }
                               >
                                 {deletingId === v.id ? (
                                   <Spinner className="size-4" />

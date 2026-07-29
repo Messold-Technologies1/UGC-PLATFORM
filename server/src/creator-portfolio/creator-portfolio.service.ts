@@ -27,6 +27,7 @@ import {
   PortfolioSectionVideoItemDto,
 } from './dto/portfolio-section-response.dto';
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
+import { MIN_PORTFOLIO_VIDEOS } from '../creator-profile/creator-profile-completeness.util';
 
 function normalizeList(values: string[] | undefined): string[] {
   if (!values) return [];
@@ -526,6 +527,20 @@ export class CreatorPortfolioService {
     if (existing.creatorId !== profile.id) {
       throw new ForbiddenException('Not allowed to delete this video');
     }
+
+    // A portfolio must always keep at least MIN_PORTFOLIO_VIDEOS videos. Once at
+    // the floor the creator must replace an existing video rather than delete
+    // one. Enforced here (not just in the UI) so the rule can't be bypassed via
+    // the API.
+    const videoCount = await this.prisma.creatorPortfolioVideo.count({
+      where: { creatorId: profile.id },
+    });
+    if (videoCount <= MIN_PORTFOLIO_VIDEOS) {
+      throw new BadRequestException(
+        `A portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos. Replace an existing video instead of deleting it.`,
+      );
+    }
+
     await this.prisma.creatorPortfolioVideo.delete({ where: { id: videoId } });
   }
 

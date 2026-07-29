@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { RoleName } from '@prisma/client';
 import { CreatorPortfolioService } from './creator-portfolio.service';
 
@@ -14,6 +18,8 @@ describe('CreatorPortfolioService admin portfolio access', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
     },
     $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn({
@@ -242,6 +248,42 @@ describe('CreatorPortfolioService admin portfolio access', () => {
     await expect(service.listAllVideosForAdmin('brand-user')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('blocks deleting a video when only the minimum remain', async () => {
+    prismaMock.creatorProfile.findUnique.mockResolvedValueOnce({
+      id: creatorProfileId,
+      userId: creatorUserId,
+    });
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValueOnce({
+      id: 'video-1',
+      creatorId: creatorProfileId,
+    });
+    prismaMock.creatorPortfolioVideo.count.mockResolvedValueOnce(3);
+
+    await expect(
+      service.deleteVideo(creatorUserId, 'video-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prismaMock.creatorPortfolioVideo.delete).not.toHaveBeenCalled();
+  });
+
+  it('allows deleting a video when more than the minimum remain', async () => {
+    prismaMock.creatorProfile.findUnique.mockResolvedValueOnce({
+      id: creatorProfileId,
+      userId: creatorUserId,
+    });
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValueOnce({
+      id: 'video-1',
+      creatorId: creatorProfileId,
+    });
+    prismaMock.creatorPortfolioVideo.count.mockResolvedValueOnce(4);
+    prismaMock.creatorPortfolioVideo.delete.mockResolvedValueOnce({});
+
+    await service.deleteVideo(creatorUserId, 'video-1');
+
+    expect(prismaMock.creatorPortfolioVideo.delete).toHaveBeenCalledWith({
+      where: { id: 'video-1' },
+    });
   });
 
   it('throws when admin targets unknown creator profile', async () => {

@@ -1,7 +1,20 @@
 import { marked } from 'marked';
+import * as mammoth from 'mammoth';
 import { parse, type Node, type HTMLElement } from 'node-html-parser';
 
 export type LegalImportFormat = 'html' | 'markdown';
+
+/**
+ * Convert a base64-encoded `.docx` file to HTML via mammoth. The resulting HTML
+ * is fed to `parseDocumentToSections(html, 'html')` like any other HTML import.
+ * Word's heading styles become `<h1>`/`<h2>`… so heading-based section
+ * splitting works; junk markup Word emits is dropped later by the sanitizer.
+ */
+export async function convertDocxBase64ToHtml(base64: string): Promise<string> {
+  const buffer = Buffer.from(base64, 'base64');
+  const { value } = await mammoth.convertToHtml({ buffer });
+  return value;
+}
 
 /**
  * A section produced by parsing an uploaded document. Structurally matches

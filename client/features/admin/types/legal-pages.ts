@@ -90,7 +90,7 @@ export interface CreateLegalPageInput {
   sections?: DraftSectionData[];
 }
 
-export type LegalImportFormat = "html" | "markdown";
+export type LegalImportFormat = "html" | "markdown" | "docx";
 
 export interface ImportDraftInput {
   format: LegalImportFormat;

@@ -159,6 +159,7 @@ export class WishlistsController {
       ...brandActorParams(req),
       wishlistId: id,
       creatorId: dto.creatorId,
+      addOnIds: dto.addOnIds,
     });
   }
 

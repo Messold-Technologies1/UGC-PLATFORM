@@ -7,6 +7,13 @@ import {
 } from '@prisma/client';
 
 export class CreatorPublicListPackageDto {
+  @ApiPropertyOptional({
+    example: 'uuid',
+    description:
+      'Package id. Populated where the package is orderable (e.g. wishlist detail); omitted on lean discovery cards.',
+  })
+  id?: string;
+
   @ApiProperty({ example: 'Basic' })
   name!: string;
 

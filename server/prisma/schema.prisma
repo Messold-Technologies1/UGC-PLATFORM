@@ -978,6 +978,10 @@ model BrandWishlistCreator {
   wishlistId String   @db.Uuid
   creatorId  String   @db.Uuid
   sortOrder  Int      @default(0)
+  /// Add-ons the brand pre-selected for this creator when saving them to the
+  /// wishlist. Referenced CreatorAddOn ids; re-validated (and stale ones
+  /// dropped) at checkout, since a creator can delete/recreate their add-ons.
+  selectedAddOnIds String[] @db.Uuid @default([])
   createdAt  DateTime @default(now())
 
   wishlist BrandWishlist  @relation(fields: [wishlistId], references: [id], onDelete: Cascade)

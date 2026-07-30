@@ -24,6 +24,7 @@ const creatorWithRelationsInclude = {
   profileLanguages: { include: { option: true } },
   restrictions: true,
   packages: true,
+  addOns: true,
   unavailability: { select: { startsOn: true, endsOn: true } },
   portfolioVideos: {
     where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
@@ -41,6 +42,26 @@ const creatorWithRelationsInclude = {
   },
   stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
+
+function mapCreatorAddOns(addOns: any): Array<{
+  id: string;
+  name: string;
+  priceAmount: string;
+  description: string | null;
+  deliveryDays: number | null;
+}> {
+  return Array.isArray(addOns)
+    ? addOns.map((a: any) => ({
+        id: String(a?.id ?? ''),
+        name: String(a?.name ?? ''),
+        priceAmount:
+          a?.priceAmount?.toString?.() ??
+          (typeof a?.priceAmount === 'string' ? a.priceAmount : ''),
+        description: a?.description ?? null,
+        deliveryDays: typeof a?.deliveryDays === 'number' ? a.deliveryDays : null,
+      }))
+    : [];
+}
 
 function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
   const portfolioVideos = Array.isArray(profile.portfolioVideos)
@@ -116,6 +137,7 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
             (d: unknown) => d === 'Basic editing',
           );
           return {
+            id: pkg?.id,
             name: String(pkg?.name ?? ''),
             priceAmount:
               pkg?.priceAmount?.toString?.() ??
@@ -242,9 +264,13 @@ export class WishlistsService {
     if (!wishlist) throw new NotFoundException('Wishlist not found');
     if (wishlist.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
 
-    const creators = wishlist.creators.map((wc: any) =>
-      mapCreatorToPublicListItem(wc.creator),
-    );
+    const creators = wishlist.creators.map((wc: any) => ({
+      ...mapCreatorToPublicListItem(wc.creator),
+      addOns: mapCreatorAddOns(wc.creator?.addOns),
+      selectedAddOnIds: Array.isArray(wc.selectedAddOnIds)
+        ? wc.selectedAddOnIds
+        : [],
+    }));
 
     return {
       id: wishlist.id,
@@ -288,6 +314,16 @@ export class WishlistsService {
         });
 
         if (params.dto.creatorIds !== undefined) {
+          // Preserve each surviving creator's saved add-on selection across the
+          // delete-and-recreate replace.
+          const existingRows = await tx.brandWishlistCreator.findMany({
+            where: { wishlistId: params.wishlistId },
+            select: { creatorId: true, selectedAddOnIds: true },
+          });
+          const selectionByCreator = new Map(
+            existingRows.map((r) => [r.creatorId, r.selectedAddOnIds]),
+          );
+
           await tx.brandWishlistCreator.deleteMany({
             where: { wishlistId: params.wishlistId },
           });
@@ -297,6 +333,7 @@ export class WishlistsService {
                 wishlistId: params.wishlistId,
                 creatorId,
                 sortOrder: idx,
+                selectedAddOnIds: selectionByCreator.get(creatorId) ?? [],
               })),
             });
           }
@@ -336,11 +373,30 @@ export class WishlistsService {
     await this.prisma.brandWishlist.delete({ where: { id: params.wishlistId } });
   }
 
+  /**
+   * Keep only add-on ids that actually belong to the creator, deduped. Invalid
+   * or foreign ids are dropped rather than rejected — the selection is a
+   * convenience that's re-validated at checkout anyway.
+   */
+  private async resolveValidAddOnIds(
+    creatorId: string,
+    addOnIds?: string[],
+  ): Promise<string[]> {
+    const ids = [...new Set((addOnIds ?? []).filter(Boolean))];
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.creatorAddOn.findMany({
+      where: { id: { in: ids }, creatorId },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   async addCreator(params: {
     actorUserId: string;
     brandProfileId?: string | null;
     wishlistId: string;
     creatorId: string;
+    addOnIds?: string[];
   }): Promise<void> {
     const { brand } = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
@@ -354,6 +410,11 @@ export class WishlistsService {
     if (!wishlist) throw new NotFoundException('Wishlist not found');
     if (wishlist.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
 
+    const selectedAddOnIds = await this.resolveValidAddOnIds(
+      params.creatorId,
+      params.addOnIds,
+    );
+
     await this.prisma.brandWishlistCreator.upsert({
       where: {
         wishlistId_creatorId: {
@@ -364,8 +425,11 @@ export class WishlistsService {
       create: {
         wishlistId: params.wishlistId,
         creatorId: params.creatorId,
+        selectedAddOnIds,
       },
-      update: {},
+      // Only overwrite the saved selection when the caller supplied add-ons,
+      // so re-adding a creator without add-ons doesn't wipe an earlier choice.
+      update: params.addOnIds !== undefined ? { selectedAddOnIds } : {},
     });
   }
 

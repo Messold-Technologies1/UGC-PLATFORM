@@ -21,23 +21,36 @@ function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
 
-// A creator is orderable if they have a package with a price. The package id
-// is NOT required here — it may be absent from the wishlist response, and the
-// server resolves the creator's single package by creatorId at checkout.
+// A creator has a purchasable package if there's a package with a price. The
+// package id is NOT required here — it may be absent from the wishlist
+// response, and the server resolves the creator's single package by creatorId.
 function packageOf(creator: WishlistCreator) {
   const pkg = creator.packages?.[0];
   return pkg && pkg.priceAmount != null && pkg.priceAmount !== "" ? pkg : null;
+}
+
+// Offline / on-a-break creators stay visible in the wishlist but can't be
+// ordered. `available` is only ever explicitly false when unavailable.
+function isAvailable(creator: WishlistCreator): boolean {
+  return creator.available !== false;
 }
 
 export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps) {
   const { isProcessing, startBulkCheckout } = useWishlistBulkCheckout();
 
   const orderable = useMemo(
-    () => creators.filter((c) => packageOf(c) !== null),
+    () => creators.filter((c) => packageOf(c) !== null && isAvailable(c)),
     [creators],
   );
+  // Everything else stays visible but isn't selectable, with a reason.
   const notOrderable = useMemo(
-    () => creators.filter((c) => packageOf(c) === null),
+    () =>
+      creators
+        .filter((c) => !(packageOf(c) !== null && isAvailable(c)))
+        .map((c) => ({
+          creator: c,
+          reason: !isAvailable(c) ? "Currently unavailable" : "No package set",
+        })),
     [creators],
   );
 
@@ -193,11 +206,23 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
           })}
 
           {notOrderable.length > 0 && (
-            <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
-              {notOrderable.length} creator
-              {notOrderable.length === 1 ? "" : "s"} in this wishlist{" "}
-              {notOrderable.length === 1 ? "has" : "have"} no purchasable package
-              yet and can&apos;t be checked out.
+            <div className="space-y-2 rounded-xl border border-dashed border-border/60 bg-muted/20 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Not available for checkout
+              </p>
+              {notOrderable.map(({ creator, reason }) => (
+                <div
+                  key={creator.id}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span className="truncate text-muted-foreground">
+                    {creator.name}
+                  </span>
+                  <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {reason}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

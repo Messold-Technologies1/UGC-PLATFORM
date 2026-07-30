@@ -37,6 +37,7 @@ import type {
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
 import { computeDeliveryDeadlines } from './delivery-deadline.util';
+import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
@@ -353,7 +354,13 @@ export class OrdersService {
     packageId?: string;
     addOnIds?: string[];
   }): Promise<{
-    pkg: Prisma.CreatorPackageGetPayload<{ include: { creator: true } }>;
+    pkg: Prisma.CreatorPackageGetPayload<{
+      include: { creator: { include: { unavailability: true } } };
+    }>;
+    /** Whether the creator is currently available (not on an unavailability
+     * schedule covering today). Callers decide policy — bulk checkout skips
+     * unavailable creators; single checkout ignores this. */
+    available: boolean;
     addOnRows: CreatorAddOn[];
     effectiveDeliveryDays: number;
     packageAmountPaise: number;
@@ -372,7 +379,7 @@ export class OrdersService {
       where: params.packageId
         ? { id: params.packageId, creatorId: params.creatorId }
         : { creatorId: params.creatorId },
-      include: { creator: true },
+      include: { creator: { include: { unavailability: true } } },
     });
     if (!pkg) {
       throw new NotFoundException('Creator package not found');
@@ -430,6 +437,9 @@ export class OrdersService {
 
     return {
       pkg,
+      available: mapUnavailabilityToPublicAvailability(
+        pkg.creator.unavailability ?? null,
+      ).available,
       addOnRows,
       effectiveDeliveryDays,
       packageAmountPaise,
@@ -664,6 +674,16 @@ export class OrdersService {
           packageId: item.packageId,
           addOnIds: item.addOnIds,
         });
+        // Offline / on-a-break creators stay in the wishlist but can't be
+        // ordered — skip them so the rest of the cart still checks out.
+        if (!draft.available) {
+          skipped.push({
+            creatorId: item.creatorId,
+            packageId: item.packageId,
+            reason: 'Creator is currently unavailable',
+          });
+          continue;
+        }
         drafts.push({ draft });
       } catch (err) {
         skipped.push({

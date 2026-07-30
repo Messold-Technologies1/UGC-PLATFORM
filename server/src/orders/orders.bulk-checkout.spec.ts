@@ -118,6 +118,40 @@ describe('OrdersService bulk checkout', () => {
     expect(result.amountPaise).toBe(100000);
   });
 
+  it('skips a creator who is currently unavailable (offline)', async () => {
+    const unavailable = {
+      ...pkgFor('c1', 1000),
+      creator: {
+        id: 'c1',
+        unavailability: {
+          startsOn: new Date('2000-01-01'),
+          endsOn: new Date('2100-01-01'),
+        },
+      },
+    };
+    const { service, created } = makeService({
+      packages: { c1: unavailable as any, c2: pkgFor('c2', 2000) },
+    });
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [
+        { creatorId: 'c1', packageId: 'pkg-c1' },
+        { creatorId: 'c2', packageId: 'pkg-c2' },
+      ],
+    });
+
+    expect(result.orderCount).toBe(1);
+    expect(created).toHaveLength(1);
+    expect(result.amountPaise).toBe(200000);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        creatorId: 'c1',
+        reason: 'Creator is currently unavailable',
+      }),
+    ]);
+  });
+
   it('skips an invalid item and checks out the rest', async () => {
     const { service, razorpay, created } = makeService({
       packages: { c1: pkgFor('c1', 1000), bad: null },

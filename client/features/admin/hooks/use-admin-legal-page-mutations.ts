@@ -8,6 +8,7 @@ import {
   publishLegalPageDraft,
   rejectLegalPageDraft,
   discardLegalPageDraft,
+  deleteLegalPage,
   createLegalPage,
   restoreLegalPageVersion,
 } from "../api/legal-pages";
@@ -163,6 +164,24 @@ export function useDiscardLegalPageDraftMutation(slug: string) {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to discard draft."));
+    },
+  });
+}
+
+export function useDeleteLegalPageMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "legal-pages", "delete"],
+    mutationFn: (slug: string) => deleteLegalPage(slug),
+    onSuccess: async () => {
+      toast.success("Legal page deleted.");
+      await queryClient.invalidateQueries({
+        queryKey: adminLegalPagesQueryKey(),
+      });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to delete legal page."));
     },
   });
 }

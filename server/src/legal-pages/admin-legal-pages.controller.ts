@@ -147,6 +147,20 @@ export class AdminLegalPagesController {
     return this.legalPagesService.discardDraft(slug, req.user.id);
   }
 
+  @Delete(':slug')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete a legal page and its entire version history',
+  })
+  @ApiParam({ name: 'slug', example: 'privacy-policy' })
+  @ApiNoContentResponse()
+  async deletePage(
+    @Param('slug') slug: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.legalPagesService.deletePage(slug, req.user.id);
+  }
+
   @Get(':slug/versions')
   @ApiOperation({ summary: 'List past published versions of a legal page' })
   @ApiParam({ name: 'slug', example: 'privacy-policy' })

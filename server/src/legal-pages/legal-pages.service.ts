@@ -313,6 +313,33 @@ export class LegalPagesService {
     return this.saveDraft(slug, saveDto, adminUserId);
   }
 
+  /**
+   * Permanently delete a legal page and its entire version history (versions
+   * cascade). The public page for this slug will fall back to its static
+   * default afterwards. Blocked while a draft is in review so an
+   * under-review change can't be silently destroyed.
+   */
+  async deletePage(slug: string, adminUserId: string): Promise<void> {
+    const page = await this.prisma.legalPage.findUnique({
+      where: { slug },
+      select: { id: true, draftStatus: true },
+    });
+
+    if (!page) {
+      throw new NotFoundException(`Legal page "${slug}" not found`);
+    }
+
+    if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
+      throw new BadRequestException(
+        'Cannot delete a page while a draft is in review. Reject the draft first.',
+      );
+    }
+
+    await this.prisma.legalPage.delete({ where: { id: page.id } });
+
+    this.logger.log(`Legal page "${slug}" deleted by admin ${adminUserId}`);
+  }
+
   async submitForReview(
     slug: string,
     adminUserId: string,

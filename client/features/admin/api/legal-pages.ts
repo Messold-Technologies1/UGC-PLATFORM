@@ -126,6 +126,10 @@ export async function discardLegalPageDraft(slug: string): Promise<void> {
   await api.delete(ENDPOINTS.ADMIN.LEGAL_PAGES.DRAFT(slug));
 }
 
+export async function deleteLegalPage(slug: string): Promise<void> {
+  await api.delete(ENDPOINTS.ADMIN.LEGAL_PAGES.BY_SLUG(slug));
+}
+
 export async function restoreLegalPageVersion(
   slug: string,
   versionId: string,

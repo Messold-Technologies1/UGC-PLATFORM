@@ -253,19 +253,48 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
               <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Not available for checkout
               </p>
-              {notOrderable.map(({ creator, reason }) => (
-                <div
-                  key={creator.id}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <span className="truncate text-muted-foreground">
-                    {creator.name}
-                  </span>
-                  <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    {reason}
-                  </span>
-                </div>
-              ))}
+              {notOrderable.map(({ creator, reason }) => {
+                const location = getCreatorLocation(creator);
+                const profileUrl = isValidImageUrl(creator.profileImageUrl)
+                  ? creator.profileImageUrl
+                  : null;
+                return (
+                  <div
+                    key={creator.id}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div
+                        className={cn(
+                          "relative size-8 shrink-0 overflow-hidden rounded-full",
+                          !profileUrl &&
+                            "bg-linear-to-br from-violet-500 to-pink-500",
+                        )}
+                      >
+                        {profileUrl ? (
+                          <Image
+                            src={profileUrl}
+                            alt={location}
+                            fill
+                            className="object-cover"
+                            sizes="32px"
+                          />
+                        ) : (
+                          <span className="flex size-full items-center justify-center text-[10px] font-bold text-white">
+                            {getInitials(location)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="truncate text-muted-foreground">
+                        {location}
+                      </span>
+                    </div>
+                    <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {reason}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

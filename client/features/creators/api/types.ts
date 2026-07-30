@@ -64,6 +64,8 @@ export type CreatorPortfolioVideoPreviewApi = {
 };
 
 export type CreatorPublicListPackageApi = {
+  /** Present where the package is orderable (e.g. wishlist detail). */
+  id?: string;
   name: string;
   priceAmount: string;
   deliveryDays: number;

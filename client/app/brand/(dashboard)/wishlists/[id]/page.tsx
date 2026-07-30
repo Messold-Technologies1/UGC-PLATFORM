@@ -12,6 +12,7 @@ import {
   Loader2,
   Lock,
   UserMinus,
+  ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import { useWishlistDetailQuery } from "@/features/wishlists/hooks/use-wishlist-
 import { useEnableWishlistShareMutation } from "@/features/wishlists/hooks/use-enable-wishlist-share-mutation";
 import { useDisableWishlistShareMutation } from "@/features/wishlists/hooks/use-disable-wishlist-share-mutation";
 import { useUpdateWishlistMutation } from "@/features/wishlists/hooks/use-update-wishlist-mutation";
+import { BulkCheckoutModal } from "@/features/wishlists/components/bulk-checkout-modal";
 import "@/features/creators/components/browse-creators/browse-creators.css";
 
 function timeAgo(dateStr: string) {
@@ -70,6 +72,7 @@ export default function WishlistDetailPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -422,6 +425,19 @@ export default function WishlistDetailPage() {
               <span>created {timeAgo(wishlist.createdAt)}</span>
             </p>
 
+            {wishlist.creators.some((c) => c.packages?.[0]?.id) && (
+              <div className="mb-5">
+                <Button
+                  onClick={() => setCheckoutOpen(true)}
+                  className="gap-2"
+                  data-tour="brand-wishlists-checkout"
+                >
+                  <ShoppingBag className="size-4" />
+                  Checkout creators
+                </Button>
+              </div>
+            )}
+
             <hr className="border-border/40 mb-6" />
 
             {listingCreators.length === 0 ? (
@@ -486,6 +502,12 @@ export default function WishlistDetailPage() {
             wishlistName={wishlist.name}
             creators={wishlist.creators}
           />
+          {checkoutOpen && (
+            <BulkCheckoutModal
+              creators={wishlist.creators}
+              onClose={() => setCheckoutOpen(false)}
+            />
+          )}
         </>
       ) : null}
     </div>

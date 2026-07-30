@@ -3,7 +3,8 @@ import { ENDPOINTS } from "@/lib/endpoints";
 
 export type BulkCheckoutItem = {
   creatorId: string;
-  packageId: string;
+  /** Optional — the server resolves the creator's single package when omitted. */
+  packageId?: string;
   addOnIds?: string[];
 };
 
@@ -13,7 +14,7 @@ export type CreateBulkCheckoutPayload = {
 
 export type BulkCheckoutSkippedItem = {
   creatorId: string;
-  packageId: string;
+  packageId?: string;
   reason: string;
 };
 

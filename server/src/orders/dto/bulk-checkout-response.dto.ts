@@ -4,8 +4,8 @@ export class BulkCheckoutSkippedItemDto {
   @ApiProperty({ format: 'uuid' })
   creatorId!: string;
 
-  @ApiProperty({ format: 'uuid' })
-  packageId!: string;
+  @ApiProperty({ format: 'uuid', required: false })
+  packageId?: string;
 
   @ApiProperty({ description: 'Why this item was skipped (not fatal).' })
   reason!: string;

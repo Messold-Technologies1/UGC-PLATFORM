@@ -37,6 +37,7 @@ import type {
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
 import { computeDeliveryDeadlines } from './delivery-deadline.util';
+import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
@@ -236,7 +237,7 @@ type CheckoutSessionResult = {
 
 type BulkCheckoutSkippedItem = {
   creatorId: string;
-  packageId: string;
+  packageId?: string;
   reason: string;
 };
 
@@ -344,10 +345,22 @@ export class OrdersService {
    */
   private async computeOrderDraftForItem(params: {
     creatorId: string;
-    packageId: string;
+    /**
+     * Optional. When omitted, the creator's package is resolved by creatorId —
+     * each creator has exactly one package (CreatorPackage.creatorId is unique),
+     * so this is unambiguous. Lets bulk checkout work even when the client
+     * doesn't have the package id (e.g. an older wishlist response).
+     */
+    packageId?: string;
     addOnIds?: string[];
   }): Promise<{
-    pkg: Prisma.CreatorPackageGetPayload<{ include: { creator: true } }>;
+    pkg: Prisma.CreatorPackageGetPayload<{
+      include: { creator: { include: { unavailability: true } } };
+    }>;
+    /** Whether the creator is currently available (not on an unavailability
+     * schedule covering today). Callers decide policy — bulk checkout skips
+     * unavailable creators; single checkout ignores this. */
+    available: boolean;
     addOnRows: CreatorAddOn[];
     effectiveDeliveryDays: number;
     packageAmountPaise: number;
@@ -363,8 +376,10 @@ export class OrdersService {
     }>;
   }> {
     const pkg = await this.prisma.creatorPackage.findFirst({
-      where: { id: params.packageId, creatorId: params.creatorId },
-      include: { creator: true },
+      where: params.packageId
+        ? { id: params.packageId, creatorId: params.creatorId }
+        : { creatorId: params.creatorId },
+      include: { creator: { include: { unavailability: true } } },
     });
     if (!pkg) {
       throw new NotFoundException('Creator package not found');
@@ -422,6 +437,9 @@ export class OrdersService {
 
     return {
       pkg,
+      available: mapUnavailabilityToPublicAvailability(
+        pkg.creator.unavailability ?? null,
+      ).available,
       addOnRows,
       effectiveDeliveryDays,
       packageAmountPaise,
@@ -636,7 +654,7 @@ export class OrdersService {
   async createBulkCheckout(params: {
     actorUserId: string;
     brandProfileId?: string | null;
-    items: Array<{ creatorId: string; packageId: string; addOnIds?: string[] }>;
+    items: Array<{ creatorId: string; packageId?: string; addOnIds?: string[] }>;
   }): Promise<BulkCheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -656,6 +674,16 @@ export class OrdersService {
           packageId: item.packageId,
           addOnIds: item.addOnIds,
         });
+        // Offline / on-a-break creators stay in the wishlist but can't be
+        // ordered — skip them so the rest of the cart still checks out.
+        if (!draft.available) {
+          skipped.push({
+            creatorId: item.creatorId,
+            packageId: item.packageId,
+            reason: 'Creator is currently unavailable',
+          });
+          continue;
+        }
         drafts.push({ draft });
       } catch (err) {
         skipped.push({

@@ -29,9 +29,10 @@ describe('OrdersService bulk checkout', () => {
       creatorPackage: {
         findFirst: jest.fn(({ where }: any) => {
           const pkg = overrides.packages[where.creatorId];
-          return Promise.resolve(
-            pkg && pkg.id === where.id ? pkg : null,
-          );
+          if (!pkg) return Promise.resolve(null);
+          // When an id is supplied it must match; when omitted, resolve by creator.
+          if (where.id && pkg.id !== where.id) return Promise.resolve(null);
+          return Promise.resolve(pkg);
         }),
       },
       creatorAddOn: { findMany: jest.fn(() => Promise.resolve([])) },
@@ -99,6 +100,56 @@ describe('OrdersService bulk checkout', () => {
       expect(data.checkoutBatchId).toBe('batch-1');
       expect(data.razorpayOrderId).toBeUndefined();
     }
+  });
+
+  it('resolves the creator package when packageId is omitted', async () => {
+    const { service, created } = makeService({
+      packages: { c1: pkgFor('c1', 1000) },
+    });
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [{ creatorId: 'c1' }], // no packageId — server resolves it
+    });
+
+    expect(result.orderCount).toBe(1);
+    expect(created).toHaveLength(1);
+    expect(created[0].creatorPackageId).toBe('pkg-c1');
+    expect(result.amountPaise).toBe(100000);
+  });
+
+  it('skips a creator who is currently unavailable (offline)', async () => {
+    const unavailable = {
+      ...pkgFor('c1', 1000),
+      creator: {
+        id: 'c1',
+        unavailability: {
+          startsOn: new Date('2000-01-01'),
+          endsOn: new Date('2100-01-01'),
+        },
+      },
+    };
+    const { service, created } = makeService({
+      packages: { c1: unavailable as any, c2: pkgFor('c2', 2000) },
+    });
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [
+        { creatorId: 'c1', packageId: 'pkg-c1' },
+        { creatorId: 'c2', packageId: 'pkg-c2' },
+      ],
+    });
+
+    expect(result.orderCount).toBe(1);
+    expect(created).toHaveLength(1);
+    expect(result.amountPaise).toBe(200000);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        creatorId: 'c1',
+        reason: 'Creator is currently unavailable',
+      }),
+    ]);
   });
 
   it('skips an invalid item and checks out the rest', async () => {

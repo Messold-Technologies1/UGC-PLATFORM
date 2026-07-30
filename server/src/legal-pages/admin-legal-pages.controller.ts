@@ -33,6 +33,7 @@ import {
 } from './dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { ImportDraftDto } from './dto/import-draft.dto';
+import { CreateLegalPageDto } from './dto/create-legal-page.dto';
 
 import { RejectDraftDto } from './dto/reject-draft.dto';
 
@@ -48,6 +49,16 @@ export class AdminLegalPagesController {
   @ApiOkResponse({ type: AdminLegalPageListResponseDto })
   async listPages(): Promise<AdminLegalPageListResponseDto> {
     return this.legalPagesService.getAllPages();
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new legal page' })
+  @ApiOkResponse({ type: AdminLegalPageDetailResponseDto })
+  async createPage(
+    @Body() dto: CreateLegalPageDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AdminLegalPageDetailResponseDto> {
+    return this.legalPagesService.createPage(dto, req.user.id);
   }
 
   @Get(':slug')

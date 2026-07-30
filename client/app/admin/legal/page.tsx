@@ -2,18 +2,82 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle, Plus, X } from "lucide-react";
 import { useAdminLegalPagesQuery } from "@/features/admin/hooks/use-admin-legal-pages-query";
-import { useDeleteLegalPageMutation } from "@/features/admin/hooks/use-admin-legal-page-mutations";
+import {
+  useDeleteLegalPageMutation,
+  useCreateLegalPageMutation,
+} from "@/features/admin/hooks/use-admin-legal-page-mutations";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export default function AdminLegalPagesList() {
+  const router = useRouter();
   const { data, isLoading, isError } = useAdminLegalPagesQuery();
   const deleteMutation = useDeleteLegalPageMutation();
+  const createMutation = useCreateLegalPageMutation();
 
   const [confirmingSlug, setConfirmingSlug] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newSlug, setNewSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [newDescription, setNewDescription] = useState("");
+  const [newEffectiveDate, setNewEffectiveDate] = useState("");
+
+  const openCreate = () => {
+    setNewTitle("");
+    setNewSlug("");
+    setSlugEdited(false);
+    setNewDescription("");
+    setNewEffectiveDate("");
+    setIsCreateOpen(true);
+  };
+
+  const closeCreate = () => {
+    if (createMutation.isPending) return;
+    setIsCreateOpen(false);
+  };
+
+  const handleTitleChange = (value: string) => {
+    setNewTitle(value);
+    if (!slugEdited) setNewSlug(slugify(value));
+  };
+
+  const canCreate =
+    newTitle.trim() !== "" &&
+    newSlug.trim() !== "" &&
+    newDescription.trim() !== "" &&
+    newEffectiveDate.trim() !== "";
+
+  const handleCreate = async () => {
+    if (!canCreate) return;
+    const slug = newSlug.trim();
+    try {
+      await createMutation.mutateAsync({
+        slug,
+        title: newTitle.trim(),
+        description: newDescription.trim(),
+        effectiveDate: newEffectiveDate.trim(),
+      });
+    } catch {
+      // Error toast is handled by the mutation; keep the modal open to retry.
+      return;
+    }
+    setIsCreateOpen(false);
+    router.push(`/admin/legal/${slug}`);
+  };
 
   const startDelete = (slug: string) => {
     setConfirmingSlug(slug);
@@ -41,6 +105,13 @@ export default function AdminLegalPagesList() {
             Manage terms, privacy policies, and other legal content.
           </p>
         </div>
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 active:scale-95 transition-all shadow-sm whitespace-nowrap"
+        >
+          <Plus className="size-4" />
+          Add New Legal Page
+        </button>
       </div>
 
       {isError && !isLoading && (
@@ -186,6 +257,117 @@ export default function AdminLegalPagesList() {
             );
           })}
       </div>
+
+      {isCreateOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={closeCreate}
+        >
+          <div
+            className="glass-panel w-full max-w-lg rounded-2xl border border-border/50 bg-card p-6 space-y-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">
+                  Add New Legal Page
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Create the page, then add content in the editor by hand or by
+                  importing a file.
+                </p>
+              </div>
+              <button
+                onClick={closeCreate}
+                disabled={createMutation.isPending}
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Page Title
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="e.g. Refund Policy"
+                  className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Slug (URL)
+                </label>
+                <input
+                  type="text"
+                  value={newSlug}
+                  onChange={(e) => {
+                    setSlugEdited(true);
+                    setNewSlug(slugify(e.target.value));
+                  }}
+                  placeholder="refund-policy"
+                  className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 font-mono"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Lowercase letters, numbers and hyphens only. Used as{" "}
+                  <span className="font-mono">/{newSlug || "your-slug"}</span>.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Description (SEO &amp; Subtitle)
+                </label>
+                <textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Short summary shown under the title and used for SEO."
+                  className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 resize-y"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Effective Date
+                </label>
+                <input
+                  type="text"
+                  value={newEffectiveDate}
+                  onChange={(e) => setNewEffectiveDate(e.target.value)}
+                  placeholder="e.g. June 16, 2026"
+                  className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                onClick={closeCreate}
+                disabled={createMutation.isPending}
+                className="px-4 py-2 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!canCreate || createMutation.isPending}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <Plus className="size-4" />
+                {createMutation.isPending ? "Creating..." : "Create Page"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

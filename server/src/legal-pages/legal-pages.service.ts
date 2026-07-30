@@ -21,6 +21,7 @@ import type {
 } from './dto';
 import type { SaveDraftDto, DraftSectionInputDto } from './dto/save-draft.dto';
 import type { ImportDraftDto } from './dto/import-draft.dto';
+import type { CreateLegalPageDto } from './dto/create-legal-page.dto';
 import { parseDocumentToSections } from './legal-import.util';
 
 import type { RejectDraftDto } from './dto/reject-draft.dto';
@@ -94,6 +95,46 @@ export class LegalPagesService {
   private readonly logger = new Logger(LegalPagesService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async createPage(
+    dto: CreateLegalPageDto,
+    adminUserId: string,
+  ): Promise<AdminLegalPageDetailResponseDto> {
+    const existing = await this.prisma.legalPage.findUnique({
+      where: { slug: dto.slug },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `A legal page with slug "${dto.slug}" already exists`,
+      );
+    }
+
+    const page = await this.prisma.legalPage.create({
+      data: {
+        slug: dto.slug,
+        title: dto.title,
+        description: dto.description,
+        effectiveDate: dto.effectiveDate,
+        sections: [],
+        updatedBy: adminUserId,
+      },
+    });
+
+    this.logger.log(`Legal page "${dto.slug}" created by admin ${adminUserId}`);
+
+    return {
+      id: page.id,
+      slug: page.slug,
+      title: page.title,
+      description: page.description,
+      effectiveDate: page.effectiveDate,
+      updatedAt: page.updatedAt,
+      sections: [],
+      draft: null,
+    };
+  }
 
   async getPageBySlug(slug: string): Promise<LegalPageResponseDto> {
     const page = await this.prisma.legalPage.findUnique({

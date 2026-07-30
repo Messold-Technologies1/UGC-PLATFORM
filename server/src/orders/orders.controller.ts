@@ -26,6 +26,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { CheckoutResponseDto } from './dto/checkout-response.dto';
+import { CreateBulkCheckoutDto } from './dto/create-bulk-checkout.dto';
+import { BulkCheckoutResponseDto } from './dto/bulk-checkout-response.dto';
 import { OrdersService } from './orders.service';
 import { SubmitBriefDto } from './dto/submit-brief.dto';
 import { OpenDisputeDto } from './dto/open-dispute.dto';
@@ -210,6 +212,30 @@ export class OrdersController {
       creatorId: dto.creatorId,
       packageId: dto.packageId,
       addOnIds: dto.addOnIds,
+    });
+  }
+
+  @Post('checkout-bulk')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Bulk checkout: create one order per creator, collect one payment',
+    description:
+      'Places an order for each item (e.g. creators selected from a wishlist) and returns a single Razorpay order covering the total. Invalid items are skipped and reported in `skipped`. Single-creator checkout is unaffected.',
+  })
+  @ApiCreatedResponse({ type: BulkCheckoutResponseDto })
+  async createBulkCheckout(
+    @Body() dto: CreateBulkCheckoutDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BulkCheckoutResponseDto> {
+    return this.ordersService.createBulkCheckout({
+      ...brandActorParams(req),
+      items: dto.items.map((item) => ({
+        creatorId: item.creatorId,
+        packageId: item.packageId,
+        addOnIds: item.addOnIds,
+      })),
     });
   }
 

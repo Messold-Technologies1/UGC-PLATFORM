@@ -236,7 +236,7 @@ type CheckoutSessionResult = {
 
 type BulkCheckoutSkippedItem = {
   creatorId: string;
-  packageId: string;
+  packageId?: string;
   reason: string;
 };
 
@@ -344,7 +344,13 @@ export class OrdersService {
    */
   private async computeOrderDraftForItem(params: {
     creatorId: string;
-    packageId: string;
+    /**
+     * Optional. When omitted, the creator's package is resolved by creatorId —
+     * each creator has exactly one package (CreatorPackage.creatorId is unique),
+     * so this is unambiguous. Lets bulk checkout work even when the client
+     * doesn't have the package id (e.g. an older wishlist response).
+     */
+    packageId?: string;
     addOnIds?: string[];
   }): Promise<{
     pkg: Prisma.CreatorPackageGetPayload<{ include: { creator: true } }>;
@@ -363,7 +369,9 @@ export class OrdersService {
     }>;
   }> {
     const pkg = await this.prisma.creatorPackage.findFirst({
-      where: { id: params.packageId, creatorId: params.creatorId },
+      where: params.packageId
+        ? { id: params.packageId, creatorId: params.creatorId }
+        : { creatorId: params.creatorId },
       include: { creator: true },
     });
     if (!pkg) {
@@ -636,7 +644,7 @@ export class OrdersService {
   async createBulkCheckout(params: {
     actorUserId: string;
     brandProfileId?: string | null;
-    items: Array<{ creatorId: string; packageId: string; addOnIds?: string[] }>;
+    items: Array<{ creatorId: string; packageId?: string; addOnIds?: string[] }>;
   }): Promise<BulkCheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,

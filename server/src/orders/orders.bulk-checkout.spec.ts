@@ -29,9 +29,10 @@ describe('OrdersService bulk checkout', () => {
       creatorPackage: {
         findFirst: jest.fn(({ where }: any) => {
           const pkg = overrides.packages[where.creatorId];
-          return Promise.resolve(
-            pkg && pkg.id === where.id ? pkg : null,
-          );
+          if (!pkg) return Promise.resolve(null);
+          // When an id is supplied it must match; when omitted, resolve by creator.
+          if (where.id && pkg.id !== where.id) return Promise.resolve(null);
+          return Promise.resolve(pkg);
         }),
       },
       creatorAddOn: { findMany: jest.fn(() => Promise.resolve([])) },
@@ -99,6 +100,22 @@ describe('OrdersService bulk checkout', () => {
       expect(data.checkoutBatchId).toBe('batch-1');
       expect(data.razorpayOrderId).toBeUndefined();
     }
+  });
+
+  it('resolves the creator package when packageId is omitted', async () => {
+    const { service, created } = makeService({
+      packages: { c1: pkgFor('c1', 1000) },
+    });
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [{ creatorId: 'c1' }], // no packageId — server resolves it
+    });
+
+    expect(result.orderCount).toBe(1);
+    expect(created).toHaveLength(1);
+    expect(created[0].creatorPackageId).toBe('pkg-c1');
+    expect(result.amountPaise).toBe(100000);
   });
 
   it('skips an invalid item and checks out the rest', async () => {

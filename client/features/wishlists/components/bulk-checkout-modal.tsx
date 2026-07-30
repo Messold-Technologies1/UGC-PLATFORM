@@ -21,9 +21,12 @@ function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
 
+// A creator is orderable if they have a package with a price. The package id
+// is NOT required here — it may be absent from the wishlist response, and the
+// server resolves the creator's single package by creatorId at checkout.
 function packageOf(creator: WishlistCreator) {
   const pkg = creator.packages?.[0];
-  return pkg && pkg.id ? pkg : null;
+  return pkg && pkg.priceAmount != null && pkg.priceAmount !== "" ? pkg : null;
 }
 
 export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps) {
@@ -82,10 +85,12 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
     const items: BulkCheckoutItem[] = includedCreators
       .map((c): BulkCheckoutItem | null => {
         const pkg = packageOf(c);
-        if (!pkg || !pkg.id) return null;
+        if (!pkg) return null;
         return {
           creatorId: c.id,
-          packageId: pkg.id,
+          // Send the package id when we have it; the server resolves the
+          // creator's single package when it's omitted.
+          ...(pkg.id ? { packageId: pkg.id } : {}),
           addOnIds: selection[c.id]?.addOnIds ?? [],
         };
       })

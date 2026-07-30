@@ -8,7 +8,7 @@ import { WishlistsService } from './wishlists.service';
  */
 describe('WishlistsService add-on persistence', () => {
   function makeService(validAddOnIds: string[]) {
-    const upsert = jest.fn(() => Promise.resolve({}));
+    const upsert = jest.fn((_args: unknown) => Promise.resolve({}));
     const prisma = {
       brandWishlist: {
         findUnique: jest.fn(() => Promise.resolve({ brandId: 'brand-1' })),

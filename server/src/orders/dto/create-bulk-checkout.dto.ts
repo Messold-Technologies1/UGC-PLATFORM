@@ -15,9 +15,14 @@ export class BulkCheckoutItemDto {
   @IsUUID()
   creatorId!: string;
 
-  @ApiProperty({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      "Optional. When omitted, the creator's (single) package is resolved server-side.",
+  })
+  @IsOptional()
   @IsUUID()
-  packageId!: string;
+  packageId?: string;
 
   @ApiPropertyOptional({
     type: [String],

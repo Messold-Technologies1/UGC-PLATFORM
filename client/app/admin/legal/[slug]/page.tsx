@@ -56,6 +56,17 @@ import { LegalVersionPreviewModal } from "@/components/admin/legal-version-previ
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+/** Encode binary file bytes (e.g. a .docx) as base64 for a JSON request body. */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export default function AdminLegalPageEditor() {
   const params = useParams();
   const router = useRouter();
@@ -291,12 +302,13 @@ export default function AdminLegalPageEditor() {
 
     const name = file.name.toLowerCase();
     const isMarkdown = name.endsWith(".md") || name.endsWith(".markdown");
+    const isDocx = name.endsWith(".docx");
     const isHtml =
       name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".txt");
 
-    if (!isMarkdown && !isHtml) {
+    if (!isMarkdown && !isHtml && !isDocx) {
       window.alert(
-        "Unsupported file type. Please upload a .md, .markdown, .html, .htm, or .txt file.",
+        "Unsupported file type. Please upload a .docx, .md, .markdown, .html, .htm, or .txt file.",
       );
       return;
     }
@@ -306,9 +318,14 @@ export default function AdminLegalPageEditor() {
     );
     if (!confirmed) return;
 
-    const content = await file.text();
+    // .docx is binary — send it base64-encoded; text formats send as-is.
+    const format = isDocx ? "docx" : isMarkdown ? "markdown" : "html";
+    const content = isDocx
+      ? arrayBufferToBase64(await file.arrayBuffer())
+      : await file.text();
+
     await importMutation.mutateAsync({
-      format: isMarkdown ? "markdown" : "html",
+      format,
       content,
       changeNote: `Imported from ${file.name}`,
     });
@@ -530,14 +547,14 @@ export default function AdminLegalPageEditor() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".md,.markdown,.html,.htm,.txt"
+                accept=".docx,.md,.markdown,.html,.htm,.txt"
                 onChange={handleImportFile}
                 className="hidden"
               />
               <button
                 onClick={handleImportClick}
                 disabled={isReadonlyMode || anyPending}
-                title="Import a Markdown or HTML file — its headings become sections"
+                title="Import a Word (.docx), Markdown, or HTML file — its headings become sections"
                 className="px-3 py-1.5 rounded-lg border border-border bg-background text-muted-foreground text-xs font-bold uppercase tracking-wider hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 flex items-center gap-1"
               >
                 <Upload className="size-3.5" />

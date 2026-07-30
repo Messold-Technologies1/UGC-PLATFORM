@@ -10,6 +10,7 @@ import {
 export enum LegalImportFormatDto {
   HTML = 'html',
   MARKDOWN = 'markdown',
+  DOCX = 'docx',
 }
 
 /**
@@ -28,11 +29,12 @@ export class ImportDraftDto {
   format!: LegalImportFormatDto;
 
   @ApiProperty({
-    description: 'Raw document content (HTML markup or Markdown source).',
+    description:
+      'Document content: HTML markup, Markdown source, or a base64-encoded .docx file (for format "docx").',
   })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(1_000_000)
+  @MaxLength(1_900_000)
   content!: string;
 
   @ApiPropertyOptional({

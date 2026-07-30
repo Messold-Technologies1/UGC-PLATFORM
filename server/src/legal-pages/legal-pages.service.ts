@@ -22,7 +22,10 @@ import type {
 import type { SaveDraftDto, DraftSectionInputDto } from './dto/save-draft.dto';
 import type { ImportDraftDto } from './dto/import-draft.dto';
 import type { CreateLegalPageDto } from './dto/create-legal-page.dto';
-import { parseDocumentToSections } from './legal-import.util';
+import {
+  parseDocumentToSections,
+  convertDocxBase64ToHtml,
+} from './legal-import.util';
 
 import type { RejectDraftDto } from './dto/reject-draft.dto';
 
@@ -307,9 +310,14 @@ export class LegalPagesService {
 
     let sections: DraftSectionInputDto[];
     try {
+      const html =
+        dto.format === 'docx'
+          ? await convertDocxBase64ToHtml(dto.content)
+          : dto.content;
+      const parseFormat = dto.format === 'docx' ? 'html' : dto.format;
       sections = parseDocumentToSections(
-        dto.content,
-        dto.format,
+        html,
+        parseFormat,
       ) as DraftSectionInputDto[];
     } catch (error) {
       this.logger.warn(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -17,6 +17,7 @@ import {
   GripVertical,
   Clock,
   FileText,
+  Upload,
 } from "lucide-react";
 import {
   DndContext,
@@ -40,6 +41,7 @@ import { SortableTocItem, TocItem } from "./sortable-toc-item";
 import { useAdminLegalPageDetailQuery } from "@/features/admin/hooks/use-admin-legal-pages-query";
 import {
   useSaveLegalPageDraftMutation,
+  useImportLegalPageDraftMutation,
   useSubmitLegalPageForReviewMutation,
   usePublishLegalPageDraftMutation,
   useRejectLegalPageDraftMutation,
@@ -64,6 +66,7 @@ export default function AdminLegalPageEditor() {
   const { data: versionsData } = useAdminLegalPageVersionsQuery(slug);
 
   const saveDraftMutation = useSaveLegalPageDraftMutation(slug);
+  const importMutation = useImportLegalPageDraftMutation(slug);
   const submitReviewMutation = useSubmitLegalPageForReviewMutation(slug);
   const publishMutation = usePublishLegalPageDraftMutation(slug);
   const rejectMutation = useRejectLegalPageDraftMutation(slug);
@@ -89,6 +92,7 @@ export default function AdminLegalPageEditor() {
 
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!page) return;
@@ -197,8 +201,13 @@ export default function AdminLegalPageEditor() {
 
   const isSaving = saveDraftMutation.isPending;
   const isSubmitting = submitReviewMutation.isPending;
+  const isImporting = importMutation.isPending;
   const anyPending =
-    isSaving || isSubmitting || publishMutation.isPending || rejectMutation.isPending;
+    isSaving ||
+    isSubmitting ||
+    isImporting ||
+    publishMutation.isPending ||
+    rejectMutation.isPending;
 
   const draftStatus = page.draft?.status;
   const isReviewMode = draftStatus === "IN_REVIEW";
@@ -265,6 +274,44 @@ export default function AdminLegalPageEditor() {
     const newSections = [...sections];
     newSections[index] = { ...newSections[index], ...updates };
     setSections(newSections);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    // Reset immediately so selecting the same file again re-triggers onChange.
+    input.value = "";
+    if (!file) return;
+
+    const name = file.name.toLowerCase();
+    const isMarkdown = name.endsWith(".md") || name.endsWith(".markdown");
+    const isHtml =
+      name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".txt");
+
+    if (!isMarkdown && !isHtml) {
+      window.alert(
+        "Unsupported file type. Please upload a .md, .markdown, .html, .htm, or .txt file.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Import "${file.name}"?\n\nThis replaces the current draft content with sections parsed from the file. You can still review and edit everything before submitting.`,
+    );
+    if (!confirmed) return;
+
+    const content = await file.text();
+    await importMutation.mutateAsync({
+      format: isMarkdown ? "markdown" : "html",
+      content,
+      changeNote: `Imported from ${file.name}`,
+    });
   };
 
   const handleSaveDraft = async () => {
@@ -480,6 +527,22 @@ export default function AdminLegalPageEditor() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".md,.markdown,.html,.htm,.txt"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+              <button
+                onClick={handleImportClick}
+                disabled={isReadonlyMode || anyPending}
+                title="Import a Markdown or HTML file — its headings become sections"
+                className="px-3 py-1.5 rounded-lg border border-border bg-background text-muted-foreground text-xs font-bold uppercase tracking-wider hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 flex items-center gap-1"
+              >
+                <Upload className="size-3.5" />
+                {isImporting ? "Importing..." : "Import File"}
+              </button>
               <button
                 onClick={addSection}
                 disabled={isReadonlyMode || anyPending}

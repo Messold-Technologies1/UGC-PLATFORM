@@ -7,6 +7,7 @@ export {
   DraftSectionDto,
 } from './admin-legal-page-response.dto';
 export { SaveDraftDto, DraftSectionInputDto } from './save-draft.dto';
+export { ImportDraftDto, LegalImportFormatDto } from './import-draft.dto';
 
 export { RejectDraftDto } from './reject-draft.dto';
 export {

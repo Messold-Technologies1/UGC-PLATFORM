@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   saveLegalPageDraft,
+  importLegalPageDraft,
   submitLegalPageForReview,
   publishLegalPageDraft,
   rejectLegalPageDraft,
@@ -14,7 +15,12 @@ import {
   adminLegalPagesQueryKey,
   adminLegalPageDetailQueryKey,
 } from "./use-admin-legal-pages-query";
-import type { SaveDraftInput, CreateLegalPageInput, RejectDraftInput } from "../types";
+import type {
+  SaveDraftInput,
+  CreateLegalPageInput,
+  ImportDraftInput,
+  RejectDraftInput,
+} from "../types";
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (!isAxiosError(error)) return fallback;
@@ -56,6 +62,29 @@ export function useSaveLegalPageDraftMutation(slug: string) {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to save draft."));
+    },
+  });
+}
+
+export function useImportLegalPageDraftMutation(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "legal-pages", slug, "import-draft"],
+    mutationFn: (payload: ImportDraftInput) =>
+      importLegalPageDraft(slug, payload),
+    onSuccess: async (draft) => {
+      toast.success(
+        `Imported ${draft.sections.length} section${
+          draft.sections.length === 1 ? "" : "s"
+        } into the draft.`,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: adminLegalPageDetailQueryKey(slug),
+      });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to import document."));
     },
   });
 }

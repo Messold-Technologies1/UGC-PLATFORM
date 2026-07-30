@@ -67,6 +67,14 @@ const orderBrandSnapshotSelect = {
   logoUrl: true,
 } as Prisma.BrandProfileSelect;
 
+/**
+ * The brand must not see the creator's real identity anywhere in the order
+ * flow. Both brand-facing order snapshots (details + list) expose this generic
+ * label in place of the creator's displayName, so the real name is never sent
+ * to the brand's browser. Admin and creator views are unaffected.
+ */
+const BRAND_HIDDEN_CREATOR_NAME = 'Creator';
+
 type OrderBrandSnapshotDto = {
   id: string;
   brandName: string;
@@ -1649,7 +1657,8 @@ export class OrdersService {
       order: mappedOrder,
       creator: {
         id: creator.id,
-        displayName: creator.displayName,
+        // Creator identity is hidden from the brand in the order flow.
+        displayName: BRAND_HIDDEN_CREATOR_NAME,
         introVideoUrl: creator.introVideoUrl ?? null,
         profileImageUrl: creator.profileImageUrl ?? null,
         city: creator.city ?? null,
@@ -1994,7 +2003,8 @@ export class OrdersService {
         order: this.mapOrderListSummary(orderFields),
         creator: {
           id: creator.id,
-          displayName: creator.displayName,
+          // Creator identity is hidden from the brand in the order flow.
+          displayName: BRAND_HIDDEN_CREATOR_NAME,
           introVideoUrl: creator.introVideoUrl ?? null,
           profileImageUrl: creator.profileImageUrl ?? null,
           city: creator.city ?? null,

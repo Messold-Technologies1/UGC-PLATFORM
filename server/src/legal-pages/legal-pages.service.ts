@@ -20,6 +20,8 @@ import type {
   LegalPageVersionDetailResponseDto,
 } from './dto';
 import type { SaveDraftDto, DraftSectionInputDto } from './dto/save-draft.dto';
+import type { ImportDraftDto } from './dto/import-draft.dto';
+import { parseDocumentToSections } from './legal-import.util';
 
 import type { RejectDraftDto } from './dto/reject-draft.dto';
 
@@ -218,6 +220,124 @@ export class LegalPagesService {
     this.logger.log(`Draft saved for "${slug}" by admin ${adminUserId}`);
 
     return await this.mapDraft(draft);
+  }
+
+  /**
+   * Import an uploaded document (HTML or Markdown) into the page's draft. The
+   * content is parsed into sections and then delegated to `saveDraft`, so it
+   * flows through the exact same sanitize → review → publish pipeline as a
+   * hand-authored draft. Metadata not supplied in the import keeps the current
+   * live (or existing draft) value.
+   */
+  async importDraft(
+    slug: string,
+    dto: ImportDraftDto,
+    adminUserId: string,
+  ): Promise<LegalPageDraftResponseDto> {
+    const page = await this.prisma.legalPage.findUnique({
+      where: { slug },
+      select: {
+        title: true,
+        description: true,
+        effectiveDate: true,
+        draftStatus: true,
+        draftTitle: true,
+        draftDescription: true,
+        draftEffectiveDate: true,
+        draftCreatedBy: true,
+      },
+    });
+
+    if (!page) {
+      throw new NotFoundException(`Legal page "${slug}" not found`);
+    }
+
+    if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
+      throw new BadRequestException(
+        'Cannot import while a draft is in review. Reject it first to continue editing.',
+      );
+    }
+
+    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
+      throw new ForbiddenException(
+        'You cannot overwrite a draft created by another admin.',
+      );
+    }
+
+    let sections: DraftSectionInputDto[];
+    try {
+      sections = parseDocumentToSections(
+        dto.content,
+        dto.format,
+      ) as DraftSectionInputDto[];
+    } catch (error) {
+      this.logger.warn(
+        `Failed to parse imported ${dto.format} document for "${slug}": ${
+          (error as Error).message
+        }`,
+      );
+      throw new BadRequestException(
+        'Could not parse the uploaded document. Please check the file and try again.',
+      );
+    }
+
+    if (sections.length === 0) {
+      throw new BadRequestException(
+        'No content could be extracted from the uploaded document.',
+      );
+    }
+
+    if (sections.length > 100) {
+      throw new BadRequestException(
+        `The document produced ${sections.length} sections, but the maximum is 100. ` +
+          'Split it into smaller files or use fewer top-level headings.',
+      );
+    }
+
+    const saveDto: SaveDraftDto = {
+      title: dto.title?.trim() || page.draftTitle || page.title,
+      description:
+        dto.description?.trim() || page.draftDescription || page.description,
+      effectiveDate:
+        dto.effectiveDate?.trim() ||
+        page.draftEffectiveDate ||
+        page.effectiveDate,
+      sections,
+      changeNote: dto.changeNote,
+    };
+
+    this.logger.log(
+      `Imported ${sections.length} section(s) from ${dto.format} into draft for "${slug}" by admin ${adminUserId}`,
+    );
+
+    return this.saveDraft(slug, saveDto, adminUserId);
+  }
+
+  /**
+   * Permanently delete a legal page and its entire version history (versions
+   * cascade). The public page for this slug will fall back to its static
+   * default afterwards. Blocked while a draft is in review so an
+   * under-review change can't be silently destroyed.
+   */
+  async deletePage(slug: string, adminUserId: string): Promise<void> {
+    const page = await this.prisma.legalPage.findUnique({
+      where: { slug },
+      select: { id: true, draftStatus: true },
+    });
+
+    if (!page) {
+      throw new NotFoundException(`Legal page "${slug}" not found`);
+    }
+
+    if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
+      throw new BadRequestException(
+        'Cannot delete a page while a draft is in review. Reject the draft first.',
+      );
+    }
+
+    await this.prisma.legalPage.delete({ where: { id: page.id } });
+
+    this.logger.log(`Legal page "${slug}" deleted by admin ${adminUserId}`);
   }
 
   async submitForReview(

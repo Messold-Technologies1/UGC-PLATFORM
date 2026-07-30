@@ -32,6 +32,7 @@ import {
   LegalPageVersionDetailResponseDto,
 } from './dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
+import { ImportDraftDto } from './dto/import-draft.dto';
 
 import { RejectDraftDto } from './dto/reject-draft.dto';
 
@@ -73,6 +74,22 @@ export class AdminLegalPagesController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<LegalPageDraftResponseDto> {
     return this.legalPagesService.saveDraft(slug, dto, req.user.id);
+  }
+
+  @Post(':slug/import')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Import an uploaded document (HTML/Markdown) into the draft, split into sections',
+  })
+  @ApiParam({ name: 'slug', example: 'privacy-policy' })
+  @ApiOkResponse({ type: LegalPageDraftResponseDto })
+  async importDraft(
+    @Param('slug') slug: string,
+    @Body() dto: ImportDraftDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<LegalPageDraftResponseDto> {
+    return this.legalPagesService.importDraft(slug, dto, req.user.id);
   }
 
   @Post(':slug/submit-review')
@@ -128,6 +145,20 @@ export class AdminLegalPagesController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     return this.legalPagesService.discardDraft(slug, req.user.id);
+  }
+
+  @Delete(':slug')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete a legal page and its entire version history',
+  })
+  @ApiParam({ name: 'slug', example: 'privacy-policy' })
+  @ApiNoContentResponse()
+  async deletePage(
+    @Param('slug') slug: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    return this.legalPagesService.deletePage(slug, req.user.id);
   }
 
   @Get(':slug/versions')

@@ -7,6 +7,7 @@ import type {
   LegalPageResponse,
   SaveDraftInput,
   CreateLegalPageInput,
+  ImportDraftInput,
   RejectDraftInput,
   LegalPageVersionListResponse,
   LegalPageVersionDetail,
@@ -81,6 +82,17 @@ export async function saveLegalPageDraft(
   return data;
 }
 
+export async function importLegalPageDraft(
+  slug: string,
+  payload: ImportDraftInput,
+): Promise<LegalPageDraftResponse> {
+  const { data } = await api.post<LegalPageDraftResponse>(
+    ENDPOINTS.ADMIN.LEGAL_PAGES.IMPORT(slug),
+    payload,
+  );
+  return data;
+}
+
 export async function submitLegalPageForReview(
   slug: string,
 ): Promise<LegalPageDraftResponse> {
@@ -112,6 +124,10 @@ export async function rejectLegalPageDraft(
 
 export async function discardLegalPageDraft(slug: string): Promise<void> {
   await api.delete(ENDPOINTS.ADMIN.LEGAL_PAGES.DRAFT(slug));
+}
+
+export async function deleteLegalPage(slug: string): Promise<void> {
+  await api.delete(ENDPOINTS.ADMIN.LEGAL_PAGES.BY_SLUG(slug));
 }
 
 export async function restoreLegalPageVersion(

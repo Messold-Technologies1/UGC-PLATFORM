@@ -226,6 +226,8 @@ export const ENDPOINTS = {
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/preview`,
       DRAFT: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/draft`,
+      IMPORT: (slug: string) =>
+        `/api/admin/legal-pages/${encodeURIComponent(slug)}/import`,
       SUBMIT_REVIEW: (slug: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/submit-review`,
       PUBLISH: (slug: string) =>

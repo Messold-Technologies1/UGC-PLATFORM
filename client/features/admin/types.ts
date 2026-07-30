@@ -397,6 +397,8 @@ export type {
   AdminLegalPageDetailResponse,
   SaveDraftInput,
   CreateLegalPageInput,
+  LegalImportFormat,
+  ImportDraftInput,
   RejectDraftInput,
   LegalPageVersionListItem,
   LegalPageVersionListResponse,

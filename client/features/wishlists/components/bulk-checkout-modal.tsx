@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { X, Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { WishlistCreator } from "@/features/wishlists/api/types";
 import type { BulkCheckoutItem } from "@/features/payments/api/create-bulk-checkout";
 import { useWishlistBulkCheckout } from "@/features/payments/hooks/use-wishlist-bulk-checkout";
+import { cn, getInitials } from "@/lib/utils";
 
 interface BulkCheckoutModalProps {
   onClose: () => void;
@@ -24,6 +26,22 @@ function inr(n: number): string {
 function packageOf(creator: WishlistCreator) {
   const pkg = creator.packages?.[0];
   return pkg && pkg.id ? pkg : null;
+}
+
+function isValidImageUrl(url?: string | null): url is string {
+  return (
+    typeof url === "string" &&
+    (url.startsWith("http://") || url.startsWith("https://"))
+  );
+}
+
+function getCreatorLocation(creator: WishlistCreator): string {
+  const parts = [
+    creator.city?.trim(),
+    creator.stateName?.trim(),
+    creator.countryName?.trim(),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "Creator";
 }
 
 export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps) {
@@ -125,6 +143,10 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
             const pkg = packageOf(creator)!;
             const row = selection[creator.id];
             const included = row?.included ?? false;
+            const location = getCreatorLocation(creator);
+            const profileUrl = isValidImageUrl(creator.profileImageUrl)
+              ? creator.profileImageUrl
+              : null;
             return (
               <div
                 key={creator.id}
@@ -141,9 +163,30 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
                       disabled={isProcessing}
                       className="mt-1 size-4"
                     />
+                    <div
+                      className={cn(
+                        "relative mt-0.5 size-10 shrink-0 overflow-hidden rounded-full",
+                        !profileUrl &&
+                          "bg-linear-to-br from-violet-500 to-pink-500",
+                      )}
+                    >
+                      {profileUrl ? (
+                        <Image
+                          src={profileUrl}
+                          alt={location}
+                          fill
+                          className="object-cover"
+                          sizes="40px"
+                        />
+                      ) : (
+                        <span className="flex size-full items-center justify-center text-xs font-bold text-white">
+                          {getInitials(location)}
+                        </span>
+                      )}
+                    </div>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-foreground">
-                        {creator.name}
+                        {location}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {pkg.name} · {pkg.deliveryDays} day

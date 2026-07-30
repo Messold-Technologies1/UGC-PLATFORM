@@ -234,6 +234,23 @@ type CheckoutSessionResult = {
   addOnsCount: number;
 };
 
+type BulkCheckoutSkippedItem = {
+  creatorId: string;
+  packageId: string;
+  reason: string;
+};
+
+type BulkCheckoutSessionResult = {
+  batchId: string;
+  razorpayOrderId: string;
+  amountPaise: number;
+  currency: string;
+  razorpayKeyId: string;
+  orderCount: number;
+  orderIds: string[];
+  skipped: BulkCheckoutSkippedItem[];
+};
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -318,18 +335,33 @@ export class OrdersService {
     return rzpOrder.id;
   }
 
-  async createCheckout(params: {
-    actorUserId: string;
-    brandProfileId?: string | null;
+  /**
+   * Validate and price a single (creator, package, add-ons) item and produce
+   * the fields to snapshot onto an Order. Pure computation + reads only — no
+   * writes. Shared by the single-order `createCheckout` and the multi-order
+   * `createBulkCheckout` so both price and validate identically. Throws
+   * NotFound/BadRequest on an invalid item.
+   */
+  private async computeOrderDraftForItem(params: {
     creatorId: string;
     packageId: string;
     addOnIds?: string[];
-  }): Promise<CheckoutSessionResult> {
-    const { brand } = await this.resolveBrandActor({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
-
+  }): Promise<{
+    pkg: Prisma.CreatorPackageGetPayload<{ include: { creator: true } }>;
+    addOnRows: CreatorAddOn[];
+    effectiveDeliveryDays: number;
+    packageAmountPaise: number;
+    addOnsAmountPaise: number;
+    addOnsTotalDecimal: Prisma.Decimal | null;
+    amountPaise: number;
+    addOnsSnapshot: Array<{
+      id: string;
+      name: string;
+      priceAmount: string;
+      description: string | null;
+      deliveryDays: number | null;
+    }>;
+  }> {
     const pkg = await this.prisma.creatorPackage.findFirst({
       where: { id: params.packageId, creatorId: params.creatorId },
       include: { creator: true },
@@ -387,7 +419,47 @@ export class OrdersService {
       description: a.description ?? null,
       deliveryDays: a.deliveryDays ?? null,
     }));
-    const sortedAddOnIds = [...addOnIdList].sort();
+
+    return {
+      pkg,
+      addOnRows,
+      effectiveDeliveryDays,
+      packageAmountPaise,
+      addOnsAmountPaise,
+      addOnsTotalDecimal,
+      amountPaise,
+      addOnsSnapshot,
+    };
+  }
+
+  async createCheckout(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    creatorId: string;
+    packageId: string;
+    addOnIds?: string[];
+  }): Promise<CheckoutSessionResult> {
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const {
+      pkg,
+      addOnRows,
+      effectiveDeliveryDays,
+      packageAmountPaise,
+      addOnsAmountPaise,
+      addOnsTotalDecimal,
+      amountPaise,
+      addOnsSnapshot,
+    } = await this.computeOrderDraftForItem({
+      creatorId: params.creatorId,
+      packageId: params.packageId,
+      addOnIds: params.addOnIds,
+    });
+
+    const sortedAddOnIds = [...addOnRows.map((a) => a.id)].sort();
 
     const pendingForCreator = await this.prisma.order.findMany({
       where: {
@@ -553,6 +625,128 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Bulk checkout: place one order per item (e.g. every creator selected from a
+   * wishlist) but collect a SINGLE payment. Each item is validated + priced
+   * independently via {@link computeOrderDraftForItem}; invalid items are
+   * skipped (returned in `skipped`), not fatal. All valid orders are created in
+   * one transaction and linked to a new OrderCheckoutBatch, which owns the one
+   * Razorpay order for the grand total. The single-order flow is unaffected.
+   */
+  async createBulkCheckout(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    items: Array<{ creatorId: string; packageId: string; addOnIds?: string[] }>;
+  }): Promise<BulkCheckoutSessionResult> {
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    type DraftForItem = Awaited<
+      ReturnType<OrdersService['computeOrderDraftForItem']>
+    >;
+    const drafts: Array<{ draft: DraftForItem }> = [];
+    const skipped: BulkCheckoutSkippedItem[] = [];
+
+    for (const item of params.items) {
+      try {
+        const draft = await this.computeOrderDraftForItem({
+          creatorId: item.creatorId,
+          packageId: item.packageId,
+          addOnIds: item.addOnIds,
+        });
+        drafts.push({ draft });
+      } catch (err) {
+        skipped.push({
+          creatorId: item.creatorId,
+          packageId: item.packageId,
+          reason: err instanceof Error ? err.message : 'Invalid item',
+        });
+      }
+    }
+
+    if (drafts.length === 0) {
+      throw new BadRequestException('No valid creators to checkout');
+    }
+
+    const currency = 'INR';
+    const totalPaise = drafts.reduce((sum, d) => sum + d.draft.amountPaise, 0);
+
+    const { batchId, orderIds } = await this.prisma.$transaction(async (tx) => {
+      const batch = await tx.orderCheckoutBatch.create({
+        data: {
+          brandId: brand.id,
+          currency,
+          expectedAmountPaise: totalPaise,
+          status: 'PENDING_PAYMENT',
+        },
+        select: { id: true },
+      });
+
+      const ids: string[] = [];
+      for (const { draft } of drafts) {
+        const order = await tx.order.create({
+          data: {
+            brandId: brand.id,
+            creatorId: draft.pkg.creatorId,
+            creatorPackageId: draft.pkg.id,
+            status: 'PENDING_PAYMENT',
+            packageNameSnapshot: draft.pkg.name,
+            deliverablesSnapshot:
+              draft.pkg.deliverables as unknown as Prisma.InputJsonValue,
+            priceAmountSnapshot: draft.pkg.priceAmount,
+            currency,
+            deliveryDaysSnapshot: draft.effectiveDeliveryDays,
+            maxRevisionsSnapshot: draft.pkg.maxRevisions,
+            addOnsSnapshot:
+              draft.addOnsSnapshot as unknown as Prisma.InputJsonValue,
+            addOnsTotalSnapshot: draft.addOnsTotalDecimal,
+            expectedAmountPaise: draft.amountPaise,
+            checkoutBatchId: batch.id,
+          },
+          select: { id: true },
+        });
+        ids.push(order.id);
+      }
+
+      return { batchId: batch.id, orderIds: ids };
+    });
+
+    // One Razorpay order for the whole cart, linked to the batch. Created after
+    // the DB transaction (external call) — mirrors the single-order flow, where
+    // an order exists briefly before its Razorpay order is attached.
+    const rzpOrder = await this.razorpay.createOrder({
+      amountPaise: totalPaise,
+      currency,
+      receipt: batchId,
+      notes: {
+        checkoutBatchId: batchId,
+        brandProfileId: brand.id,
+        kind: 'bulk',
+      },
+    });
+    await this.prisma.orderCheckoutBatch.update({
+      where: { id: batchId },
+      data: { razorpayOrderId: rzpOrder.id },
+    });
+
+    this.logger.log(
+      `bulk checkout batch=${batchId} orders=${orderIds.length} skipped=${skipped.length} totalPaise=${totalPaise}`,
+    );
+
+    return {
+      batchId,
+      razorpayOrderId: rzpOrder.id,
+      amountPaise: totalPaise,
+      currency,
+      razorpayKeyId: this.razorpay.getPublicKeyId(),
+      orderCount: orderIds.length,
+      orderIds,
+      skipped,
+    };
+  }
+
   async resumeCheckout(params: {
     actorUserId: string;
     brandProfileId?: string | null;
@@ -665,6 +859,74 @@ export class OrdersService {
       },
     });
     return order.id;
+  }
+
+  /**
+   * payment.captured for a bulk-checkout batch: mark every child order paid in
+   * one transaction and flip the batch to PAID. Returns the paid order ids (for
+   * per-order realtime fan-out) or null if the razorpayOrderId isn't a batch,
+   * the batch is already settled, or the captured amount doesn't match the
+   * batch total. The single-order path ({@link markPaidFromWebhook}) is tried
+   * first by the webhook; this handles the case where that returns null.
+   */
+  async markBatchPaidFromWebhook(params: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    paidAt: Date;
+    amountPaise?: number;
+  }): Promise<string[] | null> {
+    const batch = await this.prisma.orderCheckoutBatch.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: { id: true, status: true, expectedAmountPaise: true },
+    });
+    if (!batch) return null;
+
+    // idempotent: if already settled, do nothing
+    if (batch.status !== 'PENDING_PAYMENT') return null;
+
+    if (
+      batch.expectedAmountPaise > 0 &&
+      params.amountPaise != null &&
+      batch.expectedAmountPaise !== params.amountPaise
+    ) {
+      this.logger.warn(
+        `payment.captured amount mismatch batch=${batch.id} expectedPaise=${batch.expectedAmountPaise} gotPaise=${params.amountPaise} — not marking paid`,
+      );
+      return null;
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: { checkoutBatchId: batch.id, status: 'PENDING_PAYMENT' },
+      select: { id: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const o of orders) {
+        await this.updateOrder(
+          {
+            where: { id: o.id },
+            data: {
+              status: 'BRIEF_SUBMISSION_PENDING',
+              paidAt: params.paidAt,
+              // Copy the shared payment id onto each order so per-order records
+              // (and the existing refund lookup) still resolve.
+              razorpayPaymentId: params.razorpayPaymentId,
+            },
+          },
+          tx,
+        );
+      }
+      await tx.orderCheckoutBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: 'PAID',
+          paidAt: params.paidAt,
+          razorpayPaymentId: params.razorpayPaymentId,
+        },
+      });
+    });
+
+    return orders.map((o) => o.id);
   }
 
   /**

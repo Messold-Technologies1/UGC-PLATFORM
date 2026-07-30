@@ -530,6 +530,11 @@ model Order {
   lastChatMessageType         OrderChatMessageType?
   lastChatMessageText         String?
 
+  /// Set when this order was placed as part of a multi-creator bulk checkout
+  /// (one payment, many orders). Null for ordinary single-creator checkouts,
+  /// which keep their own razorpayOrderId 1:1 as before.
+  checkoutBatchId String? @db.Uuid
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -537,6 +542,7 @@ model Order {
   creator        CreatorProfile       @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   package        CreatorPackage?      @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
   briefRef       Brief?               @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  checkoutBatch  OrderCheckoutBatch?  @relation(fields: [checkoutBatchId], references: [id], onDelete: SetNull)
   disputes       OrderDispute[]
   revisions      OrderRevision[]
   deliveries     OrderDelivery[]
@@ -551,6 +557,38 @@ model Order {
   @@index([status, createdAt])
   @@index([deliveryGraceDeadlineAt])
   @@index([briefId])
+  @@index([checkoutBatchId])
+}
+
+enum OrderCheckoutBatchStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+/// A single payment that fans out into multiple orders (bulk checkout from the
+/// wishlist). Holds the ONE Razorpay order for the whole cart; each child Order
+/// links back via `checkoutBatchId` and leaves its own `razorpayOrderId` null.
+/// Single-creator checkouts do not use this — they remain 1 Order ↔ 1 Razorpay
+/// order via `Order.razorpayOrderId`.
+model OrderCheckoutBatch {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  brandId             String                   @db.Uuid
+  status              OrderCheckoutBatchStatus @default(PENDING_PAYMENT)
+  currency            String                   @default("INR")
+  /// Grand total (sum of every child order's expectedAmountPaise); the amount
+  /// the single Razorpay order is created for and verified against on capture.
+  expectedAmountPaise Int
+  razorpayOrderId     String?                  @unique
+  razorpayPaymentId   String?
+  paidAt              DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([brandId, createdAt])
 }
 
 enum BriefShootLocationKind {
@@ -909,6 +947,7 @@ model BrandProfile {
   agency          Agency?                     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   agencyLastActiveFor Agency?                 @relation("AgencyLastActiveBrand")
   orders          Order[]
+  checkoutBatches OrderCheckoutBatch[]
   briefs          Brief[]
   wishlists       BrandWishlist[]
   brandCategories BrandProfileBrandCategory[]

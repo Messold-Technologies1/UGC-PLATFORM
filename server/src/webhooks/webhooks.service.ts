@@ -259,6 +259,25 @@ export class WebhooksService {
           audience: 'brand_and_creator',
           meta: { razorpayPaymentId: entity.id },
         });
+      } else {
+        // Not a single order — this may be a bulk-checkout batch (one payment,
+        // many orders). Mark every child order paid and fan out realtime.
+        const batchOrderIds = await this.orders.markBatchPaidFromWebhook({
+          razorpayOrderId: entity.order_id,
+          razorpayPaymentId: entity.id,
+          paidAt: new Date(entity.created_at * 1000),
+          amountPaise: paymentAmountPaise(entity),
+        });
+        if (batchOrderIds) {
+          for (const batchOrderId of batchOrderIds) {
+            await this.orderRealtime.emitOrderPayment({
+              orderId: batchOrderId,
+              kind: 'captured',
+              audience: 'brand_and_creator',
+              meta: { razorpayPaymentId: entity.id },
+            });
+          }
+        }
       }
     } else if (body.event === 'payment.failed') {
       const entity = body.payload?.payment?.entity;

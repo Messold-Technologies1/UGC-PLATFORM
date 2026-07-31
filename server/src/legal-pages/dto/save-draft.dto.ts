@@ -61,15 +61,14 @@ export class SaveDraftDto {
   @ApiProperty({
     example:
       "Read GoCollab's Privacy Policy to learn how we collect, use, and protect your personal information.",
+    description: 'Optional; may be an empty string.',
   })
   @IsString()
-  @IsNotEmpty()
   @MaxLength(2000)
   description!: string;
 
-  @ApiProperty({ example: 'June 16, 2026' })
+  @ApiProperty({ example: 'June 16, 2026', description: 'Optional; may be an empty string.' })
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
   effectiveDate!: string;
 

@@ -118,8 +118,9 @@ export class LegalPagesService {
       data: {
         slug: dto.slug,
         title: dto.title,
-        description: dto.description,
-        effectiveDate: dto.effectiveDate,
+        // Description and effective date are optional at creation.
+        description: dto.description ?? '',
+        effectiveDate: dto.effectiveDate ?? '',
         sections: [],
         updatedBy: adminUserId,
       },
@@ -227,17 +228,6 @@ export class LegalPagesService {
       throw new NotFoundException(`Legal page "${slug}" not found`);
     }
 
-    if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
-      throw new BadRequestException(
-        'Cannot edit a draft that is currently in review. Reject it first to continue editing.',
-      );
-    }
-
-    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
-      throw new ForbiddenException(
-        'You cannot edit a draft created by another admin.',
-      );
-    }
 
     this.validateUniqueSectionAnchors(dto.sections);
 
@@ -294,18 +284,6 @@ export class LegalPagesService {
 
     if (!page) {
       throw new NotFoundException(`Legal page "${slug}" not found`);
-    }
-
-    if (page.draftStatus === LegalDraftStatus.IN_REVIEW) {
-      throw new BadRequestException(
-        'Cannot import while a draft is in review. Reject it first to continue editing.',
-      );
-    }
-
-    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
-      throw new ForbiddenException(
-        'You cannot overwrite a draft created by another admin.',
-      );
     }
 
     let sections: DraftSectionInputDto[];
@@ -451,17 +429,8 @@ export class LegalPagesService {
       throw new BadRequestException('No draft exists for this page');
     }
 
-    if (page.draftStatus !== LegalDraftStatus.IN_REVIEW) {
-      throw new BadRequestException(
-        'Draft must be in "IN_REVIEW" status to publish. Submit it for review first.',
-      );
-    }
-
-    if (page.draftCreatedBy === adminUserId) {
-      throw new BadRequestException(
-        'You cannot publish a draft that you proposed. Another admin must review and publish it.',
-      );
-    }
+    // Simplified workflow: any admin can publish their draft directly — no
+    // review step and no second-admin requirement.
 
     const draftSections =
       page.draftSections as unknown as DraftSectionSnapshot[];
@@ -592,12 +561,6 @@ export class LegalPagesService {
 
     if (!page.draftStatus) {
       throw new BadRequestException('No draft exists for this page');
-    }
-
-    if (page.draftCreatedBy && page.draftCreatedBy !== adminUserId) {
-      throw new ForbiddenException(
-        'You cannot discard a draft created by another admin.',
-      );
     }
 
     await this.prisma.legalPage.update({

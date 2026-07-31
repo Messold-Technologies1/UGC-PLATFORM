@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -31,18 +32,22 @@ export class CreateLegalPageDto {
   @MaxLength(500)
   title!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example:
       "Read GoCollab's Refund Policy to understand how refunds are handled.",
+    description: 'Optional. Defaults to empty and can be added later.',
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(2000)
-  description!: string;
+  description?: string;
 
-  @ApiProperty({ example: 'June 16, 2026' })
+  @ApiPropertyOptional({
+    example: 'June 16, 2026',
+    description: 'Optional. Defaults to empty and can be added later.',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  effectiveDate!: string;
+  effectiveDate?: string;
 }

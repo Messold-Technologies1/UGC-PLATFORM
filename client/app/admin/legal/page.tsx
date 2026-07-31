@@ -170,11 +170,14 @@ export default function AdminLegalPagesList() {
                       <span>/{page.slug}</span>
                       <span>•</span>
                       <span>{page.sectionCount} sections</span>
-                      <span>•</span>
-                      <span>
-                        Effective:{" "}
-                        {format(new Date(page.effectiveDate), "MMM d, yyyy")}
-                      </span>
+                      {page.effectiveDate ? (
+                        <>
+                          <span>•</span>
+                          {/* Free-text label — shown as entered, not re-parsed
+                              as a date (it may be empty). */}
+                          <span>Effective: {page.effectiveDate}</span>
+                        </>
+                      ) : null}
                       <span>•</span>
                       <span>
                         Last Updated:{" "}

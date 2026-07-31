@@ -20,18 +20,28 @@ export function LegalPageHeader({
       <hr className="mt-8 border-border" />
 
       <div className="mt-6 space-y-4 text-sm leading-relaxed text-muted-foreground">
-        <p>
-          <span className="font-medium text-foreground">Effective Date:</span>{" "}
-          {effectiveDate}
-          {lastUpdated && lastUpdated !== effectiveDate && (
-            <>
-              {" "}
-              · <span className="font-medium text-foreground">Last Updated:</span>{" "}
-              {lastUpdated}
-            </>
-          )}
-        </p>
-        <p className="max-w-3xl">{description}</p>
+        {(effectiveDate || lastUpdated) && (
+          <p>
+            {effectiveDate && (
+              <>
+                <span className="font-medium text-foreground">
+                  Effective Date:
+                </span>{" "}
+                {effectiveDate}
+              </>
+            )}
+            {lastUpdated && lastUpdated !== effectiveDate && (
+              <>
+                {effectiveDate ? " · " : ""}
+                <span className="font-medium text-foreground">
+                  Last Updated:
+                </span>{" "}
+                {lastUpdated}
+              </>
+            )}
+          </p>
+        )}
+        {description && <p className="max-w-3xl">{description}</p>}
       </div>
     </header>
   );

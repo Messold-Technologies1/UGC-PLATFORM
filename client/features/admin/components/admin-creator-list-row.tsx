@@ -128,28 +128,25 @@ function PortfolioThumbnails({
           );
         }
 
-        const mediaUrl = video.thumbnailUrl || video.videoUrl;
-        const isVideo =
-          mediaUrl.toLowerCase().includes(".mp4") ||
-          mediaUrl.toLowerCase().includes(".webm") ||
-          mediaUrl.toLowerCase().includes(".mov");
+        const hasVideo = Boolean(video.videoUrl?.trim());
 
         return (
           <div
             key={index}
             className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border-2 border-background bg-muted"
           >
-            {isVideo ? (
+            {hasVideo ? (
               <video
                 src={video.videoUrl}
                 className="h-full w-full object-cover"
                 muted
                 playsInline
+                preload="metadata"
                 poster={video.thumbnailUrl || undefined}
               />
-            ) : (
-              <Image src={mediaUrl} alt="Portfolio" fill className="object-cover" />
-            )}
+            ) : video.thumbnailUrl ? (
+              <Image src={video.thumbnailUrl} alt="Portfolio" fill className="object-cover" />
+            ) : null}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
               <Play className="size-3 fill-white text-white opacity-80" />
             </div>

@@ -116,11 +116,7 @@ function PortfolioGrid({
   return (
     <div className="grid grid-cols-2 gap-3">
       {videos.map((video, idx) => {
-        const mediaUrl = video.thumbnailUrl || video.videoUrl;
-        const isVideo =
-          mediaUrl.toLowerCase().includes(".mp4") ||
-          mediaUrl.toLowerCase().includes(".webm") ||
-          mediaUrl.toLowerCase().includes(".mov");
+        const hasVideo = Boolean(video.videoUrl?.trim());
 
         return (
           <div
@@ -128,24 +124,25 @@ function PortfolioGrid({
             className="space-y-2"
           >
             <div className="relative aspect-4/5 overflow-hidden rounded-xl border border-border/20 bg-card">
-              {isVideo ? (
+              {hasVideo ? (
                 <video
                   src={video.videoUrl}
                   className="h-full w-full object-cover"
                   controls
                   muted
                   playsInline
+                  preload="metadata"
                   poster={video.thumbnailUrl || undefined}
                 />
-              ) : (
+              ) : video.thumbnailUrl ? (
                 <Image
                   alt={`Portfolio ${idx + 1}`}
                   fill
                   className="object-cover"
-                  src={mediaUrl}
+                  src={video.thumbnailUrl}
                   unoptimized
                 />
-              )}
+              ) : null}
             </div>
             {video.industryLabel ? (
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">

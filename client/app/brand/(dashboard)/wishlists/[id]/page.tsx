@@ -252,6 +252,19 @@ export default function WishlistDetailPage() {
               )}
 
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto pb-0.5 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
+                {/* Checkout creators */}
+                {wishlist.creators.some((c) => c.packages?.[0]?.id) && (
+                  <Button
+                    size="sm"
+                    className="h-9 gap-1.5 rounded-xl px-3 bg-primary text-primary-foreground hover:bg-primary/90"
+                    onClick={() => setCheckoutOpen(true)}
+                    data-tour="brand-wishlists-checkout"
+                  >
+                    <ShoppingBag size={15} />
+                    Checkout
+                  </Button>
+                )}
+
                 {/* Add creators */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -424,19 +437,6 @@ export default function WishlistDetailPage() {
               <span className="opacity-40">·</span>
               <span>created {timeAgo(wishlist.createdAt)}</span>
             </p>
-
-            {wishlist.creators.some((c) => c.packages?.[0]?.id) && (
-              <div className="mb-5">
-                <Button
-                  onClick={() => setCheckoutOpen(true)}
-                  className="gap-2"
-                  data-tour="brand-wishlists-checkout"
-                >
-                  <ShoppingBag className="size-4" />
-                  Checkout creators
-                </Button>
-              </div>
-            )}
 
             <hr className="border-border/40 mb-6" />
 

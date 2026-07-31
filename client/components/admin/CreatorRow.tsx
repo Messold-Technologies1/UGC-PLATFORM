@@ -111,33 +111,30 @@ export default function CreatorRow({
                   </div>
                 );
               }
-              const mediaUrl = video.thumbnailUrl || video.videoUrl;
-              const isVideo =
-                mediaUrl.toLowerCase().includes(".mp4") ||
-                mediaUrl.toLowerCase().includes(".webm") ||
-                mediaUrl.toLowerCase().includes(".mov");
+              const hasVideo = Boolean(video.videoUrl?.trim());
 
               return (
                 <div
                   key={i}
                   className="relative h-8 w-8 rounded-lg border-2 border-background bg-muted overflow-hidden flex items-center justify-center shrink-0 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)] transition-transform hover:scale-110 hover:z-10 z-0 group/thumb"
                 >
-                  {isVideo ? (
+                  {hasVideo ? (
                     <video
                       src={video.videoUrl}
                       className="w-full h-full object-cover"
                       muted
                       playsInline
+                      preload="metadata"
                       poster={video.thumbnailUrl || undefined}
                     />
-                  ) : (
+                  ) : video.thumbnailUrl ? (
                     <Image
-                      src={mediaUrl}
+                      src={video.thumbnailUrl}
                       alt="Portfolio video"
                       fill
                       className="object-cover"
                     />
-                  )}
+                  ) : null}
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                     <Play className="size-3 text-white fill-white opacity-80" />
                   </div>

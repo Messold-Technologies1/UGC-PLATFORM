@@ -9,9 +9,7 @@ import {
   Trash2,
   Plus,
   Eye,
-  CheckCircle2,
   XCircle,
-  AlertCircle,
   History,
   Check,
   GripVertical,
@@ -42,14 +40,11 @@ import { useAdminLegalPageDetailQuery } from "@/features/admin/hooks/use-admin-l
 import {
   useSaveLegalPageDraftMutation,
   useImportLegalPageDraftMutation,
-  useSubmitLegalPageForReviewMutation,
   usePublishLegalPageDraftMutation,
-  useRejectLegalPageDraftMutation,
   useDiscardLegalPageDraftMutation,
 } from "@/features/admin/hooks/use-admin-legal-page-mutations";
 import { useAdminLegalPageVersionsQuery } from "@/features/admin/hooks/use-admin-legal-pages-query";
 import type { DraftSectionData } from "@/features/admin/types";
-import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { LegalVersionPreviewModal } from "@/components/admin/legal-version-preview-modal";
@@ -78,12 +73,8 @@ export default function AdminLegalPageEditor() {
 
   const saveDraftMutation = useSaveLegalPageDraftMutation(slug);
   const importMutation = useImportLegalPageDraftMutation(slug);
-  const submitReviewMutation = useSubmitLegalPageForReviewMutation(slug);
   const publishMutation = usePublishLegalPageDraftMutation(slug);
-  const rejectMutation = useRejectLegalPageDraftMutation(slug);
   const discardMutation = useDiscardLegalPageDraftMutation(slug);
-
-  const { data: me } = useMeQuery();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -104,9 +95,20 @@ export default function AdminLegalPageEditor() {
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Only re-seed local editor state when the underlying page/draft actually
+  // changes (create, import, save, publish) — NOT on every background refetch.
+  // Without this, a background refetch would clobber in-progress local edits
+  // (e.g. a section you just removed would reappear in the list and TOC).
+  const initSigRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!page) return;
+
+    const sig = page.draft
+      ? `draft:${page.id}:${page.draft.updatedAt}`
+      : `live:${page.id}:${page.updatedAt}`;
+    if (initSigRef.current === sig) return;
+    initSigRef.current = sig;
 
     if (page.draft) {
       setTitle(page.draft.title);
@@ -211,20 +213,12 @@ export default function AdminLegalPageEditor() {
   }
 
   const isSaving = saveDraftMutation.isPending;
-  const isSubmitting = submitReviewMutation.isPending;
   const isImporting = importMutation.isPending;
+  const isPublishing = publishMutation.isPending;
   const anyPending =
-    isSaving ||
-    isSubmitting ||
-    isImporting ||
-    publishMutation.isPending ||
-    rejectMutation.isPending;
+    isSaving || isImporting || isPublishing || discardMutation.isPending;
 
-  const draftStatus = page.draft?.status;
-  const isReviewMode = draftStatus === "IN_REVIEW";
-  const isMyDraft = page.draft?.createdBy === me?.id;
-  const isReadonlyDraft = Boolean(draftStatus === "DRAFT" && page.draft?.createdBy && !isMyDraft);
-  const isReadonlyMode = isReviewMode || isReadonlyDraft;
+  const hasDraft = Boolean(page.draft);
 
   const handlePreview = () => {
     const previewData = {
@@ -342,18 +336,18 @@ export default function AdminLegalPageEditor() {
     });
   };
 
-  const handleSubmitReview = async () => {
-    if (isDirty) {
-      const sectionsToSave = sections.map(({ _id, ...rest }) => rest);
-      await saveDraftMutation.mutateAsync({
-        title,
-        description,
-        effectiveDate,
-        sections: sectionsToSave,
-        changeNote,
-      });
-    }
-    await submitReviewMutation.mutateAsync();
+  // "Update" = publish live. Save the current editor content as a draft first
+  // (so exactly what's on screen goes live), then publish it — no review step.
+  const handleUpdate = async () => {
+    const sectionsToSave = sections.map(({ _id, ...rest }) => rest);
+    await saveDraftMutation.mutateAsync({
+      title,
+      description,
+      effectiveDate,
+      sections: sectionsToSave,
+      changeNote,
+    });
+    await publishMutation.mutateAsync();
   };
 
   return (
@@ -392,96 +386,33 @@ export default function AdminLegalPageEditor() {
         </div>
       </div>
 
-      {draftStatus === "IN_REVIEW" && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start sm:items-center gap-4">
-          <AlertCircle className="size-5 text-amber-500 mt-0.5 sm:mt-0" />
-          <div className="flex-1">
-            <h4 className="font-semibold text-amber-600 dark:text-amber-400">
-              Draft is in review
-            </h4>
-            <p className="text-sm text-amber-600/80 dark:text-amber-400/80">
-              This draft has been submitted for review.
-              {page.draft?.createdBy && (
-                <span className="block mt-1 font-mono text-xs opacity-80" title="Proposer Admin ID">
-                  Proposed by: {page.draft.createdByEmail || page.draft.createdBy}
-                </span>
-              )}
-              {page.draft?.restoredFromVersionId && (
-                <span className="inline-block mt-2 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold border border-amber-500/30">
-                  Restored from past version
-                </span>
-              )}
-              {page.draft?.reviewNote && (
-                <span className="block mt-1 italic">
-                  Note: {page.draft.reviewNote}
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => rejectMutation.mutateAsync({})}
-              disabled={anyPending}
-              className="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-500 text-xs font-bold uppercase tracking-wider hover:bg-red-500/10 transition-colors disabled:opacity-50"
-            >
-              Reject
-            </button>
-            <div className="flex flex-col items-end">
-              <button
-                onClick={() => publishMutation.mutateAsync()}
-                disabled={anyPending || isMyDraft}
-                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider hover:brightness-110 transition-colors disabled:opacity-50 flex items-center gap-1"
-                title={isMyDraft ? "You cannot publish a draft you proposed. Another admin must review it." : "Publish this draft live"}
-              >
-                <Check className="size-4" />
-                Publish Live
-              </button>
-              {isMyDraft && (
-                <span className="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-1 mr-1">
-                  Requires another admin to review
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {draftStatus === "DRAFT" && (
+      {hasDraft && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <History className="size-5 text-blue-500" />
             <div>
               <h4 className="font-semibold text-blue-600 dark:text-blue-400">
-                Unpublished Draft
+                Unpublished changes
               </h4>
               <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1 max-w-md">
-                {isReadonlyDraft ? (
-                  <>This draft is currently being edited by <strong>{page.draft?.createdByEmail || "another admin"}</strong>. You cannot modify or discard it.</>
-                ) : (
-                  <>You can make changes to this draft in the editor below. When you're ready, click <strong>Submit for Review</strong> at the bottom of the page.</>
-                )}
+                You have a saved draft that isn&apos;t live yet. Click{" "}
+                <strong>Update</strong> at the bottom to publish it, or{" "}
+                <strong>Save</strong> to keep editing later.
               </p>
-              {page.draft?.reviewNote && (
-                <p className="text-sm text-blue-600/80 dark:text-blue-400/80 italic mt-2">
-                  Returned for revision: {page.draft.reviewNote}
-                </p>
-              )}
             </div>
           </div>
-            <button
-              onClick={() => {
-                if (
-                  window.confirm("Are you sure you want to discard this draft?")
-                ) {
-                  discardMutation.mutateAsync();
-                }
-              }}
-              disabled={anyPending || isReadonlyDraft}
-              className="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-500 text-xs font-bold uppercase tracking-wider hover:bg-red-500/10 transition-colors disabled:opacity-50 flex items-center gap-1"
-            >
-              <XCircle className="size-3.5" />
-              Discard
-            </button>
+          <button
+            onClick={() => {
+              if (window.confirm("Discard this draft and its unsaved changes?")) {
+                discardMutation.mutateAsync();
+              }
+            }}
+            disabled={anyPending}
+            className="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-500 text-xs font-bold uppercase tracking-wider hover:bg-red-500/10 transition-colors disabled:opacity-50 flex items-center gap-1"
+          >
+            <XCircle className="size-3.5" />
+            Discard
+          </button>
         </div>
       )}
 
@@ -503,7 +434,7 @@ export default function AdminLegalPageEditor() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                disabled={isReadonlyMode || anyPending}
+                disabled={anyPending}
                 className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 disabled:opacity-60"
               />
             </div>
@@ -515,7 +446,7 @@ export default function AdminLegalPageEditor() {
                 type="text"
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
-                disabled={isReadonlyMode || anyPending}
+                disabled={anyPending}
                 placeholder="e.g. June 16, 2026"
                 className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 disabled:opacity-60"
               />
@@ -527,7 +458,7 @@ export default function AdminLegalPageEditor() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                disabled={isReadonlyMode || anyPending}
+                disabled={anyPending}
                 rows={2}
                 className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 resize-y disabled:opacity-60"
               />
@@ -553,7 +484,7 @@ export default function AdminLegalPageEditor() {
               />
               <button
                 onClick={handleImportClick}
-                disabled={isReadonlyMode || anyPending}
+                disabled={anyPending}
                 title="Import a Word (.docx), Markdown, or HTML file — its headings become sections"
                 className="px-3 py-1.5 rounded-lg border border-border bg-background text-muted-foreground text-xs font-bold uppercase tracking-wider hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 flex items-center gap-1"
               >
@@ -562,7 +493,7 @@ export default function AdminLegalPageEditor() {
               </button>
               <button
                 onClick={addSection}
-                disabled={isReadonlyMode || anyPending}
+                disabled={anyPending}
                 className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center gap-1"
               >
                 <Plus className="size-3.5" />
@@ -592,7 +523,7 @@ export default function AdminLegalPageEditor() {
                             removeSection(index);
                           }
                         }}
-                        disabled={isReadonlyMode || anyPending}
+                        disabled={anyPending}
                         className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-md disabled:opacity-30"
                       >
                         <Trash2 className="size-3.5" />
@@ -618,7 +549,7 @@ export default function AdminLegalPageEditor() {
                             updateSection(index, { title: e.target.value })
                           }
                           placeholder="e.g. Data Collection"
-                          disabled={isReadonlyMode || anyPending}
+                          disabled={anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 disabled:opacity-60"
                         />
                       </div>
@@ -633,7 +564,7 @@ export default function AdminLegalPageEditor() {
                             updateSection(index, { tocLabel: e.target.value })
                           }
                           placeholder="Short name for sidebar"
-                          disabled={isReadonlyMode || anyPending}
+                          disabled={anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 disabled:opacity-60"
                         />
                       </div>
@@ -651,7 +582,7 @@ export default function AdminLegalPageEditor() {
                                 .replace(/[^a-z0-9-]/g, "-"),
                             })
                           }
-                          disabled={isReadonlyMode || anyPending}
+                          disabled={anyPending}
                           className="w-full glass-input rounded-lg px-3 py-1.5 text-sm bg-background/50 font-mono disabled:opacity-60"
                         />
                       </div>
@@ -666,7 +597,7 @@ export default function AdminLegalPageEditor() {
                         onChange={(html) =>
                           updateSection(index, { content: html })
                         }
-                        disabled={isReadonlyMode || anyPending}
+                        disabled={anyPending}
                       />
                     </div>
                   </div>
@@ -778,7 +709,7 @@ export default function AdminLegalPageEditor() {
                 placeholder="What changed? (Optional commit note)"
                 value={changeNote}
                 onChange={(e) => setChangeNote(e.target.value)}
-                disabled={isReadonlyMode || anyPending}
+                disabled={anyPending}
                 className="w-full glass-input rounded-lg px-4 py-2 text-sm bg-background/50 disabled:opacity-60"
               />
             </div>
@@ -786,23 +717,30 @@ export default function AdminLegalPageEditor() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSaveDraft}
-                disabled={isReadonlyMode || anyPending || !isDirty}
+                disabled={anyPending || !isDirty}
                 className="px-6 py-2.5 rounded-xl border border-border bg-card text-foreground text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50"
               >
                 {isSaving ? (
                   "Saving..."
-                ) : !isDirty && page?.draft ? (
+                ) : !isDirty && hasDraft ? (
                   <span className="flex items-center gap-1.5"><Check className="size-4" /> Saved</span>
                 ) : (
-                  "Save Draft"
+                  "Save"
                 )}
               </button>
               <button
-                onClick={handleSubmitReview}
-                disabled={isReadonlyMode || anyPending || (!isDirty && !page?.draft)}
-                className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 shadow-sm"
+                onClick={handleUpdate}
+                disabled={anyPending || (!isDirty && !hasDraft)}
+                className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5"
               >
-                {isSubmitting ? "Submitting..." : "Submit for Review"}
+                {isPublishing || isSaving ? (
+                  "Updating..."
+                ) : (
+                  <>
+                    <Check className="size-4" />
+                    Update
+                  </>
+                )}
               </button>
             </div>
           </div>

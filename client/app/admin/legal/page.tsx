@@ -55,11 +55,8 @@ export default function AdminLegalPagesList() {
     if (!slugEdited) setNewSlug(slugify(value));
   };
 
-  const canCreate =
-    newTitle.trim() !== "" &&
-    newSlug.trim() !== "" &&
-    newDescription.trim() !== "" &&
-    newEffectiveDate.trim() !== "";
+  // Only title + slug are required; description and effective date are optional.
+  const canCreate = newTitle.trim() !== "" && newSlug.trim() !== "";
 
   const handleCreate = async () => {
     if (!canCreate) return;
@@ -323,7 +320,10 @@ export default function AdminLegalPagesList() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Description (SEO &amp; Subtitle)
+                  Description (SEO &amp; Subtitle){" "}
+                  <span className="normal-case text-muted-foreground/60">
+                    — optional
+                  </span>
                 </label>
                 <textarea
                   value={newDescription}
@@ -336,7 +336,10 @@ export default function AdminLegalPagesList() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Effective Date
+                  Effective Date{" "}
+                  <span className="normal-case text-muted-foreground/60">
+                    — optional
+                  </span>
                 </label>
                 <input
                   type="text"

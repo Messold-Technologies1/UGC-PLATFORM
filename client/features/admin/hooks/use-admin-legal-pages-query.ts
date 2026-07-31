@@ -8,8 +8,14 @@ import {
 
 // ─── Query Keys ──────────────────────────────────────────────────
 
-export const adminLegalPagesQueryKey = () =>
-  ["admin", "legal-pages"] as const;
+export const adminLegalPagesQueryKey = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) =>
+  params
+    ? (["admin", "legal-pages", params] as const)
+    : (["admin", "legal-pages"] as const);
 
 export const adminLegalPageDetailQueryKey = (slug: string) =>
   ["admin", "legal-pages", slug] as const;
@@ -22,11 +28,16 @@ export const adminLegalPageVersionQueryKey = (slug: string, versionId: string) =
 
 // ─── Hooks ───────────────────────────────────────────────────────
 
-export function useAdminLegalPagesQuery() {
+export function useAdminLegalPagesQuery(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) {
   return useQuery({
-    queryKey: adminLegalPagesQueryKey(),
-    queryFn: fetchAdminLegalPages,
+    queryKey: adminLegalPagesQueryKey(params),
+    queryFn: () => fetchAdminLegalPages(params),
     staleTime: 30_000,
+    placeholderData: (previous) => previous,
   });
 }
 

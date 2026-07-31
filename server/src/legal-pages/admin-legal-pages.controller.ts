@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -30,6 +31,7 @@ import {
   LegalPageDraftResponseDto,
   LegalPageVersionListResponseDto,
   LegalPageVersionDetailResponseDto,
+  ListLegalPagesQueryDto,
 } from './dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { ImportDraftDto } from './dto/import-draft.dto';
@@ -45,10 +47,12 @@ export class AdminLegalPagesController {
   constructor(private readonly legalPagesService: LegalPagesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all legal pages with draft status' })
+  @ApiOperation({ summary: 'List legal pages with draft status (search + pagination)' })
   @ApiOkResponse({ type: AdminLegalPageListResponseDto })
-  async listPages(): Promise<AdminLegalPageListResponseDto> {
-    return this.legalPagesService.getAllPages();
+  async listPages(
+    @Query() query: ListLegalPagesQueryDto,
+  ): Promise<AdminLegalPageListResponseDto> {
+    return this.legalPagesService.getAllPages(query);
   }
 
   @Post()

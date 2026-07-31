@@ -162,19 +162,43 @@ export class LegalPagesService {
     };
   }
 
-  async getAllPages(): Promise<AdminLegalPageListResponseDto> {
-    const pages = await this.prisma.legalPage.findMany({
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        effectiveDate: true,
-        updatedAt: true,
-        sections: true,
-        draftStatus: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+  async getAllPages(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}): Promise<AdminLegalPageListResponseDto> {
+    const page = params.page ?? 1;
+    const limit = Math.min(params.limit ?? 10, 50);
+    const skip = (page - 1) * limit;
+    const search = params.search?.trim();
+
+    const where: Prisma.LegalPageWhereInput = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { slug: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [total, pages] = await this.prisma.$transaction([
+      this.prisma.legalPage.count({ where }),
+      this.prisma.legalPage.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          effectiveDate: true,
+          updatedAt: true,
+          sections: true,
+          draftStatus: true,
+        },
+        orderBy: { createdAt: 'asc' },
+        skip,
+        take: limit,
+      }),
+    ]);
 
     return {
       pages: pages.map((p) => ({
@@ -186,6 +210,9 @@ export class LegalPagesService {
         updatedAt: p.updatedAt,
         draftStatus: p.draftStatus,
       })),
+      total,
+      page,
+      limit,
     };
   }
 

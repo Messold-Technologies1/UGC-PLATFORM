@@ -9,6 +9,7 @@ export {
 export { SaveDraftDto, DraftSectionInputDto } from './save-draft.dto';
 export { ImportDraftDto, LegalImportFormatDto } from './import-draft.dto';
 export { CreateLegalPageDto } from './create-legal-page.dto';
+export { ListLegalPagesQueryDto } from './list-legal-pages-query.dto';
 
 export { RejectDraftDto } from './reject-draft.dto';
 export {

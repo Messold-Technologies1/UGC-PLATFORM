@@ -93,6 +93,15 @@ export class AdminLegalPageListItemDto {
 export class AdminLegalPageListResponseDto {
   @ApiProperty({ type: [AdminLegalPageListItemDto] })
   pages!: AdminLegalPageListItemDto[];
+
+  @ApiProperty({ example: 12 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 10 })
+  limit!: number;
 }
 
 export class AdminLegalPageDetailResponseDto {

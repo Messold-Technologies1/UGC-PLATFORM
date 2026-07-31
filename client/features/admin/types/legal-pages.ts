@@ -59,6 +59,9 @@ export interface AdminLegalPageListItem {
 
 export interface AdminLegalPageListResponse {
   pages: AdminLegalPageListItem[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface AdminLegalPageDetailResponse {

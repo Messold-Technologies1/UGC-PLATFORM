@@ -15,9 +15,20 @@ import type {
 
 // ─── Queries ─────────────────────────────────────────────────────
 
-export async function fetchAdminLegalPages(): Promise<AdminLegalPageListResponse> {
+export async function fetchAdminLegalPages(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<AdminLegalPageListResponse> {
   const { data } = await api.get<AdminLegalPageListResponse>(
     ENDPOINTS.ADMIN.LEGAL_PAGES.LIST,
+    {
+      params: {
+        page: params?.page,
+        limit: params?.limit,
+        search: params?.search?.trim() || undefined,
+      },
+    },
   );
   return data;
 }

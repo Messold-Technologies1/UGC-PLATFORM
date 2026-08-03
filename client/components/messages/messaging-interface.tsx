@@ -128,13 +128,15 @@ function mapBrandChat(
   item: BrandChatListItemDto,
   viewerUserId?: string,
 ): OrderConversation {
-  const name = item.creator.displayName || "Creator";
+  // The brand never sees the creator's real name — show a generic label and
+  // their profile picture instead.
+  const name = "Creator";
 
   return {
     id: item.orderId,
     name,
     avatarText: initials(name),
-    avatarUrl: null,
+    avatarUrl: item.creator.profileImageUrl ?? null,
     avatarColor: colorForId(item.creator.id),
     status: item.status,
     subtitle: `Order #${shortOrderId(item.orderId)}`,
@@ -151,7 +153,8 @@ function mapBrandChat(
     },
     creator: {
       id: item.creator.id,
-      displayName: item.creator.displayName,
+      displayName: name,
+      profileImageUrl: item.creator.profileImageUrl,
       city: item.creator.city,
     },
     isChatLocked:

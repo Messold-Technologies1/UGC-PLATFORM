@@ -1705,8 +1705,11 @@ export class OrdersService {
     deliveryGraceDeadlineAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    refundedAt?: Date | null;
+    disputes?: Array<{ openedAt: Date; resolvedAt: Date | null }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
+    const latestDispute = order.disputes?.[0];
     return {
       id: order.id,
       status: order.status,
@@ -1724,6 +1727,9 @@ export class OrdersService {
       deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      refundedAt: order.refundedAt ?? null,
+      disputeOpenedAt: latestDispute?.openedAt ?? null,
+      disputeResolvedAt: latestDispute?.resolvedAt ?? null,
     };
   }
 
@@ -2287,9 +2293,15 @@ export class OrdersService {
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
           deliveryDueAt: true,
-        deliveryGraceDeadlineAt: true,
+          deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
+          refundedAt: true,
+          disputes: {
+            orderBy: { openedAt: 'desc' },
+            take: 1,
+            select: { openedAt: true, resolvedAt: true },
+          },
           creator: {
             select: {
               id: true,
@@ -2360,9 +2372,15 @@ export class OrdersService {
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
           deliveryDueAt: true,
-        deliveryGraceDeadlineAt: true,
+          deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
+          refundedAt: true,
+          disputes: {
+            orderBy: { openedAt: 'desc' },
+            take: 1,
+            select: { openedAt: true, resolvedAt: true },
+          },
           brand: {
             select: orderBrandSnapshotSelect,
           },
@@ -2408,9 +2426,15 @@ export class OrdersService {
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
           deliveryDueAt: true,
-        deliveryGraceDeadlineAt: true,
+          deliveryGraceDeadlineAt: true,
           createdAt: true,
           updatedAt: true,
+          refundedAt: true,
+          disputes: {
+            orderBy: { openedAt: 'desc' },
+            take: 1,
+            select: { openedAt: true, resolvedAt: true },
+          },
           creator: {
             select: {
               id: true,

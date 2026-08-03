@@ -35,6 +35,11 @@ export interface OrderListSummary {
   createdAt: string;
   updatedAt: string;
   expectedAmountPaise?: number;
+  refundedAt?: string | null;
+  /** When the latest dispute was opened — use for "Disputed on". */
+  disputeOpenedAt?: string | null;
+  /** When the latest dispute was resolved — use for "Rejected on". */
+  disputeResolvedAt?: string | null;
 }
 
 export interface OrderAddOnSnapshot {
@@ -73,7 +78,6 @@ export interface OrderDetailsPublic extends OrderListSummary {
   revisionCount: number;
   currentRevision?: OrderCurrentRevision;
   dispute?: OrderActiveDispute;
-  refundedAt?: string | null;
 }
 
 export interface CreatorRatingReviewBrandSnapshot {

@@ -105,6 +105,10 @@ export function getDeliveryDeadlineCardMeta(
     status?: string;
     acceptedAt?: string | null;
     updatedAt?: string | null;
+    refundedAt?: string | null;
+    disputeOpenedAt?: string | null;
+    disputeResolvedAt?: string | null;
+    dispute?: { openedAt?: string | null; resolvedAt?: string | null } | null;
   },
 ): { value: string; label: string; showBadge: boolean } {
   const timeline = getDeliveryTimeline(order);
@@ -124,7 +128,10 @@ export function getDeliveryDeadlineCardMeta(
 
   if (order.status === "DISPUTED") {
     return {
-      value: formatDate(order.updatedAt) ?? "—",
+      value:
+        formatDate(order.dispute?.openedAt) ??
+        formatDate(order.disputeOpenedAt) ??
+        "—",
       label: "Disputed on",
       showBadge: false,
     };
@@ -132,7 +139,10 @@ export function getDeliveryDeadlineCardMeta(
 
   if (order.status === "REJECTED") {
     return {
-      value: formatDate(order.updatedAt) ?? "—",
+      value:
+        formatDate(order.dispute?.resolvedAt) ??
+        formatDate(order.disputeResolvedAt) ??
+        "—",
       label: "Rejected on",
       showBadge: false,
     };
@@ -140,7 +150,7 @@ export function getDeliveryDeadlineCardMeta(
 
   if (order.status === "REFUNDED") {
     return {
-      value: formatDate(order.updatedAt) ?? "—",
+      value: formatDate(order.refundedAt) ?? "—",
       label: "Refunded on",
       showBadge: false,
     };

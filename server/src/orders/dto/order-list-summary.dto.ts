@@ -60,4 +60,20 @@ export class OrderListSummaryDto {
 
   @ApiProperty()
   updatedAt!: Date;
+
+  @ApiPropertyOptional({
+    description: 'When the order was refunded (REFUNDED status)',
+  })
+  refundedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'When the latest dispute was opened (for Disputed on)',
+  })
+  disputeOpenedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description:
+      'When the latest dispute was resolved (for Rejected on after dispute resolution)',
+  })
+  disputeResolvedAt?: Date | null;
 }

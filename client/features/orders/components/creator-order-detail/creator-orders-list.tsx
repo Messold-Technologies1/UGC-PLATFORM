@@ -223,6 +223,7 @@ function CreatorOrdersListInner() {
                     activeTab === "revisions" ||
                     activeTab === "delivered" ||
                     activeTab === "completed" ||
+                    activeTab === "dispute" ||
                     activeTab === "cancelled"),
                 );
                 const displayId = `#${order.id.substring(0, 5).toUpperCase()}`;

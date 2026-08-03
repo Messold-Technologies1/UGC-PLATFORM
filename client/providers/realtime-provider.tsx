@@ -281,7 +281,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };
-  }, [isAuthenticated, user, queryClient, addNotification]);
+    // Bind the socket lifecycle to the *identity* of the session, not the
+    // `user` object reference. Re-running this effect tears the socket down
+    // (disconnectSocket removes all listeners), which would silently break
+    // long-lived chat subscriptions such as the dispute group chat. queryClient
+    // and addNotification are stable, so keying on user id keeps the socket
+    // connected for the whole session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
 
   return <Ctx.Provider value={{ connected: true }}>{children}</Ctx.Provider>;
 }

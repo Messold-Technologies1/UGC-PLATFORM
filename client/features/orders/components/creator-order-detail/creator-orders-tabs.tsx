@@ -27,15 +27,20 @@ export const TAB_DEFINITIONS = [
     label: "Delivered", 
     statuses: ["DELIVERED", "REVISION_SUBMITTED"] 
   },
-  { 
-    id: "completed", 
-    label: "Completed", 
-    statuses: ["ACCEPTED", "CREATOR_PAYMENT_DONE"] 
+  {
+    id: "completed",
+    label: "Completed",
+    statuses: ["ACCEPTED", "CREATOR_PAYMENT_DONE"]
   },
-  { 
-    id: "cancelled", 
-    label: "Cancelled", 
-    statuses: ["REJECTED", "REFUNDED", "DISPUTED"] 
+  {
+    id: "dispute",
+    label: "Dispute",
+    statuses: ["DISPUTED"],
+  },
+  {
+    id: "cancelled",
+    label: "Cancelled",
+    statuses: ["REJECTED", "REFUNDED"]
   },
 ];
 

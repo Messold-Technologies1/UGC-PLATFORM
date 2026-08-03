@@ -332,6 +332,31 @@ function ActiveOrderConversation({
       roleLabel: "Creator",
     },
   ];
+  // Any sender that is neither the brand nor the creator is platform Support
+  // (an admin who joined while the order was disputed). Surface them as a
+  // labelled participant so the thread reads as the brand ↔ creator ↔ support
+  // group chat — and it stays that way after the dispute is resolved and the
+  // order returns to its previous (or cancelled) state.
+  const knownParticipantIds = new Set([
+    state.brandUserId,
+    state.creatorUserId,
+  ]);
+  const supportSenderIds = Array.from(
+    new Set(
+      rawMessages
+        .map((message) => message.senderUserId)
+        .filter((id) => id && !knownParticipantIds.has(id)),
+    ),
+  );
+  for (const supportId of supportSenderIds) {
+    participants.push({
+      id: supportId,
+      name: "Support",
+      roleLabel: "Support",
+    });
+  }
+  const hasSupport = supportSenderIds.length > 0;
+
   const otherParticipant = role === "brand" ? participants[1] : participants[0];
 
   const messages: OutgoingChatMessage[] = rawMessages.map((message) => {
@@ -415,6 +440,7 @@ function ActiveOrderConversation({
         sendMessageMutation.error?.message ||
         sendVoiceMessageMutation.error?.message
       }
+      showSenderNames={hasSupport}
     />
   );
 }

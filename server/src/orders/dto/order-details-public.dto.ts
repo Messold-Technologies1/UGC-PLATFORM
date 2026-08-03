@@ -17,6 +17,18 @@ export class OrderActiveDisputeDto {
 
   @ApiProperty()
   openedAt!: Date;
+
+  @ApiPropertyOptional({
+    description:
+      "Admin's resolution note, present once the dispute has been resolved/closed",
+    example: 'Both parties agreed to continue; creator to re-deliver by Friday.',
+  })
+  resolutionNotes?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'When the dispute was resolved/closed (null while still OPEN)',
+  })
+  resolvedAt?: Date | null;
 }
 
 export class OrderCurrentRevisionDto {

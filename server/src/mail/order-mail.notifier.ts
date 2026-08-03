@@ -263,6 +263,82 @@ export class OrderMailNotifier {
     });
   }
 
+  /**
+   * A dispute was opened by one party. Notify BOTH the brand and the creator
+   * so each side knows a dispute exists, who raised it, and why.
+   */
+  notifyDisputeOpened(
+    orderId: string,
+    params: { openedBy: 'BRAND' | 'CREATOR'; reason?: string | null },
+  ): void {
+    void this.run('dispute_opened', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const raisedByLabel = params.openedBy === 'BRAND' ? 'Brand' : 'Creator';
+      const base: Record<string, string> = {
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        raisedByLabel,
+      };
+      if (params.reason?.trim()) {
+        base.reason = params.reason.trim();
+      }
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_BRAND,
+        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+      );
+
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_CREATOR,
+        { ...base, actionUrl: this.creatorOrderUrl(order.id) },
+      );
+    });
+  }
+
+  /**
+   * Admin resolved/closed a dispute (no-refund path). Notify BOTH parties with
+   * the outcome and the admin's resolution note.
+   */
+  notifyDisputeResolved(
+    orderId: string,
+    params: { outcome: 'CONTINUED'; resolutionNotes?: string | null },
+  ): void {
+    void this.run('dispute_resolved', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const outcomeMessage =
+        params.outcome === 'CONTINUED'
+          ? 'The order will continue from the stage it was in before the dispute.'
+          : 'The dispute has been closed.';
+
+      const base: Record<string, string> = {
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        outcomeMessage,
+      };
+      if (params.resolutionNotes?.trim()) {
+        base.resolutionNotes = params.resolutionNotes.trim();
+      }
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_BRAND,
+        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+      );
+
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_CREATOR,
+        { ...base, actionUrl: this.creatorOrderUrl(order.id) },
+      );
+    });
+  }
+
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
     try {
       await fn();

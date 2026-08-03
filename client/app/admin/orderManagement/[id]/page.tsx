@@ -630,6 +630,45 @@ export default function AdminOrderDetailsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative space-y-3 p-6">
+                {order.dispute && order.status === "DISPUTED" ? (
+                  <div className="mb-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 dark:bg-amber-500/5">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+                        Dispute raised by{" "}
+                        {order.dispute.openedBy === "BRAND"
+                          ? "Brand"
+                          : "Creator"}
+                      </p>
+                    </div>
+                    {order.dispute.reason ? (
+                      <p className="mt-2 text-sm italic leading-relaxed text-foreground/80">
+                        &ldquo;{order.dispute.reason}&rdquo;
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {order.dispute &&
+                order.status !== "DISPUTED" &&
+                order.dispute.status !== "OPEN" ? (
+                  <div className="mb-1 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 dark:bg-emerald-500/5">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                        Dispute resolved (raised by{" "}
+                        {order.dispute.openedBy === "BRAND"
+                          ? "Brand"
+                          : "Creator"}
+                        )
+                      </p>
+                    </div>
+                    {order.dispute.resolutionNotes ? (
+                      <p className="mt-2 text-sm italic leading-relaxed text-foreground/80">
+                        &ldquo;{order.dispute.resolutionNotes}&rdquo;
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"

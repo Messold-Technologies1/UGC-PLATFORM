@@ -459,6 +459,7 @@ export function CreatorOrderRevisionPanel({
       }).format(expectedAmount)}
       payoutLabelDisplay="Est. Payout"
       steps={steps}
+      dispute={detailsData?.order?.dispute}
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
         <RevisionNotesCard

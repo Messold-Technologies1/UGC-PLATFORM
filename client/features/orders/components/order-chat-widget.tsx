@@ -308,6 +308,7 @@ export function OrderChatWidget({
         sendMessageMutation.error?.message ||
         sendVoiceMessageMutation.error?.message
       }
+      showSenderNames={supportSenderIds.size > 0}
     />
   );
 }

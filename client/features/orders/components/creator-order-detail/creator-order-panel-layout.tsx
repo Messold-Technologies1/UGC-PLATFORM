@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
+import { DisputeResolvedBanner } from "../dispute-resolved-banner";
+import type { OrderActiveDispute } from "../../api/types";
 
 interface CreatorOrderPanelLayoutProps {
   selectedOrderId: string;
@@ -22,6 +24,7 @@ interface CreatorOrderPanelLayoutProps {
   expectedAmount?: number;
   steps: StepDef[];
   viewingStepId?: string;
+  dispute?: OrderActiveDispute | null;
   children: ReactNode;
 }
 
@@ -37,6 +40,7 @@ export function CreatorOrderPanelLayout({
   expectedAmount,
   steps,
   viewingStepId,
+  dispute,
   children,
 }: CreatorOrderPanelLayoutProps) {
 
@@ -133,6 +137,10 @@ export function CreatorOrderPanelLayout({
         <div className="mb-8 px-1">
           <OrderProgressStepper steps={steps} viewingStepId={viewingStepId} />
         </div>
+
+        {dispute ? (
+          <DisputeResolvedBanner dispute={dispute} className="mb-6" />
+        ) : null}
 
         {isLoading ? (
           <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">

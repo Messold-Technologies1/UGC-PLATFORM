@@ -49,12 +49,11 @@ export interface GoLiveSnapshot {
   hasPackage: boolean;
   publicVideoCount: number;
   /**
-   * Whether the creator has accepted the Creator Quality Guidelines. This is a
-   * client-only consent gate (acceptance is not persisted server-side, mirroring
-   * how registration handles terms acceptance), so it is intentionally not part
-   * of the server completeness mirror.
+   * Whether the creator has accepted all required go-live policies
+   * (AI Content, Usage Rights, Payout, Creator Guidelines). Client gate;
+   * server also requires `acceptedGoLivePolicies: true` on Go Live.
    */
-  guidelinesAccepted: boolean;
+  policiesAccepted: boolean;
 }
 
 function blank(value: string | null | undefined): boolean {
@@ -91,8 +90,8 @@ export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
     missing.push(`At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`);
   }
 
-  if (!snapshot.guidelinesAccepted) {
-    missing.push("Creator Quality Guidelines acceptance");
+  if (!snapshot.policiesAccepted) {
+    missing.push("Policy acceptance (AI Content, Usage Rights, Payout, Creator Guidelines)");
   }
 
   return missing;

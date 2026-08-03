@@ -6,6 +6,12 @@ import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
 import { GoLiveBanner } from "./go-live-banner";
+import {
+  GoLivePolicyAcceptance,
+  areAllGoLivePoliciesAccepted,
+  createEmptyGoLivePolicyAcceptance,
+  type GoLivePolicyAcceptanceState,
+} from "./go-live-policy-acceptance";
 import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import {
   computeGoLiveMissing,
@@ -46,9 +52,7 @@ import {
   toTitleCaseLabel,
 } from "@/lib/string-lists";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
@@ -414,13 +418,15 @@ function CreatorProfileUpdateFormContent({
   const [onLocationAvailable, setOnLocationAvailable] = useState(
     () => initialProfile?.onLocationAvailable ?? false,
   );
-  // Client-only consent gate for the Creator Quality Guidelines. Acceptance is
-  // not persisted server-side; a live profile (completeProfile) or an admin
-  // editing on the creator's behalf is treated as already accepted so the gate
-  // never blocks them.
-  const [guidelinesAccepted, setGuidelinesAccepted] = useState<boolean>(
-    () => Boolean(initialProfile?.completeProfile) || Boolean(adminMode),
-  );
+  // Client consent gate for go-live policies. Acceptance is not persisted;
+  // a live profile (completeProfile) or an admin editing on the creator's
+  // behalf is treated as already accepted so the gate never blocks them.
+  const [goLivePolicies, setGoLivePolicies] =
+    useState<GoLivePolicyAcceptanceState>(() =>
+      createEmptyGoLivePolicyAcceptance(
+        Boolean(initialProfile?.completeProfile) || Boolean(adminMode),
+      ),
+    );
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeSection, setActiveSection] = useState(NAV_ITEMS[0].id);
 
@@ -508,7 +514,7 @@ function CreatorProfileUpdateFormContent({
         .length,
       hasPackage,
       publicVideoCount,
-      guidelinesAccepted,
+      policiesAccepted: areAllGoLivePoliciesAccepted(goLivePolicies),
     };
   }, [
     facets.selectedFacets,
@@ -526,7 +532,7 @@ function CreatorProfileUpdateFormContent({
     gender,
     dateOfBirth,
     shippingAddress,
-    guidelinesAccepted,
+    goLivePolicies,
   ]);
 
   const goLiveMissing = useMemo(
@@ -808,7 +814,13 @@ function CreatorProfileUpdateFormContent({
         goLive ? "go-live" : completeProfile ? "save-changes" : "save-draft",
       );
       submitCreatorProfileMutation.mutate({
-        payload: goLive ? { ...finalPayload, goLive: true } : finalPayload,
+        payload: goLive
+          ? {
+              ...finalPayload,
+              goLive: true,
+              acceptedGoLivePolicies: true,
+            }
+          : finalPayload,
       });
     },
     [
@@ -1938,35 +1950,12 @@ function CreatorProfileUpdateFormContent({
               />
             )}
 
-            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-4 sm:px-5">
-              <Checkbox
-                id="creator-quality-guidelines"
-                checked={guidelinesAccepted}
-                onCheckedChange={(checked) =>
-                  setGuidelinesAccepted(checked === true)
-                }
-                className="mt-0.5 shrink-0"
-              />
-              <label
-                htmlFor="creator-quality-guidelines"
-                className="min-w-0 flex-1 text-sm leading-snug text-muted-foreground"
-              >
-                I have read and agree to follow the{" "}
-                <Link
-                  href="/legal/guidelines"
-                  target="_blank"
-                  className="font-semibold text-foreground underline underline-offset-2"
-                >
-                  Creator Quality Guidelines
-                </Link>{" "}
-                when creating and delivering content.{" "}
-                {!completeProfile ? (
-                  <span className="font-medium text-foreground">
-                    Required to go live.
-                  </span>
-                ) : null}
-              </label>
-            </div>
+            <GoLivePolicyAcceptance
+              value={goLivePolicies}
+              onChange={setGoLivePolicies}
+              showRequiredHint={!completeProfile}
+              disabled={completeProfile || Boolean(adminMode)}
+            />
           </SectionCard>
         </motion.div>
       </>

@@ -39,6 +39,10 @@ export type UpdateCreatorProfilePayload = {
   addOns?: CreatorAddOnCreatePayload[];
   /** True only on an explicit "Go Live"; omitted for draft saves. */
   goLive?: boolean;
+  /**
+   * Required when goLive is true — creator accepted all go-live policies.
+   */
+  acceptedGoLivePolicies?: boolean;
 };
 
 export async function updateCreatorProfile(

@@ -73,6 +73,9 @@ const brandSignupSchema = z
     termsAccepted: z.boolean().refine((val) => val === true, {
       message: "You must accept the terms",
     }),
+    guidelinesAccepted: z.boolean().refine((val) => val === true, {
+      message: "You must accept the Brand Guidelines",
+    }),
   })
   .refine(
     (data) => {
@@ -102,6 +105,7 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
   productType: "Product type",
   categories: "At least one category",
   termsAccepted: "Terms acceptance",
+  guidelinesAccepted: "Brand Guidelines acceptance",
 };
 
 function getBrandSignupBlockers(
@@ -145,7 +149,7 @@ const STEP_FIELDS: (keyof BrandSignupData)[][] = [
   ["contactFullName", "contactEmail", "contactPhone"],
   ["brandName"],
   ["productType", "categories", "otherCategoryLabel"],
-  ["website", "instagramUrl", "termsAccepted"],
+  ["website", "instagramUrl", "termsAccepted", "guidelinesAccepted"],
 ];
 const LAST_STEP = STEP_TITLES.length - 1;
 
@@ -269,6 +273,7 @@ export function BrandRegisterForm() {
       categories: [],
       otherCategoryLabel: "",
       termsAccepted: false,
+      guidelinesAccepted: false,
     },
   });
 
@@ -1217,6 +1222,40 @@ export function BrandRegisterForm() {
             {form.formState.errors.termsAccepted && (
               <p className="text-xs text-red-500">
                 {form.formState.errors.termsAccepted.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="brand-guidelines"
+            checked={form.watch("guidelinesAccepted")}
+            onCheckedChange={(checked) =>
+              form.setValue("guidelinesAccepted", checked === true, {
+                shouldValidate: true,
+              })
+            }
+            className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
+          />
+          <div className="min-w-0 flex-1 space-y-1">
+            <Label
+              htmlFor="brand-guidelines"
+              className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
+            >
+              I have read and agree to the{" "}
+              <Link
+                href="/legal/brand-guidelines"
+                target="_blank"
+                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+              >
+                Brand Guidelines
+              </Link>
+              .
+            </Label>
+            {form.formState.errors.guidelinesAccepted && (
+              <p className="text-xs text-red-500">
+                {form.formState.errors.guidelinesAccepted.message}
               </p>
             )}
           </div>

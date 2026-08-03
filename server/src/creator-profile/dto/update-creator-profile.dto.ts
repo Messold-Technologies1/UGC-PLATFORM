@@ -7,6 +7,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayUnique,
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -19,6 +20,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -169,6 +171,23 @@ export class UpdateCreatorProfileDto {
   @IsOptional()
   @IsBoolean()
   goLive?: boolean;
+
+  /**
+   * Required when `goLive` is true. Creator must accept AI Content, Usage Rights,
+   * Payout, and Creator Guidelines policies before going live.
+   */
+  @ApiPropertyOptional({
+    description:
+      'Must be true when goLive is true. Confirms acceptance of AI Content, Usage Rights, Payout, and Creator Guidelines policies.',
+    example: true,
+  })
+  @ValidateIf((o: UpdateCreatorProfileDto) => o.goLive === true)
+  @IsBoolean()
+  @Equals(true, {
+    message:
+      'You must accept the AI Content, Usage Rights, Payout, and Creator Guidelines policies to go live.',
+  })
+  acceptedGoLivePolicies?: boolean;
 
   @ApiPropertyOptional({
     type: [CreatorFacetSelectionInputDto],

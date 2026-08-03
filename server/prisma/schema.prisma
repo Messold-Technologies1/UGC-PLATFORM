@@ -20,6 +20,19 @@ enum AuthProvider {
   GOOGLE
 }
 
+enum SocialPlatform {
+  INSTAGRAM
+  YOUTUBE
+  REDDIT
+}
+
+enum SocialConnectionStatus {
+  ACTIVE // token valid, syncing normally
+  EXPIRED // token expired / refresh failed — needs reconnect
+  REVOKED // user disconnected or revoked access on the platform
+  ERROR // repeated sync failures; left connected for retry/diagnosis
+}
+
 enum EmailSuppressionReason {
   HARD_BOUNCE
   COMPLAINT
@@ -71,6 +84,11 @@ enum OrderDisputeStatus {
 enum OrderDisputeOpenedBy {
   BRAND
   CREATOR
+}
+
+enum ContactMessageStatus {
+  PENDING
+  READ
 }
 
 enum BrandCategory {
@@ -182,12 +200,30 @@ model User {
   sentChatMessages       OrderChatMessage[]
   orderChatReadStates    OrderChatReadState[]
   passwordResetTokens    PasswordResetToken[]
+  contactMessagesRead    ContactMessage[]     @relation("ContactMessageReadBy")
 
   @@index([status])
   @@index([deletedAt])
   @@index([primaryRoleId])
   @@index([brandAccessRevokedAt])
   @@index([phoneOtpLastAttemptAt])
+}
+
+model ContactMessage {
+  id        String               @id @default(uuid()) @db.Uuid
+  name      String
+  email     String
+  role      String
+  subject   String
+  message   String
+  createdAt DateTime             @default(now())
+  status    ContactMessageStatus @default(PENDING)
+  readById  String?              @db.Uuid
+
+  readBy User? @relation("ContactMessageReadBy", fields: [readById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 model AuthAccount {
@@ -351,6 +387,7 @@ model CreatorProfile {
   ratingReviews       CreatorRatingReview[]
   wishlistEntries     BrandWishlistCreator[]
   unavailability      CreatorUnavailability?
+  socialConnections   SocialConnection[]
 
   @@index([city])
   @@index([countryName])
@@ -364,12 +401,13 @@ model CreatorProfile {
   @@index([completeProfile, createdAt])
   @@index([createdAt])
   // Matches the browse-list hot path: WHERE isListed = true ORDER BY createdAt DESC.
-  @@index([isListed, createdAt])
-  // Trigram GIN indexes on displayName/city/stateName/countryName/bio (for the
-  // free-text `contains`/ILIKE search in buildCreatorListSearchWhere) are added
-  // via raw SQL in migration 20260714153600_creator_list_perf_indexes — Prisma's
-  // declarative @@index API has no way to specify the gin_trgm_ops operator
-  // class a plain-text GIN index needs, so they're intentionally not declared here.
+  @@index([isListed, createdAt(sort: Desc)])
+  // Trigram GIN indexes for free-text contains/ILIKE search (migration 20260714153600).
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "CreatorProfile_displayName_trgm_idx")
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "CreatorProfile_city_trgm_idx")
+  @@index([stateName(ops: raw("gin_trgm_ops"))], type: Gin, map: "CreatorProfile_stateName_trgm_idx")
+  @@index([countryName(ops: raw("gin_trgm_ops"))], type: Gin, map: "CreatorProfile_countryName_trgm_idx")
+  @@index([bio(ops: raw("gin_trgm_ops"))], type: Gin, map: "CreatorProfile_bio_trgm_idx")
 }
 
 /// Canonical Indian states for AI-search location resolution. Names mirror the
@@ -885,9 +923,7 @@ model CreatorRestriction {
 
   @@unique([creatorId, restriction])
   @@index([restriction])
-  // Trigram GIN index on restriction (for buildRestrictionRowMatch's ILIKE
-  // search) added via raw SQL in migration 20260714153600_creator_list_perf_indexes;
-  // see the note on CreatorProfile above.
+  @@index([restriction(ops: raw("gin_trgm_ops"))], type: Gin, map: "CreatorRestriction_restriction_trgm_idx")
 }
 
 model CreatorRestrictionSuggestion {
@@ -1157,6 +1193,91 @@ model EmailSuppression {
   createdAt DateTime               @default(now())
 
   @@index([reason])
+}
+
+/// A creator's linked external account used as a *data source* for audience
+/// metrics (Instagram now; YouTube/Reddit later). Distinct from AuthAccount,
+/// which is sign-in identity. Holds the OAuth tokens (encrypted at rest via the
+/// app-level crypto util) plus a small set of denormalized "latest" values for
+/// quick profile display without touching the snapshot tables.
+model SocialConnection {
+  id                String                 @id @default(uuid()) @db.Uuid
+  creatorProfileId  String                 @db.Uuid
+  platform          SocialPlatform
+  /// Platform's stable account id (IG user id / YT channel id / Reddit id).
+  providerAccountId String
+  username          String?
+  /// e.g. BUSINESS / CREATOR / PERSONAL when the platform reports it.
+  accountType       String?
+  /// Encrypted (AES-256-GCM). Never returned to clients.
+  accessToken       String
+  /// Encrypted. Null for platforms with non-refreshable long-lived tokens (IG).
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  scopes            String[]
+  status            SocialConnectionStatus @default(ACTIVE)
+
+  /// Denormalized "latest" values, overwritten each sync — this row is the
+  /// single source of truth for a connection's current numbers (no per-day rows).
+  followersCount   Int?
+  mediaCount       Int?
+  /// De-duplicated reach over the last 30 days (Instagram `total_value`).
+  reach30d         Int?
+  /// Views over the last 30 days.
+  views30d         Int?
+  /// Profile views over the last 30 days.
+  profileViews30d  Int?
+  /// When the 30-day metrics above were last refreshed.
+  metricsUpdatedAt DateTime?
+
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  connectedAt    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  creator  CreatorProfile          @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  audience SocialAudienceSnapshot?
+
+  /// One platform account maps to a single creator.
+  @@unique([platform, providerAccountId])
+  /// One connection per platform per creator.
+  @@unique([creatorProfileId, platform])
+  @@index([status])
+  @@index([creatorProfileId])
+  @@index([tokenExpiresAt])
+}
+
+/// An account's *audience demographics* — one row per connection, overwritten
+/// each sync. Instagram `follower_demographics` (period=lifetime) per breakdown;
+/// requires >=100 followers, otherwise the maps stay null. Full distributions
+/// are stored as JSON exactly as the platform returns them — "top 5 cities",
+/// "top countries", age/gender splits are derived at read time so nothing is
+/// lost and the cutoff can change without a re-fetch.
+model SocialAudienceSnapshot {
+  id               String         @id @default(uuid()) @db.Uuid
+  connectionId     String         @unique @db.Uuid
+  creatorProfileId String         @db.Uuid
+  platform         SocialPlatform
+  /// "As of" date of this demographics snapshot (overwritten each sync).
+  snapshotDate     DateTime       @db.Date
+
+  /// Followers at snapshot time (context for interpreting the distributions).
+  followerCount Int?
+
+  ageBreakdown     Json? // { "18-24": 1200, "25-34": 3400, ... }
+  genderBreakdown  Json? // { "F": 5000, "M": 3000, "U": 200 }
+  cityBreakdown    Json? // { "Mumbai, Maharashtra": 800, ... }
+  countryBreakdown Json? // { "IN": 9000, "US": 500, ... }
+
+  /// Untouched API payload for audit / future breakdowns.
+  raw         Json?
+  collectedAt DateTime @default(now())
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([creatorProfileId, platform])
 }
 
 // ─── Legal Pages (Dynamic, Admin-Editable) ─────────────────────────

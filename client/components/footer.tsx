@@ -125,8 +125,24 @@ export const Footer = memo(function Footer() {
                 { label: "Terms of Service", href: "/legal/terms" },
                 { label: "Cookie Policy", href: "/legal/cookie" },
                 {
-                  label: "Creator Quality Guidelines",
+                  label: "Creator Guidelines",
                   href: "/legal/guidelines",
+                },
+                {
+                  label: "Brand Guidelines",
+                  href: "/legal/brand-guidelines",
+                },
+                {
+                  label: "AI Content Policy",
+                  href: "/legal/ai-content-policy",
+                },
+                {
+                  label: "Usage Rights Policy",
+                  href: "/legal/usage-rights-policy",
+                },
+                {
+                  label: "Payout Policy",
+                  href: "/legal/payout-policy",
                 },
                 {
                   label: "Refund & Cancellation Policy",

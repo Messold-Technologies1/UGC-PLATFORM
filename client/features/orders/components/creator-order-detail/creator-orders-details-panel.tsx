@@ -17,6 +17,7 @@ import { CreatorOrderRevisionPanel } from "./creator-orders-revision-panel";
 import { CreatorOrderDeliveredPanel } from "./creator-orders-delivered-panel";
 import { CreatorOrderCompletedPanel } from "./creator-orders-completed-panel";
 import { CreatorOrderCancelledPanel } from "./creator-orders-cancelled-panel";
+import { CreatorOrderDisputePanel } from "./creator-orders-dispute-panel";
 
 const DATE_FMT: Intl.DateTimeFormatOptions = {
   day: "2-digit",
@@ -243,10 +244,25 @@ export function CreatorOrdersDetailsPanel({
   const REVISION_STATUSES = ["REVISION_REQUESTED"];
   const DELIVERED_STATUSES = ["DELIVERED", "REVISION_SUBMITTED"];
   const COMPLETED_STATUSES = ["ACCEPTED", "CREATOR_PAYMENT_DONE"];
-  const CANCELLED_STATUSES = ["REJECTED", "REFUNDED", "DISPUTED"];
+  const CANCELLED_STATUSES = ["REJECTED", "REFUNDED"];
   const isOrderCompleted = COMPLETED_STATUSES.includes(orderStatus);
 
   if (activeTab !== "all") {
+    if (activeTab === "dispute" || effectiveStatus === "DISPUTED") {
+      return (
+        <CreatorOrderDisputePanel
+          selectedOrderId={selectedOrderId}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+          briefData={briefData}
+          isLoading={isLoadingRightPanel}
+          onClose={onClose}
+          previewStepId={previewStepId}
+          onStepClick={setPreviewStepId}
+        />
+      );
+    }
+
     if (
       activeTab === "revisions" ||
       REVISION_STATUSES.includes(effectiveStatus)

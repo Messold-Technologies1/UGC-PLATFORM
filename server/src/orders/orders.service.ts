@@ -1826,23 +1826,30 @@ export class OrdersService {
   }
 
   /**
-   * Load the currently open dispute for an order (if any) so detail views can
-   * surface who raised it, the reason, and offer a withdrawal to the opener.
+   * Load the latest dispute for an order (if any) so detail views can surface
+   * who raised it, the reason, and — once resolved — the admin's resolution
+   * note. While a dispute is OPEN this is the active dispute (with a withdrawal
+   * offered to the opener); after resolution it carries the resolution note so
+   * a "Dispute resolved" banner can persist across every later order stage.
    */
-  private async loadActiveDispute(orderId: string): Promise<{
+  private async loadLatestDispute(orderId: string): Promise<{
     status: OrderDisputeStatus;
     openedBy: OrderDisputeOpenedBy;
     reason: string;
     openedAt: Date;
+    resolutionNotes: string | null;
+    resolvedAt: Date | null;
   } | null> {
     const dispute = await this.prisma.orderDispute.findFirst({
-      where: { orderId, status: 'OPEN' },
+      where: { orderId },
       orderBy: { openedAt: 'desc' },
       select: {
         status: true,
         openedBy: true,
         reason: true,
         openedAt: true,
+        resolutionNotes: true,
+        resolvedAt: true,
       },
     });
     return dispute ?? null;
@@ -1938,10 +1945,11 @@ export class OrdersService {
       }
     }
 
-    if (order.status === 'DISPUTED') {
-      const dispute = await this.loadActiveDispute(order.id);
-      if (dispute) mappedOrder.dispute = dispute;
-    }
+    // Surface the latest dispute whether it's still OPEN (active banner +
+    // withdrawal) or resolved (persistent "Dispute resolved" note across the
+    // restored order stage).
+    const dispute = await this.loadLatestDispute(order.id);
+    if (dispute) mappedOrder.dispute = dispute;
 
     return {
       order: mappedOrder,
@@ -2040,10 +2048,11 @@ export class OrdersService {
       }
     }
 
-    if (order.status === 'DISPUTED') {
-      const dispute = await this.loadActiveDispute(order.id);
-      if (dispute) mappedOrder.dispute = dispute;
-    }
+    // Surface the latest dispute whether it's still OPEN (active banner +
+    // withdrawal) or resolved (persistent "Dispute resolved" note across the
+    // restored order stage).
+    const dispute = await this.loadLatestDispute(order.id);
+    if (dispute) mappedOrder.dispute = dispute;
 
     return {
       order: mappedOrder,
@@ -2222,8 +2231,15 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
 
     const { creator, brand, ...orderFields } = order;
+    const mappedOrder = this.mapOrderDetailsAdmin(orderFields);
+
+    // Surface the latest dispute so admins can see which party raised it, the
+    // reason, and (once resolved) the resolution note.
+    const dispute = await this.loadLatestDispute(order.id);
+    if (dispute) mappedOrder.dispute = dispute;
+
     return {
-      order: this.mapOrderDetailsAdmin(orderFields),
+      order: mappedOrder,
       creator: {
         id: creator.id,
         displayName: creator.displayName,
@@ -2657,6 +2673,12 @@ export class OrdersService {
         tx,
       );
     });
+
+    // Notify both parties that a dispute has been opened.
+    this.orderMail.notifyDisputeOpened(order.id, {
+      openedBy: params.openedBy,
+      reason: params.reason,
+    });
   }
 
   /**
@@ -2756,6 +2778,12 @@ export class OrdersService {
         },
       });
       await this.restoreOrderFromDispute(tx, order.id, order.preDisputeStatus);
+    });
+
+    // Notify both parties that the dispute was resolved and the order continues.
+    this.orderMail.notifyDisputeResolved(order.id, {
+      outcome: 'CONTINUED',
+      resolutionNotes: params.resolutionNotes,
     });
   }
 

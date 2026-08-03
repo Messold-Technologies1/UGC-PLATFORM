@@ -14,6 +14,10 @@ export enum EmailTemplateKey {
   ORDER_REJECTED_FOR_BRAND = 'order-rejected-for-brand',
   ORDER_REJECTED_FOR_CREATOR = 'order-rejected-for-creator',
   ORDER_REFUNDED_FOR_BRAND = 'order-refunded-for-brand',
+  ORDER_DISPUTE_OPENED_FOR_BRAND = 'order-dispute-opened-for-brand',
+  ORDER_DISPUTE_OPENED_FOR_CREATOR = 'order-dispute-opened-for-creator',
+  ORDER_DISPUTE_RESOLVED_FOR_BRAND = 'order-dispute-resolved-for-brand',
+  ORDER_DISPUTE_RESOLVED_FOR_CREATOR = 'order-dispute-resolved-for-creator',
   PASSWORD_RESET = 'password-reset',
 }
 

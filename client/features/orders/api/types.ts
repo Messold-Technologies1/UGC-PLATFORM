@@ -57,6 +57,8 @@ export interface OrderActiveDispute {
   openedBy: OrderDisputeOpenedBy;
   reason: string;
   openedAt: string;
+  resolutionNotes?: string | null;
+  resolvedAt?: string | null;
 }
 
 export interface OrderDetailsPublic extends OrderListSummary {

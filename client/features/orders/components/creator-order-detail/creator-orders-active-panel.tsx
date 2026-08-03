@@ -657,6 +657,7 @@ export function CreatorOrderActivePanel({
       statusBadgeColor={statusColor}
       expectedAmount={expectedAmount}
       steps={steps}
+      dispute={detailsData?.order?.dispute}
       viewingStepId={
         isViewingCurrentStep ? currentStepId : effectiveViewingStepId
       }

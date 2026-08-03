@@ -21,6 +21,8 @@ import { OrderDetailsCard } from "./order-details-card";
 import { OrderPageHeader } from "./order-page-header";
 import { OrderProgressStepper } from "./order-progress-stepper";
 import { OrderStatusBanner } from "./order-status-banner";
+import { BrandOrderDisputeView } from "./brand-order-dispute-view";
+import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderSummaryCard } from "./order-summary-card";
 import { NeedHelpCard, TipsCard } from "./support-tips-card";
 import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
@@ -164,6 +166,21 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
     : order.packageNameSnapshot;
   const isAwaitingPayment = order.status === "PENDING_PAYMENT";
 
+  // A live dispute gets its own dedicated view with the brand ↔ creator ↔
+  // support group chat, rather than being buried as a banner in the regular
+  // in-progress/delivered layout.
+  if (order.status === "DISPUTED" && previewState === null) {
+    return (
+      <BrandOrderDisputeView
+        orderId={orderId}
+        order={order}
+        creator={creator}
+        brief={brief}
+        briefId={briefId}
+      />
+    );
+  }
+
   if (showCompletedUI) {
     return (
       <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
@@ -182,6 +199,8 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
           previewState={previewState}
         />
+
+        <DisputeResolvedBanner dispute={order.dispute} />
 
         <CompletedNotificationBanner />
 
@@ -228,6 +247,8 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
           previewState={previewState}
         />
+
+        <DisputeResolvedBanner dispute={order.dispute} />
 
         {order.status === "DISPUTED" ? (
           <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
@@ -282,11 +303,13 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
       <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
         <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
         
-        <OrderProgressStepper 
-          order={order} 
-          onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)} 
-          previewState={previewState} 
+        <OrderProgressStepper
+          order={order}
+          onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
+          previewState={previewState}
         />
+
+        <DisputeResolvedBanner dispute={order.dispute} />
 
         {order.status === "DISPUTED" ? (
           <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
@@ -326,11 +349,13 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
     <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
       <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
 
-      <OrderProgressStepper 
-        order={order} 
-        onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)} 
-        previewState={previewState} 
+      <OrderProgressStepper
+        order={order}
+        onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
+        previewState={previewState}
       />
+
+      <DisputeResolvedBanner dispute={order.dispute} />
 
       <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
 

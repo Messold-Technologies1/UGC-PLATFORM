@@ -420,6 +420,10 @@ export function useOrderChatRealtime(
     if (!orderId) return;
 
     const socket = getSocket();
+    // Defensive: the RealtimeProvider owns the connection, but make sure the
+    // socket is live while a chat view is open so brand/creator/support
+    // messages arrive in realtime even if the provider hasn't connected yet.
+    if (!socket.connected) socket.connect();
     const connectedOnMount = socket.connected;
     const hasConnectedRef = { current: connectedOnMount };
 

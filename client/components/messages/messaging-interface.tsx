@@ -419,8 +419,12 @@ function ActiveOrderConversation({
       emptyState="No chat messages yet."
       hasMoreMessages={messagesQuery.hasNextPage}
       headerAvatarUrl={otherParticipant.avatar}
-      headerSubtitle={`${conversation.order.packageNameSnapshot} • Order #${shortOrderId(orderId)}`}
-      headerTitle={otherParticipant.name}
+      headerSubtitle={
+        hasSupport
+          ? `${otherParticipant.name} • Order #${shortOrderId(orderId)}`
+          : `${conversation.order.packageNameSnapshot} • Order #${shortOrderId(orderId)}`
+      }
+      headerTitle={hasSupport ? "Dispute Chat" : otherParticipant.name}
       inputPlaceholder="Message about this order..."
       isLoadingMore={messagesQuery.isFetchingNextPage}
       messages={messages}

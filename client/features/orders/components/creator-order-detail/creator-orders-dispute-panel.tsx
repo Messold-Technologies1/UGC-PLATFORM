@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ExternalLink, Headphones, X } from "lucide-react";
+import { AlertTriangle, ExternalLink, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { openSupportChat } from "@/components/tawk-to";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
 
@@ -173,27 +172,11 @@ export function CreatorOrderDisputePanel({
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
-        <div className="flex flex-col gap-5 lg:col-span-5">
+        <div className="flex min-w-0 flex-col gap-5 lg:col-span-5">
           <DisputeDetailsCard order={order} orderId={selectedOrderId} />
-
-          <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm">
-            <h3 className="font-bold text-sm mb-2">Need help?</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Use the group chat to talk to the brand and our support team about
-              this dispute. You can also reach out to support directly.
-            </p>
-            <Button
-              variant="outline"
-              className="w-full rounded-lg h-10 text-xs font-semibold border-border/50 gap-1.5"
-              onClick={openSupportChat}
-            >
-              <Headphones className="w-3.5 h-3.5" />
-              Contact Support
-            </Button>
-          </div>
         </div>
 
-        <div className="lg:col-span-7">
+        <div className="min-w-0 lg:col-span-7">
           {isLoading ? (
             <div className="h-160 rounded-3xl border bg-card animate-pulse" />
           ) : (
@@ -201,7 +184,7 @@ export function CreatorOrderDisputePanel({
               orderId={selectedOrderId}
               role="creator"
               brand={selectedItem.brand}
-              headerTitle="Dispute Group Chat"
+              headerTitle="Dispute Chat"
               headerSubtitle="You, the brand and support"
               hideHeaderAvatar
             />

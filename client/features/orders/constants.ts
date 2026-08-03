@@ -43,7 +43,8 @@ export const STATUS_TAB_GROUPS: Record<string, string[]> = {
     "PRODUCT_RECEIVED",
   ],
   review: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
-  completed: ["ACCEPTED", "CREATOR_PAYMENT_DONE", "DISPUTED", "REJECTED", "REFUNDED"],
+  dispute: ["DISPUTED"],
+  completed: ["ACCEPTED", "CREATOR_PAYMENT_DONE", "REJECTED", "REFUNDED"],
 };
 
 export const STATUS_TABS = [
@@ -52,6 +53,7 @@ export const STATUS_TABS = [
   { key: "payment", label: "Awaiting Payment" },
   { key: "progress", label: "In Progress" },
   { key: "review", label: "In Review" },
+  { key: "dispute", label: "Dispute" },
   { key: "completed", label: "Completed" },
 ] as const;
 
@@ -136,6 +138,7 @@ export const SPINE_COLOR: Record<string, string> = {
   payment: "#ef3e51",
   progress: "#0aa2d4",
   review: "#8b5cf6",
+  dispute: "#ef3e51",
   completed: "#1a9a5b",
 };
 

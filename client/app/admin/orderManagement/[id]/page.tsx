@@ -509,6 +509,15 @@ export default function AdminOrderDetailsPage() {
           </div>
 
           <motion.div variants={itemVariants}>
+            <AdminOrderChat
+              orderId={order.id}
+              brand={brand}
+              creator={creator}
+              orderStatus={order.status}
+            />
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
             <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
               <div className="border-b border-border/50 bg-linear-to-br from-primary/10 via-primary/5 to-transparent px-8 py-6 dark:border-border/10">
                 <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -795,16 +804,7 @@ export default function AdminOrderDetailsPage() {
           </motion.div>
         </div>
 
-        <motion.div variants={itemVariants} className="xl:col-span-2">
-          <AdminOrderChat
-            orderId={order.id}
-            brand={brand}
-            creator={creator}
-            orderStatus={order.status}
-          />
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="xl:col-span-3">
           <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
             <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
               <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">

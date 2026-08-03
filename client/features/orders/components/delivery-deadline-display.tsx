@@ -122,13 +122,31 @@ export function getDeliveryDeadlineCardMeta(
     };
   }
 
-  if (
-    order.status === "DISPUTED" || 
-    order.status === "REJECTED" || 
-    order.status === "REFUNDED" ||
-    order.status === "CANCELLED" ||
-    order.status === "ADMIN_CANCELLED"
-  ) {
+  if (order.status === "DISPUTED") {
+    return {
+      value: formatDate(order.updatedAt) ?? "—",
+      label: "Disputed on",
+      showBadge: false,
+    };
+  }
+
+  if (order.status === "REJECTED") {
+    return {
+      value: formatDate(order.updatedAt) ?? "—",
+      label: "Rejected on",
+      showBadge: false,
+    };
+  }
+
+  if (order.status === "REFUNDED") {
+    return {
+      value: formatDate(order.updatedAt) ?? "—",
+      label: "Refunded on",
+      showBadge: false,
+    };
+  }
+
+  if (order.status === "CANCELLED" || order.status === "ADMIN_CANCELLED") {
     return {
       value: formatDate(order.updatedAt) ?? "—",
       label: "Cancelled on",

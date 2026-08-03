@@ -145,15 +145,26 @@ export function CreatorBankingDetailsCard({
           </Button>
         </>
       ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-10 w-full rounded-xl text-muted-foreground"
-          onClick={handleHide}
-        >
-          <EyeOff className="h-4 w-4" />
-          Hide
-        </Button>
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 px-4 py-5 text-center dark:border-border/20 dark:bg-card/20">
+            <p className="text-sm font-semibold text-foreground">
+              Oops — payout details not added yet
+            </p>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              This creator hasn&apos;t saved bank or UPI details on their
+              profile.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-10 w-full rounded-xl text-muted-foreground"
+            onClick={handleHide}
+          >
+            <EyeOff className="h-4 w-4" />
+            Hide
+          </Button>
+        </div>
       )}
     </div>
   );

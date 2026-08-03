@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import OrderRow from "@/components/admin/OrderRow";
+import { OrderStatusTab } from "@/features/orders/components/brand-order-detail/order-status-tab";
+import { STATUS_TAB_GROUPS, STATUS_TABS } from "@/features/orders/constants";
 import {
   Pagination,
   PaginationContent,
@@ -73,12 +75,43 @@ function OrderTableSkeleton({ rows }: { rows: number }) {
 export default function OrderManagement() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
+  const [activeTab, setActiveTab] = useState<string>("all");
 
-  const { data, isLoading, isError } = useAdminOrdersQuery({ page, limit });
+  // Fetch a window of recent orders and filter/paginate client-side so the
+  // status tabs (including Dispute) work without a server round-trip per tab.
+  const { data, isLoading, isError } = useAdminOrdersQuery({ page: 1, limit: 50 });
 
-  const items = data?.items ?? [];
-  const total = data?.total ?? 0;
+  const allItems = useMemo(() => data?.items ?? [], [data?.items]);
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const tab of STATUS_TABS) {
+      if (tab.key === "all") {
+        counts.all = allItems.length;
+      } else {
+        const statuses = STATUS_TAB_GROUPS[tab.key] ?? [];
+        counts[tab.key] = allItems.filter((item) =>
+          statuses.includes(item.order.status),
+        ).length;
+      }
+    }
+    return counts;
+  }, [allItems]);
+
+  const filteredItems = useMemo(() => {
+    if (activeTab === "all") return allItems;
+    const statuses = STATUS_TAB_GROUPS[activeTab] ?? [];
+    return allItems.filter((item) => statuses.includes(item.order.status));
+  }, [allItems, activeTab]);
+
+  function handleTabChange(tab: string) {
+    setActiveTab(tab);
+    setPage(1);
+  }
+
+  const total = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const items = filteredItems.slice((page - 1) * limit, page * limit);
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
 
@@ -93,6 +126,12 @@ export default function OrderManagement() {
           to audit individual deliverables and payment statuses.
         </p>
       </section>
+
+      <OrderStatusTab
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        tabCounts={tabCounts}
+      />
 
       <section className="bg-card dark:bg-card/10 border border-border/50 dark:border-border/10 rounded-3xl overflow-hidden glass-panel shadow-sm">
         <div className="px-8 py-6 flex items-center justify-between bg-muted/50 dark:bg-card/20 border-b border-border/50 dark:border-border/10">

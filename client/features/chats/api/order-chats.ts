@@ -21,6 +21,7 @@ export interface ChatCreatorCounterpartyDto {
   id: string;
   displayName: string;
   introVideoUrl?: string | null;
+  profileImageUrl?: string | null;
   city?: string | null;
 }
 

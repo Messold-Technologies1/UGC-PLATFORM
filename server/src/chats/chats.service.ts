@@ -14,6 +14,12 @@ import {
   CHAT_LOCKED_ORDER_STATUSES,
 } from './chats.constants';
 
+/**
+ * The brand never sees the creator's real name in the order flow (parity with
+ * order details); the chat inbox shows a generic label + the profile picture.
+ */
+const BRAND_HIDDEN_CREATOR_NAME = 'Creator';
+
 const orderBrandSnapshotSelect = {
   id: true,
   brandName: true,
@@ -223,7 +229,8 @@ export class ChatsService {
       isChatLocked: this.isChatLocked(row.status),
       creator: {
         id: row.creator!.id,
-        displayName: row.creator!.displayName,
+        // Hide the creator's real name from the brand; the picture still shows.
+        displayName: BRAND_HIDDEN_CREATOR_NAME,
         introVideoUrl: row.creator!.introVideoUrl ?? null,
         profileImageUrl: row.creator!.profileImageUrl ?? null,
         city: row.creator!.city ?? null,

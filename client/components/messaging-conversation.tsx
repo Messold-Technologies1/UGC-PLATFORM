@@ -583,9 +583,11 @@ export function MessagingConversation({
                         isMe ? "text-right" : "text-left",
                       )}
                     >
-                      {sender?.roleLabel
+                      {sender?.roleLabel &&
+                      sender.name &&
+                      sender.name.toLowerCase() !== sender.roleLabel.toLowerCase()
                         ? `${sender.name} - ${sender.roleLabel}`
-                        : sender?.name ?? "Unknown user"}
+                        : sender?.name ?? sender?.roleLabel ?? "Unknown user"}
                     </div>
                   ) : null}
                   <div

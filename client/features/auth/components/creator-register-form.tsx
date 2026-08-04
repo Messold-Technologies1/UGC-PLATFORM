@@ -48,7 +48,10 @@ const creatorSignupSchema = z.object({
     : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  instagramUrl: z.string().min(1, "Instagram handle is required").max(500),
+  // Optional now — creators are prompted to connect Instagram from their
+  // profile after signup (OAuth needs an authenticated account), rather than
+  // typing a handle here.
+  instagramUrl: z.string().max(500),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
   }),
@@ -62,7 +65,6 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
   phoneOtpCode: "Phone verification code",
   email: "Email",
   password: "Password (at least 8 characters)",
-  instagramUrl: "Instagram handle",
   termsAccepted: "Terms & guidelines acceptance",
 };
 
@@ -638,29 +640,23 @@ export function CreatorRegisterForm() {
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="instagramUrl"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Instagram handle <span className="text-red-500">*</span>
-                </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
+              <div className="rounded-[11px] border border-slate-200 bg-white p-4 dark:bg-slate-950 dark:border-slate-800">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white">
                     <Instagram className="size-4" />
+                  </span>
+                  <div className="space-y-1">
+                    <p className="text-[13px] font-[800] text-black dark:text-white font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+                      Connect your Instagram after signup
+                    </p>
+                    <p className="text-[12px] leading-relaxed text-[#6b6469] dark:text-slate-400">
+                      Once your profile is created, connect your Instagram in one
+                      tap to verify your audience and get better brand matches.
+                      You can connect, change, or disconnect it anytime from your
+                      profile — no need to enter a handle here.
+                    </p>
                   </div>
-                  <Input
-                    id="instagramUrl"
-                    placeholder="@yourhandle"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("instagramUrl")}
-                  />
                 </div>
-                {form.formState.errors.instagramUrl && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.instagramUrl.message}
-                  </p>
-                )}
               </div>
             </div>
           </div>

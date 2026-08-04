@@ -7,11 +7,74 @@ import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-cr
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
+import { usePublicInstagramInsightsQuery } from "@/features/creators/hooks/use-public-instagram-insights";
+import {
+  InstagramInsights,
+  hasInstagramInsightsData,
+} from "@/features/creators/components/instagram-insights/instagram-insights";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Spinner } from "@/components/ui/spinner";
+import { Instagram } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { RejectDialog } from "./RejectDialog";
+
+function InstagramReviewPanel({ profileId }: { profileId: string }) {
+  const { data, isLoading } = usePublicInstagramInsightsQuery(profileId, {
+    enabled: Boolean(profileId),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!data || !data.connected) {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border/60 py-16 text-center text-muted-foreground">
+        <Instagram className="h-6 w-6 opacity-50" />
+        <p className="text-sm font-medium text-foreground">
+          Instagram not connected
+        </p>
+        <p className="text-xs">
+          This creator hasn&rsquo;t connected an Instagram account yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/30 p-4">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white">
+          <Instagram className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Connected account
+          </p>
+          <p className="truncate text-sm font-semibold text-foreground">
+            {data.username ? `@${data.username}` : "Instagram account"}
+          </p>
+        </div>
+      </div>
+
+      {hasInstagramInsightsData(data) ? (
+        <div className="rounded-2xl border border-border/40 bg-background p-5 shadow-sm">
+          <InstagramInsights insights={data} variant="full" />
+        </div>
+      ) : (
+        <p className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+          Audience metrics haven&rsquo;t synced yet for this account.
+        </p>
+      )}
+    </div>
+  );
+}
 
 const FACET_LABELS: Record<string, string> = {
   CONTENT_FORMAT: "Content format",
@@ -190,8 +253,42 @@ function ReviewProfileSections({
     (video) => video.visibilityStatus === "public",
   );
 
+  const [activeTab, setActiveTab] = React.useState<"profile" | "instagram">(
+    "profile",
+  );
+
+  const tabClass = (tab: "profile" | "instagram") =>
+    cn(
+      "flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-semibold transition-colors",
+      activeTab === tab
+        ? "border-primary text-primary"
+        : "border-transparent text-muted-foreground hover:text-foreground",
+    );
+
   return (
-    <div className="space-y-8 pb-4">
+    <div className="space-y-6 pb-4">
+      <div className="flex items-center gap-6 border-b border-border/40">
+        <button
+          type="button"
+          onClick={() => setActiveTab("profile")}
+          className={tabClass("profile")}
+        >
+          Profile
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("instagram")}
+          className={tabClass("instagram")}
+        >
+          <Instagram className="h-4 w-4" />
+          Instagram
+        </button>
+      </div>
+
+      {activeTab === "instagram" ? (
+        <InstagramReviewPanel profileId={profile.id} />
+      ) : (
+      <div className="space-y-8">
       <section className="flex items-start gap-6">
         <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/20">
           {profile.profileImageUrl ? (
@@ -482,6 +579,8 @@ function ReviewProfileSections({
           Open full profile editor →
         </Link>
       </div>
+      </div>
+      )}
     </div>
   );
 }

@@ -915,6 +915,39 @@ function AvatarCard({
   );
 }
 
+/**
+ * Fires once when the element scrolls within `rootMargin` of the viewport, so a
+ * video only starts loading (poster + metadata) when it's about to be seen —
+ * instead of every tile hammering the network on page load.
+ */
+function useInView<T extends HTMLElement>(rootMargin = "300px") {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    if (inView) return;
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [inView, rootMargin]);
+
+  return { ref, inView };
+}
+
 function IntroReel({
   src,
   poster,
@@ -925,6 +958,7 @@ function IntroReel({
   label?: string;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const { ref: containerRef, inView } = useInView<HTMLDivElement>();
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
   const [current, setCurrent] = useState(0);
@@ -951,13 +985,17 @@ function IntroReel({
   }
 
   return (
-    <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-neutral-200 bg-black shadow-sm">
+    <div
+      ref={containerRef}
+      className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-neutral-200 bg-gradient-to-br from-neutral-100 to-neutral-200 shadow-sm"
+    >
       <video
         ref={ref}
-        src={src}
-        poster={poster ?? undefined}
+        src={inView ? src : undefined}
+        poster={inView ? (poster ?? undefined) : undefined}
         className="size-full object-cover"
         playsInline
+        preload="none"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
@@ -972,7 +1010,7 @@ function IntroReel({
         onClick={toggle}
         className={cn(
           "absolute inset-0 z-10 flex items-center justify-center transition",
-          playing ? "bg-transparent hover:bg-black/10" : "bg-black/20",
+          playing ? "bg-transparent hover:bg-black/10" : "bg-black/10",
         )}
         aria-label={playing ? "Pause intro" : "Play intro"}
       >
@@ -1134,6 +1172,7 @@ function PortfolioTile({
   onStop: () => void;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const { ref: containerRef, inView } = useInView<HTMLDivElement>();
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [duration, setDuration] = useState<string | null>(null);
@@ -1170,15 +1209,25 @@ function PortfolioTile({
   };
 
   return (
-    <div className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-neutral-900 shadow-sm ring-1 ring-neutral-200 transition hover:shadow-md">
+    <div
+      ref={containerRef}
+      className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 shadow-sm ring-1 ring-neutral-200 transition hover:shadow-md"
+    >
+      {!inView || (!video.thumbnailUrl && !playing) ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="flex size-11 items-center justify-center rounded-full bg-white/80 text-neutral-500 shadow-sm">
+            <Play className="size-4 fill-neutral-500" strokeWidth={0} />
+          </span>
+        </div>
+      ) : null}
       <video
         ref={ref}
-        src={video.videoUrl}
-        poster={video.thumbnailUrl ?? undefined}
+        src={inView ? video.videoUrl : undefined}
+        poster={inView ? (video.thumbnailUrl ?? undefined) : undefined}
         className="size-full object-cover"
         loop
         playsInline
-        preload="metadata"
+        preload="none"
         onPlay={() => setPlaying(true)}
         onPause={() => { setPlaying(false); onStop(); }}
         onEnded={() => { setPlaying(false); onStop(); }}

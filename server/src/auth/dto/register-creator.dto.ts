@@ -41,14 +41,16 @@ export class RegisterCreatorDto {
   @MaxLength(10)
   phoneOtpCode?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '@jane',
-    description: 'Instagram handle or profile URL (plain string).',
+    description:
+      'Optional Instagram handle/URL. Creators are prompted to connect their ' +
+      'Instagram from their profile after signup instead, so this may be empty.',
   })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(500)
-  instagramUrl!: string;
+  instagramUrl?: string;
 
   @ApiPropertyOptional({
     description:

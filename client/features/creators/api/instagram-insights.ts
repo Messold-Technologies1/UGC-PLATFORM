@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import api from "@/lib/api";
+import { ENDPOINTS } from "@/lib/endpoints";
 import type { DemographicBucketApi } from "./social-connections";
 
 export interface PublicInstagramInsightsApi {
@@ -30,6 +31,24 @@ export async function fetchPublicInstagramInsights(
 ): Promise<PublicInstagramInsightsApi> {
   const { data } = await api.get<PublicInstagramInsightsApi>(
     instagramInsightsPath(creatorId),
+  );
+  return data;
+}
+
+/** Admin: force an immediate re-sync for a creator and return fresh insights. */
+export async function refreshCreatorInstagramInsights(
+  creatorProfileId: string,
+): Promise<PublicInstagramInsightsApi> {
+  const { data } = await api.post<PublicInstagramInsightsApi>(
+    ENDPOINTS.SOCIAL.INSTAGRAM_REFRESH_CREATOR(creatorProfileId),
+  );
+  return data;
+}
+
+/** Creator: force an immediate re-sync of the current creator's own Instagram. */
+export async function refreshMyInstagramInsights(): Promise<PublicInstagramInsightsApi> {
+  const { data } = await api.post<PublicInstagramInsightsApi>(
+    ENDPOINTS.SOCIAL.INSTAGRAM_REFRESH,
   );
   return data;
 }

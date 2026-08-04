@@ -1,6 +1,7 @@
 "use client";
 import "./profile-edit.css";
 import { SectionCard, PeSelectField, CatalogStatus } from "./shared-components";
+import { CreatorSocialAccounts } from "./creator-social-accounts";
 import { FacetChipSection, LanguageRows, RestrictionChipSection } from "./facet-components";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
@@ -1651,6 +1652,9 @@ function CreatorProfileUpdateFormContent({
             title="Social & activity"
             desc="Optional links and how much you create."
           >
+            <div className="mb-6">
+              <CreatorSocialAccounts />
+            </div>
             <div className="pe-grid pe-grid-3">
               <div className="pe-field">
                 <label htmlFor="instagramUrl">

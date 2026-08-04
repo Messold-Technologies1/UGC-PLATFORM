@@ -29,11 +29,17 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  Instagram,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
+import { usePublicInstagramInsightsQuery } from "@/features/creators/hooks/use-public-instagram-insights";
+import {
+  InstagramInsights,
+  hasInstagramInsightsData,
+} from "@/features/creators/components/instagram-insights/instagram-insights";
 import type { CreatorProfileItemApi } from "../../api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
@@ -262,6 +268,11 @@ export function PublicCreatorProfile({
     [allPortfolioVideos, profile.introVideoUrl],
   );
   const firstPortfolioVideo = allPortfolioVideos[0] ?? null;
+
+  const { data: instagramInsights } = usePublicInstagramInsightsQuery(
+    profile.id,
+    { enabled: true },
+  );
 
   const locationString = useMemo(() => {
     const parts = [profile.city, profile.stateName, profile.countryName].filter(
@@ -700,6 +711,16 @@ export function PublicCreatorProfile({
                 <AboutSectionsGrid sections={aboutSections} />
               </div>
             </div>
+
+            {/* INSTAGRAM AUDIENCE */}
+            {hasInstagramInsightsData(instagramInsights) && (
+              <div>
+                <SectionTitle icon={Instagram} title="Instagram audience" />
+                <div className="mt-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+                  <InstagramInsights insights={instagramInsights} variant="full" />
+                </div>
+              </div>
+            )}
 
             {/* REVIEWS */}
             {totalReviews > 0 && (

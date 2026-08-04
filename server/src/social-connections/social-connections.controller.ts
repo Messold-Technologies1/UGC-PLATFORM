@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
   Req,
   Res,
   UseGuards,
@@ -20,6 +21,7 @@ import {
 import type { CookieOptions, Request, Response } from 'express';
 import { SocialPlatform } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { SocialConnectionsService } from './social-connections.service';
 import { SocialMetricsQueueService } from './social-metrics-queue.service';
 import {
@@ -81,6 +83,33 @@ export class SocialConnectionsController {
     @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
   ): Promise<PublicInstagramInsightsDto> {
     return this.service.getPublicInstagramInsights(creatorProfileId);
+  }
+
+  @Post('instagram/refresh')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "Re-sync the authenticated creator's Instagram now and return fresh insights",
+  })
+  @ApiOkResponse({ type: PublicInstagramInsightsDto })
+  async refreshMyInstagram(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<PublicInstagramInsightsDto> {
+    return this.service.refreshInstagramForUser(req.user.id);
+  }
+
+  @Post('creators/:creatorProfileId/instagram/refresh')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Admin: re-sync a creator's Instagram now and return fresh insights",
+  })
+  @ApiOkResponse({ type: PublicInstagramInsightsDto })
+  async refreshCreatorInstagram(
+    @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
+  ): Promise<PublicInstagramInsightsDto> {
+    return this.service.refreshInstagramForCreator(creatorProfileId);
   }
 
   @Get('instagram/connect-url')

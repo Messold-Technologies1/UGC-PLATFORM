@@ -287,6 +287,39 @@ export class SocialConnectionsService {
     };
   }
 
+  /**
+   * On-demand refresh: run the sync inline (bypassing the queue) and return the
+   * freshly-aggregated public insights. Used by the "Refresh insights" actions
+   * in the creator profile and the admin review drawer, so the caller gets an
+   * immediate result instead of waiting for the daily cron.
+   */
+  async refreshInstagramForCreator(
+    creatorProfileId: string,
+  ): Promise<PublicInstagramInsightsDto> {
+    const conn = await this.prisma.socialConnection.findUnique({
+      where: {
+        creatorProfileId_platform: {
+          creatorProfileId,
+          platform: SocialPlatform.INSTAGRAM,
+        },
+      },
+      select: { id: true, status: true },
+    });
+    if (conn && conn.status !== SocialConnectionStatus.REVOKED) {
+      // syncConnection records its own failures and never throws.
+      await this.syncConnection(conn.id);
+    }
+    return this.getPublicInstagramInsights(creatorProfileId);
+  }
+
+  /** On-demand refresh for the authenticated creator's own Instagram. */
+  async refreshInstagramForUser(
+    userId: string,
+  ): Promise<PublicInstagramInsightsDto> {
+    const creatorId = await this.resolveCreatorProfileId(userId);
+    return this.refreshInstagramForCreator(creatorId);
+  }
+
   // ---------------------------------------------------------------------------
   // Sync (called by the BullMQ worker / inline fallback / poller)
   // ---------------------------------------------------------------------------

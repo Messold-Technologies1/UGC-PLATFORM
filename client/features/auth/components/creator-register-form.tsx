@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +22,7 @@ import {
 } from "@/features/auth/api/creator-signup";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import { getInstagramConnectUrl } from "@/features/creators/api/social-connections";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   getMetaBrowserIds,
@@ -136,6 +137,9 @@ export function CreatorRegisterForm() {
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
+  // When true, finish signup without redirecting to Instagram (the "connect
+  // later" path). Set by the secondary button just before submit.
+  const skipInstagramRef = useRef(false);
 
   const form = useForm<CreatorSignupData>({
     resolver: zodResolver(creatorSignupSchema),
@@ -199,7 +203,7 @@ export function CreatorRegisterForm() {
   const registerCreatorMutation = useMutation({
     mutationKey: ["auth", "register", "creator"],
     mutationFn: registerCreator,
-    onSuccess: (result, variables) => {
+    onSuccess: async (result, variables) => {
       identifyPixelUser({
         email: variables.email,
         ...splitFullName(variables.name),
@@ -210,10 +214,29 @@ export function CreatorRegisterForm() {
         undefined,
         variables.metaSignupEventId,
       );
-      toast.success("Creator profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");
       const target = resolveImmediatePostAuthPath(result.user, callback);
+
+      // Make the flow *feel* like the account is created only after Instagram is
+      // connected: the account has just been created (and the creator is now
+      // authenticated), so we send the browser straight to Instagram's consent
+      // screen without announcing "profile created" first. The Instagram
+      // callback stores the connection and lands the creator on their profile —
+      // the same place a brand-new creator normally lands. If they chose "connect
+      // later", or Instagram isn't available, fall back to the normal flow.
+      if (!skipInstagramRef.current) {
+        try {
+          const url = await getInstagramConnectUrl();
+          beginClientNavigation();
+          window.location.href = url;
+          return;
+        } catch {
+          // Instagram unavailable / not configured — finish normally.
+        }
+      }
+
+      toast.success("Creator profile created");
       beginClientNavigation();
       window.location.replace(target);
     },
@@ -647,13 +670,13 @@ export function CreatorRegisterForm() {
                   </span>
                   <div className="space-y-1">
                     <p className="text-[13px] font-[800] text-black dark:text-white font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                      Connect your Instagram after signup
+                      Finish by connecting your Instagram
                     </p>
                     <p className="text-[12px] leading-relaxed text-[#6b6469] dark:text-slate-400">
-                      Once your profile is created, connect your Instagram in one
-                      tap to verify your audience and get better brand matches.
-                      You can connect, change, or disconnect it anytime from your
-                      profile — no need to enter a handle here.
+                      Tap “Connect Instagram to finish” and authorise your account
+                      to verify your audience and get better brand matches — no
+                      handle to type. You can change or disconnect it anytime from
+                      your profile.
                     </p>
                   </div>
                 </div>
@@ -748,6 +771,9 @@ export function CreatorRegisterForm() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
               <Button
                 type="submit"
+                onClick={() => {
+                  skipInstagramRef.current = false;
+                }}
                 disabled={!isSignupComplete || pendingSubmit}
                 className={cn(
                   "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
@@ -759,10 +785,10 @@ export function CreatorRegisterForm() {
                 {pendingSubmit ? (
                   <>
                     <Spinner className="size-4" aria-hidden />
-                    Creating profile...
+                    Setting up your profile...
                   </>
                 ) : (
-                  <>Create my creator profile &rarr;</>
+                  <>Connect Instagram to finish &rarr;</>
                 )}
               </Button>
 
@@ -776,6 +802,17 @@ export function CreatorRegisterForm() {
                 </Link>
               </div>
             </div>
+            {isSignupComplete && !pendingSubmit ? (
+              <button
+                type="submit"
+                onClick={() => {
+                  skipInstagramRef.current = true;
+                }}
+                className="self-center text-[12px] font-medium text-[#8B8489] underline underline-offset-2 hover:text-[#6b6469] dark:text-slate-400"
+              >
+                I&rsquo;ll connect Instagram later
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

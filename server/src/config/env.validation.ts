@@ -25,6 +25,20 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_SECRET: Joi.string().min(1).required(),
   GOOGLE_CALLBACK_URL: Joi.string().uri().required(),
   FRONTEND_URL: Joi.string().uri().required(),
+
+  // Social connections: Instagram API with Instagram Login (data-source link for
+  // creator audience metrics). All optional so the app boots without them; the
+  // connect flow is only enabled once they are configured.
+  INSTAGRAM_CLIENT_ID: Joi.string().min(1).optional(),
+  INSTAGRAM_CLIENT_SECRET: Joi.string().min(1).optional(),
+  INSTAGRAM_CALLBACK_URL: Joi.string().uri().optional(),
+  /**
+   * 32-byte key (hex or base64) used to AES-256-GCM encrypt stored OAuth tokens
+   * and to sign the OAuth `state`. Required once Instagram connect is enabled.
+   */
+  SOCIAL_TOKEN_ENC_KEY: Joi.string().min(32).optional(),
+  /** Instagram Graph API version, e.g. v21.0. */
+  INSTAGRAM_GRAPH_VERSION: Joi.string().optional().default('v21.0'),
   /** Creator onboarding: approval_first (default) or profile_first */
   CREATOR_ONBOARDING_MODE: Joi.string()
     .valid('approval_first', 'profile_first')

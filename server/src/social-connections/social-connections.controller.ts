@@ -164,8 +164,12 @@ export class SocialConnectionsController {
         state,
         nonce,
       );
-      // Kick off the first metrics sync in the background.
-      void this.queue.enqueue(connectionId);
+      // Run the first metrics sync inline (off the request path) rather than
+      // via the BullMQ worker, so audience metrics — reach + demographics —
+      // populate right after connecting even when the queue worker is slow or
+      // not consuming. syncConnection records its own failures and never throws;
+      // the daily cron still handles periodic refreshes via the queue.
+      void this.queue.processConnectionDirect(connectionId, 'connect');
       res.redirect(`${returnTo}?instagram=connected`);
     } catch {
       res.redirect(`${returnTo}?instagram=error`);

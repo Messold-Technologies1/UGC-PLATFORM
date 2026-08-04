@@ -7,7 +7,12 @@ import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-cr
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePublicInstagramInsightsQuery } from "@/features/creators/hooks/use-public-instagram-insights";
+import {
+  refreshCreatorInstagramInsights,
+  publicInstagramInsightsQueryKey,
+} from "@/features/creators/api/instagram-insights";
 import {
   InstagramInsights,
   hasInstagramInsightsData,
@@ -16,9 +21,36 @@ import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Spinner } from "@/components/ui/spinner";
-import { Instagram } from "lucide-react";
+import { Instagram, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RejectDialog } from "./RejectDialog";
+
+function RefreshInsightsButton({ profileId }: { profileId: string }) {
+  const queryClient = useQueryClient();
+  const refresh = useMutation({
+    mutationFn: () => refreshCreatorInstagramInsights(profileId),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData(
+        publicInstagramInsightsQueryKey(profileId),
+        fresh,
+      );
+    },
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => refresh.mutate()}
+      disabled={refresh.isPending}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+    >
+      <RefreshCw
+        className={cn("h-3.5 w-3.5", refresh.isPending && "animate-spin")}
+      />
+      {refresh.isPending ? "Refreshing…" : "Refresh insights"}
+    </button>
+  );
+}
 
 function InstagramReviewPanel({ profileId }: { profileId: string }) {
   const { data, isLoading } = usePublicInstagramInsightsQuery(profileId, {
@@ -53,7 +85,7 @@ function InstagramReviewPanel({ profileId }: { profileId: string }) {
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white">
           <Instagram className="h-5 w-5" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Connected account
           </p>
@@ -61,6 +93,7 @@ function InstagramReviewPanel({ profileId }: { profileId: string }) {
             {data.username ? `@${data.username}` : "Instagram account"}
           </p>
         </div>
+        <RefreshInsightsButton profileId={profileId} />
       </div>
 
       {hasInstagramInsightsData(data) ? (

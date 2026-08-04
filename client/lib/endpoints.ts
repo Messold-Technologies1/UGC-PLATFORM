@@ -151,6 +151,9 @@ export const ENDPOINTS = {
   SOCIAL: {
     CONNECTIONS: "/api/social/connections",
     INSTAGRAM_CONNECT_URL: "/api/social/instagram/connect-url",
+    INSTAGRAM_REFRESH: "/api/social/instagram/refresh",
+    INSTAGRAM_REFRESH_CREATOR: (creatorProfileId: string) =>
+      `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/refresh`,
     DISCONNECT: (platform: string) =>
       `/api/social/${encodeURIComponent(platform.toLowerCase())}`,
   },

@@ -368,9 +368,38 @@ export class SocialConnectionsService {
           data: { instagramUrl: igUrl },
         });
       }
+      const bucketCount = (m: Record<string, number> | null): number =>
+        m && typeof m === 'object' ? Object.keys(m).length : 0;
+      const ageN = bucketCount(demographics.age);
+      const genderN = bucketCount(demographics.gender);
+      const cityN = bucketCount(demographics.city);
+      const countryN = bucketCount(demographics.country);
+
       this.logger.log(
-        `social sync ok: instagram connection ${conn.id} (@${account.username ?? '?'})`,
+        `social sync ok: instagram connection ${conn.id} (@${account.username ?? '?'}) ` +
+          `followers=${account.followersCount ?? 'n/a'} reach30d=${totals.reach ?? 'n/a'} ` +
+          `views30d=${totals.views ?? 'n/a'} profileViews30d=${totals.profileViews ?? 'n/a'} ` +
+          `demographics(age=${ageN},gender=${genderN},city=${cityN},country=${countryN})`,
       );
+
+      // Basic profile fields (followers/username) come from the un-gated Graph
+      // fields; reach + audience demographics need the insights permission and
+      // an eligible account. When everything but followers is empty, say why so
+      // it isn't mistaken for a broken sync.
+      if (
+        totals.reach == null &&
+        ageN === 0 &&
+        genderN === 0 &&
+        cityN === 0 &&
+        countryN === 0
+      ) {
+        this.logger.warn(
+          `social sync ${conn.id}: only basic profile fields returned — reach & audience ` +
+            `demographics are empty. Check that the Meta app has ` +
+            `instagram_business_manage_insights granted (App Review / Live mode) and that ` +
+            `@${account.username ?? '?'} is a Business/Creator account with enough audience data.`,
+        );
+      }
     } catch (err) {
       await this.recordSyncFailure(conn, err);
     }

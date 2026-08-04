@@ -72,6 +72,9 @@ export class SocialMetricsQueueService
       { connection, concurrency, lockDuration: 120_000 },
     );
 
+    this.worker.on('completed', (job) => {
+      this.logger.log(`social-metrics job ${job.id} completed`);
+    });
     this.worker.on('failed', (job, err) => {
       this.logger.error(
         `social-metrics job ${job?.id} failed (attempt ${job?.attemptsMade}): ${err?.message}`,
@@ -95,11 +98,27 @@ export class SocialMetricsQueueService
   async enqueue(connectionId: string): Promise<void> {
     if (this.queue) {
       try {
-        await this.queue.add(
-          JOB_NAME,
-          { connectionId },
-          { jobId: `sync-${connectionId}` },
-        );
+        const jobId = `sync-${connectionId}`;
+        // The fixed jobId de-dupes *concurrent* syncs for a connection, but
+        // BullMQ also refuses to re-add a jobId that still exists in a
+        // completed/failed state (we retain history). Since a connection's id is
+        // reused across reconnects, a leftover finished job would silently block
+        // every future sync. Drop a finished leftover before re-queuing; if one
+        // is still pending/active, it's already going to run.
+        const existing = await this.queue.getJob(jobId);
+        if (existing) {
+          const state = await existing.getState();
+          if (state === 'completed' || state === 'failed') {
+            await existing.remove().catch(() => undefined);
+          } else {
+            this.logger.log(
+              `social-metrics: sync already queued for ${connectionId} (${state})`,
+            );
+            return;
+          }
+        }
+        await this.queue.add(JOB_NAME, { connectionId }, { jobId });
+        this.logger.log(`social-metrics: queued sync for ${connectionId}`);
         return;
       } catch (err) {
         this.logger.error(

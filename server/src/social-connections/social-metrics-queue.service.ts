@@ -11,6 +11,13 @@ import { SocialConnectionsService } from './social-connections.service';
 
 const QUEUE_NAME = 'social-metrics-sync';
 const JOB_NAME = 'sync-connection';
+/**
+ * If a queued job is still sitting in `wait` after this, run the sync directly.
+ * The in-process BullMQ worker on managed Redis can fail to consume jobs (they
+ * stay in `wait` and never go `active`); the watermark queue works around the
+ * same behaviour with an identical watchdog.
+ */
+const WATCHDOG_MS = 15_000;
 
 interface SyncJobData {
   connectionId: string;
@@ -72,6 +79,12 @@ export class SocialMetricsQueueService
       { connection, concurrency, lockDuration: 120_000 },
     );
 
+    this.worker.on('ready', () => {
+      this.logger.log('social-metrics: worker ready (listening for jobs)');
+    });
+    this.worker.on('active', (job) => {
+      this.logger.log(`social-metrics: job active ${job.id}`);
+    });
     this.worker.on('completed', (job) => {
       this.logger.log(`social-metrics job ${job.id} completed`);
     });
@@ -80,13 +93,20 @@ export class SocialMetricsQueueService
         `social-metrics job ${job?.id} failed (attempt ${job?.attemptsMade}): ${err?.message}`,
       );
     });
+    this.worker.on('stalled', (jobId) => {
+      this.logger.warn(`social-metrics: job stalled ${jobId}`);
+    });
     this.worker.on('error', (err) => {
       this.logger.error(`social-metrics worker error: ${err?.message}`);
     });
 
     await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();
-    this.logger.log('social-metrics: BullMQ queue + worker started');
+
+    const workers = await this.queue.getWorkers().catch(() => []);
+    this.logger.log(
+      `social-metrics: BullMQ queue + worker started (${workers.length} worker(s) registered in Redis)`,
+    );
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -118,7 +138,25 @@ export class SocialMetricsQueueService
           }
         }
         await this.queue.add(JOB_NAME, { connectionId }, { jobId });
-        this.logger.log(`social-metrics: queued sync for ${connectionId}`);
+
+        const counts = await this.queue
+          .getJobCounts('wait', 'active', 'delayed', 'failed')
+          .catch(() => null);
+        this.logger.log(
+          `social-metrics: queued sync for ${connectionId} (jobId=${jobId})${
+            counts
+              ? ` [wait=${counts.wait} active=${counts.active} delayed=${counts.delayed} failed=${counts.failed}]`
+              : ''
+          }`,
+        );
+
+        if (counts && counts.wait > 0 && counts.active === 0) {
+          void this.logWorkerDiagnostics();
+        }
+
+        setTimeout(() => {
+          void this.watchdog(connectionId, jobId);
+        }, WATCHDOG_MS);
         return;
       } catch (err) {
         this.logger.error(
@@ -147,5 +185,39 @@ export class SocialMetricsQueueService
     } finally {
       this.processing.delete(connectionId);
     }
+  }
+
+  /**
+   * If the enqueued job is still `wait`/`delayed` after WATCHDOG_MS, the
+   * in-process worker didn't consume it — run the sync directly so metrics
+   * still populate. The diagnostics reveal whether a worker is even
+   * registered/running on this Redis.
+   */
+  private async watchdog(connectionId: string, jobId: string): Promise<void> {
+    if (!this.queue) return;
+
+    const job = await this.queue.getJob(jobId).catch(() => null);
+    const state = job
+      ? await job.getState().catch(() => 'unknown')
+      : 'missing';
+    if (state === 'completed' || state === 'active') return;
+
+    this.logger.warn(
+      `social-metrics: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
+    );
+    await this.logWorkerDiagnostics();
+    try {
+      await this.processConnectionDirect(connectionId, 'watchdog');
+    } catch {
+      // syncConnection records its own failures; nothing more to do here.
+    }
+  }
+
+  private async logWorkerDiagnostics(): Promise<void> {
+    if (!this.queue || !this.worker) return;
+    const workers = await this.queue.getWorkers().catch(() => []);
+    this.logger.warn(
+      `social-metrics: diagnostics workersRegistered=${workers.length} isRunning=${this.worker.isRunning()} isPaused=${this.worker.isPaused()}`,
+    );
   }
 }

@@ -991,11 +991,13 @@ function IntroReel({
     >
       <video
         ref={ref}
-        src={inView ? src : undefined}
+        // No poster → load just the first frame (#t=0.1) so it shows a still
+        // instead of a blank card; playback starts when the viewer hits play.
+        src={inView ? (poster ? src : `${src}#t=0.1`) : undefined}
         poster={inView ? (poster ?? undefined) : undefined}
         className="size-full object-cover"
         playsInline
-        preload="none"
+        preload={inView ? "metadata" : "none"}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
@@ -1213,21 +1215,23 @@ function PortfolioTile({
       ref={containerRef}
       className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 shadow-sm ring-1 ring-neutral-200 transition hover:shadow-md"
     >
-      {!inView || (!video.thumbnailUrl && !playing) ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex size-11 items-center justify-center rounded-full bg-white/80 text-neutral-500 shadow-sm">
-            <Play className="size-4 fill-neutral-500" strokeWidth={0} />
-          </span>
-        </div>
-      ) : null}
       <video
         ref={ref}
-        src={inView ? video.videoUrl : undefined}
+        // With no thumbnail, load just the first frame (media fragment #t=0.1)
+        // so the tile shows a still from the video instead of a blank card. The
+        // browser fetches only enough to paint that frame; playback starts on tap.
+        src={
+          inView
+            ? video.thumbnailUrl
+              ? video.videoUrl
+              : `${video.videoUrl}#t=0.1`
+            : undefined
+        }
         poster={inView ? (video.thumbnailUrl ?? undefined) : undefined}
         className="size-full object-cover"
         loop
         playsInline
-        preload="none"
+        preload={inView ? "metadata" : "none"}
         onPlay={() => setPlaying(true)}
         onPause={() => { setPlaying(false); onStop(); }}
         onEnded={() => { setPlaying(false); onStop(); }}
@@ -1249,13 +1253,12 @@ function PortfolioTile({
         </span>
       )}
 
-      {/* Controls overlay — always visible on hover, or when playing */}
+      {/* Play button: always visible when paused (works on tap/mobile); fades
+          to hover-only while playing so it doesn't cover the video. */}
       <div
         className={cn(
           "absolute inset-0 flex flex-col items-center justify-center transition-opacity",
-          playing
-            ? "opacity-0 hover:opacity-100"
-            : "opacity-0 group-hover:opacity-100",
+          playing ? "opacity-0 hover:opacity-100" : "opacity-100",
         )}
       >
         <button

@@ -99,6 +99,16 @@ export class SocialMetricsQueueService
     this.worker.on('error', (err) => {
       this.logger.error(`social-metrics worker error: ${err?.message}`);
     });
+    // Diagnostic: the worker waits for jobs on a blocking Redis connection.
+    // On managed Redis that connection can be dropped during idle periods, and
+    // until it re-establishes, newly enqueued jobs sit in `wait` and never go
+    // `active` (the watchdog then runs them inline). Logging the close lets us
+    // correlate a drop with a subsequent watchdog fire and confirm the cause.
+    this.worker.on('ioredis:close', () => {
+      this.logger.warn(
+        'social-metrics: worker Redis connection closed — reconnecting; jobs may sit in `wait` until it recovers',
+      );
+    });
 
     await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();
@@ -150,9 +160,11 @@ export class SocialMetricsQueueService
           }`,
         );
 
-        if (counts && counts.wait > 0 && counts.active === 0) {
-          void this.logWorkerDiagnostics();
-        }
+        // NB: a freshly added job is expected to sit in `wait` for the brief
+        // moment before the worker moves it to `active`, so we do NOT treat
+        // wait>0/active===0 here as a fault. The watchdog below is the real
+        // signal — it only fires (and logs diagnostics) if the job is still
+        // unconsumed after WATCHDOG_MS.
 
         setTimeout(() => {
           void this.watchdog(connectionId, jobId);
@@ -210,7 +222,30 @@ export class SocialMetricsQueueService
       await this.processConnectionDirect(connectionId, 'watchdog');
     } catch {
       // syncConnection records its own failures; nothing more to do here.
+    } finally {
+      // The worker never consumed this job (it was still `wait`/`delayed`).
+      // Because the jobId is fixed (`sync-<connectionId>`), leaving it parked
+      // would make every future enqueue short-circuit as "already queued" and
+      // silently stop syncing this connection — and a worker that later
+      // recovers would redundantly re-run a sync we just did inline. Clear it
+      // now that the sync has run directly. The daily cron re-enqueues next
+      // cycle, so no retry is lost.
+      await this.removeParkedJob(jobId);
     }
+  }
+
+  /**
+   * Remove a leftover job by id unless the worker has meanwhile picked it up.
+   * Used by the watchdog to stop an unconsumed job lingering under the fixed
+   * jobId. Never throws.
+   */
+  private async removeParkedJob(jobId: string): Promise<void> {
+    if (!this.queue) return;
+    const job = await this.queue.getJob(jobId).catch(() => null);
+    if (!job) return;
+    const state = await job.getState().catch(() => 'unknown');
+    if (state === 'active' || state === 'completed') return;
+    await job.remove().catch(() => undefined);
   }
 
   private async logWorkerDiagnostics(): Promise<void> {

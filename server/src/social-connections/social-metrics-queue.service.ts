@@ -18,6 +18,14 @@ const JOB_NAME = 'sync-connection';
  * same behaviour with an identical watchdog.
  */
 const WATCHDOG_MS = 15_000;
+/**
+ * Cap for the watchdog's own Redis lookups. The connection is built with
+ * `maxRetriesPerRequest: null` (required by BullMQ), which makes ioredis retry
+ * a command forever instead of rejecting it — so if Redis is unreachable,
+ * `getJob()` never settles and `.catch()` never runs, leaving the watchdog
+ * silently dead. Time the lookups out and sync anyway.
+ */
+const LOOKUP_TIMEOUT_MS = 5_000;
 
 interface SyncJobData {
   connectionId: string;
@@ -208,16 +216,31 @@ export class SocialMetricsQueueService
   private async watchdog(connectionId: string, jobId: string): Promise<void> {
     if (!this.queue) return;
 
-    const job = await this.queue.getJob(jobId).catch(() => null);
+    // Bound these lookups (see LOOKUP_TIMEOUT_MS): under maxRetriesPerRequest:
+    // null an unreachable Redis makes getJob()/getState() hang forever, which
+    // would strand the watchdog here and never run the inline sync. On timeout
+    // assume the job is unconsumed and proceed — the inline sync only needs
+    // Postgres, so it works even while Redis is down.
+    const job = await this.withTimeout(
+      this.queue.getJob(jobId),
+      LOOKUP_TIMEOUT_MS,
+      'watchdog getJob',
+    ).catch(() => null);
     const state = job
-      ? await job.getState().catch(() => 'unknown')
+      ? await this.withTimeout(
+          job.getState(),
+          LOOKUP_TIMEOUT_MS,
+          'watchdog getState',
+        ).catch(() => 'unknown')
       : 'missing';
     if (state === 'completed' || state === 'active') return;
 
     this.logger.warn(
       `social-metrics: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
     );
-    await this.logWorkerDiagnostics();
+    // Fire-and-forget: its getWorkers() call can hang the same way, and it must
+    // not delay the inline sync.
+    void this.logWorkerDiagnostics();
     try {
       await this.processConnectionDirect(connectionId, 'watchdog');
     } catch {
@@ -229,28 +252,68 @@ export class SocialMetricsQueueService
       // silently stop syncing this connection — and a worker that later
       // recovers would redundantly re-run a sync we just did inline. Clear it
       // now that the sync has run directly. The daily cron re-enqueues next
-      // cycle, so no retry is lost.
-      await this.removeParkedJob(jobId);
+      // cycle, so no retry is lost. Fire-and-forget + bounded internally so a
+      // hung Redis lookup can't strand the watchdog.
+      void this.removeParkedJob(jobId);
     }
+  }
+
+  /**
+   * Reject if `p` hasn't settled within `ms`. Guards the watchdog's own Redis
+   * lookups, which would otherwise hang forever under maxRetriesPerRequest: null
+   * when Redis is unreachable — the exact moment the watchdog needs to act.
+   */
+  private withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms,
+      );
+      p.then(
+        (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
   }
 
   /**
    * Remove a leftover job by id unless the worker has meanwhile picked it up.
    * Used by the watchdog to stop an unconsumed job lingering under the fixed
-   * jobId. Never throws.
+   * jobId. Lookups are bounded; if state can't be read, skip removal. Never throws.
    */
   private async removeParkedJob(jobId: string): Promise<void> {
     if (!this.queue) return;
-    const job = await this.queue.getJob(jobId).catch(() => null);
+    const job = await this.withTimeout(
+      this.queue.getJob(jobId),
+      LOOKUP_TIMEOUT_MS,
+      'removeParkedJob getJob',
+    ).catch(() => null);
     if (!job) return;
-    const state = await job.getState().catch(() => 'unknown');
-    if (state === 'active' || state === 'completed') return;
+    const state = await this.withTimeout(
+      job.getState(),
+      LOOKUP_TIMEOUT_MS,
+      'removeParkedJob getState',
+    ).catch(() => 'unknown');
+    // 'unknown' = lookup failed/timed out; don't risk removing a job we can't read.
+    if (state === 'active' || state === 'completed' || state === 'unknown') {
+      return;
+    }
     await job.remove().catch(() => undefined);
   }
 
   private async logWorkerDiagnostics(): Promise<void> {
     if (!this.queue || !this.worker) return;
-    const workers = await this.queue.getWorkers().catch(() => []);
+    const workers = await this.withTimeout(
+      this.queue.getWorkers(),
+      LOOKUP_TIMEOUT_MS,
+      'getWorkers',
+    ).catch(() => []);
     this.logger.warn(
       `social-metrics: diagnostics workersRegistered=${workers.length} isRunning=${this.worker.isRunning()} isPaused=${this.worker.isPaused()}`,
     );

@@ -339,13 +339,18 @@ export class SocialConnectionsService {
     if (conn.status === SocialConnectionStatus.REVOKED) return;
 
     try {
+      this.logger.log(`social sync ${connectionId}: ensuring token`);
       const token = await this.ensureFreshInstagramToken(conn);
+      this.logger.log(`social sync ${connectionId}: fetching account`);
       const account = await this.instagram.fetchAccount(token);
+      this.logger.log(`social sync ${connectionId}: fetching totals`);
       const totals = await this.instagram.fetch30DayTotals(
         token,
         METRICS_WINDOW_DAYS,
       );
+      this.logger.log(`social sync ${connectionId}: fetching demographics`);
       const demographics = await this.instagram.fetchDemographics(token);
+      this.logger.log(`social sync ${connectionId}: persisting`);
 
       await this.prisma.socialConnection.update({
         where: { id: conn.id },

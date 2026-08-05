@@ -23,6 +23,13 @@ const SCOPES = [
 /** Demographic breakdown dimensions we pull (one call each). */
 const DEMOGRAPHIC_BREAKDOWNS = ['age', 'gender', 'city', 'country'] as const;
 
+/**
+ * Per-request cap for Graph calls. Node's global fetch only applies undici's
+ * ~5 min header/body defaults, so a stalled Graph call would keep a BullMQ job
+ * in `active` with no logs for many minutes (a sync makes up to 8 calls).
+ */
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+
 export class InstagramApiError extends Error {
   constructor(
     message: string,
@@ -101,6 +108,53 @@ export class InstagramClient {
     return this.config.get<string>('INSTAGRAM_GRAPH_VERSION', 'v21.0');
   }
 
+  private requestTimeoutMs(): number {
+    return Number(
+      this.config.get(
+        'INSTAGRAM_REQUEST_TIMEOUT_MS',
+        DEFAULT_REQUEST_TIMEOUT_MS,
+      ),
+    );
+  }
+
+  /**
+   * `fetch` with an abort timeout plus a start/finish log line, so a slow or
+   * hanging Graph call is visible and can never stall a sync indefinitely.
+   */
+  private async timedFetch(
+    label: string,
+    input: URL | string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    const timeoutMs = this.requestTimeoutMs();
+    const startedAt = Date.now();
+    this.logger.log(
+      `instagram ${label}: request start (timeout=${timeoutMs}ms)`,
+    );
+    try {
+      const res = await fetch(input, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      this.logger.log(
+        `instagram ${label}: response ${res.status} in ${Date.now() - startedAt}ms`,
+      );
+      return res;
+    } catch (err) {
+      const elapsed = Date.now() - startedAt;
+      const reason =
+        (err as Error)?.name === 'TimeoutError'
+          ? `timed out after ${timeoutMs}ms`
+          : (err as Error)?.message;
+      this.logger.warn(
+        `instagram ${label}: request failed in ${elapsed}ms — ${reason}`,
+      );
+      throw new InstagramApiError(
+        `Instagram ${label} request failed: ${reason}`,
+      );
+    }
+  }
+
   isConfigured(): boolean {
     return Boolean(
       this.config.get<string>('INSTAGRAM_CLIENT_ID') &&
@@ -132,17 +186,21 @@ export class InstagramClient {
     const redirectUri = this.config.get<string>('INSTAGRAM_CALLBACK_URL')!;
 
     // 1) short-lived token
-    const shortRes = await fetch(OAUTH_ACCESS_TOKEN, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-        code,
-      }),
-    });
+    const shortRes = await this.timedFetch(
+      'code exchange',
+      OAUTH_ACCESS_TOKEN,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri,
+          code,
+        }),
+      },
+    );
     const shortData = (await shortRes.json()) as {
       access_token?: string;
       user_id?: number | string;
@@ -157,7 +215,7 @@ export class InstagramClient {
     longUrl.searchParams.set('grant_type', 'ig_exchange_token');
     longUrl.searchParams.set('client_secret', clientSecret);
     longUrl.searchParams.set('access_token', shortData.access_token);
-    const longRes = await fetch(longUrl);
+    const longRes = await this.timedFetch('long-lived exchange', longUrl);
     const longData = (await longRes.json()) as {
       access_token?: string;
       expires_in?: number;
@@ -183,7 +241,7 @@ export class InstagramClient {
     const url = new URL(`${GRAPH_BASE}/refresh_access_token`);
     url.searchParams.set('grant_type', 'ig_refresh_token');
     url.searchParams.set('access_token', accessToken);
-    const res = await fetch(url);
+    const res = await this.timedFetch('token refresh', url);
     const data = (await res.json()) as {
       access_token?: string;
       expires_in?: number;
@@ -206,7 +264,7 @@ export class InstagramClient {
       'user_id,username,account_type,followers_count,media_count',
     );
     url.searchParams.set('access_token', accessToken);
-    const res = await fetch(url);
+    const res = await this.timedFetch('account fetch', url);
     const data = (await res.json()) as {
       user_id?: string;
       id?: string;
@@ -266,7 +324,7 @@ export class InstagramClient {
         url.searchParams.set('metric_type', 'total_value');
         url.searchParams.set('breakdown', breakdown);
         url.searchParams.set('access_token', accessToken);
-        const res = await fetch(url);
+        const res = await this.timedFetch(`demographics ${breakdown}`, url);
         const data = (await res.json()) as InsightsResponse & GraphError;
         if (!res.ok) {
           if (data.error?.code === 190) {
@@ -307,7 +365,7 @@ export class InstagramClient {
       url.searchParams.set('since', String(sinceUnix));
       url.searchParams.set('until', String(untilUnix));
       url.searchParams.set('access_token', accessToken);
-      const res = await fetch(url);
+      const res = await this.timedFetch(`insights ${metric}`, url);
       const data = (await res.json()) as InsightsResponse & GraphError;
       if (!res.ok) {
         if (data.error?.code === 190) {

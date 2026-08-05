@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
+import { withTimeout } from '../util/with-timeout';
 import { SocialConnectionsService } from './social-connections.service';
 
 const QUEUE_NAME = 'social-metrics-sync';
@@ -18,6 +19,12 @@ const JOB_NAME = 'sync-connection';
  * same behaviour with an identical watchdog.
  */
 const WATCHDOG_MS = 15_000;
+/**
+ * Upper bound for one sync. Individual Graph calls already time out, so this
+ * only guards against an unexpected stall (e.g. a hung DB write) parking the
+ * job in `active` until BullMQ's lock expires.
+ */
+const SYNC_TIMEOUT_MS = 90_000;
 
 interface SyncJobData {
   connectionId: string;
@@ -186,12 +193,20 @@ export class SocialMetricsQueueService
   ): Promise<void> {
     if (this.processing.has(connectionId)) return;
     this.processing.add(connectionId);
+    const startedAt = Date.now();
     try {
       this.logger.log(`social-metrics: ${source} syncing ${connectionId}`);
-      await this.service.syncConnection(connectionId);
+      await withTimeout(
+        this.service.syncConnection(connectionId),
+        SYNC_TIMEOUT_MS,
+        `social-metrics ${source} sync ${connectionId}`,
+      );
+      this.logger.log(
+        `social-metrics: ${source} synced ${connectionId} in ${Date.now() - startedAt}ms`,
+      );
     } catch (err) {
       this.logger.error(
-        `social-metrics: ${source} sync failed for ${connectionId}: ${(err as Error)?.message}`,
+        `social-metrics: ${source} sync failed for ${connectionId} after ${Date.now() - startedAt}ms: ${(err as Error)?.message}`,
       );
       throw err;
     } finally {
@@ -209,9 +224,7 @@ export class SocialMetricsQueueService
     if (!this.queue) return;
 
     const job = await this.queue.getJob(jobId).catch(() => null);
-    const state = job
-      ? await job.getState().catch(() => 'unknown')
-      : 'missing';
+    const state = job ? await job.getState().catch(() => 'unknown') : 'missing';
     if (state === 'completed' || state === 'active') return;
 
     this.logger.warn(

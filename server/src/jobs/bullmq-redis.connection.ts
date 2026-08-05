@@ -30,8 +30,9 @@ export function buildBullmqConnection(redisUrl: string): ConnectionOptions {
   // Railway / Upstash use rediss://. Match Socket.IO (plain URL) but allow
   // managed certs that fail default TLS verification on blocking clients.
   if (redisUrl.startsWith('rediss://')) {
-    (opts as ConnectionOptions & { tls?: { rejectUnauthorized: boolean } }).tls =
-      { rejectUnauthorized: false };
+    (
+      opts as ConnectionOptions & { tls?: { rejectUnauthorized: boolean } }
+    ).tls = { rejectUnauthorized: false };
   }
 
   return opts;

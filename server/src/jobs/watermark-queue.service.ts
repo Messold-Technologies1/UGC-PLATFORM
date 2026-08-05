@@ -13,6 +13,13 @@ const QUEUE_NAME = 'delivery-watermark';
 const JOB_NAME = 'watermark-delivery';
 /** If a queued job is still waiting after this, run a direct background pass. */
 const WATCHDOG_MS = 15_000;
+/**
+ * Cap for the watchdog's own Redis lookups. Under maxRetriesPerRequest: null
+ * (required by BullMQ) an unreachable Redis makes getJob()/getState() hang
+ * forever instead of rejecting, which would strand the watchdog before it can
+ * run the delivery inline. Time the lookups out and process anyway.
+ */
+const LOOKUP_TIMEOUT_MS = 5_000;
 
 interface WatermarkJobData {
   deliveryId: string;
@@ -230,14 +237,30 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   private async watchdog(deliveryId: string, jobId: string): Promise<void> {
     if (!this.queue) return;
 
-    const job = await this.queue.getJob(jobId).catch(() => null);
-    const state = job ? await job.getState().catch(() => 'unknown') : 'missing';
+    // Bound these lookups (see LOOKUP_TIMEOUT_MS): under maxRetriesPerRequest:
+    // null an unreachable Redis makes getJob()/getState() hang forever, which
+    // would strand the watchdog here and never process the delivery. On timeout
+    // assume it is unconsumed and proceed.
+    const job = await this.withTimeout(
+      this.queue.getJob(jobId),
+      LOOKUP_TIMEOUT_MS,
+      'watchdog getJob',
+    ).catch(() => null);
+    const state = job
+      ? await this.withTimeout(
+          job.getState(),
+          LOOKUP_TIMEOUT_MS,
+          'watchdog getState',
+        ).catch(() => 'unknown')
+      : 'missing';
     if (state === 'completed' || state === 'active') return;
 
     this.logger.warn(
       `watermark: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — direct process`,
     );
-    await this.logWorkerDiagnostics();
+    // Fire-and-forget: its getWorkers() can hang the same way and must not delay
+    // the inline pass.
+    void this.logWorkerDiagnostics();
     try {
       await this.processDeliveryDirect(deliveryId, 'watchdog');
     } catch {
@@ -246,28 +269,44 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       // The worker never consumed this job (still `wait`/`delayed`). Clear the
       // leftover under the fixed jobId so a later-recovering worker doesn't
       // redundantly re-run a delivery we just processed directly. The reconcile
-      // poller still covers anything that failed here.
-      await this.removeParkedJob(jobId);
+      // poller still covers anything that failed here. Fire-and-forget +
+      // bounded internally so a hung Redis lookup can't strand the watchdog.
+      void this.removeParkedJob(jobId);
     }
   }
 
   /**
    * Remove a leftover job by id unless the worker has meanwhile picked it up.
    * Used by the watchdog to stop an unconsumed job lingering under the fixed
-   * jobId. Never throws.
+   * jobId. Lookups are bounded; if state can't be read, skip removal. Never throws.
    */
   private async removeParkedJob(jobId: string): Promise<void> {
     if (!this.queue) return;
-    const job = await this.queue.getJob(jobId).catch(() => null);
+    const job = await this.withTimeout(
+      this.queue.getJob(jobId),
+      LOOKUP_TIMEOUT_MS,
+      'removeParkedJob getJob',
+    ).catch(() => null);
     if (!job) return;
-    const state = await job.getState().catch(() => 'unknown');
-    if (state === 'active' || state === 'completed') return;
+    const state = await this.withTimeout(
+      job.getState(),
+      LOOKUP_TIMEOUT_MS,
+      'removeParkedJob getState',
+    ).catch(() => 'unknown');
+    // 'unknown' = lookup failed/timed out; don't risk removing a job we can't read.
+    if (state === 'active' || state === 'completed' || state === 'unknown') {
+      return;
+    }
     await job.remove().catch(() => undefined);
   }
 
   private async logWorkerDiagnostics(): Promise<void> {
     if (!this.queue || !this.worker) return;
-    const workers = await this.queue.getWorkers().catch(() => []);
+    const workers = await this.withTimeout(
+      this.queue.getWorkers(),
+      LOOKUP_TIMEOUT_MS,
+      'getWorkers',
+    ).catch(() => []);
     this.logger.warn(
       `watermark: diagnostics workersRegistered=${workers.length} isRunning=${this.worker.isRunning()} isPaused=${this.worker.isPaused()}`,
     );

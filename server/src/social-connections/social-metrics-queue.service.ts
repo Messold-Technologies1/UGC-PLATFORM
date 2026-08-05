@@ -25,6 +25,14 @@ const WATCHDOG_MS = 15_000;
  * job in `active` until BullMQ's lock expires.
  */
 const SYNC_TIMEOUT_MS = 90_000;
+/**
+ * Cap for the watchdog's own Redis lookups. The connection is built with
+ * `maxRetriesPerRequest: null` (required by BullMQ), which makes ioredis retry
+ * a command forever instead of rejecting it — so if Redis is unreachable,
+ * `getJob()` never settles and `.catch()` never runs, leaving the watchdog
+ * silently dead. Time the lookups out and sync anyway.
+ */
+const LOOKUP_TIMEOUT_MS = 5_000;
 
 interface SyncJobData {
   connectionId: string;
@@ -223,14 +231,31 @@ export class SocialMetricsQueueService
   private async watchdog(connectionId: string, jobId: string): Promise<void> {
     if (!this.queue) return;
 
-    const job = await this.queue.getJob(jobId).catch(() => null);
-    const state = job ? await job.getState().catch(() => 'unknown') : 'missing';
+    // Bound these lookups (see LOOKUP_TIMEOUT_MS): under maxRetriesPerRequest:
+    // null an unreachable Redis makes getJob()/getState() hang forever, which
+    // would strand the watchdog here and never run the inline sync. On timeout
+    // assume the job is unconsumed and proceed — the inline sync only needs
+    // Postgres, so it works even while Redis is down.
+    const job = await withTimeout(
+      this.queue.getJob(jobId),
+      LOOKUP_TIMEOUT_MS,
+      'watchdog getJob',
+    ).catch(() => null);
+    const state = job
+      ? await withTimeout(
+          job.getState(),
+          LOOKUP_TIMEOUT_MS,
+          'watchdog getState',
+        ).catch(() => 'unknown')
+      : 'missing';
     if (state === 'completed' || state === 'active') return;
 
     this.logger.warn(
       `social-metrics: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
     );
-    await this.logWorkerDiagnostics();
+    // Fire-and-forget: its getWorkers() call can hang the same way and must not
+    // delay the inline sync.
+    void this.logWorkerDiagnostics();
     try {
       await this.processConnectionDirect(connectionId, 'watchdog');
     } catch {
@@ -242,28 +267,44 @@ export class SocialMetricsQueueService
       // silently stop syncing this connection — and a worker that later
       // recovers would redundantly re-run a sync we just did inline. Clear it
       // now that the sync has run directly. The daily cron re-enqueues next
-      // cycle, so no retry is lost.
-      await this.removeParkedJob(jobId);
+      // cycle, so no retry is lost. Fire-and-forget + bounded internally so a
+      // hung Redis lookup can't strand the watchdog.
+      void this.removeParkedJob(jobId);
     }
   }
 
   /**
    * Remove a leftover job by id unless the worker has meanwhile picked it up.
    * Used by the watchdog to stop an unconsumed job lingering under the fixed
-   * jobId. Never throws.
+   * jobId. Lookups are bounded; if state can't be read, skip removal. Never throws.
    */
   private async removeParkedJob(jobId: string): Promise<void> {
     if (!this.queue) return;
-    const job = await this.queue.getJob(jobId).catch(() => null);
+    const job = await withTimeout(
+      this.queue.getJob(jobId),
+      LOOKUP_TIMEOUT_MS,
+      'removeParkedJob getJob',
+    ).catch(() => null);
     if (!job) return;
-    const state = await job.getState().catch(() => 'unknown');
-    if (state === 'active' || state === 'completed') return;
+    const state = await withTimeout(
+      job.getState(),
+      LOOKUP_TIMEOUT_MS,
+      'removeParkedJob getState',
+    ).catch(() => 'unknown');
+    // 'unknown' = lookup failed/timed out; don't risk removing a job we can't read.
+    if (state === 'active' || state === 'completed' || state === 'unknown') {
+      return;
+    }
     await job.remove().catch(() => undefined);
   }
 
   private async logWorkerDiagnostics(): Promise<void> {
     if (!this.queue || !this.worker) return;
-    const workers = await this.queue.getWorkers().catch(() => []);
+    const workers = await withTimeout(
+      this.queue.getWorkers(),
+      LOOKUP_TIMEOUT_MS,
+      'getWorkers',
+    ).catch(() => []);
     this.logger.warn(
       `social-metrics: diagnostics workersRegistered=${workers.length} isRunning=${this.worker.isRunning()} isPaused=${this.worker.isPaused()}`,
     );

@@ -171,9 +171,11 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
           }`,
         );
 
-        if (counts && counts.wait > 0 && counts.active === 0) {
-          void this.logWorkerDiagnostics();
-        }
+        // NB: a freshly added job is expected to sit in `wait` for the brief
+        // moment before the worker moves it to `active`, so we do NOT treat
+        // wait>0/active===0 here as a fault. The watchdog below is the real
+        // signal — it only fires (and logs diagnostics) if the job is still
+        // unconsumed after WATCHDOG_MS.
 
         setTimeout(() => {
           void this.watchdog(deliveryId, jobId);
@@ -232,7 +234,27 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       await this.processDeliveryDirect(deliveryId, 'watchdog');
     } catch {
       // watermarkDelivery logs; reconcile poller will retry
+    } finally {
+      // The worker never consumed this job (still `wait`/`delayed`). Clear the
+      // leftover under the fixed jobId so a later-recovering worker doesn't
+      // redundantly re-run a delivery we just processed directly. The reconcile
+      // poller still covers anything that failed here.
+      await this.removeParkedJob(jobId);
     }
+  }
+
+  /**
+   * Remove a leftover job by id unless the worker has meanwhile picked it up.
+   * Used by the watchdog to stop an unconsumed job lingering under the fixed
+   * jobId. Never throws.
+   */
+  private async removeParkedJob(jobId: string): Promise<void> {
+    if (!this.queue) return;
+    const job = await this.queue.getJob(jobId).catch(() => null);
+    if (!job) return;
+    const state = await job.getState().catch(() => 'unknown');
+    if (state === 'active' || state === 'completed') return;
+    await job.remove().catch(() => undefined);
   }
 
   private async logWorkerDiagnostics(): Promise<void> {

@@ -199,9 +199,13 @@ export class SocialMetricsQueueService
     connectionId: string,
     source: string,
   ): Promise<void> {
-    if (this.processing.has(connectionId)) {
-      // The job completes without doing any work when this fires — surface it
-      // so a "job active but no Instagram calls" case isn't a silent mystery.
+    // The BullMQ worker is the authoritative sync path: it must NEVER be
+    // silently skipped, or the job completes having made zero Instagram calls
+    // and lastSyncedAt stays null (job active, no API calls, no data). Only the
+    // best-effort callers (watchdog / inline fallback) defer to an in-flight
+    // run. syncConnection is idempotent, so a rare concurrent run just repeats
+    // one fetch — far better than dropping the sync entirely.
+    if (source !== 'worker' && this.processing.has(connectionId)) {
       this.logger.log(
         `social-metrics: ${source} skipped ${connectionId} — a sync is already in progress for it`,
       );

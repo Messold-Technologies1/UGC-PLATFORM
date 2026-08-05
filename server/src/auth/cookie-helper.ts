@@ -76,6 +76,9 @@ export function expiryToSeconds(expiry: string): number {
 }
 
 export const OAUTH_STATE_COOKIE = 'oauth_state';
+export const OAUTH_ROLE_COOKIE = 'oauth_role';
+
+export type OAuthIntendedRole = 'BRAND' | 'CREATOR';
 
 export function setOAuthStateCookie(res: Response, state: string): void {
   res.cookie(OAUTH_STATE_COOKIE, state, {
@@ -87,6 +90,19 @@ export function setOAuthStateCookie(res: Response, state: string): void {
   });
 }
 
+export function setOAuthRoleCookie(
+  res: Response,
+  role: OAuthIntendedRole,
+): void {
+  res.cookie(OAUTH_ROLE_COOKIE, role, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/api/auth',
+    maxAge: 10 * 60 * 1000,
+  });
+}
+
 export function clearOAuthStateCookie(res: Response): void {
   res.cookie(OAUTH_STATE_COOKIE, '', {
     httpOnly: true,
@@ -95,4 +111,18 @@ export function clearOAuthStateCookie(res: Response): void {
     path: '/api/auth',
     maxAge: 0,
   });
+  res.cookie(OAUTH_ROLE_COOKIE, '', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/api/auth',
+    maxAge: 0,
+  });
+}
+
+export function parseOAuthIntendedRole(
+  value: string | undefined,
+): OAuthIntendedRole | null {
+  if (value === 'BRAND' || value === 'CREATOR') return value;
+  return null;
 }

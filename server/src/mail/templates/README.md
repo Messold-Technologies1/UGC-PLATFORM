@@ -23,6 +23,7 @@ Each notification uses **three files** sharing the same basename as `EmailTempla
 | `order-rejected-for-brand` | Admin marks order rejected — sent to brand |
 | `order-rejected-for-creator` | Admin marks order rejected — sent to creator |
 | `order-refunded-for-brand` | Payment refunded to brand (order `REFUNDED`) |
+| `brand-welcome` | Brand account created (password signup or Google setup) |
 
 ## Common variables
 

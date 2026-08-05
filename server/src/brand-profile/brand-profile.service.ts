@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { BrandCategory, RoleName } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
+import { BrandProfileMailNotifier } from '../mail/brand-profile-mail.notifier';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
@@ -30,6 +31,7 @@ export class BrandProfileService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
+    private readonly brandMail: BrandProfileMailNotifier,
   ) {}
 
   private assertTempBrandLogoKeyOwner(userId: string, key: string): void {
@@ -140,8 +142,8 @@ export class BrandProfileService {
         userId,
         brandName: dto.brandName.trim(),
         contactFullName: dto.contactFullName.trim(),
-        contactEmail: dto.contactEmail.trim(),
-        contactPhone: dto.contactPhone.trim(),
+        contactEmail: (dto.contactEmail ?? '').trim() || null,
+        contactPhone: dto.contactPhone?.trim() || null,
         website: dto.website?.trim() || null,
         instagramUrl: dto.instagramUrl?.trim() || null,
         productType: dto.productType ?? null,
@@ -288,8 +290,8 @@ export class BrandProfileService {
           agencyId: params.agencyId,
           brandName: params.dto.brandName.trim(),
           contactFullName: params.dto.contactFullName.trim(),
-          contactEmail: params.dto.contactEmail.trim(),
-          contactPhone: params.dto.contactPhone.trim(),
+          contactEmail: params.dto.contactEmail?.trim() || null,
+          contactPhone: params.dto.contactPhone?.trim() || null,
           website: params.dto.website?.trim() || null,
           instagramUrl: params.dto.instagramUrl?.trim() || null,
           productType: params.dto.productType ?? null,
@@ -392,7 +394,64 @@ export class BrandProfileService {
     logoKey?: string;
     pronunciationAudioKey?: string;
   }): Promise<BrandProfileResponseDto> {
-    return this.finalizeBrandProfileAssetsAndLoad(params);
+    const profile = await this.finalizeBrandProfileAssetsAndLoad(params);
+    this.brandMail.notifyWelcome(params.brandProfileId);
+    return profile;
+  }
+
+  /**
+   * Authenticated brand setup (e.g. after Google OAuth). Creates the owned
+   * brand profile for a user who already has a session but no BrandProfile.
+   */
+  async createOwnedBrandProfileForUser(
+    userId: string,
+    dto: CreateBrandProfileDto,
+  ): Promise<BrandProfileResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const contactFullName =
+      dto.contactFullName?.trim() || user.name?.trim() || dto.brandName.trim();
+
+    if (!contactFullName) {
+      throw new BadRequestException('contactFullName is required');
+    }
+
+    const logoKey = dto.logoKey?.trim();
+    const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
+
+    const brandProfileId = await this.prisma.$transaction(
+      async (tx) =>
+        this.runCreateOwnedBrandProfileInTransaction(
+          tx,
+          userId,
+          {
+            ...dto,
+            contactFullName,
+            // contactEmail is optional at signup — mail falls back to User.email.
+            ...(dto.contactEmail?.trim()
+              ? { contactEmail: dto.contactEmail.trim().toLowerCase() }
+              : {}),
+            ...(dto.contactPhone?.trim()
+              ? { contactPhone: dto.contactPhone.trim() }
+              : {}),
+          },
+          { forcePrimaryBrandRole: true },
+        ),
+      { timeout: 30_000, maxWait: 10_000 },
+    );
+
+    return this.finalizeOwnedBrandProfileAssets({
+      brandProfileId,
+      actorUserId: userId,
+      logoKey,
+      pronunciationAudioKey,
+    });
   }
 
   async listBrands(query: ListBrandsQueryDto): Promise<BrandsListResponseDto> {
@@ -660,11 +719,8 @@ export class BrandProfileService {
       data.contactFullName = v;
     }
     if (dto.contactEmail !== undefined) {
-      const v = dto.contactEmail.trim();
-      if (!v) {
-        throw new BadRequestException('contactEmail cannot be empty');
-      }
-      data.contactEmail = v;
+      // Empty/null clears contactEmail; outbound mail then falls back to User.email.
+      data.contactEmail = (dto.contactEmail ?? '').trim() || null;
     }
     if (dto.contactPhone !== undefined) {
       const v = dto.contactPhone.trim();

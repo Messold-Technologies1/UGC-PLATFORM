@@ -6,7 +6,7 @@ import type { BrandProfileItemApi } from "./types";
 export type UpdateBrandProfilePayload = {
   brandName?: string;
   contactFullName?: string;
-  contactEmail?: string;
+  contactEmail?: string | null;
   contactPhone?: string;
   brandPronunciation?: string | null;
   brandPronunciationAudioKey?: string | null;

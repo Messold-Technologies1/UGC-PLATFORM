@@ -2,120 +2,81 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import {
-  Upload,
-  Instagram,
-  Check,
-  Building2,
-  Globe,
-  ShoppingBag,
-  MonitorPlay,
-  Package,
-  ChevronDown,
-  Eye,
-  EyeOff,
-  X,
-} from "lucide-react";
+import { Building2, Eye, EyeOff, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
-import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
 import {
   presignBrandSignupLogo,
-  presignBrandSignupPronunciation,
   putBlobToPresignedUrl,
   registerBrand,
 } from "@/features/auth/api/brand-signup";
 import { authMeQueryKey, type AuthUser } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { trackPixelCustom } from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
+import { GoogleMark } from "@/features/auth/components/google-mark";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-const brandSignupSchema = z
-  .object({
-    email: z
-      .string()
-      .email("Enter a valid email address")
-      .min(1, "Email is required"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    contactFullName: z.string().min(1, "Full name is required"),
-    contactEmail: z
-      .string()
-      .email("Enter a valid email address")
-      .min(1, "Contact email is required"),
-    contactPhone: z.string().min(1, "Phone is required"),
-    brandName: z.string().min(1, "Brand name is required"),
-    website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-    instagramUrl: z
-      .string()
-      .url("Must be a valid URL")
-      .optional()
-      .or(z.literal("")),
-    productType: z.enum(["PHYSICAL", "DIGITAL", "BOTH"], {
-      message: "Product type is required",
-    }),
-    categories: z.array(z.string()).min(1, "Select at least one category"),
-    otherCategoryLabel: z.string().optional(),
-    termsAccepted: z.boolean().refine((val) => val === true, {
-      message: "You must accept the terms",
-    }),
-    guidelinesAccepted: z.boolean().refine((val) => val === true, {
-      message: "You must accept the Brand Guidelines",
-    }),
-  })
-  .refine(
-    (data) => {
-      if (
-        data.categories.includes("OTHER") &&
-        !data.otherCategoryLabel?.trim()
-      ) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: "Please specify your category",
-      path: ["otherCategoryLabel"],
-    },
-  );
+const brandSignupSchema = z.object({
+  email: z
+    .string()
+    .email("Enter a valid email address")
+    .min(1, "Email is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  contactFullName: z.string().min(1, "Contact name is required"),
+  brandName: z.string().min(1, "Brand name is required"),
+  termsAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept the terms",
+  }),
+  guidelinesAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept the Brand Guidelines",
+  }),
+});
 
 type BrandSignupData = z.infer<typeof brandSignupSchema>;
 
 const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
-  email: "Email",
+  email: "Account email",
   password: "Password (at least 8 characters)",
-  contactFullName: "Full name",
-  contactEmail: "Contact email",
-  contactPhone: "Phone number",
+  contactFullName: "Contact name",
   brandName: "Brand name",
-  productType: "Product type",
-  categories: "At least one category",
   termsAccepted: "Terms acceptance",
   guidelinesAccepted: "Brand Guidelines acceptance",
 };
 
-function getBrandSignupBlockers(
-  values: BrandSignupData,
-  ctx: {
-    hasLogo: boolean;
-  },
-): string[] {
-  const blockers: string[] = [];
+/** Mobile-only wizard steps. Desktop (xl:) shows all sections at once. */
+const STEP_TITLES = ["Account", "Brand"] as const;
+const STEP_FIELDS: (keyof BrandSignupData)[][] = [
+  ["email", "password"],
+  ["contactFullName", "brandName", "termsAccepted", "guidelinesAccepted"],
+];
+const LAST_STEP = STEP_TITLES.length - 1;
 
+const labelClassName =
+  "inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]";
+
+const inputClassName =
+  "h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#3e76ef] focus-visible:ring-[3px] focus-visible:ring-[#3e76ef]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800";
+
+const prefixedFieldClassName =
+  "flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800";
+
+function getBrandSignupBlockers(values: BrandSignupData): string[] {
+  const blockers: string[] = [];
   const parsed = brandSignupSchema.safeParse(values);
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
@@ -126,46 +87,6 @@ function getBrandSignupBlockers(
   }
   return blockers;
 }
-
-function isBrandSignupReady(
-  values: BrandSignupData,
-  ctx: {
-    hasLogo: boolean;
-  },
-): boolean {
-  return getBrandSignupBlockers(values, ctx).length === 0;
-}
-
-/** Mobile-only wizard steps. Desktop (xl:) shows all of these at once. */
-const STEP_TITLES = [
-  "Account",
-  "Contact",
-  "About your brand",
-  "Product details",
-  "Online presence",
-];
-const STEP_FIELDS: (keyof BrandSignupData)[][] = [
-  ["email", "password"],
-  ["contactFullName", "contactEmail", "contactPhone"],
-  ["brandName"],
-  ["productType", "categories", "otherCategoryLabel"],
-  ["website", "instagramUrl", "termsAccepted", "guidelinesAccepted"],
-];
-const LAST_STEP = STEP_TITLES.length - 1;
-
-const BRAND_CATEGORIES = [
-  { slug: "APPAREL_AND_FASHION", label: "Apparel & Fashion" },
-  { slug: "ELECTRONICS_AND_GADGETS", label: "Electronics" },
-  { slug: "HEALTH_AND_BEAUTY", label: "Health & Beauty" },
-  { slug: "FOOD_AND_BEVERAGES", label: "Food & Beverages" },
-  { slug: "HOME_AND_LIFESTYLE", label: "Home & Lifestyle" },
-  { slug: "SPORTS_AND_FITNESS", label: "Sports & Fitness" },
-  { slug: "TOYS_AND_KIDS", label: "Toys & Kids" },
-  { slug: "PETS_AND_ANIMALS", label: "Pets & Animals" },
-  { slug: "OTHER", label: "Other" },
-];
-
-
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -198,63 +119,35 @@ function brandSignupErrorMessage(error: unknown, fallback: string): string {
   return readApiErrorMessage(error) ?? fallback;
 }
 
-// function normalizePhoneForSignup(raw: string): string {
-//   const trimmed = raw.trim();
-//   if (!trimmed) return "";
-//   if (!trimmed.startsWith("+")) return trimmed;
-//   return `+${trimmed.replace(/\D/g, "")}`;
-// }
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
-function formatBytes(bytes: number, decimals = 1) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-}
-
 function validateLogoFile(file: File): string | null {
   if (
     !ACCEPTED_LOGO_TYPES.includes(
       file.type as (typeof ACCEPTED_LOGO_TYPES)[number],
     )
   ) {
-    return "Upload a JPG, PNG, or WebP image.";
+    return "Logo must be JPEG, PNG, or WebP";
   }
   if (file.size > MAX_LOGO_BYTES) {
-    return "Logo must be 5 MB or smaller.";
+    return "Logo must be 5MB or smaller";
   }
   return null;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function BrandRegisterForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [phoneInput, setPhoneInput] = useState("");
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoTempKey, setLogoTempKey] = useState<string | null>(null);
-  const [logoError, setLogoError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const [pronunciationAudioBlob, setPronunciationAudioBlob] =
-    useState<Blob | null>(null);
-  const [pronunciationAudioTempKey, setPronunciationAudioTempKey] =
-    useState<string | null>(null);
-  const [pronunciationAudioPreviewUrl, setPronunciationAudioPreviewUrl] =
-    useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [registeredUser, setRegisteredUser] = useState<AuthUser | null>(null);
-
-  // Mobile-only step wizard (see STEP_TITLES/STEP_FIELDS above). Desktop (xl:
-  // and up) ignores this and shows every step at once, as before.
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
   const form = useForm<BrandSignupData>({
@@ -265,35 +158,26 @@ export function BrandRegisterForm() {
       email: "",
       password: "",
       contactFullName: "",
-      contactEmail: "",
-      contactPhone: "",
       brandName: "",
-      website: "",
-      instagramUrl: "",
-      categories: [],
-      otherCategoryLabel: "",
       termsAccepted: false,
       guidelinesAccepted: false,
     },
   });
 
-  // const normalizedPhone = normalizePhoneForSignup(phoneInput);
-
   const registerBrandMutation = useMutation({
     mutationKey: ["auth", "register", "brand"],
     mutationFn: registerBrand,
     onSuccess: (result, variables) => {
-      setRegisteredUser(result.user);
-      // Meta conversion: brand registration completed (fires in the brand's own
-      // browser, so attribution is correct). Fired before the redirect below.
-      // brand_name is reporting metadata (custom_data), not a matching key.
       trackPixelCustom("BrandRegistration", {
         brand_name: variables.brandName,
       });
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
       const callback = searchParams.get("callbackUrl");
-      const target = resolveImmediatePostAuthPath(result.user, callback);
+      const target = resolveImmediatePostAuthPath(
+        result.user as AuthUser,
+        callback,
+      );
       beginClientNavigation();
       window.location.replace(target);
     },
@@ -308,26 +192,14 @@ export function BrandRegisterForm() {
   });
 
   const pendingSubmit = registerBrandMutation.isPending || isUploading;
-  const pendingAny = pendingSubmit;
+  const pendingAny = pendingSubmit || googleLoading;
 
   const signupFormValues = form.watch();
-  const hasLogo = Boolean(logoFile || logoTempKey);
   const signupBlockers = useMemo(
-    () =>
-      getBrandSignupBlockers(signupFormValues, {
-        hasLogo,
-      }),
-    [signupFormValues, hasLogo],
+    () => getBrandSignupBlockers(signupFormValues),
+    [signupFormValues],
   );
   const isSignupComplete = signupBlockers.length === 0;
-
-  useEffect(() => {
-    return () => {
-      if (pronunciationAudioPreviewUrl?.startsWith("blob:")) {
-        URL.revokeObjectURL(pronunciationAudioPreviewUrl);
-      }
-    };
-  }, [pronunciationAudioPreviewUrl]);
 
   const handleNextStep = useCallback(async () => {
     const valid = await form.trigger(STEP_FIELDS[currentStep]);
@@ -344,163 +216,86 @@ export function BrandRegisterForm() {
     const error = validateLogoFile(file);
     if (error) {
       setLogoFile(null);
-      setLogoTempKey(null);
       setLogoError(error);
       toast.error(error);
       return;
     }
     setLogoFile(file);
-    setLogoTempKey(null);
     setLogoError(null);
   }, []);
 
-  const handlePronunciationBlob = useCallback((blob: Blob) => {
-    setPronunciationAudioBlob(blob);
-    setPronunciationAudioTempKey(null);
-    setPronunciationAudioPreviewUrl((current) => {
-      if (current?.startsWith("blob:")) {
-        URL.revokeObjectURL(current);
-      }
-      return URL.createObjectURL(blob);
-    });
+  const clearLogo = useCallback(() => {
+    setLogoFile(null);
+    setLogoError(null);
   }, []);
 
-  const clearPronunciationAudio = useCallback(() => {
-    setPronunciationAudioBlob(null);
-    setPronunciationAudioTempKey(null);
-    setPronunciationAudioPreviewUrl((current) => {
-      if (current?.startsWith("blob:")) {
-        URL.revokeObjectURL(current);
-      }
-      return null;
-    });
-  }, []);
-
-  const uploadLogo = useCallback(
-    async (email: string): Promise<string | undefined> => {
-      if (logoTempKey) return logoTempKey;
-      if (!logoFile) return undefined;
-
-      const presign = await presignBrandSignupLogo({
-        email,
-        contentType: logoFile.type,
-        contentLength: logoFile.size,
-      });
-      await putBlobToPresignedUrl(logoFile, presign);
-      setLogoTempKey(presign.key);
-      return presign.key;
-    },
-    [logoFile, logoTempKey],
-  );
-
-  const uploadPronunciationAudio = useCallback(
-    async (email: string): Promise<string | undefined> => {
-      if (pronunciationAudioTempKey) return pronunciationAudioTempKey;
-      if (!pronunciationAudioBlob) return undefined;
-
-      const presign = await presignBrandSignupPronunciation({
-        email,
-        contentType: pronunciationAudioBlob.type || "audio/webm",
-        contentLength: pronunciationAudioBlob.size,
-      });
-      await putBlobToPresignedUrl(pronunciationAudioBlob, presign);
-      setPronunciationAudioTempKey(presign.key);
-      setPronunciationAudioPreviewUrl(presign.cdnUrl);
-      return presign.key;
-    },
-    [pronunciationAudioBlob, pronunciationAudioTempKey],
-  );
-
-  const onSubmit = async (data: BrandSignupData) => {
-    if (registeredUser) {
-      toast.success("Profile already created");
-      queryClient.setQueryData(authMeQueryKey, registeredUser);
-      const callback = searchParams.get("callbackUrl");
-      const target = resolveImmediatePostAuthPath(registeredUser, callback);
-      beginClientNavigation();
-      window.location.replace(target);
-      return;
-    }
-
+  const onSubmit = form.handleSubmit(async (data) => {
+    setIsUploading(true);
     try {
-      const email = data.email.trim().toLowerCase();
-
-      setIsUploading(true);
-      const [logoKey, brandPronunciationAudioKey] = await Promise.all([
-        uploadLogo(email),
-        uploadPronunciationAudio(email),
-      ]);
-      setIsUploading(false);
+      let logoKey: string | undefined;
+      if (logoFile) {
+        const email = data.email.trim().toLowerCase();
+        const presign = await presignBrandSignupLogo({
+          email,
+          contentType: logoFile.type,
+          contentLength: logoFile.size,
+        });
+        await putBlobToPresignedUrl(logoFile, presign);
+        logoKey = presign.key;
+      }
 
       registerBrandMutation.mutate({
-        email,
+        email: data.email.trim().toLowerCase(),
         password: data.password,
         contactFullName: data.contactFullName.trim(),
-        contactEmail: data.contactEmail.trim(),
-        contactPhone: data.contactPhone.trim(),
         brandName: data.brandName.trim(),
         ...(logoKey ? { logoKey } : {}),
-        ...(brandPronunciationAudioKey ? { brandPronunciationAudioKey } : {}),
-        ...(normalizeOptionalText(data.website)
-          ? { website: normalizeOptionalText(data.website) }
-          : {}),
-        ...(normalizeOptionalText(data.instagramUrl)
-          ? { instagramUrl: normalizeOptionalText(data.instagramUrl) }
-          : {}),
-        productType: data.productType,
-        categories: data.categories as BrandCategoryApi[],
-        ...(data.categories.includes("OTHER")
-          ? { otherCategoryLabel: data.otherCategoryLabel?.trim() }
-          : {}),
       });
     } catch (error) {
-      setIsUploading(false);
       toast.error(
-        brandSignupErrorMessage(
-          error,
-          "Could not upload assets. Please try again.",
-        ),
+        brandSignupErrorMessage(error, "Could not upload logo. Try again."),
       );
+    } finally {
+      setIsUploading(false);
     }
+  });
+
+  const handleGoogleSignup = () => {
+    // Terms / Brand Guidelines are collected on /register/brand/complete after
+    // Google returns — that's when the brand profile is actually created.
+    setGoogleLoading(true);
+    startGoogleOAuth({
+      role: "BRAND",
+      callbackUrl: searchParams.get("callbackUrl"),
+    });
   };
 
-  const selectedCategories = form.watch("categories");
-  const showOtherCategoryLabel = selectedCategories.includes("OTHER");
-
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const categoriesRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!categoriesOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        categoriesRef.current &&
-        !categoriesRef.current.contains(e.target as Node)
-      ) {
-        setCategoriesOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [categoriesOpen]);
+  const loginHref = `/login?role=brand${
+    searchParams.get("callbackUrl")
+      ? `&callbackUrl=${encodeURIComponent(searchParams.get("callbackUrl")!)}`
+      : ""
+  }`;
 
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={onSubmit}
       className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:min-h-0 xl:h-full"
     >
       <div className="shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start lg:gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
               Create your brand profile
             </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              You can add website, categories, and more from your profile later.
+            </p>
           </div>
-          <div className="flex flex-col items-end gap-2 text-sm">
+          <div className="flex flex-col items-start gap-2 text-sm lg:items-end">
             <p className="text-slate-500">
               Already have an account?{" "}
               <Link
-                href="/login?role=brand"
+                href={loginHref}
                 className="font-semibold text-slate-900 hover:underline dark:text-slate-50"
               >
                 Log in
@@ -512,9 +307,12 @@ export function BrandRegisterForm() {
         <div className="mt-3 space-y-1.5 xl:hidden">
           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
             <span>
-              Step {currentStep + 1} of {STEP_TITLES.length}: {STEP_TITLES[currentStep]}
+              Step {currentStep + 1} of {STEP_TITLES.length}:{" "}
+              {STEP_TITLES[currentStep]}
             </span>
-            <span>{Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%</span>
+            <span>
+              {Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%
+            </span>
           </div>
           <div className="flex gap-1.5">
             {STEP_TITLES.map((title, i) => (
@@ -534,7 +332,13 @@ export function BrandRegisterForm() {
 
       <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
-          <div className={cn(currentStep === 0 ? "block" : "hidden", "xl:block", "space-y-3")}>
+          <div
+            className={cn(
+              currentStep === 0 ? "block" : "hidden",
+              "xl:block",
+              "space-y-3",
+            )}
+          >
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 1
@@ -545,14 +349,34 @@ export function BrandRegisterForm() {
             </div>
 
             <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-full border-slate-200 bg-white text-[15px] font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                disabled={pendingAny}
+                onClick={handleGoogleSignup}
+              >
+                {googleLoading ? (
+                  <Spinner className="size-4" aria-hidden />
+                ) : (
+                  <GoogleMark className="size-5" />
+                )}
+                Continue with Google
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  or
+                </span>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+              </div>
+
               <div className="space-y-1">
-                <Label
-                  htmlFor="email"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
+                <Label htmlFor="brand-email" className={labelClassName}>
                   Account email <span className="text-red-500">*</span>
                 </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800">
+                <div className={prefixedFieldClassName}>
                   <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -570,34 +394,43 @@ export function BrandRegisterForm() {
                     </svg>
                   </div>
                   <Input
-                    id="email"
+                    id="brand-email"
                     type="email"
                     placeholder="you@company.com"
+                    autoComplete="email"
+                    disabled={pendingAny}
                     className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
                     {...form.register("email")}
                   />
                 </div>
-                {form.formState.errors.email && (
+                {form.formState.errors.email ? (
                   <p className="text-xs text-red-500">
                     {form.formState.errors.email.message}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Used for login. Contact email can be set later in profile.
                   </p>
                 )}
               </div>
 
               <div className="space-y-1">
-                <Label
-                  htmlFor="password"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Password <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
+                  <Label htmlFor="brand-password" className={labelClassName}>
+                    Password <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="text-[11px] text-slate-400">
+                    min 8 chars, mix letters + numbers + symbol
+                  </span>
+                </div>
                 <div className="relative">
                   <Input
-                    id="password"
+                    id="brand-password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="8+ characters"
+                    placeholder="••••••••••"
                     autoComplete="new-password"
-                    className="h-[42px] pr-10 rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#3e76ef] focus-visible:ring-[3px] focus-visible:ring-[#3e76ef]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
+                    disabled={pendingAny}
+                    className={cn(inputClassName, "pr-10")}
                     {...form.register("password")}
                   />
                   <button
@@ -615,207 +448,80 @@ export function BrandRegisterForm() {
                     )}
                   </button>
                 </div>
-                {form.formState.errors.password && (
+                {form.formState.errors.password ? (
                   <p className="text-xs text-red-500">
                     {form.formState.errors.password.message}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
 
-          <div className={cn(currentStep === 1 ? "block" : "hidden", "xl:block", "space-y-3")}>
+          <div
+            className={cn(
+              currentStep === 1 ? "block" : "hidden",
+              "xl:block",
+              "space-y-3",
+            )}
+          >
             <div className="inline-flex items-center gap-2">
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 2
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Contact & Verification
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="contactFullName"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Full Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="contactFullName"
-                    placeholder="Jane Doe"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#3e76ef] focus-visible:ring-[3px] focus-visible:ring-[#3e76ef]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950"
-                    {...form.register("contactFullName")}
-                  />
-                  {form.formState.errors.contactFullName && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.contactFullName.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="contactEmail"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Contact Email <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="contactEmail"
-                    type="email"
-                    placeholder="jane@company.com"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#3e76ef] focus-visible:ring-[3px] focus-visible:ring-[#3e76ef]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950"
-                    {...form.register("contactEmail")}
-                  />
-                  {form.formState.errors.contactEmail && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.contactEmail.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label
-                  htmlFor="contactPhone"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Phone number <span className="text-red-500">*</span>
-                </Label>
-                <div className="grid gap-3">
-                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800">
-                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
-                      +91
-                    </div>
-                    <Input
-                      id="contactPhone"
-                      placeholder="9876543210"
-                      autoComplete="tel-national"
-                      inputMode="tel"
-                      aria-invalid={phoneError ? true : undefined}
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
-                      value={
-                        phoneInput.startsWith("+91")
-                          ? phoneInput.slice(3)
-                          : phoneInput
-                      }
-                      onChange={(event) => {
-                        let val = event.target.value;
-                        if (val.startsWith("+91")) val = val.slice(3);
-                        const digits = val.replace(/\D/g, "");
-                        const next = digits ? `+91${digits}` : "";
-                        setPhoneInput(next);
-                        setPhoneError(null);
-                        form.setValue("contactPhone", next, {
-                          shouldValidate: true,
-                        });
-                      }}
-                    />
-                  </div>
-                  {phoneError && (
-                    <p className="text-xs text-red-500">{phoneError}</p>
-                  )}
-                </div>
-                {form.formState.errors.contactPhone && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.contactPhone.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className={cn(currentStep === 2 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
-                3
               </div>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
                 About Your Brand
               </h2>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="brandName"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Brand Name <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800">
-                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                      <Building2 className="size-4" />
-                    </div>
-                    <Input
-                      id="brandName"
-                      placeholder="Acme Corp"
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                      {...form.register("brandName")}
-                    />
-                  </div>
-                  {form.formState.errors.brandName && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.brandName.message}
-                    </p>
-                  )}
-                </div>
-
-                <BrandPronunciationAudioField
-                  disabled={pendingAny || Boolean(registeredUser)}
-                  uploading={
-                    isUploading &&
-                    Boolean(pronunciationAudioBlob)
-                  }
-                  audioUrl={pronunciationAudioPreviewUrl}
-                  hasRecording={Boolean(
-                    pronunciationAudioBlob || pronunciationAudioTempKey,
-                  )}
-                  onRecordingReady={handlePronunciationBlob}
-                  onRemove={clearPronunciationAudio}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="brand-contact-name" className={labelClassName}>
+                  Contact name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="brand-contact-name"
+                  placeholder="Jane Doe"
+                  autoComplete="name"
+                  disabled={pendingAny}
+                  className={inputClassName}
+                  {...form.register("contactFullName")}
                 />
+                {form.formState.errors.contactFullName ? (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.contactFullName.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="brand-name" className={labelClassName}>
+                  Brand name <span className="text-red-500">*</span>
+                </Label>
+                <div className={prefixedFieldClassName}>
+                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
+                    <Building2 className="size-4" />
+                  </div>
+                  <Input
+                    id="brand-name"
+                    placeholder="Acme Corp"
+                    disabled={pendingAny}
+                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                    {...form.register("brandName")}
+                  />
+                </div>
+                {form.formState.errors.brandName ? (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.brandName.message}
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                    Brand Logo
-                  </Label>
+                  <Label className={labelClassName}>Brand logo</Label>
                   <p className="mt-1 text-xs text-slate-500">
-                    Upload your brand&apos;s logo directly.
+                    Optional — you can upload this later from your profile.
                   </p>
-                </div>
-
-                <div className="flex gap-2 rounded-lg bg-slate-100 p-1 w-fit dark:bg-slate-900">
-                  <button
-                    type="button"
-                    disabled={pendingAny}
-                    onClick={() => logoInputRef.current?.click()}
-                    className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm transition-colors disabled:opacity-60 dark:bg-slate-800 dark:text-white"
-                  >
-                    <Upload className="size-3.5" />
-                    Upload file
-                  </button>
-                  {/* <button
-                    type="button"
-                    disabled
-                    title="Drive link uploads are coming soon"
-                    className="flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold text-slate-400 opacity-60 dark:text-slate-500"
-                  >
-                    <svg
-                      className="size-3.5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M12.01 2.25 2.61 18.52h6.14l6.33-10.96-3.07-5.31Zm10.23 18.06h-12L4.09 9.35l6 10.4 12.15.56Zm-15.53-2.02 3.07-5.31 9.4 16.28h-6.14l-6.33-10.97Z" />
-                    </svg>
-                    Drive link
-                  </button> */}
                 </div>
 
                 <div
@@ -832,13 +538,13 @@ export function BrandRegisterForm() {
                     "flex items-center gap-4 rounded-2xl border-2 border-dashed bg-[#fdfcfb] px-6 py-4 transition-colors dark:bg-slate-900/50 cursor-pointer",
                     logoError
                       ? "border-red-300"
-                      : "border-slate-200 hover:bg-slate-50 hover:border-[#3e76ef] dark:border-slate-800 dark:hover:border-[#3e76ef]"
+                      : "border-slate-200 hover:bg-slate-50 hover:border-[#3e76ef] dark:border-slate-800 dark:hover:border-[#3e76ef]",
                   )}
                 >
                   <input
                     ref={logoInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept={ACCEPTED_LOGO_TYPES.join(",")}
                     className="hidden"
                     disabled={pendingAny}
                     onChange={(event) => {
@@ -865,16 +571,16 @@ export function BrandRegisterForm() {
                   </div>
                 </div>
 
-                {logoFile && (
-                  <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950 mt-3">
+                {logoFile ? (
+                  <div className="mt-3 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_2px_8px_rgb(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-950">
                     <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3e76ef] to-[#8b5cf6] text-white">
                       <Upload className="size-6" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[16px] font-bold text-slate-900 truncate dark:text-white">
+                      <p className="truncate text-[16px] font-bold text-slate-900 dark:text-white">
                         {logoFile.name}
                       </p>
-                      <p className="text-[13px] text-slate-500 mt-0.5">
+                      <p className="mt-0.5 text-[13px] text-slate-500">
                         {formatBytes(logoFile.size)} &middot;{" "}
                         {logoFile.type || "image"}
                       </p>
@@ -884,274 +590,15 @@ export function BrandRegisterForm() {
                       disabled={pendingAny}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setLogoFile(null);
-                        setLogoTempKey(null);
-                        setLogoError(null);
+                        clearLogo();
                       }}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 ml-2"
+                      className="ml-2 flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                      aria-label="Remove logo"
                     >
                       <X className="size-4" />
                     </button>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className={cn(currentStep === 3 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
-                4
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Product Details
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                  Product Type <span className="text-red-500">*</span>
-                </Label>
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                  {([
-                    { value: "PHYSICAL", label: "Physical", icon: Package },
-                    { value: "DIGITAL", label: "Digital", icon: MonitorPlay },
-                    { value: "BOTH", label: "Both", icon: ShoppingBag },
-                  ] as const).map((type) => {
-                    const isSelected = form.watch("productType") === type.value;
-                    const Icon = type.icon;
-                    return (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() =>
-                          form.setValue("productType", type.value, {
-                            shouldValidate: true,
-                          })
-                        }
-                        className={cn(
-                          "relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-all",
-                          isSelected
-                            ? "border-[#3e76ef] bg-[#3e76ef]/5 text-[#3e76ef] ring-1 ring-[#3e76ef] dark:bg-[#3e76ef]/10"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-slate-700",
-                        )}
-                      >
-                        <Icon className="size-5" />
-                        <span className="text-[13px] font-bold">
-                          {type.label}
-                        </span>
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 rounded-full bg-[#3e76ef] p-0.5 text-white">
-                            <Check className="size-2.5" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {form.formState.errors.productType && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.productType.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1 relative" ref={categoriesRef}>
-                <Label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                  Categories <span className="text-red-500">*</span>
-                </Label>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setCategoriesOpen(!categoriesOpen)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setCategoriesOpen(!categoriesOpen);
-                    }
-                  }}
-                  className={cn(
-                    "flex w-full items-center justify-between min-h-[42px] rounded-[11px] border bg-white px-3 py-2 text-sm transition-[border-color,box-shadow] duration-150 cursor-pointer dark:bg-slate-950",
-                    selectedCategories.length === 0
-                      ? "border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] text-slate-500 focus-visible:border-[#ef3e51] focus-visible:ring-[3px] focus-visible:ring-[#ef3e51]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800"
-                      : "border-[#3e76ef] text-slate-900 dark:text-slate-50 dark:border-[#3e76ef] focus-visible:ring-2 focus-visible:ring-[#3e76ef]/20",
-                  )}
-                >
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {selectedCategories.length > 0
-                      ? selectedCategories.map((slug) => {
-                          const label =
-                            BRAND_CATEGORIES.find((c) => c.slug === slug)
-                              ?.label || slug;
-                          return (
-                            <div
-                              key={slug}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-[#3e76ef]/10 pl-3 pr-1.5 py-1 text-sm font-semibold text-[#3e76ef] dark:bg-[#3e76ef]/20"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                            >
-                              {label}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = selectedCategories.filter(
-                                    (c) => c !== slug,
-                                  );
-                                  form.setValue("categories", next, {
-                                    shouldValidate: true,
-                                  });
-                                }}
-                                className="flex size-4 items-center justify-center rounded-full bg-[#3e76ef]/20 text-[#3e76ef] hover:bg-[#3e76ef]/30"
-                              >
-                                <X className="size-2.5" />
-                              </button>
-                            </div>
-                          );
-                        })
-                      : "Select categories..."}
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      "ml-2 size-4 shrink-0 opacity-50 transition-transform",
-                      categoriesOpen && "rotate-180",
-                    )}
-                  />
-                </div>
-
-                {categoriesOpen && (
-                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-                    <div className="grid grid-cols-1 gap-1 lg:grid-cols-2">
-                      {BRAND_CATEGORIES.map((cat) => {
-                        const isSelected = selectedCategories.includes(
-                          cat.slug,
-                        );
-                        return (
-                          <label
-                            key={cat.slug}
-                            className={cn(
-                              "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                              isSelected
-                                ? "bg-[#3e76ef]/10 text-[#3e76ef] dark:bg-[#3e76ef]/20"
-                                : "hover:bg-slate-100 dark:hover:bg-slate-900",
-                            )}
-                          >
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) => {
-                                const next = checked
-                                  ? [...selectedCategories, cat.slug]
-                                  : selectedCategories.filter(
-                                      (s) => s !== cat.slug,
-                                    );
-                                form.setValue("categories", next, {
-                                  shouldValidate: true,
-                                });
-                              }}
-                              className={cn(
-                                "border-slate-300 data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white",
-                                isSelected ? "border-[#3e76ef]" : "",
-                              )}
-                            />
-                            <span className="font-medium">{cat.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {form.formState.errors.categories && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.categories.message}
-                  </p>
-                )}
-              </div>
-
-              {showOtherCategoryLabel && (
-                <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
-                  <Label
-                    htmlFor="otherCategoryLabel"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                  >
-                    Please specify <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="otherCategoryLabel"
-                    placeholder="What industry is your brand in?"
-                    className="h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#3e76ef] focus-visible:ring-[3px] focus-visible:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800"
-                    {...form.register("otherCategoryLabel")}
-                  />
-                  {form.formState.errors.otherCategoryLabel && (
-                    <p className="text-xs text-red-500">
-                      {form.formState.errors.otherCategoryLabel.message}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className={cn(currentStep === 4 ? "block" : "hidden", "xl:block", "space-y-3")}>
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
-                5
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Online Presence
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="website"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Website
-                </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800">
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <Globe className="size-4" />
-                  </div>
-                  <Input
-                    id="website"
-                    placeholder="https://acme.com"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("website")}
-                  />
-                </div>
-                {form.formState.errors.website && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.website.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <Label
-                  htmlFor="instagramUrl"
-                  className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]"
-                >
-                  Instagram
-                </Label>
-                <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800">
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <Instagram className="size-4" />
-                  </div>
-                  <Input
-                    id="instagramUrl"
-                    placeholder="https://instagram.com/acme"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("instagramUrl")}
-                  />
-                </div>
-                {form.formState.errors.instagramUrl && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.instagramUrl.message}
-                  </p>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -1161,7 +608,7 @@ export function BrandRegisterForm() {
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         {currentStep < LAST_STEP ? (
           <div className="flex items-center gap-3 xl:hidden">
-            {currentStep > 0 && (
+            {currentStep > 0 ? (
               <Button
                 type="button"
                 variant="outline"
@@ -1170,7 +617,7 @@ export function BrandRegisterForm() {
               >
                 Back
               </Button>
-            )}
+            ) : null}
             <Button
               type="button"
               onClick={handleNextStep}
@@ -1187,122 +634,120 @@ export function BrandRegisterForm() {
             "xl:block xl:space-y-4",
           )}
         >
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="terms"
-            checked={form.watch("termsAccepted")}
-            onCheckedChange={(checked) =>
-              form.setValue("termsAccepted", checked === true, {
-                shouldValidate: true,
-              })
-            }
-            className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <Label
-              htmlFor="terms"
-              className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
-            >
-              I agree to the{" "}
-              <Link
-                href="/legal/terms"
-                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="terms"
+              checked={form.watch("termsAccepted")}
+              onCheckedChange={(checked) =>
+                form.setValue("termsAccepted", checked === true, {
+                  shouldValidate: true,
+                })
+              }
+              className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label
+                htmlFor="terms"
+                className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
               >
-                Terms of Service
-              </Link>
-              {", "}
-              <Link
-                href="/legal/privacy"
-                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-              >
-                Privacy Policy
-              </Link>
-              {", and confirm I'm authorized to represent this brand."}
-            </Label>
-            {form.formState.errors.termsAccepted && (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.termsAccepted.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="brand-guidelines"
-            checked={form.watch("guidelinesAccepted")}
-            onCheckedChange={(checked) =>
-              form.setValue("guidelinesAccepted", checked === true, {
-                shouldValidate: true,
-              })
-            }
-            className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <Label
-              htmlFor="brand-guidelines"
-              className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
-            >
-              I have read and agree to the{" "}
-              <Link
-                href="/legal/brand-guidelines"
-                target="_blank"
-                className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-              >
-                Brand Guidelines
-              </Link>
-              .
-            </Label>
-            {form.formState.errors.guidelinesAccepted && (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.guidelinesAccepted.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Still needed: {signupBlockers.join(" · ")}
-            </p>
-          ) : null}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-            <Button
-              type="submit"
-              disabled={!isSignupComplete || pendingAny}
-              className={cn(
-                "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
-                isSignupComplete
-                  ? "bg-[#3e76ef] text-white hover:bg-[#2d5cc5] disabled:opacity-70 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
-                  : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
-              )}
-            >
-              {pendingSubmit ? (
-                <>
-                  <Spinner className="size-4" aria-hidden />
-                  {isUploading
-                    ? "Uploading assets..."
-                    : "Creating profile..."}
-                </>
-              ) : registeredUser ? (
-                "Redirecting..."
-              ) : (
-                <>Create my brand profile &rarr;</>
-              )}
-            </Button>
-
-            <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
-              Are you a creator? <br />
-              <Link
-                href="/register/creator"
-                className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
-              >
-                Sign up as a creator
-              </Link>
+                I agree to the{" "}
+                <Link
+                  href="/legal/terms"
+                  target="_blank"
+                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                >
+                  Terms of Service
+                </Link>
+                {", "}
+                <Link
+                  href="/legal/privacy"
+                  target="_blank"
+                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                >
+                  Privacy Policy
+                </Link>
+                {", and confirm I'm authorized to represent this brand."}
+              </Label>
+              {form.formState.errors.termsAccepted ? (
+                <p className="text-xs text-red-500">
+                  {form.formState.errors.termsAccepted.message}
+                </p>
+              ) : null}
             </div>
           </div>
-        </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="brand-guidelines"
+              checked={form.watch("guidelinesAccepted")}
+              onCheckedChange={(checked) =>
+                form.setValue("guidelinesAccepted", checked === true, {
+                  shouldValidate: true,
+                })
+              }
+              className="mt-0.5 shrink-0 h-4 w-4 border border-slate-300 accent-[#3e76ef] data-[state=checked]:bg-[#3e76ef] data-[state=checked]:border-[#3e76ef] data-[state=checked]:text-white dark:border-slate-600"
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label
+                htmlFor="brand-guidelines"
+                className="block min-w-0 text-[13px] font-normal leading-snug text-slate-600 dark:text-slate-400"
+              >
+                I have read and agree to the{" "}
+                <Link
+                  href="/legal/brand-guidelines"
+                  target="_blank"
+                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
+                >
+                  Brand Guidelines
+                </Link>
+                .
+              </Label>
+              {form.formState.errors.guidelinesAccepted ? (
+                <p className="text-xs text-red-500">
+                  {form.formState.errors.guidelinesAccepted.message}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Still needed: {signupBlockers.join(" · ")}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+              <Button
+                type="submit"
+                disabled={!isSignupComplete || pendingAny}
+                className={cn(
+                  "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
+                  isSignupComplete
+                    ? "bg-[#3e76ef] text-white hover:bg-[#2d5cc5] disabled:opacity-70 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
+                    : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
+                )}
+              >
+                {pendingSubmit ? (
+                  <>
+                    <Spinner className="size-4" aria-hidden />
+                    {isUploading ? "Uploading assets..." : "Creating profile..."}
+                  </>
+                ) : (
+                  <>Create my brand profile &rarr;</>
+                )}
+              </Button>
+
+              <div className="w-full text-center text-[11px] text-[#8B8489] leading-tight lg:w-auto lg:shrink-0 lg:text-right">
+                Are you a creator? <br />
+                <Link
+                  href="/register/creator"
+                  className="font-bold text-slate-950 hover:underline dark:text-slate-50 text-[13px]"
+                >
+                  Sign up as a creator
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </form>

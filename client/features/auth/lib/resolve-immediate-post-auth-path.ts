@@ -19,6 +19,18 @@ export function resolveImmediatePostAuthPath(
     return "/admin";
   }
 
+  // Brand Google signup / incomplete brand: finish brand name (+ optional phone/logo).
+  if (
+    (user.primaryRole === "BRAND" || user.roles.includes("BRAND")) &&
+    !user.hasBrandProfile
+  ) {
+    return `/register/brand/complete${
+      callbackUrl
+        ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
+        : ""
+    }`;
+  }
+
   const creatorOnboardingPath = resolveCreatorOnboardingPath(user, callbackUrl);
   if (creatorOnboardingPath) {
     return creatorOnboardingPath;

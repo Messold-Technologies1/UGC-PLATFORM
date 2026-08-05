@@ -30,16 +30,25 @@ export class RegisterBrandDto {
   @MaxLength(200)
   contactFullName!: string;
 
-  @ApiProperty({ example: 'brand@example.com' })
+  @ApiPropertyOptional({
+    example: 'brand@example.com',
+    description:
+      'Optional. When omitted, outbound mail uses the account email. Brands can set this later in settings.',
+  })
+  @IsOptional()
   @IsEmail()
   @MaxLength(320)
-  contactEmail!: string;
+  contactEmail?: string;
 
-  @ApiProperty({ example: '+91 98765 43210' })
+  @ApiPropertyOptional({
+    example: '+91 98765 43210',
+    description: 'Optional at signup; can be added later from brand settings.',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(7)
   @MaxLength(32)
-  contactPhone!: string;
+  contactPhone?: string;
 
   @ApiProperty({ example: 'Acme', description: 'Public brand name shown to creators.' })
   @IsString()

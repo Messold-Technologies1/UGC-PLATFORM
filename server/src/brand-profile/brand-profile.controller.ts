@@ -21,6 +21,7 @@ import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { UpdateBrandProfileDto } from './dto/update-brand-profile.dto';
+import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
 import {
   PresignBrandLogoUploadDto,
   PresignUploadResponseDto,
@@ -74,6 +75,24 @@ export class BrandProfileController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
     return this.brandProfileService.presignBrandPronunciationUpload(
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Post('profile')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Create owned brand profile for the authenticated user (post-Google brand setup)',
+  })
+  @ApiCreatedResponse({ type: BrandProfileResponseDto })
+  async createMyBrandProfile(
+    @Body() dto: CreateBrandProfileDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BrandProfileResponseDto> {
+    return this.brandProfileService.createOwnedBrandProfileForUser(
       req.user.id,
       dto,
     );

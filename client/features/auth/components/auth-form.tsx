@@ -34,6 +34,8 @@ import {
   clearRememberedRole,
 } from "@/features/auth/lib/login-role-config";
 import { AuthLogoLink } from "./auth-logo-link";
+import { GoogleMark } from "./google-mark";
+import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import styles from "./login-page.module.css";
 
 
@@ -307,6 +309,34 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
                 )}
               </button>
             </form>
+            {roleConfig.key === "brand" ? (
+              <>
+                <div className={styles.formDivider}>
+                  <span className={styles.formDividerLine} />
+                  <span className={styles.formDividerText}>or</span>
+                  <span className={styles.formDividerLine} />
+                </div>
+                <button
+                  type="button"
+                  disabled={pendingAuth}
+                  className={styles.formSecondary}
+                  onClick={() => {
+                    setGoogleLoading(true);
+                    startGoogleOAuth({
+                      role: "BRAND",
+                      callbackUrl: searchParams.get("callbackUrl"),
+                    });
+                  }}
+                >
+                  {googleLoading ? (
+                    <Spinner className="size-4" aria-hidden />
+                  ) : (
+                    <GoogleMark className="size-5" />
+                  )}
+                  Continue with Google
+                </button>
+              </>
+            ) : null}
             <div className={styles.formDivider}>
               <span className={styles.formDividerLine} />
               <span className={styles.formDividerText}>

@@ -357,6 +357,7 @@ export class AuthService {
     state: string,
     storedState: string | undefined,
     meta?: { ipAddress?: string; userAgent?: string },
+    intendedRole?: 'BRAND' | 'CREATOR' | null,
   ): Promise<AuthResult> {
     if (!storedState || state !== storedState) {
       throw new UnauthorizedException('Invalid state');
@@ -398,6 +399,7 @@ export class AuthService {
     const user = await this.findOrCreateGoogleUser(
       profile,
       tokenData.refresh_token,
+      intendedRole ?? null,
     );
     const { accessToken, refreshToken, expiresIn } =
       await this.createSessionAndTokens(user.id, meta);
@@ -408,9 +410,48 @@ export class AuthService {
     return { user: me, accessToken, refreshToken, expiresIn };
   }
 
+  private async ensureUserHasRole(
+    userId: string,
+    roleName: Extract<RoleName, 'BRAND' | 'CREATOR'>,
+    opts?: { forcePrimary?: boolean },
+  ): Promise<void> {
+    const role = await this.prisma.role.findUnique({
+      where: { name: roleName },
+      select: { id: true },
+    });
+    if (!role) {
+      throw new UnauthorizedException(`${roleName} role not configured`);
+    }
+
+    await this.prisma.userRole.upsert({
+      where: { userId_roleId: { userId, roleId: role.id } },
+      create: { userId, roleId: role.id },
+      update: {},
+    });
+
+    if (opts?.forcePrimary) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { primaryRoleId: role.id },
+      });
+    } else {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { primaryRoleId: true },
+      });
+      if (user && !user.primaryRoleId) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { primaryRoleId: role.id },
+        });
+      }
+    }
+  }
+
   private async findOrCreateGoogleUser(
     profile: GoogleUserInfo,
     googleRefreshToken?: string,
+    intendedRole?: 'BRAND' | 'CREATOR' | null,
   ): Promise<{ id: string; primaryRoleId: string | null }> {
     const providerUserId = profile.id;
     const email = profile.email?.toLowerCase();
@@ -428,6 +469,9 @@ export class AuthService {
       include: { user: true },
     });
 
+    let userId: string;
+    let primaryRoleId: string | null;
+
     if (authAccount) {
       if (googleRefreshToken) {
         await this.prisma.authAccount.update({
@@ -435,49 +479,72 @@ export class AuthService {
           data: { refreshToken: googleRefreshToken },
         });
       }
-      return {
-        id: authAccount.user.id,
-        primaryRoleId: authAccount.user.primaryRoleId,
-      };
-    }
-
-    let user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (user) {
-      if (!user) {
-        throw new UnauthorizedException('Account could not be loaded');
-      }
-      await this.prisma.authAccount.create({
-        data: {
-          userId: user.id,
-          provider: AuthProvider.GOOGLE,
-          providerUserId,
-          refreshToken: googleRefreshToken ?? null,
-        },
+      userId = authAccount.user.id;
+      primaryRoleId = authAccount.user.primaryRoleId;
+    } else {
+      let user = await this.prisma.user.findUnique({
+        where: { email },
       });
-      return { id: user.id, primaryRoleId: user.primaryRoleId };
+
+      if (user) {
+        await this.prisma.authAccount.create({
+          data: {
+            userId: user.id,
+            provider: AuthProvider.GOOGLE,
+            providerUserId,
+            refreshToken: googleRefreshToken ?? null,
+          },
+        });
+        userId = user.id;
+        primaryRoleId = user.primaryRoleId;
+      } else {
+        user = await this.prisma.user.create({
+          data: {
+            email,
+            name: profile.name ?? null,
+            passwordHash: null,
+            emailVerified: true,
+            primaryRoleId: null,
+          },
+        });
+        await this.prisma.authAccount.create({
+          data: {
+            userId: user.id,
+            provider: AuthProvider.GOOGLE,
+            providerUserId,
+            refreshToken: googleRefreshToken ?? null,
+          },
+        });
+        userId = user.id;
+        primaryRoleId = null;
+      }
     }
 
-    user = await this.prisma.user.create({
-      data: {
-        email,
-        name: profile.name ?? null,
-        passwordHash: null,
-        emailVerified: true,
-        primaryRoleId: null,
-      },
-    });
-    await this.prisma.authAccount.create({
-      data: {
-        userId: user.id,
-        provider: AuthProvider.GOOGLE,
-        providerUserId,
-        refreshToken: googleRefreshToken ?? null,
-      },
-    });
-    return { id: user.id, primaryRoleId: user.primaryRoleId };
+    if (intendedRole === 'BRAND') {
+      const brandProfile = await this.prisma.brandProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      // New brand Google signup / login without a profile yet: make BRAND primary
+      // so the client can route to the brand setup screen.
+      await this.ensureUserHasRole(userId, RoleName.BRAND, {
+        forcePrimary: !brandProfile,
+      });
+      const refreshed = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { primaryRoleId: true },
+      });
+      primaryRoleId = refreshed?.primaryRoleId ?? primaryRoleId;
+    } else if (intendedRole === 'CREATOR') {
+      await this.ensureUserHasRole(userId, RoleName.CREATOR);
+      const refreshed = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { primaryRoleId: true },
+      });
+      primaryRoleId = refreshed?.primaryRoleId ?? primaryRoleId;
+    }
+
+    return { id: userId, primaryRoleId };
   }
 
   private async createSessionAndTokens(

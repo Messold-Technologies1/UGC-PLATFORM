@@ -14,6 +14,7 @@ import {
 import { postAuthContinuePath } from "@/features/auth/lib/post-auth-destination";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import { consumeOAuthCallbackUrl } from "@/features/auth/lib/start-google-oauth";
 
 function AuthCallbackInner() {
   const router = useRouter();
@@ -22,7 +23,10 @@ function AuthCallbackInner() {
 
   useEffect(() => {
     const error = searchParams.get("error");
-    const callbackUrl = searchParams.get("callbackUrl");
+    const brandSetup = searchParams.get("brandSetup") === "1";
+    const fromQuery = searchParams.get("callbackUrl");
+    const storedCallback = consumeOAuthCallbackUrl();
+    const callback = fromQuery || storedCallback;
 
     void (async () => {
       if (error) {
@@ -32,21 +36,31 @@ function AuthCallbackInner() {
             : "Google sign-in failed. Try again.";
         toast.error(message);
         beginClientNavigation();
-        router.replace(
-          callbackUrl ? buildLoginHref(callbackUrl) : "/login",
-        );
+        router.replace(callback ? buildLoginHref(callback) : "/login?role=brand");
         return;
       }
-      
-      
+
       await queryClient.fetchQuery({
         queryKey: authMeQueryKey,
         queryFn: fetchAuthMe,
       });
       const user = queryClient.getQueryData<AuthUser | null>(authMeQueryKey);
+
+      if (
+        brandSetup ||
+        (user?.roles.includes("BRAND") && !user.hasBrandProfile)
+      ) {
+        const qs = new URLSearchParams();
+        if (callback) qs.set("callbackUrl", callback);
+        const q = qs.toString();
+        beginClientNavigation();
+        router.replace(`/register/brand/complete${q ? `?${q}` : ""}`);
+        return;
+      }
+
       const target = user
-        ? resolveImmediatePostAuthPath(user, callbackUrl)
-        : postAuthContinuePath(callbackUrl);
+        ? resolveImmediatePostAuthPath(user, callback)
+        : postAuthContinuePath(callback);
       beginClientNavigation();
       router.replace(target);
     })();

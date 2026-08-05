@@ -170,6 +170,7 @@ describe('AuthController', () => {
       expect.objectContaining({
         ipAddress: '127.0.0.1',
       }),
+      null,
     );
     expect((res as unknown as { cookie: jest.Mock }).cookie).toHaveBeenCalled();
     expect(

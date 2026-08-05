@@ -18,6 +18,7 @@ export enum EmailTemplateKey {
   ORDER_DISPUTE_OPENED_FOR_CREATOR = 'order-dispute-opened-for-creator',
   ORDER_DISPUTE_RESOLVED_FOR_BRAND = 'order-dispute-resolved-for-brand',
   ORDER_DISPUTE_RESOLVED_FOR_CREATOR = 'order-dispute-resolved-for-creator',
+  BRAND_WELCOME = 'brand-welcome',
   PASSWORD_RESET = 'password-reset',
 }
 

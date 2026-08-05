@@ -43,8 +43,11 @@ export class SignupRegistrationService {
   }
 
   private registerBrandDtoToCreateDto(dto: RegisterBrandDto): CreateBrandProfileDto {
-    const { email: _e, password: _p, ...rest } = dto;
-    return rest as CreateBrandProfileDto;
+    const { email: _e, password: _p, contactEmail: _ce, contactPhone: _phone, ...rest } =
+      dto;
+    // contactEmail is optional at signup; brands can set it later in settings.
+    // Outbound mail uses contactEmail if set, otherwise the account (User) email.
+    return { ...rest } as CreateBrandProfileDto;
   }
 
   async registerCreatorUser(

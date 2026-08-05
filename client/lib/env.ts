@@ -20,7 +20,7 @@ function readCreatorOnboardingMode(): CreatorOnboardingMode {
 const apiUrl = normalizeBaseUrl(
   process.env.API_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:4001",
+    "http://localhost:4000",
 );
 
 export const env = {

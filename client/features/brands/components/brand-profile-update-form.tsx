@@ -97,7 +97,7 @@ function BrandProfileUpdateFormContent({
   const defaultFormValues = useMemo<BrandProfileUpdateFormValues>(
     () => ({
       contactFullName: initialProfile?.contactFullName ?? user?.name ?? "",
-      contactEmail: initialProfile?.contactEmail ?? user?.email ?? "",
+      contactEmail: initialProfile?.contactEmail ?? "",
       contactPhone: initialProfile?.contactPhone ?? "",
       brandName: initialProfile?.brandName ?? "",
       brandPronunciation: initialProfile?.brandPronunciation ?? "",
@@ -136,9 +136,6 @@ function BrandProfileUpdateFormContent({
   }, []);
 
   useEffect(() => {
-    if (!initialProfile?.contactEmail && user?.email && !form.getValues("contactEmail")) {
-      form.setValue("contactEmail", user.email);
-    }
     if (!initialProfile?.contactFullName && user?.name && !form.getValues("contactFullName")) {
       form.setValue("contactFullName", user.name);
     }
@@ -241,9 +238,9 @@ function BrandProfileUpdateFormContent({
         toast.error("Name is required");
         return;
       }
-      if (!email) {
-        form.setError("contactEmail", { message: "Email is required" });
-        toast.error("Email is required");
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        form.setError("contactEmail", { message: "Enter a valid email" });
+        toast.error("Enter a valid contact email");
         return;
       }
       if (phoneChanged && !phoneVerified) {
@@ -265,7 +262,7 @@ function BrandProfileUpdateFormContent({
       const payload: UpdateBrandProfilePayload = {
         brandName: name,
         contactFullName: fullName,
-        contactEmail: email,
+        contactEmail: email || null,
         contactPhone: phone,
         logoKey: logo.pendingLogoKey,
         website: normalizeOptionalUrl(values.website) ?? null,
@@ -552,6 +549,23 @@ function BrandProfileUpdateFormContent({
           <p>Internal details for platform communications.</p>
         </div>
         <div className="pe-card-body">
+          <div className="pe-field mb-4 max-w-xl">
+            <label htmlFor="accountEmail">Account email</label>
+            <div className="pe-input-wrap">
+              <input
+                id="accountEmail"
+                type="email"
+                className="pe-input"
+                value={user?.email ?? ""}
+                disabled
+                readOnly
+                autoComplete="username"
+              />
+            </div>
+            <span className="pe-help">
+              Login email from signup. Contact email below can be changed anytime.
+            </span>
+          </div>
           <div className="pe-grid pe-grid-2">
             <div className="pe-field">
               <label htmlFor="contactFullName">Contact name <span className="pe-required">*</span></label>
@@ -571,7 +585,7 @@ function BrandProfileUpdateFormContent({
               )}
             </div>
             <div className="pe-field">
-              <label htmlFor="contactEmail">Contact email <span className="pe-required">*</span></label>
+              <label htmlFor="contactEmail">Contact email</label>
               <div className="pe-input-wrap">
                 <input
                   id="contactEmail"

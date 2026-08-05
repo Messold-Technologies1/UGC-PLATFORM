@@ -30,7 +30,10 @@ import {
   clearAuthCookies,
   clearOAuthStateCookie,
   setAuthCookies,
+  setOAuthRoleCookie,
   setOAuthStateCookie,
+  parseOAuthIntendedRole,
+  OAUTH_ROLE_COOKIE,
   OAUTH_STATE_COOKIE,
 } from './cookie-helper';
 import { LoginDto } from './dto/login.dto';
@@ -356,10 +359,24 @@ export class AuthController {
 
   @Get('google')
   @ApiOperation({ summary: 'Redirect to Google OAuth' })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enum: ['BRAND', 'CREATOR'],
+    description:
+      'Optional intended workspace. BRAND provisions brand role and may require post-signup brand setup.',
+  })
   @ApiResponse({ status: 302, description: 'Redirect to Google sign-in' })
-  google(@Res() res: Response) {
+  google(
+    @Query('role') role: string | undefined,
+    @Res() res: Response,
+  ) {
     const state = randomBytes(32).toString('hex');
     setOAuthStateCookie(res, state);
+    const intendedRole = parseOAuthIntendedRole(role?.toUpperCase());
+    if (intendedRole) {
+      setOAuthRoleCookie(res, intendedRole);
+    }
     const url = this.authService.getGoogleAuthUrl(state);
     res.redirect(url);
   }
@@ -375,6 +392,9 @@ export class AuthController {
     const code = req.query.code as string | undefined;
     const state = req.query.state as string | undefined;
     const storedState = readCookie(req, OAUTH_STATE_COOKIE);
+    const intendedRole = parseOAuthIntendedRole(
+      readCookie(req, OAUTH_ROLE_COOKIE),
+    );
 
     const frontendUrl = this.config.get<string>(
       'FRONTEND_URL',
@@ -397,6 +417,7 @@ export class AuthController {
         state,
         storedState,
         meta,
+        intendedRole,
       );
       setAuthCookies(
         res,
@@ -405,7 +426,10 @@ export class AuthController {
         result.expiresIn,
         this.config.get<string>('JWT_REFRESH_EXPIRY', '7d'),
       );
-      res.redirect(`${frontendUrl}/auth/callback`);
+      const needsBrandSetup =
+        intendedRole === 'BRAND' && result.user && !result.user.hasBrandProfile;
+      const qs = needsBrandSetup ? '?brandSetup=1' : '';
+      res.redirect(`${frontendUrl}/auth/callback${qs}`);
     } catch {
       res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
     }

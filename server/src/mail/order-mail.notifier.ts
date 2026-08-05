@@ -5,6 +5,10 @@ import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail.service';
 import { EmailTemplateKey } from './mail.types';
+import {
+  resolveBrandMailAddress,
+  resolveBrandMailDisplayName,
+} from './brand-mail.recipient';
 
 const orderMailInclude = {
   id: true,
@@ -420,13 +424,15 @@ export class OrderMailNotifier {
       where: { id: brandUserId },
       select: { email: true, name: true },
     });
-    const email =
-      order.brand.contactEmail?.trim() || user?.email?.trim() || null;
-    const name =
-      order.brand.contactFullName?.trim() ||
-      order.brand.brandName ||
-      user?.name?.trim() ||
-      'there';
+    const email = resolveBrandMailAddress({
+      contactEmail: order.brand.contactEmail,
+      accountEmail: user?.email,
+    });
+    const name = resolveBrandMailDisplayName({
+      contactFullName: order.brand.contactFullName,
+      brandName: order.brand.brandName,
+      accountName: user?.name,
+    });
     return { email, name };
   }
 

@@ -28,11 +28,17 @@ export class UpdateBrandProfileDto {
   @MaxLength(200)
   contactFullName?: string;
 
-  @ApiPropertyOptional({ example: 'brand@example.com' })
+  @ApiPropertyOptional({
+    example: 'brand@example.com',
+    nullable: true,
+    description:
+      'Optional contact email. Set null or empty to clear; outbound mail then uses the account email.',
+  })
   @IsOptional()
+  @ValidateIf((_, v) => v != null && String(v).trim() !== '')
   @IsEmail()
   @MaxLength(320)
-  contactEmail?: string;
+  contactEmail?: string | null;
 
   @ApiPropertyOptional({ example: '+91 98765 43210' })
   @IsOptional()

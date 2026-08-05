@@ -29,6 +29,7 @@ const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = [
   EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_CREATOR,
   EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_BRAND,
   EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_CREATOR,
+  EmailTemplateKey.BRAND_WELCOME,
   EmailTemplateKey.PASSWORD_RESET,
 ];
 

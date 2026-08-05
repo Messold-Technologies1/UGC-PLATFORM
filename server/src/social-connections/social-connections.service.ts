@@ -329,14 +329,26 @@ export class SocialConnectionsService {
     const conn = await this.prisma.socialConnection.findUnique({
       where: { id: connectionId },
     });
-    if (!conn) return;
+    // These early returns previously exited silently — so a job could run to
+    // completion making zero Instagram calls with nothing in the logs. Log them.
+    if (!conn) {
+      this.logger.warn(
+        `social sync: connection ${connectionId} not found — nothing to sync (deleted/disconnected since the job was queued?)`,
+      );
+      return;
+    }
     if (conn.platform !== SocialPlatform.INSTAGRAM) {
       this.logger.debug(
         `social sync: ${conn.platform} not implemented yet (connection ${connectionId})`,
       );
       return;
     }
-    if (conn.status === SocialConnectionStatus.REVOKED) return;
+    if (conn.status === SocialConnectionStatus.REVOKED) {
+      this.logger.log(
+        `social sync: connection ${connectionId} is REVOKED — skipping (reconnect required)`,
+      );
+      return;
+    }
 
     try {
       this.logger.log(`social sync ${connectionId}: ensuring token`);

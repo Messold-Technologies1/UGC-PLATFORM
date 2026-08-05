@@ -1653,7 +1653,10 @@ function CreatorProfileUpdateFormContent({
             desc="Optional links and how much you create."
           >
             <div className="mb-6">
-              <CreatorSocialAccounts />
+              <CreatorSocialAccounts
+                adminMode={adminMode}
+                profileId={profileId}
+              />
             </div>
             <div className="pe-grid pe-grid-3">
               <div className="pe-field">

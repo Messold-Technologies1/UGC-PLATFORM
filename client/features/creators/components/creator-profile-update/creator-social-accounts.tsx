@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Instagram,
@@ -25,6 +25,15 @@ import {
   useDisconnectSocialMutation,
   useSocialConnectionsQuery,
 } from "@/features/creators/hooks/use-social-connections";
+import { usePublicInstagramInsightsQuery } from "@/features/creators/hooks/use-public-instagram-insights";
+import {
+  publicInstagramInsightsQueryKey,
+  refreshCreatorInstagramInsights,
+} from "@/features/creators/api/instagram-insights";
+import {
+  InstagramInsights,
+  hasInstagramInsightsData,
+} from "@/features/creators/components/instagram-insights/instagram-insights";
 
 function formatCount(n?: number): string {
   if (n == null) return "—";
@@ -317,7 +326,131 @@ function ComingSoonRow({
   );
 }
 
-export function CreatorSocialAccounts() {
+function AdminInstagramPanel({ profileId }: { profileId: string }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = usePublicInstagramInsightsQuery(profileId, {
+    enabled: Boolean(profileId),
+  });
+  const refresh = useMutation({
+    mutationFn: () => refreshCreatorInstagramInsights(profileId),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData(
+        publicInstagramInsightsQueryKey(profileId),
+        fresh,
+      );
+      toast.success("Instagram insights refreshed");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to refresh Instagram insights");
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Spinner /> Loading…
+      </div>
+    );
+  }
+
+  if (!data?.connected) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            background: "linear-gradient(45deg,#f9ce34,#ee2a7b 45%,#6228d7)",
+            color: "#fff",
+            flexShrink: 0,
+          }}
+        >
+          <Instagram size={20} />
+        </span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <strong style={{ fontSize: 14 }}>Instagram</strong>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+            This creator hasn&apos;t connected an Instagram account yet.
+          </div>
+        </div>
+        <Badge variant="outline">Not connected</Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            background: "linear-gradient(45deg,#f9ce34,#ee2a7b 45%,#6228d7)",
+            color: "#fff",
+            flexShrink: 0,
+          }}
+        >
+          <Instagram size={20} />
+        </span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <strong style={{ fontSize: 15 }}>
+              {data.username ? `@${data.username}` : "Instagram"}
+            </strong>
+            <Badge variant="secondary">Connected</Badge>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+            {data.snapshotDate
+              ? `Last snapshot ${new Date(data.snapshotDate).toLocaleString()}`
+              : "Audience metrics sync daily after connect."}
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => refresh.mutate()}
+          disabled={refresh.isPending}
+        >
+          {refresh.isPending ? <Spinner /> : <RefreshCw size={14} />}
+          Refresh
+        </Button>
+      </div>
+
+      {hasInstagramInsightsData(data) ? (
+        <InstagramInsights insights={data} variant="full" showHeader={false} />
+      ) : (
+        <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0 }}>
+          Connected, but audience metrics haven&apos;t synced yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CreatorOwnSocialAccounts() {
   const { data: connections, isLoading } = useSocialConnectionsQuery();
   const connectInstagram = useConnectInstagramMutation();
   const disconnect = useDisconnectSocialMutation();
@@ -342,64 +475,92 @@ export function CreatorSocialAccounts() {
   const instagram = connections?.find((c) => c.platform === "INSTAGRAM");
   const connecting = connectInstagram.isPending;
 
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Spinner /> Loading…
+      </div>
+    );
+  }
+
+  if (instagram) {
+    return (
+      <InstagramConnected
+        conn={instagram}
+        disconnecting={disconnect.isPending}
+        reconnecting={connecting}
+        onDisconnect={() => disconnect.mutate("INSTAGRAM")}
+        onReconnect={() => connectInstagram.mutate()}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          background: "linear-gradient(45deg,#f9ce34,#ee2a7b 45%,#6228d7)",
+          color: "#fff",
+          flexShrink: 0,
+        }}
+      >
+        <Instagram size={20} />
+      </span>
+      <div style={{ flex: 1, minWidth: 180 }}>
+        <strong style={{ fontSize: 14 }}>Instagram</strong>
+        <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+          Connect a Professional (Business or Creator) account.
+        </div>
+      </div>
+      <Button
+        type="button"
+        onClick={() => connectInstagram.mutate()}
+        disabled={connecting}
+      >
+        {connecting ? <Spinner /> : <Instagram size={16} />}
+        Connect Instagram
+      </Button>
+    </div>
+  );
+}
+
+export function CreatorSocialAccounts({
+  adminMode,
+  profileId,
+}: {
+  adminMode?: boolean;
+  profileId?: string;
+} = {}) {
+  const isAdminView = Boolean(adminMode && profileId);
+
   return (
     <SectionCard
       id="social-accounts"
       icon={Instagram}
       title="Connected accounts"
-      desc="Link your Instagram to showcase live audience metrics and demographics. YouTube and Reddit are coming soon."
+      desc={
+        isAdminView
+          ? "Instagram connection and audience metrics for this creator."
+          : "Link your Instagram to showcase live audience metrics and demographics. YouTube and Reddit are coming soon."
+      }
     >
-      {isLoading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Spinner /> Loading…
-        </div>
-      ) : instagram ? (
-        <InstagramConnected
-          conn={instagram}
-          disconnecting={disconnect.isPending}
-          reconnecting={connecting}
-          onDisconnect={() => disconnect.mutate("INSTAGRAM")}
-          onReconnect={() => connectInstagram.mutate()}
-        />
+      {isAdminView ? (
+        <AdminInstagramPanel profileId={profileId!} />
       ) : (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              background: "linear-gradient(45deg,#f9ce34,#ee2a7b 45%,#6228d7)",
-              color: "#fff",
-              flexShrink: 0,
-            }}
-          >
-            <Instagram size={20} />
-          </span>
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <strong style={{ fontSize: 14 }}>Instagram</strong>
-            <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-              Connect a Professional (Business or Creator) account.
-            </div>
-          </div>
-          <Button
-            type="button"
-            onClick={() => connectInstagram.mutate()}
-            disabled={connecting}
-          >
-            {connecting ? <Spinner /> : <Instagram size={16} />}
-            Connect Instagram
-          </Button>
-        </div>
+        <CreatorOwnSocialAccounts />
       )}
 
       <div

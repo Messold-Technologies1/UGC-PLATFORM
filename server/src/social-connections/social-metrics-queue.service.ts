@@ -82,16 +82,40 @@ export class SocialMetricsQueueService
         removeOnFail: 1000,
       },
     });
+    await this.queue.waitUntilReady();
 
-    const concurrency = Number(
-      this.config.get('SOCIAL_METRICS_CONCURRENCY', 3),
+    // Every replica may enqueue; only processes with BULLMQ_WORKER_ENABLED
+    // (default true) open a blocking consumer. On a multi-replica API, set
+    // BULLMQ_WORKER_ENABLED=false on all but one replica (or scale to 1) so
+    // a single live worker owns the queue — otherwise a stale BZPOPMIN can
+    // move jobs to `active` with no Nest handler running.
+    const workerEnabled =
+      this.config.get<string>('BULLMQ_WORKER_ENABLED', 'true') !== 'false';
+    if (!workerEnabled) {
+      this.logger.warn(
+        'social-metrics: BULLMQ_WORKER_ENABLED=false — queue only (no worker on this process)',
+      );
+      return;
+    }
+
+    const concurrency = Math.max(
+      1,
+      Number(this.config.get('SOCIAL_METRICS_CONCURRENCY', 3)),
     );
     this.worker = new Worker<SyncJobData>(
       QUEUE_NAME,
       async (job) => {
         await this.processConnectionDirect(job.data.connectionId, 'worker');
       },
-      { connection, concurrency, lockDuration: 120_000 },
+      {
+        connection,
+        concurrency,
+        // Keep locks short so a zombie claim is marked stalled and retried
+        // instead of parking the job in `active` until a 2-minute lock expires.
+        lockDuration: 60_000,
+        stalledInterval: 15_000,
+        maxStalledCount: 3,
+      },
     );
 
     this.worker.on('ready', () => {
@@ -125,7 +149,6 @@ export class SocialMetricsQueueService
       );
     });
 
-    await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();
 
     const workers = await this.queue.getWorkers().catch(() => []);
@@ -155,6 +178,15 @@ export class SocialMetricsQueueService
           const state = await existing.getState();
           if (state === 'completed' || state === 'failed') {
             await existing.remove().catch(() => undefined);
+          } else if (state === 'active' && !this.processing.has(connectionId)) {
+            // Orphaned lock: a stale consumer claimed the job but no live
+            // handler is running it on this process. Don't bail — sync inline
+            // now; BullMQ will stall-retry/clear the lock separately.
+            this.logger.warn(
+              `social-metrics: orphaned active job ${jobId} — syncing inline`,
+            );
+            void this.processConnectionDirect(connectionId, 'orphan-active');
+            return;
           } else {
             this.logger.log(
               `social-metrics: sync already queued for ${connectionId} (${state})`,
@@ -234,10 +266,13 @@ export class SocialMetricsQueueService
   }
 
   /**
-   * If the enqueued job is still `wait`/`delayed` after WATCHDOG_MS, the
-   * in-process worker didn't consume it — run the sync directly so metrics
-   * still populate. The diagnostics reveal whether a worker is even
-   * registered/running on this Redis.
+   * If the enqueued job is still unconsumed (or claimed into `active` with no
+   * live handler on this process) after WATCHDOG_MS, run the sync directly.
+   *
+   * Important: do NOT treat `active` as healthy. A zombie/stale BZPOPMIN can
+   * move the job to `active` without any Nest worker handler running — that is
+   * exactly the "active=1 but no job active / worker syncing logs" failure.
+   * Only skip when this process is already running the sync itself.
    */
   private async watchdog(connectionId: string, jobId: string): Promise<void> {
     if (!this.queue) return;
@@ -259,7 +294,9 @@ export class SocialMetricsQueueService
           'watchdog getState',
         ).catch(() => 'unknown')
       : 'missing';
-    if (state === 'completed' || state === 'active') return;
+    if (state === 'completed') return;
+    // Live handler on THIS process — leave it alone.
+    if (state === 'active' && this.processing.has(connectionId)) return;
 
     this.logger.warn(
       `social-metrics: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
@@ -272,14 +309,10 @@ export class SocialMetricsQueueService
     } catch {
       // syncConnection records its own failures; nothing more to do here.
     } finally {
-      // The worker never consumed this job (it was still `wait`/`delayed`).
-      // Because the jobId is fixed (`sync-<connectionId>`), leaving it parked
-      // would make every future enqueue short-circuit as "already queued" and
-      // silently stop syncing this connection — and a worker that later
-      // recovers would redundantly re-run a sync we just did inline. Clear it
-      // now that the sync has run directly. The daily cron re-enqueues next
-      // cycle, so no retry is lost. Fire-and-forget + bounded internally so a
-      // hung Redis lookup can't strand the watchdog.
+      // Clear a parked wait/delayed leftover under the fixed jobId. For an
+      // orphaned `active` lock we can't remove until the lock expires — BullMQ's
+      // stalled checker (stalledInterval) will reclaim it; the next enqueue
+      // also sweeps completed/failed leftovers.
       void this.removeParkedJob(jobId);
     }
   }

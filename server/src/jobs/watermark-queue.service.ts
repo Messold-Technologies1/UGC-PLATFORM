@@ -96,6 +96,16 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         removeOnFail: 5000,
       },
     });
+    await this.queue.waitUntilReady();
+
+    const workerEnabled =
+      this.config.get<string>('BULLMQ_WORKER_ENABLED', 'true') !== 'false';
+    if (!workerEnabled) {
+      this.logger.warn(
+        'watermark: BULLMQ_WORKER_ENABLED=false — queue only (no worker on this process)',
+      );
+      return;
+    }
 
     this.worker = new Worker<WatermarkJobData>(
       QUEUE_NAME,
@@ -114,8 +124,13 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       },
       {
         connection,
-        concurrency: Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
-        lockDuration: 120_000,
+        concurrency: Math.max(
+          1,
+          Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
+        ),
+        lockDuration: 60_000,
+        stalledInterval: 15_000,
+        maxStalledCount: 3,
       },
     );
 
@@ -148,7 +163,6 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
       );
     });
 
-    await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();
 
     const workers = await this.queue.getWorkers().catch(() => []);
@@ -253,7 +267,8 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
           'watchdog getState',
         ).catch(() => 'unknown')
       : 'missing';
-    if (state === 'completed' || state === 'active') return;
+    if (state === 'completed') return;
+    if (state === 'active' && this.processing.has(deliveryId)) return;
 
     this.logger.warn(
       `watermark: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — direct process`,
@@ -313,10 +328,7 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private inlineConcurrency(): number {
-    return Math.max(
-      1,
-      Number(this.config.get('WATERMARK_CONCURRENCY', 2)),
-    );
+    return Math.max(1, Number(this.config.get('WATERMARK_CONCURRENCY', 2)));
   }
 
   private async acquireInlineSlot(): Promise<void> {

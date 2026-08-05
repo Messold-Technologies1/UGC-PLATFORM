@@ -17,7 +17,9 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_EXPIRY: Joi.string().optional().default('7d'),
   /** Parent domain for auth cookies, e.g. `.gocollab.io` (enables WebSocket on API subdomain) */
   COOKIE_DOMAIN: Joi.string()
-    .pattern(/^\.?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i)
+    .pattern(
+      /^\.?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i,
+    )
     .optional(),
 
   // Auth: Google OAuth
@@ -50,14 +52,25 @@ export const envValidationSchema = Joi.object({
   AWS_S3_ACCESS_KEY_ID: Joi.string().min(1).required(),
   AWS_S3_SECRET_ACCESS_KEY: Joi.string().min(1).required(),
   S3_BUCKET_NAME: Joi.string().min(1).required(),
-  S3_UPLOAD_URL_TTL_SECONDS: Joi.number().integer().min(60).max(3600).default(900),
+  S3_UPLOAD_URL_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(60)
+    .max(3600)
+    .default(900),
   CDN_BASE_URL: Joi.string().uri().required(),
 
   // Delivery watermarking (preview-before-accept).
   // REDIS_URL enables the BullMQ-backed async pipeline. When unset, watermarking
   // runs inline (best-effort) after delivery submission so the feature still
   // works in local/dev environments without Redis.
-  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).optional(),
+  REDIS_URL: Joi.string()
+    .uri({ scheme: ['redis', 'rediss'] })
+    .optional(),
+  // When false, this process enqueues BullMQ jobs but does not start Workers.
+  // Use on multi-replica API fleets so only one replica (or a dedicated worker
+  // service) owns the blocking consumers — duplicate/zombie BZPOPMIN sockets
+  // otherwise steal jobs into `active` with no live handler.
+  BULLMQ_WORKER_ENABLED: Joi.string().valid('true', 'false').optional(),
   WATERMARK_ENABLED: Joi.string().valid('true', 'false').optional(),
   WATERMARK_TEXT: Joi.string().min(1).max(40).optional().default('gocollab'),
 

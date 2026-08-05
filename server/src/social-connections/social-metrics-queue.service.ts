@@ -99,6 +99,16 @@ export class SocialMetricsQueueService
     this.worker.on('error', (err) => {
       this.logger.error(`social-metrics worker error: ${err?.message}`);
     });
+    // Diagnostic: the worker waits for jobs on a blocking Redis connection.
+    // On managed Redis that connection can be dropped during idle periods, and
+    // until it re-establishes, newly enqueued jobs sit in `wait` and never go
+    // `active` (the watchdog then runs them inline). Logging the close lets us
+    // correlate a drop with a subsequent watchdog fire and confirm the cause.
+    this.worker.on('ioredis:close', () => {
+      this.logger.warn(
+        'social-metrics: worker Redis connection closed — reconnecting; jobs may sit in `wait` until it recovers',
+      );
+    });
 
     await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();

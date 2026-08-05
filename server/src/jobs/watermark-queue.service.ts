@@ -132,6 +132,14 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     this.worker.on('error', (err) => {
       this.logger.error(`watermark: worker error: ${err?.message}`);
     });
+    // Diagnostic: see the note in SocialMetricsQueueService. On managed Redis
+    // the worker's blocking connection can drop during idle periods; until it
+    // recovers, enqueued jobs sit in `wait` and the watchdog runs them inline.
+    this.worker.on('ioredis:close', () => {
+      this.logger.warn(
+        'watermark: worker Redis connection closed — reconnecting; jobs may sit in `wait` until it recovers',
+      );
+    });
 
     await this.queue.waitUntilReady();
     await this.worker.waitUntilReady();

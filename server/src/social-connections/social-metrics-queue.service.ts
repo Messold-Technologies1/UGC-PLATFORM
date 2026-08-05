@@ -199,7 +199,14 @@ export class SocialMetricsQueueService
     connectionId: string,
     source: string,
   ): Promise<void> {
-    if (this.processing.has(connectionId)) return;
+    if (this.processing.has(connectionId)) {
+      // The job completes without doing any work when this fires — surface it
+      // so a "job active but no Instagram calls" case isn't a silent mystery.
+      this.logger.log(
+        `social-metrics: ${source} skipped ${connectionId} — a sync is already in progress for it`,
+      );
+      return;
+    }
     this.processing.add(connectionId);
     const startedAt = Date.now();
     try {

@@ -67,12 +67,12 @@ function InstagramReviewPanel({ profileId }: { profileId: string }) {
 
   if (!data || !data.connected) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border/60 py-16 text-center text-muted-foreground">
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border/50 bg-card/30 py-16 text-center text-muted-foreground">
         <Instagram className="h-6 w-6 opacity-50" />
         <p className="text-sm font-medium text-foreground">
           Instagram not connected
         </p>
-        <p className="text-xs">
+        <p className="max-w-xs text-xs">
           This creator hasn&rsquo;t connected an Instagram account yet.
         </p>
       </div>
@@ -81,8 +81,8 @@ function InstagramReviewPanel({ profileId }: { profileId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/30 p-4">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white">
+      <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-card/40 p-4">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white">
           <Instagram className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -97,11 +97,11 @@ function InstagramReviewPanel({ profileId }: { profileId: string }) {
       </div>
 
       {hasInstagramInsightsData(data) ? (
-        <div className="rounded-2xl border border-border/40 bg-background p-5 shadow-sm">
+        <div className="rounded-2xl border border-border/40 bg-card/40 p-5">
           <InstagramInsights insights={data} variant="full" />
         </div>
       ) : (
-        <p className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border/50 bg-card/20 p-4 text-center text-xs text-muted-foreground">
           Audience metrics haven&rsquo;t synced yet for this account.
         </p>
       )}
@@ -148,6 +148,35 @@ function formatGender(gender?: string | null): string {
   return gender.replace(/_/g, " ");
 }
 
+function ReviewSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border/40 bg-card/40">
+      <div className="flex items-start justify-between gap-3 border-b border-border/30 px-5 py-3.5">
+        <div className="min-w-0">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            {title}
+          </h3>
+          {description ? (
+            <p className="mt-0.5 text-xs text-muted-foreground/80">{description}</p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </section>
+  );
+}
+
 function DetailField({
   label,
   children,
@@ -162,16 +191,8 @@ function DetailField({
       <dt className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
         {label}
       </dt>
-      <dd className="text-sm font-medium break-words">{children}</dd>
+      <dd className="text-sm font-medium break-words text-foreground">{children}</dd>
     </div>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="font-headline text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-      {children}
-    </h3>
   );
 }
 
@@ -201,7 +222,7 @@ function PortfolioGrid({
 }) {
   if (videos.length === 0) {
     return (
-      <div className="rounded-xl border border-border/20 bg-card/20 py-8 text-center">
+      <div className="rounded-xl border border-dashed border-border/40 py-8 text-center">
         <p className="text-sm font-medium text-muted-foreground">
           No portfolio videos uploaded.
         </p>
@@ -215,10 +236,7 @@ function PortfolioGrid({
         const hasVideo = Boolean(video.videoUrl?.trim());
 
         return (
-          <div
-            key={video.id}
-            className="space-y-2"
-          >
+          <div key={video.id} className="space-y-2">
             <div className="relative aspect-4/5 overflow-hidden rounded-xl border border-border/20 bg-card">
               {hasVideo ? (
                 <video
@@ -290,9 +308,17 @@ function ReviewProfileSections({
     "profile",
   );
 
+  React.useEffect(() => {
+    setActiveTab("profile");
+  }, [profile.id]);
+
+  const { data: igPreview } = usePublicInstagramInsightsQuery(profile.id, {
+    enabled: Boolean(profile.id),
+  });
+
   const tabClass = (tab: "profile" | "instagram") =>
     cn(
-      "flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-semibold transition-colors",
+      "flex items-center gap-1.5 border-b-2 px-1 pb-2.5 text-sm font-semibold transition-colors",
       activeTab === tab
         ? "border-primary text-primary"
         : "border-transparent text-muted-foreground hover:text-foreground",
@@ -315,304 +341,369 @@ function ReviewProfileSections({
         >
           <Instagram className="h-4 w-4" />
           Instagram
+          {igPreview?.connected ? (
+            <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+              Live
+            </span>
+          ) : null}
         </button>
       </div>
 
       {activeTab === "instagram" ? (
         <InstagramReviewPanel profileId={profile.id} />
       ) : (
-      <div className="space-y-8">
-      <section className="flex items-start gap-6">
-        <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/20">
-          {profile.profileImageUrl ? (
-            <Image
-              src={profile.profileImageUrl}
-              alt={profile.displayName}
-              fill
-              className="object-cover"
-              sizes="112px"
-            />
-          ) : (
-            <span className="font-headline text-4xl font-extrabold text-primary">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-3xl font-headline font-extrabold tracking-tight">
-              {profile.displayName}
-            </h1>
-            {profile.completeProfile ? (
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                Profile complete
-              </span>
-            ) : (
-              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                Incomplete
-              </span>
-            )}
-          </div>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {profile.bio || "No bio provided."}
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-base">location_on</span>
-              {formatLocation(profile.city, profile.stateName, profile.countryName)}
-            </span>
-            <span className="text-border">|</span>
-            <span>
-              Submitted {formatSubmittedAt(listItem.submittedAt ?? profile.createdAt)}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {profile.introVideoUrl ? (
-        <section className="space-y-3">
-          <SectionTitle>Intro video</SectionTitle>
-          <div className="overflow-hidden rounded-xl border border-border/20 bg-black">
-            <video
-              src={profile.introVideoUrl}
-              className="aspect-video w-full object-contain"
-              controls
-              playsInline
-              poster={profile.profileImageUrl || undefined}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      <section className="space-y-4">
-        <SectionTitle>Contact & identity</SectionTitle>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <DetailField label="Email">
-            {profile.contactEmail || "—"}
-          </DetailField>
-          <DetailField label="Phone">
-            {profile.phone || "—"}
-            {profile.phoneVerified ? (
-              <span className="ml-2 text-[10px] font-bold uppercase text-primary">
-                Verified
-              </span>
-            ) : null}
-          </DetailField>
-          <DetailField label="Date of birth">
-            {profile.dateOfBirth
-              ? `${profile.dateOfBirth}${profile.age != null ? ` (${profile.age} yrs)` : ""}`
-              : profile.age != null
-                ? `${profile.age} years`
-                : "—"}
-          </DetailField>
-          <DetailField label="Gender">{formatGender(profile.gender)}</DetailField>
-          <DetailField label="Shipping address" className="sm:col-span-2">
-            {profile.shippingAddress || "—"}
-          </DetailField>
-        </dl>
-      </section>
-
-      <section className="space-y-4">
-        <SectionTitle>Social & links</SectionTitle>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <DetailField label="Instagram">
-            {profile.instagramUrl ? (
-              <ExternalLink href={profile.instagramUrl} />
-            ) : (
-              "—"
-            )}
-          </DetailField>
-          <DetailField label="YouTube">
-            {profile.youtubeUrl ? (
-              <ExternalLink href={profile.youtubeUrl} />
-            ) : (
-              "—"
-            )}
-          </DetailField>
-          <DetailField label="Snapchat">
-            {profile.snapchatUrl ? (
-              <ExternalLink href={profile.snapchatUrl} />
-            ) : (
-              "—"
-            )}
-          </DetailField>
-          {listItem.driveLink ? (
-            <DetailField label="Google Drive" className="sm:col-span-2">
-              <ExternalLink href={listItem.driveLink} label="Open Drive folder" />
-            </DetailField>
-          ) : null}
-        </dl>
-      </section>
-
-      {(profile.profileLanguages?.length ?? 0) > 0 ? (
-        <section className="space-y-3">
-          <SectionTitle>Languages</SectionTitle>
-          <div className="flex flex-wrap gap-2">
-            {profile.profileLanguages?.map((lang) => (
-              <span
-                key={`${lang.slug}-${lang.fluency}`}
-                className="rounded-md border border-border/30 bg-card/40 px-2.5 py-1 text-xs font-medium"
-              >
-                {lang.label}
-                <span className="ml-1 text-muted-foreground">
-                  · {lang.fluency.replace(/_/g, " ").toLowerCase()}
-                </span>
-              </span>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {Object.keys(facetsByDimension).length > 0 ? (
-        <section className="space-y-4">
-          <SectionTitle>Profile facets</SectionTitle>
-          <div className="space-y-4">
-            {Object.entries(facetsByDimension).map(([dimension, facets]) => (
-              <div key={dimension}>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {FACET_LABELS[dimension] ?? dimension.replace(/_/g, " ")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {facets.map((facet) => (
-                    <span
-                      key={facet.slug}
-                      className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary"
-                    >
-                      {facet.label}
+        <div className="space-y-5">
+          {/* Identity hero */}
+          <section className="rounded-2xl border border-border/40 bg-gradient-to-br from-muted/40 to-card/30 p-5">
+            <div className="flex items-start gap-5">
+              <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/15">
+                {profile.profileImageUrl ? (
+                  <Image
+                    src={profile.profileImageUrl}
+                    alt={profile.displayName}
+                    fill
+                    className="object-cover"
+                    sizes="96px"
+                  />
+                ) : (
+                  <span className="font-headline text-3xl font-extrabold text-primary">
+                    {profile.displayName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-headline text-2xl font-extrabold tracking-tight">
+                    {profile.displayName}
+                  </h1>
+                  {profile.completeProfile ? (
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      Profile complete
                     </span>
-                  ))}
+                  ) : (
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                      Incomplete
+                    </span>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {(profile.packages?.length ?? 0) > 0 ? (
-        <section className="space-y-3">
-          <SectionTitle>Packages ({profile.packages.length})</SectionTitle>
-          <div className="space-y-3">
-            {profile.packages.map((pkg) => (
-              <div
-                key={pkg.id}
-                className="rounded-xl border border-border/20 bg-card/30 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-headline text-base font-bold">{pkg.name}</p>
-                  <p className="shrink-0 text-sm font-bold text-primary">
-                    {formatInrPrice(pkg.priceAmount)}
-                  </p>
-                </div>
-                <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-3">
-                  <div>
-                    <dt className="font-bold uppercase tracking-wider">Delivery</dt>
-                    <dd className="mt-0.5 text-foreground">{pkg.deliveryDays} days</dd>
-                  </div>
-                  <div>
-                    <dt className="font-bold uppercase tracking-wider">Video length</dt>
-                    <dd className="mt-0.5 text-foreground">{pkg.videoLengthSeconds}s</dd>
-                  </div>
-                  <div>
-                    <dt className="font-bold uppercase tracking-wider">Revisions</dt>
-                    <dd className="mt-0.5 text-foreground">{pkg.maxRevisions}</dd>
-                  </div>
-                </dl>
-                {pkg.deliverables.length > 0 ? (
-                  <ul className="mt-3 list-inside list-disc text-sm text-muted-foreground">
-                    {pkg.deliverables.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {(profile.addOns?.length ?? 0) > 0 ? (
-        <section className="space-y-3">
-          <SectionTitle>Add-ons ({profile.addOns?.length})</SectionTitle>
-          <div className="space-y-2">
-            {profile.addOns?.map((addOn) => (
-              <div
-                key={addOn.id}
-                className="flex items-start justify-between gap-3 rounded-xl border border-border/20 bg-card/20 px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{addOn.name}</p>
-                  {addOn.description ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {addOn.description}
-                    </p>
-                  ) : null}
-                  {addOn.deliveryDays != null ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {addOn.deliveryDays} day delivery
-                    </p>
-                  ) : null}
-                </div>
-                <p className="shrink-0 text-sm font-bold">
-                  {formatInrPrice(addOn.priceAmount)}
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {profile.bio || "No bio provided."}
                 </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">
+                      location_on
+                    </span>
+                    {formatLocation(
+                      profile.city,
+                      profile.stateName,
+                      profile.countryName,
+                    )}
+                  </span>
+                  <span className="hidden text-border sm:inline">·</span>
+                  <span>
+                    Submitted{" "}
+                    {formatSubmittedAt(
+                      listItem.submittedAt ?? profile.createdAt,
+                    )}
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+            </div>
+          </section>
 
-      {(profile.restrictions?.length ?? 0) > 0 ? (
-        <section className="space-y-3">
-          <SectionTitle>Restrictions</SectionTitle>
-          <div className="flex flex-wrap gap-2">
-            {profile.restrictions?.map((item) => (
-              <span
-                key={item.id}
-                className="rounded-md border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs text-destructive"
+          {/* Instagram jump card */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("instagram")}
+            className="group flex w-full items-center gap-4 rounded-2xl border border-border/40 bg-card/40 px-5 py-4 text-left transition-colors hover:border-pink-500/40 hover:bg-pink-500/5"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white shadow-sm">
+              <Instagram className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                Check Instagram
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {igPreview?.connected
+                  ? `Connected as @${igPreview.username ?? "account"} — view audience metrics`
+                  : "See connection status and audience insights"}
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-primary group-hover:underline">
+              Open tab →
+            </span>
+          </button>
+
+          {profile.introVideoUrl ? (
+            <ReviewSection title="Intro video">
+              <div className="overflow-hidden rounded-xl border border-border/20 bg-black">
+                <video
+                  src={profile.introVideoUrl}
+                  className="aspect-video w-full object-contain"
+                  controls
+                  playsInline
+                  poster={profile.profileImageUrl || undefined}
+                />
+              </div>
+            </ReviewSection>
+          ) : null}
+
+          <ReviewSection title="Contact & identity">
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <DetailField label="Email">
+                {profile.contactEmail || "—"}
+              </DetailField>
+              <DetailField label="Phone">
+                {profile.phone || "—"}
+                {profile.phoneVerified ? (
+                  <span className="ml-2 text-[10px] font-bold uppercase text-primary">
+                    Verified
+                  </span>
+                ) : null}
+              </DetailField>
+              <DetailField label="Date of birth">
+                {profile.dateOfBirth
+                  ? `${profile.dateOfBirth}${profile.age != null ? ` (${profile.age} yrs)` : ""}`
+                  : profile.age != null
+                    ? `${profile.age} years`
+                    : "—"}
+              </DetailField>
+              <DetailField label="Gender">
+                {formatGender(profile.gender)}
+              </DetailField>
+              <DetailField label="Shipping address" className="sm:col-span-2">
+                {profile.shippingAddress || "—"}
+              </DetailField>
+            </dl>
+          </ReviewSection>
+
+          <ReviewSection
+            title="Social & links"
+            action={
+              <button
+                type="button"
+                onClick={() => setActiveTab("instagram")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted"
               >
-                {item.restriction}
-              </span>
-            ))}
+                <Instagram className="h-3.5 w-3.5" />
+                Check Instagram
+              </button>
+            }
+          >
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <DetailField label="Instagram URL">
+                {profile.instagramUrl ? (
+                  <ExternalLink href={profile.instagramUrl} />
+                ) : (
+                  "—"
+                )}
+              </DetailField>
+              <DetailField label="YouTube">
+                {profile.youtubeUrl ? (
+                  <ExternalLink href={profile.youtubeUrl} />
+                ) : (
+                  "—"
+                )}
+              </DetailField>
+              <DetailField label="Snapchat">
+                {profile.snapchatUrl ? (
+                  <ExternalLink href={profile.snapchatUrl} />
+                ) : (
+                  "—"
+                )}
+              </DetailField>
+              {listItem.driveLink ? (
+                <DetailField label="Google Drive" className="sm:col-span-2">
+                  <ExternalLink
+                    href={listItem.driveLink}
+                    label="Open Drive folder"
+                  />
+                </DetailField>
+              ) : null}
+            </dl>
+          </ReviewSection>
+
+          {(profile.profileLanguages?.length ?? 0) > 0 ? (
+            <ReviewSection title="Languages">
+              <div className="flex flex-wrap gap-2">
+                {profile.profileLanguages?.map((lang) => (
+                  <span
+                    key={`${lang.slug}-${lang.fluency}`}
+                    className="rounded-md border border-border/30 bg-background/60 px-2.5 py-1 text-xs font-medium"
+                  >
+                    {lang.label}
+                    <span className="ml-1 text-muted-foreground">
+                      · {lang.fluency.replace(/_/g, " ").toLowerCase()}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </ReviewSection>
+          ) : null}
+
+          {Object.keys(facetsByDimension).length > 0 ? (
+            <ReviewSection title="Profile facets">
+              <div className="space-y-4">
+                {Object.entries(facetsByDimension).map(([dimension, facets]) => (
+                  <div key={dimension}>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      {FACET_LABELS[dimension] ?? dimension.replace(/_/g, " ")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {facets.map((facet) => (
+                        <span
+                          key={facet.slug}
+                          className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary"
+                        >
+                          {facet.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ReviewSection>
+          ) : null}
+
+          {(profile.packages?.length ?? 0) > 0 ? (
+            <ReviewSection title={`Packages (${profile.packages.length})`}>
+              <div className="space-y-3">
+                {profile.packages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className="rounded-xl border border-border/30 bg-background/50 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-headline text-base font-bold">
+                        {pkg.name}
+                      </p>
+                      <p className="shrink-0 text-sm font-bold text-primary">
+                        {formatInrPrice(pkg.priceAmount)}
+                      </p>
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-3">
+                      <div>
+                        <dt className="font-bold uppercase tracking-wider">
+                          Delivery
+                        </dt>
+                        <dd className="mt-0.5 text-foreground">
+                          {pkg.deliveryDays} days
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-bold uppercase tracking-wider">
+                          Video length
+                        </dt>
+                        <dd className="mt-0.5 text-foreground">
+                          {pkg.videoLengthSeconds}s
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-bold uppercase tracking-wider">
+                          Revisions
+                        </dt>
+                        <dd className="mt-0.5 text-foreground">
+                          {pkg.maxRevisions}
+                        </dd>
+                      </div>
+                    </dl>
+                    {pkg.deliverables.length > 0 ? (
+                      <ul className="mt-3 list-inside list-disc text-sm text-muted-foreground">
+                        {pkg.deliverables.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </ReviewSection>
+          ) : null}
+
+          {(profile.addOns?.length ?? 0) > 0 ? (
+            <ReviewSection title={`Add-ons (${profile.addOns?.length})`}>
+              <div className="space-y-2">
+                {profile.addOns?.map((addOn) => (
+                  <div
+                    key={addOn.id}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-border/30 bg-background/50 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold">{addOn.name}</p>
+                      {addOn.description ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {addOn.description}
+                        </p>
+                      ) : null}
+                      {addOn.deliveryDays != null ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {addOn.deliveryDays} day delivery
+                        </p>
+                      ) : null}
+                    </div>
+                    <p className="shrink-0 text-sm font-bold">
+                      {formatInrPrice(addOn.priceAmount)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </ReviewSection>
+          ) : null}
+
+          {(profile.restrictions?.length ?? 0) > 0 ? (
+            <ReviewSection title="Restrictions">
+              <div className="flex flex-wrap gap-2">
+                {profile.restrictions?.map((item) => (
+                  <span
+                    key={item.id}
+                    className="rounded-md border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs text-destructive"
+                  >
+                    {item.restriction}
+                  </span>
+                ))}
+              </div>
+            </ReviewSection>
+          ) : null}
+
+          <ReviewSection title="Work preferences">
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <DetailField label="On-location available">
+                {profile.onLocationAvailable ? "Yes" : "No"}
+              </DetailField>
+              <DetailField label="Travel radius">
+                {profile.travelRadius != null
+                  ? `${profile.travelRadius} km`
+                  : "—"}
+              </DetailField>
+              <DetailField label="Collaborations completed">
+                {profile.collaborationCount ?? 0}
+              </DetailField>
+              <DetailField label="Content volume">
+                {profile.contentVolume
+                  ? profile.contentVolume.replace(/_/g, " ")
+                  : "—"}
+              </DetailField>
+            </dl>
+          </ReviewSection>
+
+          <ReviewSection
+            title="Portfolio"
+            description={`${publicPortfolio.length} public video${publicPortfolio.length === 1 ? "" : "s"}`}
+          >
+            <PortfolioGrid videos={publicPortfolio} />
+          </ReviewSection>
+
+          <div className="pt-1">
+            <Link
+              href={`/admin/creators/${profile.id}`}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Open full profile editor →
+            </Link>
           </div>
-        </section>
-      ) : null}
-
-      <section className="space-y-4">
-        <SectionTitle>Work preferences</SectionTitle>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <DetailField label="On-location available">
-            {profile.onLocationAvailable ? "Yes" : "No"}
-          </DetailField>
-          <DetailField label="Travel radius">
-            {profile.travelRadius != null ? `${profile.travelRadius} km` : "—"}
-          </DetailField>
-          <DetailField label="Collaborations completed">
-            {profile.collaborationCount ?? 0}
-          </DetailField>
-          <DetailField label="Content volume">
-            {profile.contentVolume
-              ? profile.contentVolume.replace(/_/g, " ")
-              : "—"}
-          </DetailField>
-        </dl>
-      </section>
-
-      <section className="space-y-4">
-        <SectionTitle>
-          Portfolio ({publicPortfolio.length} public)
-        </SectionTitle>
-        <PortfolioGrid videos={publicPortfolio} />
-      </section>
-
-      <div className="border-t border-border/30 pt-4">
-        <Link
-          href={`/admin/creators/${profile.id}`}
-          className="text-sm font-medium text-primary hover:underline"
-        >
-          Open full profile editor →
-        </Link>
-      </div>
-      </div>
+        </div>
       )}
     </div>
   );

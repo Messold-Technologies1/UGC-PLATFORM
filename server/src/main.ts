@@ -87,6 +87,14 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
+  // Run onModuleDestroy hooks on SIGTERM/SIGINT (e.g. Railway redeploys) so the
+  // BullMQ workers call worker.close() and deregister their blocking Redis
+  // connections. Without this, every redeploy leaves a dead `bzpopmin` consumer
+  // registered on Redis; those zombies accumulate and steal job notifications
+  // from the live worker (BZPOPMIN serves the longest-blocked client first),
+  // so newly enqueued jobs sit in `wait` and never get consumed.
+  app.enableShutdownHooks();
+
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port, '0.0.0.0');
 }

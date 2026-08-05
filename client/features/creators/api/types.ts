@@ -150,6 +150,8 @@ export type CreatorProfileItemApi = {
   totalEarnings?: number;
   responseRate?: number;
   topReviews?: CreatorRatingReviewApi[];
+  /** Admin approval status; the public profile is only reachable when APPROVED. */
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | "SHORTLISTED";
   /** One-way Go-Live latch: true once every requirement has been met. */
   completeProfile?: boolean;
   /** Discovery gate = approved AND completeProfile. */

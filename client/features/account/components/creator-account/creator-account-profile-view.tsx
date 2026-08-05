@@ -19,6 +19,12 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
@@ -71,6 +77,10 @@ export function CreatorAccountProfileView({
   const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const { data: unavailability } = useCreatorUnavailabilityQuery();
   const publicProfilePath = creatorPublicProfilePathForProfile(profile);
+  // The public profile page 404s for anyone but the owner until the creator is
+  // approved, so only expose the preview once the profile is APPROVED.
+  const isApproved = profile.approvalStatus === "APPROVED";
+  const canPreviewPublicProfile = Boolean(publicProfilePath) && isApproved;
 
   let displayVideos = [...videos];
   if (profile.introVideoUrl) {
@@ -343,22 +353,49 @@ export function CreatorAccountProfileView({
 
                 <div className="flex w-full shrink-0 flex-col justify-end gap-3 pb-1 xl:w-auto">
                   <div className="flex flex-col gap-2 sm:flex-row xl:flex-row xl:items-center xl:gap-3">
-                    <Button variant="outline" size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
-                      <Link
-                        href={publicProfilePath ?? "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        data-tour="creator-profile-preview"
-                        aria-disabled={!publicProfilePath}
-                        className={
-                          !publicProfilePath ? "pointer-events-none opacity-50" : undefined
-                        }
-                      >
-                        <Pencil className="size-3.5" />
-                        Preview Public Profile
-                        <ExternalLink className="size-3.5 opacity-60" />
-                      </Link>
-                    </Button>
+                    {canPreviewPublicProfile ? (
+                      <Button variant="outline" size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
+                        <Link
+                          href={publicProfilePath ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-tour="creator-profile-preview"
+                        >
+                          <Pencil className="size-3.5" />
+                          Preview Public Profile
+                          <ExternalLink className="size-3.5 opacity-60" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {/* Wrapping span keeps hover/focus events flowing to the
+                                tooltip even though the button itself is disabled. */}
+                            <span
+                              tabIndex={0}
+                              data-tour="creator-profile-preview"
+                              className="w-full sm:flex-1 xl:w-auto xl:flex-none"
+                            >
+                              <Button
+                                variant="outline"
+                                size="lg"
+                                disabled
+                                aria-disabled
+                                className="pointer-events-none w-full gap-2 opacity-50"
+                              >
+                                <Pencil className="size-3.5" />
+                                Preview Public Profile
+                                <ExternalLink className="size-3.5 opacity-60" />
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Available once your profile is approved
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                     <Button size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
                       <Link href="/creator/settings/profile" data-tour="creator-profile-edit">
                         <Pencil className="size-3.5" />

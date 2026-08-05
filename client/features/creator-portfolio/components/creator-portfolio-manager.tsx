@@ -52,6 +52,12 @@ import {
   creatorPublicProfilePathForProfile,
   creatorPublicProfileUrlForProfile,
 } from "@/features/creators/lib/creator-public-profile-url";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Doughnut } from "react-chartjs-2";
@@ -133,6 +139,10 @@ export function CreatorPortfolioManager() {
   const publicProfilePath = profileQuery.data
     ? creatorPublicProfilePathForProfile(profileQuery.data)
     : null;
+  // The public profile page 404s until the creator is approved, so the "view"
+  // and "copy link" actions only make sense once the profile is APPROVED.
+  const isApproved = profileQuery.data?.approvalStatus === "APPROVED";
+  const canSharePublicProfile = Boolean(publicProfilePath) && isApproved;
 
   const handleCopyPublicProfileLink = useCallback(async () => {
     if (!profileQuery.data) return;
@@ -344,25 +354,47 @@ export function CreatorPortfolioManager() {
                 <Settings className="size-4" />
                 Manage Sections
               </Button>
-              <Button
-                variant="outline"
-                className="gap-2 bg-background basis-full sm:basis-auto"
-                asChild
-              >
-                <Link
-                  href={publicProfilePath ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-disabled={!publicProfilePath}
-                  className={
-                    !publicProfilePath
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
+              {canSharePublicProfile ? (
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-background basis-full sm:basis-auto"
+                  asChild
                 >
-                  View my public profile <ExternalLink className="size-4" />
-                </Link>
-              </Button>
+                  <Link
+                    href={publicProfilePath ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View my public profile <ExternalLink className="size-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {/* Wrapping span keeps hover/focus flowing to the tooltip
+                          even though the button itself is disabled. */}
+                      <span
+                        tabIndex={0}
+                        className="basis-full sm:basis-auto"
+                      >
+                        <Button
+                          variant="outline"
+                          disabled
+                          aria-disabled
+                          className="pointer-events-none w-full gap-2 bg-background opacity-50 sm:w-auto"
+                        >
+                          View my public profile{" "}
+                          <ExternalLink className="size-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Available once your profile is approved
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
 
@@ -825,21 +857,35 @@ export function CreatorPortfolioManager() {
                 {publicProfileDisplayUrl ??
                   "Set your display name to get a link"}
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0 size-9 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
-                onClick={() => void handleCopyPublicProfileLink()}
-                disabled={!publicProfileDisplayUrl}
-                aria-label="Copy public profile link"
-              >
-                <Copy className="size-4" />
-              </Button>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={canSharePublicProfile ? undefined : 0}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 size-9 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 hover:text-primary disabled:pointer-events-none"
+                        onClick={() => void handleCopyPublicProfileLink()}
+                        disabled={!canSharePublicProfile}
+                        aria-label="Copy public profile link"
+                      >
+                        <Copy className="size-4" />
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!canSharePublicProfile && (
+                    <TooltipContent>
+                      Available once your profile is approved
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Share your link with brands to get more collaboration
-              opportunities.
+              {canSharePublicProfile
+                ? "Share your link with brands to get more collaboration opportunities."
+                : "Your public profile link becomes shareable once your profile is approved."}
             </p>
           </div>
         </div>

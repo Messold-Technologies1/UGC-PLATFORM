@@ -1,20 +1,30 @@
 import { TemplateRendererService } from './template-renderer.service';
 import { EmailTemplateKey } from './mail.types';
 
-describe('TemplateRendererService', () => {
-  const configMock = {
-    get: jest.fn((key: string, defaultValue?: string) => {
-      if (key === 'FRONTEND_URL') return 'https://app.gocollab.io';
-      return defaultValue;
-    }),
+function makeConfig(overrides: Record<string, string> = {}) {
+  const values: Record<string, string> = {
+    FRONTEND_URL: 'https://app.gocollab.io',
+    ...overrides,
   };
+  return {
+    get: jest.fn((key: string, defaultValue?: string) =>
+      key in values ? values[key] : defaultValue,
+    ),
+  };
+}
 
+function build(overrides?: Record<string, string>): TemplateRendererService {
+  const service = new TemplateRendererService(makeConfig(overrides) as never);
+  service.onModuleInit();
+  return service;
+}
+
+describe('TemplateRendererService', () => {
   let service: TemplateRendererService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new TemplateRendererService(configMock as never);
-    service.onModuleInit();
+    service = build();
   });
 
   it('renders the password-reset CTA with a clickable, absolute reset link', () => {
@@ -37,5 +47,32 @@ describe('TemplateRendererService', () => {
     expect(html).not.toContain('token&#x3D;');
     expect(href).toMatch(/^https:\/\//);
     expect(href).toContain(`token=${token}`);
+  });
+
+  it('renders the logo image when EMAIL_TEMPLATE_LOGO is set', () => {
+    const svc = build({ EMAIL_TEMPLATE_LOGO: 'https://cdn.gocollab.io/logo.png' });
+
+    const { html } = svc.render(EmailTemplateKey.PASSWORD_RESET, {
+      recipientName: 'Mohit',
+      actionUrl: 'https://app.gocollab.io/reset-password?token=abc',
+      expiresInMinutes: 60,
+    });
+
+    expect(html).toContain('<img');
+    expect(html).toContain('src="https://cdn.gocollab.io/logo.png"');
+  });
+
+  it('falls back to a text wordmark (no broken image) when the logo is unset', () => {
+    const { html } = service.render(EmailTemplateKey.PASSWORD_RESET, {
+      recipientName: 'Mohit',
+      actionUrl: 'https://app.gocollab.io/reset-password?token=abc',
+      expiresInMinutes: 60,
+    });
+
+    // No empty-src image that renders as a broken-image icon.
+    expect(html).not.toContain('src=""');
+    expect(html).not.toMatch(/<img[^>]*\bsrc="\s*"/);
+    // Brand name still shown in the header.
+    expect(html).toContain('Go Collab');
   });
 });

@@ -5,7 +5,7 @@ export class CreatorRatingReviewBrandSnapshotDto {
   id!: string;
 
   @ApiProperty({ example: 'Acme Co' })
-  brandName!: string;
+  brandName!: string | null;
 
   @ApiPropertyOptional()
   logoUrl?: string | null;

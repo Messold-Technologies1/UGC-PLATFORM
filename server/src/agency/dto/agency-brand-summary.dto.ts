@@ -5,7 +5,7 @@ export class AgencyBrandSummaryDto {
   id!: string;
 
   @ApiProperty()
-  brandName!: string;
+  brandName!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   logoUrl!: string | null;

@@ -25,6 +25,7 @@ import {
   presignBriefProductImageUpload,
   putProductImageToPresignedUrl,
 } from "@/features/briefs/api/presign-brief-product-image-upload";
+import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 
 const productImageAccept = "image/jpeg,image/png,image/webp";
 const supportedProductImageTypes = new Set([
@@ -33,30 +34,39 @@ const supportedProductImageTypes = new Set([
   "image/webp",
 ]);
 
-const briefFormSchema = z
-  .object({
-    brandName: z.string().trim().min(1, "Brand name is required"),
-    isProduct: z.boolean(),
-    productService: z.string().trim().min(1, "Name is required"),
-    productImageKey: z.string().trim().optional(),
-    productImageUrl: z.string().trim(),
-    industry: z.string().trim(),
-    instructions: z.string().trim().min(1, "Script or instructions are required"),
-    onLocationFilming: z.boolean(),
-    links: z.string(),
-    notes: z.string(),
-  })
-  .superRefine((values, ctx) => {
-    if (values.isProduct && !values.productImageKey?.trim()) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["productImageKey"],
-        message: "Product image is required for product briefs",
-      });
-    }
-  });
+function buildBriefFormSchema(requireBrandName: boolean) {
+  return z
+    .object({
+      brandName: z.string().trim().optional(),
+      isProduct: z.boolean(),
+      productService: z.string().trim().min(1, "Name is required"),
+      productImageKey: z.string().trim().optional(),
+      productImageUrl: z.string().trim(),
+      industry: z.string().trim(),
+      instructions: z.string().trim().min(1, "Script or instructions are required"),
+      onLocationFilming: z.boolean(),
+      links: z.string(),
+      notes: z.string(),
+    })
+    .superRefine((values, ctx) => {
+      if (requireBrandName && !values.brandName?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["brandName"],
+          message: "Brand name is required",
+        });
+      }
+      if (values.isProduct && !values.productImageKey?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["productImageKey"],
+          message: "Product image is required for product briefs",
+        });
+      }
+    });
+}
 
-type BriefFormValues = z.infer<typeof briefFormSchema>;
+type BriefFormValues = z.infer<ReturnType<typeof buildBriefFormSchema>>;
 
 interface BriefFormProps {
   orderId: string;
@@ -69,15 +79,19 @@ interface BriefFormProps {
   readOnly?: boolean;
 }
 
-function toBriefPayload(values: BriefFormValues): CreateBriefPayload {
+function toBriefPayload(
+  values: BriefFormValues,
+  includeBrandName: boolean,
+): CreateBriefPayload {
   const referenceLinks = values.links
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
   const isProduct = values.isProduct;
+  const brandName = values.brandName?.trim();
 
   return {
-    brandName: values.brandName.trim(),
+    ...(includeBrandName && brandName ? { brandName } : {}),
     isProduct,
     productName: values.productService.trim(),
     ...(isProduct && values.productImageKey?.trim()
@@ -112,6 +126,18 @@ export function BriefForm({
   const router = useRouter();
   const productImageInputRef = useRef<HTMLInputElement | null>(null);
 
+  const { data: brandProfileState } = useBrandProfileStateQuery();
+  const profileBrandName =
+    brandProfileState?.kind === "ready"
+      ? brandProfileState.profile.brandName?.trim() ?? ""
+      : "";
+  const needsBrandName = !profileBrandName;
+
+  const briefFormSchema = useMemo(
+    () => buildBriefFormSchema(needsBrandName),
+    [needsBrandName],
+  );
+
   const { data: briefData, isLoading: isBriefLoading } =
     useGetOrderBriefQuery(orderId);
 
@@ -135,7 +161,7 @@ export function BriefForm({
 
       const brf = briefData.brief as BriefPayload;
       return {
-        brandName: brf.brandName || "",
+        brandName: profileBrandName || brf.brandName || "",
         isProduct: (brf as { isProduct?: boolean }).isProduct ?? true,
         productService: brf.productService || brf.productName || "",
         productImageKey: brf.productImageKey?.startsWith("brief-product-temp/")
@@ -151,7 +177,7 @@ export function BriefForm({
       };
     }
     return {
-      brandName: "",
+      brandName: profileBrandName,
       isProduct: true,
       productService: "",
       productImageKey: "",
@@ -162,7 +188,7 @@ export function BriefForm({
       links: "",
       notes: "",
     };
-  }, [briefData]);
+  }, [briefData, profileBrandName]);
 
   const form = useForm<BriefFormValues>({
     resolver: zodResolver(briefFormSchema),
@@ -250,7 +276,7 @@ export function BriefForm({
   }
 
   function handleSubmit(values: BriefFormValues) {
-    createBriefMutation.mutate(toBriefPayload(values), {
+    createBriefMutation.mutate(toBriefPayload(values, needsBrandName), {
       onSuccess: ({ id }) => {
         submitBriefMutation.mutate({
           orderId,
@@ -287,27 +313,32 @@ export function BriefForm({
         </h3>
       ) : null}
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="brandName"
-          className="text-[11px] font-bold text-foreground tracking-wide"
-        >
-          Brand name
-        </Label>
-        <Input
-          id="brandName"
-          placeholder="e.g. Acme Co."
-          disabled={readOnly || isSubmitting}
-          aria-invalid={form.formState.errors.brandName ? true : undefined}
-          className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
-          {...form.register("brandName")}
-        />
-        {form.formState.errors.brandName ? (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.brandName.message}
+      {needsBrandName ? (
+        <div className="space-y-2">
+          <Label
+            htmlFor="brandName"
+            className="text-[11px] font-bold text-foreground tracking-wide"
+          >
+            Brand name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="brandName"
+            placeholder="e.g. Acme Co."
+            disabled={readOnly || isSubmitting}
+            aria-invalid={form.formState.errors.brandName ? true : undefined}
+            className="h-10 bg-background rounded-lg border-border/50 focus-visible:ring-primary/20 text-xs placeholder:text-muted-foreground/50 transition-colors shadow-none"
+            {...form.register("brandName")}
+          />
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            We&apos;ll save this on your brand profile and use it on future briefs.
           </p>
-        ) : null}
-      </div>
+          {form.formState.errors.brandName ? (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.brandName.message}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-row items-center justify-between rounded-lg border border-border/40 bg-background/50 p-4 shadow-none">
         <div className="space-y-0.5">

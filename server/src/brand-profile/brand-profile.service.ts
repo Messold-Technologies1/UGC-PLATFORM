@@ -151,7 +151,7 @@ export class BrandProfileService {
     const created = await tx.brandProfile.create({
       data: {
         userId,
-        brandName: (dto.brandName ?? '').trim() || 'My Brand',
+        brandName: dto.brandName?.trim() || null,
         contactFullName: dto.contactFullName.trim(),
         contactEmail: (dto.contactEmail ?? '').trim() || null,
         contactPhone: dto.contactPhone?.trim() || null,
@@ -307,7 +307,7 @@ export class BrandProfileService {
       const created = await tx.brandProfile.create({
         data: {
           agencyId: params.agencyId,
-          brandName: params.dto.brandName.trim(),
+          brandName: params.dto.brandName?.trim() || null,
           contactFullName: params.dto.contactFullName.trim(),
           contactEmail: params.dto.contactEmail?.trim() || null,
           contactPhone: params.dto.contactPhone?.trim() || null,
@@ -437,21 +437,12 @@ export class BrandProfileService {
     const contactFullName =
       dto.contactFullName?.trim() ||
       user.name?.trim() ||
-      dto.brandName?.trim() ||
       user.email.split('@')[0] ||
       'Brand';
 
     if (!contactFullName) {
       throw new BadRequestException('contactFullName is required');
     }
-
-    // brandName is required in the DB but optional at Google setup — derive a
-    // temporary label they can replace in brand settings.
-    const brandName =
-      dto.brandName?.trim() ||
-      user.name?.trim() ||
-      user.email.split('@')[0] ||
-      'My Brand';
 
     const logoKey = dto.logoKey?.trim();
     const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
@@ -463,7 +454,6 @@ export class BrandProfileService {
           userId,
           {
             ...dto,
-            brandName,
             contactFullName,
             // contactEmail is optional at signup — mail falls back to User.email.
             ...(dto.contactEmail?.trim()

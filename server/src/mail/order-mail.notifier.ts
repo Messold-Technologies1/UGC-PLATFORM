@@ -57,7 +57,7 @@ export class OrderMailNotifier {
       const order = await this.loadOrder(orderId);
       if (!order) return;
 
-      const brandName = order.brand.brandName;
+      const brandName = this.brandDisplayName(order.brand);
       await this.sendToCreator(order, EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR, {
         brandName,
         packageName: order.packageNameSnapshot,
@@ -102,7 +102,7 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const ctx: Record<string, string> = {
-        brandName: order.brand.brandName,
+        brandName: this.brandDisplayName(order.brand),
         orderId: order.id,
         courierName: params.courierName,
         dispatchedAt: this.formatDate(params.dispatchedAt),
@@ -148,7 +148,7 @@ export class OrderMailNotifier {
       );
 
       const vars: Record<string, string> = {
-        brandName: order.brand.brandName,
+        brandName: this.brandDisplayName(order.brand),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionNumber: String(order.revisionCount),
@@ -203,7 +203,7 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_CONTENT_ACCEPTED_FOR_CREATOR,
         {
-          brandName: order.brand.brandName,
+          brandName: this.brandDisplayName(order.brand),
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           actionUrl: this.creatorOrderUrl(order.id),
@@ -243,7 +243,7 @@ export class OrderMailNotifier {
 
       await this.sendToCreator(order, EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR, {
         ...base,
-        brandName: order.brand.brandName,
+        brandName: this.brandDisplayName(order.brand),
         actionUrl: this.creatorOrderUrl(order.id),
       });
     });
@@ -450,6 +450,14 @@ export class OrderMailNotifier {
       order.creator.user.name?.trim() ||
       'Creator'
     );
+  }
+
+  private brandDisplayName(brand: OrderMailRow['brand']): string {
+    return resolveBrandMailDisplayName({
+      contactFullName: brand.contactFullName,
+      brandName: brand.brandName,
+      fallback: 'Brand',
+    });
   }
 
   private brandOrderUrl(orderId: string): string {

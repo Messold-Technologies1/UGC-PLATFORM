@@ -9,7 +9,7 @@ export type CreatorApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export type AccessibleBrandSummary = {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl: string | null;
 };
 

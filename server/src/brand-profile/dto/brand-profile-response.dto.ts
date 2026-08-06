@@ -31,8 +31,8 @@ export class BrandProfileResponseDto {
   @ApiPropertyOptional({ example: '+91 98765 43210' })
   contactPhone!: string | null;
 
-  @ApiProperty({ example: 'Acme' })
-  brandName!: string;
+  @ApiPropertyOptional({ example: 'Acme', nullable: true })
+  brandName!: string | null;
 
   @ApiPropertyOptional({
     example: 'brand-pronunciation/<brandProfileId>/<uuid>.webm',

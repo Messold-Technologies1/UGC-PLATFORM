@@ -66,14 +66,14 @@ export class MeUserDto {
       type: 'object',
       properties: {
         id: { type: 'string' },
-        brandName: { type: 'string' },
+        brandName: { type: 'string', nullable: true },
         logoUrl: { type: 'string', nullable: true },
       },
     },
   })
   accessibleBrands!: Array<{
     id: string;
-    brandName: string;
+    brandName: string | null;
     logoUrl: string | null;
   }>;
 }

@@ -49,11 +49,15 @@ export class RegisterBrandDto {
   @MaxLength(32)
   contactPhone!: string;
 
-  @ApiProperty({ example: 'Acme', description: 'Public brand name shown to creators.' })
+  @ApiPropertyOptional({
+    example: 'Acme',
+    description: 'Optional at signup — can be set later in brand settings.',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(200)
-  brandName!: string;
+  brandName?: string;
 
   @ApiPropertyOptional({
     example: 'brand-logo-signup-temp/<hash>/<uuid>.png',

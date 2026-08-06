@@ -5,7 +5,7 @@ export class ChatBrandCounterpartyDto {
   id!: string;
 
   @ApiProperty()
-  brandName!: string;
+  brandName!: string | null;
 
   @ApiPropertyOptional()
   logoUrl?: string | null;

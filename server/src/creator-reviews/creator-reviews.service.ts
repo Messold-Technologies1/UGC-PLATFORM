@@ -32,7 +32,7 @@ type ReviewRow = {
   rating: number;
   review: string | null;
   createdAt: Date;
-  brand: { id: string; brandName: string; logoUrl: string | null };
+  brand: { id: string; brandName: string | null; logoUrl: string | null };
 };
 
 function mapReview(row: ReviewRow): CreatorRatingReviewDto {

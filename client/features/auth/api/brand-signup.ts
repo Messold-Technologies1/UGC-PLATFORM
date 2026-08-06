@@ -30,7 +30,7 @@ export type RegisterBrandPayload = {
   contactFullName: string;
   contactEmail?: string;
   contactPhone: string;
-  brandName: string;
+  brandName?: string;
   logoKey?: string;
   brandPronunciationAudioKey?: string;
   website?: string;

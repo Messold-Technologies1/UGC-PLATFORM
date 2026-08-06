@@ -30,7 +30,7 @@ export interface AuthTokens {
 
 export type MeBrandSummary = {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl: string | null;
 };
 
@@ -80,7 +80,7 @@ type MeLookupUser = {
     completeProfile: boolean;
     creatorApproval: { status: ApprovalStatus } | null;
   } | null;
-  brandProfile: { id: string; brandName: string; logoUrl: string | null } | null;
+  brandProfile: { id: string; brandName: string | null; logoUrl: string | null } | null;
   ownedAgency: {
     id: string;
     lastActiveBrandProfileId: string | null;

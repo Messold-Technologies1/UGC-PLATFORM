@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Building2, Eye, EyeOff, Upload, X } from "lucide-react";
+import { Eye, EyeOff, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,13 @@ const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const PHONE_E164_IN_REGEX = /^\+91[6-9]\d{9}$/;
 
+function normalizeWebsite(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 const brandSignupSchema = z.object({
   email: z
     .string()
@@ -50,7 +57,18 @@ const brandSignupSchema = z.object({
       PHONE_E164_IN_REGEX,
       "Enter a valid 10-digit Indian mobile number",
     ),
-  brandName: z.string().min(1, "Brand name is required"),
+  website: z
+    .string()
+    .optional()
+    .refine((v) => {
+      if (!v?.trim()) return true;
+      try {
+        const u = new URL(normalizeWebsite(v));
+        return Boolean(u.hostname.includes("."));
+      } catch {
+        return false;
+      }
+    }, "Enter a valid website URL"),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
   }),
@@ -66,7 +84,7 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
   password: "Password (at least 8 characters)",
   contactFullName: "Contact name",
   contactPhone: "Phone number",
-  brandName: "Brand name",
+  website: "Website URL",
   termsAccepted: "Terms acceptance",
   guidelinesAccepted: "Brand Guidelines acceptance",
 };
@@ -78,7 +96,7 @@ const STEP_FIELDS: (keyof BrandSignupData)[][] = [
   [
     "contactFullName",
     "contactPhone",
-    "brandName",
+    "website",
     "termsAccepted",
     "guidelinesAccepted",
   ],
@@ -179,7 +197,7 @@ export function BrandRegisterForm() {
       password: "",
       contactFullName: "",
       contactPhone: "",
-      brandName: "",
+      website: "",
       termsAccepted: false,
       guidelinesAccepted: false,
     },
@@ -195,8 +213,10 @@ export function BrandRegisterForm() {
         phone: variables.contactPhone,
       });
       trackPixelCustom("BrandRegistration", {
-        brand_name: variables.brandName,
         phone: variables.contactPhone,
+        ...(variables.website?.trim()
+          ? { website: normalizeWebsite(variables.website) }
+          : {}),
       });
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
@@ -271,12 +291,13 @@ export function BrandRegisterForm() {
         logoKey = presign.key;
       }
 
+      const website = data.website?.trim();
       registerBrandMutation.mutate({
         email: data.email.trim().toLowerCase(),
         password: data.password,
         contactFullName: data.contactFullName.trim(),
         contactPhone: data.contactPhone.trim(),
-        brandName: data.brandName.trim(),
+        ...(website ? { website: normalizeWebsite(website) } : {}),
         ...(logoKey ? { logoKey } : {}),
       });
     } catch (error) {
@@ -392,7 +413,7 @@ export function BrandRegisterForm() {
               Sign up with email
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              You can add website, categories, and more from your profile later.
+              You can add your brand name, categories, and more from your profile later.
             </p>
           </div>
           <div className="flex flex-col items-start gap-2 text-sm lg:items-end">
@@ -618,24 +639,24 @@ export function BrandRegisterForm() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="brand-name" className={labelClassName}>
-                  Brand name <span className="text-red-500">*</span>
+                <Label htmlFor="brand-website" className={labelClassName}>
+                  Website URL
                 </Label>
-                <div className={prefixedFieldClassName}>
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <Building2 className="size-4" />
-                  </div>
-                  <Input
-                    id="brand-name"
-                    placeholder="Acme Corp"
-                    disabled={pendingAny}
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("brandName")}
-                  />
-                </div>
-                {form.formState.errors.brandName ? (
+                <Input
+                  id="brand-website"
+                  type="url"
+                  placeholder="https://yourbrand.com"
+                  autoComplete="url"
+                  disabled={pendingAny}
+                  className={inputClassName}
+                  {...form.register("website")}
+                />
+                <p className="text-xs text-slate-500">
+                  Optional — helps creators learn about your brand before they collaborate.
+                </p>
+                {form.formState.errors.website ? (
                   <p className="text-xs text-red-500">
-                    {form.formState.errors.brandName.message}
+                    {form.formState.errors.website.message}
                   </p>
                 ) : null}
               </div>

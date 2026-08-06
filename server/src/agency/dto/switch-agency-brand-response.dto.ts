@@ -5,7 +5,7 @@ export class SwitchAgencyBrandResponseDto {
   activeBrandProfileId!: string;
 
   @ApiProperty()
-  brandName!: string;
+  brandName!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   logoUrl!: string | null;

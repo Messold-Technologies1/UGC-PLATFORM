@@ -127,8 +127,7 @@ export class SignupRegistrationService {
       }
     }
 
-    const userName =
-      dto.contactFullName?.trim() || dto.brandName?.trim() || null;
+    const userName = dto.contactFullName?.trim() || null;
 
     const { userId, brandProfileId } = await this.prisma.$transaction(
       async (tx) => {

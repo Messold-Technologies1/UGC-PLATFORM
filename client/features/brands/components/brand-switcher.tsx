@@ -26,7 +26,7 @@ function BrandChip({
   brandName,
   logoUrl,
 }: {
-  brandName: string;
+  brandName: string | null;
   logoUrl: string | null;
 }) {
   return (
@@ -37,7 +37,7 @@ function BrandChip({
       ) : (
         <Store className="size-4 shrink-0 text-muted-foreground" />
       )}
-      <span className="truncate font-medium">{brandName}</span>
+      <span className="truncate font-medium">{brandName ?? "Brand"}</span>
     </div>
   );
 }
@@ -70,7 +70,7 @@ export function BrandSwitcher() {
           : prev,
       );
       await queryClient.invalidateQueries();
-      toast.success(`Switched to ${result.brandName}`);
+      toast.success(`Switched to ${result.brandName ?? "brand"}`);
     } catch {
       toast.error("Could not switch brand");
     } finally {
@@ -95,7 +95,7 @@ export function BrandSwitcher() {
       <SelectContent align="end">
         {user.accessibleBrands.map((b) => (
           <SelectItem key={b.id} value={b.id}>
-            {b.brandName}
+            {b.brandName ?? "Brand"}
           </SelectItem>
         ))}
       </SelectContent>

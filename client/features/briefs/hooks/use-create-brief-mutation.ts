@@ -18,6 +18,7 @@ import {
 import {
   briefsQueryKey,
 } from "./use-list-briefs-query";
+import { brandProfileStateQueryKey } from "@/features/brands/api/fetch-brand-profile-state";
 
 type UseCreateBriefMutationOptions = UseMutationOptions<
   CreateBriefResponse,
@@ -39,6 +40,9 @@ export function useCreateBriefMutation(
       await queryClient.invalidateQueries({ queryKey: briefsQueryKey });
       await queryClient.invalidateQueries({
         queryKey: briefDetailQueryKey(data.id),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: brandProfileStateQueryKey,
       });
       toast.success("Brief saved");
       options?.onSuccess?.(data, variables, onMutateResult, context);

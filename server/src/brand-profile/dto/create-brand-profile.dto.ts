@@ -42,8 +42,7 @@ export class CreateBrandProfileDto {
 
   @ApiPropertyOptional({
     example: 'Acme',
-    description:
-      'Public brand name shown to creators. Optional after Google signup — can be set later in brand settings. When omitted, a temporary name is derived from the account.',
+    description: 'Optional at signup — can be set later in brand settings.',
   })
   @IsOptional()
   @IsString()

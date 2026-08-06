@@ -195,34 +195,60 @@ export class BriefsService {
 
     const script = normalizeScriptInput(params.dto.script);
 
-    const created = await this.prisma.brief.create({
-      data: {
-        brandId: brand.id,
-        brandName: params.dto.brandName,
-        brandPronunciationAudioKey: params.dto.brandPronunciationAudioKey,
-        brandPronunciationAudioUrl: params.dto.brandPronunciationAudioUrl,
-        industry: params.dto.industry,
-        brandLogoKey: params.dto.brandLogoKey,
-        brandLogoUrl: params.dto.brandLogoUrl,
-        productName: params.dto.productName,
-        productDescription: params.dto.productDescription,
-        productPageUrl: params.dto.productPageUrl,
-        isProduct,
-        willShipPhysicalProductToCreator: shipsPhysical,
-        shootLocationKind: params.dto.shootLocationKind,
-        shootLocationAddress: params.dto.shootLocationAddress,
-        durationBucket: params.dto.durationBucket,
-        ...(params.dto.contentType !== undefined
-          ? { contentType: params.dto.contentType }
-          : {}),
-        ...(params.dto.toneStyle !== undefined ? { toneStyle: params.dto.toneStyle } : {}),
-        keyNoteToInclude: params.dto.keyNoteToInclude,
-        ctaNote: params.dto.ctaNote,
-        referenceLinks: (params.dto.referenceLinks ?? []) as any,
-        ...(script !== undefined ? { script: script as any } : {}),
-        finalNotes: params.dto.finalNotes,
-      },
-      select: { id: true },
+    const profileBrandName = brand.brandName?.trim() ?? '';
+    const providedBrandName = params.dto.brandName?.trim() ?? '';
+    let briefBrandName: string;
+    if (profileBrandName) {
+      briefBrandName = profileBrandName;
+    } else if (providedBrandName) {
+      briefBrandName = providedBrandName;
+    } else {
+      throw new BadRequestException(
+        'Brand name is required on your first brief. Enter your brand name to continue.',
+      );
+    }
+
+    const shouldPersistBrandName = !profileBrandName;
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      if (shouldPersistBrandName) {
+        await tx.brandProfile.update({
+          where: { id: brand.id },
+          data: { brandName: briefBrandName },
+        });
+      }
+
+      return tx.brief.create({
+        data: {
+          brandId: brand.id,
+          brandName: briefBrandName,
+          brandPronunciationAudioKey: params.dto.brandPronunciationAudioKey,
+          brandPronunciationAudioUrl: params.dto.brandPronunciationAudioUrl,
+          industry: params.dto.industry,
+          brandLogoKey: params.dto.brandLogoKey,
+          brandLogoUrl: params.dto.brandLogoUrl,
+          productName: params.dto.productName,
+          productDescription: params.dto.productDescription,
+          productPageUrl: params.dto.productPageUrl,
+          isProduct,
+          willShipPhysicalProductToCreator: shipsPhysical,
+          shootLocationKind: params.dto.shootLocationKind,
+          shootLocationAddress: params.dto.shootLocationAddress,
+          durationBucket: params.dto.durationBucket,
+          ...(params.dto.contentType !== undefined
+            ? { contentType: params.dto.contentType }
+            : {}),
+          ...(params.dto.toneStyle !== undefined
+            ? { toneStyle: params.dto.toneStyle }
+            : {}),
+          keyNoteToInclude: params.dto.keyNoteToInclude,
+          ctaNote: params.dto.ctaNote,
+          referenceLinks: (params.dto.referenceLinks ?? []) as any,
+          ...(script !== undefined ? { script: script as any } : {}),
+          finalNotes: params.dto.finalNotes,
+        },
+        select: { id: true },
+      });
     });
 
     if (productImageKey) {

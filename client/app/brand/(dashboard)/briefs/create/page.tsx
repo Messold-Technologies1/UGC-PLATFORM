@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -198,10 +198,11 @@ function optionalUrl(label: string) {
     });
 }
 
-const createBriefSchema = z
-  .object({
-    brandName: z.string().trim().min(1, "Brand name is required"),
-    industry: z.string().trim().optional(),
+function buildCreateBriefSchema(requireBrandName: boolean) {
+  return z
+    .object({
+      brandName: z.string().trim().optional(),
+      industry: z.string().trim().optional(),
     brandLogoUrl: optionalUrl("Brand logo URL"),
     brandPronunciationAudioKey: z.string().trim().optional(),
     brandPronunciationAudioUrl: optionalUrl("Pronunciation audio URL"),
@@ -260,6 +261,14 @@ const createBriefSchema = z
     finalNotes: z.string().trim().optional(),
   })
   .superRefine((values, ctx) => {
+    if (requireBrandName && !values.brandName?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["brandName"],
+        message: "Brand name is required",
+      });
+    }
+
     const isProduct = values.isProduct ?? true;
 
     if (isProduct && !values.productImageKey?.trim()) {
@@ -282,8 +291,9 @@ const createBriefSchema = z
       });
     }
   });
+}
 
-type CreateBriefValues = z.infer<typeof createBriefSchema>;
+type CreateBriefValues = z.infer<ReturnType<typeof buildCreateBriefSchema>>;
 
 const createBriefDefaultValues: CreateBriefValues = {
   brandName: "",
@@ -321,16 +331,20 @@ function toReferenceLinks(value: string | undefined) {
     .filter(Boolean);
 }
 
-function toCreateBriefPayload(values: CreateBriefValues): CreateBriefPayload {
+function toCreateBriefPayload(
+  values: CreateBriefValues,
+  includeBrandName: boolean,
+): CreateBriefPayload {
   const referenceLinks = toReferenceLinks(values.referenceLinks);
   const scriptText = optionalString(values.scriptText);
   const isProduct = values.isProduct ?? true;
   const shipsPhysical =
     isProduct && (values.willShipPhysicalProductToCreator ?? false);
   const productImageKey = values.productImageKey?.trim();
+  const brandName = optionalString(values.brandName);
 
   return {
-    brandName: optionalString(values.brandName),
+    ...(includeBrandName && brandName ? { brandName } : {}),
     industry: optionalString(values.industry),
     brandLogoUrl: optionalString(values.brandLogoUrl),
     brandPronunciationAudioKey: optionalString(
@@ -402,14 +416,25 @@ function CreateBriefPageContent() {
   });
   const fieldOptions = briefFieldOptions ?? fallbackBriefFieldOptions;
 
+  const { data: brandProfileState } = useBrandProfileStateQuery({
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+  const profileBrandName =
+    brandProfileState?.kind === "ready"
+      ? brandProfileState.profile.brandName?.trim() ?? ""
+      : "";
+  const needsBrandName = !profileBrandName;
+
+  const createBriefSchema = useMemo(
+    () => buildCreateBriefSchema(needsBrandName),
+    [needsBrandName],
+  );
+
   const form = useForm<CreateBriefValues>({
     resolver: zodResolver(createBriefSchema),
     defaultValues: createBriefDefaultValues,
     mode: "onTouched",
-  });
-  const { data: brandProfileState } = useBrandProfileStateQuery({
-    retry: false,
-    staleTime: 5 * 60 * 1000,
   });
   const uploadPronunciationMutation = useMutation({
     mutationKey: ["briefs", "pronunciation-upload"],
@@ -565,7 +590,7 @@ function CreateBriefPageContent() {
   }, [brandProfileState, form]);
 
   const onSubmit = (data: CreateBriefValues) => {
-    createBriefMutation.mutate(toCreateBriefPayload(data));
+    createBriefMutation.mutate(toCreateBriefPayload(data, needsBrandName));
   };
 
   const handleProductImageSelect = (file: File | null) => {
@@ -849,25 +874,30 @@ function CreateBriefPageContent() {
                     />
                   </div>
                   <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="space-y-2 min-w-0">
-                      <Label
-                        htmlFor="brandName"
-                        className="text-xs font-semibold text-foreground/80"
-                      >
-                        Brand Name <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="brandName"
-                        placeholder="GlowUp Skincare"
-                        className="rounded-lg bg-white"
-                        {...form.register("brandName")}
-                      />
-                      {form.formState.errors.brandName && (
-                        <p className="text-[11px] text-destructive mt-1">
-                          {form.formState.errors.brandName.message}
+                    {needsBrandName ? (
+                      <div className="space-y-2 min-w-0">
+                        <Label
+                          htmlFor="brandName"
+                          className="text-xs font-semibold text-foreground/80"
+                        >
+                          Brand Name <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="brandName"
+                          placeholder="GlowUp Skincare"
+                          className="rounded-lg bg-white"
+                          {...form.register("brandName")}
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Saved on your brand profile for future briefs.
                         </p>
-                      )}
-                    </div>
+                        {form.formState.errors.brandName && (
+                          <p className="text-[11px] text-destructive mt-1">
+                            {form.formState.errors.brandName.message}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="productName"

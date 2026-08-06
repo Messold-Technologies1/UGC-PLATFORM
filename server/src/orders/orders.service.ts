@@ -78,7 +78,7 @@ const BRAND_HIDDEN_CREATOR_NAME = 'Creator';
 
 type OrderBrandSnapshotDto = {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl: string | null;
 };
 
@@ -86,7 +86,7 @@ function toOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
   const b = brand as OrderBrandSnapshotDto;
   return {
     id: b.id,
-    brandName: b.brandName,
+    brandName: b.brandName ?? null,
     logoUrl: b.logoUrl ?? null,
   };
 }

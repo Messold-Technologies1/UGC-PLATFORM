@@ -77,11 +77,15 @@ export function CreatorOrderNewRequestPanel({
   } | null>(null);
 
   useEffect(() => {
-    if (!selectedItem?.order?.createdAt) return;
+    // The 48h acceptance window runs from when the brief was submitted to the
+    // creator, not from when the order row was created. Without a submission
+    // time there is no acceptance clock, so leave the countdown unset.
+    const briefSubmittedAt = selectedItem?.order?.briefSubmittedAt;
+    if (!briefSubmittedAt) return;
 
     const calculateTimeLeft = () => {
-      const createdAt = new Date(selectedItem.order.createdAt).getTime();
-      const expiresAt = createdAt + 48 * 60 * 60 * 1000;
+      const submittedAt = new Date(briefSubmittedAt).getTime();
+      const expiresAt = submittedAt + 48 * 60 * 60 * 1000;
       const now = Date.now();
       const diff = expiresAt - now;
 
@@ -98,7 +102,7 @@ export function CreatorOrderNewRequestPanel({
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(interval);
-  }, [selectedItem?.order?.createdAt]);
+  }, [selectedItem?.order?.briefSubmittedAt]);
 
   const hasTimeExceeded = timeLeft !== null && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
 

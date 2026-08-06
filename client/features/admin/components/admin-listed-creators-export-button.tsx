@@ -22,7 +22,7 @@ export function AdminListedCreatorsExportButton({
     setIsExporting(true);
     try {
       await downloadListedCreatorsExport({
-        format: "xls",
+        format: "xlsx",
         search: search?.trim() || undefined,
       });
       toast.success("Export downloaded", {

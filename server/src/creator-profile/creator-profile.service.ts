@@ -29,7 +29,7 @@ import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import {
   buildCreatorsContactCsv,
-  buildCreatorsContactExcelXml,
+  buildCreatorsContactXlsx,
 } from './listed-creators-export.util';
 import type { ExportListedCreatorsQueryDto } from './dto/export-listed-creators-query.dto';
 
@@ -1563,7 +1563,7 @@ export class CreatorProfileService {
   }
 
   /**
-   * Export all listed creators (isListed = true) as CSV or Excel SpreadsheetML.
+   * Export all listed creators (isListed = true) as Excel (.xlsx) or CSV.
    * Columns: Name, Phone, Instagram. No pagination — full listed set.
    */
   async exportListedCreatorsContacts(
@@ -1573,7 +1573,7 @@ export class CreatorProfileService {
     filename: string;
     contentType: string;
   }> {
-    const format = query.format ?? 'csv';
+    const format = query.format ?? 'xlsx';
     const where = buildAdminCreatorsListWhere(
       AdminCreatorListSegment.LISTED,
       query.search,
@@ -1597,20 +1597,22 @@ export class CreatorProfileService {
 
     const stamp = new Date().toISOString().slice(0, 10);
 
-    if (format === 'xls') {
-      const xml = buildCreatorsContactExcelXml(contacts);
+    if (format === 'csv') {
+      const csv = buildCreatorsContactCsv(contacts);
       return {
-        buffer: Buffer.from(xml, 'utf8'),
-        filename: `listed-creators-${stamp}.xls`,
-        contentType: 'application/vnd.ms-excel',
+        buffer: Buffer.from(csv, 'utf8'),
+        filename: `listed-creators-${stamp}.csv`,
+        contentType: 'text/csv; charset=utf-8',
       };
     }
 
-    const csv = buildCreatorsContactCsv(contacts);
+    // `xls` is accepted as an alias for real xlsx (legacy clients).
+    const buffer = await buildCreatorsContactXlsx(contacts);
     return {
-      buffer: Buffer.from(csv, 'utf8'),
-      filename: `listed-creators-${stamp}.csv`,
-      contentType: 'text/csv; charset=utf-8',
+      buffer,
+      filename: `listed-creators-${stamp}.xlsx`,
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     };
   }
 

@@ -3,14 +3,14 @@ import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class ExportListedCreatorsQueryDto {
   @ApiPropertyOptional({
-    enum: ['csv', 'xls'],
-    default: 'csv',
+    enum: ['xlsx', 'csv'],
+    default: 'xlsx',
     description:
-      'csv = UTF-8 CSV (opens in Excel). xls = SpreadsheetML Excel file.',
+      'xlsx = real Excel workbook (ExcelJS). csv = UTF-8 CSV. Legacy `xls` is accepted and treated as xlsx.',
   })
   @IsOptional()
-  @IsIn(['csv', 'xls'])
-  format?: 'csv' | 'xls';
+  @IsIn(['xlsx', 'csv', 'xls'])
+  format?: 'xlsx' | 'csv' | 'xls';
 
   @ApiPropertyOptional({
     description: 'Optional name/phone/instagram search (same as admin list)',

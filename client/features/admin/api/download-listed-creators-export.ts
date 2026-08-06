@@ -1,7 +1,7 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
-export type ExportListedCreatorsFormat = "csv" | "xls";
+export type ExportListedCreatorsFormat = "xlsx" | "csv";
 
 function filenameFromContentDisposition(
   header: string | undefined,
@@ -21,14 +21,14 @@ function filenameFromContentDisposition(
 }
 
 /**
- * Downloads listed creators (name, phone, Instagram) as CSV or Excel.
+ * Downloads listed creators (name, phone, Instagram) as Excel or CSV.
  * Triggers a browser file save.
  */
 export async function downloadListedCreatorsExport(params?: {
   format?: ExportListedCreatorsFormat;
   search?: string;
 }): Promise<void> {
-  const format = params?.format ?? "xls";
+  const format = params?.format ?? "xlsx";
   const { data, headers } = await api.get<Blob>(
     ENDPOINTS.ADMIN.CREATORS.EXPORT_LISTED,
     {
@@ -41,7 +41,7 @@ export async function downloadListedCreatorsExport(params?: {
   );
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const fallback = `listed-creators-${stamp}.${format === "csv" ? "csv" : "xls"}`;
+  const fallback = `listed-creators-${stamp}.${format === "csv" ? "csv" : "xlsx"}`;
   const filename = filenameFromContentDisposition(
     headers["content-disposition"] as string | undefined,
     fallback,

@@ -1,6 +1,6 @@
 import {
   buildCreatorsContactCsv,
-  buildCreatorsContactExcelXml,
+  buildCreatorsContactXlsx,
   escapeCsvField,
 } from './listed-creators-export.util';
 
@@ -24,12 +24,13 @@ describe('listed-creators-export.util', () => {
     expect(csv).toContain('Riya,+919876543210,https://instagram.com/riya');
   });
 
-  it('builds SpreadsheetML with escaped XML', () => {
-    const xml = buildCreatorsContactExcelXml([
-      { name: 'A & B', phone: null, instagram: '<ig>' },
+  it('builds a real xlsx buffer (ZIP/OOXML signature)', async () => {
+    const buffer = await buildCreatorsContactXlsx([
+      { name: 'A & B', phone: null, instagram: 'https://instagram.com/ab' },
     ]);
-    expect(xml).toContain('Excel.Sheet');
-    expect(xml).toContain('A &amp; B');
-    expect(xml).toContain('&lt;ig&gt;');
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    expect(buffer.byteLength).toBeGreaterThan(100);
+    // .xlsx files are ZIP archives → start with PK
+    expect(buffer.subarray(0, 2).toString('utf8')).toBe('PK');
   });
 });

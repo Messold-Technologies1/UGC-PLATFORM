@@ -1,3 +1,11 @@
+import ExcelJS from 'exceljs';
+
+export type CreatorContactExportRow = {
+  name: string;
+  phone: string | null;
+  instagram: string | null;
+};
+
 /**
  * Escape a single CSV field (RFC 4180): quote when needed; double internal quotes.
  */
@@ -12,13 +20,7 @@ export function escapeCsvField(value: string | null | undefined): string {
 /**
  * Build a UTF-8 CSV string with BOM so Excel opens non-ASCII names correctly.
  */
-export function buildCreatorsContactCsv(
-  rows: Array<{
-    name: string;
-    phone: string | null;
-    instagram: string | null;
-  }>,
-): string {
+export function buildCreatorsContactCsv(rows: CreatorContactExportRow[]): string {
   const header = ['Name', 'Phone', 'Instagram'];
   const lines = [
     header.map(escapeCsvField).join(','),
@@ -26,48 +28,41 @@ export function buildCreatorsContactCsv(
       [row.name, row.phone, row.instagram].map(escapeCsvField).join(','),
     ),
   ];
-  // BOM helps Excel detect UTF-8
   return `\uFEFF${lines.join('\r\n')}\r\n`;
 }
 
 /**
- * Minimal SpreadsheetML (.xls) that Excel opens without extra libraries.
+ * Real .xlsx workbook via ExcelJS (recognized by Excel, Slack, Google Sheets).
  */
-export function buildCreatorsContactExcelXml(
-  rows: Array<{
-    name: string;
-    phone: string | null;
-    instagram: string | null;
-  }>,
-): string {
-  const escapeXml = (value: string | null | undefined): string =>
-    (value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+export async function buildCreatorsContactXlsx(
+  rows: CreatorContactExportRow[],
+): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'GoCollab';
+  workbook.created = new Date();
 
-  const cell = (value: string | null | undefined) =>
-    `<Cell><Data ss:Type="String">${escapeXml(value)}</Data></Cell>`;
+  const sheet = workbook.addWorksheet('Listed creators', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
 
-  const headerRow = `<Row>${cell('Name')}${cell('Phone')}${cell('Instagram')}</Row>`;
-  const dataRows = rows
-    .map(
-      (row) =>
-        `<Row>${cell(row.name)}${cell(row.phone)}${cell(row.instagram)}</Row>`,
-    )
-    .join('');
+  sheet.columns = [
+    { header: 'Name', key: 'name', width: 28 },
+    { header: 'Phone', key: 'phone', width: 18 },
+    { header: 'Instagram', key: 'instagram', width: 40 },
+  ];
 
-  return `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="Listed creators">
-  <Table>
-   ${headerRow}
-   ${dataRows}
-  </Table>
- </Worksheet>
-</Workbook>
-`;
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.commit();
+
+  for (const row of rows) {
+    sheet.addRow({
+      name: row.name,
+      phone: row.phone ?? '',
+      instagram: row.instagram ?? '',
+    });
+  }
+
+  const arrayBuffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(arrayBuffer);
 }

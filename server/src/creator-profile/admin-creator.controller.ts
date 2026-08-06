@@ -78,13 +78,13 @@ export class AdminCreatorController {
       'Download listed creators as CSV or Excel (name, phone, Instagram)',
   })
   @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/csv',
-    'application/vnd.ms-excel',
   )
-  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xls'] })
+  @ApiQuery({ name: 'format', required: false, enum: ['xlsx', 'csv', 'xls'] })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiOkResponse({
-    description: 'File download (CSV or Excel SpreadsheetML)',
+    description: 'File download (Excel .xlsx or CSV)',
   })
   async exportListedCreators(
     @Query() query: ExportListedCreatorsQueryDto,

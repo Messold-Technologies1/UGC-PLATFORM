@@ -76,8 +76,7 @@ export class BrandProfileMailNotifier {
         },
         context: {
           recipientName,
-          brandName: profile.brandName,
-          actionUrl: `${this.frontendBase()}/brand/creators`,
+          actionUrl: `${this.frontendBase()}/brand/settings/profile`,
         },
       });
     });

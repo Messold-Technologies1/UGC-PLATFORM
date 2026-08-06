@@ -40,15 +40,14 @@ export class RegisterBrandDto {
   @MaxLength(320)
   contactEmail?: string;
 
-  @ApiPropertyOptional({
-    example: '+91 98765 43210',
-    description: 'Optional at signup; can be added later from brand settings.',
+  @ApiProperty({
+    example: '+919876543210',
+    description: 'Required contact phone (E.164 recommended).',
   })
-  @IsOptional()
   @IsString()
   @MinLength(7)
   @MaxLength(32)
-  contactPhone?: string;
+  contactPhone!: string;
 
   @ApiProperty({ example: 'Acme', description: 'Public brand name shown to creators.' })
   @IsString()

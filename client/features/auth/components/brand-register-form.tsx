@@ -24,12 +24,17 @@ import { authMeQueryKey, type AuthUser } from "@/features/auth/hooks/use-me-quer
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
-import { trackPixelCustom } from "@/lib/meta-pixel";
+import {
+  identifyPixelUser,
+  splitFullName,
+  trackPixelCustom,
+} from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
 import { GoogleMark } from "@/features/auth/components/google-mark";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const PHONE_E164_IN_REGEX = /^\+91[6-9]\d{9}$/;
 
 const brandSignupSchema = z.object({
   email: z
@@ -38,6 +43,13 @@ const brandSignupSchema = z.object({
     .min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   contactFullName: z.string().min(1, "Contact name is required"),
+  contactPhone: z
+    .string()
+    .min(1, "Phone number is required")
+    .regex(
+      PHONE_E164_IN_REGEX,
+      "Enter a valid 10-digit Indian mobile number",
+    ),
   brandName: z.string().min(1, "Brand name is required"),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
@@ -53,6 +65,7 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
   email: "Account email",
   password: "Password (at least 8 characters)",
   contactFullName: "Contact name",
+  contactPhone: "Phone number",
   brandName: "Brand name",
   termsAccepted: "Terms acceptance",
   guidelinesAccepted: "Brand Guidelines acceptance",
@@ -62,7 +75,13 @@ const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
 const STEP_TITLES = ["Account", "Brand"] as const;
 const STEP_FIELDS: (keyof BrandSignupData)[][] = [
   ["email", "password"],
-  ["contactFullName", "brandName", "termsAccepted", "guidelinesAccepted"],
+  [
+    "contactFullName",
+    "contactPhone",
+    "brandName",
+    "termsAccepted",
+    "guidelinesAccepted",
+  ],
 ];
 const LAST_STEP = STEP_TITLES.length - 1;
 
@@ -149,6 +168,7 @@ export function BrandRegisterForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   const form = useForm<BrandSignupData>({
     resolver: zodResolver(brandSignupSchema),
@@ -158,6 +178,7 @@ export function BrandRegisterForm() {
       email: "",
       password: "",
       contactFullName: "",
+      contactPhone: "",
       brandName: "",
       termsAccepted: false,
       guidelinesAccepted: false,
@@ -168,8 +189,14 @@ export function BrandRegisterForm() {
     mutationKey: ["auth", "register", "brand"],
     mutationFn: registerBrand,
     onSuccess: (result, variables) => {
+      identifyPixelUser({
+        email: variables.email,
+        ...splitFullName(variables.contactFullName),
+        phone: variables.contactPhone,
+      });
       trackPixelCustom("BrandRegistration", {
         brand_name: variables.brandName,
+        phone: variables.contactPhone,
       });
       toast.success("Brand profile created");
       queryClient.setQueryData(authMeQueryKey, result.user);
@@ -248,6 +275,7 @@ export function BrandRegisterForm() {
         email: data.email.trim().toLowerCase(),
         password: data.password,
         contactFullName: data.contactFullName.trim(),
+        contactPhone: data.contactPhone.trim(),
         brandName: data.brandName.trim(),
         ...(logoKey ? { logoKey } : {}),
       });
@@ -276,6 +304,72 @@ export function BrandRegisterForm() {
       : ""
   }`;
 
+  if (!showEmailForm) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col bg-[#fdfcfb] dark:bg-slate-950">
+        <div className="shrink-0 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800">
+          <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start lg:gap-4">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
+                Create your brand profile
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Choose how you want to sign up.
+              </p>
+            </div>
+            <p className="text-sm text-slate-500">
+              Already have an account?{" "}
+              <Link
+                href={loginHref}
+                className="font-semibold text-slate-900 hover:underline dark:text-slate-50"
+              >
+                Log in
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-6 md:px-8">
+          <div className="mx-auto w-full max-w-md space-y-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-full rounded-full border-slate-200 bg-white text-[15px] font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              disabled={pendingAny}
+              onClick={handleGoogleSignup}
+            >
+              {googleLoading ? (
+                <Spinner className="size-4" aria-hidden />
+              ) : (
+                <GoogleMark className="size-5" />
+              )}
+              Sign up with Google
+            </Button>
+
+            <Button
+              type="button"
+              className="h-12 w-full rounded-full bg-[#3e76ef] text-[15px] font-bold text-white hover:bg-[#2d5cc5]"
+              disabled={pendingAny}
+              onClick={() => setShowEmailForm(true)}
+            >
+              Sign up with email
+            </Button>
+
+            <p className="pt-4 text-center text-[13px] text-[#8B8489]">
+              Are you a creator?{" "}
+              <Link
+                href="/register/creator"
+                className="font-bold text-slate-950 hover:underline dark:text-slate-50"
+              >
+                Sign up as a creator
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={onSubmit}
@@ -284,8 +378,18 @@ export function BrandRegisterForm() {
       <div className="shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-[#fdfcfb] px-4 py-3 sm:px-6 sm:py-4 md:px-8 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start lg:gap-4">
           <div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowEmailForm(false);
+                setCurrentStep(0);
+              }}
+              className="mb-2 text-sm font-semibold text-[#3e76ef] hover:underline"
+            >
+              ← Other signup options
+            </button>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
-              Create your brand profile
+              Sign up with email
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               You can add website, categories, and more from your profile later.
@@ -349,29 +453,6 @@ export function BrandRegisterForm() {
             </div>
 
             <div className="space-y-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full rounded-full border-slate-200 bg-white text-[15px] font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                disabled={pendingAny}
-                onClick={handleGoogleSignup}
-              >
-                {googleLoading ? (
-                  <Spinner className="size-4" aria-hidden />
-                ) : (
-                  <GoogleMark className="size-5" />
-                )}
-                Continue with Google
-              </Button>
-
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  or
-                </span>
-                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-              </div>
-
               <div className="space-y-1">
                 <Label htmlFor="brand-email" className={labelClassName}>
                   Account email <span className="text-red-500">*</span>
@@ -489,6 +570,49 @@ export function BrandRegisterForm() {
                 {form.formState.errors.contactFullName ? (
                   <p className="text-xs text-red-500">
                     {form.formState.errors.contactFullName.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="brand-phone" className={labelClassName}>
+                  Phone number <span className="text-red-500">*</span>
+                </Label>
+                <div className={prefixedFieldClassName}>
+                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
+                    +91
+                  </div>
+                  <Input
+                    id="brand-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    placeholder="9876543210"
+                    disabled={pendingAny}
+                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
+                    value={
+                      form.watch("contactPhone").startsWith("+91")
+                        ? form.watch("contactPhone").slice(3)
+                        : form.watch("contactPhone")
+                    }
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.startsWith("+91")) val = val.slice(3);
+                      const digits = val.replace(/\D/g, "").slice(0, 10);
+                      form.setValue(
+                        "contactPhone",
+                        digits ? `+91${digits}` : "",
+                        { shouldValidate: true },
+                      );
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  So we can reach you with support and collaboration updates.
+                </p>
+                {form.formState.errors.contactPhone ? (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.contactPhone.message}
                   </p>
                 ) : null}
               </div>

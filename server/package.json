@@ -28,6 +28,7 @@
     "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
     "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts",
     "prisma:backfill:notification-preferences": "ts-node prisma/backfill-notification-preferences.ts",
+    "prisma:backfill:resolve-dual-role-users": "ts-node prisma/backfill-resolve-dual-role-users.ts",
     "prisma:backfill:creator-restriction-suggestions": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-creator-restriction-suggestions.ts",
     "prisma:seed:cities": "ts-node prisma/seed-cities.ts",
     "prisma:seed:ai-search-creators": "ts-node prisma/seed-ai-search-test-creators.ts",

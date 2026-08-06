@@ -2,10 +2,14 @@ import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
 export type CompleteBrandSetupPayload = {
-  brandName: string;
   contactFullName?: string;
   contactEmail?: string;
-  contactPhone?: string;
+  /** Required for Google post-signup setup. */
+  contactPhone: string;
+  /** Optional — can be set later in brand settings. */
+  website?: string;
+  /** Optional — can be set later in brand settings. */
+  brandName?: string;
   logoKey?: string;
 };
 

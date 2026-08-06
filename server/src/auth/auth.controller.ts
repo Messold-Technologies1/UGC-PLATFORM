@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -430,8 +431,17 @@ export class AuthController {
         intendedRole === 'BRAND' && result.user && !result.user.hasBrandProfile;
       const qs = needsBrandSetup ? '?brandSetup=1' : '';
       res.redirect(`${frontendUrl}/auth/callback${qs}`);
-    } catch {
-      res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
+    } catch (err) {
+      const isRoleConflict =
+        err instanceof ConflictException ||
+        (err as { status?: number })?.status === 409 ||
+        /already registered/i.test(
+          err instanceof Error ? err.message : String(err),
+        );
+      const qs = isRoleConflict
+        ? '?error=role_conflict'
+        : '?error=oauth_failed';
+      res.redirect(`${frontendUrl}/auth/callback${qs}`);
     }
   }
 

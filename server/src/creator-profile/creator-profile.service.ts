@@ -922,6 +922,24 @@ export class CreatorProfileService {
       throw new ConflictException('Creator profile already exists');
     }
 
+    const account = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        primaryRole: { select: { name: true } },
+        brandProfile: { select: { id: true } },
+      },
+    });
+    if (
+      account?.brandProfile ||
+      account?.primaryRole?.name === RoleName.BRAND ||
+      account?.primaryRole?.name === RoleName.AGENCY ||
+      account?.primaryRole?.name === RoleName.ADMIN
+    ) {
+      throw new ConflictException(
+        'This email is already registered with another account type. Use a different email for a creator account.',
+      );
+    }
+
     await this.syncUserDisplayName(tx, userId, input.displayName);
 
     const publicSlug = await allocateUniqueCreatorPublicSlug(tx);

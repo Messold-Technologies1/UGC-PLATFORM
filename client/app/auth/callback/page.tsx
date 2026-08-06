@@ -33,7 +33,9 @@ function AuthCallbackInner() {
         const message =
           error === "missing_code_or_state"
             ? "Sign-in was incomplete. Try again."
-            : "Google sign-in failed. Try again.";
+            : error === "role_conflict"
+              ? "This email is already registered with a different account type. Sign in with that account instead — one email can only be a creator or a brand, not both."
+              : "Google sign-in failed. Try again.";
         toast.error(message);
         beginClientNavigation();
         router.replace(callback ? buildLoginHref(callback) : "/login?role=brand");

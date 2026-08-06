@@ -423,6 +423,33 @@ export class AuthService {
       throw new UnauthorizedException(`${roleName} role not configured`);
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        primaryRoleId: true,
+        primaryRole: { select: { id: true, name: true } },
+      },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // One email = one workspace role. Never attach CREATOR/BRAND on top of a
+    // different primary, and never force-switch primary between workspaces.
+    const primaryName = user.primaryRole?.name ?? null;
+    if (
+      primaryName &&
+      primaryName !== roleName &&
+      (primaryName === RoleName.CREATOR ||
+        primaryName === RoleName.BRAND ||
+        primaryName === RoleName.AGENCY ||
+        primaryName === RoleName.ADMIN)
+    ) {
+      throw new ConflictException(
+        `This email is already registered as a ${primaryName.toLowerCase()}. Sign in with that account type instead of creating another.`,
+      );
+    }
+
     await this.prisma.userRole.upsert({
       where: { userId_roleId: { userId, roleId: role.id } },
       create: { userId, roleId: role.id },
@@ -430,21 +457,73 @@ export class AuthService {
     });
 
     if (opts?.forcePrimary) {
+      if (user.primaryRoleId && user.primaryRoleId !== role.id) {
+        throw new ConflictException(
+          'This email already has a different primary role',
+        );
+      }
       await this.prisma.user.update({
         where: { id: userId },
         data: { primaryRoleId: role.id },
       });
-    } else {
-      const user = await this.prisma.user.findUnique({
+    } else if (!user.primaryRoleId) {
+      await this.prisma.user.update({
         where: { id: userId },
-        select: { primaryRoleId: true },
+        data: { primaryRoleId: role.id },
       });
-      if (user && !user.primaryRoleId) {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { primaryRoleId: role.id },
-        });
-      }
+    }
+  }
+
+  /**
+   * Blocks Google OAuth from turning a creator into a brand (or vice versa)
+   * on the same email. Legacy multi-role accounts are also refused a switch.
+   */
+  private async assertGoogleIntendedRoleAllowed(
+    userId: string,
+    intendedRole: 'BRAND' | 'CREATOR',
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        primaryRole: { select: { name: true } },
+        creatorProfile: { select: { id: true } },
+        brandProfile: { select: { id: true } },
+      },
+    });
+    if (!user) return;
+
+    const primary = user.primaryRole?.name ?? null;
+    const looksCreator =
+      primary === RoleName.CREATOR || Boolean(user.creatorProfile);
+    const looksBrand =
+      primary === RoleName.BRAND || Boolean(user.brandProfile);
+
+    if (intendedRole === 'BRAND' && looksCreator && !looksBrand) {
+      throw new ConflictException(
+        'This email is already registered as a creator. Sign in as a creator instead.',
+      );
+    }
+    if (intendedRole === 'CREATOR' && looksBrand && !looksCreator) {
+      throw new ConflictException(
+        'This email is already registered as a brand. Sign in as a brand instead.',
+      );
+    }
+    if (
+      primary === RoleName.AGENCY ||
+      primary === RoleName.ADMIN
+    ) {
+      throw new ConflictException(
+        'This email is already registered with another account type. Sign in with that account instead.',
+      );
+    }
+    if (
+      primary &&
+      primary !== intendedRole &&
+      (primary === RoleName.CREATOR || primary === RoleName.BRAND)
+    ) {
+      throw new ConflictException(
+        `This email is already registered as a ${primary.toLowerCase()}. Sign in with that account type instead.`,
+      );
     }
   }
 
@@ -520,13 +599,16 @@ export class AuthService {
       }
     }
 
+    if (intendedRole === 'BRAND' || intendedRole === 'CREATOR') {
+      await this.assertGoogleIntendedRoleAllowed(userId, intendedRole);
+    }
+
     if (intendedRole === 'BRAND') {
       const brandProfile = await this.prisma.brandProfile.findUnique({
         where: { userId },
         select: { id: true },
       });
-      // New brand Google signup / login without a profile yet: make BRAND primary
-      // so the client can route to the brand setup screen.
+      // Only set BRAND primary when unset / already brand — never steal CREATOR.
       await this.ensureUserHasRole(userId, RoleName.BRAND, {
         forcePrimary: !brandProfile,
       });

@@ -40,11 +40,16 @@ export class CreateBrandProfileDto {
   @MaxLength(32)
   contactPhone?: string;
 
-  @ApiProperty({ example: 'Acme', description: 'Public brand name shown to creators.' })
+  @ApiPropertyOptional({
+    example: 'Acme',
+    description:
+      'Public brand name shown to creators. Optional after Google signup — can be set later in brand settings. When omitted, a temporary name is derived from the account.',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(200)
-  brandName!: string;
+  brandName?: string;
 
   @ApiPropertyOptional({
     example: 'brand-logo-temp/<userId>/<uuid>.png',

@@ -122,11 +122,22 @@ export class BrandProfileService {
       where: { id: userId },
       select: {
         primaryRoleId: true,
+        primaryRole: { select: { name: true } },
         creatorProfile: { select: { id: true } },
       } as any,
     });
     if (!currentUser) {
       throw new NotFoundException('User not found');
+    }
+
+    // One email = one workspace. Never turn a creator account into a brand.
+    if (
+      currentUser.creatorProfile ||
+      currentUser.primaryRole?.name === RoleName.CREATOR
+    ) {
+      throw new ConflictException(
+        'This email is already registered as a creator. Sign in as a creator instead of creating a brand profile.',
+      );
     }
 
     const existing = await tx.brandProfile.findUnique({
@@ -140,7 +151,7 @@ export class BrandProfileService {
     const created = await tx.brandProfile.create({
       data: {
         userId,
-        brandName: dto.brandName.trim(),
+        brandName: (dto.brandName ?? '').trim() || 'My Brand',
         contactFullName: dto.contactFullName.trim(),
         contactEmail: (dto.contactEmail ?? '').trim() || null,
         contactPhone: dto.contactPhone?.trim() || null,
@@ -171,6 +182,14 @@ export class BrandProfileService {
     });
 
     if (opts?.forcePrimaryBrandRole) {
+      if (
+        currentUser.primaryRoleId &&
+        currentUser.primaryRoleId !== brandRole.id
+      ) {
+        throw new ConflictException(
+          'This email already has a different primary role',
+        );
+      }
       await tx.user.update({
         where: { id: userId },
         data: { primaryRoleId: brandRole.id } as any,
@@ -416,11 +435,23 @@ export class BrandProfileService {
     }
 
     const contactFullName =
-      dto.contactFullName?.trim() || user.name?.trim() || dto.brandName.trim();
+      dto.contactFullName?.trim() ||
+      user.name?.trim() ||
+      dto.brandName?.trim() ||
+      user.email.split('@')[0] ||
+      'Brand';
 
     if (!contactFullName) {
       throw new BadRequestException('contactFullName is required');
     }
+
+    // brandName is required in the DB but optional at Google setup — derive a
+    // temporary label they can replace in brand settings.
+    const brandName =
+      dto.brandName?.trim() ||
+      user.name?.trim() ||
+      user.email.split('@')[0] ||
+      'My Brand';
 
     const logoKey = dto.logoKey?.trim();
     const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
@@ -432,6 +463,7 @@ export class BrandProfileService {
           userId,
           {
             ...dto,
+            brandName,
             contactFullName,
             // contactEmail is optional at signup — mail falls back to User.email.
             ...(dto.contactEmail?.trim()

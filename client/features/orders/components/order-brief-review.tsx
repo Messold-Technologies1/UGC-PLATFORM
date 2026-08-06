@@ -134,11 +134,15 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   } | null>(null);
 
   useEffect(() => {
-    if (!order?.createdAt) return;
+    // The 48h acceptance window runs from when the brief was submitted to the
+    // creator, not from when the order row was created. Without a submission
+    // time there is no acceptance clock, so leave the countdown unset.
+    const briefSubmittedAt = data?.briefSubmittedAt;
+    if (!briefSubmittedAt) return;
 
     const calculateTimeLeft = () => {
-      const createdAt = new Date(order.createdAt).getTime();
-      const expiresAt = createdAt + 48 * 60 * 60 * 1000;
+      const submittedAt = new Date(briefSubmittedAt).getTime();
+      const expiresAt = submittedAt + 48 * 60 * 60 * 1000;
       const now = Date.now();
       const diff = expiresAt - now;
 
@@ -155,7 +159,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(interval);
-  }, [order?.createdAt]);
+  }, [data?.briefSubmittedAt]);
 
   const hasTimeExceeded = timeLeft !== null && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
 

@@ -562,7 +562,7 @@ function CreateBriefPageContent() {
 
     const profile = brandProfileState.profile;
     const defaults: Partial<CreateBriefValues> = {
-      brandName: profile.brandName,
+      brandName: profile.brandName ?? undefined,
       brandLogoUrl: profile.logoUrl ?? undefined,
       brandPronunciationAudioKey:
         profile.brandPronunciationAudioKey ?? undefined,

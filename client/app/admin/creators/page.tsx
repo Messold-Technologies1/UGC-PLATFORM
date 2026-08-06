@@ -7,6 +7,7 @@ import { AdminCreatorListRow } from "@/features/admin/components/admin-creator-l
 import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 import { AdminCreatorSegmentTabs } from "@/features/admin/components/admin-creator-segment-tabs";
 import { AdminBuildingProfileAnalytics } from "@/features/admin/components/admin-building-profile-analytics";
+import { AdminListedCreatorsExportButton } from "@/features/admin/components/admin-listed-creators-export-button";
 import {
   getAdminCreatorEmptyMessage,
   getAdminCreatorTabs,
@@ -111,15 +112,26 @@ function AdminCreatorsPageInner() {
           onSelectAnalytics={handleSelectAnalytics}
           trailing={
             analyticsActive ? null : (
-              <AdminCreatorListSearch
-                value={search}
-                isLoading={searchLoading}
-                onChange={(next) => {
-                  setSearch(next);
-                  setPage(1);
-                }}
-                className="relative w-full sm:w-64"
-              />
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                {segment === "listed" ? (
+                  <AdminListedCreatorsExportButton
+                    search={search}
+                    disabled={
+                      countsLoading ||
+                      (counts?.listed ?? 0) === 0
+                    }
+                  />
+                ) : null}
+                <AdminCreatorListSearch
+                  value={search}
+                  isLoading={searchLoading}
+                  onChange={(next) => {
+                    setSearch(next);
+                    setPage(1);
+                  }}
+                  className="relative w-full sm:w-64"
+                />
+              </div>
             )
           }
         />

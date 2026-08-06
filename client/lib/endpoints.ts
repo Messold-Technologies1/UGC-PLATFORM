@@ -193,6 +193,7 @@ export const ENDPOINTS = {
         "/api/admin/creators/building-profile-analytics",
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
       REJECTED_APPROVALS: "/api/admin/creators/rejected-approvals",
+      EXPORT_LISTED: "/api/admin/creators/export-listed",
       APPROVE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/approve`,
       REJECT: (id: string) =>

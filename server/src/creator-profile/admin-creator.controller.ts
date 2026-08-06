@@ -10,12 +10,15 @@ import {
   Patch,
   Query,
   Req,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -40,6 +43,7 @@ import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { AdminCreatorPayoutDetailsDto } from './dto/admin-creator-payout-details.dto';
 import { AdminBuildingProfileAnalyticsDto } from './dto/admin-building-profile-analytics.dto';
+import { ExportListedCreatorsQueryDto } from './dto/export-listed-creators-query.dto';
 
 @ApiTags('Admin - Creators')
 @ApiBearerAuth()
@@ -66,6 +70,31 @@ export class AdminCreatorController {
   @ApiOkResponse({ type: AdminBuildingProfileAnalyticsDto })
   async getBuildingProfileAnalytics(): Promise<AdminBuildingProfileAnalyticsDto> {
     return this.creatorProfileService.getBuildingProfileAnalytics();
+  }
+
+  @Get('export-listed')
+  @ApiOperation({
+    summary:
+      'Download listed creators as CSV or Excel (name, phone, Instagram)',
+  })
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.ms-excel',
+  )
+  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xls'] })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiOkResponse({
+    description: 'File download (CSV or Excel SpreadsheetML)',
+  })
+  async exportListedCreators(
+    @Query() query: ExportListedCreatorsQueryDto,
+  ): Promise<StreamableFile> {
+    const { buffer, filename, contentType } =
+      await this.creatorProfileService.exportListedCreatorsContacts(query);
+    return new StreamableFile(buffer, {
+      type: contentType,
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 
   @Get()

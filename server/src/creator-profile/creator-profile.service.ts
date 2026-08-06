@@ -27,6 +27,11 @@ import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
+import {
+  buildCreatorsContactCsv,
+  buildCreatorsContactExcelXml,
+} from './listed-creators-export.util';
+import type { ExportListedCreatorsQueryDto } from './dto/export-listed-creators-query.dto';
 
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { mapUnavailabilityToPublicAvailability } from './creator-unavailability.util';
@@ -1554,6 +1559,58 @@ export class CreatorProfileService {
       total,
       page,
       limit,
+    };
+  }
+
+  /**
+   * Export all listed creators (isListed = true) as CSV or Excel SpreadsheetML.
+   * Columns: Name, Phone, Instagram. No pagination — full listed set.
+   */
+  async exportListedCreatorsContacts(
+    query: ExportListedCreatorsQueryDto,
+  ): Promise<{
+    buffer: Buffer;
+    filename: string;
+    contentType: string;
+  }> {
+    const format = query.format ?? 'csv';
+    const where = buildAdminCreatorsListWhere(
+      AdminCreatorListSegment.LISTED,
+      query.search,
+    );
+
+    const rows = await this.prisma.creatorProfile.findMany({
+      where,
+      orderBy: { displayName: 'asc' },
+      select: {
+        displayName: true,
+        instagramUrl: true,
+        user: { select: { phone: true } },
+      },
+    });
+
+    const contacts = rows.map((row) => ({
+      name: row.displayName,
+      phone: row.user?.phone ?? null,
+      instagram: row.instagramUrl ?? null,
+    }));
+
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    if (format === 'xls') {
+      const xml = buildCreatorsContactExcelXml(contacts);
+      return {
+        buffer: Buffer.from(xml, 'utf8'),
+        filename: `listed-creators-${stamp}.xls`,
+        contentType: 'application/vnd.ms-excel',
+      };
+    }
+
+    const csv = buildCreatorsContactCsv(contacts);
+    return {
+      buffer: Buffer.from(csv, 'utf8'),
+      filename: `listed-creators-${stamp}.csv`,
+      contentType: 'text/csv; charset=utf-8',
     };
   }
 

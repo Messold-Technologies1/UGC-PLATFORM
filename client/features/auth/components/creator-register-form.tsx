@@ -32,6 +32,7 @@ import {
   trackPixelCustom,
 } from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
+import { CountryCodeSelect } from "@/features/auth/components/country-code-select";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
@@ -136,6 +137,11 @@ export function CreatorRegisterForm() {
   const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
+  // Country calling code (default India) + the national number typed by the
+  // creator; combined into the full E.164 value in `phoneInput`/the form.
+  const [countryIso, setCountryIso] = useState("IN");
+  const [countryDialCode, setCountryDialCode] = useState("91");
+  const [nationalNumber, setNationalNumber] = useState("");
   const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [otpResendAvailableAt, setOtpResendAvailableAt] = useState<
@@ -161,6 +167,37 @@ export function CreatorRegisterForm() {
       phoneOtpCode: "",
     },
   });
+
+  const applyPhone = useCallback(
+    (dialCode: string, national: string) => {
+      const composed = national ? `+${dialCode}${national}` : "";
+      setPhoneInput(composed);
+      setOtpSentToPhone(null);
+      setPhoneError(null);
+      form.setValue("phone", composed, { shouldValidate: true });
+      form.setValue("phoneOtpCode", "");
+      form.clearErrors("phoneOtpCode");
+    },
+    [form],
+  );
+
+  const handleCountryChange = useCallback(
+    (iso: string, dialCode: string) => {
+      setCountryIso(iso);
+      setCountryDialCode(dialCode);
+      applyPhone(dialCode, nationalNumber);
+    },
+    [applyPhone, nationalNumber],
+  );
+
+  const handleNationalNumberChange = useCallback(
+    (raw: string) => {
+      const digits = raw.replace(/\D/g, "");
+      setNationalNumber(digits);
+      applyPhone(countryDialCode, digits);
+    },
+    [applyPhone, countryDialCode],
+  );
 
   const normalizedPhone = normalizePhoneForSignup(phoneInput);
   const activeOtpPhone =
@@ -422,37 +459,26 @@ export function CreatorRegisterForm() {
                   Phone number <span className="text-red-500">*</span>
                 </Label>
                 <div className="grid gap-3">
-                  <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
-                    <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
-                      +
-                    </div>
+                  <div className="flex items-stretch gap-2">
+                    <CountryCodeSelect
+                      inputId="creator-signup-country"
+                      value={countryIso}
+                      onChange={handleCountryChange}
+                      disabled={pendingAny}
+                    />
+                    <div className="flex items-stretch h-[42px] flex-1 rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
                     <Input
                       id="creator-signup-phone"
-                      placeholder="14155552671"
-                      autoComplete="tel"
+                      placeholder="9876543210"
+                      autoComplete="tel-national"
                       inputMode="tel"
                       disabled={pendingAny}
                       aria-invalid={phoneError ? true : undefined}
                       className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
-                      value={
-                        phoneInput.startsWith("+")
-                          ? phoneInput.slice(1)
-                          : phoneInput
+                      value={nationalNumber}
+                      onChange={(event) =>
+                        handleNationalNumberChange(event.target.value)
                       }
-                      onChange={(event) => {
-                        // Creators can be from any country: keep the leading "+"
-                        // and let them enter their own country code + number.
-                        const digits = event.target.value.replace(/\D/g, "");
-                        const next = digits ? `+${digits}` : "";
-                        setPhoneInput(next);
-                        setOtpSentToPhone(null);
-                        setPhoneError(null);
-                        form.setValue("phone", next, {
-                          shouldValidate: true,
-                        });
-                        form.setValue("phoneOtpCode", "");
-                        form.clearErrors("phoneOtpCode");
-                      }}
                     />
                     {SIGNUP_OTP_VERIFICATION_ENABLED ? (
                       <Button
@@ -480,9 +506,10 @@ export function CreatorRegisterForm() {
                               : "Send OTP"}
                       </Button>
                     ) : null}
+                    </div>
                   </div>
                   <p className="text-[11px] text-[#8b8489]">
-                    Enter your number with country code (e.g. +1, +44, +91).
+                    Select your country code, then enter your mobile number.
                   </p>
                   {SIGNUP_OTP_VERIFICATION_ENABLED ? (
                     <>

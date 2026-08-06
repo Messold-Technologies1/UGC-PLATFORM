@@ -1,8 +1,12 @@
-{{!-- params: url (required), label (required) — bulletproof CTA for email clients --}}
+{{!-- params: url (required), label (required) — bulletproof CTA for email clients.
+     url is emitted unescaped ({{{url}}}) so query strings such as the password-reset
+     `?token=...` keep a literal `=` instead of being HTML-entity-encoded to `&#x3D;`,
+     which some native clients and corporate link-rewriters mangle. All callers pass
+     server-generated URLs, so unescaping is safe here. --}}
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0;">
   <tr>
     <td align="left" bgcolor="#ff5da2" style="border-radius:999px;background-color:#ff5da2;border:2px solid #181313;">
-      <a href="{{url}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.25;color:#ffffff;text-decoration:none;border-radius:999px;background-color:#ff5da2;border:2px solid #181313;">
+      <a href="{{{url}}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.25;color:#ffffff;text-decoration:none;border-radius:999px;background-color:#ff5da2;border:2px solid #181313;">
         {{label}}
       </a>
     </td>

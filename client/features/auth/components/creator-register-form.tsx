@@ -41,7 +41,13 @@ const SIGNUP_OTP_VERIFICATION_ENABLED = false;
 
 const creatorSignupSchema = z.object({
   name: z.string().min(1, "Full name is required"),
-  phone: z.string().min(1, "Phone is required"),
+  phone: z
+    .string()
+    .min(1, "Phone number is required")
+    .regex(
+      PHONE_E164_REGEX,
+      "Enter a valid phone number with country code, e.g. +14155552671",
+    ),
   phoneOtpCode: SIGNUP_OTP_VERIFICATION_ENABLED
     ? z
         .string()
@@ -418,26 +424,26 @@ export function CreatorRegisterForm() {
                 <div className="grid gap-3">
                   <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden w-full transition-[border-color,box-shadow] duration-150 focus-within:border-[#ef3e51] focus-within:ring-[3px] focus-within:ring-[#ef3e51]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800 dark:focus-within:border-slate-700 dark:focus-within:ring-slate-800">
                     <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-4 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[15px] font-semibold text-[#8b8489]">
-                      +91
+                      +
                     </div>
                     <Input
                       id="creator-signup-phone"
-                      placeholder="0123456789"
-                      autoComplete="tel-national"
+                      placeholder="14155552671"
+                      autoComplete="tel"
                       inputMode="tel"
                       disabled={pendingAny}
                       aria-invalid={phoneError ? true : undefined}
                       className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                       value={
-                        phoneInput.startsWith("+91")
-                          ? phoneInput.slice(3)
+                        phoneInput.startsWith("+")
+                          ? phoneInput.slice(1)
                           : phoneInput
                       }
                       onChange={(event) => {
-                        let val = event.target.value;
-                        if (val.startsWith("+91")) val = val.slice(3);
-                        const digits = val.replace(/\D/g, "");
-                        const next = digits ? `+91${digits}` : "";
+                        // Creators can be from any country: keep the leading "+"
+                        // and let them enter their own country code + number.
+                        const digits = event.target.value.replace(/\D/g, "");
+                        const next = digits ? `+${digits}` : "";
                         setPhoneInput(next);
                         setOtpSentToPhone(null);
                         setPhoneError(null);
@@ -475,6 +481,9 @@ export function CreatorRegisterForm() {
                       </Button>
                     ) : null}
                   </div>
+                  <p className="text-[11px] text-[#8b8489]">
+                    Enter your number with country code (e.g. +1, +44, +91).
+                  </p>
                   {SIGNUP_OTP_VERIFICATION_ENABLED ? (
                     <>
                       {phoneError ? (

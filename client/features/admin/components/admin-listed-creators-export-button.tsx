@@ -22,11 +22,11 @@ export function AdminListedCreatorsExportButton({
     setIsExporting(true);
     try {
       await downloadListedCreatorsExport({
-        format: "csv",
+        format: "xls",
         search: search?.trim() || undefined,
       });
       toast.success("Export downloaded", {
-        description: "Listed creators CSV (name, phone, Instagram).",
+        description: "Listed creators Excel file (name, phone, Instagram).",
       });
     } catch (error) {
       let message = "Could not export listed creators.";
@@ -69,7 +69,7 @@ export function AdminListedCreatorsExportButton({
       ) : (
         <Download className="size-4" aria-hidden />
       )}
-      {isExporting ? "Exporting…" : "Export CSV"}
+      {isExporting ? "Exporting…" : "Export Excel"}
     </Button>
   );
 }

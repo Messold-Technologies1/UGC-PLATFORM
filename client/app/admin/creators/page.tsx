@@ -112,26 +112,15 @@ function AdminCreatorsPageInner() {
           onSelectAnalytics={handleSelectAnalytics}
           trailing={
             analyticsActive ? null : (
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                {segment === "listed" ? (
-                  <AdminListedCreatorsExportButton
-                    search={search}
-                    disabled={
-                      countsLoading ||
-                      (counts?.listed ?? 0) === 0
-                    }
-                  />
-                ) : null}
-                <AdminCreatorListSearch
-                  value={search}
-                  isLoading={searchLoading}
-                  onChange={(next) => {
-                    setSearch(next);
-                    setPage(1);
-                  }}
-                  className="relative w-full sm:w-64"
-                />
-              </div>
+              <AdminCreatorListSearch
+                value={search}
+                isLoading={searchLoading}
+                onChange={(next) => {
+                  setSearch(next);
+                  setPage(1);
+                }}
+                className="relative w-full sm:w-64"
+              />
             )
           }
         />
@@ -144,7 +133,17 @@ function AdminCreatorsPageInner() {
           </div>
         ) : (
           <>
-            <div className="relative grid grid-cols-1 gap-4">
+            <div className="space-y-3">
+              {segment === "listed" ? (
+                <div className="flex items-center">
+                  <AdminListedCreatorsExportButton
+                    search={search}
+                    disabled={countsLoading || (counts?.listed ?? 0) === 0}
+                  />
+                </div>
+              ) : null}
+
+              <div className="relative grid grid-cols-1 gap-4">
               {searchLoading ? (
                 <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl bg-background/40 backdrop-blur-[1px]" />
               ) : null}
@@ -189,6 +188,7 @@ function AdminCreatorsPageInner() {
                     </div>
                   ))
                 : null}
+              </div>
             </div>
 
             <div className="flex flex-col items-center justify-between gap-6 border-t border-border/50 pt-8 md:flex-row">

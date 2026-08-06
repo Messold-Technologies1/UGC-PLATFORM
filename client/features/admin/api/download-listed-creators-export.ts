@@ -28,7 +28,7 @@ export async function downloadListedCreatorsExport(params?: {
   format?: ExportListedCreatorsFormat;
   search?: string;
 }): Promise<void> {
-  const format = params?.format ?? "csv";
+  const format = params?.format ?? "xls";
   const { data, headers } = await api.get<Blob>(
     ENDPOINTS.ADMIN.CREATORS.EXPORT_LISTED,
     {
@@ -41,7 +41,7 @@ export async function downloadListedCreatorsExport(params?: {
   );
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const fallback = `listed-creators-${stamp}.${format === "xls" ? "xls" : "csv"}`;
+  const fallback = `listed-creators-${stamp}.${format === "csv" ? "csv" : "xls"}`;
   const filename = filenameFromContentDisposition(
     headers["content-disposition"] as string | undefined,
     fallback,

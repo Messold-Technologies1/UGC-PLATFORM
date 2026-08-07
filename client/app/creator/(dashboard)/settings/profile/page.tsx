@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -68,6 +69,23 @@ export default function CreatorSettingsProfilePage() {
 
   return (
     <div className="flex flex-1 w-full min-w-0 flex-col min-h-full">
+      <Link
+        href="/creator/settings/profile/edit"
+        className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/[0.06] px-4 py-3 transition-colors hover:bg-primary/10"
+      >
+        <span className="flex items-center gap-3">
+          <Sparkles className="size-5 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-foreground">
+              Try the new step-by-step profile editor
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              A guided, milestone-based flow — save as you go.
+            </span>
+          </span>
+        </span>
+        <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden />
+      </Link>
       <CreatorProfileUpdateForm
         variant="settings"
         mode="update"

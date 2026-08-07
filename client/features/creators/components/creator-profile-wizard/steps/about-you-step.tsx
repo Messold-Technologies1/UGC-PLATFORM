@@ -2,20 +2,8 @@
 
 import { useState, type RefObject } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
-import {
-  Cake,
-  Camera,
-  Check,
-  Eye,
-  Globe2,
-  MapPin,
-  RefreshCw,
-  Sparkles,
-  Users,
-  UserRound,
-  X,
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Camera, Check, Eye, ImageUp, RefreshCw, X } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
@@ -56,7 +44,7 @@ export type AboutYouStepProps = {
   cities: Array<{ name: string }>;
   onCityChange: (value: string) => void;
 
-  // Languages (long-form style: select + fluency)
+  // Languages (select + fluency)
   languageOptions: CreatorFacetOption[];
   languageDrafts: LanguageDraft[];
   languagesLoading: boolean;
@@ -68,29 +56,6 @@ export type AboutYouStepProps = {
   languageConfirmed: boolean;
   onLanguageConfirmedChange: (value: boolean) => void;
 };
-
-const fieldVariants: Variants = {
-  hidden: { opacity: 0, y: 18 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 260, damping: 26 },
-  },
-};
-
-const groupVariants: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
-};
-
-function WhyLine({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="cw-why">
-      <Sparkles size={12} aria-hidden />
-      <span>{children}</span>
-    </p>
-  );
-}
 
 export function AboutYouStep(props: AboutYouStepProps) {
   const {
@@ -127,16 +92,15 @@ export function AboutYouStep(props: AboutYouStepProps) {
 
   const today = new Date().toISOString().split("T")[0];
   const hasPhoto = Boolean(profileImagePreviewUrl);
+  const selectedLanguageCount = languageDrafts.filter((r) => r.slug !== "").length;
 
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
 
-  function openFilePicker() {
-    profileImageInputRef.current?.click();
-  }
+  const openFilePicker = () => profileImageInputRef.current?.click();
 
-  function handleAvatarClick() {
-    if (uploadingProfileImage || disabled) return;
+  function handlePhotoTrigger() {
+    if (disabled || uploadingProfileImage) return;
     if (!hasPhoto) {
       openFilePicker();
       return;
@@ -144,27 +108,18 @@ export function AboutYouStep(props: AboutYouStepProps) {
     setPhotoMenuOpen((open) => !open);
   }
 
-  const selectedLanguageCount = languageDrafts.filter(
-    (row) => row.slug !== "",
-  ).length;
-
   return (
-    <motion.div
-      className="cw-step-fields"
-      variants={groupVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Profile photo + name — the identity hero */}
-      <motion.div className="cw-hero" variants={fieldVariants}>
-        <div className="cw-hero-photo">
+    <div className="cw-card">
+      {/* Photo row */}
+      <div className="cw-photo-row">
+        <div className="cw-photo-wrap">
           <button
             type="button"
-            className="cw-avatar"
+            className="cw-photo-circle"
             data-empty={!hasPhoto}
             disabled={disabled || uploadingProfileImage}
-            onClick={handleAvatarClick}
-            aria-label={hasPhoto ? "Profile photo options" : "Add profile photo"}
+            onClick={handlePhotoTrigger}
+            aria-label={hasPhoto ? "Profile photo options" : "Upload profile photo"}
           >
             {hasPhoto ? (
               <Image
@@ -174,16 +129,11 @@ export function AboutYouStep(props: AboutYouStepProps) {
                 unoptimized
                 style={{ objectFit: "cover" }}
               />
+            ) : uploadingProfileImage ? (
+              <Spinner className="size-6" aria-hidden />
             ) : (
-              <UserRound size={34} aria-hidden />
+              <Camera size={26} aria-hidden />
             )}
-            <span className="cw-avatar-badge" aria-hidden>
-              {uploadingProfileImage ? (
-                <Spinner className="size-3.5" />
-              ) : (
-                <Camera size={15} />
-              )}
-            </span>
           </button>
 
           <AnimatePresence>
@@ -232,39 +182,54 @@ export function AboutYouStep(props: AboutYouStepProps) {
           />
         </div>
 
-        <div className="cw-hero-name">
-          <label htmlFor="cw-fullName" className="cw-label">
-            Full name <span className="cw-req">*</span>
+        <div className="cw-photo-info">
+          <span className="cw-photo-title">Choose your best creator photo</span>
+          <span className="cw-photo-hint">
+            Smile, use good lighting and avoid group photos.
+          </span>
+          <button
+            type="button"
+            className="cw-photo-upload"
+            disabled={disabled || uploadingProfileImage}
+            onClick={handlePhotoTrigger}
+          >
+            {uploadingProfileImage ? (
+              <Spinner className="size-3.5" aria-hidden />
+            ) : (
+              <ImageUp size={14} aria-hidden />
+            )}
+            {hasPhoto ? "Change photo" : "Upload photo"}
+          </button>
+        </div>
+      </div>
+
+      <div className="cw-hr" />
+
+      {/* Identity grid */}
+      <div className="cw-grid2">
+        <div className="cw-col-2 cw-field">
+          <label htmlFor="cw-fullName" className="cw-fieldlabel">
+            Full Name <span className="cw-req">*</span>
           </label>
           <input
             id="cw-fullName"
-            className="cw-input cw-input-lg"
+            className="cw-input"
             value={displayName}
             disabled={disabled}
-            placeholder="e.g. Srijit Das"
+            placeholder="Your name as you'd like brands to see it"
             autoComplete="name"
             onChange={(e) => onDisplayNameChange(e.target.value)}
           />
-          <WhyLine>
-            {uploadingProfileImage
-              ? "Uploading your photo…"
-              : hasPhoto
-                ? "Tap your photo to view it full-size or swap it out."
-                : "A real name + a bright, friendly photo gets up to 2× more brand replies. Tap the circle to add one."}
-          </WhyLine>
         </div>
-      </motion.div>
 
-      {/* DOB + Gender */}
-      <motion.div className="cw-row-2" variants={fieldVariants}>
         <div className="cw-field">
-          <label htmlFor="cw-dob" className="cw-label">
-            <Cake size={13} aria-hidden /> Date of birth <span className="cw-req">*</span>
+          <label htmlFor="cw-dob" className="cw-fieldlabel">
+            Date of Birth <span className="cw-req">*</span>
           </label>
           <input
             id="cw-dob"
             type="date"
-            className="cw-input"
+            className="cw-input cw-input-date"
             value={dateOfBirth}
             max={today}
             disabled={disabled}
@@ -274,81 +239,79 @@ export function AboutYouStep(props: AboutYouStepProps) {
                   e.currentTarget.showPicker();
                 }
               } catch {
-                // ignore — falls back to native behaviour
+                // ignore — native fallback
               }
             }}
             onChange={(e) => onDateOfBirthChange(e.target.value)}
           />
-          <WhyLine>Confirms you&apos;re 18+ and helps brands match age-fit campaigns.</WhyLine>
         </div>
 
-        <div className="cw-field">
-          <label className="cw-label">
-            <Users size={13} aria-hidden /> Gender <span className="cw-req">*</span>
+        <div className="cw-field cw-select-field">
+          <label className="cw-fieldlabel">
+            Gender <span className="cw-req">*</span>
           </label>
           <PeSelectField
             id="cw-gender"
             label="Gender"
             value={gender}
-            placeholder="Select gender"
+            placeholder="Select"
             disabled={disabled}
             options={genderOptions}
             allowClear
             onChange={(value) => onGenderChange(value as CreatorGender | "")}
           />
-          <WhyLine>Only used to match briefs that call for a specific presenter.</WhyLine>
         </div>
-      </motion.div>
 
-      {/* Location */}
-      <motion.div className="cw-field" variants={fieldVariants}>
-        <label className="cw-label">
-          <MapPin size={13} aria-hidden /> Where you&apos;re based <span className="cw-req">*</span>
-        </label>
-        <div className="cw-row-3">
+        <div className="cw-field cw-select-field">
+          <label className="cw-fieldlabel">
+            Country <span className="cw-req">*</span>
+          </label>
           <PeSelectField
             id="cw-country"
             label="Country"
             value={countryCode}
-            placeholder="Country"
+            placeholder="Select country"
             disabled={disabled}
             options={countries.map((c) => ({ value: c.isoCode, label: c.name }))}
             onChange={onCountryChange}
           />
+        </div>
+
+        <div className="cw-field cw-select-field">
+          <label className="cw-fieldlabel">
+            State <span className="cw-req">*</span>
+          </label>
           <PeSelectField
             id="cw-state"
             label="State"
             value={stateCode}
-            placeholder={countryCode ? "State" : "Pick country first"}
+            placeholder={countryCode ? "Select state" : "Pick country first"}
             disabled={disabled || !countryCode || states.length === 0}
             options={states.map((s) => ({ value: s.isoCode, label: s.name }))}
             onChange={onStateChange}
           />
+        </div>
+
+        <div className="cw-col-2 cw-field cw-select-field">
+          <label className="cw-fieldlabel">
+            City <span className="cw-req">*</span>
+          </label>
           <PeSelectField
             id="cw-city"
             label="City"
             value={city}
-            placeholder={stateCode ? "City" : "Pick state first"}
+            placeholder={stateCode ? "Select city" : "Pick state first"}
             disabled={disabled || !stateCode || cities.length === 0}
             options={cities.map((row) => ({ value: row.name, label: row.name }))}
             onChange={onCityChange}
           />
         </div>
-        <WhyLine>Local matches mean product samples arrive faster and on-location shoots are possible.</WhyLine>
-      </motion.div>
+      </div>
 
-      {/* Languages — long-form style with fluency */}
-      <motion.div className="cw-field cw-lang-block" variants={fieldVariants}>
-        <div className="cw-lang-head">
-          <span className="cw-label" style={{ marginBottom: 0 }}>
-            <Globe2 size={13} aria-hidden /> Languages you create in
-          </span>
-        </div>
-        <WhyLine>
-          Add each language with your fluency — every one you add opens a whole
-          new set of regional briefs to you.
-        </WhyLine>
+      <div className="cw-hr" />
 
+      {/* Languages */}
+      <div className="cw-lang-block">
         {languagesLoading ? (
           <div className="cw-lang-loading">
             <Spinner className="size-4" aria-hidden /> Loading languages…
@@ -364,31 +327,30 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onFluencyChange={onFluencyChange}
           />
         )}
+      </div>
 
-        {/* Language confirmation gate */}
-        <label
-          className="cw-confirm"
-          data-checked={languageConfirmed}
-          data-disabled={disabled || selectedLanguageCount === 0}
-        >
-          <input
-            type="checkbox"
-            className="cw-confirm-box"
-            checked={languageConfirmed}
-            disabled={disabled || selectedLanguageCount === 0}
-            onChange={(e) => onLanguageConfirmedChange(e.target.checked)}
-          />
-          <span className="cw-confirm-tick" aria-hidden>
-            <Check size={13} strokeWidth={3} />
-          </span>
-          <span className="cw-confirm-text">
-            <strong>Language confirmation</strong>
-            I confirm that I can confidently create videos in all selected
-            languages. I understand that incorrect information may lead to
-            cancellations, refunds and a lower creator score.
-          </span>
-        </label>
-      </motion.div>
+      {/* Confirmation gate */}
+      <label
+        className="cw-confirm"
+        data-checked={languageConfirmed}
+        data-disabled={disabled || selectedLanguageCount === 0}
+      >
+        <input
+          type="checkbox"
+          className="cw-confirm-box"
+          checked={languageConfirmed}
+          disabled={disabled || selectedLanguageCount === 0}
+          onChange={(e) => onLanguageConfirmedChange(e.target.checked)}
+        />
+        <span className="cw-confirm-tick" aria-hidden>
+          <Check size={13} strokeWidth={3} />
+        </span>
+        <span className="cw-confirm-text">
+          I confirm that I can confidently create videos in all selected
+          languages. Incorrect information may lead to cancellations, refunds
+          and a lower creator score.
+        </span>
+      </label>
 
       {/* Full-size photo viewer */}
       <AnimatePresence>
@@ -429,6 +391,6 @@ export function AboutYouStep(props: AboutYouStepProps) {
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

@@ -7,14 +7,13 @@ import type { WizardStep } from "../wizard-config";
 
 /**
  * Placeholder panel for milestones that are on the roadmap but not yet wired
- * up. It keeps the journey visible and the momentum going without pretending
- * the step is interactive.
+ * up. It keeps the journey visible without pretending the step is interactive.
  */
 export function ComingSoonStep({ step }: { step: WizardStep }) {
   const Icon = step.icon;
   return (
     <motion.div
-      className="cw-soon"
+      className="cw-card cw-soon"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 240, damping: 26 }}
@@ -29,7 +28,7 @@ export function ComingSoonStep({ step }: { step: WizardStep }) {
       <p className="cw-soon-tag">{step.tagline}</p>
       <span className="cw-soon-badge">Coming next</span>
       <p className="cw-soon-note">
-        We&apos;re rolling out the new experience one milestone at a time. Your
+        We&apos;re rolling out the new onboarding one milestone at a time. Your
         saved details carry straight over — nothing to redo.
       </p>
     </motion.div>

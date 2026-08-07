@@ -6,10 +6,16 @@ import "./creator-profile-wizard.css";
 import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, Rocket } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Eye,
+  Flame,
+  Lightbulb,
+} from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type {
@@ -21,11 +27,16 @@ import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update
 import { useCreatorProfileImage } from "@/features/creators/hooks/use-creator-profile-image";
 import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-location-form";
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
+import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
 import { useSubmitCreatorProfileMutation } from "@/features/creators/hooks/use-creator-profile-form-mutation";
 import { useAuth } from "@/providers/auth-provider";
 import { getInitialCreatorName } from "@/features/creators/hooks/creator-profile-form-utils";
 
-import { WIZARD_STEPS, type WizardStepId } from "./wizard-config";
+import {
+  WIZARD_STEPS,
+  computeProfileStrength,
+  type WizardStepId,
+} from "./wizard-config";
 import { AboutYouStep } from "./steps/about-you-step";
 import { ComingSoonStep } from "./steps/coming-soon-step";
 
@@ -34,6 +45,13 @@ export type CreatorProfileWizardProps = {
   initialProfile: CreatorProfileItemApi;
   onExit?: () => void;
 };
+
+// Facet dimensions that count toward a "has a niche" signal for the strength meter.
+const NICHE_DIMENSIONS = new Set([
+  "CONTENT_FORMAT",
+  "CONTENT_CATEGORY",
+  "CATEGORY_EXPERIENCE",
+]);
 
 export function CreatorProfileWizard({
   profileId,
@@ -66,9 +84,11 @@ export function CreatorProfileWizard({
     initialProfile,
     enabled: Boolean(user),
   });
+  const portfolioQuery = useMyPortfolioVideosQuery({
+    enabled: Boolean(user),
+    staleTime: 2 * 60_000,
+  });
 
-  // Languages use the same select + fluency model as the long form; they come
-  // straight from the facets hook so selections persist with their fluency.
   const languageDrafts = facets.languageDrafts;
   const [languageConfirmed, setLanguageConfirmed] = useState<boolean>(
     () => (initialProfile.profileLanguages ?? []).length > 0,
@@ -84,13 +104,58 @@ export function CreatorProfileWizard({
     profileId,
     onSuccess: () => {
       setCompleted((prev) => new Set(prev).add("about"));
-      // Advance to the next milestone once the save lands.
       setActiveIndex((idx) => Math.min(idx + 1, WIZARD_STEPS.length - 1));
     },
   });
   const pending = submitMutation.isPending;
 
   const activeStep = WIZARD_STEPS[activeIndex];
+
+  // ---- Live "How brands see you" preview + Profile Strength ----
+  const languageLabelBySlug = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const opt of facets.facetOptionsByDimension.LANGUAGE ?? []) {
+      map.set(opt.slug, opt.label);
+    }
+    return map;
+  }, [facets.facetOptionsByDimension.LANGUAGE]);
+
+  const previewLanguages = useMemo(
+    () =>
+      languageDrafts
+        .filter((row) => row.slug !== "")
+        .map((row) => languageLabelBySlug.get(row.slug) ?? row.slug)
+        .slice(0, 3),
+    [languageDrafts, languageLabelBySlug],
+  );
+
+  const strength = useMemo(() => {
+    const hasNiche = (initialProfile.facetSelections ?? []).some((row) =>
+      NICHE_DIMENSIONS.has(row.dimension),
+    );
+    return computeProfileStrength({
+      hasPhoto: Boolean(profileImage.profileImagePreviewUrl),
+      hasName: displayName.trim().length > 0,
+      hasDob: Boolean(dateOfBirth),
+      hasGender: Boolean(gender),
+      hasCity: location.city.trim().length > 0,
+      hasLanguage: selectedLanguageCount > 0,
+      hasBio: Boolean(initialProfile.bio?.trim()),
+      hasNiche,
+      hasPackage: (initialProfile.packages ?? []).length > 0,
+      hasIntroVideo: Boolean(initialProfile.introVideoUrl?.trim()),
+      portfolioCount: (portfolioQuery.data ?? []).length,
+    });
+  }, [
+    profileImage.profileImagePreviewUrl,
+    displayName,
+    dateOfBirth,
+    gender,
+    location.city,
+    selectedLanguageCount,
+    initialProfile,
+    portfolioQuery.data,
+  ]);
 
   // ---- Validation for the About you step ----
   const aboutValidation = useMemo(() => {
@@ -173,7 +238,6 @@ export function CreatorProfileWizard({
 
   const goToStep = useCallback(
     (index: number) => {
-      // Only allow jumping to a step that's ready or already completed.
       const target = WIZARD_STEPS[index];
       if (!target) return;
       if (target.ready || completed.has(target.id) || index <= activeIndex) {
@@ -183,195 +247,254 @@ export function CreatorProfileWizard({
     [activeIndex, completed],
   );
 
-  const progressPct = useMemo(() => {
-    if (WIZARD_STEPS.length <= 1) return 0;
-    return (activeIndex / (WIZARD_STEPS.length - 1)) * 100;
-  }, [activeIndex]);
+  const initials = useMemo(() => {
+    const source = displayName.trim() || user?.name?.trim() || "";
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "You";
+    return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+  }, [displayName, user?.name]);
+
+  const ActiveIcon = activeStep.icon;
 
   return (
     <div className="pe-scope cw-root">
-      {/* ---- Milestone rail ---- */}
-      <div className="cw-rail" role="tablist" aria-label="Profile setup milestones">
-        <div className="cw-rail-track" aria-hidden>
-          <motion.div
-            className="cw-rail-fill"
-            initial={false}
-            animate={{ width: `${progressPct}%` }}
-            transition={{ type: "spring", stiffness: 180, damping: 28 }}
-          />
-        </div>
-        <ol className="cw-rail-steps">
-          {WIZARD_STEPS.map((step, index) => {
-            const Icon = step.icon;
-            const isActive = index === activeIndex;
-            const isDone = completed.has(step.id);
-            const isReachable =
-              step.ready || isDone || index <= activeIndex;
-            return (
-              <li key={step.id} className="cw-rail-step">
+      {/* Sub-header line */}
+      <div className="cw-topline">
+        <span>
+          Step {activeIndex + 1} of {WIZARD_STEPS.length}
+          {completed.size > 0 ? " · saved just now" : ""}
+        </span>
+        <span className="cw-topline-avatar" aria-hidden>
+          {initials}
+        </span>
+      </div>
+
+      <div className="cw-layout">
+        {/* ---- Left rail ---- */}
+        <aside className="cw-rail">
+          <div className="cw-rail-intro">
+            <h2 className="cw-rail-title">Complete Your Creator Profile</h2>
+            <p className="cw-rail-sub">
+              Build a profile that helps brands discover and trust you.
+            </p>
+          </div>
+
+          {/* Profile Strength */}
+          <div className="cw-strength">
+            <div className="cw-strength-head">
+              <Flame size={16} aria-hidden />
+              <span>Profile Strength</span>
+            </div>
+            <div className="cw-strength-pct">{strength.pct}%</div>
+            <div className="cw-strength-track">
+              <motion.div
+                className="cw-strength-fill"
+                initial={false}
+                animate={{ width: `${strength.pct}%` }}
+                transition={{ type: "spring", stiffness: 160, damping: 26 }}
+              />
+            </div>
+            <p className="cw-strength-hint">{strength.hint}</p>
+          </div>
+
+          {/* Step nav */}
+          <nav className="cw-steps" aria-label="Onboarding steps">
+            {WIZARD_STEPS.map((step, index) => {
+              const isActive = index === activeIndex;
+              const isDone = completed.has(step.id);
+              const isReachable =
+                step.ready || isDone || index <= activeIndex;
+              return (
                 <button
+                  key={step.id}
                   type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className="cw-node"
+                  className="cw-step"
                   data-active={isActive}
                   data-done={isDone}
-                  data-reachable={isReachable}
                   disabled={!isReachable}
+                  aria-current={isActive ? "step" : undefined}
                   onClick={() => goToStep(index)}
                 >
-                  <span className="cw-node-dot">
+                  <span className="cw-step-dot">
                     {isDone ? (
-                      <Check size={15} strokeWidth={3} />
+                      <Check size={12} strokeWidth={3} />
                     ) : (
-                      <Icon size={15} />
+                      index + 1
                     )}
                   </span>
-                  <span className="cw-node-label">{step.label}</span>
+                  <span className="cw-step-label">{step.label}</span>
                 </button>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+              );
+            })}
+          </nav>
 
-      {/* ---- Step panel ---- */}
-      <div className="cw-panel">
-        <div className="cw-panel-head">
-          <span className="cw-panel-icon">
-            <activeStep.icon size={18} />
-          </span>
-          <div>
-            <h3 className="cw-panel-title">{activeStep.title}</h3>
-            <p className="cw-panel-tag">{activeStep.tagline}</p>
+          {/* How brands see you */}
+          <div className="cw-preview">
+            <div className="cw-preview-head">
+              <Eye size={14} aria-hidden />
+              <span>How brands see you</span>
+            </div>
+            <div className="cw-preview-body">
+              <div className="cw-preview-avatar" data-empty={!profileImage.profileImagePreviewUrl}>
+                {profileImage.profileImagePreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profileImage.profileImagePreviewUrl}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : null}
+              </div>
+              <div className="cw-preview-meta">
+                {displayName.trim() ? (
+                  <span className="cw-preview-name">{displayName.trim()}</span>
+                ) : (
+                  <span className="cw-preview-skel" />
+                )}
+                {previewLanguages.length > 0 ? (
+                  <div className="cw-preview-langs">
+                    {previewLanguages.map((label) => (
+                      <span key={label} className="cw-preview-pill">
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <p className="cw-preview-note">
+              This card fills in as you complete each step.
+            </p>
+          </div>
+
+          {/* Tip */}
+          <div className="cw-tip">
+            <Lightbulb size={14} aria-hidden />
+            <p>Creators with 10+ portfolio pieces get 3× more orders.</p>
+          </div>
+        </aside>
+
+        {/* ---- Content pane ---- */}
+        <div className="cw-pane">
+          <div className="cw-pane-head">
+            <span className="cw-pane-icon">
+              <ActiveIcon size={22} />
+            </span>
+            <div>
+              <h1 className="cw-pane-title">{activeStep.title}</h1>
+              <p className="cw-pane-tag">{activeStep.tagline}</p>
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeStep.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 260, damping: 30 }}
+            >
+              {activeStep.id === "about" ? (
+                <AboutYouStep
+                  disabled={pending}
+                  displayName={displayName}
+                  onDisplayNameChange={setDisplayName}
+                  profileImagePreviewUrl={profileImage.profileImagePreviewUrl}
+                  uploadingProfileImage={profileImage.uploadingProfileImage}
+                  profileImageInputRef={profileImage.profileImageInputRef}
+                  onSelectProfileImage={(file) =>
+                    void profileImage.handleProfileImageSelected(file)
+                  }
+                  dateOfBirth={dateOfBirth}
+                  onDateOfBirthChange={setDateOfBirth}
+                  gender={gender}
+                  onGenderChange={setGender}
+                  countryCode={location.countryCode}
+                  countries={location.countries}
+                  onCountryChange={(value) => {
+                    location.setCountryCode(value);
+                    location.setStateCode("");
+                    location.setCity("");
+                  }}
+                  stateCode={location.stateCode}
+                  states={location.states}
+                  onStateChange={(value) => {
+                    location.setStateCode(value);
+                    location.setCity("");
+                  }}
+                  city={location.city}
+                  cities={location.cities}
+                  onCityChange={location.setCity}
+                  languageOptions={facets.facetOptionsByDimension.LANGUAGE ?? []}
+                  languageDrafts={languageDrafts}
+                  languagesLoading={facets.facetOptionsQuery.isLoading}
+                  onAddLanguage={(slug) => facets.addLanguage(slug)}
+                  onRemoveLanguage={(index) => facets.removeLanguage(index)}
+                  onUpdateLanguageSlug={(index, slug) =>
+                    facets.updateLanguageSlug(index, slug)
+                  }
+                  onFluencyChange={(index, fluency) =>
+                    facets.updateLanguageFluency(index, fluency)
+                  }
+                  languageConfirmed={languageConfirmed}
+                  onLanguageConfirmedChange={setLanguageConfirmed}
+                />
+              ) : (
+                <ComingSoonStep step={activeStep} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Footer */}
+          <div className="cw-foot">
+            <span className="cw-foot-note">
+              Autosaved. You can come back any time.
+            </span>
+            <div className="cw-foot-actions">
+              <button
+                type="button"
+                className="cw-btn cw-btn-ghost"
+                disabled={pending}
+                onClick={() => {
+                  if (activeIndex === 0) onExit?.();
+                  else setActiveIndex((idx) => Math.max(0, idx - 1));
+                }}
+              >
+                <ArrowLeft size={16} />
+                {activeIndex === 0 ? "Exit" : "Back"}
+              </button>
+
+              {activeStep.id === "about" ? (
+                <button
+                  type="button"
+                  className="cw-btn cw-btn-primary"
+                  onClick={handleSaveAbout}
+                  disabled={pending || profileImage.uploadingProfileImage}
+                >
+                  {pending ? (
+                    <>
+                      <Spinner className="size-4" aria-hidden />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      Continue Building Profile
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="cw-btn cw-btn-primary"
+                  disabled
+                >
+                  Coming soon
+                </button>
+              )}
+            </div>
           </div>
         </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeStep.id}
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ type: "spring", stiffness: 260, damping: 30 }}
-            className="cw-panel-body"
-          >
-            {activeStep.id === "about" ? (
-              <AboutYouStep
-                disabled={pending}
-                displayName={displayName}
-                onDisplayNameChange={setDisplayName}
-                profileImagePreviewUrl={profileImage.profileImagePreviewUrl}
-                uploadingProfileImage={profileImage.uploadingProfileImage}
-                profileImageInputRef={profileImage.profileImageInputRef}
-                onSelectProfileImage={(file) =>
-                  void profileImage.handleProfileImageSelected(file)
-                }
-                dateOfBirth={dateOfBirth}
-                onDateOfBirthChange={setDateOfBirth}
-                gender={gender}
-                onGenderChange={setGender}
-                countryCode={location.countryCode}
-                countries={location.countries}
-                onCountryChange={(value) => {
-                  location.setCountryCode(value);
-                  location.setStateCode("");
-                  location.setCity("");
-                }}
-                stateCode={location.stateCode}
-                states={location.states}
-                onStateChange={(value) => {
-                  location.setStateCode(value);
-                  location.setCity("");
-                }}
-                city={location.city}
-                cities={location.cities}
-                onCityChange={location.setCity}
-                languageOptions={facets.facetOptionsByDimension.LANGUAGE ?? []}
-                languageDrafts={languageDrafts}
-                languagesLoading={facets.facetOptionsQuery.isLoading}
-                onAddLanguage={(slug) => facets.addLanguage(slug)}
-                onRemoveLanguage={(index) => facets.removeLanguage(index)}
-                onUpdateLanguageSlug={(index, slug) =>
-                  facets.updateLanguageSlug(index, slug)
-                }
-                onFluencyChange={(index, fluency) =>
-                  facets.updateLanguageFluency(index, fluency)
-                }
-                languageConfirmed={languageConfirmed}
-                onLanguageConfirmedChange={setLanguageConfirmed}
-              />
-            ) : (
-              <ComingSoonStep step={activeStep} />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* ---- Footer nav ---- */}
-      <div className="cw-foot">
-        <button
-          type="button"
-          className="cw-btn cw-btn-ghost"
-          onClick={() => {
-            if (activeIndex === 0) {
-              onExit?.();
-            } else {
-              setActiveIndex((idx) => Math.max(0, idx - 1));
-            }
-          }}
-          disabled={pending}
-        >
-          <ArrowLeft size={16} />
-          {activeIndex === 0 ? "Exit" : "Back"}
-        </button>
-
-        <div className="cw-foot-hint">
-          {activeStep.id === "about" && !aboutValidation.ok ? (
-            <span className="cw-foot-hint-text">
-              Add {aboutValidation.missing[0]} to continue
-            </span>
-          ) : null}
-        </div>
-
-        {activeStep.id === "about" ? (
-          <button
-            type="button"
-            className={cn("cw-btn cw-btn-primary")}
-            onClick={handleSaveAbout}
-            disabled={pending || profileImage.uploadingProfileImage}
-          >
-            {pending ? (
-              <>
-                <Spinner className="size-4" aria-hidden />
-                Saving…
-              </>
-            ) : (
-              <>
-                Save &amp; continue
-                <ArrowRight size={16} />
-              </>
-            )}
-          </button>
-        ) : activeIndex < WIZARD_STEPS.length - 1 ? (
-          <button
-            type="button"
-            className="cw-btn cw-btn-primary"
-            onClick={() =>
-              setActiveIndex((idx) =>
-                Math.min(idx + 1, WIZARD_STEPS.length - 1),
-              )
-            }
-          >
-            Next
-            <ArrowRight size={16} />
-          </button>
-        ) : (
-          <button type="button" className="cw-btn cw-btn-primary" disabled>
-            <Rocket size={16} />
-            Go live (soon)
-          </button>
-        )}
       </div>
     </div>
   );

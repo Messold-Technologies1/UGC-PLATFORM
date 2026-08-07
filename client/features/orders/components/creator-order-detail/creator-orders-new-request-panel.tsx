@@ -30,7 +30,7 @@ import {
   getCreatorPayoutFromOrderTotal,
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
-import { PLATFORM_FEE_RATE } from "@/features/creators/hooks/creator-profile-form-utils";
+import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
 
 interface CreatorOrderNewRequestPanelProps {
   selectedOrderId: string;
@@ -115,20 +115,14 @@ export function CreatorOrderNewRequestPanel({
   if (!selectedItem) return null;
 
   const hasBrief = Boolean(selectedItem.order.hasBrief);
-  const orderTotal = resolveOrderTotalInr({
-    expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
-    priceAmountSnapshot:
-      detailsData?.order?.priceAmountSnapshot ??
-      selectedItem.order.priceAmountSnapshot,
-  });
-  const { platformFee, creatorEarnings } =
-    getCreatorPayoutFromOrderTotal(orderTotal);
-
-  const addOnsTotal = detailsData?.order?.addOnsTotalSnapshot
-    ? parseFloat(detailsData.order.addOnsTotalSnapshot)
-    : 0;
-  const baseAmount = Math.max(0, orderTotal - (Number.isFinite(addOnsTotal) ? addOnsTotal : 0));
-  const platformFeePercent = Math.round(PLATFORM_FEE_RATE * 100);
+  const creatorEarnings = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
+      priceAmountSnapshot:
+        detailsData?.order?.priceAmountSnapshot ??
+        selectedItem.order.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   return (
     <div className="bg-background rounded-lg border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-fit sticky top-24">
@@ -172,11 +166,11 @@ export function CreatorOrderNewRequestPanel({
 
         <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
           <div className="flex flex-col justify-center items-start sm:items-end gap-1">
-            <span className="font-bold text-base sm:text-lg leading-none text-foreground">
+            <span className="font-bold text-base sm:text-lg leading-none text-[#22c55e]">
               {formatCreatorPayoutInr(creatorEarnings)}
             </span>
             <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium uppercase tracking-wider leading-none">
-              Est. Payout
+              Payout
             </span>
           </div>
 
@@ -327,44 +321,13 @@ export function CreatorOrderNewRequestPanel({
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col h-fit">
-                <h3 className="font-bold text-base mb-4">Earnings</h3>
-
-                <div className="space-y-3 flex-1 flex flex-col">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground font-medium">
-                      Base Payout
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {formatCreatorPayoutInr(baseAmount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground font-medium">
-                      Add-ons (
-                      {detailsData?.order?.addOnsSnapshot?.length || 0})
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {formatCreatorPayoutInr(addOnsTotal)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground font-medium">
-                      Platform fee ({platformFeePercent}%)
-                    </span>
-                    <span className="text-sm font-semibold text-muted-foreground">
-                      −{formatCreatorPayoutInr(platformFee)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-4 mt-2 border-t border-border/50">
-                    <span className="text-sm font-bold">Est. Payout</span>
-                    <span className="text-2xl font-black text-[#4318FF]">
-                      {formatCreatorPayoutInr(creatorEarnings)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <CreatorPayoutDetailsCard
+                order={detailsData?.order ?? selectedItem.order}
+                selectedItem={selectedItem}
+                detailsData={detailsData}
+                showBriefLink={false}
+                className="bg-white rounded-lg border border-border/50 p-5 shadow-sm flex flex-col h-fit"
+              />
             </div>
 
             <div className="bg-[#FAF9FF] rounded-lg border border-[#4318FF]/10 p-6 shadow-sm mt-4">

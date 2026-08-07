@@ -1694,6 +1694,7 @@ export class OrdersService {
     status: OrderStatus;
     packageNameSnapshot: string;
     priceAmountSnapshot: Prisma.Decimal;
+    expectedAmountPaise: number;
     currency: string;
     deliveryDaysSnapshot: number;
     paidAt: Date | null;
@@ -1715,6 +1716,7 @@ export class OrdersService {
       status: order.status,
       packageNameSnapshot: order.packageNameSnapshot,
       priceAmountSnapshot: order.priceAmountSnapshot.toString(),
+      expectedAmountPaise: order.expectedAmountPaise,
       currency: order.currency,
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       paidAt: order.paidAt,
@@ -2285,6 +2287,7 @@ export class OrdersService {
           status: true,
           packageNameSnapshot: true,
           priceAmountSnapshot: true,
+          expectedAmountPaise: true,
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
@@ -2364,6 +2367,7 @@ export class OrdersService {
           status: true,
           packageNameSnapshot: true,
           priceAmountSnapshot: true,
+          expectedAmountPaise: true,
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,
@@ -2418,6 +2422,7 @@ export class OrdersService {
           status: true,
           packageNameSnapshot: true,
           priceAmountSnapshot: true,
+          expectedAmountPaise: true,
           currency: true,
           deliveryDaysSnapshot: true,
           paidAt: true,

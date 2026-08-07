@@ -22,6 +22,7 @@ import {
   getCreatorPayoutFromOrderTotal,
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
+import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
 
 interface CreatorOrderRevisionPanelProps {
   selectedOrderId: string;
@@ -461,7 +462,7 @@ export function CreatorOrderRevisionPanel({
       statusBadgeLabel="Revision Requested"
       statusBadgeColor="bg-orange-500/10 text-orange-600 border-orange-500/20"
       payoutAmountDisplay={formatCreatorPayoutInr(expectedAmount)}
-      payoutLabelDisplay="Est. Payout"
+      payoutLabelDisplay="Payout"
       steps={steps}
       dispute={detailsData?.order?.dispute}
     >
@@ -477,6 +478,11 @@ export function CreatorOrderRevisionPanel({
         ) : (
           <UploadRevisedVideoCard orderId={selectedOrderId} />
         )}
+        <CreatorPayoutDetailsCard
+          order={order}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+        />
       </div>
     </CreatorOrderPanelLayout>
   );

@@ -173,9 +173,7 @@ function CreatorOrdersListInner() {
         className={cn(
           "grid gap-6 items-start mt-4 transition-all duration-300",
           selectedOrderId
-            ? activeTab !== "all"
-              ? "lg:grid-cols-[320px_1fr] xl:grid-cols-[350px_1fr]"
-              : "lg:grid-cols-[1fr_400px]"
+            ? "lg:grid-cols-[320px_1fr] xl:grid-cols-[350px_1fr]"
             : "grid-cols-1",
         )}
       >
@@ -183,7 +181,8 @@ function CreatorOrdersListInner() {
           <div
             className={cn(
               "space-y-3",
-              selectedOrderId && activeTab !== "all" && "max-h-[calc(100vh-200px)] overflow-y-auto pr-1 scrollbar-thin"
+              selectedOrderId &&
+                "max-h-[calc(100vh-200px)] overflow-y-auto pr-1 scrollbar-thin",
             )}
           >
             {isLoading &&
@@ -221,15 +220,7 @@ function CreatorOrdersListInner() {
             {!isLoading && displayItems.map(({ order, brand }) => {
                 const isSelected = selectedOrderId === order.id;
                 const isNarrowLayout = Boolean(
-                  isDesktop &&
-                  selectedOrderId &&
-                  (activeTab === "new" ||
-                    activeTab === "active" ||
-                    activeTab === "revisions" ||
-                    activeTab === "delivered" ||
-                    activeTab === "completed" ||
-                    activeTab === "dispute" ||
-                    activeTab === "cancelled"),
+                  isDesktop && selectedOrderId,
                 );
                 const displayId = `#${order.id.substring(0, 5).toUpperCase()}`;
                 const deadlineMeta = getDeliveryDeadlineCardMeta(order);
@@ -343,7 +334,7 @@ function CreatorOrdersListInner() {
 
                         <div className="flex items-center justify-between gap-4 border-t border-border/40 pt-2.5">
                           <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-sm text-foreground leading-snug">
+                            <span className="font-bold text-sm text-[#22c55e] leading-snug">
                               {formatCreatorPayoutInr(
                                 getCreatorPayoutFromOrderTotal(
                                   resolveOrderTotalInr(order),
@@ -351,7 +342,7 @@ function CreatorOrdersListInner() {
                               )}
                             </span>
                             <span className="text-[11px] text-muted-foreground font-medium">
-                              Est. Payout
+                              Payout
                             </span>
                           </div>
                           <div className="flex flex-col items-end text-right min-w-0">
@@ -413,7 +404,7 @@ function CreatorOrdersListInner() {
                           </div>
 
                           <div className="flex flex-col gap-1.5 min-w-[100px] items-start">
-                            <span className="font-bold text-sm text-foreground leading-none">
+                            <span className="font-bold text-sm text-[#22c55e] leading-none">
                               {formatCreatorPayoutInr(
                                 getCreatorPayoutFromOrderTotal(
                                   resolveOrderTotalInr(order),
@@ -421,7 +412,7 @@ function CreatorOrdersListInner() {
                               )}
                             </span>
                             <span className="text-[12px] text-muted-foreground font-medium">
-                              Est. Payout
+                              Payout
                             </span>
                           </div>
 

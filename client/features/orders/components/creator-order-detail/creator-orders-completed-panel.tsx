@@ -1,16 +1,13 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 
 import { Star } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useGetOrderRatingReviewQuery } from "../../hooks/use-get-order-rating-review-query";
-import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
+import type { StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import {
@@ -18,7 +15,7 @@ import {
   getCreatorPayoutFromOrderTotal,
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
-import { PLATFORM_FEE_RATE } from "@/features/creators/hooks/creator-profile-form-utils";
+import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
 
 interface CreatorOrderCompletedPanelProps {
   selectedOrderId: string;
@@ -40,20 +37,6 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 const RATING_LABELS = ["", "Terrible", "Poor", "Average", "Good", "Excellent"];
-
-function fmtDate(val?: string | null): string {
-  if (!val) return "TBD";
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(val));
-  } catch {
-    return "TBD";
-  }
-}
-
 
 function buildCompletedSteps(order: any): StepDef[] {
   const ids = [
@@ -87,97 +70,6 @@ function CompletedFilesCard({ orderId }: { orderId: string }) {
       title="Delivered Files"
       emptyLabel="No delivery files found."
     />
-  );
-}
-
-function PaymentDetailsCard({
-  order,
-  selectedItem,
-  detailsData,
-}: {
-  order: any;
-  selectedItem: any;
-  detailsData: any;
-}) {
-  const orderTotal = resolveOrderTotalInr({
-    expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
-    priceAmountSnapshot:
-      detailsData?.order?.priceAmountSnapshot ??
-      selectedItem?.order?.priceAmountSnapshot,
-  });
-  const { platformFee, creatorEarnings } =
-    getCreatorPayoutFromOrderTotal(orderTotal);
-
-  const addOnsTotal = detailsData?.order?.addOnsTotalSnapshot
-    ? parseFloat(detailsData.order.addOnsTotalSnapshot)
-    : 0;
-
-  const basePayout = Math.max(
-    0,
-    orderTotal - (Number.isFinite(addOnsTotal) ? addOnsTotal : 0),
-  );
-  const paidDate = fmtDate(order?.creatorPaidAt ?? order?.acceptedAt);
-  const platformFeePercent = Math.round(PLATFORM_FEE_RATE * 100);
-
-  return (
-    <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
-      <h3 className="font-bold text-sm mb-4">Payment Details</h3>
-
-      <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Base Payout</span>
-          <span className="font-medium text-foreground">
-            {formatCreatorPayoutInr(basePayout)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">
-            Add-ons ({detailsData?.order?.addOnsSnapshot?.length || 0})
-          </span>
-          <span className="font-medium text-foreground">
-            {formatCreatorPayoutInr(addOnsTotal)}
-          </span>
-        </div>
-        <div className="flex justify-between pb-3 border-b border-border/40">
-          <span className="text-muted-foreground">
-            Platform Fee ({platformFeePercent}%)
-          </span>
-          <span className="font-medium text-muted-foreground">
-            −{formatCreatorPayoutInr(platformFee)}
-          </span>
-        </div>
-        <div className="flex justify-between items-center pt-1">
-          <span className="font-bold text-foreground">Total Paid</span>
-          <div className="flex items-center gap-2">
-            <span className="font-black text-lg text-[#22c55e]">
-              {formatCreatorPayoutInr(creatorEarnings)}
-            </span>
-            <Badge
-              variant="secondary"
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full border-0 bg-[#22c55e]/10 text-[#22c55e]"
-            >
-              Paid
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <p className="mt-3 pt-3 border-t border-border/40 text-xs text-muted-foreground">
-        Paid on {paidDate}
-      </p>
-      
-      <div className="mt-auto pt-4">
-        <Button
-          variant="outline"
-          className="w-full rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-          asChild
-        >
-          <Link href={`/creator/orders/${order?.id}/brief`}>
-            View Full Brief
-          </Link>
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -255,8 +147,6 @@ export function CreatorOrderCompletedPanel({
   previewStepId,
   onStepClick,
 }: CreatorOrderCompletedPanelProps) {
-  const chatRef = useRef<HTMLDivElement>(null);
-
   const order = detailsData?.order ?? selectedItem?.order;
 
   const steps = useMemo(() => buildCompletedSteps(order), [order]);
@@ -270,8 +160,6 @@ export function CreatorOrderCompletedPanel({
     }),
   ).creatorEarnings;
 
-  const isPaid = order?.status === "CREATOR_PAYMENT_DONE";
-
   if (!selectedItem) return null;
 
   return (
@@ -283,13 +171,13 @@ export function CreatorOrderCompletedPanel({
       statusBadgeLabel="Completed"
       statusBadgeColor="bg-[#22c55e]/10 text-[#22c55e]"
       payoutAmountDisplay={formatCreatorPayoutInr(expectedAmount)}
-      payoutLabelDisplay={isPaid ? "Paid" : "Est.Payout"}
+      payoutLabelDisplay="Payout"
       steps={steps}
       dispute={detailsData?.order?.dispute}
     >
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
         <CompletedFilesCard orderId={selectedOrderId} />
-        <PaymentDetailsCard
+        <CreatorPayoutDetailsCard
           order={order}
           selectedItem={selectedItem}
           detailsData={detailsData}

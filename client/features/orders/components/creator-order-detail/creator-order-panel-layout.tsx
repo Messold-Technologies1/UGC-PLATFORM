@@ -36,7 +36,7 @@ export function CreatorOrderPanelLayout({
   statusBadgeLabel,
   statusBadgeColor,
   payoutAmountDisplay,
-  payoutLabelDisplay = "Est. Payout",
+  payoutLabelDisplay = "Payout",
   expectedAmount,
   steps,
   viewingStepId,
@@ -103,7 +103,7 @@ export function CreatorOrderPanelLayout({
 
           <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
             <div className="flex flex-col justify-center items-start sm:items-end gap-1">
-              <span className="font-bold text-base sm:text-lg leading-none text-foreground">
+              <span className="font-bold text-base sm:text-lg leading-none text-[#22c55e]">
                 {amountDisplay}
               </span>
               <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium tracking-wider leading-none">

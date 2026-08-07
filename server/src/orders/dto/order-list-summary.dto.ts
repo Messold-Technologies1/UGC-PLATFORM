@@ -14,6 +14,13 @@ export class OrderListSummaryDto {
   @ApiProperty({ example: '199.99' })
   priceAmountSnapshot!: string;
 
+  @ApiProperty({
+    example: 19999,
+    description:
+      'Grand total in paise (package + add-ons). Use for creator est. payout after platform fee.',
+  })
+  expectedAmountPaise!: number;
+
   @ApiProperty({ example: 'INR' })
   currency!: string;
 

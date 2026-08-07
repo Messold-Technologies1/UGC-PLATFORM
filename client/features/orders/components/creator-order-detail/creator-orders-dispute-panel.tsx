@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
+import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
 
 interface CreatorOrderDisputePanelProps {
   selectedOrderId: string;
@@ -174,6 +175,11 @@ export function CreatorOrderDisputePanel({
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-5">
           <DisputeDetailsCard order={order} orderId={selectedOrderId} />
+          <CreatorPayoutDetailsCard
+            order={order}
+            selectedItem={selectedItem}
+            detailsData={detailsData}
+          />
         </div>
 
         <div className="min-w-0 lg:col-span-7">

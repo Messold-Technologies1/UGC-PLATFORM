@@ -24,6 +24,7 @@ import {
   getCreatorPayoutFromOrderTotal,
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
+import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
 
 const activeUploadsCache: Record<string, File[]> = {};
 
@@ -172,11 +173,13 @@ function OrderSummaryCard({
   order,
   selectedItem,
   selectedOrderId,
+  showBriefLink = true,
 }: {
   briefData: any;
   order: any;
   selectedItem: any;
   selectedOrderId: string;
+  showBriefLink?: boolean;
 }) {
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
@@ -231,15 +234,17 @@ function OrderSummaryCard({
         </div>
       </div>
 
-      <Button
-        variant="outline"
-        className="w-full mt-4 rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
-        asChild
-      >
-        <Link href={`/creator/orders/${selectedOrderId}/brief`}>
-          View Full Brief
-        </Link>
-      </Button>
+      {showBriefLink ? (
+        <Button
+          variant="outline"
+          className="w-full mt-4 rounded-lg h-9 text-xs font-semibold border-border/50 gap-1.5"
+          asChild
+        >
+          <Link href={`/creator/orders/${selectedOrderId}/brief`}>
+            View Full Brief
+          </Link>
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -250,6 +255,7 @@ function AwaitingShipmentContent({
   isCurrentStep,
   briefData,
   selectedItem,
+  detailsData,
   isOrderCompleted = false,
 }: {
   order: any;
@@ -257,6 +263,7 @@ function AwaitingShipmentContent({
   isCurrentStep: boolean;
   briefData: any;
   selectedItem: any;
+  detailsData: any;
   isOrderCompleted?: boolean;
 }) {
   const markReceivedMutation = useMarkProductReceivedMutation({
@@ -386,6 +393,12 @@ function AwaitingShipmentContent({
         selectedItem={selectedItem}
         selectedOrderId={selectedOrderId}
       />
+      <CreatorPayoutDetailsCard
+        order={order}
+        selectedItem={selectedItem}
+        detailsData={detailsData}
+        showBriefLink={false}
+      />
     </div>
   );
 }
@@ -396,6 +409,7 @@ function InProgressContent({
   isCurrentStep,
   briefData,
   selectedItem,
+  detailsData,
   isOrderCompleted = false,
 }: {
   order: any;
@@ -403,6 +417,7 @@ function InProgressContent({
   isCurrentStep: boolean;
   briefData: any;
   selectedItem: any;
+  detailsData: any;
   isOrderCompleted?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -592,6 +607,12 @@ function InProgressContent({
         selectedItem={selectedItem}
         selectedOrderId={selectedOrderId}
       />
+      <CreatorPayoutDetailsCard
+        order={order}
+        selectedItem={selectedItem}
+        detailsData={detailsData}
+        showBriefLink={false}
+      />
     </div>
   );
 }
@@ -677,6 +698,7 @@ export function CreatorOrderActivePanel({
           isCurrentStep={isViewingCurrentStep}
           briefData={briefData}
           selectedItem={selectedItem}
+          detailsData={detailsData}
           isOrderCompleted={isOrderCompleted}
         />
       )}
@@ -688,13 +710,14 @@ export function CreatorOrderActivePanel({
           isCurrentStep={isViewingCurrentStep}
           briefData={briefData}
           selectedItem={selectedItem}
+          detailsData={detailsData}
           isOrderCompleted={isOrderCompleted}
         />
       )}
 
       {effectiveViewingStepId === "accepted" && (
         <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-5">
-          <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm xl:col-span-1 2xl:col-span-2">
+          <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-[#22c55e]/10 flex items-center justify-center shrink-0">
                 <Check className="w-5 h-5 text-[#22c55e]" />
@@ -721,6 +744,12 @@ export function CreatorOrderActivePanel({
             order={order}
             selectedItem={selectedItem}
             selectedOrderId={selectedOrderId}
+          />
+          <CreatorPayoutDetailsCard
+            order={order}
+            selectedItem={selectedItem}
+            detailsData={detailsData}
+            showBriefLink={false}
           />
         </div>
       )}

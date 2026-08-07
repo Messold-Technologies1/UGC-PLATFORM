@@ -13,10 +13,11 @@ import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
-  formatCreatorPayoutInr,
   getCreatorPayoutFromOrderTotal,
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
+import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
+
 interface CreatorOrderDeliveredPanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -201,20 +202,10 @@ function ContentApprovedCard({ order }: { order: any }) {
 function DeliveredOrderSummaryCard({
   briefData,
   selectedItem,
-  order,
 }: {
   briefData: any;
   selectedItem: any;
-  order: any;
 }) {
-  const expectedAmount = getCreatorPayoutFromOrderTotal(
-    resolveOrderTotalInr({
-      expectedAmountPaise: order?.expectedAmountPaise,
-      priceAmountSnapshot:
-        order?.priceAmountSnapshot ?? selectedItem?.order?.priceAmountSnapshot,
-    }),
-  ).creatorEarnings;
-
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <h3 className="font-bold text-sm mb-4">Order Summary</h3>
@@ -258,12 +249,6 @@ function DeliveredOrderSummaryCard({
               9:16 Aspect Ratio
             </span>
           </div>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 pt-3 border-t border-border/40 mt-auto">
-          <span className="text-muted-foreground font-medium shrink-0">Payout</span>
-          <span className="font-bold text-foreground">
-            {formatCreatorPayoutInr(expectedAmount)}
-          </span>
         </div>
       </div>
 
@@ -330,7 +315,12 @@ export function CreatorOrderDeliveredPanel({
         <DeliveredOrderSummaryCard
           briefData={briefData}
           selectedItem={selectedItem}
+        />
+        <CreatorPayoutDetailsCard
           order={order}
+          selectedItem={selectedItem}
+          detailsData={detailsData}
+          showBriefLink={false}
         />
       </div>
     </CreatorOrderPanelLayout>

@@ -13,6 +13,12 @@ import { useGetOrderRatingReviewQuery } from "../../hooks/use-get-order-rating-r
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
+import {
+  formatCreatorPayoutInr,
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "../../lib/creator-payout";
+import { PLATFORM_FEE_RATE } from "@/features/creators/hooks/creator-profile-form-utils";
 
 interface CreatorOrderCompletedPanelProps {
   selectedOrderId: string;
@@ -93,18 +99,25 @@ function PaymentDetailsCard({
   selectedItem: any;
   detailsData: any;
 }) {
-  const expectedAmount = detailsData?.order?.expectedAmountPaise
-    ? detailsData.order.expectedAmountPaise / 100
-    : selectedItem?.order?.priceAmountSnapshot
-      ? parseFloat(selectedItem.order.priceAmountSnapshot)
-      : 0;
+  const orderTotal = resolveOrderTotalInr({
+    expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
+    priceAmountSnapshot:
+      detailsData?.order?.priceAmountSnapshot ??
+      selectedItem?.order?.priceAmountSnapshot,
+  });
+  const { platformFee, creatorEarnings } =
+    getCreatorPayoutFromOrderTotal(orderTotal);
 
   const addOnsTotal = detailsData?.order?.addOnsTotalSnapshot
     ? parseFloat(detailsData.order.addOnsTotalSnapshot)
     : 0;
 
-  const basePayout = expectedAmount - addOnsTotal;
+  const basePayout = Math.max(
+    0,
+    orderTotal - (Number.isFinite(addOnsTotal) ? addOnsTotal : 0),
+  );
   const paidDate = fmtDate(order?.creatorPaidAt ?? order?.acceptedAt);
+  const platformFeePercent = Math.round(PLATFORM_FEE_RATE * 100);
 
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
@@ -114,11 +127,7 @@ function PaymentDetailsCard({
         <div className="flex justify-between">
           <span className="text-muted-foreground">Base Payout</span>
           <span className="font-medium text-foreground">
-            {new Intl.NumberFormat("en-IN", {
-              style: "currency",
-              currency: "INR",
-              maximumFractionDigits: 0,
-            }).format(basePayout)}
+            {formatCreatorPayoutInr(basePayout)}
           </span>
         </div>
         <div className="flex justify-between">
@@ -126,26 +135,22 @@ function PaymentDetailsCard({
             Add-ons ({detailsData?.order?.addOnsSnapshot?.length || 0})
           </span>
           <span className="font-medium text-foreground">
-            {new Intl.NumberFormat("en-IN", {
-              style: "currency",
-              currency: "INR",
-              maximumFractionDigits: 0,
-            }).format(addOnsTotal)}
+            {formatCreatorPayoutInr(addOnsTotal)}
           </span>
         </div>
         <div className="flex justify-between pb-3 border-b border-border/40">
-          <span className="text-muted-foreground">Platform Fee</span>
-          <span className="font-medium text-foreground">₹0</span>
+          <span className="text-muted-foreground">
+            Platform Fee ({platformFeePercent}%)
+          </span>
+          <span className="font-medium text-muted-foreground">
+            −{formatCreatorPayoutInr(platformFee)}
+          </span>
         </div>
         <div className="flex justify-between items-center pt-1">
           <span className="font-bold text-foreground">Total Paid</span>
           <div className="flex items-center gap-2">
             <span className="font-black text-lg text-[#22c55e]">
-              {new Intl.NumberFormat("en-IN", {
-                style: "currency",
-                currency: "INR",
-                maximumFractionDigits: 0,
-              }).format(expectedAmount)}
+              {formatCreatorPayoutInr(creatorEarnings)}
             </span>
             <Badge
               variant="secondary"
@@ -256,11 +261,14 @@ export function CreatorOrderCompletedPanel({
 
   const steps = useMemo(() => buildCompletedSteps(order), [order]);
 
-  const expectedAmount = detailsData?.order?.expectedAmountPaise
-    ? detailsData.order.expectedAmountPaise / 100
-    : selectedItem?.order?.priceAmountSnapshot
-      ? parseFloat(selectedItem.order.priceAmountSnapshot)
-      : 0;
+  const expectedAmount = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
+      priceAmountSnapshot:
+        detailsData?.order?.priceAmountSnapshot ??
+        selectedItem?.order?.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   const isPaid = order?.status === "CREATOR_PAYMENT_DONE";
 
@@ -274,11 +282,7 @@ export function CreatorOrderCompletedPanel({
       onClose={onClose}
       statusBadgeLabel="Completed"
       statusBadgeColor="bg-[#22c55e]/10 text-[#22c55e]"
-      payoutAmountDisplay={new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 0,
-      }).format(expectedAmount)}
+      payoutAmountDisplay={formatCreatorPayoutInr(expectedAmount)}
       payoutLabelDisplay={isPaid ? "Paid" : "Est.Payout"}
       steps={steps}
       dispute={detailsData?.order?.dispute}

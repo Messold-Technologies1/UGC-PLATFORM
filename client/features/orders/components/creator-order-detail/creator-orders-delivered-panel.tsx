@@ -12,6 +12,11 @@ import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import {
+  formatCreatorPayoutInr,
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "../../lib/creator-payout";
 interface CreatorOrderDeliveredPanelProps {
   selectedOrderId: string;
   selectedItem: any;
@@ -202,11 +207,13 @@ function DeliveredOrderSummaryCard({
   selectedItem: any;
   order: any;
 }) {
-  const expectedAmount = order?.expectedAmountPaise
-    ? order.expectedAmountPaise / 100
-    : selectedItem?.order?.priceAmountSnapshot
-      ? parseFloat(selectedItem.order.priceAmountSnapshot)
-      : 0;
+  const expectedAmount = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: order?.expectedAmountPaise,
+      priceAmountSnapshot:
+        order?.priceAmountSnapshot ?? selectedItem?.order?.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
@@ -255,11 +262,7 @@ function DeliveredOrderSummaryCard({
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 pt-3 border-t border-border/40 mt-auto">
           <span className="text-muted-foreground font-medium shrink-0">Payout</span>
           <span className="font-bold text-foreground">
-            {new Intl.NumberFormat("en-IN", {
-              style: "currency",
-              currency: "INR",
-              maximumFractionDigits: 0,
-            }).format(expectedAmount)}
+            {formatCreatorPayoutInr(expectedAmount)}
           </span>
         </div>
       </div>
@@ -294,11 +297,14 @@ export function CreatorOrderDeliveredPanel({
 
   const steps = useMemo(() => buildDeliveredSteps(order), [order]);
 
-  const expectedAmount = detailsData?.order?.expectedAmountPaise
-    ? detailsData.order.expectedAmountPaise / 100
-    : selectedItem?.order?.priceAmountSnapshot
-      ? parseFloat(selectedItem.order.priceAmountSnapshot)
-      : 0;
+  const expectedAmount = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
+      priceAmountSnapshot:
+        detailsData?.order?.priceAmountSnapshot ??
+        selectedItem?.order?.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   if (!selectedItem) return null;
 

@@ -37,6 +37,11 @@ import { STATUS_COLORS, STATUS_LABELS } from "../../constants";
 import { getDeliveryDeadlineCardMeta } from "../delivery-deadline-display";
 import { cn } from "@/lib/utils";
 import {
+  formatCreatorPayoutInr,
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "../../lib/creator-payout";
+import {
   CreatorOrdersTabs,
   TAB_DEFINITIONS,
   isCreatorOrdersTab,
@@ -339,19 +344,14 @@ function CreatorOrdersListInner() {
                         <div className="flex items-center justify-between gap-4 border-t border-border/40 pt-2.5">
                           <div className="flex flex-col min-w-0">
                             <span className="font-bold text-sm text-foreground leading-snug">
-                              {order.priceAmountSnapshot &&
-                              parseFloat(order.priceAmountSnapshot) > 0
-                                ? new Intl.NumberFormat("en-IN", {
-                                    style: "currency",
-                                    currency: "INR",
-                                    maximumFractionDigits: 0,
-                                  }).format(
-                                    parseFloat(order.priceAmountSnapshot),
-                                  )
-                                : "₹0"}
+                              {formatCreatorPayoutInr(
+                                getCreatorPayoutFromOrderTotal(
+                                  resolveOrderTotalInr(order),
+                                ).creatorEarnings,
+                              )}
                             </span>
                             <span className="text-[11px] text-muted-foreground font-medium">
-                              Payout
+                              Est. Payout
                             </span>
                           </div>
                           <div className="flex flex-col items-end text-right min-w-0">
@@ -414,16 +414,11 @@ function CreatorOrdersListInner() {
 
                           <div className="flex flex-col gap-1.5 min-w-[100px] items-start">
                             <span className="font-bold text-sm text-foreground leading-none">
-                              {order.priceAmountSnapshot &&
-                              parseFloat(order.priceAmountSnapshot) > 0
-                                ? new Intl.NumberFormat("en-IN", {
-                                    style: "currency",
-                                    currency: "INR",
-                                    maximumFractionDigits: 0,
-                                  }).format(
-                                    parseFloat(order.priceAmountSnapshot),
-                                  )
-                                : "₹0"}
+                              {formatCreatorPayoutInr(
+                                getCreatorPayoutFromOrderTotal(
+                                  resolveOrderTotalInr(order),
+                                ).creatorEarnings,
+                              )}
                             </span>
                             <span className="text-[12px] text-muted-foreground font-medium">
                               Est. Payout

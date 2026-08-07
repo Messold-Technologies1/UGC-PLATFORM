@@ -18,6 +18,11 @@ import { CreatorOrderDeliveredPanel } from "./creator-orders-delivered-panel";
 import { CreatorOrderCompletedPanel } from "./creator-orders-completed-panel";
 import { CreatorOrderCancelledPanel } from "./creator-orders-cancelled-panel";
 import { CreatorOrderDisputePanel } from "./creator-orders-dispute-panel";
+import {
+  formatCreatorPayoutInr,
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "../../lib/creator-payout";
 
 const DATE_FMT: Intl.DateTimeFormatOptions = {
   day: "2-digit",
@@ -471,23 +476,17 @@ export function CreatorOrdersDetailsPanel({
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 pt-3 border-t border-border/40 mt-auto">
                 <span className="text-muted-foreground">Total Payout</span>
                 <span className="font-bold text-foreground text-right">
-                  {detailsData?.order?.expectedAmountPaise &&
-                  detailsData.order.expectedAmountPaise > 0
-                    ? new Intl.NumberFormat("en-IN", {
-                        style: "currency",
-                        currency: "INR",
-                        maximumFractionDigits: 0,
-                      }).format(detailsData.order.expectedAmountPaise / 100)
-                    : selectedItem.order.priceAmountSnapshot &&
-                        parseFloat(selectedItem.order.priceAmountSnapshot) > 0
-                      ? new Intl.NumberFormat("en-IN", {
-                          style: "currency",
-                          currency: "INR",
-                          maximumFractionDigits: 0,
-                        }).format(
-                          parseFloat(selectedItem.order.priceAmountSnapshot),
-                        )
-                      : "₹0"}
+                  {formatCreatorPayoutInr(
+                    getCreatorPayoutFromOrderTotal(
+                      resolveOrderTotalInr({
+                        expectedAmountPaise:
+                          detailsData?.order?.expectedAmountPaise,
+                        priceAmountSnapshot:
+                          detailsData?.order?.priceAmountSnapshot ??
+                          selectedItem.order.priceAmountSnapshot,
+                      }),
+                    ).creatorEarnings,
+                  )}
                 </span>
               </div>
             </div>

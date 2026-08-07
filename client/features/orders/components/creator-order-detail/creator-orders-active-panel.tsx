@@ -20,6 +20,10 @@ import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
+import {
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "../../lib/creator-payout";
 
 const activeUploadsCache: Record<string, File[]> = {};
 
@@ -639,11 +643,14 @@ export function CreatorOrderActivePanel({
   const statusLabel = getActiveStatusLabel(orderStatus, requiresShip);
   const statusColor = getActiveStatusColor(orderStatus, requiresShip);
 
-  const expectedAmount = detailsData?.order?.expectedAmountPaise
-    ? detailsData.order.expectedAmountPaise / 100
-    : selectedItem?.order?.priceAmountSnapshot
-      ? parseFloat(selectedItem.order.priceAmountSnapshot)
-      : 0;
+  const expectedAmount = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
+      priceAmountSnapshot:
+        detailsData?.order?.priceAmountSnapshot ??
+        selectedItem?.order?.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   if (!selectedItem) return null;
 

@@ -17,6 +17,11 @@ import type { OrderCurrentRevision } from "../../api/types";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
 import { CreatorDeliveryAssetsCard } from "./creator-delivery-assets-card";
+import {
+  formatCreatorPayoutInr,
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "../../lib/creator-payout";
 
 interface CreatorOrderRevisionPanelProps {
   selectedOrderId: string;
@@ -436,11 +441,14 @@ export function CreatorOrderRevisionPanel({
 
   const steps = useMemo(() => buildRevisionSteps(order), [order]);
 
-  const expectedAmount = detailsData?.order?.expectedAmountPaise
-    ? detailsData.order.expectedAmountPaise / 100
-    : selectedItem?.order?.priceAmountSnapshot
-      ? parseFloat(selectedItem.order.priceAmountSnapshot)
-      : 0;
+  const expectedAmount = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: detailsData?.order?.expectedAmountPaise,
+      priceAmountSnapshot:
+        detailsData?.order?.priceAmountSnapshot ??
+        selectedItem?.order?.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   if (!selectedItem) return null;
 
@@ -452,11 +460,7 @@ export function CreatorOrderRevisionPanel({
       onClose={onClose}
       statusBadgeLabel="Revision Requested"
       statusBadgeColor="bg-orange-500/10 text-orange-600 border-orange-500/20"
-      payoutAmountDisplay={new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 0,
-      }).format(expectedAmount)}
+      payoutAmountDisplay={formatCreatorPayoutInr(expectedAmount)}
       payoutLabelDisplay="Est. Payout"
       steps={steps}
       dispute={detailsData?.order?.dispute}

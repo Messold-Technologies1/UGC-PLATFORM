@@ -28,6 +28,10 @@ import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import { formatDuration, formatLocation, formatTone } from "@/features/briefs/lib/format-enums";
 import { cn } from "@/lib/utils";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
+import {
+  getCreatorPayoutFromOrderTotal,
+  resolveOrderTotalInr,
+} from "@/features/orders/lib/creator-payout";
 import { useGetCreatorOrderDetailsQuery } from "@/features/orders/hooks/use-get-creator-order-details-query";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "@/features/orders/hooks/use-accept-brief-mutation";
@@ -121,11 +125,12 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
     isAccepted ? "BRIEF_ACCEPTED" : order?.status,
   );
 
-  const expectedAmount = order?.expectedAmountPaise
-    ? order.expectedAmountPaise / 100
-    : order?.priceAmountSnapshot
-      ? Number.parseFloat(order.priceAmountSnapshot)
-      : 0;
+  const expectedAmount = getCreatorPayoutFromOrderTotal(
+    resolveOrderTotalInr({
+      expectedAmountPaise: order?.expectedAmountPaise,
+      priceAmountSnapshot: order?.priceAmountSnapshot,
+    }),
+  ).creatorEarnings;
 
   const [timeLeft, setTimeLeft] = useState<{
     hours: number;

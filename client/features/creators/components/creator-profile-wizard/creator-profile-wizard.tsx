@@ -25,7 +25,7 @@ import { useSubmitCreatorProfileMutation } from "@/features/creators/hooks/use-c
 import { useAuth } from "@/providers/auth-provider";
 import { getInitialCreatorName } from "@/features/creators/hooks/creator-profile-form-utils";
 
-import { WIZARD_STEPS, LANGUAGE_OPTIONS, type WizardStepId } from "./wizard-config";
+import { WIZARD_STEPS, type WizardStepId } from "./wizard-config";
 import { AboutYouStep } from "./steps/about-you-step";
 import { ComingSoonStep } from "./steps/coming-soon-step";
 
@@ -67,36 +67,16 @@ export function CreatorProfileWizard({
     enabled: Boolean(user),
   });
 
-  // Languages selected in the redesigned grid (slugs from LANGUAGE_OPTIONS).
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(() => {
-    const known = new Set(LANGUAGE_OPTIONS.map((l) => l.slug));
-    return (initialProfile.profileLanguages ?? [])
-      .map((row) => row.slug)
-      .filter((slug) => known.has(slug));
-  });
+  // Languages use the same select + fluency model as the long form; they come
+  // straight from the facets hook so selections persist with their fluency.
+  const languageDrafts = facets.languageDrafts;
   const [languageConfirmed, setLanguageConfirmed] = useState<boolean>(
     () => (initialProfile.profileLanguages ?? []).length > 0,
   );
 
-  const toggleLanguage = useCallback((slug: string) => {
-    setSelectedLanguages((current) => {
-      if (current.includes(slug)) {
-        const next = current.filter((s) => s !== slug);
-        return next;
-      }
-      return [...current, slug];
-    });
-    // Re-confirm whenever the selection changes.
-    setLanguageConfirmed(false);
-  }, []);
-
-  // Server-backed language slugs — only these can be persisted as facets today.
-  const serverLanguageSlugs = useMemo(
-    () =>
-      new Set(
-        (facets.facetOptionsByDimension.LANGUAGE ?? []).map((opt) => opt.slug),
-      ),
-    [facets.facetOptionsByDimension.LANGUAGE],
+  const selectedLanguageCount = useMemo(
+    () => languageDrafts.filter((row) => row.slug !== "").length,
+    [languageDrafts],
   );
 
   const submitMutation = useSubmitCreatorProfileMutation({
@@ -119,8 +99,8 @@ export function CreatorProfileWizard({
     if (!dateOfBirth) missing.push("date of birth");
     if (!gender) missing.push("gender");
     if (!location.city.trim()) missing.push("city");
-    if (selectedLanguages.length === 0) missing.push("at least one language");
-    if (selectedLanguages.length > 0 && !languageConfirmed)
+    if (selectedLanguageCount === 0) missing.push("at least one language");
+    if (selectedLanguageCount > 0 && !languageConfirmed)
       missing.push("the language confirmation");
     return { missing, ok: missing.length === 0 };
   }, [
@@ -128,7 +108,7 @@ export function CreatorProfileWizard({
     dateOfBirth,
     gender,
     location.city,
-    selectedLanguages,
+    selectedLanguageCount,
     languageConfirmed,
   ]);
 
@@ -155,9 +135,9 @@ export function CreatorProfileWizard({
       return;
     }
 
-    const profileLanguages: CreatorProfileLanguagePayload[] = selectedLanguages
-      .filter((slug) => serverLanguageSlugs.has(slug))
-      .map((slug) => ({ slug, fluency: "FLUENT" }));
+    const profileLanguages: CreatorProfileLanguagePayload[] = languageDrafts
+      .filter((row) => row.slug !== "")
+      .map((row) => ({ slug: row.slug, fluency: row.fluency }));
 
     const payload: UpdateCreatorProfilePayload = {
       displayName: displayName.trim(),
@@ -181,8 +161,7 @@ export function CreatorProfileWizard({
     profileImage.uploadingProfileImage,
     profileImage.profileImageRemoved,
     profileImage.pendingProfileImageKey,
-    selectedLanguages,
-    serverLanguageSlugs,
+    languageDrafts,
     displayName,
     gender,
     dateOfBirth,
@@ -211,21 +190,6 @@ export function CreatorProfileWizard({
 
   return (
     <div className="pe-scope cw-root">
-      {/* ---- Header ---- */}
-      <div className="cw-head">
-        <div>
-          <p className="cw-eyebrow">Creator profile</p>
-          <h2 className="cw-heading">Build a profile brands can&apos;t scroll past</h2>
-          <p className="cw-subheading">
-            A few focused steps. Save as you go — we&apos;ll remember everything.
-          </p>
-        </div>
-        <div className="cw-progress-badge" aria-hidden>
-          <span className="cw-progress-badge-num">{activeIndex + 1}</span>
-          <span className="cw-progress-badge-total">/ {WIZARD_STEPS.length}</span>
-        </div>
-      </div>
-
       {/* ---- Milestone rail ---- */}
       <div className="cw-rail" role="tablist" aria-label="Profile setup milestones">
         <div className="cw-rail-track" aria-hidden>
@@ -303,7 +267,6 @@ export function CreatorProfileWizard({
                 onSelectProfileImage={(file) =>
                   void profileImage.handleProfileImageSelected(file)
                 }
-                onRemoveProfileImage={profileImage.removeProfileImage}
                 dateOfBirth={dateOfBirth}
                 onDateOfBirthChange={setDateOfBirth}
                 gender={gender}
@@ -324,8 +287,17 @@ export function CreatorProfileWizard({
                 city={location.city}
                 cities={location.cities}
                 onCityChange={location.setCity}
-                selectedLanguages={selectedLanguages}
-                onToggleLanguage={toggleLanguage}
+                languageOptions={facets.facetOptionsByDimension.LANGUAGE ?? []}
+                languageDrafts={languageDrafts}
+                languagesLoading={facets.facetOptionsQuery.isLoading}
+                onAddLanguage={(slug) => facets.addLanguage(slug)}
+                onRemoveLanguage={(index) => facets.removeLanguage(index)}
+                onUpdateLanguageSlug={(index, slug) =>
+                  facets.updateLanguageSlug(index, slug)
+                }
+                onFluencyChange={(index, fluency) =>
+                  facets.updateLanguageFluency(index, fluency)
+                }
                 languageConfirmed={languageConfirmed}
                 onLanguageConfirmedChange={setLanguageConfirmed}
               />

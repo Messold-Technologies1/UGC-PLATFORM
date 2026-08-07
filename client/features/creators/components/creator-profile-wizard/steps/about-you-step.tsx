@@ -1,26 +1,32 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import Image from "next/image";
-import { motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   Cake,
   Camera,
   Check,
+  Eye,
   Globe2,
   MapPin,
+  RefreshCw,
   Sparkles,
-  Trash2,
-  UserRound,
   Users,
+  UserRound,
+  X,
 } from "lucide-react";
 
+import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
-import { genderOptions } from "@/features/creators/hooks/creator-profile-form-utils";
-import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
+import { LanguageRows } from "@/features/creators/components/creator-profile-update/facet-components";
+import { genderOptions, type LanguageDraft } from "@/features/creators/hooks/creator-profile-form-utils";
+import type {
+  CreatorGender,
+  CreatorLanguageFluency,
+} from "@/features/creators/api/create-creator-profile";
+import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
-
-import { LANGUAGE_OPTIONS } from "../wizard-config";
 
 export type AboutYouStepProps = {
   disabled: boolean;
@@ -32,7 +38,6 @@ export type AboutYouStepProps = {
   uploadingProfileImage: boolean;
   profileImageInputRef: RefObject<HTMLInputElement | null>;
   onSelectProfileImage: (file: File | null) => void;
-  onRemoveProfileImage: () => void;
 
   dateOfBirth: string;
   onDateOfBirthChange: (value: string) => void;
@@ -51,8 +56,14 @@ export type AboutYouStepProps = {
   cities: Array<{ name: string }>;
   onCityChange: (value: string) => void;
 
-  selectedLanguages: string[];
-  onToggleLanguage: (slug: string) => void;
+  // Languages (long-form style: select + fluency)
+  languageOptions: CreatorFacetOption[];
+  languageDrafts: LanguageDraft[];
+  languagesLoading: boolean;
+  onAddLanguage: (slug: string) => void;
+  onRemoveLanguage: (index: number) => void;
+  onUpdateLanguageSlug: (index: number, slug: string) => void;
+  onFluencyChange: (index: number, fluency: CreatorLanguageFluency) => void;
 
   languageConfirmed: boolean;
   onLanguageConfirmedChange: (value: boolean) => void;
@@ -72,10 +83,6 @@ const groupVariants: Variants = {
   visible: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
 };
 
-/**
- * Small helper that renders a "why we ask" line so every field feels
- * intentional rather than bureaucratic.
- */
 function WhyLine({ children }: { children: React.ReactNode }) {
   return (
     <p className="cw-why">
@@ -94,7 +101,6 @@ export function AboutYouStep(props: AboutYouStepProps) {
     uploadingProfileImage,
     profileImageInputRef,
     onSelectProfileImage,
-    onRemoveProfileImage,
     dateOfBirth,
     onDateOfBirthChange,
     gender,
@@ -108,13 +114,39 @@ export function AboutYouStep(props: AboutYouStepProps) {
     city,
     cities,
     onCityChange,
-    selectedLanguages,
-    onToggleLanguage,
+    languageOptions,
+    languageDrafts,
+    languagesLoading,
+    onAddLanguage,
+    onRemoveLanguage,
+    onUpdateLanguageSlug,
+    onFluencyChange,
     languageConfirmed,
     onLanguageConfirmedChange,
   } = props;
 
   const today = new Date().toISOString().split("T")[0];
+  const hasPhoto = Boolean(profileImagePreviewUrl);
+
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  function openFilePicker() {
+    profileImageInputRef.current?.click();
+  }
+
+  function handleAvatarClick() {
+    if (uploadingProfileImage || disabled) return;
+    if (!hasPhoto) {
+      openFilePicker();
+      return;
+    }
+    setPhotoMenuOpen((open) => !open);
+  }
+
+  const selectedLanguageCount = languageDrafts.filter(
+    (row) => row.slug !== "",
+  ).length;
 
   return (
     <motion.div
@@ -126,10 +158,17 @@ export function AboutYouStep(props: AboutYouStepProps) {
       {/* Profile photo + name — the identity hero */}
       <motion.div className="cw-hero" variants={fieldVariants}>
         <div className="cw-hero-photo">
-          <div className="cw-avatar" data-empty={!profileImagePreviewUrl}>
-            {profileImagePreviewUrl ? (
+          <button
+            type="button"
+            className="cw-avatar"
+            data-empty={!hasPhoto}
+            disabled={disabled || uploadingProfileImage}
+            onClick={handleAvatarClick}
+            aria-label={hasPhoto ? "Profile photo options" : "Add profile photo"}
+          >
+            {hasPhoto ? (
               <Image
-                src={profileImagePreviewUrl}
+                src={profileImagePreviewUrl as string}
                 alt="Your profile"
                 fill
                 unoptimized
@@ -138,18 +177,52 @@ export function AboutYouStep(props: AboutYouStepProps) {
             ) : (
               <UserRound size={34} aria-hidden />
             )}
-            <button
-              type="button"
-              className="cw-avatar-btn"
-              disabled={disabled || uploadingProfileImage}
-              onClick={() => profileImageInputRef.current?.click()}
-              aria-label={
-                profileImagePreviewUrl ? "Change profile photo" : "Add profile photo"
-              }
-            >
-              <Camera size={15} aria-hidden />
-            </button>
-          </div>
+            <span className="cw-avatar-badge" aria-hidden>
+              {uploadingProfileImage ? (
+                <Spinner className="size-3.5" />
+              ) : (
+                <Camera size={15} />
+              )}
+            </span>
+          </button>
+
+          <AnimatePresence>
+            {photoMenuOpen && hasPhoto ? (
+              <>
+                <div
+                  className="cw-photo-backdrop"
+                  onClick={() => setPhotoMenuOpen(false)}
+                />
+                <motion.div
+                  className="cw-photo-menu"
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.14 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoMenuOpen(false);
+                      setViewerOpen(true);
+                    }}
+                  >
+                    <Eye size={15} aria-hidden /> View photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoMenuOpen(false);
+                      openFilePicker();
+                    }}
+                  >
+                    <RefreshCw size={15} aria-hidden /> Replace photo
+                  </button>
+                </motion.div>
+              </>
+            ) : null}
+          </AnimatePresence>
+
           <input
             type="file"
             ref={profileImageInputRef}
@@ -175,18 +248,10 @@ export function AboutYouStep(props: AboutYouStepProps) {
           <WhyLine>
             {uploadingProfileImage
               ? "Uploading your photo…"
-              : "A real name + a bright, friendly photo gets up to 2× more brand replies."}
+              : hasPhoto
+                ? "Tap your photo to view it full-size or swap it out."
+                : "A real name + a bright, friendly photo gets up to 2× more brand replies. Tap the circle to add one."}
           </WhyLine>
-          {profileImagePreviewUrl ? (
-            <button
-              type="button"
-              className="cw-photo-remove"
-              disabled={disabled || uploadingProfileImage}
-              onClick={onRemoveProfileImage}
-            >
-              <Trash2 size={12} aria-hidden /> Remove photo
-            </button>
-          ) : null}
         </div>
       </motion.div>
 
@@ -217,7 +282,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
           <WhyLine>Confirms you&apos;re 18+ and helps brands match age-fit campaigns.</WhyLine>
         </div>
 
-        <div className="cw-field cw-select-field">
+        <div className="cw-field">
           <label className="cw-label">
             <Users size={13} aria-hidden /> Gender <span className="cw-req">*</span>
           </label>
@@ -272,50 +337,45 @@ export function AboutYouStep(props: AboutYouStepProps) {
         <WhyLine>Local matches mean product samples arrive faster and on-location shoots are possible.</WhyLine>
       </motion.div>
 
-      {/* Languages */}
-      <motion.div className="cw-field" variants={fieldVariants}>
-        <label className="cw-label">
-          <Globe2 size={13} aria-hidden /> Languages you create in <span className="cw-req">*</span>
-          {selectedLanguages.length > 0 ? (
-            <span className="cw-count">{selectedLanguages.length}</span>
-          ) : null}
-        </label>
-        <WhyLine>Every language you add opens a whole new set of regional briefs to you.</WhyLine>
-        <div className="cw-lang-grid">
-          {LANGUAGE_OPTIONS.map((lang) => {
-            const isOn = selectedLanguages.includes(lang.slug);
-            return (
-              <motion.button
-                key={lang.slug}
-                type="button"
-                className="cw-lang-chip"
-                data-selected={isOn}
-                disabled={disabled}
-                onClick={() => onToggleLanguage(lang.slug)}
-                whileTap={{ scale: 0.94 }}
-              >
-                {isOn ? (
-                  <span className="cw-lang-tick">
-                    <Check size={12} strokeWidth={3} />
-                  </span>
-                ) : null}
-                {lang.label}
-              </motion.button>
-            );
-          })}
+      {/* Languages — long-form style with fluency */}
+      <motion.div className="cw-field cw-lang-block" variants={fieldVariants}>
+        <div className="cw-lang-head">
+          <span className="cw-label" style={{ marginBottom: 0 }}>
+            <Globe2 size={13} aria-hidden /> Languages you create in
+          </span>
         </div>
+        <WhyLine>
+          Add each language with your fluency — every one you add opens a whole
+          new set of regional briefs to you.
+        </WhyLine>
+
+        {languagesLoading ? (
+          <div className="cw-lang-loading">
+            <Spinner className="size-4" aria-hidden /> Loading languages…
+          </div>
+        ) : (
+          <LanguageRows
+            allLanguages={languageOptions}
+            selected={languageDrafts}
+            disabled={disabled}
+            onAddLanguage={onAddLanguage}
+            onRemoveLanguage={onRemoveLanguage}
+            onUpdateLanguageSlug={onUpdateLanguageSlug}
+            onFluencyChange={onFluencyChange}
+          />
+        )}
 
         {/* Language confirmation gate */}
         <label
           className="cw-confirm"
           data-checked={languageConfirmed}
-          data-disabled={disabled || selectedLanguages.length === 0}
+          data-disabled={disabled || selectedLanguageCount === 0}
         >
           <input
             type="checkbox"
             className="cw-confirm-box"
             checked={languageConfirmed}
-            disabled={disabled || selectedLanguages.length === 0}
+            disabled={disabled || selectedLanguageCount === 0}
             onChange={(e) => onLanguageConfirmedChange(e.target.checked)}
           />
           <span className="cw-confirm-tick" aria-hidden>
@@ -329,6 +389,46 @@ export function AboutYouStep(props: AboutYouStepProps) {
           </span>
         </label>
       </motion.div>
+
+      {/* Full-size photo viewer */}
+      <AnimatePresence>
+        {viewerOpen && hasPhoto ? (
+          <motion.div
+            className="cw-viewer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            onClick={() => setViewerOpen(false)}
+          >
+            <button
+              type="button"
+              className="cw-viewer-close"
+              onClick={() => setViewerOpen(false)}
+              aria-label="Close photo"
+            >
+              <X size={20} />
+            </button>
+            <motion.div
+              className="cw-viewer-frame"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Image
+                src={profileImagePreviewUrl as string}
+                alt="Your profile"
+                fill
+                unoptimized
+                sizes="(max-width: 640px) 90vw, 480px"
+                style={{ objectFit: "contain" }}
+              />
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </motion.div>
   );
 }

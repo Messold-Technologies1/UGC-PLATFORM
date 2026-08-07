@@ -105,6 +105,72 @@ export const WIZARD_STEPS: WizardStep[] = [
   },
 ];
 
+import type { CreatorFacetDimension } from "@/features/creators/api/get-creator-facet-options";
+
+export type WizardFacetGroup = {
+  dimension: Exclude<CreatorFacetDimension, "LANGUAGE">;
+  /** Design-copy heading shown above the chips. */
+  label: string;
+  help?: string;
+  required?: boolean;
+  /** Optional cap on how many chips can be selected. */
+  max?: number;
+};
+
+/** Facet groups rendered on Step 2 — Creator Identity & Discovery. */
+export const IDENTITY_FACET_GROUPS: WizardFacetGroup[] = [
+  {
+    dimension: "CONTENT_CATEGORY",
+    label: "What do you love creating the most?",
+    required: true,
+  },
+  {
+    dimension: "CATEGORY_EXPERIENCE",
+    label: "Which categories have you created for before?",
+    required: true,
+  },
+  {
+    dimension: "APPEARANCE",
+    label: "How would you describe your on-camera look?",
+    help: "This helps brands find creators that fit their campaigns.",
+    max: 2,
+  },
+  {
+    dimension: "OCCUPATION",
+    label: "What do you do besides creating content?",
+  },
+];
+
+/** Facet groups rendered on Step 3 — Content Capabilities. */
+export const CAPABILITY_FACET_GROUPS: WizardFacetGroup[] = [
+  {
+    dimension: "CONTENT_FORMAT",
+    label: "Who can appear in videos with you?",
+    required: true,
+  },
+  {
+    dimension: "CAPABILITY",
+    label: "Content formats you can deliver",
+  },
+  {
+    dimension: "CONTENT_STYLE",
+    label: "How do brands usually describe your vibe?",
+    help: "Optional — pick up to three.",
+    max: 3,
+  },
+  {
+    dimension: "LIFE_STYLE",
+    label: "Where can you shoot?",
+  },
+  {
+    dimension: "AI_CONTENT_PERMISSION",
+    label: "Are you open to AI-assisted content?",
+  },
+];
+
+export const BIO_MIN_CHARS = 120;
+export const BIO_MAX_CHARS = 500;
+
 /**
  * Signals that feed the Profile Strength meter. Each maps to a weight; the
  * total across every signal is 100.

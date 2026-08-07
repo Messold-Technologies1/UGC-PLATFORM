@@ -9,28 +9,21 @@ import {
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
 
+type CreatorPayoutOrderSource = {
+  id?: string;
+  expectedAmountPaise?: number | null;
+  priceAmountSnapshot?: string | null;
+  addOnsTotalSnapshot?: string | number | null;
+  addOnsSnapshot?: unknown[] | null;
+};
+
 type CreatorPayoutDetailsCardProps = {
-  order?: {
-    id?: string;
-    expectedAmountPaise?: number | null;
-    priceAmountSnapshot?: string | null;
-    addOnsTotalSnapshot?: string | number | null;
-    addOnsSnapshot?: unknown[] | null;
-  } | null;
+  order?: CreatorPayoutOrderSource | null;
   selectedItem?: {
-    order?: {
-      id?: string;
-      expectedAmountPaise?: number | null;
-      priceAmountSnapshot?: string | null;
-    };
+    order?: CreatorPayoutOrderSource;
   } | null;
   detailsData?: {
-    order?: {
-      expectedAmountPaise?: number | null;
-      priceAmountSnapshot?: string | null;
-      addOnsTotalSnapshot?: string | number | null;
-      addOnsSnapshot?: unknown[] | null;
-    };
+    order?: CreatorPayoutOrderSource;
   } | null;
   title?: string;
   showBriefLink?: boolean;

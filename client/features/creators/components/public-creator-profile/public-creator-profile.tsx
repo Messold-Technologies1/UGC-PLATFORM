@@ -1308,7 +1308,7 @@ function ReviewCard({
     review?: string | null;
     packageNameSnapshot?: string | null;
     createdAt: string;
-    brand: { brandName: string; logoUrl?: string | null };
+    brand: { brandName: string | null; logoUrl?: string | null };
   };
 }) {
   const brandName = review.brand?.brandName ?? "Brand";

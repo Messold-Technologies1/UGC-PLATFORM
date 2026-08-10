@@ -49,7 +49,7 @@ export interface WishlistShareResponse {
 }
 
 export interface PublicWishlistBrand {
-  brandName: string;
+  brandName: string | null;
   logoUrl?: string | null;
   contactFullName?: string | null;
 }

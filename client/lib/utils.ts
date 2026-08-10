@@ -4,10 +4,12 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-export function getInitials(name: string): string {
+export function getInitials(name?: string | null): string {
+  if (!name?.trim()) return "?";
   return name
     .split(" ")
-    .map((n) => n[0])
+    .filter(Boolean)
+    .map((n) => n[0] ?? "")
     .join("")
     .slice(0, 2)
     .toUpperCase();

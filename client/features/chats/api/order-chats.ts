@@ -13,7 +13,7 @@ export interface ChatLastMessageDto {
 
 export interface ChatBrandCounterpartyDto {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl?: string | null;
 }
 

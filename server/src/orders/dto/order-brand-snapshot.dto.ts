@@ -4,8 +4,8 @@ export class OrderBrandSnapshotDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Acme Co' })
-  brandName!: string;
+  @ApiPropertyOptional({ example: 'Acme Co', nullable: true })
+  brandName!: string | null;
 
   @ApiPropertyOptional({
     example: 'https://cdn.example.com/brand-logo/...png',

@@ -16,6 +16,7 @@ import {
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
 import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
+import { brandDisplayName } from "@/features/brands/lib/brand-display";
 
 interface CreatorOrderCompletedPanelProps {
   selectedOrderId: string;
@@ -78,19 +79,20 @@ function BrandReviewCard({
   brandName,
 }: {
   orderId: string;
-  brandName: string;
+  brandName?: string | null;
 }) {
   const reviewQuery = useGetOrderRatingReviewQuery(orderId, {
     retry: false,
   });
   const existingReview = reviewQuery.data ?? null;
+  const brandLabel = brandDisplayName(brandName);
 
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <h3 className="font-bold text-sm mb-1">Brand's Review</h3>
       <p className="text-xs text-muted-foreground mb-4">
         Feedback from{" "}
-        <span className="font-medium text-foreground">{brandName}</span>
+        <span className="font-medium text-foreground">{brandLabel}</span>
       </p>
 
       {reviewQuery.isLoading ? (

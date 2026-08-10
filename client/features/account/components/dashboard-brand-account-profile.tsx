@@ -146,7 +146,7 @@ export function DashboardBrandAccountProfile() {
                   <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:size-24">
                     <Image
                       src={profile.logoUrl}
-                      alt={`${profile.brandName} logo`}
+                      alt={`${profile.brandName?.trim() || "Brand"} logo`}
                       fill
                       className="object-cover"
                       sizes="96px"
@@ -163,7 +163,7 @@ export function DashboardBrandAccountProfile() {
 
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                    {profile.brandName}
+                    {profile.brandName?.trim() || "Unnamed Brand"}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Manage the details creators see for your brand.
@@ -187,7 +187,7 @@ export function DashboardBrandAccountProfile() {
                     Company name
                   </dt>
                   <dd className="mt-1 text-sm font-medium text-foreground">
-                    {profile.brandName}
+                    {profile.brandName?.trim() || "—"}
                   </dd>
                 </div>
 

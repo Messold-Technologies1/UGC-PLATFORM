@@ -212,7 +212,7 @@ export type UpsertCreatorPayoutDetailsApi = {
 
 export type CreatorRatingReviewBrandSnapshotApi = {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl?: string | null;
 };
 

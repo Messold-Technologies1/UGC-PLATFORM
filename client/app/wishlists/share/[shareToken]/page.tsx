@@ -42,10 +42,12 @@ function fanGradient(index: number): [string, string] {
   return FAN_GRADIENTS[index % FAN_GRADIENTS.length]!;
 }
 
-function getInitials(name: string) {
+function getInitials(name?: string | null) {
+  if (!name?.trim()) return "?";
   return name
     .split(" ")
-    .map((n) => n[0])
+    .filter(Boolean)
+    .map((n) => n[0] ?? "")
     .join("")
     .slice(0, 2)
     .toUpperCase();
@@ -96,7 +98,9 @@ function PublicWishlistHero({
   onOrderCreators: () => void;
   orderLabel: string;
 }) {
-  const sharerName = data.brand.contactFullName?.trim() || data.brand.brandName;
+  const brandLabel = data.brand.brandName?.trim() || "Brand";
+  const sharerName =
+    data.brand.contactFullName?.trim() || brandLabel;
   const subtitle = buildSubtitle(data.creators);
 
   return (
@@ -110,7 +114,7 @@ function PublicWishlistHero({
             <p className="min-w-0 text-sm leading-snug text-gray-600">
               <span className="font-semibold text-gray-900">{sharerName}</span>
               {" at "}
-              <span className="font-semibold text-gray-900">{data.brand.brandName}</span>
+              <span className="font-semibold text-gray-900">{brandLabel}</span>
               {" shared a creator shortlist with you"}
             </p>
           </div>

@@ -31,6 +31,7 @@ import {
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
 import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
+import { brandDisplayName, brandInitials } from "@/features/brands/lib/brand-display";
 
 interface CreatorOrderNewRequestPanelProps {
   selectedOrderId: string;
@@ -135,7 +136,7 @@ export function CreatorOrderNewRequestPanel({
                 className="object-cover rounded-lg"
               />
               <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                {selectedItem.brand.brandName.substring(0, 1).toUpperCase()}
+                {brandInitials(selectedItem.brand.brandName)}
               </AvatarFallback>
             </Avatar>
 
@@ -149,7 +150,7 @@ export function CreatorOrderNewRequestPanel({
                 </Badge>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground leading-none truncate mt-1">
-                {selectedItem.brand.brandName} •{" "}
+                {brandDisplayName(selectedItem.brand.brandName)} •{" "}
                 {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
               </p>
             </div>

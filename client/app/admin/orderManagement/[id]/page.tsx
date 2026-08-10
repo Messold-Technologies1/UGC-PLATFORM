@@ -51,7 +51,8 @@ import TrackingTimeline, {
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
 import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 
-function initials(value: string) {
+function initials(value?: string | null) {
+  if (!value?.trim()) return "";
   return value
     .split(" ")
     .filter(Boolean)
@@ -452,7 +453,7 @@ export default function AdminOrderDetailsPage() {
                     <Avatar className="h-16 w-16 border-2 border-background shadow-md">
                       <AvatarImage
                         src={brand.logoUrl || undefined}
-                        alt={brand.brandName}
+                        alt={brand.brandName ?? "Brand"}
                         className="object-cover"
                       />
                       <AvatarFallback className="bg-primary/5 text-lg">
@@ -461,7 +462,7 @@ export default function AdminOrderDetailsPage() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <h4 className="truncate text-xl font-bold leading-tight">
-                        {brand.brandName}
+                        {brand.brandName?.trim() || "Unnamed Brand"}
                       </h4>
                     </div>
                   </div>

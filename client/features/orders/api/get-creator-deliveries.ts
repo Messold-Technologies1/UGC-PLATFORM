@@ -5,7 +5,7 @@ import type { OrderDeliveryAsset } from "./get-brand-order-deliveries";
 export interface CreatorDeliveryOrderSnapshot {
   id: string;
   status: string;
-  brandName: string;
+  brandName: string | null;
   brandLogoUrl?: string | null;
 }
 

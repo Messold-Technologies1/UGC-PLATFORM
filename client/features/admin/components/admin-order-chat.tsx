@@ -138,16 +138,19 @@ export function AdminOrderChat({
     );
   }
 
+  const brandLabel = brand.brandName?.trim() || "Unnamed Brand";
+  const creatorLabel = creator.displayName?.trim() || "Creator";
+
   const participants: MessagingParticipant[] = [
     {
       id: state.brandUserId,
-      name: brand.brandName,
+      name: brandLabel,
       avatar: brand.logoUrl,
       roleLabel: "Brand",
     },
     {
       id: state.creatorUserId,
-      name: creator.displayName,
+      name: creatorLabel,
       avatar: creator.profileImageUrl,
       roleLabel: "Creator",
     },
@@ -175,7 +178,7 @@ export function AdminOrderChat({
       emptyState="No chat messages have been sent for this order."
       hasMoreMessages={messagesQuery.hasNextPage}
       headerAvatarUrl={creator.profileImageUrl ?? brand.logoUrl}
-      headerSubtitle={`${brand.brandName} and ${creator.displayName}`}
+      headerSubtitle={`${brandLabel} and ${creatorLabel}`}
       headerTitle={isDisputed ? "Dispute Group Chat" : "Order Chat History"}
       inputPlaceholder="Message the brand and creator as Support"
       isLoadingMore={messagesQuery.isFetchingNextPage}

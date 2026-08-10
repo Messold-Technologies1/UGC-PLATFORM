@@ -82,7 +82,8 @@ function createClientMessageId() {
   return `chat-${Date.now()}-${random}`;
 }
 
-function initials(value: string) {
+function initials(value?: string | null) {
+  if (!value?.trim()) return "?";
   return (
     value
       .replace(/[^a-zA-Z0-9\s]/g, " ")

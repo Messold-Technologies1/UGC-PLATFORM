@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { brandDisplayName, brandInitials } from "@/features/brands/lib/brand-display";
 import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
 import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import type { OrderActiveDispute } from "../../api/types";
@@ -66,7 +67,7 @@ export function CreatorOrderPanelLayout({
                   className="object-cover rounded-lg"
                 />
                 <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                  {selectedItem.brand.brandName.substring(0, 2).toUpperCase()}
+                  {brandInitials(selectedItem.brand.brandName)}
                 </AvatarFallback>
               </Avatar>
 
@@ -86,7 +87,7 @@ export function CreatorOrderPanelLayout({
                   </Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-none truncate mt-1">
-                  {selectedItem.brand.brandName} •{" "}
+                  {brandDisplayName(selectedItem.brand.brandName)} •{" "}
                   {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
                 </p>
               </div>

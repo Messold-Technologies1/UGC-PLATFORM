@@ -9,7 +9,7 @@ export interface OrderCreatorSnapshot {
 
 export interface OrderBrandSnapshot {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl?: string | null;
 }
 
@@ -82,7 +82,7 @@ export interface OrderDetailsPublic extends OrderListSummary {
 
 export interface CreatorRatingReviewBrandSnapshot {
   id: string;
-  brandName: string;
+  brandName: string | null;
   logoUrl?: string | null;
 }
 

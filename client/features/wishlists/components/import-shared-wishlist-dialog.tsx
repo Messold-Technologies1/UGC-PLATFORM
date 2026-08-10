@@ -33,7 +33,7 @@ interface ImportSharedWishlistDialogProps {
   shareToken: string;
   shortlistName: string;
   creatorCount: number;
-  sourceBrandName: string;
+  sourceBrandName?: string | null;
 }
 
 export function ImportSharedWishlistDialog({
@@ -109,7 +109,8 @@ export function ImportSharedWishlistDialog({
             </p>
             <p className="text-base font-bold leading-snug">{shortlistName}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {creatorCount} creator{creatorCount !== 1 ? "s" : ""} from {sourceBrandName}
+              {creatorCount} creator{creatorCount !== 1 ? "s" : ""} from{" "}
+              {sourceBrandName?.trim() || "a brand"}
             </p>
           </div>
           <button

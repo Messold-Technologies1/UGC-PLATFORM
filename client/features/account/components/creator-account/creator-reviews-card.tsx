@@ -20,7 +20,9 @@ export function CreatorReviewsCard({ reviews }: { reviews?: CreatorRatingReviewA
                     <Star key={i} className={`size-3.5 ${i < review.rating ? "fill-amber-500" : "fill-muted text-muted"}`} />
                   ))}
                 </div>
-                <span className="text-xs font-semibold">{review.brand.brandName}</span>
+                <span className="text-xs font-semibold">
+                  {review.brand.brandName?.trim() || "Brand"}
+                </span>
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {review.review || "Great experience working with this creator!"}

@@ -8,7 +8,8 @@ interface OrderRowProps extends AdminOrderListItemDto {
   delay?: number;
 }
 
-function initials(value: string) {
+function initials(value?: string | null) {
+  if (!value?.trim()) return "?";
   return value
     .split(" ")
     .filter(Boolean)
@@ -44,6 +45,8 @@ export default function OrderRow({
     "bg-muted text-muted-foreground border-border";
   const statusLabel =
     STATUS_LABELS[order.status] ?? order.status.replaceAll("_", " ");
+  const brandLabel = brand.brandName?.trim() || "Unnamed Brand";
+  const creatorLabel = creator.displayName?.trim() || "Creator";
 
   return (
     <tr
@@ -56,12 +59,12 @@ export default function OrderRow({
             <div className="relative">
               <Avatar className="w-12 h-12 rounded-full ring-2 ring-primary/20">
                 <AvatarImage
-                  alt={creator.displayName}
+                  alt={creatorLabel}
                   className="object-cover"
                   src={creator.profileImageUrl || undefined}
                 />
                 <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-                  {initials(creator.displayName)}
+                  {initials(creatorLabel)}
                 </AvatarFallback>
               </Avatar>
               {order.status === "DELIVERED" && (
@@ -72,12 +75,12 @@ export default function OrderRow({
             <div className="p-1 bg-accent/20 rounded-lg border border-border/10">
               <Avatar className="w-10 h-10 rounded-md">
                 <AvatarImage
-                  alt={brand.brandName}
+                  alt={brandLabel}
                   className="object-cover"
                   src={brand.logoUrl || undefined}
                 />
                 <AvatarFallback className="rounded-md bg-secondary/10 text-secondary text-xs font-bold">
-                  {initials(brand.brandName)}
+                  {initials(brandLabel)}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -85,7 +88,7 @@ export default function OrderRow({
           <div className="flex gap-4">
             <div className="w-12">
               <p className="font-bold text-foreground text-xs leading-tight">
-                {creator.displayName}
+                {creatorLabel}
               </p>
               <p className="text-[10px] text-muted-foreground">
                 {creator.city ?? "Remote"}
@@ -94,7 +97,7 @@ export default function OrderRow({
             <div className="w-px h-6 bg-border/20 self-center"></div>
             <div>
               <p className="font-bold text-muted-foreground text-xs leading-tight">
-                {brand.brandName}
+                {brandLabel}
               </p>
               <p className="text-[10px] text-muted-foreground/60">Brand</p>
             </div>

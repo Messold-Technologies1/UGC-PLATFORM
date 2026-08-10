@@ -4,7 +4,7 @@ export class ChatBrandCounterpartyDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ nullable: true })
   brandName!: string | null;
 
   @ApiPropertyOptional()

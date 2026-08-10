@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
 import { CreatorPayoutDetailsCard } from "./creator-payout-details-card";
+import { brandDisplayName, brandInitials } from "@/features/brands/lib/brand-display";
 
 interface CreatorOrderDisputePanelProps {
   selectedOrderId: string;
@@ -126,7 +127,7 @@ export function CreatorOrderDisputePanel({
               className="object-cover rounded-lg"
             />
             <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-              {selectedItem.brand.brandName.substring(0, 2).toUpperCase()}
+              {brandInitials(selectedItem.brand.brandName)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col justify-center gap-1 min-w-0">
@@ -145,7 +146,7 @@ export function CreatorOrderDisputePanel({
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground leading-none truncate mt-1">
-              {selectedItem.brand.brandName} •{" "}
+              {brandDisplayName(selectedItem.brand.brandName)} •{" "}
               {selectedItem.order.packageNameSnapshot || "UGC Video (60s)"}
             </p>
           </div>

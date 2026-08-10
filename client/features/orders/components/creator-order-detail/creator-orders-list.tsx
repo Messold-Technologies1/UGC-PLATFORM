@@ -41,6 +41,7 @@ import {
   getCreatorPayoutFromOrderTotal,
   resolveOrderTotalInr,
 } from "../../lib/creator-payout";
+import { brandDisplayName, brandInitials } from "@/features/brands/lib/brand-display";
 import {
   CreatorOrdersTabs,
   TAB_DEFINITIONS,
@@ -285,7 +286,7 @@ function CreatorOrdersListInner() {
                         className="object-cover rounded-lg"
                       />
                       <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                        {brand.brandName.substring(0, 1).toUpperCase()}
+                        {brandInitials(brand.brandName)}
                       </AvatarFallback>
                     </Avatar>
 
@@ -313,7 +314,7 @@ function CreatorOrdersListInner() {
                             </div>
                             <div className="flex items-center gap-2 min-w-0">
                               <h3 className="font-semibold text-sm text-foreground/90 truncate min-w-0">
-                                {brand.brandName}
+                                {brandDisplayName(brand.brandName)}
                               </h3>
                               <Badge
                                 variant="outline"
@@ -374,7 +375,7 @@ function CreatorOrdersListInner() {
                             </div>
                             <div className="flex items-center gap-2 min-w-0">
                               <h3 className="font-semibold text-sm text-foreground/90 truncate max-w-[120px] xl:max-w-[150px]">
-                                {brand.brandName}
+                                {brandDisplayName(brand.brandName)}
                               </h3>
                               <Badge
                                 variant="outline"

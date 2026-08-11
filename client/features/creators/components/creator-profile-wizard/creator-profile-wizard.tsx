@@ -27,6 +27,7 @@ import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-pa
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
 import { useSubmitCreatorProfileMutation } from "@/features/creators/hooks/use-creator-profile-form-mutation";
 import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
+import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
 import { useUpdatePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-update-portfolio-video-mutation";
 import { useDeletePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-delete-portfolio-video-mutation";
@@ -71,6 +72,8 @@ import { GoLiveStep } from "./steps/go-live-step";
 export type CreatorProfileWizardProps = {
   profileId: string;
   initialProfile: CreatorProfileItemApi;
+  /** Admin editing a creator on their behalf. */
+  adminMode?: boolean;
   onExit?: () => void;
 };
 
@@ -100,9 +103,13 @@ function validatePackagePrice(value: string): string | undefined {
 export function CreatorProfileWizard({
   profileId,
   initialProfile,
+  adminMode = false,
   onExit,
 }: CreatorProfileWizardProps) {
   const { user } = useAuth();
+  const contactEmail = adminMode
+    ? (initialProfile.contactEmail?.trim() ?? "")
+    : (user?.email ?? "");
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [completed, setCompleted] = useState<Set<WizardStepId>>(new Set());
@@ -119,11 +126,15 @@ export function CreatorProfileWizard({
     () => initialProfile.dateOfBirth?.trim() ?? "",
   );
   const [bio, setBio] = useState(() => initialProfile.bio?.trim() ?? "");
+  const [phone, setPhone] = useState(
+    () => initialProfile.phone?.replace("+91", "") ?? "",
+  );
 
+  const enabled = adminMode || Boolean(user);
   const profileImage = useCreatorProfileImage({ mode: "update", profileId, initialProfile });
   const introVideo = useCreatorIntroVideo({ mode: "update", profileId, initialProfile });
-  const location = useCreatorLocationForm({ initialProfile });
-  const facets = useCreatorFacetsForm({ initialProfile, enabled: Boolean(user) });
+  const location = useCreatorLocationForm({ initialProfile, adminMode });
+  const facets = useCreatorFacetsForm({ initialProfile, enabled });
   const packages = useCreatorPackagesForm({ initialProfile });
   const packageDeliveryDays = useMemo(() => {
     const raw = Number(packages.packageDraft.deliveryDays);
@@ -131,19 +142,25 @@ export function CreatorProfileWizard({
   }, [packages.packageDraft.deliveryDays]);
   const addOns = useCreatorAddOnsForm({
     initialProfile,
-    enabled: Boolean(user),
+    enabled,
     packageDeliveryDays,
   });
 
-  const portfolioQuery = useMyPortfolioVideosQuery({
-    enabled: Boolean(user),
+  const myPortfolioQuery = useMyPortfolioVideosQuery({
+    enabled: !adminMode && Boolean(user),
     staleTime: 2 * 60_000,
   });
+  const adminPortfolioQuery = useAdminPortfolioVideosQuery({
+    creatorId: profileId,
+    enabled: adminMode,
+    staleTime: 2 * 60_000,
+  });
+  const portfolioQuery = adminMode ? adminPortfolioQuery : myPortfolioQuery;
   const createPortfolioMutation = useCreatePortfolioVideoFlowMutation({ preventRedirect: true });
   const updatePortfolioMutation = useUpdatePortfolioVideoMutation();
   const deletePortfolioMutation = useDeletePortfolioVideoMutation();
-  const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({ enabled: Boolean(user) });
-  const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({ enabled: Boolean(user) });
+  const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({ enabled });
+  const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({ enabled });
 
   const selectedLanguages = facets.selectedLanguages;
   const [languageConfirmed, setLanguageConfirmed] = useState<boolean>(
@@ -153,7 +170,10 @@ export function CreatorProfileWizard({
     () => Boolean(introVideo.introVideoPreviewUrl),
   );
   const [goLivePolicies, setGoLivePolicies] = useState<GoLivePolicyAcceptanceState>(
-    () => createEmptyGoLivePolicyAcceptance(Boolean(initialProfile.completeProfile)),
+    () =>
+      createEmptyGoLivePolicyAcceptance(
+        Boolean(initialProfile.completeProfile) || adminMode,
+      ),
   );
   const [packageErrors, setPackageErrors] = useState<{
     priceAmount?: string;
@@ -194,6 +214,7 @@ export function CreatorProfileWizard({
   const submitMutation = useSubmitCreatorProfileMutation({
     mode: "update",
     profileId,
+    adminMode,
     onSuccess: () => {
       const action = pendingActionRef.current;
       pendingActionRef.current = null;
@@ -279,7 +300,7 @@ export function CreatorProfileWizard({
       hasPhoto: Boolean(profileImage.profileImagePreviewUrl),
       hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
       displayName,
-      contactEmail: user?.email ?? "",
+      contactEmail,
       bio,
       countryName: location.countryName ?? "",
       stateName: location.stateName ?? "",
@@ -299,7 +320,7 @@ export function CreatorProfileWizard({
     profileImage.profileImagePreviewUrl,
     introVideo.introVideoPreviewUrl,
     displayName,
-    user?.email,
+    contactEmail,
     bio,
     location.countryName,
     location.stateName,
@@ -334,9 +355,10 @@ export function CreatorProfileWizard({
         stateName: location.stateName || undefined,
         city: location.city.trim() || undefined,
         bio: bio.trim() || undefined,
-        contactEmail: user?.email || undefined,
+        contactEmail: contactEmail || undefined,
         facetSelections,
         profileLanguages,
+        ...(adminMode && phone ? { phone: "+91" + phone } : {}),
         ...(profileImage.profileImageRemoved
           ? { profileImageKey: "" }
           : profileImage.pendingProfileImageKey
@@ -368,7 +390,9 @@ export function CreatorProfileWizard({
       location.stateName,
       location.city,
       bio,
-      user?.email,
+      contactEmail,
+      adminMode,
+      phone,
       profileImage.profileImageRemoved,
       profileImage.pendingProfileImageKey,
       introVideo.pendingIntroVideoKey,
@@ -737,6 +761,9 @@ export function CreatorProfileWizard({
               {activeStep.id === "about" ? (
                 <AboutYouStep
                   disabled={pending}
+                  adminMode={adminMode}
+                  phone={phone}
+                  onPhoneChange={setPhone}
                   displayName={displayName}
                   onDisplayNameChange={setDisplayName}
                   profileImagePreviewUrl={profileImage.profileImagePreviewUrl}
@@ -916,7 +943,11 @@ export function CreatorProfileWizard({
         onSave={(form) => {
           if (pfEditingVideo) {
             updatePortfolioMutation.mutate(
-              { videoId: pfEditingVideo.id, payload: form },
+              {
+                videoId: pfEditingVideo.id,
+                payload: form,
+                ...(adminMode ? { adminCreatorId: profileId } : {}),
+              },
               { onSuccess: () => setPfDrawerOpen(false) },
             );
           } else if (pfPendingVideoFile) {
@@ -926,6 +957,7 @@ export function CreatorProfileWizard({
                 thumbnailFile: pfPendingThumbFile,
                 visibility: form.visibilityStatus ?? "public",
                 metadataPatch: form,
+                ...(adminMode ? { adminCreatorId: profileId } : {}),
               },
               { onSuccess: () => setPfDrawerOpen(false) },
             );

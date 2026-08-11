@@ -13,7 +13,7 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { CreatorProfileUpdateForm } from "@/features/creators/components/creator-profile-update/creator-profile-update-form.lazy";
+import { CreatorProfileWizard } from "@/features/creators/components/creator-profile-wizard/creator-profile-wizard";
 import { CreatorPortfolioUploadForm } from "@/features/creator-portfolio/components/creator-portfolio-upload-form.lazy";
 import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
 
@@ -72,13 +72,11 @@ export default function AdminCreatorEditPage() {
         </Dialog>
       </div>
 
-      <CreatorProfileUpdateForm
-        variant="settings"
-        mode="update"
+      <CreatorProfileWizard
         profileId={profile.id}
-        adminMode={true}
+        adminMode
         initialProfile={profile}
-        onSuccess={() => {
+        onExit={() => {
           router.push(`/admin/creators?highlightedCreatorId=${profile.id}`);
         }}
       />

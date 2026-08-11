@@ -16,6 +16,11 @@ import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-prof
 export type AboutYouStepProps = {
   disabled: boolean;
 
+  /** Admin editing on a creator's behalf — shows the phone field, locks country. */
+  adminMode?: boolean;
+  phone?: string;
+  onPhoneChange?: (value: string) => void;
+
   displayName: string;
   onDisplayNameChange: (value: string) => void;
 
@@ -54,6 +59,9 @@ export type AboutYouStepProps = {
 export function AboutYouStep(props: AboutYouStepProps) {
   const {
     disabled,
+    adminMode = false,
+    phone,
+    onPhoneChange,
     displayName,
     onDisplayNameChange,
     profileImagePreviewUrl,
@@ -262,7 +270,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
             label="Country"
             value={countryCode}
             placeholder="Select country"
-            disabled={disabled}
+            disabled={disabled || adminMode}
             options={countries.map((c) => ({ value: c.isoCode, label: c.name }))}
             onChange={onCountryChange}
           />
@@ -297,6 +305,29 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onChange={onCityChange}
           />
         </div>
+
+        {adminMode ? (
+          <div className="cw-col-2 cw-field">
+            <label htmlFor="cw-phone" className="cw-fieldlabel">
+              Phone number
+            </label>
+            <div className="cw-phone">
+              <span className="cw-phone-prefix">+91</span>
+              <input
+                id="cw-phone"
+                className="cw-input cw-phone-input"
+                value={phone ?? ""}
+                disabled={disabled}
+                inputMode="numeric"
+                autoComplete="tel"
+                placeholder="Creator's phone number"
+                onChange={(e) =>
+                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
+                }
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="cw-hr" />

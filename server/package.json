@@ -22,7 +22,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed.ts",
     "prisma:backfill:creator-approvals": "ts-node prisma/backfill-creator-approvals.ts",
     "prisma:backfill:creator-public-slug": "ts-node prisma/backfill-creator-public-slug.ts",
     "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
@@ -37,7 +37,7 @@
     "data:gen:aliases": "ts-node prisma/scripts/generate-india-location-aliases.ts"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.888.0",

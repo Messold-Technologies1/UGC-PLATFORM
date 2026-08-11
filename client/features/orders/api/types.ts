@@ -5,6 +5,11 @@ export interface OrderCreatorSnapshot {
   city?: string | null;
   avgRating?: string | null;
   reviewCount?: number;
+  /**
+   * Creator's shipping address for physical-product orders. Recipient name and
+   * phone are intentionally omitted server-side to keep the creator anonymized.
+   */
+  shippingAddress?: string | null;
 }
 
 export interface OrderBrandSnapshot {

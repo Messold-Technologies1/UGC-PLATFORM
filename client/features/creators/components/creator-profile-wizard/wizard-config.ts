@@ -1,6 +1,5 @@
 import {
   BadgeCheck,
-  Clapperboard,
   Film,
   IndianRupee,
   Images,
@@ -12,7 +11,6 @@ import {
 export type WizardStepId =
   | "about"
   | "identity"
-  | "capabilities"
   | "intro-video"
   | "portfolio"
   | "pricing"
@@ -53,14 +51,6 @@ export const WIZARD_STEPS: WizardStep[] = [
     title: "Help brands discover you",
     tagline: "The better your profile reflects your content, the easier brands can find you.",
     icon: Sparkles,
-    ready: false,
-  },
-  {
-    id: "capabilities",
-    label: "Capabilities",
-    title: "Show brands what you can create",
-    tagline: "The more accurate your capabilities, the better your matches.",
-    icon: Clapperboard,
     ready: false,
   },
   {
@@ -121,52 +111,32 @@ export type WizardFacetGroup = {
 export const IDENTITY_FACET_GROUPS: WizardFacetGroup[] = [
   {
     dimension: "CONTENT_CATEGORY",
-    label: "What do you love creating the most?",
+    label: "What's your creator category?",
+    help: "What you create most. Brands find you by this.",
     required: true,
   },
   {
-    dimension: "CATEGORY_EXPERIENCE",
-    label: "Which categories have you created for before?",
-    required: true,
-  },
-  {
-    dimension: "APPEARANCE",
-    label: "How would you describe your on-camera look?",
-    help: "This helps brands find creators that fit their campaigns.",
-    max: 2,
+    dimension: "CREATOR_TYPE",
+    label: "What's your creator type?",
   },
   {
     dimension: "OCCUPATION",
     label: "What do you do besides creating content?",
   },
+  {
+    dimension: "APPEARANCE",
+    label: "How would you describe your on-camera look?",
+  },
 ];
 
-/** Facet groups rendered on Step 3 — Content Capabilities. */
-export const CAPABILITY_FACET_GROUPS: WizardFacetGroup[] = [
-  {
-    dimension: "CONTENT_FORMAT",
-    label: "Who can appear in videos with you?",
-    required: true,
-  },
-  {
-    dimension: "CAPABILITY",
-    label: "Content formats you can deliver",
-  },
-  {
-    dimension: "CONTENT_STYLE",
-    label: "How do brands usually describe your vibe?",
-    help: "Optional — pick up to three.",
-    max: 3,
-  },
-  {
-    dimension: "LIFE_STYLE",
-    label: "Where can you shoot?",
-  },
-  {
-    dimension: "AI_CONTENT_PERMISSION",
-    label: "Are you open to AI-assisted content?",
-  },
-];
+/** "Open to" — sensitive categories the creator opts into (stored as restrictions). */
+export const OPEN_TO_OPTIONS = [
+  "Gambling / Betting",
+  "Lingerie",
+  "Intimacy / Adult",
+  "Dating / Dating Apps",
+  "Night Clubs",
+] as const;
 
 export const BIO_MIN_CHARS = 120;
 export const BIO_MAX_CHARS = 500;

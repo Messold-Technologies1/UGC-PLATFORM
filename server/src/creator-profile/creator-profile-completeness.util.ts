@@ -5,14 +5,12 @@ export const MIN_PORTFOLIO_VIDEOS = 3;
 
 /**
  * Facet dimensions a creator must have at least one selection in before going
- * live. Only these three niche facets are required; all other facet dimensions
- * (appearance, content style, capabilities, lifestyle, occupation, can-create-with,
- * AI permission) are optional. Languages are required separately.
+ * live. Only the creator's category is required; every other facet dimension
+ * (creator type, occupation, appearance, …) is optional. Languages are required
+ * separately.
  */
 export const REQUIRED_FACET_DIMENSIONS: CreatorFacetDimension[] = [
-  CreatorFacetDimension.CONTENT_FORMAT,
   CreatorFacetDimension.CONTENT_CATEGORY,
-  CreatorFacetDimension.CATEGORY_EXPERIENCE,
 ];
 
 const FACET_LABELS: Record<CreatorFacetDimension, string> = {
@@ -20,12 +18,13 @@ const FACET_LABELS: Record<CreatorFacetDimension, string> = {
   APPEARANCE: 'Appearance',
   CONTENT_STYLE: 'Content style',
   CAPABILITY: 'Capabilities',
-  CONTENT_CATEGORY: 'Content category',
+  CONTENT_CATEGORY: "Creator's category",
   CATEGORY_EXPERIENCE: 'Category experience',
   CAN_CREATE_WITH: 'Can create with',
   OCCUPATION: 'Occupation',
   LIFE_STYLE: 'Lifestyle',
   AI_CONTENT_PERMISSION: 'AI content permission',
+  CREATOR_TYPE: 'Creator type',
   LANGUAGE: 'Languages',
 };
 
@@ -78,12 +77,7 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   { key: 'gender', label: 'Gender' },
   { key: 'dateOfBirth', label: 'Date of birth' },
   { key: 'shippingAddress', label: 'Shipping address' },
-  { key: 'contentFormat', label: FACET_LABELS[CreatorFacetDimension.CONTENT_FORMAT] },
   { key: 'contentCategory', label: FACET_LABELS[CreatorFacetDimension.CONTENT_CATEGORY] },
-  {
-    key: 'categoryExperience',
-    label: FACET_LABELS[CreatorFacetDimension.CATEGORY_EXPERIENCE],
-  },
   { key: 'language', label: 'At least one language' },
   { key: 'package', label: 'At least one package' },
   {

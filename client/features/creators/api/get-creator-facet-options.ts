@@ -12,6 +12,7 @@ export const creatorFacetDimensions = [
   "CATEGORY_EXPERIENCE",
   "CAN_CREATE_WITH",
   "AI_CONTENT_PERMISSION",
+  "CREATOR_TYPE",
   "LANGUAGE",
 ] as const;
 

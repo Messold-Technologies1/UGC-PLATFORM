@@ -306,8 +306,23 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
-    const payload = await this.verifyRefreshToken(refreshToken);
     const hash = this.hashRefreshToken(refreshToken);
+
+    let payload: { sub: string };
+    try {
+      payload = await this.verifyRefreshToken(refreshToken);
+    } catch {
+      // The refresh token itself is expired/malformed/tampered. `jsonwebtoken`
+      // throws (e.g. TokenExpiredError) which would otherwise bubble up as an
+      // unhandled 500 and get logged by Nest's ExceptionsHandler. Purge any
+      // lingering session row for this token and return a clean 401 so the
+      // client can redirect to login (matches the documented 401 response).
+      await this.prisma.session
+        .deleteMany({ where: { refreshTokenHash: hash } })
+        .catch(() => {});
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
     const session = await this.prisma.session.findFirst({
       where: { refreshTokenHash: hash, userId: payload.sub },
       include: { user: true },

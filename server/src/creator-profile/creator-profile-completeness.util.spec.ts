@@ -43,28 +43,26 @@ describe('evaluateProfileCompleteness', () => {
     expect(result.missing).toContain('Bio');
   });
 
-  it('requires every mandatory facet dimension', () => {
+  it('requires the creator category facet', () => {
     const result = evaluateProfileCompleteness({
       ...completeInput(),
-      selectedFacetDimensions: [CreatorFacetDimension.CONTENT_FORMAT],
+      selectedFacetDimensions: [CreatorFacetDimension.OCCUPATION],
     });
     expect(result.complete).toBe(false);
-    // Required dimensions not selected should be reported.
-    expect(result.missing).toContain('Content category');
-    expect(result.missing).toContain('Category experience');
-    expect(result.missing).not.toContain('Content format');
+    // The required category is missing; a selected optional dimension is fine.
+    expect(result.missing).toContain("Creator's category");
   });
 
-  it('requires exactly content format, content category and category experience', () => {
+  it('requires exactly the creator category facet', () => {
     expect(REQUIRED_FACET_DIMENSIONS).toEqual([
-      CreatorFacetDimension.CONTENT_FORMAT,
       CreatorFacetDimension.CONTENT_CATEGORY,
-      CreatorFacetDimension.CATEGORY_EXPERIENCE,
     ]);
   });
 
-  it('does not require appearance, content style, capabilities, occupation, lifestyle or AI permission', () => {
+  it('does not require any facet dimension other than creator category', () => {
     for (const dimension of [
+      CreatorFacetDimension.CONTENT_FORMAT,
+      CreatorFacetDimension.CATEGORY_EXPERIENCE,
       CreatorFacetDimension.APPEARANCE,
       CreatorFacetDimension.CONTENT_STYLE,
       CreatorFacetDimension.CAPABILITY,
@@ -72,6 +70,7 @@ describe('evaluateProfileCompleteness', () => {
       CreatorFacetDimension.CAN_CREATE_WITH,
       CreatorFacetDimension.LIFE_STYLE,
       CreatorFacetDimension.AI_CONTENT_PERMISSION,
+      CreatorFacetDimension.CREATOR_TYPE,
     ]) {
       expect(REQUIRED_FACET_DIMENSIONS).not.toContain(dimension);
     }

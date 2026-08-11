@@ -63,7 +63,6 @@ import {
 } from "./wizard-config";
 import { AboutYouStep } from "./steps/about-you-step";
 import { IdentityStep } from "./steps/identity-step";
-import { CapabilitiesStep } from "./steps/capabilities-step";
 import { IntroVideoStep } from "./steps/intro-video-step";
 import { PortfolioStep } from "./steps/portfolio-step";
 import { PricingStep } from "./steps/pricing-step";
@@ -78,11 +77,7 @@ export type CreatorProfileWizardProps = {
   onExit?: () => void;
 };
 
-const NICHE_DIMENSIONS = new Set([
-  "CONTENT_FORMAT",
-  "CONTENT_CATEGORY",
-  "CATEGORY_EXPERIENCE",
-]);
+const NICHE_DIMENSIONS = new Set(["CONTENT_CATEGORY"]);
 
 const STEP_INDEX: Record<WizardStepId, number> = WIZARD_STEPS.reduce(
   (acc, step, index) => {
@@ -159,6 +154,17 @@ export function CreatorProfileWizard({
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({ enabled });
 
   const selectedLanguages = facets.selectedLanguages;
+  // "Open to" opt-ins are stored as restrictions.
+  const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>(
+    () => (initialProfile.restrictions ?? []).map((row) => row.restriction),
+  );
+  const toggleRestriction = useCallback((name: string) => {
+    setSelectedRestrictions((current) =>
+      current.includes(name)
+        ? current.filter((item) => item !== name)
+        : [...current, name],
+    );
+  }, []);
   const [languageConfirmed, setLanguageConfirmed] = useState<boolean>(
     () => (initialProfile.profileLanguages ?? []).length > 0,
   );
@@ -354,6 +360,7 @@ export function CreatorProfileWizard({
         contactEmail: contactEmail || undefined,
         facetSelections,
         profileLanguages,
+        restrictions: selectedRestrictions,
         ...(adminMode && phone ? { phone: "+91" + phone } : {}),
         ...(profileImage.profileImageRemoved
           ? { profileImageKey: "" }
@@ -379,6 +386,7 @@ export function CreatorProfileWizard({
     [
       facets.selectedFacets,
       selectedLanguages,
+      selectedRestrictions,
       displayName,
       gender,
       dateOfBirth,
@@ -411,11 +419,8 @@ export function CreatorProfileWizard({
         if (selectedLanguageCount > 0 && !languageConfirmed)
           missing.push("the language confirmation");
       } else if (id === "identity") {
-        if (facetCount("CONTENT_CATEGORY") === 0) missing.push("what you create");
-        if (facetCount("CATEGORY_EXPERIENCE") === 0)
-          missing.push("your category experience");
-      } else if (id === "capabilities") {
-        if (facetCount("CONTENT_FORMAT") === 0) missing.push("who can appear in your videos");
+        if (facetCount("CONTENT_CATEGORY") === 0)
+          missing.push("your creator category");
       } else if (id === "intro-video") {
         if (bio.trim().length < BIO_MIN_CHARS)
           missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
@@ -550,7 +555,6 @@ export function CreatorProfileWizard({
     const aboutOk =
       displayName.trim() && dateOfBirth && gender && location.city.trim() && selectedLanguageCount > 0;
     const identityOk = facetCount("CONTENT_CATEGORY") > 0;
-    const capOk = facetCount("CONTENT_FORMAT") > 0;
     const introOk =
       Boolean(introVideo.introVideoPreviewUrl) &&
       bio.trim().length >= BIO_MIN_CHARS;
@@ -572,11 +576,6 @@ export function CreatorProfileWizard({
         stepId: "identity",
         title: "Creator Identity & Discovery",
         status: identityOk ? "complete" : "incomplete",
-      },
-      {
-        stepId: "capabilities",
-        title: "Content Capabilities",
-        status: capOk ? "complete" : "incomplete",
       },
       {
         stepId: "intro-video",
@@ -806,15 +805,8 @@ export function CreatorProfileWizard({
                   onToggleFacet={(group: WizardFacetGroup, slug: string) =>
                     facets.toggleFacet(group.dimension, slug)
                   }
-                />
-              ) : activeStep.id === "capabilities" ? (
-                <CapabilitiesStep
-                  disabled={pending}
-                  optionsByDimension={facets.facetOptionsByDimension}
-                  selectedFacets={facets.selectedFacets}
-                  onToggleFacet={(group: WizardFacetGroup, slug: string) =>
-                    facets.toggleFacet(group.dimension, slug)
-                  }
+                  selectedRestrictions={selectedRestrictions}
+                  onToggleRestriction={toggleRestriction}
                 />
               ) : activeStep.id === "intro-video" ? (
                 <IntroVideoStep

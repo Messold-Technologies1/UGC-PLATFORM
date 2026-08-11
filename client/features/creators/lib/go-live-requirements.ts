@@ -14,21 +14,13 @@ export const MIN_PORTFOLIO_VIDEOS = 3;
  * facets are required; all other dimensions are optional. Keep in sync with the
  * server (`creator-profile-completeness.util.ts`).
  */
-export const REQUIRED_FACET_DIMENSIONS = [
-  "CONTENT_FORMAT",
-  "CONTENT_CATEGORY",
-  "CATEGORY_EXPERIENCE",
-] as const;
+export const REQUIRED_FACET_DIMENSIONS = ["CONTENT_CATEGORY"] as const;
 
 const FACET_LABELS: Record<string, string> = {
-  CONTENT_FORMAT: "Content format",
-  APPEARANCE: "Appearance",
-  CONTENT_STYLE: "Content style",
-  CAPABILITY: "Capabilities",
-  CONTENT_CATEGORY: "Content category",
-  CATEGORY_EXPERIENCE: "Category experience",
-  CAN_CREATE_WITH: "Can create with",
+  CONTENT_CATEGORY: "Creator's category",
+  CREATOR_TYPE: "Creator type",
   OCCUPATION: "Occupation",
+  APPEARANCE: "Appearance",
 };
 
 export interface GoLiveSnapshot {

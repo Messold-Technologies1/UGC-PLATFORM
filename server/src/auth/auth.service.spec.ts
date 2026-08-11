@@ -19,6 +19,9 @@ describe('AuthService', () => {
     },
     session: {
       create: jest.fn(),
+      findFirst: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
   };
 
@@ -44,6 +47,9 @@ describe('AuthService', () => {
     prisma.user.findUnique.mockReset();
     prisma.user.update.mockReset();
     prisma.session.create.mockReset();
+    prisma.session.findFirst.mockReset();
+    prisma.session.delete.mockReset();
+    prisma.session.deleteMany.mockReset();
     jwt.sign.mockReset();
     jwt.verifyAsync.mockReset();
     config.get.mockClear();
@@ -203,5 +209,55 @@ describe('AuthService', () => {
     const result = await service.getMeForClient('user-1');
 
     expect(result?.creatorApprovalStatus).toBeUndefined();
+  });
+
+  it('returns 401 instead of throwing when the refresh token is expired/invalid', async () => {
+    // jsonwebtoken throws (e.g. TokenExpiredError) for an expired refresh token.
+    jwt.verifyAsync.mockRejectedValue(
+      Object.assign(new Error('jwt expired'), { name: 'TokenExpiredError' }),
+    );
+    prisma.session.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.refresh('expired-refresh-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    // The stale session row (if any) is purged so the token can't be retried.
+    expect(prisma.session.deleteMany).toHaveBeenCalledTimes(1);
+    // No new tokens are minted for an invalid refresh token.
+    expect(jwt.sign).not.toHaveBeenCalled();
+  });
+
+  it('rotates the access token when the refresh token is valid and the session is live', async () => {
+    jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+    prisma.session.findFirst.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      expiresAt: new Date('2999-01-01T00:00:00.000Z'),
+      user: { id: 'user-1' },
+    });
+    jwt.sign.mockReturnValue('new-access-token');
+
+    const result = await service.refresh('valid-refresh-token');
+
+    expect(result.accessToken).toBe('new-access-token');
+    expect(result.refreshToken).toBe('valid-refresh-token');
+  });
+
+  it('returns 401 when the stored session has expired', async () => {
+    jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+    prisma.session.findFirst.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      expiresAt: new Date('2000-01-01T00:00:00.000Z'),
+      user: { id: 'user-1' },
+    });
+    prisma.session.delete.mockResolvedValue({ id: 'session-1' });
+
+    await expect(service.refresh('valid-but-stale-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(prisma.session.delete).toHaveBeenCalledWith({
+      where: { id: 'session-1' },
+    });
   });
 });

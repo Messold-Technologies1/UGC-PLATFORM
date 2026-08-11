@@ -9,7 +9,6 @@ import type { AuthUser } from "@/providers/auth-provider";
 import type {
   CreatorContentVolumeBucket,
   CreatorGender,
-  CreatorLanguageFluency,
 } from "@/features/creators/api/create-creator-profile";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { CreatorFacetDimension } from "@/features/creators/api/get-creator-facet-options";
@@ -120,24 +119,9 @@ export const contentVolumeOptions: Array<{
   { value: "RANGE_50_PLUS", label: "50+" },
 ];
 
-export const fluencyOptions: Array<{
-  value: CreatorLanguageFluency;
-  label: string;
-}> = [
-  { value: "NATIVE", label: "Native" },
-  { value: "FLUENT", label: "Fluent" },
-  { value: "CONVERSATIONAL", label: "Conversational" },
-];
-
-
 export type SelectedFacets = Partial<
   Record<Exclude<CreatorFacetDimension, "LANGUAGE">, string[]>
 >;
-
-export type LanguageDraft = {
-  slug: string;
-  fluency: CreatorLanguageFluency;
-};
 
 export type PackageDraft = {
   packageName: string;
@@ -238,20 +222,18 @@ export function createInitialSelectedFacets(
   return out;
 }
 
-export function createInitialLanguageDrafts(
+export function createInitialLanguages(
   initialProfile?: CreatorProfileItemApi | null,
-): LanguageDraft[] {
-  const existing = (initialProfile?.profileLanguages ?? []).map((row) => ({
-    slug: row.slug,
-    fluency: row.fluency,
-  }));
-  if (existing.length === 0) {
-    return [
-      { slug: "", fluency: "NATIVE" },
-      { slug: "", fluency: "FLUENT" },
-    ];
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of initialProfile?.profileLanguages ?? []) {
+    if (row.slug && !seen.has(row.slug)) {
+      seen.add(row.slug);
+      out.push(row.slug);
+    }
   }
-  return existing;
+  return out;
 }
 
 export function createInitialPackageDraft(

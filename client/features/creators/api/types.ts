@@ -1,7 +1,6 @@
 import type {
   CreatorContentVolumeBucket,
   CreatorGender,
-  CreatorLanguageFluency,
 } from "./create-creator-profile";
 import type { CreatorFacetDimension } from "./get-creator-facet-options";
 
@@ -50,7 +49,6 @@ export type CreatorProfileStructuredLanguageApi = {
   id?: string;
   slug: string;
   label: string;
-  fluency: CreatorLanguageFluency;
 };
 
 export type CreatorPortfolioVideoPreviewApi = {

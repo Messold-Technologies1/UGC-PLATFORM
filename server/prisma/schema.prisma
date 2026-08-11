@@ -150,12 +150,6 @@ enum CreatorContentVolumeBucket {
   RANGE_50_PLUS
 }
 
-enum CreatorLanguageFluency {
-  NATIVE
-  FLUENT
-  CONVERSATIONAL
-}
-
 enum CreatorAgeGroup {
   AGE_18_24
   AGE_25_34
@@ -480,11 +474,10 @@ model CreatorProfileFacetSelection {
 }
 
 model CreatorProfileLanguage {
-  id               String                 @id @default(uuid()) @db.Uuid
-  creatorProfileId String                 @db.Uuid
-  optionId         String                 @db.Uuid
-  fluency          CreatorLanguageFluency
-  createdAt        DateTime               @default(now())
+  id               String   @id @default(uuid()) @db.Uuid
+  creatorProfileId String   @db.Uuid
+  optionId         String   @db.Uuid
+  createdAt        DateTime @default(now())
 
   creator CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
   option  CreatorFacetOption @relation("LanguageOption", fields: [optionId], references: [id], onDelete: Cascade)

@@ -530,13 +530,10 @@ function ReviewProfileSections({
               <div className="flex flex-wrap gap-2">
                 {profile.profileLanguages?.map((lang) => (
                   <span
-                    key={`${lang.slug}-${lang.fluency}`}
+                    key={lang.slug}
                     className="rounded-md border border-border/30 bg-background/60 px-2.5 py-1 text-xs font-medium"
                   >
                     {lang.label}
-                    <span className="ml-1 text-muted-foreground">
-                      · {lang.fluency.replace(/_/g, " ").toLowerCase()}
-                    </span>
                   </span>
                 ))}
               </div>

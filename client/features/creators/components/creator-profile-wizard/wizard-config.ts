@@ -64,14 +64,6 @@ export const WIZARD_STEPS: WizardStep[] = [
     ready: false,
   },
   {
-    id: "intro-video",
-    label: "Intro Video",
-    title: "Your intro video",
-    tagline: "A 30-second hello that turns profile views into bookings.",
-    icon: Film,
-    ready: false,
-  },
-  {
     id: "portfolio",
     label: "Portfolio",
     title: "Your portfolio",
@@ -85,6 +77,14 @@ export const WIZARD_STEPS: WizardStep[] = [
     title: "Pricing, delivery & add-ons",
     tagline: "Set your rates, turnaround and the extras brands can book.",
     icon: IndianRupee,
+    ready: false,
+  },
+  {
+    id: "intro-video",
+    label: "Intro Video",
+    title: "Your intro video",
+    tagline: "A 30-second hello that turns profile views into bookings.",
+    icon: Film,
     ready: false,
   },
   {

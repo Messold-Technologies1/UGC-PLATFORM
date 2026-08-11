@@ -3,7 +3,6 @@ import {
   CreatorContentVolumeBucket,
   CreatorFacetDimension,
   CreatorGender,
-  CreatorLanguageFluency,
 } from '@prisma/client';
 
 export class CreatorPublicListPackageDto {
@@ -69,9 +68,6 @@ export class CreatorPublicListLanguageDto {
 
   @ApiProperty()
   label!: string;
-
-  @ApiProperty({ enum: CreatorLanguageFluency })
-  fluency!: CreatorLanguageFluency;
 }
 
 export class CreatorPublicListItemDto {

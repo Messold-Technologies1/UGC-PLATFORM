@@ -7,17 +7,19 @@ import { Camera, Check, Eye, ImageUp, RefreshCw, X } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
-import { LanguageRows } from "@/features/creators/components/creator-profile-update/facet-components";
-import { genderOptions, type LanguageDraft } from "@/features/creators/hooks/creator-profile-form-utils";
-import type {
-  CreatorGender,
-  CreatorLanguageFluency,
-} from "@/features/creators/api/create-creator-profile";
+import { LanguageMultiSelect } from "@/features/creators/components/creator-profile-update/language-multi-select";
+import { genderOptions } from "@/features/creators/hooks/creator-profile-form-utils";
+import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
 import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 
 export type AboutYouStepProps = {
   disabled: boolean;
+
+  /** Admin editing on a creator's behalf — shows the phone field, locks country. */
+  adminMode?: boolean;
+  phone?: string;
+  onPhoneChange?: (value: string) => void;
 
   displayName: string;
   onDisplayNameChange: (value: string) => void;
@@ -44,14 +46,11 @@ export type AboutYouStepProps = {
   cities: Array<{ name: string }>;
   onCityChange: (value: string) => void;
 
-  // Languages (select + fluency)
+  // Languages — a single multi-select of slugs.
   languageOptions: CreatorFacetOption[];
-  languageDrafts: LanguageDraft[];
+  selectedLanguages: string[];
   languagesLoading: boolean;
-  onAddLanguage: (slug: string) => void;
-  onRemoveLanguage: (index: number) => void;
-  onUpdateLanguageSlug: (index: number, slug: string) => void;
-  onFluencyChange: (index: number, fluency: CreatorLanguageFluency) => void;
+  onToggleLanguage: (slug: string) => void;
 
   languageConfirmed: boolean;
   onLanguageConfirmedChange: (value: boolean) => void;
@@ -60,6 +59,9 @@ export type AboutYouStepProps = {
 export function AboutYouStep(props: AboutYouStepProps) {
   const {
     disabled,
+    adminMode = false,
+    phone,
+    onPhoneChange,
     displayName,
     onDisplayNameChange,
     profileImagePreviewUrl,
@@ -80,19 +82,16 @@ export function AboutYouStep(props: AboutYouStepProps) {
     cities,
     onCityChange,
     languageOptions,
-    languageDrafts,
+    selectedLanguages,
     languagesLoading,
-    onAddLanguage,
-    onRemoveLanguage,
-    onUpdateLanguageSlug,
-    onFluencyChange,
+    onToggleLanguage,
     languageConfirmed,
     onLanguageConfirmedChange,
   } = props;
 
   const today = new Date().toISOString().split("T")[0];
   const hasPhoto = Boolean(profileImagePreviewUrl);
-  const selectedLanguageCount = languageDrafts.filter((r) => r.slug !== "").length;
+  const selectedLanguageCount = selectedLanguages.length;
 
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -271,7 +270,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
             label="Country"
             value={countryCode}
             placeholder="Select country"
-            disabled={disabled}
+            disabled={disabled || adminMode}
             options={countries.map((c) => ({ value: c.isoCode, label: c.name }))}
             onChange={onCountryChange}
           />
@@ -306,25 +305,51 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onChange={onCityChange}
           />
         </div>
+
+        {adminMode ? (
+          <div className="cw-col-2 cw-field">
+            <label htmlFor="cw-phone" className="cw-fieldlabel">
+              Phone number
+            </label>
+            <div className="cw-phone">
+              <span className="cw-phone-prefix">+91</span>
+              <input
+                id="cw-phone"
+                className="cw-input cw-phone-input"
+                value={phone ?? ""}
+                disabled={disabled}
+                inputMode="numeric"
+                autoComplete="tel"
+                placeholder="Creator's phone number"
+                onChange={(e) =>
+                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
+                }
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="cw-hr" />
 
       {/* Languages */}
-      <div className="cw-lang-block">
+      <div className="cw-field cw-lang-block">
+        <label className="cw-fieldlabel">
+          Languages you can create in <span className="cw-req">*</span>
+        </label>
+        <span className="cw-facet-help">
+          Pick every language you can confidently create videos in.
+        </span>
         {languagesLoading ? (
           <div className="cw-lang-loading">
             <Spinner className="size-4" aria-hidden /> Loading languages…
           </div>
         ) : (
-          <LanguageRows
-            allLanguages={languageOptions}
-            selected={languageDrafts}
+          <LanguageMultiSelect
+            options={languageOptions}
+            selected={selectedLanguages}
             disabled={disabled}
-            onAddLanguage={onAddLanguage}
-            onRemoveLanguage={onRemoveLanguage}
-            onUpdateLanguageSlug={onUpdateLanguageSlug}
-            onFluencyChange={onFluencyChange}
+            onToggle={onToggleLanguage}
           />
         )}
       </div>

@@ -85,7 +85,6 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
         .map((row: any) => ({
           slug: String(row?.option?.slug ?? ''),
           label: String(row?.option?.label ?? ''),
-          fluency: row.fluency,
         }))
         .filter((x: any) => x.slug)
     : [];

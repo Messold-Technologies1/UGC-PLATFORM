@@ -2,7 +2,6 @@ import {
   ApprovalStatus,
   CreatorFacetDimension,
   CreatorGender,
-  CreatorLanguageFluency,
   PortfolioVisibilityStatus,
   Prisma,
   PrismaClient,
@@ -1186,13 +1185,9 @@ async function seedOneCreator(
     });
 
     await tx.creatorProfileLanguage.createMany({
-      data: languageOptionIds.map((optionId, langIndex) => ({
+      data: languageOptionIds.map((optionId) => ({
         creatorProfileId: creatorProfile.id,
         optionId,
-        fluency:
-          langIndex === 0
-            ? CreatorLanguageFluency.NATIVE
-            : CreatorLanguageFluency.FLUENT,
       })),
     });
 

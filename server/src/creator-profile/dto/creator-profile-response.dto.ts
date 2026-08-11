@@ -6,7 +6,6 @@ import {
   CreatorContentVolumeBucket,
   CreatorFacetDimension,
   CreatorGender,
-  CreatorLanguageFluency,
 } from '@prisma/client';
 
 export class CreatorProfileLanguageResponseDto {
@@ -18,9 +17,6 @@ export class CreatorProfileLanguageResponseDto {
 
   @ApiProperty({ example: 'English' })
   label!: string;
-
-  @ApiProperty({ enum: CreatorLanguageFluency })
-  fluency!: CreatorLanguageFluency;
 }
 
 export class CreatorFacetSelectionResponseDto {
@@ -289,7 +285,7 @@ export class CreatorProfileResponseDto {
 
   @ApiProperty({
     type: () => [CreatorProfileLanguageResponseDto],
-    description: 'Languages with fluency (replaces legacy string list).',
+    description: 'Languages the creator can create in.',
   })
   profileLanguages!: CreatorProfileLanguageResponseDto[];
 

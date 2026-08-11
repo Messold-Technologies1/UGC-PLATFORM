@@ -603,6 +603,28 @@
   color: var(--foreground);
 }
 
+/* Admin phone field with +91 prefix */
+.cw-phone {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.cw-phone-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1.4px solid var(--border);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.cw-phone-input {
+  border-radius: 0 10px 10px 0;
+}
+
 /* PeSelectField drives the trigger aria-label; hide its rendered label so our
    cw-fieldlabel is the only visible one, and match the 44px field height. */
 .cw-select-field .pe-field > label {

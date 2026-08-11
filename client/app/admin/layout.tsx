@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/navbar/navbar";
 import React from "react";
-import { Manrope, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
 
 // Auth-gated workspace: the segment template reads the session cookie and calls
@@ -8,11 +8,19 @@ import { AuthenticatedAppProviders } from "@/providers/app-providers";
 // build never prerenders them (which would run the guard with no API reachable).
 export const dynamic = "force-dynamic";
 
-const manrope = Manrope({ subsets: ["latin"], variable: "--font-heading" });
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+// Self-hosted via next/font/local (see app/layout.tsx) — keeps the Turbopack
+// build off fonts.googleapis.com. Latin-subset variable woff2 files.
+const manrope = localFont({
+  src: "../fonts/Manrope-latin.woff2",
+  variable: "--font-heading",
+  weight: "200 800",
+  display: "swap",
+});
+const inter = localFont({
+  src: "../fonts/Inter-latin.woff2",
   variable: "--font-sans",
+  weight: "100 900",
+  display: "swap",
 });
 
 export default function AdminLayout({

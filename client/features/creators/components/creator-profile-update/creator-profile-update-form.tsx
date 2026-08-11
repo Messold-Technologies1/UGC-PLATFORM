@@ -2,7 +2,8 @@
 import "./profile-edit.css";
 import { SectionCard, PeSelectField, CatalogStatus } from "./shared-components";
 import { CreatorSocialAccounts } from "./creator-social-accounts";
-import { FacetChipSection, LanguageRows, RestrictionChipSection } from "./facet-components";
+import { FacetChipSection, RestrictionChipSection } from "./facet-components";
+import { LanguageMultiSelect } from "./language-multi-select";
 import { PackageEditor, AddOnCatalogEditor } from "./package-and-addon-editors";
 import { PackageEarningsBanner } from "./package-earnings-banner";
 import { PortfolioGrid, PortfolioEditDrawer } from "./portfolio-components";
@@ -511,15 +512,14 @@ function CreatorProfileUpdateFormContent({
       // must match the server (which counts persisted languages); otherwise the
       // client lets a creator "Go Live" with blank language rows while the
       // server keeps the profile incomplete and it never reaches review.
-      languageCount: facets.languageDrafts.filter((row) => row.slug !== "")
-        .length,
+      languageCount: facets.selectedLanguages.length,
       hasPackage,
       publicVideoCount,
       policiesAccepted: areAllGoLivePoliciesAccepted(goLivePolicies),
     };
   }, [
     facets.selectedFacets,
-    facets.languageDrafts,
+    facets.selectedLanguages,
     packages.packageDraft,
     portfolioQuery.data,
     profileImage.profileImagePreviewUrl,
@@ -750,12 +750,7 @@ function CreatorProfileUpdateFormContent({
       }
 
       const profileLanguages: CreatorProfileLanguagePayload[] =
-        facets.languageDrafts
-          .filter((row) => row.slug !== "")
-          .map((row) => ({
-            slug: row.slug,
-            fluency: row.fluency,
-          }));
+        facets.selectedLanguages.map((slug) => ({ slug }));
 
       const payload: UpdateCreatorProfilePayload = {
         contactEmail: contactEmailDisplay,
@@ -887,7 +882,7 @@ function CreatorProfileUpdateFormContent({
       Object.values(facets.selectedFacets).reduce(
         (acc, arr) => acc + (arr?.length ?? 0),
         0,
-      ) + facets.languageDrafts.length;
+      ) + facets.selectedLanguages.length;
     return {
       niche: nicheCount > 0 ? nicheCount : null,
       portfolio:
@@ -897,7 +892,7 @@ function CreatorProfileUpdateFormContent({
     };
   }, [
     facets.selectedFacets,
-    facets.languageDrafts.length,
+    facets.selectedLanguages.length,
     portfolioQuery.data,
   ]);
 
@@ -1618,27 +1613,31 @@ function CreatorProfileUpdateFormContent({
                 ) : null}
 
                 <div className="border-t border-border/50 pt-5">
-                  <LanguageRows
-                  allLanguages={facets.facetOptionsByDimension.LANGUAGE ?? []}
-                  selected={facets.languageDrafts}
-                  disabled={pending || facets.facetOptionsQuery.isLoading}
-                  onAddLanguage={(slug) => {
-                    facets.addLanguage(slug);
-                    markDirty();
-                  }}
-                  onRemoveLanguage={(index) => {
-                    facets.removeLanguage(index);
-                    markDirty();
-                  }}
-                  onUpdateLanguageSlug={(index, slug) => {
-                    facets.updateLanguageSlug(index, slug);
-                    markDirty();
-                  }}
-                  onFluencyChange={(index, fluency) => {
-                    facets.updateLanguageFluency(index, fluency);
-                    markDirty();
-                  }}
-                />
+                  <div className="pe-field">
+                    <label>
+                      Languages
+                      <span className="pe-required" aria-label="required" title="Required to go live">
+                        {" "}*
+                      </span>
+                      {facets.selectedLanguages.length > 0 ? (
+                        <span className="pe-field-count">
+                          {facets.selectedLanguages.length}
+                        </span>
+                      ) : null}
+                    </label>
+                    <span className="pe-help">
+                      Pick every language you can create in.
+                    </span>
+                    <LanguageMultiSelect
+                      options={facets.facetOptionsByDimension.LANGUAGE ?? []}
+                      selected={facets.selectedLanguages}
+                      disabled={pending || facets.facetOptionsQuery.isLoading}
+                      onToggle={(slug) => {
+                        facets.toggleLanguage(slug);
+                        markDirty();
+                      }}
+                    />
+                  </div>
                 </div>
               </>
             ) : null}

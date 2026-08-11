@@ -12,8 +12,6 @@ export type ApprovalStatus =
   | "REJECTED"
   | "SHORTLISTED";
 
-export type CreatorLanguageFluency = "NATIVE" | "FLUENT" | "CONVERSATIONAL";
-
 export type CreatorFacetDimension =
   | "CONTENT_FORMAT"
   | "APPEARANCE"
@@ -31,7 +29,6 @@ export interface CreatorProfileLanguageResponseDto {
   id: string;
   slug: string;
   label: string;
-  fluency: CreatorLanguageFluency;
 }
 
 export interface CreatorFacetSelectionResponseDto {

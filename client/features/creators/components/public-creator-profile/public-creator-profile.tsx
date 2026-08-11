@@ -376,9 +376,7 @@ export function PublicCreatorProfile({
         tone: "sky",
         items: languages.map((l) => ({
           label: l.label,
-          sub: l.fluency
-            ? l.fluency.charAt(0) + l.fluency.slice(1).toLowerCase()
-            : null,
+          sub: null,
         })),
       });
     }

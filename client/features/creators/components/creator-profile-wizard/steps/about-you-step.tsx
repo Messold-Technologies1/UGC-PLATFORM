@@ -7,12 +7,9 @@ import { Camera, Check, Eye, ImageUp, RefreshCw, X } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
-import { LanguageRows } from "@/features/creators/components/creator-profile-update/facet-components";
-import { genderOptions, type LanguageDraft } from "@/features/creators/hooks/creator-profile-form-utils";
-import type {
-  CreatorGender,
-  CreatorLanguageFluency,
-} from "@/features/creators/api/create-creator-profile";
+import { LanguageMultiSelect } from "@/features/creators/components/creator-profile-update/language-multi-select";
+import { genderOptions } from "@/features/creators/hooks/creator-profile-form-utils";
+import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
 import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 
@@ -44,14 +41,11 @@ export type AboutYouStepProps = {
   cities: Array<{ name: string }>;
   onCityChange: (value: string) => void;
 
-  // Languages (select + fluency)
+  // Languages — a single multi-select of slugs.
   languageOptions: CreatorFacetOption[];
-  languageDrafts: LanguageDraft[];
+  selectedLanguages: string[];
   languagesLoading: boolean;
-  onAddLanguage: (slug: string) => void;
-  onRemoveLanguage: (index: number) => void;
-  onUpdateLanguageSlug: (index: number, slug: string) => void;
-  onFluencyChange: (index: number, fluency: CreatorLanguageFluency) => void;
+  onToggleLanguage: (slug: string) => void;
 
   languageConfirmed: boolean;
   onLanguageConfirmedChange: (value: boolean) => void;
@@ -80,19 +74,16 @@ export function AboutYouStep(props: AboutYouStepProps) {
     cities,
     onCityChange,
     languageOptions,
-    languageDrafts,
+    selectedLanguages,
     languagesLoading,
-    onAddLanguage,
-    onRemoveLanguage,
-    onUpdateLanguageSlug,
-    onFluencyChange,
+    onToggleLanguage,
     languageConfirmed,
     onLanguageConfirmedChange,
   } = props;
 
   const today = new Date().toISOString().split("T")[0];
   const hasPhoto = Boolean(profileImagePreviewUrl);
-  const selectedLanguageCount = languageDrafts.filter((r) => r.slug !== "").length;
+  const selectedLanguageCount = selectedLanguages.length;
 
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -311,20 +302,23 @@ export function AboutYouStep(props: AboutYouStepProps) {
       <div className="cw-hr" />
 
       {/* Languages */}
-      <div className="cw-lang-block">
+      <div className="cw-field cw-lang-block">
+        <label className="cw-fieldlabel">
+          Languages you can create in <span className="cw-req">*</span>
+        </label>
+        <span className="cw-facet-help">
+          Pick every language you can confidently create videos in.
+        </span>
         {languagesLoading ? (
           <div className="cw-lang-loading">
             <Spinner className="size-4" aria-hidden /> Loading languages…
           </div>
         ) : (
-          <LanguageRows
-            allLanguages={languageOptions}
-            selected={languageDrafts}
+          <LanguageMultiSelect
+            options={languageOptions}
+            selected={selectedLanguages}
             disabled={disabled}
-            onAddLanguage={onAddLanguage}
-            onRemoveLanguage={onRemoveLanguage}
-            onUpdateLanguageSlug={onUpdateLanguageSlug}
-            onFluencyChange={onFluencyChange}
+            onToggle={onToggleLanguage}
           />
         )}
       </div>

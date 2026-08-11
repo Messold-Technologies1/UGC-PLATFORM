@@ -15,11 +15,6 @@ export type CreatorContentVolumeBucket =
   | "RANGE_25_50"
   | "RANGE_50_PLUS";
 
-export type CreatorLanguageFluency =
-  | "NATIVE"
-  | "FLUENT"
-  | "CONVERSATIONAL";
-
 export type CreatorFacetSelectionPayload = {
   dimension: Exclude<CreatorFacetDimension, "LANGUAGE">;
   slug: string;
@@ -27,7 +22,6 @@ export type CreatorFacetSelectionPayload = {
 
 export type CreatorProfileLanguagePayload = {
   slug: string;
-  fluency: CreatorLanguageFluency;
 };
 
 export type CreatorPackageCreatePayload = {

@@ -9,7 +9,6 @@ import {
 import {
   ApprovalStatus,
   CreatorFacetDimension,
-  CreatorLanguageFluency,
   OrderStatus,
   PortfolioVisibilityStatus,
   Prisma,
@@ -445,7 +444,6 @@ export class CreatorProfileService {
         id: row.id,
         slug: row.option?.slug ?? '',
         label: row.option?.label ?? '',
-        fluency: row.fluency,
       })),
       facetSelections: (mapped.facetSelections ?? []).map((row: any) => ({
         id: row.id,
@@ -792,9 +790,9 @@ export class CreatorProfileService {
 
   private async resolveLanguageRows(
     tx: PrismaTransactionClient,
-    inputs: { slug: string; fluency: CreatorLanguageFluency }[],
-  ): Promise<{ optionId: string; fluency: CreatorLanguageFluency }[]> {
-    const out: { optionId: string; fluency: CreatorLanguageFluency }[] = [];
+    inputs: { slug: string }[],
+  ): Promise<{ optionId: string }[]> {
+    const out: { optionId: string }[] = [];
     const seen = new Set<string>();
     for (const row of inputs) {
       if (seen.has(row.slug)) continue;
@@ -810,7 +808,7 @@ export class CreatorProfileService {
       if (!opt) {
         throw new BadRequestException(`Unknown language slug: ${row.slug}`);
       }
-      out.push({ optionId: opt.id, fluency: row.fluency });
+      out.push({ optionId: opt.id });
     }
     return out;
   }
@@ -836,7 +834,7 @@ export class CreatorProfileService {
   private async replaceProfileLanguages(
     tx: PrismaTransactionClient,
     creatorProfileId: string,
-    rows: { optionId: string; fluency: CreatorLanguageFluency }[],
+    rows: { optionId: string }[],
   ): Promise<void> {
     await tx.creatorProfileLanguage.deleteMany({
       where: { creatorProfileId },
@@ -846,7 +844,6 @@ export class CreatorProfileService {
       data: rows.map((r) => ({
         creatorProfileId,
         optionId: r.optionId,
-        fluency: r.fluency,
       })),
       skipDuplicates: true,
     });
@@ -1264,7 +1261,6 @@ export class CreatorProfileService {
           .map((row: any) => ({
             slug: String(row?.option?.slug ?? ''),
             label: String(row?.option?.label ?? ''),
-            fluency: row.fluency,
           }))
           .filter((x: any) => x.slug)
       : [];

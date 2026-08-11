@@ -34,7 +34,7 @@ export interface Creator {
 export interface CreatorProfile extends Creator {
   bio: string;
   languages: string[];
-  profileLanguages: { label: string; fluency: string }[];
+  profileLanguages: { label: string }[];
 
   personaTags: string[];
 

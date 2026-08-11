@@ -1222,13 +1222,6 @@ async function seedOneCreator(
             priceAmount: new Prisma.Decimal(200),
             description: 'One additional revision round',
           },
-          {
-            creatorId: creatorProfile.id,
-            name: 'Faster Delivery',
-            priceAmount: new Prisma.Decimal(500),
-            description: 'Priority 2-day delivery',
-            deliveryDays: Math.max(1, persona.deliveryDays - 2),
-          },
         ],
       });
     }

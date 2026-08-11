@@ -48,7 +48,6 @@ function mapCreatorAddOns(addOns: any): Array<{
   name: string;
   priceAmount: string;
   description: string | null;
-  deliveryDays: number | null;
 }> {
   return Array.isArray(addOns)
     ? addOns.map((a: any) => ({
@@ -58,7 +57,6 @@ function mapCreatorAddOns(addOns: any): Array<{
           a?.priceAmount?.toString?.() ??
           (typeof a?.priceAmount === 'string' ? a.priceAmount : ''),
         description: a?.description ?? null,
-        deliveryDays: typeof a?.deliveryDays === 'number' ? a.deliveryDays : null,
       }))
     : [];
 }
@@ -152,8 +150,6 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
     reviewCount: profile.stats?.reviewCount ?? 0,
     totalOrders: 0,
     completedOrders: 0,
-    hasFasterDelivery: false,
-    fasterDeliveryDays: null,
     available: availability.available,
     unavailableFrom: availability.startsOn,
     unavailableTo: availability.endsOn,

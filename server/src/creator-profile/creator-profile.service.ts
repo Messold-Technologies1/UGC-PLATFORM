@@ -475,7 +475,6 @@ export class CreatorProfileService {
               ? String(a.priceAmount)
               : '0',
         description: a.description ?? null,
-        deliveryDays: a.deliveryDays ?? null,
       })),
       avgRating: mapped.stats?.avgRating?.toString() ?? null,
       reviewCount: mapped.stats?.reviewCount ?? 0,
@@ -582,15 +581,12 @@ export class CreatorProfileService {
       slug: string;
       priceAmount: string;
       description?: string;
-      deliveryDays?: number;
     }[],
-    packageDeliveryDays: number | null,
   ): Promise<
     {
       name: string;
       priceAmount: Prisma.Decimal;
       description: string | null;
-      deliveryDays: number | null;
     }[]
   > {
     const options = (await (tx as any).creatorAddOnOption.findMany({
@@ -600,7 +596,6 @@ export class CreatorProfileService {
         fixedPrice: true,
         minPrice: true,
         stepPrice: true,
-        affectsDeliveryDays: true,
       },
     })) as Array<{
       slug: string;
@@ -608,7 +603,6 @@ export class CreatorProfileService {
       fixedPrice: number | null;
       minPrice: number | null;
       stepPrice: number | null;
-      affectsDeliveryDays: boolean;
     }>;
     const bySlug = new Map<string, (typeof options)[number]>(
       options.map((o) => [o.slug, o]),
@@ -642,35 +636,10 @@ export class CreatorProfileService {
         }
       }
 
-      // Delivery-affecting add-ons (Faster Delivery) require a deliveryDays that
-      // is a positive integer and strictly faster than the package. Non-delivery
-      // add-ons never carry deliveryDays.
-      let deliveryDays: number | null = null;
-      if (rule.affectsDeliveryDays) {
-        const d = a.deliveryDays;
-        if (d == null || !Number.isInteger(d) || d < 1) {
-          throw new BadRequestException(
-            `"${rule.name}" requires a delivery time of at least 1 day.`,
-          );
-        }
-        if (packageDeliveryDays == null) {
-          throw new BadRequestException(
-            `Set up your package before adding "${rule.name}".`,
-          );
-        }
-        if (d >= packageDeliveryDays) {
-          throw new BadRequestException(
-            `"${rule.name}" must be faster than your standard delivery time of ${packageDeliveryDays} day(s).`,
-          );
-        }
-        deliveryDays = d;
-      }
-
       return {
         name: rule.name,
         priceAmount: new Prisma.Decimal(String(n)),
         description: a.description ?? null,
-        deliveryDays,
       };
     });
   }
@@ -893,7 +862,6 @@ export class CreatorProfileService {
         fixedPrice: true,
         minPrice: true,
         stepPrice: true,
-        affectsDeliveryDays: true,
       },
     });
     return { options };
@@ -1275,19 +1243,6 @@ export class CreatorProfileService {
           .filter((x: any) => x.slug && x.dimension)
       : [];
 
-    const fasterDeliveryAddOn = Array.isArray(profile.addOns)
-      ? profile.addOns.find(
-          (addOn: { name?: string; deliveryDays?: number | null }) =>
-            addOn?.name === 'Faster Delivery' ||
-            (typeof addOn?.deliveryDays === 'number' && addOn.deliveryDays >= 1),
-        )
-      : undefined;
-    const hasFasterDelivery = fasterDeliveryAddOn != null;
-    const fasterDeliveryDays =
-      typeof fasterDeliveryAddOn?.deliveryDays === 'number'
-        ? fasterDeliveryAddOn.deliveryDays
-        : null;
-
     const availability = mapUnavailabilityToPublicAvailability(
       profile.unavailability ?? null,
     );
@@ -1339,8 +1294,6 @@ export class CreatorProfileService {
       reviewCount: profile.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
       completedOrders: orderCounts?.completedOrders ?? 0,
-      hasFasterDelivery,
-      fasterDeliveryDays,
       available: availability.available,
       unavailableFrom: availability.startsOn,
       unavailableTo: availability.endsOn,
@@ -2404,16 +2357,9 @@ export class CreatorProfileService {
             where: { creatorId: creatorProfileId },
           });
           if (dto.addOns.length > 0) {
-            // Packages are upserted earlier in this transaction, so this reflects
-            // the delivery time that will be in effect for the Faster Delivery check.
-            const pkg = await tx.creatorPackage.findFirst({
-              where: { creatorId: creatorProfileId },
-              select: { deliveryDays: true },
-            });
             const normalizedAddOns = await this.normalizeCreatorAddOns(
               tx,
               dto.addOns as any,
-              pkg?.deliveryDays ?? null,
             );
             await tx.creatorAddOn.createMany({
               data: normalizedAddOns.map((addOn) => ({
@@ -2421,7 +2367,6 @@ export class CreatorProfileService {
                 name: addOn.name,
                 priceAmount: addOn.priceAmount,
                 description: addOn.description,
-                deliveryDays: addOn.deliveryDays,
               })),
             });
           }
@@ -2495,14 +2440,9 @@ export class CreatorProfileService {
         });
 
         if (payload.length > 0) {
-          const pkg = await (tx as any).creatorPackage.findFirst({
-            where: { creatorId: creatorProfileId },
-            select: { deliveryDays: true },
-          });
           const normalizedAddOns = await this.normalizeCreatorAddOns(
             tx,
             payload as any,
-            pkg?.deliveryDays ?? null,
           );
           await (tx as any).creatorAddOn.createMany({
             data: normalizedAddOns.map((addOn) => ({
@@ -2510,7 +2450,6 @@ export class CreatorProfileService {
               name: addOn.name,
               priceAmount: addOn.priceAmount,
               description: addOn.description,
-              deliveryDays: addOn.deliveryDays,
             })),
           });
         }

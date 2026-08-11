@@ -135,37 +135,7 @@ export type PackageDraft = {
 export type AddOnDraft = {
   priceAmount: string;
   description: string;
-  /** Only used by delivery-affecting add-ons (Faster Delivery). */
-  deliveryDays?: string;
 };
-
-/**
- * Validates the Faster Delivery add-on's delivery days against the package.
- * Mirrors the backend rule (1 <= deliveryDays < package deliveryDays).
- * Returns an error string, or null when valid / not applicable.
- */
-export function addOnDeliveryDaysError(
-  option: CreatorAddOnOption,
-  value: string | undefined,
-  packageDeliveryDays: number | null,
-): string | null {
-  if (!option.affectsDeliveryDays) return null;
-  const raw = (value ?? "").trim();
-  if (!/^\d+$/.test(raw)) {
-    return `${option.name}: enter the delivery time in days.`;
-  }
-  const days = Number(raw);
-  if (days < 1) {
-    return `${option.name}: delivery must be at least 1 day.`;
-  }
-  if (packageDeliveryDays == null) {
-    return `Set your package delivery time first.`;
-  }
-  if (days >= packageDeliveryDays) {
-    return `${option.name} must be faster than your ${packageDeliveryDays}-day standard delivery.`;
-  }
-  return null;
-}
 
 
 export function getInitialCreatorName(user: AuthUser | null): string {

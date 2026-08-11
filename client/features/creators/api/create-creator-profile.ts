@@ -38,8 +38,6 @@ export type CreatorAddOnCreatePayload = {
   slug: string;
   priceAmount: string;
   description?: string;
-  /** Required for delivery-affecting add-ons (Faster Delivery). */
-  deliveryDays?: number;
 };
 
 export type CreateCreatorProfilePayload = {

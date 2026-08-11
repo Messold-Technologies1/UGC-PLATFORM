@@ -158,18 +158,6 @@ export class CreatorPublicListItemDto {
 
   @ApiProperty({
     example: true,
-    description: 'Whether the creator offers a Faster Delivery add-on',
-  })
-  hasFasterDelivery!: boolean;
-
-  @ApiPropertyOptional({
-    example: 2,
-    description: 'Promised delivery days when Faster Delivery add-on is enabled',
-  })
-  fasterDeliveryDays?: number | null;
-
-  @ApiProperty({
-    example: true,
     description:
       'True when the creator has no unavailability covering today. Default true when no schedule exists.',
   })

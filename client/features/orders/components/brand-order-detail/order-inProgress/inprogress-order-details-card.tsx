@@ -246,20 +246,9 @@ export function InprogressOrderDetailsCard({
                   </Badge>
                 ))
               ) : (
-                <>
-                  <Badge
-                    variant="secondary"
-                    className="bg-muted/60 text-foreground font-medium rounded-lg px-3 py-1.5 text-xs"
-                  >
-                    Faster Delivery (3 Days)
-                  </Badge>
-                  <Badge
-                    variant="secondary"
-                    className="bg-muted/60 text-foreground font-medium rounded-lg px-3 py-1.5 text-xs"
-                  >
-                    Script Writing
-                  </Badge>
-                </>
+                <span className="text-xs text-muted-foreground">
+                  No add-ons
+                </span>
               )}
             </div>
             <div className="mt-4 space-y-2">

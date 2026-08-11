@@ -7,7 +7,6 @@ type AddOnOptionSeedRow = {
   fixedPrice?: number;
   minPrice?: number;
   stepPrice?: number;
-  affectsDeliveryDays?: boolean;
 };
 
 export const CREATOR_ADDON_OPTION_SEED_ROWS: AddOnOptionSeedRow[] = [
@@ -17,14 +16,6 @@ export const CREATOR_ADDON_OPTION_SEED_ROWS: AddOnOptionSeedRow[] = [
     sortOrder: 0,
     minPrice: 100,
     stepPrice: 100,
-  },
-  {
-    slug: 'faster_delivery',
-    name: 'Faster Delivery',
-    sortOrder: 1,
-    minPrice: 100,
-    stepPrice: 100,
-    affectsDeliveryDays: true,
   },
   {
     slug: 'on_location_shoot',
@@ -68,7 +59,6 @@ export async function seedCreatorAddOnOptions(
         fixedPrice: row.fixedPrice ?? null,
         minPrice: row.minPrice ?? null,
         stepPrice: row.stepPrice ?? null,
-        affectsDeliveryDays: row.affectsDeliveryDays ?? false,
       },
     });
   }

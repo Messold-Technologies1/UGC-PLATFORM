@@ -24,7 +24,6 @@ export type PricingStepProps = {
   selectedAddOnSlugs: string[];
   addOnDrafts: Record<string, AddOnDraft>;
   unmatchedNames: string[];
-  packageDeliveryDays: number | null;
   addOnsLoading: boolean;
   addOnsError: boolean;
   onAddOnsRetry: () => void;
@@ -41,7 +40,6 @@ export function PricingStep({
   selectedAddOnSlugs,
   addOnDrafts,
   unmatchedNames,
-  packageDeliveryDays,
   addOnsLoading,
   addOnsError,
   onAddOnsRetry,
@@ -79,7 +77,6 @@ export function PricingStep({
           drafts={addOnDrafts}
           unmatchedNames={unmatchedNames}
           disabled={disabled}
-          packageDeliveryDays={packageDeliveryDays}
           onToggle={onToggleAddOn}
           onDraftChange={onAddOnDraftChange}
         />

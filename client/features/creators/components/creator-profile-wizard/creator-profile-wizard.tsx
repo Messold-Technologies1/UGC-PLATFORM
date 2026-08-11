@@ -136,14 +136,9 @@ export function CreatorProfileWizard({
   const location = useCreatorLocationForm({ initialProfile, adminMode });
   const facets = useCreatorFacetsForm({ initialProfile, enabled });
   const packages = useCreatorPackagesForm({ initialProfile });
-  const packageDeliveryDays = useMemo(() => {
-    const raw = Number(packages.packageDraft.deliveryDays);
-    return Number.isInteger(raw) && raw > 0 ? raw : null;
-  }, [packages.packageDraft.deliveryDays]);
   const addOns = useCreatorAddOnsForm({
     initialProfile,
     enabled,
-    packageDeliveryDays,
   });
 
   const myPortfolioQuery = useMyPortfolioVideosQuery({
@@ -850,7 +845,6 @@ export function CreatorProfileWizard({
                   selectedAddOnSlugs={addOns.selectedAddOnSlugs}
                   addOnDrafts={addOns.addOnDrafts}
                   unmatchedNames={addOns.hydratedAddOns.unmatchedNames}
-                  packageDeliveryDays={packageDeliveryDays}
                   addOnsLoading={addOns.addOnOptionsQuery.isLoading}
                   addOnsError={addOns.addOnOptionsQuery.isError}
                   onAddOnsRetry={() => void addOns.addOnOptionsQuery.refetch()}

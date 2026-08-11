@@ -93,13 +93,6 @@ export class CreatorAddOnResponseDto {
     example: 'Travel and setup for in-store shoots',
   })
   description?: string | null;
-
-  @ApiPropertyOptional({
-    example: 3,
-    nullable: true,
-    description: 'Promised delivery in days for Faster Delivery; null otherwise.',
-  })
-  deliveryDays?: number | null;
 }
 
 export class CreatorPortfolioVideoPreviewResponseDto {

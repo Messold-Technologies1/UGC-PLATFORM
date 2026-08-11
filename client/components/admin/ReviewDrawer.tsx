@@ -634,11 +634,6 @@ function ReviewProfileSections({
                           {addOn.description}
                         </p>
                       ) : null}
-                      {addOn.deliveryDays != null ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {addOn.deliveryDays} day delivery
-                        </p>
-                      ) : null}
                     </div>
                     <p className="shrink-0 text-sm font-bold">
                       {formatInrPrice(addOn.priceAmount)}

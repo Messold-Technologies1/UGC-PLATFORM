@@ -1514,12 +1514,6 @@ function PricingCard({
                           {a.description}
                         </p>
                       )}
-                      {a.deliveryDays != null && (
-                        <p className="mt-0.5 text-xs font-medium text-rose-600">
-                          Delivery in {a.deliveryDays} day
-                          {a.deliveryDays === 1 ? "" : "s"}
-                        </p>
-                      )}
                     </div>
                     <span className="shrink-0 text-sm font-semibold text-neutral-900">
                       +{formatINR(toNumber(a.priceAmount))}

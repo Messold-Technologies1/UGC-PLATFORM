@@ -372,7 +372,6 @@ export class OrdersService {
       name: string;
       priceAmount: string;
       description: string | null;
-      deliveryDays: number | null;
     }>;
   }> {
     const pkg = await this.prisma.creatorPackage.findFirst({
@@ -401,13 +400,7 @@ export class OrdersService {
       }
     }
 
-    // A purchased delivery-affecting add-on (Faster Delivery) overrides the
-    // package delivery time. min() is defensive against any data drift.
-    const fasterAddOn = addOnRows.find((a) => a.deliveryDays != null);
-    const effectiveDeliveryDays =
-      fasterAddOn?.deliveryDays != null
-        ? Math.min(pkg.deliveryDays, fasterAddOn.deliveryDays)
-        : pkg.deliveryDays;
+    const effectiveDeliveryDays = pkg.deliveryDays;
 
     const packageAmountPaise = toPaise(pkg.priceAmount);
     const addOnsTotalDecimal =
@@ -432,7 +425,6 @@ export class OrdersService {
       name: a.name,
       priceAmount: a.priceAmount.toString(),
       description: a.description ?? null,
-      deliveryDays: a.deliveryDays ?? null,
     }));
 
     return {

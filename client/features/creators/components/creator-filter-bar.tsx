@@ -416,8 +416,7 @@ const DeliveryWithinBody = memo(function DeliveryWithinBody({
         Delivery time
       </h5>
       <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
-        Includes creators whose package or Faster Delivery add-on meets this
-        timeline.
+        Includes creators whose package delivery meets this timeline.
       </p>
       <CheckboxRow
         items={DELIVERY_WITHIN_OPTIONS}

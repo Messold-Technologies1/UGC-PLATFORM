@@ -657,12 +657,6 @@ export function CreatorAccountProfileView({
                               {addOn.description}
                             </p>
                           ) : null}
-                          {addOn.deliveryDays != null ? (
-                            <p className="mt-1 text-xs font-medium text-primary">
-                              Delivery in {addOn.deliveryDays} day
-                              {addOn.deliveryDays === 1 ? "" : "s"}
-                            </p>
-                          ) : null}
                         </li>
                       ))}
                     </ul>

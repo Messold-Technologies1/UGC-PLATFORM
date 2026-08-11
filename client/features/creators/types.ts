@@ -24,8 +24,6 @@ export interface Creator {
   languages: string[];
   deliveryDays: number;
   basicEditing?: boolean;
-  hasFasterDelivery?: boolean;
-  fasterDeliveryDays?: number | null;
   /** Present when unavailable now — ISO date YYYY-MM-DD */
   unavailableFrom?: string | null;
   unavailableTo?: string | null;
@@ -69,8 +67,6 @@ export interface AddOn {
   label: string;
   price: number;
   description?: string | null;
-  /** Promised delivery in days for Faster Delivery; null otherwise. */
-  deliveryDays?: number | null;
 }
 
 export interface Review {

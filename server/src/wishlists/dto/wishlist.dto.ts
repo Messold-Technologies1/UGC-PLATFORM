@@ -5,20 +5,14 @@ export class WishlistCreatorAddOnDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Faster Delivery' })
+  @ApiProperty({ example: 'Extra Revision' })
   name!: string;
 
   @ApiProperty({ example: '499.00', description: 'Add-on price (string decimal)' })
   priceAmount!: string;
 
-  @ApiPropertyOptional({ example: 'Delivered in 2 days instead of 5' })
+  @ApiPropertyOptional({ example: 'One additional revision cycle' })
   description?: string | null;
-
-  @ApiPropertyOptional({
-    example: 2,
-    description: 'Promised delivery days for a delivery-affecting add-on',
-  })
-  deliveryDays?: number | null;
 }
 
 export class WishlistDto {

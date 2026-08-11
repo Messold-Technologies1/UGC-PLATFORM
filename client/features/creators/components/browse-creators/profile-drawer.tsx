@@ -262,13 +262,6 @@ const OverviewTab = React.memo(function OverviewTab({
 
   const collaborationCount = profile.collaborationCount ?? 0;
   const whatYouGet = [
-    ...(profile.hasFasterDelivery
-      ? [
-          profile.fasterDeliveryDays != null
-            ? `Faster delivery available (${profile.fasterDeliveryDays} days)`
-            : "Faster delivery available as add-on",
-        ]
-      : []),
     ...(collaborationCount > 0
       ? [
           `${collaborationCount} previous collaboration${collaborationCount === 1 ? "" : "s"}`,
@@ -554,13 +547,6 @@ const PackagesTab = React.memo(function PackagesTab({
               </div>
               {addon.description ? (
                 <p className="pkg-addon-desc">{addon.description}</p>
-              ) : null}
-              {addon.deliveryDays != null ? (
-                <div className="pkg-meta">
-                  <span>
-                    <Clock size={13} /> {addon.deliveryDays} day delivery
-                  </span>
-                </div>
               ) : null}
             </div>
           ))}

@@ -342,7 +342,7 @@ export class ListCreatorsQueryDto {
   @ApiPropertyOptional({
     example: 3,
     description:
-      'Maximum delivery days (inclusive). Matches creators with at least one package or Faster Delivery add-on at or below this threshold.',
+      'Maximum delivery days (inclusive). Matches creators with at least one package at or below this threshold.',
   })
   @IsOptional()
   @Type(() => Number)

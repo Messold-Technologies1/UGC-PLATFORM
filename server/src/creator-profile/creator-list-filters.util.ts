@@ -288,22 +288,11 @@ export function buildListCreatorsWhere(
   const maxDeliveryDays = query.maxDeliveryDays;
   if (maxDeliveryDays !== undefined) {
     clauses.push({
-      OR: [
-        {
-          packages: {
-            some: {
-              deliveryDays: { lte: maxDeliveryDays },
-            },
-          },
+      packages: {
+        some: {
+          deliveryDays: { lte: maxDeliveryDays },
         },
-        {
-          addOns: {
-            some: {
-              deliveryDays: { lte: maxDeliveryDays, not: null },
-            },
-          },
-        },
-      ],
+      },
     });
   }
 
@@ -358,7 +347,7 @@ export function buildCreatorListRelationsInclude(
       select: portfolioSelect,
     },
     stats: { select: { avgRating: true, reviewCount: true } },
-    addOns: { select: { name: true, deliveryDays: true } },
+    addOns: { select: { name: true } },
     unavailability: { select: { startsOn: true, endsOn: true } },
   };
 }

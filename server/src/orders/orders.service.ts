@@ -1905,6 +1905,7 @@ export class OrdersService {
             introVideoUrl: true,
             profileImageUrl: true,
             city: true,
+            shippingAddress: true,
           },
         },
       },
@@ -1960,6 +1961,10 @@ export class OrdersService {
         introVideoUrl: creator.introVideoUrl ?? null,
         profileImageUrl: creator.profileImageUrl ?? null,
         city: creator.city ?? null,
+        // Real address is needed so the brand can ship the product; the
+        // recipient name and phone are deliberately withheld to preserve the
+        // anonymized creator identity.
+        shippingAddress: creator.shippingAddress ?? null,
       },
     };
   }

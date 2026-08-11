@@ -130,7 +130,7 @@ export function BrandOrderShippingView({
 
         <aside className="flex flex-col gap-5 lg:col-span-4">
           <CreatorProfileCard creator={creator} order={order} />
-          <ShippingAddressCard creatorName={creator.displayName || "Creator"} />
+          <ShippingAddressCard shippingAddress={creator.shippingAddress} />
           <OrderSummaryCard order={order} orderId={orderId} briefId={briefId} brief={orderBriefData?.brief ?? null} />
           <NeedHelpCard />
         </aside>

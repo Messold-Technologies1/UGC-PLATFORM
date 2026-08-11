@@ -21,4 +21,11 @@ export class OrderCreatorSnapshotDto {
 
   @ApiPropertyOptional({ example: 'Bengaluru' })
   city?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'A-102, Green Avenue\nSaket, New Delhi - 110017\nIndia',
+    description:
+      "Creator's shipping address for physical-product orders. The recipient name and phone are intentionally omitted — the brand only ever sees the anonymized creator identity.",
+  })
+  shippingAddress?: string | null;
 }

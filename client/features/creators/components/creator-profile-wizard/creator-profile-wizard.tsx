@@ -57,6 +57,7 @@ import {
   WIZARD_STEPS,
   computeProfileStrength,
   BIO_MIN_CHARS,
+  BIO_MAX_CHARS,
   type WizardStepId,
   type WizardFacetGroup,
 } from "./wizard-config";
@@ -413,11 +414,11 @@ export function CreatorProfileWizard({
         if (facetCount("CONTENT_CATEGORY") === 0) missing.push("what you create");
         if (facetCount("CATEGORY_EXPERIENCE") === 0)
           missing.push("your category experience");
-        if (bio.trim().length < BIO_MIN_CHARS)
-          missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
       } else if (id === "capabilities") {
         if (facetCount("CONTENT_FORMAT") === 0) missing.push("who can appear in your videos");
       } else if (id === "intro-video") {
+        if (bio.trim().length < BIO_MIN_CHARS)
+          missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
         if (!introVideo.introVideoPreviewUrl) missing.push("an intro video");
         else if (!introConfirmed) missing.push("the intro video confirmation");
       } else if (id === "pricing") {
@@ -548,9 +549,11 @@ export function CreatorProfileWizard({
 
     const aboutOk =
       displayName.trim() && dateOfBirth && gender && location.city.trim() && selectedLanguageCount > 0;
-    const identityOk = facetCount("CONTENT_CATEGORY") > 0 && bio.trim().length >= BIO_MIN_CHARS;
+    const identityOk = facetCount("CONTENT_CATEGORY") > 0;
     const capOk = facetCount("CONTENT_FORMAT") > 0;
-    const introOk = Boolean(introVideo.introVideoPreviewUrl);
+    const introOk =
+      Boolean(introVideo.introVideoPreviewUrl) &&
+      bio.trim().length >= BIO_MIN_CHARS;
     const pricingOk = validatePackagePrice(packages.packageDraft.priceAmount) === undefined;
     const addOnCount = addOns.selectedAddOnSlugs.length;
 
@@ -756,6 +759,7 @@ export function CreatorProfileWizard({
               {activeStep.id === "about" ? (
                 <AboutYouStep
                   disabled={pending}
+                  profileId={profileId}
                   adminMode={adminMode}
                   phone={phone}
                   onPhoneChange={setPhone}
@@ -802,9 +806,6 @@ export function CreatorProfileWizard({
                   onToggleFacet={(group: WizardFacetGroup, slug: string) =>
                     facets.toggleFacet(group.dimension, slug)
                   }
-                  profileId={profileId}
-                  bio={bio}
-                  onBioChange={(v) => setBio(v.slice(0, 500))}
                 />
               ) : activeStep.id === "capabilities" ? (
                 <CapabilitiesStep
@@ -824,6 +825,8 @@ export function CreatorProfileWizard({
                   onSelectFile={(file) => void introVideo.handleIntroVideoSelected(file)}
                   confirmed={introConfirmed}
                   onConfirmedChange={setIntroConfirmed}
+                  bio={bio}
+                  onBioChange={(v) => setBio(v.slice(0, BIO_MAX_CHARS))}
                 />
               ) : activeStep.id === "portfolio" ? (
                 <PortfolioStep

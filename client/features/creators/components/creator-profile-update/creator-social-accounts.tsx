@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
+  ChevronDown,
   Instagram,
   Youtube,
   MessageCircle,
@@ -159,12 +161,20 @@ function InstagramConnected({
   disconnecting: boolean;
   reconnecting: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const expired = conn.status === "EXPIRED" || conn.status === "REVOKED";
   const audience = conn.audience;
   const reach = conn.reach30d;
+  const hasAudience = Boolean(
+    audience &&
+      (audience.ageRanges.length > 0 ||
+        audience.gender.length > 0 ||
+        audience.topCities.length > 0 ||
+        audience.topCountries.length > 0),
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div
         style={{
           display: "flex",
@@ -240,49 +250,128 @@ function InstagramConnected({
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <MetricTile
-          label="Followers"
-          value={formatCount(conn.followersCount)}
-        />
-        <MetricTile label="Posts" value={formatCount(conn.mediaCount)} />
-        {reach != null && (
-          <MetricTile label="Reach (30d)" value={formatCount(reach)} />
-        )}
-        {conn.profileViews30d != null && (
-          <MetricTile
-            label="Profile views (30d)"
-            value={formatCount(conn.profileViews30d)}
-          />
-        )}
-      </div>
-
-      {audience &&
-        (audience.ageRanges.length > 0 ||
-          audience.gender.length > 0 ||
-          audience.topCities.length > 0 ||
-          audience.topCountries.length > 0) && (
-          <div
+      {/* Accordion: keep the connected state compact and reveal the full
+          Instagram metrics + audience breakdown only when the creator asks. */}
+      {!expired ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-              gap: 20,
-              paddingTop: 4,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              background: "var(--muted)",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--foreground)",
             }}
           >
-            <DemographicBars title="Age ranges" buckets={audience.ageRanges} />
-            <DemographicBars
-              title="Gender"
-              buckets={audience.gender}
-              labelMap={GENDER_LABELS}
+            <span>{expanded ? "Hide details" : "View details"}</span>
+            <ChevronDown
+              size={16}
+              aria-hidden
+              style={{
+                transform: expanded ? "rotate(180deg)" : "none",
+                transition: "transform 0.18s ease",
+              }}
             />
-            <DemographicBars title="Top cities" buckets={audience.topCities} />
-            <DemographicBars
-              title="Top countries"
-              buckets={audience.topCountries}
-            />
-          </div>
-        )}
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expanded ? (
+              <motion.div
+                key="ig-details"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                style={{ overflow: "hidden" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 18,
+                    paddingTop: 4,
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <MetricTile
+                      label="Followers"
+                      value={formatCount(conn.followersCount)}
+                    />
+                    <MetricTile
+                      label="Posts"
+                      value={formatCount(conn.mediaCount)}
+                    />
+                    {reach != null && (
+                      <MetricTile
+                        label="Reach (30d)"
+                        value={formatCount(reach)}
+                      />
+                    )}
+                    {conn.profileViews30d != null && (
+                      <MetricTile
+                        label="Profile views (30d)"
+                        value={formatCount(conn.profileViews30d)}
+                      />
+                    )}
+                  </div>
+
+                  {hasAudience && audience ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit,minmax(200px,1fr))",
+                        gap: 20,
+                        paddingTop: 4,
+                      }}
+                    >
+                      <DemographicBars
+                        title="Age ranges"
+                        buckets={audience.ageRanges}
+                      />
+                      <DemographicBars
+                        title="Gender"
+                        buckets={audience.gender}
+                        labelMap={GENDER_LABELS}
+                      />
+                      <DemographicBars
+                        title="Top cities"
+                        buckets={audience.topCities}
+                      />
+                      <DemographicBars
+                        title="Top countries"
+                        buckets={audience.topCountries}
+                      />
+                    </div>
+                  ) : (
+                    <p
+                      style={{
+                        fontSize: 12,
+                        color: "var(--muted-foreground)",
+                        margin: 0,
+                      }}
+                    >
+                      Audience metrics will appear here after the first sync
+                      (within a day of connecting).
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </>
+      ) : null}
     </div>
   );
 }

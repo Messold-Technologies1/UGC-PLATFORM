@@ -3,10 +3,11 @@
 import { useState, type RefObject } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Check, Eye, ImageUp, RefreshCw, X } from "lucide-react";
+import { Camera, Check, Eye, ImageUp, Instagram, RefreshCw, X } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
+import { CreatorSocialAccounts } from "@/features/creators/components/creator-profile-update/creator-social-accounts";
 import { LanguageMultiSelect } from "@/features/creators/components/creator-profile-update/language-multi-select";
 import { genderOptions } from "@/features/creators/hooks/creator-profile-form-utils";
 import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
@@ -15,6 +16,9 @@ import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-prof
 
 export type AboutYouStepProps = {
   disabled: boolean;
+
+  /** Creator profile id — used to render the Instagram connection block. */
+  profileId: string;
 
   /** Admin editing on a creator's behalf — shows the phone field, locks country. */
   adminMode?: boolean;
@@ -59,6 +63,7 @@ export type AboutYouStepProps = {
 export function AboutYouStep(props: AboutYouStepProps) {
   const {
     disabled,
+    profileId,
     adminMode = false,
     phone,
     onPhoneChange,
@@ -376,6 +381,29 @@ export function AboutYouStep(props: AboutYouStepProps) {
           and a lower creator score.
         </span>
       </label>
+
+      <div className="cw-hr" />
+
+      {/* Connected accounts */}
+      <div className="cw-facet">
+        <div className="cw-facet-label">
+          <span>
+            <Instagram
+              size={14}
+              aria-hidden
+              style={{ verticalAlign: "-2px", marginRight: 6 }}
+            />
+            Connected accounts
+          </span>
+        </div>
+        <span className="cw-facet-help">
+          Link your Instagram to showcase live audience metrics and
+          demographics. YouTube and Reddit are coming soon.
+        </span>
+        <div style={{ marginTop: 12 }}>
+          <CreatorSocialAccounts profileId={profileId} />
+        </div>
+      </div>
 
       {/* Full-size photo viewer */}
       <AnimatePresence>

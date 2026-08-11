@@ -158,7 +158,7 @@ export class CreateCreatorProfileDto {
   @ApiPropertyOptional({ example: 'One line about the creator.' })
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(500)
   bio?: string;
 
   @ApiPropertyOptional({ enum: CreatorGender })

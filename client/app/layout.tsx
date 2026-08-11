@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { DM_Sans, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "sonner";
 import { BoneyardBootstrap } from "@/app/bones/bootstrap";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -41,14 +41,22 @@ fbq('track', 'PageView');
 `
   : null;
 
-const dmSans = DM_Sans({
+// Self-hosted (via next/font/local) instead of next/font/google so the
+// production build never has to reach fonts.googleapis.com — the Turbopack
+// build fails to resolve Google fonts when that network call is blocked.
+// These are the latin-subset variable woff2 files for DM Sans and Inter.
+const dmSans = localFont({
+  src: "./fonts/DMSans-latin.woff2",
   variable: "--font-heading",
-  subsets: ["latin"],
+  weight: "100 1000",
+  display: "swap",
 });
 
-const inter = Inter({
+const inter = localFont({
+  src: "./fonts/Inter-latin.woff2",
   variable: "--font-sans",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

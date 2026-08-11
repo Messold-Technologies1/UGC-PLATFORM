@@ -150,9 +150,28 @@ export function useSubmitBrandProfileMutation({
       toast.error(
         "Could not update profile",
         {
-          description: "Check your connection and try again.",
+          description:
+            extractProfileErrorMessage(error) ??
+            "Check your connection and try again.",
         },
       );
     },
   });
+}
+
+/**
+ * Surface the server's reason for a failed save (e.g. a validation message)
+ * instead of a generic connection error. Returns null for network/timeout
+ * errors that carry no server message so callers can fall back.
+ */
+function extractProfileErrorMessage(error: unknown): string | null {
+  if (!isAxiosError(error)) return null;
+  const message = error.response?.data?.message;
+  if (Array.isArray(message) && message.length > 0) {
+    return message.join(", ");
+  }
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+  return null;
 }

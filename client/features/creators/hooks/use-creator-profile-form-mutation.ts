@@ -25,6 +25,24 @@ import {
   type PresignProfileImageUploadResponse,
 } from "../api/presign-creator-profile-image";
 
+/**
+ * Pull the human-readable reason out of an API error so the toast can show
+ * *why* the save failed (e.g. "bio must be shorter than or equal to 500
+ * characters") instead of a generic connection message. Returns null when the
+ * error carries no server message (network/timeout) so callers can fall back.
+ */
+function extractProfileErrorMessage(error: unknown): string | null {
+  if (!isAxiosError(error)) return null;
+  const message = error.response?.data?.message;
+  if (Array.isArray(message) && message.length > 0) {
+    return message.join(", ");
+  }
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+  return null;
+}
+
 type CreatorProfileMode = "create" | "update";
 
 type SubmitCreatorProfileVariables = {
@@ -207,11 +225,13 @@ export function useSubmitCreatorProfileMutation({
 
       await onSuccess?.(result);
     },
-    onError: () => {
+    onError: (error) => {
       toast.error(
         "Could not update profile",
         {
-          description: "Check your connection and try again.",
+          description:
+            extractProfileErrorMessage(error) ??
+            "Check your connection and try again.",
         },
       );
     },

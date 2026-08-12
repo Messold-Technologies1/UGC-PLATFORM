@@ -257,7 +257,7 @@ export class CreateCreatorProfileDto {
     example: [
       {
         name: 'Standard',
-        deliverables: ['1 Video', 'Basic editing'],
+        deliverables: ['1 Video', 'Basic editing', 'Raw footage', '1080p minimum'],
         videoLengthSeconds: 60,
         basicEditing: true,
         priceAmount: '500',

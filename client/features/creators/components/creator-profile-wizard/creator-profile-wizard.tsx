@@ -177,6 +177,7 @@ export function CreatorProfileWizard({
   const [introConfirmed, setIntroConfirmed] = useState<boolean>(
     () => Boolean(introVideo.introVideoPreviewUrl),
   );
+  const [packageDefaultsConfirmed, setPackageDefaultsConfirmed] = useState(false);
   const [goLivePolicies, setGoLivePolicies] = useState<GoLivePolicyAcceptanceState>(
     () =>
       createEmptyGoLivePolicyAcceptance(
@@ -312,6 +313,7 @@ export function CreatorProfileWizard({
       languageCount: selectedLanguageCount,
       hasPackage,
       mandatoryAddOnsPriced: addOns.mandatoryAddOnsPriced,
+      packageDefaultsConfirmed,
       publicVideoCount: publicPortfolioCount,
       policiesAccepted: areAllGoLivePoliciesAccepted(goLivePolicies),
     };
@@ -319,6 +321,7 @@ export function CreatorProfileWizard({
     facets.selectedFacets,
     packages.packageDraft,
     addOns.mandatoryAddOnsPriced,
+    packageDefaultsConfirmed,
     profileImage.profileImagePreviewUrl,
     introVideo.introVideoPreviewUrl,
     displayName,
@@ -429,8 +432,10 @@ export function CreatorProfileWizard({
       } else if (id === "pricing") {
         const priceErr = validatePackagePrice(packages.packageDraft.priceAmount);
         if (priceErr) missing.push("a valid starting price");
+        if (!packageDefaultsConfirmed)
+          missing.push("confirmation of the package defaults");
         if (!addOns.mandatoryAddOnsPriced)
-          missing.push("prices for the mandatory add-ons");
+          missing.push("prices for the required add-ons");
       }
       return missing;
     },
@@ -445,6 +450,7 @@ export function CreatorProfileWizard({
       bio,
       introVideo.introVideoPreviewUrl,
       introConfirmed,
+      packageDefaultsConfirmed,
       packages.packageDraft.priceAmount,
       addOns.mandatoryAddOnsPriced,
     ],
@@ -561,7 +567,10 @@ export function CreatorProfileWizard({
     const introOk =
       Boolean(introVideo.introVideoPreviewUrl) &&
       bio.trim().length >= BIO_MIN_CHARS;
-    const pricingOk = validatePackagePrice(packages.packageDraft.priceAmount) === undefined;
+    const pricingOk =
+      validatePackagePrice(packages.packageDraft.priceAmount) === undefined &&
+      packageDefaultsConfirmed &&
+      addOns.mandatoryAddOnsPriced;
     const addOnCount = addOns.selectedAddOnSlugs.length;
 
     return [
@@ -619,6 +628,8 @@ export function CreatorProfileWizard({
     introVideo.introVideoPreviewUrl,
     packages.packageDraft,
     addOns.selectedAddOnSlugs.length,
+    addOns.mandatoryAddOnsPriced,
+    packageDefaultsConfirmed,
     publicPortfolioCount,
   ]);
 
@@ -809,6 +820,8 @@ export function CreatorProfileWizard({
                   onAddOnsRetry={() => void addOns.addOnOptionsQuery.refetch()}
                   onToggleAddOn={(option) => addOns.toggleAddOn(option)}
                   onAddOnDraftChange={(slug, patch) => addOns.updateAddOnDraft(slug, patch)}
+                  defaultsConfirmed={packageDefaultsConfirmed}
+                  onDefaultsConfirmedChange={setPackageDefaultsConfirmed}
                 />
               ) : activeStep.id === "review" ? (
                 <ReviewStep

@@ -79,10 +79,15 @@ export class CreatorPackageService {
     const normalizedDeliverables = deliverables.length
       ? deliverables
       : ['1 Video'];
-    // Basic editing is always included — creators must submit their video
-    // already edited, so every package carries it regardless of the payload.
+    // Every package includes basic editing and the raw clips for the same order.
     if (!normalizedDeliverables.includes('Basic editing')) {
       normalizedDeliverables.push('Basic editing');
+    }
+    if (!normalizedDeliverables.includes('Raw footage')) {
+      normalizedDeliverables.push('Raw footage');
+    }
+    if (!normalizedDeliverables.includes('1080p minimum')) {
+      normalizedDeliverables.push('1080p minimum');
     }
 
     await tx.creatorPackage.create({

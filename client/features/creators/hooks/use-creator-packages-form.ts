@@ -5,10 +5,10 @@ import {
   createInitialPackageDraft,
   PACKAGE_DEFAULT_MAX_REVISIONS,
   PACKAGE_MAX_DELIVERY_DAYS,
-  PACKAGE_MAX_VIDEO_LENGTH_SECONDS,
   PACKAGE_MIN_DELIVERY_DAYS,
   PACKAGE_NAME,
   PACKAGE_PRICE_STEP,
+  PACKAGE_VIDEO_LENGTH_SECONDS,
   type PackageDraft,
 } from "./creator-profile-form-utils";
 import type { CreatorPackageCreatePayload } from "@/features/creators/api/create-creator-profile";
@@ -28,21 +28,9 @@ export function useCreatorPackagesForm({
   const buildPackages = useCallback(():
     | CreatorPackageCreatePayload[]
     | null => {
-    const videoLength = Number(packageDraft.videoLengthSeconds);
     const price = packageDraft.priceAmount.trim();
     const priceNumber = Number(price);
     const deliveryDays = Number(packageDraft.deliveryDays);
-
-    if (
-      !Number.isInteger(videoLength) ||
-      videoLength < 1 ||
-      videoLength > PACKAGE_MAX_VIDEO_LENGTH_SECONDS
-    ) {
-      toast.error(
-        `Video length must be between 1 and ${PACKAGE_MAX_VIDEO_LENGTH_SECONDS} seconds.`,
-      );
-      return null;
-    }
     if (!/^\d+$/.test(price)) {
       toast.error("Package price must be a whole number.");
       return null;
@@ -65,14 +53,14 @@ export function useCreatorPackagesForm({
       );
       return null;
     }
-    // Basic editing is always included — creators must submit edited video.
-    const deliverables = ["1 Video", "Basic editing"];
+    // Every Standard package includes the edited video and the raw clips.
+    const deliverables = ["1 Video", "Basic editing", "Raw footage", "1080p minimum"];
 
     return [
       {
         name: PACKAGE_NAME,
         deliverables,
-        videoLengthSeconds: videoLength,
+        videoLengthSeconds: PACKAGE_VIDEO_LENGTH_SECONDS,
         basicEditing: true,
         priceAmount: price,
         deliveryDays,

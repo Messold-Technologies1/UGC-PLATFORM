@@ -1428,8 +1428,8 @@ function PricingCard({
           ))}
         </ul>
         <p className="mt-3 text-xs text-neutral-500">
-          Basic editing is included — you&apos;ll receive a ready-to-use, edited
-          video.
+          You&apos;ll receive the edited video and the raw footage. Videos are
+          delivered at a minimum of 1080p.
         </p>
       </div>
 

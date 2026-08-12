@@ -29,6 +29,8 @@ export type PricingStepProps = {
   onAddOnsRetry: () => void;
   onToggleAddOn: (option: CreatorAddOnOption) => void;
   onAddOnDraftChange: (slug: string, patch: Partial<AddOnDraft>) => void;
+  defaultsConfirmed: boolean;
+  onDefaultsConfirmedChange: (confirmed: boolean) => void;
 };
 
 export function PricingStep({
@@ -45,6 +47,8 @@ export function PricingStep({
   onAddOnsRetry,
   onToggleAddOn,
   onAddOnDraftChange,
+  defaultsConfirmed,
+  onDefaultsConfirmedChange,
 }: PricingStepProps) {
   return (
     <div className="cw-card">
@@ -59,6 +63,8 @@ export function PricingStep({
         disabled={disabled}
         onChange={onPackageChange}
         errors={packageErrors}
+        defaultsConfirmed={defaultsConfirmed}
+        onDefaultsConfirmedChange={onDefaultsConfirmedChange}
       />
 
       <div className="cw-hr" />

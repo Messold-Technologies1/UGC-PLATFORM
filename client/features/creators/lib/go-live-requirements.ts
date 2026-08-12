@@ -41,6 +41,8 @@ export interface GoLiveSnapshot {
   hasPackage: boolean;
   /** Whether every mandatory add-on has been priced. */
   mandatoryAddOnsPriced: boolean;
+  /** Creator confirmed the fixed Standard package defaults. */
+  packageDefaultsConfirmed: boolean;
   publicVideoCount: number;
   /**
    * Whether the creator has accepted all required go-live policies
@@ -79,6 +81,8 @@ export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
   if (snapshot.languageCount < 1) missing.push("At least one language");
 
   if (!snapshot.hasPackage) missing.push("At least one package");
+  if (!snapshot.packageDefaultsConfirmed)
+    missing.push("Package defaults confirmation");
   if (!snapshot.mandatoryAddOnsPriced) missing.push("Priced mandatory add-ons");
 
   if (snapshot.publicVideoCount < MIN_PORTFOLIO_VIDEOS) {

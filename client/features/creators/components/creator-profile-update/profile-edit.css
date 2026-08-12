@@ -884,6 +884,103 @@
   color: var(--primary);
 }
 
+.pe-req {
+  color: var(--destructive);
+  font-weight: 700;
+}
+
+.pe-defaults {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--muted);
+  padding: 16px;
+}
+
+.pe-defaults-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pe-defaults-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.pe-defaults-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pe-defaults-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pe-defaults-check {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--p10, color-mix(in oklab, var(--primary) 12%, transparent));
+  color: var(--primary);
+}
+
+.pe-defaults-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pe-defaults-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pe-defaults-k {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pe-defaults-v {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+  text-align: right;
+}
+
+.pe-defaults-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.pe-defaults .cw-confirm {
+  margin-top: 2px;
+  background: var(--card);
+}
+
 .pe-savebar {
   position: fixed;
   left: 0;

@@ -1,5 +1,7 @@
 "use client";
 
+import { Check } from "lucide-react";
+
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
 
@@ -24,11 +26,41 @@ export type CreatorProfileUpdateFormProps = {
   onPendingChange?: (pending: boolean) => void;
 };
 
+const PACKAGE_DEFAULTS: Array<{ label: string; value: string; note: string }> = [
+  {
+    label: "Package name",
+    value: PACKAGE_NAME,
+    note: "Every creator starts with the same Standard package.",
+  },
+  {
+    label: "Deliverable",
+    value: "1 edited video + raw files, 1080p min",
+    note: "Send the finished edit and the original raw clips. The video must be at least 1080p.",
+  },
+  {
+    label: "Video length",
+    value: `Up to ${PACKAGE_MAX_VIDEO_LENGTH_SECONDS} seconds`,
+    note: "Keep the final cut within this length.",
+  },
+  {
+    label: "Revisions",
+    value: `${PACKAGE_DEFAULT_MAX_REVISIONS} rounds`,
+    note: "Brands can request this many changes after delivery.",
+  },
+  {
+    label: "Basic editing",
+    value: "Always included",
+    note: "Cut, captions and cleanup are part of the package — still send the raw footage with it.",
+  },
+];
+
 export function PackageEditor({
   draft,
   disabled,
   onChange,
   errors,
+  defaultsConfirmed,
+  onDefaultsConfirmedChange,
 }: {
   draft: PackageDraft;
   disabled: boolean;
@@ -38,33 +70,12 @@ export function PackageEditor({
     deliveryDays?: string;
     videoLengthSeconds?: string;
   };
+  defaultsConfirmed?: boolean;
+  onDefaultsConfirmedChange?: (confirmed: boolean) => void;
 }) {
   return (
     <div className="pe-pkg">
-      <div className="pe-grid pe-grid-3">
-        <div className="pe-field">
-          <label htmlFor="package-name">Package Name</label>
-          <input
-            id="package-name"
-            className="pe-input"
-            disabled
-            value={PACKAGE_NAME}
-            readOnly
-            style={{ opacity: 0.9, color: "var(--foreground)" }}
-          />
-        </div>
-
-        <div className="pe-field">
-          <label htmlFor="package-deliverables">Deliverables</label>
-          <input
-            id="package-deliverables"
-            className="pe-input"
-            disabled
-            value="1 Video"
-            readOnly
-            style={{ opacity: 0.9, color: "var(--foreground)" }}
-          />
-        </div>
+      <div className="pe-grid pe-grid-2">
         <div className="pe-field">
           <label htmlFor="packagePriceAmount">Price (₹)</label>
           <div style={{ position: "relative" }}>
@@ -130,59 +141,63 @@ export function PackageEditor({
             }}
             aria-invalid={!!errors?.deliveryDays}
           />
-          {errors?.deliveryDays && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{errors.deliveryDays}</p>}
-        </div>
-
-        <div className="pe-field">
-          <label htmlFor="packageVideoLengthSeconds">Video Length (sec)</label>
-          <input
-            id="packageVideoLengthSeconds"
-            className="pe-input"
-            disabled={disabled}
-            value={draft.videoLengthSeconds}
-            inputMode="numeric"
-            placeholder={`Up to ${PACKAGE_MAX_VIDEO_LENGTH_SECONDS}`}
-            onChange={(e) => {
-              const val = normalizeWholeNumberInput(e.target.value);
-              if (Number(val) > PACKAGE_MAX_VIDEO_LENGTH_SECONDS) {
-                onChange({
-                  ...draft,
-                  videoLengthSeconds: String(PACKAGE_MAX_VIDEO_LENGTH_SECONDS),
-                });
-              } else {
-                onChange({ ...draft, videoLengthSeconds: val });
-              }
-            }}
-            aria-invalid={!!errors?.videoLengthSeconds}
-          />
-          {errors?.videoLengthSeconds && <p className="pe-help text-destructive" style={{ color: "var(--destructive)" }}>{errors.videoLengthSeconds}</p>}
-        </div>
-
-        <div className="pe-field">
-          <label htmlFor="package-revisions">Revisions</label>
-          <input
-            id="package-revisions"
-            className="pe-input"
-            disabled
-            value={String(PACKAGE_DEFAULT_MAX_REVISIONS)}
-            readOnly
-          />
+          {errors?.deliveryDays && (
+            <p
+              className="pe-help text-destructive"
+              style={{ color: "var(--destructive)" }}
+            >
+              {errors.deliveryDays}
+            </p>
+          )}
         </div>
       </div>
-      <div
-        className="pe-note"
-        style={{
-          marginTop: 14,
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-          background: "var(--muted)",
-          padding: "10px 14px",
-          fontSize: 12.5,
-          color: "var(--foreground)",
-        }}
-      >
-        <strong>Basic editing is always included.</strong> You must submit your
-        video already edited — brands receive a ready-to-use, edited video.
+
+      <div className="pe-defaults">
+        <div className="pe-defaults-head">
+          <p className="pe-defaults-label">What&apos;s included</p>
+          <span className="pe-help">
+            Fixed for every Standard order. Brands see these on your package —
+            confirm you can deliver them.
+          </span>
+        </div>
+        <ul className="pe-defaults-list">
+          {PACKAGE_DEFAULTS.map((item) => (
+            <li key={item.label} className="pe-defaults-item">
+              <span className="pe-defaults-check" aria-hidden>
+                <Check size={12} strokeWidth={3} />
+              </span>
+              <div className="pe-defaults-copy">
+                <div className="pe-defaults-row">
+                  <span className="pe-defaults-k">{item.label}</span>
+                  <span className="pe-defaults-v">{item.value}</span>
+                </div>
+                <p className="pe-defaults-note">{item.note}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {onDefaultsConfirmedChange ? (
+          <label
+            className="cw-confirm"
+            data-checked={Boolean(defaultsConfirmed)}
+            data-disabled={disabled}
+          >
+            <input
+              type="checkbox"
+              className="cw-confirm-box"
+              checked={Boolean(defaultsConfirmed)}
+              disabled={disabled}
+              onChange={(e) => onDefaultsConfirmedChange(e.target.checked)}
+            />
+            <span className="cw-confirm-tick" aria-hidden>
+              <Check size={13} strokeWidth={3} />
+            </span>
+            <span className="cw-confirm-text">
+              I can deliver all of the above on every order.{" "}
+              <span className="cw-req">*</span>
+            </span>
+          </label>
+        ) : null}
       </div>
     </div>
   );
@@ -210,8 +225,8 @@ export function AddOnCatalogEditor({
       <div className="pe-field" style={{ marginBottom: 14 }}>
         <label style={{ fontSize: 14, fontWeight: 700 }}>Add-ons</label>
         <span className="pe-help">
-          Extras brands can add to your package. Mandatory add-ons are always
-          offered and must be priced before you go live.
+          Extras brands can add to your package. Required add-ons (marked *)
+          are always offered and must be priced before you go live.
         </span>
       </div>
 
@@ -271,19 +286,9 @@ export function AddOnCatalogEditor({
                     />
                     {option.name}
                     {option.mandatory ? (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.04em",
-                          color: "var(--primary)",
-                          border: "1px solid var(--primary)",
-                          borderRadius: 999,
-                          padding: "1px 7px",
-                        }}
-                      >
-                        Mandatory
+                      <span className="pe-req" aria-label="Required">
+                        {" "}
+                        *
                       </span>
                     ) : null}
                   </label>

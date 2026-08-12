@@ -176,35 +176,11 @@ export function buildListCreatorsWhere(
     }
   }
 
-  const facetClause = facetWhere(
-    CreatorFacetDimension.CONTENT_FORMAT,
-    query.contentFormat,
-  );
-  if (facetClause) clauses.push(facetClause);
-
   const appearanceClause = facetWhere(
     CreatorFacetDimension.APPEARANCE,
     query.appearance,
   );
   if (appearanceClause) clauses.push(appearanceClause);
-
-  const contentStyleClause = facetWhere(
-    CreatorFacetDimension.CONTENT_STYLE,
-    query.contentStyle,
-  );
-  if (contentStyleClause) clauses.push(contentStyleClause);
-
-  const capabilityClause = facetWhere(
-    CreatorFacetDimension.CAPABILITY,
-    query.capability,
-  );
-  if (capabilityClause) clauses.push(capabilityClause);
-
-  const lifeClause = facetWhere(
-    CreatorFacetDimension.LIFE_STYLE,
-    query.lifeStyle,
-  );
-  if (lifeClause) clauses.push(lifeClause);
 
   const occupationClause = facetWhere(
     CreatorFacetDimension.OCCUPATION,
@@ -217,24 +193,6 @@ export function buildListCreatorsWhere(
     query.contentCategory,
   );
   if (contentCategoryClause) clauses.push(contentCategoryClause);
-
-  const catExpClause = facetWhere(
-    CreatorFacetDimension.CATEGORY_EXPERIENCE,
-    query.categoryExperience,
-  );
-  if (catExpClause) clauses.push(catExpClause);
-
-  const availClause = facetWhere(
-    CreatorFacetDimension.CAN_CREATE_WITH,
-    query.canCreateWith,
-  );
-  if (availClause) clauses.push(availClause);
-
-  const aiContentClause = facetWhere(
-    CreatorFacetDimension.AI_CONTENT_PERMISSION,
-    query.aiContentPermission,
-  );
-  if (aiContentClause) clauses.push(aiContentClause);
 
   const langClause = languageFacetWhere(query.language);
   if (langClause) clauses.push(langClause);

@@ -61,15 +61,8 @@ describe('evaluateProfileCompleteness', () => {
 
   it('does not require any facet dimension other than creator category', () => {
     for (const dimension of [
-      CreatorFacetDimension.CONTENT_FORMAT,
-      CreatorFacetDimension.CATEGORY_EXPERIENCE,
       CreatorFacetDimension.APPEARANCE,
-      CreatorFacetDimension.CONTENT_STYLE,
-      CreatorFacetDimension.CAPABILITY,
       CreatorFacetDimension.OCCUPATION,
-      CreatorFacetDimension.CAN_CREATE_WITH,
-      CreatorFacetDimension.LIFE_STYLE,
-      CreatorFacetDimension.AI_CONTENT_PERMISSION,
       CreatorFacetDimension.CREATOR_TYPE,
     ]) {
       expect(REQUIRED_FACET_DIMENSIONS).not.toContain(dimension);

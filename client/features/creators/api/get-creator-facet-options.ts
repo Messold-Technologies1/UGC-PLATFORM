@@ -2,17 +2,10 @@ import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 
 export const creatorFacetDimensions = [
-  "CONTENT_FORMAT",
-  "APPEARANCE",
-  "CONTENT_STYLE",
-  "CAPABILITY",
-  "LIFE_STYLE",
-  "OCCUPATION",
   "CONTENT_CATEGORY",
-  "CATEGORY_EXPERIENCE",
-  "CAN_CREATE_WITH",
-  "AI_CONTENT_PERMISSION",
   "CREATOR_TYPE",
+  "OCCUPATION",
+  "APPEARANCE",
   "LANGUAGE",
 ] as const;
 

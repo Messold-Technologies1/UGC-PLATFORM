@@ -111,21 +111,24 @@ export type WizardFacetGroup = {
 export const IDENTITY_FACET_GROUPS: WizardFacetGroup[] = [
   {
     dimension: "CONTENT_CATEGORY",
-    label: "What's your creator category?",
-    help: "What you create most. Brands find you by this.",
+    label: "What's your niche?",
+    help: "The topics you create about most. Brands search by niche to find creators who fit their campaign.",
     required: true,
   },
   {
     dimension: "CREATOR_TYPE",
     label: "What's your creator type?",
+    help: "Helps brands match you to briefs that need a specific persona — mom, couple, student, and more.",
   },
   {
     dimension: "OCCUPATION",
     label: "What do you do besides creating content?",
+    help: "Adds context about your day-to-day life — useful for authentic lifestyle and testimonial content.",
   },
   {
     dimension: "APPEARANCE",
-    label: "How would you describe your on-camera look?",
+    label: "Appearance",
+    help: "Brands often filter by appearance for product fit and on-camera diversity.",
   },
 ];
 

@@ -6,7 +6,7 @@ import "./creator-profile-wizard.css";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, Eye, Flame, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Flame, Lightbulb } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 
@@ -238,14 +238,6 @@ export function CreatorProfileWizard({
     return map;
   }, [facets.facetOptionsByDimension.LANGUAGE]);
 
-  const previewLanguages = useMemo(
-    () =>
-      selectedLanguages
-        .map((slug) => languageLabelBySlug.get(slug) ?? slug)
-        .slice(0, 3),
-    [selectedLanguages, languageLabelBySlug],
-  );
-
   const publicPortfolioCount = useMemo(
     () => (portfolioQuery.data ?? []).filter((v) => v.visibilityStatus === "public").length,
     [portfolioQuery.data],
@@ -420,7 +412,7 @@ export function CreatorProfileWizard({
           missing.push("the language confirmation");
       } else if (id === "identity") {
         if (facetCount("CONTENT_CATEGORY") === 0)
-          missing.push("your creator category");
+          missing.push("your niche");
       } else if (id === "intro-video") {
         if (bio.trim().length < BIO_MIN_CHARS)
           missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
@@ -689,45 +681,6 @@ export function CreatorProfileWizard({
               );
             })}
           </nav>
-
-          <div className="cw-preview">
-            <div className="cw-preview-head">
-              <Eye size={14} aria-hidden />
-              <span>How brands see you</span>
-            </div>
-            <div className="cw-preview-body">
-              <div
-                className="cw-preview-avatar"
-                data-empty={!profileImage.profileImagePreviewUrl}
-              >
-                {profileImage.profileImagePreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profileImage.profileImagePreviewUrl}
-                    alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                ) : null}
-              </div>
-              <div className="cw-preview-meta">
-                {displayName.trim() ? (
-                  <span className="cw-preview-name">{displayName.trim()}</span>
-                ) : (
-                  <span className="cw-preview-skel" />
-                )}
-                {previewLanguages.length > 0 ? (
-                  <div className="cw-preview-langs">
-                    {previewLanguages.map((label) => (
-                      <span key={label} className="cw-preview-pill">
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <p className="cw-preview-note">This card fills in as you complete each step.</p>
-          </div>
 
           <div className="cw-tip">
             <Lightbulb size={14} aria-hidden />

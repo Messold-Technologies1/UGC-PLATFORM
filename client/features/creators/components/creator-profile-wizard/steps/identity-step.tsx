@@ -35,49 +35,50 @@ export function IdentityStep({
 }: IdentityStepProps) {
   return (
     <div className="cw-card">
-      <FacetGroups
-        groups={IDENTITY_FACET_GROUPS}
-        optionsByDimension={optionsByDimension}
-        selectedFacets={selectedFacets}
-        disabled={disabled}
-        onToggle={onToggleFacet}
-      />
+      <div className="cw-facet-groups-stack">
+        <FacetGroups
+          groups={IDENTITY_FACET_GROUPS}
+          optionsByDimension={optionsByDimension}
+          selectedFacets={selectedFacets}
+          disabled={disabled}
+          onToggle={onToggleFacet}
+        />
 
-      <div className="cw-hr cw-hr-soft" />
+        <div className="cw-hr cw-hr-soft" />
 
-      {/* Open to — sensitive categories the creator opts into (restrictions) */}
-      <div className="cw-facet">
-        <div className="cw-facet-label">
-          <span>Open to</span>
-          {selectedRestrictions.length > 0 ? (
-            <span className="cw-facet-count">{selectedRestrictions.length}</span>
-          ) : null}
-        </div>
-        <span className="cw-facet-help">
-          Optional — sensitive categories you&apos;re comfortable creating for.
-          Only shown to brands when you opt in.
-        </span>
-        <div className="pe-chips">
-          {OPEN_TO_OPTIONS.map((name) => {
-            const isOn = selectedRestrictions.includes(name);
-            return (
-              <button
-                key={name}
-                type="button"
-                className="pe-chip"
-                data-selected={isOn}
-                disabled={disabled}
-                onClick={() => onToggleRestriction(name)}
-              >
-                {isOn ? (
-                  <span className="pe-chip-tick">
-                    <Check size={13} strokeWidth={3} />
-                  </span>
-                ) : null}
-                {name}
-              </button>
-            );
-          })}
+        <div className="cw-facet">
+          <div className="cw-facet-label">
+            <span>Comfortable with</span>
+            {selectedRestrictions.length > 0 ? (
+              <span className="cw-facet-count">{selectedRestrictions.length}</span>
+            ) : null}
+          </div>
+          <span className="cw-facet-help">
+            Optional — only shown to brands when you opt in. Pick categories you&apos;re
+            comfortable creating for so you get matched to the right briefs.
+          </span>
+          <div className="pe-chips">
+            {OPEN_TO_OPTIONS.map((name) => {
+              const isOn = selectedRestrictions.includes(name);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  className="pe-chip"
+                  data-selected={isOn}
+                  disabled={disabled}
+                  onClick={() => onToggleRestriction(name)}
+                >
+                  {isOn ? (
+                    <span className="pe-chip-tick">
+                      <Check size={13} strokeWidth={3} />
+                    </span>
+                  ) : null}
+                  {name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

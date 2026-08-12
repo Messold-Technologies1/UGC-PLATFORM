@@ -215,7 +215,6 @@
   overflow: hidden;
 }
 @media (max-width: 960px) {
-  .cw-preview,
   .cw-tip {
     display: none;
   }
@@ -834,6 +833,22 @@
 .cw-hr-soft {
   background: color-mix(in oklab, var(--border) 60%, transparent);
   margin: 4px 0;
+}
+
+.cw-facet-groups-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cw-facet-groups-stack .cw-hr-soft {
+  margin: 28px 0 22px;
+}
+
+@media (max-width: 640px) {
+  .cw-facet-groups-stack .cw-hr-soft {
+    margin: 22px 0 18px;
+  }
 }
 
 /* Facet group section */

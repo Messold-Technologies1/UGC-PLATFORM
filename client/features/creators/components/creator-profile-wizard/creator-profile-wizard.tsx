@@ -58,6 +58,7 @@ import {
   computeProfileStrength,
   BIO_MIN_CHARS,
   BIO_MAX_CHARS,
+  OPEN_TO_OPTIONS,
   type WizardStepId,
   type WizardFacetGroup,
 } from "./wizard-config";
@@ -154,9 +155,14 @@ export function CreatorProfileWizard({
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({ enabled });
 
   const selectedLanguages = facets.selectedLanguages;
-  // "Open to" opt-ins are stored as restrictions.
+  // "Open to" opt-ins are stored as restrictions. Only surface values that are
+  // still part of the current catalog — legacy/stale rows on existing creators
+  // would otherwise inflate the count and be re-saved on the next update.
   const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>(
-    () => (initialProfile.restrictions ?? []).map((row) => row.restriction),
+    () =>
+      (initialProfile.restrictions ?? [])
+        .map((row) => row.restriction)
+        .filter((name) => (OPEN_TO_OPTIONS as readonly string[]).includes(name)),
   );
   const toggleRestriction = useCallback((name: string) => {
     setSelectedRestrictions((current) =>

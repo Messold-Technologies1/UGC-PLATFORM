@@ -13,16 +13,10 @@ export type ApprovalStatus =
   | "SHORTLISTED";
 
 export type CreatorFacetDimension =
-  | "CONTENT_FORMAT"
-  | "APPEARANCE"
-  | "CONTENT_STYLE"
-  | "CAPABILITY"
-  | "LIFE_STYLE"
-  | "OCCUPATION"
   | "CONTENT_CATEGORY"
-  | "CATEGORY_EXPERIENCE"
-  | "CAN_CREATE_WITH"
-  | "AI_CONTENT_PERMISSION"
+  | "CREATOR_TYPE"
+  | "OCCUPATION"
+  | "APPEARANCE"
   | "LANGUAGE";
 
 export interface CreatorProfileLanguageResponseDto {

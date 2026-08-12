@@ -27,9 +27,7 @@ import {
 const prisma = new PrismaClient();
 
 const REQUIRED_FACET_DIMENSIONS: CreatorFacetDimension[] = [
-  CreatorFacetDimension.CONTENT_FORMAT,
   CreatorFacetDimension.CONTENT_CATEGORY,
-  CreatorFacetDimension.CATEGORY_EXPERIENCE,
 ];
 const MIN_PORTFOLIO_VIDEOS = 3;
 

@@ -1043,17 +1043,14 @@ function resolveFacetId(
   return hit.id;
 }
 
-const optionalDimensionMap: Record<
-  keyof NonNullable<Persona['optionalFacets']>,
-  CreatorFacetDimension
+// Only dimensions that still exist are mapped; personas may still list retired
+// optional facets in their test data, but those keys resolve to no dimension
+// and are skipped when seeding.
+const optionalDimensionMap: Partial<
+  Record<keyof NonNullable<Persona['optionalFacets']>, CreatorFacetDimension>
 > = {
   appearance: CreatorFacetDimension.APPEARANCE,
-  contentStyle: CreatorFacetDimension.CONTENT_STYLE,
-  capability: CreatorFacetDimension.CAPABILITY,
-  lifeStyle: CreatorFacetDimension.LIFE_STYLE,
   occupation: CreatorFacetDimension.OCCUPATION,
-  canCreateWith: CreatorFacetDimension.CAN_CREATE_WITH,
-  aiContentPermission: CreatorFacetDimension.AI_CONTENT_PERMISSION,
 };
 
 function ageDateOfBirth(ageYears: number): Date {
@@ -1099,18 +1096,8 @@ async function seedOneCreator(
   const facetOptionIds = new Set<string>([
     resolveFacetId(
       maps,
-      CreatorFacetDimension.CONTENT_FORMAT,
-      persona.contentFormat,
-    ),
-    resolveFacetId(
-      maps,
       CreatorFacetDimension.CONTENT_CATEGORY,
       persona.contentCategory,
-    ),
-    resolveFacetId(
-      maps,
-      CreatorFacetDimension.CATEGORY_EXPERIENCE,
-      persona.categoryExperience,
     ),
   ]);
 
@@ -1118,6 +1105,7 @@ async function seedOneCreator(
     for (const [key, slugs] of Object.entries(persona.optionalFacets)) {
       const dimension =
         optionalDimensionMap[key as keyof typeof optionalDimensionMap];
+      if (!dimension) continue;
       for (const slug of slugs ?? []) {
         facetOptionIds.add(resolveFacetId(maps, dimension, slug));
       }

@@ -110,16 +110,11 @@ function InstagramReviewPanel({ profileId }: { profileId: string }) {
 }
 
 const FACET_LABELS: Record<string, string> = {
-  CONTENT_FORMAT: "Content format",
-  APPEARANCE: "Appearance",
-  CONTENT_STYLE: "Content style",
-  CAPABILITY: "Capabilities",
-  LIFE_STYLE: "Lifestyle",
+  CONTENT_CATEGORY: "Creator's category",
+  CREATOR_TYPE: "Creator type",
   OCCUPATION: "Occupation",
-  CONTENT_CATEGORY: "Content category",
-  CATEGORY_EXPERIENCE: "Category experience",
-  CAN_CREATE_WITH: "Can create with",
-  AI_CONTENT_PERMISSION: "AI content",
+  APPEARANCE: "Appearance",
+  LANGUAGE: "Languages",
 };
 
 function formatLocation(

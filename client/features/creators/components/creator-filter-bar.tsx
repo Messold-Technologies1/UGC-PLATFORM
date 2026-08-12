@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Calendar,
   Eye,
-  Film,
   Globe,
   Grid3X3,
   Search,
@@ -69,29 +68,8 @@ const MORE_FACET_SECTIONS: {
   label: string;
   filterKey: keyof Filters;
 }[] = [
-  {
-    dimension: "CONTENT_STYLE",
-    label: "Content Style",
-    filterKey: "contentStyle",
-  },
-  { dimension: "CAPABILITY", label: "Capability", filterKey: "capability" },
-  { dimension: "LIFE_STYLE", label: "Life Style", filterKey: "lifeStyle" },
+  { dimension: "CREATOR_TYPE", label: "Creator Type", filterKey: "creatorType" },
   { dimension: "OCCUPATION", label: "Occupation", filterKey: "occupation" },
-  {
-    dimension: "CATEGORY_EXPERIENCE",
-    label: "Category Experience",
-    filterKey: "categoryExperience",
-  },
-  {
-    dimension: "CAN_CREATE_WITH",
-    label: "Can Create With",
-    filterKey: "canCreateWith",
-  },
-  {
-    dimension: "AI_CONTENT_PERMISSION",
-    label: "AI Content Permission",
-    filterKey: "aiContentPermission",
-  },
 ];
 
 const SMART_SEARCH_EXAMPLES = [
@@ -106,15 +84,9 @@ type ArrayFilterKey = Extract<
   keyof Filters,
   | "categories"
   | "restrictions"
-  | "contentFormat"
+  | "creatorType"
   | "appearance"
-  | "contentStyle"
-  | "capability"
-  | "lifeStyle"
   | "occupation"
-  | "categoryExperience"
-  | "canCreateWith"
-  | "aiContentPermission"
   | "language"
 >;
 
@@ -542,15 +514,9 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
 
   const arrayKeys: { key: ArrayFilterKey; prefix: string }[] = [
     { key: "categories", prefix: "cat" },
-    { key: "contentFormat", prefix: "cf" },
-    { key: "contentStyle", prefix: "cs" },
+    { key: "creatorType", prefix: "ct" },
     { key: "appearance", prefix: "ap" },
-    { key: "capability", prefix: "cap" },
-    { key: "lifeStyle", prefix: "ls" },
     { key: "occupation", prefix: "occ" },
-    { key: "categoryExperience", prefix: "ce" },
-    { key: "canCreateWith", prefix: "ccw" },
-    { key: "aiContentPermission", prefix: "acp" },
     { key: "language", prefix: "lang" },
     { key: "restrictions", prefix: "restr" },
   ];
@@ -798,7 +764,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   );
 
   const categoryCount = filters.categories.length;
-  const formatCount = filters.contentFormat.length;
   const langCount = filters.language.length;
   const priceCount = filters.minPrice || filters.maxPrice ? 1 : 0;
   const deliveryCount = filters.maxDeliveryDays ? 1 : 0;
@@ -807,13 +772,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const ageCount = filters.ageGroup ? 1 : 0;
 
   const moreCount =
-    filters.contentStyle.length +
-    filters.capability.length +
-    filters.lifeStyle.length +
+    filters.creatorType.length +
     filters.occupation.length +
-    filters.categoryExperience.length +
-    filters.canCreateWith.length +
-    filters.aiContentPermission.length +
     filters.restrictions.length +
     (filters.gender ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
@@ -823,7 +783,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 
   const activeFilterCount =
     categoryCount +
-    formatCount +
     langCount +
     priceCount +
     deliveryCount +
@@ -956,26 +915,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                         }
                       />
                     )}
-                  </FilterPopover>
-
-                  <FilterPopover
-                    id="format"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Format"
-                    icon={<Film className="size-[15px]" />}
-                    activeCount={formatCount}
-                  >
-                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                      Content Format
-                    </h5>
-                    <ChipGrid
-                      items={getFacetItems("CONTENT_FORMAT")}
-                      selected={filters.contentFormat}
-                      onToggle={(slug) =>
-                        toggleArrayField("contentFormat", slug)
-                      }
-                    />
                   </FilterPopover>
 
                   <FilterPopover
@@ -1272,18 +1211,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                               }
                             />
                           )}
-                        </div>
-                        <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Content Format
-                          </h5>
-                          <ChipGrid
-                            items={getFacetItems("CONTENT_FORMAT")}
-                            selected={filters.contentFormat}
-                            onToggle={(slug) =>
-                              toggleArrayField("contentFormat", slug)
-                            }
-                          />
                         </div>
                         <div>
                           <PriceRangeBody

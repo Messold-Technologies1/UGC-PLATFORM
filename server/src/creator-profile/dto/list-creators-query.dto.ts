@@ -179,8 +179,9 @@ export class ListCreatorsQueryDto {
   ageGroup?: CreatorAgeGroup;
 
   @ApiPropertyOptional({
-    example: ['solo_individual', 'couple'],
-    description: 'Facet slugs; OR within list, AND with other facet dimensions.',
+    type: [String],
+    description:
+      'Creator type facet slugs (CreatorFacetDimension.CREATOR_TYPE); OR within list.',
   })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))
@@ -188,7 +189,7 @@ export class ListCreatorsQueryDto {
   @ArrayMaxSize(30)
   @IsString({ each: true })
   @MaxLength(64, { each: true })
-  contentFormat?: string[];
+  creatorType?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -198,33 +199,6 @@ export class ListCreatorsQueryDto {
   @IsString({ each: true })
   @MaxLength(64, { each: true })
   appearance?: string[];
-
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @ArrayMaxSize(30)
-  @IsString({ each: true })
-  @MaxLength(64, { each: true })
-  contentStyle?: string[];
-
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @ArrayMaxSize(30)
-  @IsString({ each: true })
-  @MaxLength(64, { each: true })
-  capability?: string[];
-
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @ArrayMaxSize(30)
-  @IsString({ each: true })
-  @MaxLength(64, { each: true })
-  lifeStyle?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -247,40 +221,6 @@ export class ListCreatorsQueryDto {
   @IsString({ each: true })
   @MaxLength(64, { each: true })
   contentCategory?: string[];
-
-  @ApiPropertyOptional({
-    type: [String],
-    description:
-      'Category experience facet slugs (CreatorFacetDimension.CATEGORY_EXPERIENCE); OR within list.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @ArrayMaxSize(30)
-  @IsString({ each: true })
-  @MaxLength(64, { each: true })
-  categoryExperience?: string[];
-
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @ArrayMaxSize(30)
-  @IsString({ each: true })
-  @MaxLength(64, { each: true })
-  canCreateWith?: string[];
-
-  @ApiPropertyOptional({
-    type: [String],
-    description: 'AI content permission facet slugs; OR within list.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => toTrimmedStringArray(value))
-  @IsArray()
-  @ArrayMaxSize(30)
-  @IsString({ each: true })
-  @MaxLength(64, { each: true })
-  aiContentPermission?: string[];
 
   @ApiPropertyOptional({
     type: [String],

@@ -14,17 +14,10 @@ export const REQUIRED_FACET_DIMENSIONS: CreatorFacetDimension[] = [
 ];
 
 const FACET_LABELS: Record<CreatorFacetDimension, string> = {
-  CONTENT_FORMAT: 'Content format',
-  APPEARANCE: 'Appearance',
-  CONTENT_STYLE: 'Content style',
-  CAPABILITY: 'Capabilities',
   CONTENT_CATEGORY: "Creator's category",
-  CATEGORY_EXPERIENCE: 'Category experience',
-  CAN_CREATE_WITH: 'Can create with',
-  OCCUPATION: 'Occupation',
-  LIFE_STYLE: 'Lifestyle',
-  AI_CONTENT_PERMISSION: 'AI content permission',
   CREATOR_TYPE: 'Creator type',
+  OCCUPATION: 'Occupation',
+  APPEARANCE: 'Appearance',
   LANGUAGE: 'Languages',
 };
 

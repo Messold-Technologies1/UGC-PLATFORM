@@ -5,7 +5,7 @@ import { IsEnum, IsString, Matches } from 'class-validator';
 export class CreatorFacetSelectionInputDto {
   @ApiProperty({
     enum: CreatorFacetDimension,
-    example: CreatorFacetDimension.AI_CONTENT_PERMISSION,
+    example: CreatorFacetDimension.CONTENT_CATEGORY,
   })
   @IsEnum(CreatorFacetDimension)
   dimension!: CreatorFacetDimension;

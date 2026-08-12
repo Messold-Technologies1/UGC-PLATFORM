@@ -147,9 +147,9 @@ export class CreatorProfileController {
 
   @Get('suggestions/categories')
   @ApiOperation({
-    summary: 'List category experience facet options (catalog)',
+    summary: "List creator's category facet options (catalog)",
     description:
-      'Returns CreatorFacetOption rows for dimension CATEGORY_EXPERIENCE (same slugs as facetSelections).',
+      'Returns CreatorFacetOption rows for dimension CONTENT_CATEGORY (same slugs as facetSelections).',
   })
   @ApiOkResponse({ type: () => [CreatorSuggestionItemDto] })
   async listCategorySuggestions(): Promise<CreatorSuggestionItemDto[]> {

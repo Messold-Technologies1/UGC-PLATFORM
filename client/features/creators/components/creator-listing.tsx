@@ -127,15 +127,9 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.portfolioTag === b.portfolioTag &&
     // stringArraysEqual(a.personaTags, b.personaTags) &&
     stringArraysEqual(a.restrictions, b.restrictions) &&
-    stringArraysEqual(a.contentFormat, b.contentFormat) &&
+    stringArraysEqual(a.creatorType, b.creatorType) &&
     stringArraysEqual(a.appearance, b.appearance) &&
-    stringArraysEqual(a.contentStyle, b.contentStyle) &&
-    stringArraysEqual(a.capability, b.capability) &&
-    stringArraysEqual(a.lifeStyle, b.lifeStyle) &&
     stringArraysEqual(a.occupation, b.occupation) &&
-    stringArraysEqual(a.categoryExperience, b.categoryExperience) &&
-    stringArraysEqual(a.canCreateWith, b.canCreateWith) &&
-    stringArraysEqual(a.aiContentPermission, b.aiContentPermission) &&
     stringArraysEqual(a.language, b.language) &&
     a.ageGroup === b.ageGroup
   );
@@ -300,25 +294,9 @@ export function CreatorListing({
       maxDeliveryDays: filters.maxDeliveryDays || undefined,
       // personaTags: filters.personaTags,
       restrictions: filters.restrictions,
-      contentFormat: filters.contentFormat.length
-        ? filters.contentFormat
-        : undefined,
+      creatorType: filters.creatorType.length ? filters.creatorType : undefined,
       appearance: filters.appearance.length ? filters.appearance : undefined,
-      contentStyle: filters.contentStyle.length
-        ? filters.contentStyle
-        : undefined,
-      capability: filters.capability.length ? filters.capability : undefined,
-      lifeStyle: filters.lifeStyle.length ? filters.lifeStyle : undefined,
       occupation: filters.occupation.length ? filters.occupation : undefined,
-      categoryExperience: filters.categoryExperience.length
-        ? filters.categoryExperience
-        : undefined,
-      canCreateWith: filters.canCreateWith.length
-        ? filters.canCreateWith
-        : undefined,
-      aiContentPermission: filters.aiContentPermission.length
-        ? filters.aiContentPermission
-        : undefined,
       language: filters.language.length ? filters.language : undefined,
       ageGroup: filters.ageGroup || undefined,
     }),

@@ -112,16 +112,6 @@ export function CreatorAccountProfileView({
   const displayTags = tagsExpanded ? allTags : allTags.slice(0, 3);
   const extraTagsCount = tagsExpanded ? 0 : Math.max(0, allTags.length - 3);
 
-  const canCreateWith = profile.facetSelections?.filter(f => f.dimension === "CAN_CREATE_WITH") || [];
-  const industryExperience =
-    profile.facetSelections?.filter(
-      (facet) => facet.dimension === "CATEGORY_EXPERIENCE",
-    ) ?? [];
-  const appearanceFacets =
-    profile.facetSelections?.filter(
-      (facet) => facet.dimension === "APPEARANCE",
-    ) ?? [];
-
   const statsList = [
     {
       label: "Total Orders",
@@ -513,16 +503,6 @@ export function CreatorAccountProfileView({
                     {ageDisplay ?? "Not specified"}
                   </span>
                 </li>
-                {canCreateWith.length > 0 && (
-                  <li className="flex items-center gap-2.5 text-sm">
-                    {/* <Video className="size-5 shrink-0 text-purple-500" strokeWidth={2} /> */}
-                    <span className="text-muted-foreground">
-                      <strong className="text-foreground font-semibold">Can create with:</strong>{" "}
-                      {canCreateWith.map(f => f.label).join(", ")}
-                    </span>
-                  </li>
-                )}
-
                 {(profile.restrictions?.length ?? 0) > 0 && (
                   <li className="flex items-center gap-2.5 text-sm">
                     <span className="text-muted-foreground">
@@ -536,21 +516,6 @@ export function CreatorAccountProfileView({
                   </li>
                 )}
 
-                <li className="flex items-center gap-2.5 text-sm">
-                  {/* <Building2 className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
-                  <span className="text-muted-foreground">
-                    <strong className="text-foreground font-semibold">
-                      Industry Experience:
-                    </strong>{" "}
-                    {industryExperience.length > 0
-                      ? industryExperience
-                          .map((facet) =>
-                            facet.label.replace(/\s*\/\s*/g, " & "),
-                          )
-                          .join(", ")
-                      : "Not specified"}
-                  </span>
-                </li>
               </ul>
             </section>
 

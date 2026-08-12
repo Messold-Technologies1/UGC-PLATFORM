@@ -22,9 +22,6 @@ import {
   Zap,
   CheckCircle,
   Play,
-  Users,
-  Baby,
-  PawPrint,
   User,
   ExternalLink,
   Briefcase,
@@ -208,11 +205,6 @@ const OverviewTab = React.memo(function OverviewTab({
     .map((f) => f.label)
     .filter(Boolean);
 
-  const categoryExperienceLabels = (profile.facetSelections ?? [])
-    .filter((f) => f.dimension === "CATEGORY_EXPERIENCE")
-    .map((f) => f.label)
-    .filter(Boolean);
-
   const detailRows = [
     {
       key: "Languages",
@@ -254,24 +246,11 @@ const OverviewTab = React.memo(function OverviewTab({
       : []),
   ];
 
-  const canCreateWithIcons: Record<string, typeof Users> = {
-    Partner: Users,
-    Kids: Baby,
-    Pets: PawPrint,
-  };
-
   const collaborationCount = profile.collaborationCount ?? 0;
   const whatYouGet = [
     ...(collaborationCount > 0
       ? [
           `${collaborationCount} previous collaboration${collaborationCount === 1 ? "" : "s"}`,
-        ]
-      : []),
-    ...(categoryExperienceLabels.length > 0
-      ? [
-          categoryExperienceLabels.length === 1
-            ? `Experienced with ${categoryExperienceLabels[0]}`
-            : `Experienced with ${categoryExperienceLabels.slice(0, -1).join(", ")} & ${categoryExperienceLabels.at(-1)}`,
         ]
       : []),
     profile.storeVisit
@@ -375,56 +354,6 @@ const OverviewTab = React.memo(function OverviewTab({
           })}
         </div>
       </div>
-
-      {profile.facetSelections &&
-        profile.facetSelections.some(
-          (f: any) => f.dimension === "canCreateWith",
-        ) && (
-          <div className="dr-section">
-            <SectionHeading>Can create with</SectionHeading>
-            <div style={{ display: "flex", gap: 12 }}>
-              {profile.facetSelections
-                .filter((f: any) => f.dimension === "canCreateWith")
-                .map((f: any) => {
-                  const IconComp = canCreateWithIcons[f.label] || Users;
-                  return (
-                    <div
-                      key={f.slug}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 14,
-                          background: "var(--muted)",
-                          display: "grid",
-                          placeItems: "center",
-                          color: "var(--foreground)",
-                        }}
-                      >
-                        <IconComp size={20} />
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "var(--muted-foreground)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {f.label}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
 
       <div className="dr-section">
         <SectionHeading>What you get</SectionHeading>

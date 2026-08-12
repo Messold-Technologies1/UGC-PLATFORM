@@ -182,6 +182,12 @@ export function buildListCreatorsWhere(
   );
   if (appearanceClause) clauses.push(appearanceClause);
 
+  const creatorTypeClause = facetWhere(
+    CreatorFacetDimension.CREATOR_TYPE,
+    query.creatorType,
+  );
+  if (creatorTypeClause) clauses.push(creatorTypeClause);
+
   const occupationClause = facetWhere(
     CreatorFacetDimension.OCCUPATION,
     query.occupation,

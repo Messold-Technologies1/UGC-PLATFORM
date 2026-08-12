@@ -178,6 +178,19 @@ export class ListCreatorsQueryDto {
   @IsEnum(CreatorAgeGroup)
   ageGroup?: CreatorAgeGroup;
 
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Creator type facet slugs (CreatorFacetDimension.CREATOR_TYPE); OR within list.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toTrimmedStringArray(value))
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  creatorType?: string[];
+
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => toTrimmedStringArray(value))

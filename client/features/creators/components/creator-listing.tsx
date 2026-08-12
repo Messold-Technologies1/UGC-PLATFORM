@@ -127,6 +127,7 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.portfolioTag === b.portfolioTag &&
     // stringArraysEqual(a.personaTags, b.personaTags) &&
     stringArraysEqual(a.restrictions, b.restrictions) &&
+    stringArraysEqual(a.creatorType, b.creatorType) &&
     stringArraysEqual(a.appearance, b.appearance) &&
     stringArraysEqual(a.occupation, b.occupation) &&
     stringArraysEqual(a.language, b.language) &&
@@ -293,6 +294,7 @@ export function CreatorListing({
       maxDeliveryDays: filters.maxDeliveryDays || undefined,
       // personaTags: filters.personaTags,
       restrictions: filters.restrictions,
+      creatorType: filters.creatorType.length ? filters.creatorType : undefined,
       appearance: filters.appearance.length ? filters.appearance : undefined,
       occupation: filters.occupation.length ? filters.occupation : undefined,
       language: filters.language.length ? filters.language : undefined,

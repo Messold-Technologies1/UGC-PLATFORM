@@ -54,6 +54,7 @@ export function parseBrowseListingParams(
       // personaTags: parseMultiValue(sp, "personaTags"),
       restrictions: parseMultiValue(sp, "restrictions"),
       // Facet-based filters
+      creatorType: parseMultiValue(sp, "creatorType"),
       appearance: parseMultiValue(sp, "appearance"),
       occupation: parseMultiValue(sp, "occupation"),
       language: parseMultiValue(sp, "language"),
@@ -66,6 +67,7 @@ const MULTI_VALUE_KEYS = [
   "categories",
   // "personaTags",
   "restrictions",
+  "creatorType",
   "appearance",
   "occupation",
   "language",

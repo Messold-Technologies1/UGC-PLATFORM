@@ -68,6 +68,7 @@ const MORE_FACET_SECTIONS: {
   label: string;
   filterKey: keyof Filters;
 }[] = [
+  { dimension: "CREATOR_TYPE", label: "Creator Type", filterKey: "creatorType" },
   { dimension: "OCCUPATION", label: "Occupation", filterKey: "occupation" },
 ];
 
@@ -81,7 +82,12 @@ const SMART_SEARCH_EXAMPLES = [
 
 type ArrayFilterKey = Extract<
   keyof Filters,
-  "categories" | "restrictions" | "appearance" | "occupation" | "language"
+  | "categories"
+  | "restrictions"
+  | "creatorType"
+  | "appearance"
+  | "occupation"
+  | "language"
 >;
 
 function formatFacetSlug(slug: string): string {
@@ -508,6 +514,7 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
 
   const arrayKeys: { key: ArrayFilterKey; prefix: string }[] = [
     { key: "categories", prefix: "cat" },
+    { key: "creatorType", prefix: "ct" },
     { key: "appearance", prefix: "ap" },
     { key: "occupation", prefix: "occ" },
     { key: "language", prefix: "lang" },
@@ -765,6 +772,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const ageCount = filters.ageGroup ? 1 : 0;
 
   const moreCount =
+    filters.creatorType.length +
     filters.occupation.length +
     filters.restrictions.length +
     (filters.gender ? 1 : 0) +

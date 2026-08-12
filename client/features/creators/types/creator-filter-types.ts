@@ -9,6 +9,7 @@ export interface Filters {
   industry: string;
   portfolioTag: string;
   restrictions: string[];
+  creatorType: string[];
   appearance: string[];
   occupation: string[];
   language: string[];
@@ -36,6 +37,7 @@ export const DEFAULT_FILTERS: Filters = {
   industry: "",
   portfolioTag: "",
   restrictions: [],
+  creatorType: [],
   appearance: [],
   occupation: [],
   language: [],

@@ -17,16 +17,9 @@ export type CreatorListApiFilters = {
   minPrice?: string | number;
   maxPrice?: string | number;
   maxDeliveryDays?: string | number;
-  contentFormat?: string[];
   appearance?: string[];
-  contentStyle?: string[];
-  capability?: string[];
-  lifeStyle?: string[];
   occupation?: string[];
   contentCategory?: string[];
-  categoryExperience?: string[];
-  canCreateWith?: string[];
-  aiContentPermission?: string[];
   language?: string[];
   categories?: string[];
   restrictions?: string[];
@@ -83,16 +76,9 @@ export function serializeCreatorListApiParams(
   }
 
   const facetArrayParams: Array<[string, string[] | undefined]> = [
-    ["contentFormat", filters.contentFormat],
     ["appearance", filters.appearance],
-    ["contentStyle", filters.contentStyle],
-    ["capability", filters.capability],
-    ["lifeStyle", filters.lifeStyle],
     ["occupation", filters.occupation],
     ["contentCategory", filters.contentCategory],
-    ["categoryExperience", filters.categoryExperience],
-    ["canCreateWith", filters.canCreateWith],
-    ["aiContentPermission", filters.aiContentPermission],
     ["language", filters.language],
   ];
   for (const [key, values] of facetArrayParams) {

@@ -9,15 +9,8 @@ export interface Filters {
   industry: string;
   portfolioTag: string;
   restrictions: string[];
-  contentFormat: string[];
   appearance: string[];
-  contentStyle: string[];
-  capability: string[];
-  lifeStyle: string[];
   occupation: string[];
-  categoryExperience: string[];
-  canCreateWith: string[];
-  aiContentPermission: string[];
   language: string[];
   ageGroup: string;
 }
@@ -43,15 +36,8 @@ export const DEFAULT_FILTERS: Filters = {
   industry: "",
   portfolioTag: "",
   restrictions: [],
-  contentFormat: [],
   appearance: [],
-  contentStyle: [],
-  capability: [],
-  lifeStyle: [],
   occupation: [],
-  categoryExperience: [],
-  canCreateWith: [],
-  aiContentPermission: [],
   language: [],
   ageGroup: "",
 };

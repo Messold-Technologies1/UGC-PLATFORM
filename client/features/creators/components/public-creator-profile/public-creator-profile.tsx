@@ -304,17 +304,13 @@ export function PublicCreatorProfile({
   }, [profile.facetSelections]);
 
   const contentCategories = facetsByDim.CONTENT_CATEGORY ?? [];
-  const contentFormats = facetsByDim.CONTENT_FORMAT ?? [];
-  const contentStyles = facetsByDim.CONTENT_STYLE ?? [];
-  const productionCapabilities = facetsByDim.PRODUCTION_CAPABILITY ?? [];
-  const categoryExperience = facetsByDim.CATEGORY_EXPERIENCE ?? [];
+  const creatorType = facetsByDim.CREATOR_TYPE ?? [];
   const appearance = facetsByDim.APPEARANCE ?? [];
   const occupation = facetsByDim.OCCUPATION ?? [];
-  const canCreateWith = facetsByDim.CAN_CREATE_WITH ?? [];
   const brandsWorkedWith =
     profile.highlights && profile.highlights.length > 0
       ? profile.highlights.map((h) => ({ slug: h, label: h }))
-      : facetsByDim.BRANDS_WORKED_WITH ?? [];
+      : [];
 
   const aboutSections = useMemo(() => {
     const sections: AboutSectionDef[] = [];
@@ -328,20 +324,12 @@ export function PublicCreatorProfile({
         wide: contentCategories.length > 3,
       });
     }
-    if (contentFormats.length > 0) {
+    if (creatorType.length > 0) {
       sections.push({
-        icon: Film,
-        label: "Content formats",
+        icon: Users,
+        label: "Creator type",
         tone: "violet",
-        items: contentFormats.map((f) => f.label),
-      });
-    }
-    if (contentStyles.length > 0) {
-      sections.push({
-        icon: Sparkles,
-        label: "Style",
-        tone: "amber",
-        items: contentStyles.map((f) => f.label),
+        items: creatorType.map((f) => f.label),
       });
     }
     if (appearance.length > 0) {
@@ -380,31 +368,6 @@ export function PublicCreatorProfile({
         })),
       });
     }
-    if (productionCapabilities.length > 0) {
-      sections.push({
-        icon: CheckCircle2,
-        label: "Production",
-        tone: "emerald",
-        items: productionCapabilities.map((f) => f.label),
-      });
-    }
-    if (categoryExperience.length > 0) {
-      sections.push({
-        icon: ShieldCheck,
-        label: "Industry experience",
-        tone: "fuchsia",
-        items: categoryExperience.map((f) => f.label),
-        wide: categoryExperience.length > 2,
-      });
-    }
-    if (canCreateWith.length > 0) {
-      sections.push({
-        icon: Users,
-        label: "Can create with",
-        tone: "cyan",
-        items: canCreateWith.map((f) => f.label),
-      });
-    }
     sections.push({
       icon: MapPinned,
       label: "On-location shoot",
@@ -427,15 +390,11 @@ export function PublicCreatorProfile({
   }, [
     appearance,
     brandsWorkedWith,
-    canCreateWith,
-    categoryExperience,
     contentCategories,
-    contentFormats,
-    contentStyles,
+    creatorType,
     languages,
     occupation,
     openToLabels,
-    productionCapabilities,
     profile.onLocationAvailable,
   ]);
 

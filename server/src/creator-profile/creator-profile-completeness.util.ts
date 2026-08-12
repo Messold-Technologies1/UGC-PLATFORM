@@ -38,6 +38,11 @@ export interface ProfileCompletenessInput {
   languageCount: number;
   packageCount: number;
   publicVideoCount: number;
+  /**
+   * Whether the creator has priced every mandatory add-on
+   * (CreatorAddOnOption.mandatory). Required to go live.
+   */
+  mandatoryAddOnsPriced: boolean;
 }
 
 export interface ProfileCompletenessResult {
@@ -73,6 +78,7 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   { key: 'contentCategory', label: FACET_LABELS[CreatorFacetDimension.CONTENT_CATEGORY] },
   { key: 'language', label: 'At least one language' },
   { key: 'package', label: 'At least one package' },
+  { key: 'mandatoryAddOns', label: 'Priced mandatory add-ons' },
   {
     key: 'portfolioVideos',
     label: `At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`,
@@ -118,6 +124,7 @@ export function evaluateProfileCompleteness(
 
   // Packages
   if (input.packageCount < 1) missing.push('At least one package');
+  if (!input.mandatoryAddOnsPriced) missing.push('Priced mandatory add-ons');
 
   // Portfolio
   if (input.publicVideoCount < MIN_PORTFOLIO_VIDEOS) {

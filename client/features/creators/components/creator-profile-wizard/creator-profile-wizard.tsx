@@ -311,12 +311,14 @@ export function CreatorProfileWizard({
       selectedFacetDimensions,
       languageCount: selectedLanguageCount,
       hasPackage,
+      mandatoryAddOnsPriced: addOns.mandatoryAddOnsPriced,
       publicVideoCount: publicPortfolioCount,
       policiesAccepted: areAllGoLivePoliciesAccepted(goLivePolicies),
     };
   }, [
     facets.selectedFacets,
     packages.packageDraft,
+    addOns.mandatoryAddOnsPriced,
     profileImage.profileImagePreviewUrl,
     introVideo.introVideoPreviewUrl,
     displayName,
@@ -427,6 +429,8 @@ export function CreatorProfileWizard({
       } else if (id === "pricing") {
         const priceErr = validatePackagePrice(packages.packageDraft.priceAmount);
         if (priceErr) missing.push("a valid starting price");
+        if (!addOns.mandatoryAddOnsPriced)
+          missing.push("prices for the mandatory add-ons");
       }
       return missing;
     },
@@ -442,6 +446,7 @@ export function CreatorProfileWizard({
       introVideo.introVideoPreviewUrl,
       introConfirmed,
       packages.packageDraft.priceAmount,
+      addOns.mandatoryAddOnsPriced,
     ],
   );
 

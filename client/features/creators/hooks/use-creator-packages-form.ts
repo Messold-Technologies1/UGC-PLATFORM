@@ -65,16 +65,15 @@ export function useCreatorPackagesForm({
       );
       return null;
     }
-    const deliverables = packageDraft.basicEditing
-      ? ["1 Video", "Basic editing"]
-      : ["1 Video"];
+    // Basic editing is always included — creators must submit edited video.
+    const deliverables = ["1 Video", "Basic editing"];
 
     return [
       {
         name: PACKAGE_NAME,
         deliverables,
         videoLengthSeconds: videoLength,
-        basicEditing: packageDraft.basicEditing,
+        basicEditing: true,
         priceAmount: price,
         deliveryDays,
         maxRevisions: PACKAGE_DEFAULT_MAX_REVISIONS,

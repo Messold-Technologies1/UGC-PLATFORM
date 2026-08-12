@@ -10,6 +10,13 @@ export class CreatorAddOnOptionItemDto {
   @ApiProperty({ example: 0 })
   sortOrder!: number;
 
+  @ApiProperty({
+    example: true,
+    description:
+      'Mandatory add-ons must be priced before going live and cannot be removed in the editor.',
+  })
+  mandatory!: boolean;
+
   @ApiProperty({ example: 500, required: false, nullable: true })
   fixedPrice?: number | null;
 

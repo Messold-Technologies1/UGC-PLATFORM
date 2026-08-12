@@ -79,10 +79,9 @@ export class CreatorPackageService {
     const normalizedDeliverables = deliverables.length
       ? deliverables
       : ['1 Video'];
-    if (
-      pkg.basicEditing === true &&
-      !normalizedDeliverables.includes('Basic editing')
-    ) {
+    // Basic editing is always included — creators must submit their video
+    // already edited, so every package carries it regardless of the payload.
+    if (!normalizedDeliverables.includes('Basic editing')) {
       normalizedDeliverables.push('Basic editing');
     }
 

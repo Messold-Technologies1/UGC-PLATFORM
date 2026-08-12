@@ -5,6 +5,8 @@ export type CreatorAddOnOption = {
   slug: string;
   name: string;
   sortOrder: number;
+  /** Mandatory add-ons are pre-selected, can't be removed, and must be priced to go live. */
+  mandatory: boolean;
   fixedPrice?: number | null;
   minPrice?: number | null;
   stepPrice?: number | null;

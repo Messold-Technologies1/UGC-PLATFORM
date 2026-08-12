@@ -24,6 +24,7 @@ function completeInput(): ProfileCompletenessInput {
     languageCount: 1,
     packageCount: 1,
     publicVideoCount: MIN_PORTFOLIO_VIDEOS,
+    mandatoryAddOnsPriced: true,
   };
 }
 
@@ -95,6 +96,15 @@ describe('evaluateProfileCompleteness', () => {
     expect(result.missing).toContain('At least one language');
     expect(result.missing).toContain('At least one package');
   });
+
+  it('requires mandatory add-ons to be priced', () => {
+    const result = evaluateProfileCompleteness({
+      ...completeInput(),
+      mandatoryAddOnsPriced: false,
+    });
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('Priced mandatory add-ons');
+  });
 });
 
 describe('GO_LIVE_REQUIREMENTS catalog', () => {
@@ -117,6 +127,7 @@ describe('GO_LIVE_REQUIREMENTS catalog', () => {
       languageCount: 0,
       packageCount: 0,
       publicVideoCount: 0,
+      mandatoryAddOnsPriced: false,
     });
 
     const catalogLabels = new Set(GO_LIVE_REQUIREMENTS.map((r) => r.label));

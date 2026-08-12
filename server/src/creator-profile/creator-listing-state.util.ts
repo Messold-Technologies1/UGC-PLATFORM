@@ -50,6 +50,7 @@ export async function recomputeCreatorListingState(
       isListed: true,
       creatorApproval: { select: { status: true } },
       facetSelections: { select: { option: { select: { dimension: true } } } },
+      addOns: { select: { name: true } },
       _count: { select: { profileLanguages: true, packages: true } },
     },
   });
@@ -69,6 +70,16 @@ export async function recomputeCreatorListingState(
       },
     });
 
+    // Every mandatory add-on in the catalog must be priced by the creator.
+    const mandatoryOptions = await client.creatorAddOnOption.findMany({
+      where: { mandatory: true },
+      select: { name: true },
+    });
+    const creatorAddOnNames = new Set(profile.addOns.map((a) => a.name));
+    const mandatoryAddOnsPriced = mandatoryOptions.every((option) =>
+      creatorAddOnNames.has(option.name),
+    );
+
     const { complete } = evaluateProfileCompleteness({
       profileImageUrl: profile.profileImageUrl,
       introVideoUrl: profile.introVideoUrl,
@@ -87,6 +98,7 @@ export async function recomputeCreatorListingState(
       languageCount: profile._count.profileLanguages,
       packageCount: profile._count.packages,
       publicVideoCount,
+      mandatoryAddOnsPriced,
     });
 
     completeProfile = complete;

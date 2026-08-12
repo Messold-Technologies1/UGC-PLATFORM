@@ -1135,6 +1135,10 @@ model CreatorAddOnOption {
   name      String @unique
   sortOrder Int    @default(0)
 
+  /// Mandatory add-ons must be priced by every creator before going live and
+  /// cannot be removed in the editor (brands still choose them per order).
+  mandatory Boolean @default(false)
+
   /// When set, price must equal this amount.
   fixedPrice Int?
 

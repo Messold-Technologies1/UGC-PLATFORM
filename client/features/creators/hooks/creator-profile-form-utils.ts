@@ -119,7 +119,6 @@ export type PackageDraft = {
   priceAmount: string;
   deliveryDays: string;
   maxRevisions: string;
-  basicEditing: boolean;
 };
 
 export type AddOnDraft = {
@@ -214,7 +213,6 @@ export function createInitialPackageDraft(
         ? String(pkg.deliveryDays)
         : String(PACKAGE_DELIVERY_DAYS),
     maxRevisions: String(PACKAGE_DEFAULT_MAX_REVISIONS),
-    basicEditing: pkg?.deliverables?.includes("Basic editing") ?? false,
   };
 }
 

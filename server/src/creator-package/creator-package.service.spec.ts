@@ -24,7 +24,7 @@ describe('CreatorPackageService', () => {
         videoLengthSeconds: 60,
         deliveryDays: 5,
         maxRevisions: 2,
-        deliverables: ['1 Video'],
+        deliverables: ['1 Video', 'Basic editing'],
       }),
     });
   });

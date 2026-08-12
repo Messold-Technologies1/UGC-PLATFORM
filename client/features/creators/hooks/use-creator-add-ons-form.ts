@@ -71,15 +71,45 @@ export function useCreatorAddOnsForm({
     };
   }, [addOnOptions, initialProfile?.addOns]);
 
-  const effectiveSelectedAddOnSlugs = addOnsTouched
-    ? selectedAddOnSlugs
-    : hydratedAddOns.selectedSlugs;
-  const effectiveAddOnDrafts = addOnsTouched
-    ? addOnDrafts
-    : hydratedAddOns.drafts;
+  // Mandatory add-ons are always offered: pre-selected, always carry a draft,
+  // and can't be toggled off.
+  const mandatorySlugs = useMemo(
+    () => addOnOptions.filter((option) => option.mandatory).map((o) => o.slug),
+    [addOnOptions],
+  );
+
+  const effectiveSelectedAddOnSlugs = useMemo(() => {
+    const base = addOnsTouched ? selectedAddOnSlugs : hydratedAddOns.selectedSlugs;
+    return [...new Set([...base, ...mandatorySlugs])];
+  }, [addOnsTouched, selectedAddOnSlugs, hydratedAddOns.selectedSlugs, mandatorySlugs]);
+
+  const effectiveAddOnDrafts = useMemo(() => {
+    const base = addOnsTouched ? addOnDrafts : hydratedAddOns.drafts;
+    const next: Record<string, AddOnDraft> = { ...base };
+    for (const option of addOnOptions) {
+      if (option.mandatory && !next[option.slug]) {
+        next[option.slug] = {
+          priceAmount: String(option.fixedPrice ?? option.minPrice ?? ""),
+          description: "",
+        };
+      }
+    }
+    return next;
+  }, [addOnsTouched, addOnDrafts, hydratedAddOns.drafts, addOnOptions]);
+
+  const mandatoryAddOnsPriced = useMemo(() => {
+    const bySlug = new Map(addOnOptions.map((option) => [option.slug, option]));
+    return mandatorySlugs.every((slug) => {
+      const option = bySlug.get(slug);
+      const draft = effectiveAddOnDrafts[slug];
+      if (!option || !draft) return false;
+      return addOnPriceError(option, draft.priceAmount.trim()) === null;
+    });
+  }, [addOnOptions, mandatorySlugs, effectiveAddOnDrafts]);
 
   const toggleAddOn = useCallback(
     (option: CreatorAddOnOption) => {
+      if (option.mandatory) return; // mandatory add-ons can't be removed
       setAddOnsTouched(true);
       setSelectedAddOnSlugs((current) => {
         const base = addOnsTouched ? current : effectiveSelectedAddOnSlugs;
@@ -160,6 +190,8 @@ export function useCreatorAddOnsForm({
     hydratedAddOns,
     selectedAddOnSlugs: effectiveSelectedAddOnSlugs,
     addOnDrafts: effectiveAddOnDrafts,
+    mandatorySlugs,
+    mandatoryAddOnsPriced,
     addOnsTouched,
     setAddOnsTouched,
     setAddOnDrafts,

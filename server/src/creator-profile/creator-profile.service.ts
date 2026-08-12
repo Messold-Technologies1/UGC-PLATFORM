@@ -859,6 +859,7 @@ export class CreatorProfileService {
         slug: true,
         name: true,
         sortOrder: true,
+        mandatory: true,
         fixedPrice: true,
         minPrice: true,
         stepPrice: true,
@@ -1729,12 +1730,23 @@ export class CreatorProfileService {
         },
         profileLanguages: { select: { id: true } },
         packages: { select: { id: true } },
+        addOns: { select: { name: true } },
         portfolioVideos: {
           where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
           select: { id: true },
         },
       },
     });
+
+    const mandatoryOptions = await (
+      this.prisma as any
+    ).creatorAddOnOption.findMany({
+      where: { mandatory: true },
+      select: { name: true },
+    });
+    const mandatoryAddOnNames: string[] = mandatoryOptions.map(
+      (o: { name: string }) => o.name,
+    );
 
     const totalProfiles = profiles.length;
     const missingByLabel = new Map<string, number>();
@@ -1758,6 +1770,9 @@ export class CreatorProfileService {
         languageCount: profile.profileLanguages.length,
         packageCount: profile.packages.length,
         publicVideoCount: profile.portfolioVideos.length,
+        mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
+          profile.addOns.some((addOn) => addOn.name === name),
+        ),
       });
 
       for (const label of missing) {

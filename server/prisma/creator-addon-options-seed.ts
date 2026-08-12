@@ -4,6 +4,7 @@ type AddOnOptionSeedRow = {
   slug: string;
   name: string;
   sortOrder: number;
+  mandatory?: boolean;
   fixedPrice?: number;
   minPrice?: number;
   stepPrice?: number;
@@ -12,37 +13,26 @@ type AddOnOptionSeedRow = {
 export const CREATOR_ADDON_OPTION_SEED_ROWS: AddOnOptionSeedRow[] = [
   {
     slug: 'extra_revision',
-    name: 'Extra Revision',
+    name: 'Revision',
     sortOrder: 0,
+    mandatory: true,
+    minPrice: 100,
+    stepPrice: 100,
+  },
+  {
+    slug: 'paid_ads_usage_30_days',
+    name: 'Usage Rights extra 30 days',
+    sortOrder: 1,
+    mandatory: true,
     minPrice: 100,
     stepPrice: 100,
   },
   {
     slug: 'on_location_shoot',
-    name: 'On-location Shoot (25 km)',
+    name: 'Travel within City',
     sortOrder: 2,
+    mandatory: false,
     fixedPrice: 500,
-  },
-  {
-    slug: 'paid_ads_usage_30_days',
-    name: 'Paid Ads Usage (30 days)',
-    sortOrder: 3,
-    minPrice: 100,
-    stepPrice: 100,
-  },
-  {
-    slug: 'advanced_editing',
-    name: 'Advanced Editing',
-    sortOrder: 4,
-    minPrice: 100,
-    stepPrice: 100,
-  },
-  {
-    slug: 'raw_file_usage',
-    name: 'Raw File Usage',
-    sortOrder: 5,
-    minPrice: 100,
-    stepPrice: 100,
   },
 ];
 
@@ -52,10 +42,11 @@ export async function seedCreatorAddOnOptions(
   for (const row of CREATOR_ADDON_OPTION_SEED_ROWS) {
     await prisma.creatorAddOnOption.upsert({
       where: { slug: row.slug },
-      create: row,
+      create: { ...row, mandatory: row.mandatory ?? false },
       update: {
         name: row.name,
         sortOrder: row.sortOrder,
+        mandatory: row.mandatory ?? false,
         fixedPrice: row.fixedPrice ?? null,
         minPrice: row.minPrice ?? null,
         stepPrice: row.stepPrice ?? null,

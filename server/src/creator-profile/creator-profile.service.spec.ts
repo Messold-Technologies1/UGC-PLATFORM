@@ -373,7 +373,7 @@ describe('CreatorProfileService', () => {
       .calls[0]?.[0] as { data: { name: string }[] };
     const addOnRowsUpdate = createManyArgUpdate.data;
     expect(addOnRowsUpdate.map((r) => r.name)).toEqual([
-      'On-location Shoot (25 km)',
+      'Travel within City',
     ]);
     expect(result.id).toBe(profileId);
   });

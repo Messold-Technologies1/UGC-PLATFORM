@@ -1,6 +1,5 @@
 "use client";
 
-import { Switch } from "@/components/ui/switch";
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
 
@@ -170,20 +169,20 @@ export function PackageEditor({
           />
         </div>
       </div>
-      <div className="pe-switchrow" style={{ marginTop: 14 }}>
-        <div>
-          <div className="pe-switchrow-title">Basic editing</div>
-          <div className="pe-switchrow-desc">
-            Adds Basic editing to the package deliverables.
-          </div>
-        </div>
-        <Switch
-          checked={draft.basicEditing}
-          disabled={disabled}
-          onCheckedChange={(basicEditing) =>
-            onChange({ ...draft, basicEditing })
-          }
-        />
+      <div
+        className="pe-note"
+        style={{
+          marginTop: 14,
+          borderRadius: 10,
+          border: "1px solid var(--border)",
+          background: "var(--muted)",
+          padding: "10px 14px",
+          fontSize: 12.5,
+          color: "var(--foreground)",
+        }}
+      >
+        <strong>Basic editing is always included.</strong> You must submit your
+        video already edited — brands receive a ready-to-use, edited video.
       </div>
     </div>
   );
@@ -211,7 +210,8 @@ export function AddOnCatalogEditor({
       <div className="pe-field" style={{ marginBottom: 14 }}>
         <label style={{ fontSize: 14, fontWeight: 700 }}>Add-ons</label>
         <span className="pe-help">
-          Optional catalog extras brands can add to your package.
+          Extras brands can add to your package. Mandatory add-ons are always
+          offered and must be priced before you go live.
         </span>
       </div>
 
@@ -264,12 +264,28 @@ export function AddOnCatalogEditor({
                   >
                     <input
                       type="checkbox"
-                      disabled={disabled}
+                      disabled={disabled || option.mandatory}
                       checked={selected}
                       onChange={() => onToggle(option)}
                       style={{ width: 16, height: 16 }}
                     />
                     {option.name}
+                    {option.mandatory ? (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                          color: "var(--primary)",
+                          border: "1px solid var(--primary)",
+                          borderRadius: 999,
+                          padding: "1px 7px",
+                        }}
+                      >
+                        Mandatory
+                      </span>
+                    ) : null}
                   </label>
                   <span
                     style={{

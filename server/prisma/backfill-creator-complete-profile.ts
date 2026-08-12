@@ -41,9 +41,16 @@ async function main(): Promise<void> {
       isListed: true,
       creatorApproval: { select: { status: true } },
       facetSelections: { select: { option: { select: { dimension: true } } } },
+      addOns: { select: { name: true } },
       _count: { select: { profileLanguages: true, packages: true } },
     },
   });
+
+  const mandatoryOptions = await prisma.creatorAddOnOption.findMany({
+    where: { mandatory: true },
+    select: { name: true },
+  });
+  const mandatoryAddOnNames = mandatoryOptions.map((o) => o.name);
 
   let updated = 0;
   let listed = 0;
@@ -74,6 +81,9 @@ async function main(): Promise<void> {
       languageCount: profile._count.profileLanguages,
       packageCount: profile._count.packages,
       publicVideoCount,
+      mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
+        profile.addOns.some((addOn) => addOn.name === name),
+      ),
     });
 
     const isListed =

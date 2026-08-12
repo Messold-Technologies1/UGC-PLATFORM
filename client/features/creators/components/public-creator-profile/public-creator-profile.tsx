@@ -1427,6 +1427,10 @@ function PricingCard({
             </li>
           ))}
         </ul>
+        <p className="mt-3 text-xs text-neutral-500">
+          Basic editing is included — you&apos;ll receive a ready-to-use, edited
+          video.
+        </p>
       </div>
 
       {addOns.length > 0 && (

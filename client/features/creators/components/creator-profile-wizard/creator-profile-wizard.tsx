@@ -44,6 +44,7 @@ import {
 import { capitalizeFirstLetter, toTitleCaseLabel } from "@/lib/string-lists";
 import {
   computeGoLiveMissing,
+  MIN_PORTFOLIO_VIDEOS,
   type GoLiveSnapshot,
 } from "@/features/creators/lib/go-live-requirements";
 import { PortfolioEditDrawer } from "@/features/creators/components/creator-profile-update/portfolio-components";
@@ -112,6 +113,21 @@ export function CreatorProfileWizard({
   const [completed, setCompleted] = useState<Set<WizardStepId>>(new Set());
   const [submitted, setSubmitted] = useState(false);
 
+  // An already-live (or admin-edited) profile behaves like a free editor:
+  // every step is reachable from the rail, filled steps show as done, and each
+  // step is saved on its own instead of walking the onboarding funnel.
+  const canEditFreely = adminMode || Boolean(initialProfile.completeProfile);
+  // Tracks unsaved edits on the current step so we can warn before navigating.
+  const [dirty, setDirty] = useState(false);
+  const markDirty = useCallback(() => setDirty(true), []);
+  const confirmLeaveIfDirty = useCallback((): boolean => {
+    if (!dirty) return true;
+    if (typeof window === "undefined") return true;
+    return window.confirm(
+      "You have unsaved changes on this step. Leave without saving?",
+    );
+  }, [dirty]);
+
   // ---- Field state ----
   const [displayName, setDisplayName] = useState(
     () => initialProfile.displayName ?? getInitialCreatorName(user),
@@ -177,7 +193,9 @@ export function CreatorProfileWizard({
   const [introConfirmed, setIntroConfirmed] = useState<boolean>(
     () => Boolean(introVideo.introVideoPreviewUrl),
   );
-  const [packageDefaultsConfirmed, setPackageDefaultsConfirmed] = useState(false);
+  const [packageDefaultsConfirmed, setPackageDefaultsConfirmed] = useState(
+    () => Boolean(initialProfile.completeProfile) || adminMode,
+  );
   const [goLivePolicies, setGoLivePolicies] = useState<GoLivePolicyAcceptanceState>(
     () =>
       createEmptyGoLivePolicyAcceptance(
@@ -229,6 +247,7 @@ export function CreatorProfileWizard({
       pendingActionRef.current = null;
       if (!action) return;
       setCompleted((prev) => new Set(prev).add(action.completeId));
+      setDirty(false);
       if (action.goLive) setSubmitted(true);
       setActiveIndex(action.nextIndex);
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
@@ -339,6 +358,60 @@ export function CreatorProfileWizard({
   ]);
 
   const goLiveMissing = useMemo(() => computeGoLiveMissing(goLiveSnapshot), [goLiveSnapshot]);
+
+  // Whether a step's requirements are already met by the current data. Drives
+  // the rail check-marks so a filled/live profile shows its progress on load,
+  // not only after clicking through each step this session.
+  const stepFilled = useCallback(
+    (id: WizardStepId): boolean => {
+      switch (id) {
+        case "about":
+          return (
+            displayName.trim().length > 0 &&
+            Boolean(dateOfBirth) &&
+            Boolean(gender) &&
+            location.city.trim().length > 0 &&
+            selectedLanguageCount > 0
+          );
+        case "identity":
+          return facetCount("CONTENT_CATEGORY") > 0;
+        case "pricing":
+          return (
+            validatePackagePrice(packages.packageDraft.priceAmount) ===
+              undefined && addOns.mandatoryAddOnsPriced
+          );
+        case "portfolio":
+          return publicPortfolioCount >= MIN_PORTFOLIO_VIDEOS;
+        case "intro-video":
+          return (
+            bio.trim().length >= BIO_MIN_CHARS &&
+            Boolean(introVideo.introVideoPreviewUrl)
+          );
+        case "review":
+          return goLiveMissing.length === 0;
+        case "go-live":
+          return submitted || Boolean(initialProfile.completeProfile);
+        default:
+          return false;
+      }
+    },
+    [
+      displayName,
+      dateOfBirth,
+      gender,
+      location.city,
+      selectedLanguageCount,
+      facetCount,
+      packages.packageDraft.priceAmount,
+      addOns.mandatoryAddOnsPriced,
+      publicPortfolioCount,
+      bio,
+      introVideo.introVideoPreviewUrl,
+      goLiveMissing,
+      submitted,
+      initialProfile.completeProfile,
+    ],
+  );
 
   // ---- Payload + persistence ----
   const buildPayload = useCallback(
@@ -528,15 +601,63 @@ export function CreatorProfileWizard({
     });
   }, [activeStep.id, validateStep, isEighteenPlus, goLiveMissing, persist, activeIndex, onExit]);
 
+  // Edit mode: save just the current step in place (no advance).
+  const saveCurrentStep = useCallback(() => {
+    const id = activeStep.id;
+    const missing = validateStep(id);
+    if (missing.length > 0) {
+      toast.error(`Almost there — add ${missing.join(", ")}.`);
+      return;
+    }
+    if (id === "about" && !isEighteenPlus) {
+      toast.error("Creators must be at least 18 years old.");
+      return;
+    }
+    persist({
+      completeId: id,
+      nextIndex: activeIndex,
+      includePackages: id === "pricing",
+    });
+  }, [activeStep.id, validateStep, isEighteenPlus, persist, activeIndex]);
+
+  // The primary footer button: in edit mode the editable steps save in place;
+  // review/go-live keep their submit/exit behavior, and onboarding keeps its
+  // save-and-advance flow.
+  const onPrimaryAction = useCallback(() => {
+    if (
+      canEditFreely &&
+      activeStep.id !== "review" &&
+      activeStep.id !== "go-live"
+    ) {
+      saveCurrentStep();
+      return;
+    }
+    handleContinue();
+  }, [canEditFreely, activeStep.id, saveCurrentStep, handleContinue]);
+
+  const handleBack = useCallback(() => {
+    if (!confirmLeaveIfDirty()) return;
+    setDirty(false);
+    if (activeIndex === 0) onExit?.();
+    else setActiveIndex((idx) => Math.max(0, idx - 1));
+  }, [confirmLeaveIfDirty, activeIndex, onExit]);
+
   const goToStep = useCallback(
     (index: number) => {
       const target = WIZARD_STEPS[index];
-      if (!target) return;
-      if (target.ready || completed.has(target.id) || index <= activeIndex) {
-        setActiveIndex(index);
-      }
+      if (!target || index === activeIndex) return;
+      const reachable =
+        canEditFreely ||
+        target.ready ||
+        completed.has(target.id) ||
+        stepFilled(target.id) ||
+        index <= activeIndex;
+      if (!reachable) return;
+      if (!confirmLeaveIfDirty()) return;
+      setDirty(false);
+      setActiveIndex(index);
     },
-    [activeIndex, completed],
+    [activeIndex, completed, canEditFreely, stepFilled, confirmLeaveIfDirty],
   );
 
   const initials = useMemo(() => {
@@ -636,9 +757,10 @@ export function CreatorProfileWizard({
   const continueLabel = useMemo(() => {
     if (activeStep.id === "review") return "Submit my profile";
     if (activeStep.id === "go-live") return "Go to dashboard";
+    if (canEditFreely) return "Save changes";
     if (activeStep.id === "portfolio") return "Almost there";
     return "Continue Building Profile";
-  }, [activeStep.id]);
+  }, [activeStep.id, canEditFreely]);
 
   return (
     <div className="pe-scope cw-root">
@@ -682,8 +804,9 @@ export function CreatorProfileWizard({
           <nav className="cw-steps" aria-label="Onboarding steps">
             {WIZARD_STEPS.map((step, index) => {
               const isActive = index === activeIndex;
-              const isDone = completed.has(step.id);
-              const isReachable = step.ready || isDone || index <= activeIndex;
+              const isDone = completed.has(step.id) || stepFilled(step.id);
+              const isReachable =
+                canEditFreely || step.ready || isDone || index <= activeIndex;
               return (
                 <button
                   key={step.id}
@@ -729,6 +852,7 @@ export function CreatorProfileWizard({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ type: "spring", stiffness: 260, damping: 30 }}
+              onChangeCapture={markDirty}
             >
               {activeStep.id === "about" ? (
                 <AboutYouStep
@@ -768,7 +892,10 @@ export function CreatorProfileWizard({
                   languageOptions={facets.facetOptionsByDimension.LANGUAGE ?? []}
                   selectedLanguages={selectedLanguages}
                   languagesLoading={facets.facetOptionsQuery.isLoading}
-                  onToggleLanguage={(slug) => facets.toggleLanguage(slug)}
+                  onToggleLanguage={(slug) => {
+                    markDirty();
+                    facets.toggleLanguage(slug);
+                  }}
                   languageConfirmed={languageConfirmed}
                   onLanguageConfirmedChange={setLanguageConfirmed}
                 />
@@ -777,11 +904,15 @@ export function CreatorProfileWizard({
                   disabled={pending}
                   optionsByDimension={facets.facetOptionsByDimension}
                   selectedFacets={facets.selectedFacets}
-                  onToggleFacet={(group: WizardFacetGroup, slug: string) =>
-                    facets.toggleFacet(group.dimension, slug)
-                  }
+                  onToggleFacet={(group: WizardFacetGroup, slug: string) => {
+                    markDirty();
+                    facets.toggleFacet(group.dimension, slug);
+                  }}
                   selectedRestrictions={selectedRestrictions}
-                  onToggleRestriction={toggleRestriction}
+                  onToggleRestriction={(name) => {
+                    markDirty();
+                    toggleRestriction(name);
+                  }}
                 />
               ) : activeStep.id === "intro-video" ? (
                 <IntroVideoStep
@@ -826,7 +957,7 @@ export function CreatorProfileWizard({
               ) : activeStep.id === "review" ? (
                 <ReviewStep
                   rows={reviewRows}
-                  onEditStep={(stepId) => setActiveIndex(STEP_INDEX[stepId])}
+                  onEditStep={(stepId) => goToStep(STEP_INDEX[stepId])}
                   policies={goLivePolicies}
                   onPoliciesChange={setGoLivePolicies}
                   policiesDisabled={Boolean(initialProfile.completeProfile)}
@@ -847,16 +978,17 @@ export function CreatorProfileWizard({
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
             <div className="cw-foot">
-              <span className="cw-foot-note">Autosaved. You can come back any time.</span>
+              <span className="cw-foot-note">
+                {canEditFreely
+                  ? "Save each step after you edit it."
+                  : "Autosaved. You can come back any time."}
+              </span>
               <div className="cw-foot-actions">
                 <button
                   type="button"
                   className="cw-btn cw-btn-ghost"
                   disabled={pending}
-                  onClick={() => {
-                    if (activeIndex === 0) onExit?.();
-                    else setActiveIndex((idx) => Math.max(0, idx - 1));
-                  }}
+                  onClick={handleBack}
                 >
                   <ArrowLeft size={16} />
                   {activeIndex === 0 ? "Exit" : "Back"}
@@ -864,7 +996,7 @@ export function CreatorProfileWizard({
                 <button
                   type="button"
                   className="cw-btn cw-btn-primary"
-                  onClick={handleContinue}
+                  onClick={onPrimaryAction}
                   disabled={
                     pending ||
                     profileImage.uploadingProfileImage ||

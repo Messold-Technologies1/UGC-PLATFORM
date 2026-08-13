@@ -41,16 +41,20 @@ const PACKAGE_DEFAULTS: Array<{ label: string; value: string; note: string }> = 
     note: "Brands can request this many changes after delivery.",
   },
   {
-    label: "Basic editing",
-    value: "Always included",
-    note: "Cut, captions and cleanup are part of the package — still send the raw footage with it.",
+    label: "Proper editing",
+    value: "High-quality edit",
+    note: "Deliver a polished, brand-ready video — clean cuts, captions and cleanup. Raw footage is still included.",
   },
 ];
 
 /** Extra guidance shown under specific add-ons, keyed by catalog slug. */
 const ADDON_HINTS: Record<string, string> = {
+  extra_revision:
+    "Your package already includes 2 revision rounds. This add-on is for each extra revision a brand requests beyond that.",
   paid_ads_usage_30_days:
     "The package already includes 30 days of usage rights. This add-on extends usage by another 30 days after that term ends.",
+  on_location_shoot:
+    "Turn this on to attract brands that need you on site. Many orders need a quick local shoot — enabling travel helps you win more of them.",
 };
 
 export function PackageEditor({
@@ -151,6 +155,11 @@ export function PackageEditor({
         </div>
       </div>
 
+      <p className="pe-delivery-warn" role="note">
+        Set a deadline you can actually meet. If you miss it, your creator score
+        can drop and the brand may be refunded.
+      </p>
+
       <div className="pe-defaults">
         <div className="pe-defaults-head">
           <p className="pe-defaults-label">What&apos;s included</p>
@@ -247,35 +256,19 @@ export function AddOnCatalogEditor({
       ) : null}
 
       {options.length ? (
-        <div style={{ columns: "320px 2", columnGap: 16 }}>
+        <div className="pe-addon-grid">
           {options.map((option) => {
             const selected = selectedSlugs.includes(option.slug);
             const draft = drafts[option.slug] ?? {
               priceAmount: String(option.fixedPrice ?? option.minPrice ?? 0),
               description: "",
             };
+            const hint = ADDON_HINTS[option.slug];
 
             return (
-              <div key={option.slug} className="pe-pkg" style={{ padding: 12, breakInside: "avoid", marginBottom: 16 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    marginBottom: selected ? 10 : 0,
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
+              <div key={option.slug} className="pe-pkg pe-addon-card">
+                <div className="pe-addon-card-top">
+                  <label className="pe-addon-card-label">
                     <input
                       type="checkbox"
                       disabled={disabled || option.mandatory}
@@ -291,31 +284,17 @@ export function AddOnCatalogEditor({
                       </span>
                     ) : null}
                   </label>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: "var(--muted-foreground)",
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <span className="pe-addon-card-price">
                     {option.fixedPrice != null
                       ? `Fixed ₹${option.fixedPrice}`
                       : `Min ₹${option.minPrice ?? 0}`}
                   </span>
                 </div>
 
-                {ADDON_HINTS[option.slug] ? (
-                  <p
-                    className="pe-help"
-                    style={{ marginTop: 6, marginBottom: selected ? 10 : 0 }}
-                  >
-                    {ADDON_HINTS[option.slug]}
-                  </p>
-                ) : null}
+                {hint ? <p className="pe-addon-hint">{hint}</p> : null}
 
                 {selected ? (
-                  <div className="pe-grid pe-grid-2">
+                  <div className="pe-grid pe-grid-2 pe-addon-fields">
                     <div className="pe-field">
                       <label htmlFor={`addon-price-${option.slug}`}>
                         Price

@@ -16,7 +16,6 @@ export class CreatorPackageService {
   private readonly DEFAULT_MAX_REVISIONS = 2;
   private readonly MIN_DELIVERY_DAYS = 1;
   private readonly MAX_DELIVERY_DAYS = 30;
-  private readonly MAX_VIDEO_LENGTH_SECONDS = 60;
   private readonly PRICE_STEP = 500;
 
   async createPackages(
@@ -47,11 +46,6 @@ export class CreatorPackageService {
     if (!Number.isInteger(videoLengthSeconds) || videoLengthSeconds < 1) {
       throw new BadRequestException(
         'videoLengthSeconds must be a positive integer.',
-      );
-    }
-    if (videoLengthSeconds > this.MAX_VIDEO_LENGTH_SECONDS) {
-      throw new BadRequestException(
-        `videoLengthSeconds must be <= ${this.MAX_VIDEO_LENGTH_SECONDS}.`,
       );
     }
 
@@ -88,6 +82,9 @@ export class CreatorPackageService {
     }
     if (!normalizedDeliverables.includes('1080p minimum')) {
       normalizedDeliverables.push('1080p minimum');
+    }
+    if (!normalizedDeliverables.includes('Usage rights: 30 days')) {
+      normalizedDeliverables.push('Usage rights: 30 days');
     }
 
     await tx.creatorPackage.create({

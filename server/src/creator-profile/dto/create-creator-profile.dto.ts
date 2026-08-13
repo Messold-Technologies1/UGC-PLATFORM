@@ -47,12 +47,11 @@ export class CreatorPackageCreateDto {
 
   @ApiPropertyOptional({
     example: 60,
-    description: 'Max 60 seconds.',
+    description: 'Positive integer seconds. No upper limit.',
   })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(60)
   videoLengthSeconds?: number;
 
   @ApiPropertyOptional({ example: true, description: 'Basic Editing: Yes/No' })

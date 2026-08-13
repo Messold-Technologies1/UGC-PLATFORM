@@ -1378,10 +1378,7 @@ function PricingCard({
           </div>
         )}
 
-        <p className="text-sm font-semibold text-neutral-700">
-          {selectedPackage.name}
-        </p>
-        <p className="mt-1 font-display text-3xl font-bold tracking-tight text-neutral-900">
+        <p className="font-display text-3xl font-bold tracking-tight text-neutral-900">
           {formatINR(basePrice)}
           <span className="ml-1 text-sm font-medium text-neutral-500">
             base

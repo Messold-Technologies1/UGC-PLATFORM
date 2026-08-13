@@ -53,8 +53,15 @@ export function useCreatorPackagesForm({
       );
       return null;
     }
-    // Every Standard package includes the edited video and the raw clips.
-    const deliverables = ["1 Video", "Basic editing", "Raw footage", "1080p minimum"];
+    // Every Standard package includes the edited video, the raw clips, and 30
+    // days of usage rights (extendable via the Usage Rights add-on).
+    const deliverables = [
+      "1 Video",
+      "Basic editing",
+      "Raw footage",
+      "1080p minimum",
+      "Usage rights: 30 days",
+    ];
 
     return [
       {

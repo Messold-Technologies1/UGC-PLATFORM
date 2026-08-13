@@ -29,6 +29,7 @@ export const ENDPOINTS = {
     CHANGE_PASSWORD: "/api/auth/password",
     ME: "/api/auth/me",
     LOGOUT: "/api/auth/logout",
+    WS_TOKEN: "/api/auth/ws-token",
   },
   CREATORS: {
     LIST: "/api/creators",

@@ -12,11 +12,30 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
   async rewrites() {
+    // BFF proxy: browser calls go to the frontend's own origin (`/api/*`) and
+    // are proxied to the backend here. This makes the auth cookie first-party,
+    // so login/signup work inside in-app browsers (Instagram/Facebook) and
+    // under Safari ITP, where cross-site cookies are blocked. Next's own
+    // route handlers (e.g. `/api/internal/*`) still win via afterFiles order.
+    const apiBase = (
+      process.env.API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:4000"
+    ).replace(/\/$/, "");
+
     return [
       {
         source: "/favicon.ico",
         destination: "/logo.png",
       },
+      ...(apiBase
+        ? [
+            {
+              source: "/api/:path*",
+              destination: `${apiBase}/api/:path*`,
+            },
+          ]
+        : []),
     ];
   },
   async redirects() {

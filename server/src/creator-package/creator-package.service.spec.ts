@@ -24,20 +24,28 @@ describe('CreatorPackageService', () => {
         videoLengthSeconds: 60,
         deliveryDays: 5,
         maxRevisions: 2,
-        deliverables: ['1 Video', 'Basic editing', 'Raw footage', '1080p minimum'],
+        deliverables: [
+          '1 Video',
+          'Basic editing',
+          'Raw footage',
+          '1080p minimum',
+          'Usage rights: 30 days',
+        ],
       }),
     });
   });
 
-  it('rejects video length above 60 seconds', async () => {
-    await expect(
-      service.createPackages({ creatorPackage: { create: createMock } } as any, 'creator-1', [
-        {
-          priceAmount: '500',
-          videoLengthSeconds: 61,
-        },
-      ]),
-    ).rejects.toBeInstanceOf(BadRequestException);
+  it('accepts video length above 60 seconds (no upper limit)', async () => {
+    await service.createPackages({ creatorPackage: { create: createMock } } as any, 'creator-1', [
+      {
+        priceAmount: '500',
+        videoLengthSeconds: 120,
+      },
+    ]);
+
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ videoLengthSeconds: 120 }),
+    });
   });
 
   it('accepts dynamic delivery days within range', async () => {

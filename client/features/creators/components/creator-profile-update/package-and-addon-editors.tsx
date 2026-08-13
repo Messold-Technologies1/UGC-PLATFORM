@@ -6,10 +6,8 @@ import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
 
 import {
-  PACKAGE_NAME,
   PACKAGE_DEFAULT_MAX_REVISIONS,
   PACKAGE_MAX_DELIVERY_DAYS,
-  PACKAGE_MAX_VIDEO_LENGTH_SECONDS,
   PACKAGE_MIN_DELIVERY_DAYS,
   normalizeWholeNumberInput,
   type PackageDraft,
@@ -28,19 +26,14 @@ export type CreatorProfileUpdateFormProps = {
 
 const PACKAGE_DEFAULTS: Array<{ label: string; value: string; note: string }> = [
   {
-    label: "Package name",
-    value: PACKAGE_NAME,
-    note: "Every creator starts with the same Standard package.",
-  },
-  {
     label: "Deliverable",
     value: "1 edited video + raw files, 1080p min",
     note: "Send the finished edit and the original raw clips. The video must be at least 1080p.",
   },
   {
-    label: "Video length",
-    value: `Up to ${PACKAGE_MAX_VIDEO_LENGTH_SECONDS} seconds`,
-    note: "Keep the final cut within this length.",
+    label: "Usage rights",
+    value: "30 days",
+    note: "Brands can use the delivered content for 30 days. They can extend it with the Usage Rights add-on.",
   },
   {
     label: "Revisions",
@@ -53,6 +46,12 @@ const PACKAGE_DEFAULTS: Array<{ label: string; value: string; note: string }> = 
     note: "Cut, captions and cleanup are part of the package — still send the raw footage with it.",
   },
 ];
+
+/** Extra guidance shown under specific add-ons, keyed by catalog slug. */
+const ADDON_HINTS: Record<string, string> = {
+  paid_ads_usage_30_days:
+    "The package already includes 30 days of usage rights. This add-on extends usage by another 30 days after that term ends.",
+};
 
 export function PackageEditor({
   draft,
@@ -305,6 +304,15 @@ export function AddOnCatalogEditor({
                       : `Min ₹${option.minPrice ?? 0}`}
                   </span>
                 </div>
+
+                {ADDON_HINTS[option.slug] ? (
+                  <p
+                    className="pe-help"
+                    style={{ marginTop: 6, marginBottom: selected ? 10 : 0 }}
+                  >
+                    {ADDON_HINTS[option.slug]}
+                  </p>
+                ) : null}
 
                 {selected ? (
                   <div className="pe-grid pe-grid-2">

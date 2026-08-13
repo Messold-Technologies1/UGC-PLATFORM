@@ -762,6 +762,15 @@ export function CreatorProfileWizard({
     return "Continue Building Profile";
   }, [activeStep.id, canEditFreely]);
 
+  // In editor mode, editable steps get a "save this step" reminder + a Save
+  // button in the header (in addition to the footer one).
+  const showStepSave =
+    canEditFreely &&
+    activeStep.id !== "review" &&
+    activeStep.id !== "go-live";
+  const uploadingMedia =
+    profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
+
   return (
     <div className="pe-scope cw-root">
       <div className="cw-topline">
@@ -841,8 +850,38 @@ export function CreatorProfileWizard({
             </span>
             <div>
               <h1 className="cw-pane-title">{activeStep.title}</h1>
-              <p className="cw-pane-tag">{activeStep.tagline}</p>
+              {showStepSave ? (
+                <p
+                  className="cw-pane-tag"
+                  style={{ color: "#b45309", fontWeight: 600 }}
+                >
+                  Please save your changes at each step before moving on.
+                </p>
+              ) : (
+                <p className="cw-pane-tag">{activeStep.tagline}</p>
+              )}
             </div>
+            {showStepSave ? (
+              <button
+                type="button"
+                className="cw-btn cw-btn-primary"
+                style={{ marginLeft: "auto", alignSelf: "center" }}
+                onClick={onPrimaryAction}
+                disabled={pending || uploadingMedia}
+              >
+                {pending ? (
+                  <>
+                    <Spinner className="size-4" aria-hidden />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    {continueLabel}
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            ) : null}
           </div>
 
           <AnimatePresence mode="wait">

@@ -590,9 +590,12 @@ export function CreatorProfileWizard({
         status: identityOk ? "complete" : "incomplete",
       },
       {
-        stepId: "intro-video",
-        title: "Intro Video",
-        status: introOk ? "complete" : "incomplete",
+        stepId: "pricing",
+        title: "Pricing, Delivery & Add-ons",
+        status: pricingOk ? "complete" : "incomplete",
+        summary: pricingOk
+          ? `₹${Number(packages.packageDraft.priceAmount).toLocaleString("en-IN")} base · ${packages.packageDraft.deliveryDays}-day delivery${addOnCount > 0 ? ` · ${addOnCount} add-on${addOnCount > 1 ? "s" : ""} on` : ""}`
+          : "Set your starting price to continue.",
       },
       {
         stepId: "portfolio",
@@ -605,12 +608,9 @@ export function CreatorProfileWizard({
         }`,
       },
       {
-        stepId: "pricing",
-        title: "Pricing, Delivery & Add-ons",
-        status: pricingOk ? "complete" : "incomplete",
-        summary: pricingOk
-          ? `₹${Number(packages.packageDraft.priceAmount).toLocaleString("en-IN")} base · ${packages.packageDraft.deliveryDays}-day delivery${addOnCount > 0 ? ` · ${addOnCount} add-on${addOnCount > 1 ? "s" : ""} on` : ""}`
-          : "Set your starting price to continue.",
+        stepId: "intro-video",
+        title: "Intro Video",
+        status: introOk ? "complete" : "incomplete",
       },
     ];
   }, [

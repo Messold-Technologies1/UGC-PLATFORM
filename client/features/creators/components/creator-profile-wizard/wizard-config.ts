@@ -54,19 +54,19 @@ export const WIZARD_STEPS: WizardStep[] = [
     ready: false,
   },
   {
-    id: "portfolio",
-    label: "Portfolio",
-    title: "Your portfolio",
-    tagline: "Your best reels — proof that you deliver scroll-stopping work.",
-    icon: Images,
-    ready: false,
-  },
-  {
     id: "pricing",
     label: "Pricing",
     title: "Pricing, delivery & add-ons",
     tagline: "Set your rates, turnaround and the extras brands can book.",
     icon: IndianRupee,
+    ready: false,
+  },
+  {
+    id: "portfolio",
+    label: "Portfolio",
+    title: "Your portfolio",
+    tagline: "Your best reels — proof that you deliver scroll-stopping work.",
+    icon: Images,
     ready: false,
   },
   {

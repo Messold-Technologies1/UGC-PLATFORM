@@ -33,7 +33,11 @@ export function persistAuthMeSnapshot(user: AuthUser | null): void {
 }
 
 const api = axios.create({
-  baseURL: env.apiUrl,
+  // In the browser, hit the frontend's own origin so requests go through the
+  // Next BFF rewrite (`/api/*` → backend) and the auth cookie stays
+  // first-party — required for in-app browsers / Safari ITP. On the server
+  // (SSR) there is no same origin to proxy through, so call the API directly.
+  baseURL: typeof window === "undefined" ? env.apiUrl : "",
   withCredentials: true,
 });
 

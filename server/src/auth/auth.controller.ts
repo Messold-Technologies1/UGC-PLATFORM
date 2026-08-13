@@ -500,4 +500,20 @@ export class AuthController {
     }
     return { user };
   }
+
+  @Get('ws-token')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Issue a short-lived token for the WebSocket handshake',
+    description:
+      'For clients whose auth cookie is not sent on the cross-origin socket ' +
+      '(in-app browsers / Safari ITP). Pass it as Socket.IO `auth.token`.',
+  })
+  @ApiResponse({ status: 200, description: 'Short-lived socket token' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  wsToken(@Req() req: Request & { user: { id: string } }): { token: string } {
+    return { token: this.authService.issueSocketToken(req.user.id) };
+  }
 }

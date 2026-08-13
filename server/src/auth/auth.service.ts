@@ -136,6 +136,22 @@ export class AuthService {
     return expiresIn as unknown as import('jsonwebtoken').SignOptions['expiresIn'];
   }
 
+  /**
+   * Mint a short-lived JWT the client can pass in the Socket.IO handshake
+   * (`auth.token`). Needed for in-app browsers, where the httpOnly auth cookie
+   * is not sent on the cross-origin WebSocket connection. Same secret/shape as
+   * the access token, so the gateways verify it with no extra config.
+   */
+  issueSocketToken(userId: string): string {
+    return this.jwt.sign(
+      { sub: userId },
+      {
+        secret: this.config.get<string>('JWT_ACCESS_SECRET'),
+        expiresIn: this.asJwtExpiresIn(this.getAccessExpiry()),
+      },
+    );
+  }
+
   async register(
     dto: RegisterDto,
     meta?: { ipAddress?: string; userAgent?: string },

@@ -614,7 +614,8 @@ export function CreatorProfileWizard({
     });
   }, [activeStep.id, validateStep, isEighteenPlus, goLiveMissing, persist, activeIndex, onExit, steps.length, stepIndex]);
 
-  // Edit mode: save just the current step in place (no advance).
+  // Edit mode: save the current step, then advance to the next one (clamped to
+  // the last step, so saving the final step just stays put).
   const saveCurrentStep = useCallback(() => {
     const id = activeStep.id;
     const missing = validateStep(id);
@@ -628,10 +629,10 @@ export function CreatorProfileWizard({
     }
     persist({
       completeId: id,
-      nextIndex: activeIndex,
+      nextIndex: Math.min(activeIndex + 1, steps.length - 1),
       includePackages: id === "pricing",
     });
-  }, [activeStep.id, validateStep, isEighteenPlus, persist, activeIndex]);
+  }, [activeStep.id, validateStep, isEighteenPlus, persist, activeIndex, steps.length]);
 
   // The primary footer button: in edit mode the editable steps save in place;
   // review/go-live keep their submit/exit behavior, and onboarding keeps its

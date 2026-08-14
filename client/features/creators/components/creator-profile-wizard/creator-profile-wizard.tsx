@@ -81,13 +81,8 @@ export type CreatorProfileWizardProps = {
 
 const NICHE_DIMENSIONS = new Set(["CONTENT_CATEGORY"]);
 
-const STEP_INDEX: Record<WizardStepId, number> = WIZARD_STEPS.reduce(
-  (acc, step, index) => {
-    acc[step.id] = index;
-    return acc;
-  },
-  {} as Record<WizardStepId, number>,
-);
+/** Steps to drop once the profile is already listed (live & approved). */
+const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 
 // Package price rule mirrored from the long form (>= ₹500, steps of ₹500).
 function validatePackagePrice(value: string): string | undefined {
@@ -254,7 +249,25 @@ export function CreatorProfileWizard({
     },
   });
   const pending = submitMutation.isPending;
-  const activeStep = WIZARD_STEPS[activeIndex];
+
+  // Once a profile is listed (live & approved) there's nothing to re-submit —
+  // the wizard is just an editor, so drop the Review and Go Live steps.
+  const steps = useMemo(
+    () =>
+      initialProfile.isListed
+        ? WIZARD_STEPS.filter((step) => !LISTED_HIDDEN_STEPS.has(step.id))
+        : WIZARD_STEPS,
+    [initialProfile.isListed],
+  );
+  const stepIndex = useMemo(() => {
+    const map = {} as Record<WizardStepId, number>;
+    steps.forEach((step, index) => {
+      map[step.id] = index;
+    });
+    return map;
+  }, [steps]);
+
+  const activeStep = steps[Math.min(activeIndex, steps.length - 1)];
   const ActiveIcon = activeStep.icon;
 
   // ---- Derived ----
@@ -587,7 +600,7 @@ export function CreatorProfileWizard({
       }
       persist({
         completeId: "review",
-        nextIndex: STEP_INDEX["go-live"],
+        nextIndex: stepIndex["go-live"],
         includePackages: true,
         goLive: true,
       });
@@ -596,10 +609,10 @@ export function CreatorProfileWizard({
 
     persist({
       completeId: id,
-      nextIndex: Math.min(activeIndex + 1, WIZARD_STEPS.length - 1),
+      nextIndex: Math.min(activeIndex + 1, steps.length - 1),
       includePackages: id === "pricing",
     });
-  }, [activeStep.id, validateStep, isEighteenPlus, goLiveMissing, persist, activeIndex, onExit]);
+  }, [activeStep.id, validateStep, isEighteenPlus, goLiveMissing, persist, activeIndex, onExit, steps.length, stepIndex]);
 
   // Edit mode: save just the current step in place (no advance).
   const saveCurrentStep = useCallback(() => {
@@ -644,7 +657,7 @@ export function CreatorProfileWizard({
 
   const goToStep = useCallback(
     (index: number) => {
-      const target = WIZARD_STEPS[index];
+      const target = steps[index];
       if (!target || index === activeIndex) return;
       const reachable =
         canEditFreely ||
@@ -657,7 +670,7 @@ export function CreatorProfileWizard({
       setDirty(false);
       setActiveIndex(index);
     },
-    [activeIndex, completed, canEditFreely, stepFilled, confirmLeaveIfDirty],
+    [steps, activeIndex, completed, canEditFreely, stepFilled, confirmLeaveIfDirty],
   );
 
   const initials = useMemo(() => {
@@ -775,7 +788,7 @@ export function CreatorProfileWizard({
     <div className="pe-scope cw-root">
       <div className="cw-topline">
         <span>
-          Step {activeIndex + 1} of {WIZARD_STEPS.length}
+          Step {activeIndex + 1} of {steps.length}
           {completed.size > 0 ? " · saved just now" : ""}
         </span>
         <span className="cw-topline-avatar" aria-hidden>
@@ -811,7 +824,7 @@ export function CreatorProfileWizard({
           </div>
 
           <nav className="cw-steps" aria-label="Onboarding steps">
-            {WIZARD_STEPS.map((step, index) => {
+            {steps.map((step, index) => {
               const isActive = index === activeIndex;
               const isDone = completed.has(step.id) || stepFilled(step.id);
               const isReachable =
@@ -996,7 +1009,7 @@ export function CreatorProfileWizard({
               ) : activeStep.id === "review" ? (
                 <ReviewStep
                   rows={reviewRows}
-                  onEditStep={(stepId) => goToStep(STEP_INDEX[stepId])}
+                  onEditStep={(stepId) => goToStep(stepIndex[stepId])}
                   policies={goLivePolicies}
                   onPoliciesChange={setGoLivePolicies}
                   policiesDisabled={Boolean(initialProfile.completeProfile)}
@@ -1007,7 +1020,7 @@ export function CreatorProfileWizard({
                   submitted={submitted}
                   strengthPct={strength.pct}
                   strengthHint={strength.hint}
-                  onUploadMore={() => setActiveIndex(STEP_INDEX.portfolio)}
+                  onUploadMore={() => setActiveIndex(stepIndex.portfolio)}
                   onGoToDashboard={() => onExit?.()}
                 />
               )}

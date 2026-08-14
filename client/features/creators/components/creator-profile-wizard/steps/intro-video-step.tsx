@@ -81,6 +81,27 @@ export function IntroVideoStep({
             </div>
           </div>
 
+          <label
+            className="cw-confirm"
+            data-checked={confirmed}
+            data-disabled={disabled || !videoPreviewUrl}
+          >
+            <input
+              type="checkbox"
+              className="cw-confirm-box"
+              checked={confirmed}
+              disabled={disabled || !videoPreviewUrl}
+              onChange={(e) => onConfirmedChange(e.target.checked)}
+            />
+            <span className="cw-confirm-tick" aria-hidden>
+              <Check size={13} strokeWidth={3} />
+            </span>
+            <span className="cw-confirm-text">
+              I confirm my intro video meets all the requirements above and does
+              not include any brand watermark.
+            </span>
+          </label>
+
           <div className="cw-script">
             <div className="cw-script-title">Sample script</div>
             <p>{SAMPLE_SCRIPT}</p>
@@ -142,29 +163,6 @@ export function IntroVideoStep({
           {BIO_EXAMPLE}
         </div>
       </div>
-
-      <div className="cw-hr" />
-
-      <label
-        className="cw-confirm"
-        data-checked={confirmed}
-        data-disabled={disabled || !videoPreviewUrl}
-      >
-        <input
-          type="checkbox"
-          className="cw-confirm-box"
-          checked={confirmed}
-          disabled={disabled || !videoPreviewUrl}
-          onChange={(e) => onConfirmedChange(e.target.checked)}
-        />
-        <span className="cw-confirm-tick" aria-hidden>
-          <Check size={13} strokeWidth={3} />
-        </span>
-        <span className="cw-confirm-text">
-          I confirm my intro video meets all the requirements above and does not
-          include any brand watermark.
-        </span>
-      </label>
     </div>
   );
 }

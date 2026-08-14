@@ -3,6 +3,8 @@ export type StorageUploadKind =
   | 'creator_profile_image'
   | 'creator_portfolio_video'
   | 'creator_portfolio_thumbnail'
+  | 'creator_demo_video'
+  | 'creator_demo_video_thumbnail'
   | 'brand_logo'
   | 'agency_logo'
   | 'brand_pronunciation_audio'

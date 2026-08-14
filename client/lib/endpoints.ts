@@ -50,6 +50,7 @@ export const ENDPOINTS = {
       `/api/creators/${encodeURIComponent(id)}/rating-reviews`,
     PUBLIC_PROFILE: (slug: string) =>
       `/api/creators/public/${encodeURIComponent(slug)}`,
+    DEMO_INTRO_VIDEOS: "/api/creators/demo-intro-videos",
   },
   BRANDS: {
     PROFILE: "/api/brands/profile",
@@ -252,6 +253,13 @@ export const ENDPOINTS = {
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}`,
       RESTORE_VERSION: (slug: string, versionId: string) =>
         `/api/admin/legal-pages/${encodeURIComponent(slug)}/versions/${encodeURIComponent(versionId)}/restore`,
+    },
+    DEMO_INTRO_VIDEOS: {
+      LIST: "/api/admin/demo-intro-videos",
+      CREATE: "/api/admin/demo-intro-videos",
+      UPLOADS_PRESIGN: "/api/admin/demo-intro-videos/uploads/presign",
+      BY_ID: (id: string) =>
+        `/api/admin/demo-intro-videos/${encodeURIComponent(id)}`,
     },
   },
   CONTACT_US: "/api/contact-us",

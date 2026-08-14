@@ -77,13 +77,15 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
 
   if (
     kind === 'creator_intro_video' ||
-    kind === 'creator_portfolio_video'
+    kind === 'creator_portfolio_video' ||
+    kind === 'creator_demo_video'
   ) {
     if (!isVideo) throw new Error('Unsupported video content type');
     return;
   }
   if (
     kind === 'creator_portfolio_thumbnail' ||
+    kind === 'creator_demo_video_thumbnail' ||
     kind === 'creator_profile_image' ||
     kind === 'brand_logo' ||
     kind === 'agency_logo' ||
@@ -292,6 +294,14 @@ export class StorageService {
         return `brief-product/${briefId}/${id}.${ext}`;
       }
       return this.buildTempBriefProductImageKey(input.userId, ext);
+    }
+
+    if (input.kind === 'creator_demo_video') {
+      return `creator-demo-videos/${id}.${ext}`;
+    }
+
+    if (input.kind === 'creator_demo_video_thumbnail') {
+      return `creator-demo-videos/thumbnails/${id}.${ext}`;
     }
 
     if (input.kind === 'order_delivery_asset') {

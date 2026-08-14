@@ -24,6 +24,7 @@ import {
   Camera,
   Building2,
   Heart,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -118,6 +119,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
     { href: "/admin/orderManagement", label: "Orders", icon: Package },
     { href: "/admin/legal", label: "Legal", icon: FileText },
+    { href: "/admin/demo-videos", label: "Demo Videos", icon: Video },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
 };

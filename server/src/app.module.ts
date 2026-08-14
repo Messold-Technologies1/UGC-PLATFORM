@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { CreatorProfileModule } from './creator-profile/creator-profile.module';
 import { StorageModule } from './storage/storage.module';
 import { CreatorPortfolioModule } from './creator-portfolio/creator-portfolio.module';
+import { CreatorDemoVideosModule } from './creator-demo-videos/creator-demo-videos.module';
 import { BrandProfileModule } from './brand-profile/brand-profile.module';
 import { OrdersModule } from './orders/orders.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -52,6 +53,7 @@ import { SocialConnectionsModule } from './social-connections/social-connections
     CitiesModule,
     CreatorProfileModule,
     CreatorPortfolioModule,
+    CreatorDemoVideosModule,
     BrandProfileModule,
     AgencyModule,
     OrdersModule,

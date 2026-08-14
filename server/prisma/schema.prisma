@@ -1,12 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [pgvector(map: "vector"), pg_trgm]
 }
 
@@ -304,78 +304,78 @@ model UserRole {
 }
 
 model CreatorProfile {
-  id                  String                      @id @default(uuid()) @db.Uuid
-  userId              String                      @unique @db.Uuid
-  displayName         String
+  id                           String                      @id @default(uuid()) @db.Uuid
+  userId                       String                      @unique @db.Uuid
+  displayName                  String
   /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
-  publicSlug          String                      @unique
-  introVideoKey       String?
-  introVideoUrl       String?
-  profileImageKey     String?
-  profileImageUrl     String?
-  city                String?
-  countryName         String?
-  stateName           String?
-  bio                 String?
-  gender              CreatorGender?
-  dateOfBirth         DateTime?                   @db.Date
-  shippingAddress     String?
+  publicSlug                   String                      @unique
+  introVideoKey                String?
+  introVideoUrl                String?
+  profileImageKey              String?
+  profileImageUrl              String?
+  city                         String?
+  countryName                  String?
+  stateName                    String?
+  bio                          String?
+  gender                       CreatorGender?
+  dateOfBirth                  DateTime?                   @db.Date
+  shippingAddress              String?
   /// Primary contact email for orders and platform communication.
-  contactEmail        String?
-  instagramUrl        String?
+  contactEmail                 String?
+  instagramUrl                 String?
   /// Optional Google Drive folder/file link shared at signup (viewer access).
-  driveLink           String?
-  youtubeUrl          String?
-  snapchatUrl         String?
-  contentVolume       CreatorContentVolumeBucket?
-  collaborationCount  Int                         @default(0)
-  travelRadius        Int?
-  onLocationAvailable Boolean                     @default(false)
+  driveLink                    String?
+  youtubeUrl                   String?
+  snapchatUrl                  String?
+  contentVolume                CreatorContentVolumeBucket?
+  collaborationCount           Int                         @default(0)
+  travelRadius                 Int?
+  onLocationAvailable          Boolean                     @default(false)
   /// One-way latch: set true the first time the creator meets every Go-Live
   /// requirement. Never reverts — later edits/deletions do not clear it.
-  completeProfile     Boolean                     @default(false)
+  completeProfile              Boolean                     @default(false)
   /// Derived discovery gate = (approval APPROVED) AND completeProfile.
   /// Brands only ever see creators where this is true.
-  isListed            Boolean                     @default(false)
+  isListed                     Boolean                     @default(false)
   /// Opt-in for transactional/profile/order emails. Set true at signup; legacy rows backfilled false.
-  emailNotificationsEnabled    Boolean            @default(false)
+  emailNotificationsEnabled    Boolean                     @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
-  whatsappNotificationsEnabled Boolean            @default(false)
+  whatsappNotificationsEnabled Boolean                     @default(false)
   /// Meta (Facebook) attribution identifiers captured in the creator's browser
   /// at signup. Replayed via the Conversions API when the creator is listed so
   /// the (out-of-band, admin-triggered) conversion attributes to the ad the
   /// creator originally clicked. All optional — tracking is best-effort.
-  metaFbp             String?
-  metaFbc             String?
-  metaSignupIp        String?
-  metaSignupUserAgent String?
+  metaFbp                      String?
+  metaFbc                      String?
+  metaSignupIp                 String?
+  metaSignupUserAgent          String?
   /// Profile-completion reminder emails sent while the profile is still building
   /// (completeProfile = false). Each stamp is set once, when its reminder is
   /// handled, so the reminder job stays idempotent. All nullable/additive.
-  completionReminder30mAt DateTime?
-  completionReminder24hAt DateTime?
-  completionReminder48hAt DateTime?
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
+  completionReminder30mAt      DateTime?
+  completionReminder24hAt      DateTime?
+  completionReminder48hAt      DateTime?
+  createdAt                    DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
 
-  user             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  creatorApproval  CreatorApproval?
-  facetSelections  CreatorProfileFacetSelection[]
-  profileLanguages CreatorProfileLanguage[]
-  restrictions     CreatorRestriction[]
-  stats            CreatorStats?
-  feature          CreatorFeature?
-  packages         CreatorPackage[]
-  addOns           CreatorAddOn[]
-  portfolioVideos  CreatorPortfolioVideo[]
+  user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorApproval   CreatorApproval?
+  facetSelections   CreatorProfileFacetSelection[]
+  profileLanguages  CreatorProfileLanguage[]
+  restrictions      CreatorRestriction[]
+  stats             CreatorStats?
+  feature           CreatorFeature?
+  packages          CreatorPackage[]
+  addOns            CreatorAddOn[]
+  portfolioVideos   CreatorPortfolioVideo[]
   portfolioSections CreatorPortfolioSection[]
-  receivedOrders      Order[]                        @relation("OrderCreator")
-  orderDeliveries     OrderDelivery[]
-  payoutDetails       CreatorPayoutDetails?
-  ratingReviews       CreatorRatingReview[]
-  wishlistEntries     BrandWishlistCreator[]
-  unavailability      CreatorUnavailability?
-  socialConnections   SocialConnection[]
+  receivedOrders    Order[]                        @relation("OrderCreator")
+  orderDeliveries   OrderDelivery[]
+  payoutDetails     CreatorPayoutDetails?
+  ratingReviews     CreatorRatingReview[]
+  wishlistEntries   BrandWishlistCreator[]
+  unavailability    CreatorUnavailability?
+  socialConnections SocialConnection[]
 
   @@index([city])
   @@index([countryName])
@@ -518,24 +518,24 @@ model Order {
   expectedAmountPaise Int      @default(0)
 
   // Timeline
-  paidAt             DateTime?
-  briefId            String?   @db.Uuid
-  briefSubmittedAt   DateTime?
-  briefAcceptedAt    DateTime?
+  paidAt           DateTime?
+  briefId          String?   @db.Uuid
+  briefSubmittedAt DateTime?
+  briefAcceptedAt  DateTime?
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
-  requiresPhysicalProductShipment Boolean @default(false)
+  requiresPhysicalProductShipment Boolean   @default(false)
   courierName                     String?
   trackingId                      String?
   dispatchedAt                    DateTime?
   productReceivedAt               DateTime?
 
-  deliveryDueAt             DateTime?
-  deliveryGraceDeadlineAt     DateTime?
-  deliveredAt        DateTime?
-  acceptedAt         DateTime?
-  creatorPaidAt      DateTime?
-  revisionCount      Int       @default(0)
+  deliveryDueAt           DateTime?
+  deliveryGraceDeadlineAt DateTime?
+  deliveredAt             DateTime?
+  acceptedAt              DateTime?
+  creatorPaidAt           DateTime?
+  revisionCount           Int       @default(0)
 
   /// Order status captured at the moment a dispute is opened, so an admin
   /// resolution ("continue") or an opener withdrawal can restore the order
@@ -549,9 +549,9 @@ model Order {
   refundedAt        DateTime?
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
-  lastChatActivityAt          DateTime @default(now())
-  lastChatMessageId           String?  @db.Uuid
-  lastChatMessageSenderUserId String?  @db.Uuid
+  lastChatActivityAt          DateTime              @default(now())
+  lastChatMessageId           String?               @db.Uuid
+  lastChatMessageSenderUserId String?               @db.Uuid
   lastChatMessageType         OrderChatMessageType?
   lastChatMessageText         String?
 
@@ -709,16 +709,16 @@ enum OrderChatMessageType {
 }
 
 model OrderChatMessage {
-  id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @db.Uuid
-  senderUserId    String   @db.Uuid
+  id              String               @id @default(uuid()) @db.Uuid
+  orderId         String               @db.Uuid
+  senderUserId    String               @db.Uuid
   type            OrderChatMessageType @default(TEXT)
   text            String?
   audioKey        String?
   audioDurationMs Int?
   audioMimeType   String?
   clientMessageId String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime             @default(now())
 
   order      Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sender     User                 @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
@@ -816,8 +816,8 @@ model CreatorPortfolioVideo {
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
-  creator CreatorProfile             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  tags    CreatorPortfolioVideoTag[]
+  creator       CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  tags          CreatorPortfolioVideoTag[]
   sectionVideos CreatorPortfolioSectionVideo[]
 
   @@index([creatorId, visibilityStatus, createdAt])
@@ -860,6 +860,25 @@ model CreatorPortfolioSectionVideo {
 
   @@id([sectionId, videoId])
   @@index([sectionId, position])
+}
+
+/// Curated "watch a few examples" clips shown on the Intro Video wizard step.
+/// Global catalog, admin-managed, same set shown to every creator.
+model CreatorDemoVideo {
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String
+  /// One-line "why this works" caption shown under the thumbnail.
+  caption      String?
+  videoKey     String
+  videoUrl     String
+  thumbnailKey String?
+  thumbnailUrl String?
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([active, sortOrder])
 }
 
 model PortfolioIndustrySuggestion {
@@ -935,46 +954,46 @@ model Agency {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  owner            User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  brands           BrandProfile[]
-  lastActiveBrand  BrandProfile? @relation("AgencyLastActiveBrand", fields: [lastActiveBrandProfileId], references: [id], onDelete: SetNull)
+  owner           User           @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  brands          BrandProfile[]
+  lastActiveBrand BrandProfile?  @relation("AgencyLastActiveBrand", fields: [lastActiveBrandProfileId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId])
 }
 
 model BrandProfile {
-  id                         String            @id @default(uuid()) @db.Uuid
-  userId                     String?           @unique @db.Uuid
-  agencyId                   String?           @db.Uuid
-  brandName                  String?
-  logoKey                    String?
-  logoUrl                    String?
-  website                    String?
+  id                           String            @id @default(uuid()) @db.Uuid
+  userId                       String?           @unique @db.Uuid
+  agencyId                     String?           @db.Uuid
+  brandName                    String?
+  logoKey                      String?
+  logoUrl                      String?
+  website                      String?
   /// Primary contact name on the brand profile form.
-  contactFullName            String?
-  contactEmail               String?
-  contactPhone               String?
-  brandPronunciationAudioKey String?
-  brandPronunciationAudioUrl String?
-  instagramUrl               String?
-  productType                BrandProductType?
-  otherCategoryLabel         String?
+  contactFullName              String?
+  contactEmail                 String?
+  contactPhone                 String?
+  brandPronunciationAudioKey   String?
+  brandPronunciationAudioUrl   String?
+  instagramUrl                 String?
+  productType                  BrandProductType?
+  otherCategoryLabel           String?
   /// Opt-in for transactional/order emails. Set true at signup; legacy rows backfilled false.
-  emailNotificationsEnabled    Boolean         @default(false)
+  emailNotificationsEnabled    Boolean           @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
-  whatsappNotificationsEnabled Boolean         @default(false)
-  createdAt                  DateTime          @default(now())
-  updatedAt                  DateTime          @updatedAt
+  whatsappNotificationsEnabled Boolean           @default(false)
+  createdAt                    DateTime          @default(now())
+  updatedAt                    DateTime          @updatedAt
 
-  user            User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agency          Agency?                     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  agencyLastActiveFor Agency?                 @relation("AgencyLastActiveBrand")
-  orders          Order[]
-  checkoutBatches OrderCheckoutBatch[]
-  briefs          Brief[]
-  wishlists       BrandWishlist[]
-  brandCategories BrandProfileBrandCategory[]
-  ratingReviews   CreatorRatingReview[]
+  user                User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency              Agency?                     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyLastActiveFor Agency?                     @relation("AgencyLastActiveBrand")
+  orders              Order[]
+  checkoutBatches     OrderCheckoutBatch[]
+  briefs              Brief[]
+  wishlists           BrandWishlist[]
+  brandCategories     BrandProfileBrandCategory[]
+  ratingReviews       CreatorRatingReview[]
 
   @@index([agencyId])
 }
@@ -997,15 +1016,15 @@ model BrandWishlist {
 }
 
 model BrandWishlistCreator {
-  id         String   @id @default(uuid()) @db.Uuid
-  wishlistId String   @db.Uuid
-  creatorId  String   @db.Uuid
-  sortOrder  Int      @default(0)
+  id               String   @id @default(uuid()) @db.Uuid
+  wishlistId       String   @db.Uuid
+  creatorId        String   @db.Uuid
+  sortOrder        Int      @default(0)
   /// Add-ons the brand pre-selected for this creator when saving them to the
   /// wishlist. Referenced CreatorAddOn ids; re-validated (and stale ones
   /// dropped) at checkout, since a creator can delete/recreate their add-ons.
-  selectedAddOnIds String[] @db.Uuid @default([])
-  createdAt  DateTime @default(now())
+  selectedAddOnIds String[] @default([]) @db.Uuid
+  createdAt        DateTime @default(now())
 
   wishlist BrandWishlist  @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
   creator  CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
@@ -1286,35 +1305,33 @@ model LegalPage {
   updatedBy     String?  @db.Uuid
 
   // Draft State
-  draftStatus        LegalDraftStatus?
-  draftTitle         String?
-  draftDescription   String?
-  draftEffectiveDate String?
-  draftSections      Json?
-  draftChangeNote    String?
-  draftCreatedBy     String?           @db.Uuid
-  draftReviewNote    String?
-  draftCreatedAt     DateTime?
-  draftUpdatedAt     DateTime?
-  draftRestoredFromVersionId String? @db.Uuid
+  draftStatus                LegalDraftStatus?
+  draftTitle                 String?
+  draftDescription           String?
+  draftEffectiveDate         String?
+  draftSections              Json?
+  draftChangeNote            String?
+  draftCreatedBy             String?           @db.Uuid
+  draftReviewNote            String?
+  draftCreatedAt             DateTime?
+  draftUpdatedAt             DateTime?
+  draftRestoredFromVersionId String?           @db.Uuid
 
   versions LegalPageVersion[]
 
   @@index([slug])
 }
 
-
-
 /// Immutable snapshot created each time a draft is published. Captures the
 /// entire page state (meta + sections) so admins can review history.
 model LegalPageVersion {
-  id         String   @id @default(uuid()) @db.Uuid
-  pageId     String   @db.Uuid
-  snapshot   Json
-  changedBy  String   @db.Uuid
-  changeNote String?
-  restoredFromVersionId String? @db.Uuid
-  createdAt  DateTime @default(now())
+  id                    String   @id @default(uuid()) @db.Uuid
+  pageId                String   @db.Uuid
+  snapshot              Json
+  changedBy             String   @db.Uuid
+  changeNote            String?
+  restoredFromVersionId String?  @db.Uuid
+  createdAt             DateTime @default(now())
 
   page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 

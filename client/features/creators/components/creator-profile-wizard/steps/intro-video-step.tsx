@@ -7,6 +7,7 @@ import { CreatorProfileIntroVideoField } from "@/features/creators/components/cr
 import { INTRO_VIDEO_ACCEPT } from "@/features/creators/hooks/creator-profile-form-utils";
 
 import { BIO_MIN_CHARS, BIO_MAX_CHARS } from "../wizard-config";
+import { DemoVideoGallery } from "./demo-video-gallery";
 
 const BIO_EXAMPLE =
   "I'm a Mumbai-based beauty and skincare creator shooting in Hindi and English. I make honest first-impression reviews, GRWM routines and product demos, mostly at home with natural light. Brands book me when they want a warm, unscripted voice rather than a polished ad read.";
@@ -86,6 +87,10 @@ export function IntroVideoStep({
           </div>
         </div>
       </div>
+
+      <div className="cw-hr" />
+
+      <DemoVideoGallery />
 
       <div className="cw-hr" />
 

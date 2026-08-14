@@ -66,9 +66,6 @@ export function CreatorProfileIntroVideoField({
           {videoPreviewUrl ? "Replace video" : "Upload video"}
         </button>
       </div>
-      <p className="pe-media-field-hint">
-        Your best work — brand collab, UGC, or any clip you&apos;re proud of
-      </p>
     </div>
   );
 }

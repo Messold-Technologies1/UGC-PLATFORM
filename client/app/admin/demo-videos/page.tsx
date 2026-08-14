@@ -7,12 +7,14 @@ import {
   Film,
   ImagePlus,
   Pencil,
+  Play,
   Plus,
   Trash2,
   Video as VideoIcon,
   X,
 } from "lucide-react";
 
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -64,6 +66,7 @@ export default function AdminDemoVideosPage() {
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<DemoVideoApi | null>(null);
 
   const videoInputRef = useRef<HTMLInputElement>(null);
   const posterInputRef = useRef<HTMLInputElement>(null);
@@ -222,6 +225,17 @@ export default function AdminDemoVideosPage() {
                       className="h-full w-full object-cover"
                     />
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setPreviewVideo(video)}
+                    title="Play"
+                    aria-label="Play video"
+                    className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/20"
+                  >
+                    <span className="flex size-10 items-center justify-center rounded-full bg-white/90 text-foreground shadow-sm transition-transform group-hover:scale-105">
+                      <Play size={16} strokeWidth={0} fill="currentColor" className="translate-x-0.5" />
+                    </span>
+                  </button>
                   {!video.active && (
                     <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                       Hidden
@@ -278,6 +292,26 @@ export default function AdminDemoVideosPage() {
           })}
         </div>
       )}
+
+      <Dialog
+        open={!!previewVideo}
+        onOpenChange={(open) => !open && setPreviewVideo(null)}
+      >
+        <DialogContent className="max-w-xs gap-0 overflow-hidden rounded-2xl bg-black p-0 sm:max-w-xs">
+          <DialogTitle className="sr-only">Example intro video</DialogTitle>
+          {previewVideo && (
+            <video
+              key={previewVideo.id}
+              src={previewVideo.videoUrl}
+              poster={previewVideo.thumbnailUrl ?? undefined}
+              controls
+              playsInline
+              autoPlay
+              className="block aspect-9/16 w-full bg-black"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {isFormOpen && (
         <div

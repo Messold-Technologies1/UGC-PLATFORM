@@ -7,12 +7,14 @@ import { CreatorUnavailabilityService } from './creator-unavailability.service';
 import { CreatorPackageModule } from '../creator-package/creator-package.module';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
+import { CreatorDemoVideosModule } from '../creator-demo-videos/creator-demo-videos.module';
 
 @Module({
   imports: [
     CreatorPackageModule,
     forwardRef(() => AuthGuardsModule),
     CreatorReviewsModule,
+    CreatorDemoVideosModule,
   ],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [

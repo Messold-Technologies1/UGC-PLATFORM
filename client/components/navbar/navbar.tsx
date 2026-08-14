@@ -230,7 +230,7 @@ export function Navbar() {
                       <div key={item.label} className="group relative">
                         <button
                           className={cn(
-                            "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
+                            "relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading",
                             isActive
                               ? "text-primary bg-primary/10"
                               : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -275,7 +275,7 @@ export function Navbar() {
                       prefetch
                       data-tour={item.tourId}
                       className={cn(
-                        "relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
+                        "relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading",
                         isActive
                           ? "text-primary bg-primary/10"
                           : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -294,7 +294,7 @@ export function Navbar() {
                 <Link
                   href="/register/creator"
                   prefetch
-                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <User className="size-4" />
                   <span>As Creators</span>
@@ -302,7 +302,7 @@ export function Navbar() {
                 <Link
                   href="/register/brand"
                   prefetch
-                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <Briefcase className="size-4" />
                   <span>As Brands</span>
@@ -310,7 +310,7 @@ export function Navbar() {
                 {/* <Link
                   href="#"
                   prefetch
-                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <Users className="size-4" />
                   <span>For Agencies</span>

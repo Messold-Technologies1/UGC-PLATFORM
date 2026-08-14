@@ -57,6 +57,8 @@ import { SuggestedCreatorsResponseDto } from './dto/suggested-creators-response.
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import { ListCreatorRatingReviewsQueryDto } from '../creator-reviews/dto/list-creator-rating-reviews-query.dto';
 import { ListCreatorRatingReviewsResponseDto } from '../creator-reviews/dto/list-creator-rating-reviews-response.dto';
+import { CreatorDemoVideosService } from '../creator-demo-videos/creator-demo-videos.service';
+import { DemoVideoResponseDto } from '../creator-demo-videos/dto/demo-video-response.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -67,6 +69,7 @@ export class CreatorProfileController {
     private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
     private readonly creatorUnavailabilityService: CreatorUnavailabilityService,
     private readonly creatorReviewsService: CreatorReviewsService,
+    private readonly creatorDemoVideosService: CreatorDemoVideosService,
   ) {}
 
   @Post('profile/uploads/presign-intro-video')
@@ -303,6 +306,18 @@ export class CreatorProfileController {
       req.user?.id ?? null,
       slug,
     );
+  }
+
+  @Get('demo-intro-videos')
+  @ApiOperation({
+    summary:
+      'List active example intro videos for the wizard "watch a few examples" gallery',
+    description:
+      'Declared ahead of GET /creators/:id so the literal path always wins the match.',
+  })
+  @ApiOkResponse({ type: [DemoVideoResponseDto] })
+  async listDemoIntroVideos(): Promise<DemoVideoResponseDto[]> {
+    return this.creatorDemoVideosService.listActive();
   }
 
   @Get(':id')

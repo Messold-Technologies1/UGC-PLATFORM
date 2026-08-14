@@ -32,13 +32,11 @@ const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 type FormState = {
-  title: string;
-  caption: string;
   sortOrder: string;
   active: boolean;
 };
 
-const EMPTY_FORM: FormState = { title: "", caption: "", sortOrder: "0", active: true };
+const EMPTY_FORM: FormState = { sortOrder: "0", active: true };
 
 async function uploadFile(
   file: File,
@@ -84,8 +82,6 @@ export default function AdminDemoVideosPage() {
   const openEdit = (video: DemoVideoApi) => {
     setEditingVideo(video);
     setForm({
-      title: video.title,
-      caption: video.caption ?? "",
       sortOrder: String(video.sortOrder),
       active: video.active,
     });
@@ -109,11 +105,6 @@ export default function AdminDemoVideosPage() {
   };
 
   const handleSubmit = async () => {
-    const title = form.title.trim();
-    if (!title) {
-      toast.error("Title is required.");
-      return;
-    }
     if (!editingVideo && !videoFile) {
       toast.error("Choose a video to upload.");
       return;
@@ -132,8 +123,6 @@ export default function AdminDemoVideosPage() {
         await updateMutation.mutateAsync({
           id: editingVideo.id,
           payload: {
-            title,
-            caption: form.caption.trim() || undefined,
             videoKey,
             thumbnailKey,
             sortOrder: Number.isFinite(sortOrder) ? sortOrder : undefined,
@@ -142,8 +131,6 @@ export default function AdminDemoVideosPage() {
         });
       } else {
         await createMutation.mutateAsync({
-          title,
-          caption: form.caption.trim() || undefined,
           videoKey: videoKey!,
           thumbnailKey,
           sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -223,7 +210,7 @@ export default function AdminDemoVideosPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={video.thumbnailUrl}
-                      alt={video.title}
+                      alt=""
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -262,22 +249,11 @@ export default function AdminDemoVideosPage() {
                   </div>
                 </div>
 
-                <div className="p-3">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {video.title}
-                  </p>
-                  {video.caption && (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {video.caption}
-                    </p>
-                  )}
-                </div>
-
                 {isConfirming && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/95 p-4 text-center">
                     <AlertTriangle className="size-5 text-red-500" />
                     <p className="text-xs font-semibold text-foreground">
-                      Delete &ldquo;{video.title}&rdquo;?
+                      Delete this example video?
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -318,7 +294,7 @@ export default function AdminDemoVideosPage() {
                   {editingVideo ? "Edit Example Video" : "Add Example Video"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Vertical clip + a one-line &ldquo;why this works&rdquo; caption.
+                  A vertical clip, optionally with a poster thumbnail.
                 </p>
               </div>
               <button
@@ -331,37 +307,6 @@ export default function AdminDemoVideosPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Title
-                </label>
-                <input
-                  autoFocus
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Eye-level GRWM in natural light"
-                  className="glass-input w-full rounded-lg bg-background/50 px-4 py-2 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Caption{" "}
-                  <span className="normal-case text-muted-foreground/60">
-                    — &ldquo;why this works&rdquo;
-                  </span>
-                </label>
-                <textarea
-                  value={form.caption}
-                  onChange={(e) => setForm((f) => ({ ...f, caption: e.target.value }))}
-                  rows={2}
-                  maxLength={240}
-                  placeholder="Eye-level, natural light, says niche + languages"
-                  className="glass-input w-full resize-y rounded-lg bg-background/50 px-4 py-2 text-sm"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">

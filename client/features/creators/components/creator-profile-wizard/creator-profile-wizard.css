@@ -1084,11 +1084,6 @@
 .cw-example-card:hover .cw-example-thumb {
   border-color: var(--primary);
 }
-.cw-example-caption {
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--muted-foreground);
-}
 .cw-example-skeleton {
   width: 100%;
   aspect-ratio: 9 / 16;

@@ -866,9 +866,6 @@ model CreatorPortfolioSectionVideo {
 /// Global catalog, admin-managed, same set shown to every creator.
 model CreatorDemoVideo {
   id           String   @id @default(uuid()) @db.Uuid
-  title        String
-  /// One-line "why this works" caption shown under the thumbnail.
-  caption      String?
   videoKey     String
   videoUrl     String
   thumbnailKey String?

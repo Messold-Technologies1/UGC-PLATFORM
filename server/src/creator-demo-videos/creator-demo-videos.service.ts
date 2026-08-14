@@ -8,8 +8,6 @@ import { DemoVideoResponseDto } from './dto/demo-video-response.dto';
 
 function toResponseDto(video: {
   id: string;
-  title: string;
-  caption: string | null;
   videoUrl: string;
   thumbnailUrl: string | null;
   sortOrder: number;
@@ -19,8 +17,6 @@ function toResponseDto(video: {
 }): DemoVideoResponseDto {
   return {
     id: video.id,
-    title: video.title,
-    caption: video.caption,
     videoUrl: video.videoUrl,
     thumbnailUrl: video.thumbnailUrl,
     sortOrder: video.sortOrder,
@@ -98,8 +94,6 @@ export class CreatorDemoVideosService {
 
     const video = await this.prisma.creatorDemoVideo.create({
       data: {
-        title: dto.title.trim(),
-        caption: dto.caption?.trim() || null,
         videoKey: dto.videoKey,
         videoUrl: this.storage.buildCdnUrl(dto.videoKey),
         thumbnailKey: dto.thumbnailKey ?? null,
@@ -144,9 +138,6 @@ export class CreatorDemoVideosService {
     const video = await this.prisma.creatorDemoVideo.update({
       where: { id },
       data: {
-        title: dto.title !== undefined ? dto.title.trim() : undefined,
-        caption:
-          dto.caption !== undefined ? dto.caption.trim() || null : undefined,
         videoKey: dto.videoKey,
         videoUrl: dto.videoKey ? this.storage.buildCdnUrl(dto.videoKey) : undefined,
         thumbnailKey: dto.thumbnailKey,

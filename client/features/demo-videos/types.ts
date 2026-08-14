@@ -1,7 +1,5 @@
 export type DemoVideoApi = {
   id: string;
-  title: string;
-  caption?: string | null;
   videoUrl: string;
   thumbnailUrl?: string | null;
   sortOrder: number;
@@ -11,8 +9,6 @@ export type DemoVideoApi = {
 };
 
 export type CreateDemoVideoInput = {
-  title: string;
-  caption?: string;
   videoKey: string;
   thumbnailKey?: string;
   sortOrder?: number;

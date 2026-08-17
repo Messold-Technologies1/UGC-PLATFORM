@@ -113,7 +113,7 @@ export function PortfolioStep({
           <div className="cw-ai-notice" role="status">
             <Sparkles size={15} aria-hidden className="cw-ai-notice-icon" />
             <span>
-              Fresh from AI ✨ — a solid first draft, but it doesn&apos;t know
+              Fresh from AI, this is a solid first draft, but it doesn&apos;t know
               your vibe yet. Tweak a line or two so it sounds unmistakably{" "}
               <strong>you</strong>.
             </span>

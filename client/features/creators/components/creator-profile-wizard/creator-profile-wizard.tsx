@@ -675,13 +675,6 @@ export function CreatorProfileWizard({
     [steps, activeIndex, completed, canEditFreely, stepFilled, confirmLeaveIfDirty],
   );
 
-  const initials = useMemo(() => {
-    const source = displayName.trim() || user?.name?.trim() || "";
-    const parts = source.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "You";
-    return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
-  }, [displayName, user?.name]);
-
   // Package editor onChange with live price validation (mirrors the long form).
   const onPackageChange = useCallback((draft: PackageDraft) => {
     packages.setPackageDraft(draft);
@@ -789,16 +782,6 @@ export function CreatorProfileWizard({
 
   return (
     <div className="pe-scope cw-root">
-      <div className="cw-topline">
-        <span>
-          Step {activeIndex + 1} of {steps.length}
-          {completed.size > 0 ? " · saved just now" : ""}
-        </span>
-        <span className="cw-topline-avatar" aria-hidden>
-          {initials}
-        </span>
-      </div>
-
       <div className="cw-layout">
         {/* ---- Left rail ---- */}
         <aside className="cw-rail">

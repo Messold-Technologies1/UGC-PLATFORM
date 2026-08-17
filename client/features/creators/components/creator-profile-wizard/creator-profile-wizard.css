@@ -15,35 +15,13 @@
   padding-bottom: 40px;
 }
 
-/* Sub-header line */
-.cw-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px 18px;
-  font-size: 13px;
-  color: var(--muted-foreground);
-}
-.cw-topline-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--muted) 90%, transparent);
-  color: var(--foreground);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 /* ---- Layout ---- */
 .cw-layout {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 48px;
   align-items: start;
+  margin-top: 24px;
 }
 @media (max-width: 960px) {
   .cw-layout {

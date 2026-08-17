@@ -24,6 +24,10 @@ import {
   putProfileImageToPresignedUrl,
   type PresignProfileImageUploadResponse,
 } from "../api/presign-creator-profile-image";
+import {
+  generateCreatorBio,
+  type GenerateCreatorBioPayload,
+} from "../api/generate-creator-bio";
 
 /**
  * Pull the human-readable reason out of an API error so the toast can show
@@ -234,6 +238,27 @@ export function useSubmitCreatorProfileMutation({
             "Check your connection and try again.",
         },
       );
+    },
+  });
+}
+
+/**
+ * Generate a short brand-facing bio with AI from the wizard's live signals.
+ * Returns the generated text; the caller drops it into the bio field. Surfaces
+ * a friendly toast on failure (unconfigured AI → 503, missing niche → 400).
+ */
+export function useGenerateCreatorBioMutation() {
+  return useMutation({
+    mutationFn: async (payload: GenerateCreatorBioPayload) => {
+      const { bio } = await generateCreatorBio(payload);
+      return bio;
+    },
+    onError: (error) => {
+      toast.error("Couldn't generate a bio", {
+        description:
+          extractProfileErrorMessage(error) ??
+          "Please try again in a moment.",
+      });
     },
   });
 }

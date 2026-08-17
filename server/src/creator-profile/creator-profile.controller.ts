@@ -59,6 +59,12 @@ import { ListCreatorRatingReviewsQueryDto } from '../creator-reviews/dto/list-cr
 import { ListCreatorRatingReviewsResponseDto } from '../creator-reviews/dto/list-creator-rating-reviews-response.dto';
 import { CreatorDemoVideosService } from '../creator-demo-videos/creator-demo-videos.service';
 import { DemoVideoResponseDto } from '../creator-demo-videos/dto/demo-video-response.dto';
+import { Throttle } from '@nestjs/throttler';
+import { CreatorBioGeneratorService } from './creator-bio-generator.service';
+import {
+  GenerateCreatorBioDto,
+  GeneratedBioResponseDto,
+} from './dto/generate-creator-bio.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -70,7 +76,25 @@ export class CreatorProfileController {
     private readonly creatorUnavailabilityService: CreatorUnavailabilityService,
     private readonly creatorReviewsService: CreatorReviewsService,
     private readonly creatorDemoVideosService: CreatorDemoVideosService,
+    private readonly creatorBioGeneratorService: CreatorBioGeneratorService,
   ) {}
+
+  @Post('profile/generate-bio')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Generate a short creator bio with AI',
+    description:
+      'Generates a brand-facing first-person bio from the wizard signals (niche, creator type, languages, location, age, gender). The creator name is never included. Returns 503 when AI is not configured.',
+  })
+  @ApiCreatedResponse({ type: GeneratedBioResponseDto })
+  async generateBio(
+    @Body() dto: GenerateCreatorBioDto,
+  ): Promise<GeneratedBioResponseDto> {
+    const bio = await this.creatorBioGeneratorService.generateBio(dto);
+    return { bio };
+  }
 
   @Post('profile/uploads/presign-intro-video')
   @UseGuards(JwtAuthGuard)

@@ -25,7 +25,10 @@ import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-lo
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
-import { useSubmitCreatorProfileMutation } from "@/features/creators/hooks/use-creator-profile-form-mutation";
+import {
+  useSubmitCreatorProfileMutation,
+  useGenerateCreatorBioMutation,
+} from "@/features/creators/hooks/use-creator-profile-form-mutation";
 import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
@@ -249,6 +252,56 @@ export function CreatorProfileWizard({
     },
   });
   const pending = submitMutation.isPending;
+
+  // ---- AI bio generation ----
+  const generateBioMutation = useGenerateCreatorBioMutation();
+  const [showBioAiNotice, setShowBioAiNotice] = useState(false);
+
+  const facetLabelsFor = useCallback(
+    (dimension: "CONTENT_CATEGORY" | "CREATOR_TYPE" | "OCCUPATION" | "LANGUAGE") => {
+      const options = facets.facetOptionsByDimension[dimension] ?? [];
+      const bySlug = new Map(options.map((o) => [o.slug, o.label]));
+      const slugs =
+        dimension === "LANGUAGE"
+          ? selectedLanguages
+          : facets.selectedFacets[dimension] ?? [];
+      return slugs.map((slug) => bySlug.get(slug) ?? slug);
+    },
+    [facets.facetOptionsByDimension, facets.selectedFacets, selectedLanguages],
+  );
+
+  const canGenerateBio =
+    (facets.selectedFacets.CONTENT_CATEGORY?.length ?? 0) > 0;
+
+  const handleGenerateBio = useCallback(async () => {
+    if (!canGenerateBio || generateBioMutation.isPending) return;
+    try {
+      const generated = await generateBioMutation.mutateAsync({
+        niches: facetLabelsFor("CONTENT_CATEGORY"),
+        creatorTypes: facetLabelsFor("CREATOR_TYPE"),
+        occupations: facetLabelsFor("OCCUPATION"),
+        languages: facetLabelsFor("LANGUAGE"),
+        gender: gender || undefined,
+        city: location.city.trim() || undefined,
+        country: location.countryName || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+      });
+      setBio(generated.slice(0, BIO_MAX_CHARS));
+      setShowBioAiNotice(true);
+      markDirty();
+    } catch {
+      // toast handled in the mutation hook
+    }
+  }, [
+    canGenerateBio,
+    generateBioMutation,
+    facetLabelsFor,
+    gender,
+    location.city,
+    location.countryName,
+    dateOfBirth,
+    markDirty,
+  ]);
 
   // Once a profile is listed (live & approved) there's nothing to re-submit —
   // the wizard is just an editor, so drop the Review and Go Live steps.
@@ -973,7 +1026,15 @@ export function CreatorProfileWizard({
                   onDelete={(video) => deletePortfolioMutation.mutate({ videoId: video.id })}
                   disabled={pending}
                   bio={bio}
-                  onBioChange={(v) => setBio(v.slice(0, BIO_MAX_CHARS))}
+                  onBioChange={(v) => {
+                    setBio(v.slice(0, BIO_MAX_CHARS));
+                    if (showBioAiNotice) setShowBioAiNotice(false);
+                  }}
+                  onGenerateBio={() => void handleGenerateBio()}
+                  generatingBio={generateBioMutation.isPending}
+                  canGenerateBio={canGenerateBio}
+                  showAiNotice={showBioAiNotice}
+                  onDismissAiNotice={() => setShowBioAiNotice(false)}
                 />
               ) : activeStep.id === "pricing" ? (
                 <PricingStep

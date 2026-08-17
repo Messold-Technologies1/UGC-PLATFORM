@@ -1,5 +1,7 @@
 "use client";
 
+import { Sparkles, Loader2, X } from "lucide-react";
+
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import { PortfolioGrid } from "@/features/creators/components/creator-profile-update/portfolio-components";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
@@ -35,6 +37,11 @@ export type PortfolioStepProps = {
   disabled: boolean;
   bio: string;
   onBioChange: (value: string) => void;
+  onGenerateBio: () => void;
+  generatingBio: boolean;
+  canGenerateBio: boolean;
+  showAiNotice: boolean;
+  onDismissAiNotice: () => void;
 };
 
 export function PortfolioStep({
@@ -48,6 +55,11 @@ export function PortfolioStep({
   disabled,
   bio,
   onBioChange,
+  onGenerateBio,
+  generatingBio,
+  canGenerateBio,
+  showAiNotice,
+  onDismissAiNotice,
 }: PortfolioStepProps) {
   const publicCount = videos.filter((v) => v.visibilityStatus === "public").length;
   const bioLen = bio.trim().length;
@@ -55,9 +67,34 @@ export function PortfolioStep({
     <div className="cw-card">
       {/* Creator story */}
       <div className="cw-field">
-        <label htmlFor="cw-bio" className="cw-fieldlabel">
-          Tell your creator story <span className="cw-req">*</span>
-        </label>
+        <div className="cw-bio-head">
+          <label htmlFor="cw-bio" className="cw-fieldlabel">
+            Tell your creator story <span className="cw-req">*</span>
+          </label>
+          <button
+            type="button"
+            className="cw-ai-btn"
+            onClick={onGenerateBio}
+            disabled={disabled || generatingBio || !canGenerateBio}
+            title={
+              canGenerateBio
+                ? "Generate a bio from your niche, languages and location"
+                : "Pick your niche first, then generate"
+            }
+          >
+            {generatingBio ? (
+              <>
+                <Loader2 size={14} className="cw-ai-spin" aria-hidden />
+                Writing…
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} aria-hidden />
+                {bio.trim() ? "Regenerate with AI" : "Generate with AI"}
+              </>
+            )}
+          </button>
+        </div>
         <span className="cw-facet-help">
           Share what you create, the languages you speak and why brands will
           enjoy working with you.
@@ -66,12 +103,30 @@ export function PortfolioStep({
           id="cw-bio"
           className="cw-textarea"
           value={bio}
-          disabled={disabled}
+          disabled={disabled || generatingBio}
           rows={5}
           maxLength={BIO_MAX_CHARS}
           placeholder="Start typing…"
           onChange={(e) => onBioChange(e.target.value)}
         />
+        {showAiNotice ? (
+          <div className="cw-ai-notice" role="status">
+            <Sparkles size={15} aria-hidden className="cw-ai-notice-icon" />
+            <span>
+              Fresh from AI ✨ — a solid first draft, but it doesn&apos;t know
+              your vibe yet. Tweak a line or two so it sounds unmistakably{" "}
+              <strong>you</strong>.
+            </span>
+            <button
+              type="button"
+              className="cw-ai-notice-x"
+              onClick={onDismissAiNotice}
+              aria-label="Dismiss"
+            >
+              <X size={14} aria-hidden />
+            </button>
+          </div>
+        ) : null}
         <div className="cw-bio-foot">
           <span
             className="cw-bio-count"

@@ -8,6 +8,8 @@ import { CreatorPackageModule } from '../creator-package/creator-package.module'
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
 import { CreatorDemoVideosModule } from '../creator-demo-videos/creator-demo-videos.module';
+import { AiModule } from '../ai/ai.module';
+import { CreatorBioGeneratorService } from './creator-bio-generator.service';
 
 @Module({
   imports: [
@@ -15,12 +17,14 @@ import { CreatorDemoVideosModule } from '../creator-demo-videos/creator-demo-vid
     forwardRef(() => AuthGuardsModule),
     CreatorReviewsModule,
     CreatorDemoVideosModule,
+    AiModule,
   ],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [
     CreatorProfileService,
     CreatorPayoutDetailsService,
     CreatorUnavailabilityService,
+    CreatorBioGeneratorService,
   ],
   exports: [CreatorProfileService],
 })

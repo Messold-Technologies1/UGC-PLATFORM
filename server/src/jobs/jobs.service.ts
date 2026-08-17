@@ -67,36 +67,4 @@ export class JobsService {
     }
   }
 
-  /** Re-enqueue very old stuck deliveries (belt-and-suspenders with poller). */
-  @Cron('*/5 * * * *') // every 5 minutes
-  async reconcileWatermarks(): Promise<void> {
-    try {
-      const staleBefore = new Date(Date.now() - 10 * 60_000);
-      const stuck = await this.prisma.orderDelivery.findMany({
-        where: {
-          previewStatus: { in: ['pending', 'failed'] },
-          createdAt: { lte: staleBefore },
-          order: { acceptedAt: null },
-        },
-        select: { id: true },
-        take: 50,
-      });
-
-      if (stuck.length === 0) return;
-
-      this.logger.log(`watermark_reconcile reEnqueued=${stuck.length}`);
-      for (const d of stuck) {
-        await this.watermarkQueue.enqueue(d.id);
-      }
-    } catch (err) {
-      if (isPrismaPoolTimeout(err)) {
-        this.logger.warn(
-          'watermark_reconcile skipped: database connection pool busy (will retry next cron)',
-        );
-        return;
-      }
-      throw err;
-    }
-  }
-
 }

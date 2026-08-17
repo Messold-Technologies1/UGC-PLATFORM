@@ -17,10 +17,23 @@ export class HealthController {
     private readonly prismaHealth: PrismaHealthIndicator,
   ) {}
 
+  /**
+   * Liveness probe — process only, NO database query. Hosting platforms and
+   * uptime monitors hit this very frequently; querying the DB here would keep
+   * the Neon compute endpoint awake 24/7 and prevent autosuspend. Use
+   * `GET /health/db` when you specifically need to verify the database.
+   */
   @Get()
+  @ApiOperation({ summary: 'Liveness check (no database query)' })
+  liveness(): { status: 'ok' } {
+    return { status: 'ok' };
+  }
+
+  /** Readiness — verifies the database. Poll sparingly (it wakes Neon). */
+  @Get('db')
   @HealthCheck()
-  @ApiOperation({ summary: 'Liveness and readiness check' })
-  check(): Promise<HealthCheckResult> {
+  @ApiOperation({ summary: 'Readiness check (verifies the database)' })
+  readiness(): Promise<HealthCheckResult> {
     return this.health.check([() => this.prismaHealth.isHealthy('database')]);
   }
 }

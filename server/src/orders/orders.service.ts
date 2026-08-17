@@ -139,6 +139,28 @@ function mapDeliveryAssets(value: Prisma.JsonValue): OrderDeliveryAssetDto[] {
  *   still being generated, `url` is empty and `previewStatus` tells the client
  *   to show a "preview generating" state instead of the original.
  */
+/**
+ * Map the watermark pipeline's internal status vocabulary
+ * (`pending|processing|ready|failed|dead`) onto the brand-facing DTO's
+ * (`pending|ready|failed`). `processing` is still "generating"; the terminal
+ * `dead` surfaces as `failed`.
+ */
+function normalizeBrandPreviewStatus(
+  status?: string | null,
+): 'pending' | 'ready' | 'failed' {
+  switch (status) {
+    case 'ready':
+      return 'ready';
+    case 'failed':
+    case 'dead':
+      return 'failed';
+    case 'processing':
+    case 'pending':
+    default:
+      return 'pending';
+  }
+}
+
 function mapBrandDeliveryAssets(
   value: Prisma.JsonValue,
   opts: { accepted: boolean; previewStatus?: string | null },
@@ -163,7 +185,12 @@ function mapBrandDeliveryAssets(
         // Never expose the original URL before acceptance.
         url: previewUrl,
         watermarked: true,
-        previewStatus: (previewUrl ? 'ready' : opts.previewStatus) ?? 'pending',
+        // Collapse internal pipeline states to the brand-facing vocabulary:
+        // `processing` still reads as "generating" (pending); the terminal
+        // `dead` reads as failed.
+        previewStatus: previewUrl
+          ? 'ready'
+          : normalizeBrandPreviewStatus(opts.previewStatus),
       };
     })
     .filter((a) => a.key && (a.kind === 'video' || a.kind === 'image')) as any;
@@ -1552,7 +1579,10 @@ export class OrdersService {
       },
       select: { previewStatus: true },
     });
-    if (delivery?.previewStatus === 'pending') {
+    if (
+      delivery?.previewStatus === 'pending' ||
+      delivery?.previewStatus === 'processing'
+    ) {
       throw new BadRequestException(
         'Your delivery is still being processed. Please wait for previews to finish.',
       );

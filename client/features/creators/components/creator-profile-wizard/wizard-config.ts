@@ -141,7 +141,7 @@ export const OPEN_TO_OPTIONS = [
   "Night Clubs",
 ] as const;
 
-export const BIO_MIN_CHARS = 120;
+export const BIO_MIN_CHARS = 100;
 export const BIO_MAX_CHARS = 500;
 
 /**

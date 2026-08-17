@@ -168,14 +168,75 @@ export function normalizeOptionalUrl(raw: string): string | undefined {
   }
 }
 
+/** Dimensions that accept a single selection (radio-style) in the wizard. */
+export const SINGLE_SELECT_FACET_DIMENSIONS = new Set<
+  Exclude<CreatorFacetDimension, "LANGUAGE">
+>(["CREATOR_TYPE", "OCCUPATION", "APPEARANCE"]);
+
+/** Max niches: 1 primary (index 0) + 2 secondary. */
+export const MAX_NICHE_SELECTIONS = 3;
+export const REQUIRED_SECONDARY_NICHES = 2;
+
+/** Free-text label captured for a dimension's "Other" selection. */
+export type CustomFacetLabels = Partial<
+  Record<Exclude<CreatorFacetDimension, "LANGUAGE">, string>
+>;
+
+/**
+ * Build the wizard's per-dimension selected slugs from saved selections.
+ *
+ * - CONTENT_CATEGORY (niche) is ordered by `rank` so index 0 is the primary
+ *   niche and the rest are secondary; capped at 1 primary + 2 secondary.
+ * - Single-select dimensions collapse to the first saved slug (back-compat for
+ *   legacy multi-select data).
+ */
 export function createInitialSelectedFacets(
   initialProfile?: CreatorProfileItemApi | null,
 ): SelectedFacets {
-  const out: SelectedFacets = {};
+  const rowsByDimension = new Map<
+    Exclude<CreatorFacetDimension, "LANGUAGE">,
+    { slug: string; rank: number }[]
+  >();
   for (const row of initialProfile?.facetSelections ?? []) {
     if (row.dimension === "LANGUAGE") continue;
     const dimension = row.dimension as Exclude<CreatorFacetDimension, "LANGUAGE">;
-    out[dimension] = [...(out[dimension] ?? []), row.slug];
+    const rows = rowsByDimension.get(dimension) ?? [];
+    rows.push({ slug: row.slug, rank: row.rank ?? 0 });
+    rowsByDimension.set(dimension, rows);
+  }
+
+  const dedupe = (slugs: string[]): string[] => {
+    const seen = new Set<string>();
+    return slugs.filter((s) => (seen.has(s) ? false : (seen.add(s), true)));
+  };
+
+  const out: SelectedFacets = {};
+  for (const [dimension, rows] of rowsByDimension) {
+    if (dimension === "CONTENT_CATEGORY") {
+      const ordered = dedupe(
+        [...rows].sort((a, b) => a.rank - b.rank).map((r) => r.slug),
+      );
+      out[dimension] = ordered.slice(0, MAX_NICHE_SELECTIONS);
+    } else if (SINGLE_SELECT_FACET_DIMENSIONS.has(dimension)) {
+      out[dimension] = rows.length > 0 ? [rows[0].slug] : [];
+    } else {
+      out[dimension] = dedupe(rows.map((r) => r.slug));
+    }
+  }
+  return out;
+}
+
+/** Free-text "Other" labels per dimension, from saved selections. */
+export function createInitialCustomFacetLabels(
+  initialProfile?: CreatorProfileItemApi | null,
+): CustomFacetLabels {
+  const out: CustomFacetLabels = {};
+  for (const row of initialProfile?.facetSelections ?? []) {
+    if (row.dimension === "LANGUAGE") continue;
+    if (row.slug === "other" && row.customLabel) {
+      out[row.dimension as Exclude<CreatorFacetDimension, "LANGUAGE">] =
+        row.customLabel;
+    }
   }
   return out;
 }

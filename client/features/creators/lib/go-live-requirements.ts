@@ -8,13 +8,19 @@
  */
 
 export const MIN_PORTFOLIO_VIDEOS = 3;
+export const REQUIRED_SECONDARY_NICHES = 2;
 
 /**
- * Facet dimensions that must have at least one selection. Only these three niche
- * facets are required; all other dimensions are optional. Keep in sync with the
- * server (`creator-profile-completeness.util.ts`).
+ * Single-select identity facets that must have a selection. The niche
+ * (CONTENT_CATEGORY) is checked separately (primary + secondary counts), and so
+ * are languages and "Open to". Keep in sync with the server
+ * (`creator-profile-completeness.util.ts`).
  */
-export const REQUIRED_FACET_DIMENSIONS = ["CONTENT_CATEGORY"] as const;
+export const REQUIRED_FACET_DIMENSIONS = [
+  "CREATOR_TYPE",
+  "OCCUPATION",
+  "APPEARANCE",
+] as const;
 
 const FACET_LABELS: Record<string, string> = {
   CONTENT_CATEGORY: "Creator's category",
@@ -37,6 +43,12 @@ export interface GoLiveSnapshot {
   shippingAddress: string;
   /** Facet dimension keys that currently have at least one selection. */
   selectedFacetDimensions: string[];
+  /** CONTENT_CATEGORY selections with rank 0 (the primary niche). */
+  nichePrimaryCount: number;
+  /** CONTENT_CATEGORY selections with rank > 0 (secondary niches). */
+  nicheSecondaryCount: number;
+  /** Number of "Open to" (restriction) opt-ins. */
+  restrictionCount: number;
   languageCount: number;
   hasPackage: boolean;
   /** Whether every mandatory add-on has been priced. */
@@ -74,10 +86,20 @@ export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
   if (blank(snapshot.dateOfBirth)) missing.push("Date of birth");
   if (blank(snapshot.shippingAddress)) missing.push("Shipping address");
 
+  if (snapshot.nichePrimaryCount < 1) missing.push("Primary niche");
+  if (snapshot.nicheSecondaryCount < REQUIRED_SECONDARY_NICHES) {
+    missing.push(`${REQUIRED_SECONDARY_NICHES} secondary niches`);
+  }
+
   const selected = new Set(snapshot.selectedFacetDimensions);
   for (const dimension of REQUIRED_FACET_DIMENSIONS) {
     if (!selected.has(dimension)) missing.push(FACET_LABELS[dimension]);
   }
+
+  if (snapshot.restrictionCount < 1) {
+    missing.push('At least one "Open to" option');
+  }
+
   if (snapshot.languageCount < 1) missing.push("At least one language");
 
   if (!snapshot.hasPackage) missing.push("At least one package");

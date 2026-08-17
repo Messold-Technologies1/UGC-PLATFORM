@@ -40,6 +40,10 @@ export type CreatorProfileFacetSelectionApi = {
   dimension: CreatorFacetDimension;
   slug: string;
   label: string;
+  /** Niche ordering (CONTENT_CATEGORY only): 0 = primary, 1..2 = secondary. */
+  rank?: number;
+  /** Free text when slug is "other". */
+  customLabel?: string | null;
 };
 
 export type CreatorProfileStructuredLanguageApi = {

@@ -450,6 +450,8 @@ export class CreatorProfileService {
         dimension: row.option?.dimension,
         slug: row.option?.slug ?? '',
         label: row.option?.label ?? '',
+        rank: row.rank ?? 0,
+        customLabel: row.customLabel ?? null,
       })),
     
       restrictions: (mapped.restrictions ?? []).map((r) => ({
@@ -726,13 +728,34 @@ export class CreatorProfileService {
     });
   }
 
-  private async resolveFacetOptionIds(
+  private async resolveFacetSelectionRows(
     tx: PrismaTransactionClient,
-    selections: { dimension: CreatorFacetDimension; slug: string }[],
-  ): Promise<string[]> {
+    selections: {
+      dimension: CreatorFacetDimension;
+      slug: string;
+      rank?: number;
+      customLabel?: string;
+    }[],
+  ): Promise<{ optionId: string; rank: number; customLabel: string | null }[]> {
     if (!selections.length) return [];
+
+    // Single-select dimensions accept at most one selection.
+    const singleSelect = new Set<CreatorFacetDimension>([
+      CreatorFacetDimension.CREATOR_TYPE,
+      CreatorFacetDimension.OCCUPATION,
+      CreatorFacetDimension.APPEARANCE,
+    ]);
+    const perDimension = new Map<CreatorFacetDimension, number>();
+    let nichePrimary = 0;
+    let nicheSecondary = 0;
+
     const seen = new Set<string>();
-    const ids: string[] = [];
+    const rows: {
+      optionId: string;
+      rank: number;
+      customLabel: string | null;
+    }[] = [];
+
     for (const s of selections) {
       if (s.dimension === CreatorFacetDimension.LANGUAGE) {
         throw new BadRequestException(
@@ -741,20 +764,58 @@ export class CreatorProfileService {
       }
       const key = `${s.dimension}:${s.slug}`;
       if (seen.has(key)) continue;
+
+      // "Other" carries a free-text label; everything else must not. A blank
+      // "Other" (creator picked it but hasn't typed yet on a draft save) is
+      // dropped rather than rejected — go-live completeness still catches the
+      // resulting missing selection.
+      let customLabel: string | null = null;
+      if (s.slug === 'other') {
+        const trimmed = (s.customLabel ?? '').trim();
+        if (!trimmed) continue;
+        customLabel = trimmed.slice(0, 40);
+      }
+
       seen.add(key);
+
       const opt = await tx.creatorFacetOption.findUnique({
-        where: {
-          dimension_slug: { dimension: s.dimension, slug: s.slug },
-        },
+        where: { dimension_slug: { dimension: s.dimension, slug: s.slug } },
       });
       if (!opt) {
         throw new BadRequestException(
           `Unknown facet option ${s.dimension} / ${s.slug}`,
         );
       }
-      ids.push(opt.id);
+
+      // Rank is only meaningful for the niche dimension; force 0 elsewhere.
+      let rank = 0;
+      if (s.dimension === CreatorFacetDimension.CONTENT_CATEGORY) {
+        rank = s.rank ?? 0;
+        if (rank === 0) nichePrimary += 1;
+        else nicheSecondary += 1;
+      }
+
+      if (singleSelect.has(s.dimension)) {
+        const count = (perDimension.get(s.dimension) ?? 0) + 1;
+        perDimension.set(s.dimension, count);
+        if (count > 1) {
+          throw new BadRequestException(
+            `Only one ${s.dimension} selection is allowed.`,
+          );
+        }
+      }
+
+      rows.push({ optionId: opt.id, rank, customLabel });
     }
-    return ids;
+
+    if (nichePrimary > 1) {
+      throw new BadRequestException('Only one primary niche is allowed.');
+    }
+    if (nicheSecondary > 2) {
+      throw new BadRequestException('At most two secondary niches are allowed.');
+    }
+
+    return rows;
   }
 
   private async resolveLanguageRows(
@@ -785,16 +846,18 @@ export class CreatorProfileService {
   private async replaceFacetSelections(
     tx: PrismaTransactionClient,
     creatorProfileId: string,
-    optionIds: string[],
+    rows: { optionId: string; rank: number; customLabel: string | null }[],
   ): Promise<void> {
     await tx.creatorProfileFacetSelection.deleteMany({
       where: { creatorProfileId },
     });
-    if (optionIds.length === 0) return;
+    if (rows.length === 0) return;
     await tx.creatorProfileFacetSelection.createMany({
-      data: optionIds.map((optionId) => ({
+      data: rows.map((r) => ({
         creatorProfileId,
-        optionId,
+        optionId: r.optionId,
+        rank: r.rank,
+        customLabel: r.customLabel,
       })),
       skipDuplicates: true,
     });
@@ -1726,8 +1789,9 @@ export class CreatorProfileService {
         dateOfBirth: true,
         shippingAddress: true,
         facetSelections: {
-          select: { option: { select: { dimension: true } } },
+          select: { rank: true, option: { select: { dimension: true } } },
         },
+        restrictions: { select: { id: true } },
         profileLanguages: { select: { id: true } },
         packages: { select: { id: true } },
         addOns: { select: { name: true } },
@@ -1767,6 +1831,17 @@ export class CreatorProfileService {
         selectedFacetDimensions: profile.facetSelections.map(
           (selection) => selection.option.dimension,
         ),
+        nichePrimaryCount: profile.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank === 0,
+        ).length,
+        nicheSecondaryCount: profile.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank > 0,
+        ).length,
+        restrictionCount: profile.restrictions.length,
         languageCount: profile.profileLanguages.length,
         packageCount: profile.packages.length,
         publicVideoCount: profile.portfolioVideos.length,
@@ -2317,14 +2392,14 @@ export class CreatorProfileService {
         }
 
         if (dto.facetSelections !== undefined) {
-          const facetIds = await this.resolveFacetOptionIds(
+          const facetRows = await this.resolveFacetSelectionRows(
             tx,
             dto.facetSelections,
           );
           await this.replaceFacetSelections(
             tx,
             creatorProfileId,
-            facetIds,
+            facetRows,
           );
         }
 

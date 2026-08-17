@@ -4,6 +4,7 @@ import {
   GO_LIVE_REQUIREMENTS,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
+  REQUIRED_SECONDARY_NICHES,
   type ProfileCompletenessInput,
 } from './creator-profile-completeness.util';
 
@@ -21,6 +22,9 @@ function completeInput(): ProfileCompletenessInput {
     dateOfBirth: new Date('1995-04-15'),
     shippingAddress: '221B Baker Street',
     selectedFacetDimensions: [...REQUIRED_FACET_DIMENSIONS],
+    nichePrimaryCount: 1,
+    nicheSecondaryCount: REQUIRED_SECONDARY_NICHES,
+    restrictionCount: 1,
     languageCount: 1,
     packageCount: 1,
     publicVideoCount: MIN_PORTFOLIO_VIDEOS,
@@ -44,30 +48,50 @@ describe('evaluateProfileCompleteness', () => {
     expect(result.missing).toContain('Bio');
   });
 
-  it('requires the creator category facet', () => {
-    const result = evaluateProfileCompleteness({
+  it('requires a primary niche and exactly two secondary niches', () => {
+    const noPrimary = evaluateProfileCompleteness({
       ...completeInput(),
-      selectedFacetDimensions: [CreatorFacetDimension.OCCUPATION],
+      nichePrimaryCount: 0,
     });
-    expect(result.complete).toBe(false);
-    // The required category is missing; a selected optional dimension is fine.
-    expect(result.missing).toContain("Creator's category");
+    expect(noPrimary.complete).toBe(false);
+    expect(noPrimary.missing).toContain('Primary niche');
+
+    const tooFewSecondary = evaluateProfileCompleteness({
+      ...completeInput(),
+      nicheSecondaryCount: 1,
+    });
+    expect(tooFewSecondary.complete).toBe(false);
+    expect(tooFewSecondary.missing).toContain(
+      `${REQUIRED_SECONDARY_NICHES} secondary niches`,
+    );
   });
 
-  it('requires exactly the creator category facet', () => {
+  it('requires creator type, occupation and appearance', () => {
+    const result = evaluateProfileCompleteness({
+      ...completeInput(),
+      selectedFacetDimensions: [CreatorFacetDimension.CREATOR_TYPE],
+    });
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('Occupation');
+    expect(result.missing).toContain('Appearance');
+    expect(result.missing).not.toContain('Creator type');
+  });
+
+  it('requires the three single-select identity facets', () => {
     expect(REQUIRED_FACET_DIMENSIONS).toEqual([
-      CreatorFacetDimension.CONTENT_CATEGORY,
+      CreatorFacetDimension.CREATOR_TYPE,
+      CreatorFacetDimension.OCCUPATION,
+      CreatorFacetDimension.APPEARANCE,
     ]);
   });
 
-  it('does not require any facet dimension other than creator category', () => {
-    for (const dimension of [
-      CreatorFacetDimension.APPEARANCE,
-      CreatorFacetDimension.OCCUPATION,
-      CreatorFacetDimension.CREATOR_TYPE,
-    ]) {
-      expect(REQUIRED_FACET_DIMENSIONS).not.toContain(dimension);
-    }
+  it('requires at least one "Open to" opt-in', () => {
+    const result = evaluateProfileCompleteness({
+      ...completeInput(),
+      restrictionCount: 0,
+    });
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('At least one "Open to" option');
   });
 
   it('requires at least three portfolio videos', () => {
@@ -124,6 +148,9 @@ describe('GO_LIVE_REQUIREMENTS catalog', () => {
       dateOfBirth: null,
       shippingAddress: null,
       selectedFacetDimensions: [],
+      nichePrimaryCount: 0,
+      nicheSecondaryCount: 0,
+      restrictionCount: 0,
       languageCount: 0,
       packageCount: 0,
       publicVideoCount: 0,

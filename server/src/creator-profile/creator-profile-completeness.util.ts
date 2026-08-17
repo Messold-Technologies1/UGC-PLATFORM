@@ -3,14 +3,19 @@ import { CreatorFacetDimension, CreatorGender } from '@prisma/client';
 /** Minimum number of public portfolio videos required to go live. */
 export const MIN_PORTFOLIO_VIDEOS = 3;
 
+/** Number of secondary niches required to go live (in addition to the primary). */
+export const REQUIRED_SECONDARY_NICHES = 2;
+
 /**
- * Facet dimensions a creator must have at least one selection in before going
- * live. Only the creator's category is required; every other facet dimension
- * (creator type, occupation, appearance, …) is optional. Languages are required
- * separately.
+ * Single-select facet dimensions a creator must have a selection in before
+ * going live. The niche (CONTENT_CATEGORY) is checked separately because it
+ * requires a primary + a fixed number of secondary picks; languages and
+ * "Open to" are checked separately too.
  */
 export const REQUIRED_FACET_DIMENSIONS: CreatorFacetDimension[] = [
-  CreatorFacetDimension.CONTENT_CATEGORY,
+  CreatorFacetDimension.CREATOR_TYPE,
+  CreatorFacetDimension.OCCUPATION,
+  CreatorFacetDimension.APPEARANCE,
 ];
 
 const FACET_LABELS: Record<CreatorFacetDimension, string> = {
@@ -35,6 +40,12 @@ export interface ProfileCompletenessInput {
   shippingAddress?: string | null;
   /** Facet dimensions the creator has at least one selection in. */
   selectedFacetDimensions: Iterable<CreatorFacetDimension>;
+  /** CONTENT_CATEGORY selections with rank 0 (the primary niche). */
+  nichePrimaryCount: number;
+  /** CONTENT_CATEGORY selections with rank > 0 (secondary niches). */
+  nicheSecondaryCount: number;
+  /** Number of "Open to" (restriction) opt-ins the creator has selected. */
+  restrictionCount: number;
   languageCount: number;
   packageCount: number;
   publicVideoCount: number;
@@ -75,7 +86,15 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   { key: 'gender', label: 'Gender' },
   { key: 'dateOfBirth', label: 'Date of birth' },
   { key: 'shippingAddress', label: 'Shipping address' },
-  { key: 'contentCategory', label: FACET_LABELS[CreatorFacetDimension.CONTENT_CATEGORY] },
+  { key: 'primaryNiche', label: 'Primary niche' },
+  {
+    key: 'secondaryNiches',
+    label: `${REQUIRED_SECONDARY_NICHES} secondary niches`,
+  },
+  { key: 'creatorType', label: FACET_LABELS[CreatorFacetDimension.CREATOR_TYPE] },
+  { key: 'occupation', label: FACET_LABELS[CreatorFacetDimension.OCCUPATION] },
+  { key: 'appearance', label: FACET_LABELS[CreatorFacetDimension.APPEARANCE] },
+  { key: 'openTo', label: 'At least one "Open to" option' },
   { key: 'language', label: 'At least one language' },
   { key: 'package', label: 'At least one package' },
   { key: 'mandatoryAddOns', label: 'Priced mandatory add-ons' },
@@ -115,11 +134,23 @@ export function evaluateProfileCompleteness(
   if (!input.dateOfBirth) missing.push('Date of birth');
   if (!hasText(input.shippingAddress)) missing.push('Shipping address');
 
-  // Niche & content facets
+  // Niche: one primary + a fixed number of secondary picks.
+  if (input.nichePrimaryCount < 1) missing.push('Primary niche');
+  if (input.nicheSecondaryCount < REQUIRED_SECONDARY_NICHES) {
+    missing.push(`${REQUIRED_SECONDARY_NICHES} secondary niches`);
+  }
+
+  // Single-select content facets.
   const selected = new Set<CreatorFacetDimension>(input.selectedFacetDimensions);
   for (const dimension of REQUIRED_FACET_DIMENSIONS) {
     if (!selected.has(dimension)) missing.push(FACET_LABELS[dimension]);
   }
+
+  // "Open to" — at least one opt-in.
+  if (input.restrictionCount < 1) {
+    missing.push('At least one "Open to" option');
+  }
+
   if (input.languageCount < 1) missing.push('At least one language');
 
   // Packages

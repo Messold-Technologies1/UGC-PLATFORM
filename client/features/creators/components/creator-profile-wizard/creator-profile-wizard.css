@@ -1001,6 +1001,27 @@
   background: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
+/* "Other" free-text input under a facet group */
+.cw-other-input {
+  margin-top: 10px;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--foreground);
+}
+.cw-other-input:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 4px var(--p10);
+}
+.cw-other-input:disabled {
+  opacity: 0.6;
+}
+
 /* Intro video */
 .cw-video-split {
   display: grid;

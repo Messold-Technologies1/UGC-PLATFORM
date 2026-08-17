@@ -882,13 +882,6 @@
 .pkg-addon .pkg-price {
   font-size: 15px;
 }
-.pkg-addon-desc {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--muted-foreground);
-  font-weight: 500;
-}
 
 .pfgrid {
   display: grid;

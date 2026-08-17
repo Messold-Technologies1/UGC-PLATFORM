@@ -6,11 +6,7 @@ import { Check } from "lucide-react";
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-update/creator-profile-intro-video-field";
 import { INTRO_VIDEO_ACCEPT } from "@/features/creators/hooks/creator-profile-form-utils";
 
-import { BIO_MIN_CHARS, BIO_MAX_CHARS } from "../wizard-config";
 import { DemoVideoGallery } from "./demo-video-gallery";
-
-const BIO_EXAMPLE =
-  "I'm a Mumbai-based beauty and skincare creator shooting in Hindi and English. I make honest first-impression reviews, GRWM routines and product demos, mostly at home with natural light. Brands book me when they want a warm, unscripted voice rather than a polished ad read.";
 
 const REQUIREMENTS = [
   "Vertical",
@@ -38,8 +34,6 @@ export type IntroVideoStepProps = {
   onSelectFile: (file: File | null) => void;
   confirmed: boolean;
   onConfirmedChange: (value: boolean) => void;
-  bio: string;
-  onBioChange: (value: string) => void;
 };
 
 export function IntroVideoStep({
@@ -50,10 +44,7 @@ export function IntroVideoStep({
   onSelectFile,
   confirmed,
   onConfirmedChange,
-  bio,
-  onBioChange,
 }: IntroVideoStepProps) {
-  const bioLen = bio.trim().length;
   return (
     <div className="cw-card">
       <div className="cw-video-split">
@@ -124,44 +115,6 @@ export function IntroVideoStep({
             <li key={tip}>{tip}</li>
           ))}
         </ul>
-      </div>
-
-      <div className="cw-hr" />
-
-      {/* Creator story */}
-      <div className="cw-field">
-        <label htmlFor="cw-bio" className="cw-fieldlabel">
-          Tell your creator story <span className="cw-req">*</span>
-        </label>
-        <span className="cw-facet-help">
-          Share what you create, the languages you speak and why brands will
-          enjoy working with you.
-        </span>
-        <textarea
-          id="cw-bio"
-          className="cw-textarea"
-          value={bio}
-          disabled={disabled}
-          rows={5}
-          maxLength={BIO_MAX_CHARS}
-          placeholder="Start typing…"
-          onChange={(e) => onBioChange(e.target.value)}
-        />
-        <div className="cw-bio-foot">
-          <span
-            className="cw-bio-count"
-            data-short={bioLen > 0 && bioLen < BIO_MIN_CHARS}
-          >
-            {bioLen} / {BIO_MAX_CHARS} · minimum {BIO_MIN_CHARS} characters
-          </span>
-          <span className="cw-bio-rule">
-            No links, phone numbers, emails, social handles or pricing.
-          </span>
-        </div>
-        <div className="cw-bio-example">
-          <span className="cw-bio-example-tag">Example</span>
-          {BIO_EXAMPLE}
-        </div>
       </div>
     </div>
   );

@@ -624,11 +624,6 @@ function ReviewProfileSections({
                   >
                     <div>
                       <p className="text-sm font-semibold">{addOn.name}</p>
-                      {addOn.description ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {addOn.description}
-                        </p>
-                      ) : null}
                     </div>
                     <p className="shrink-0 text-sm font-bold">
                       {formatInrPrice(addOn.priceAmount)}

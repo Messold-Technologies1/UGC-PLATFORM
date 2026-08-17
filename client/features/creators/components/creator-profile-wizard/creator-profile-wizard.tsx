@@ -394,12 +394,12 @@ export function CreatorProfileWizard({
               undefined && addOns.mandatoryAddOnsPriced
           );
         case "portfolio":
-          return publicPortfolioCount >= MIN_PORTFOLIO_VIDEOS;
-        case "intro-video":
           return (
-            bio.trim().length >= BIO_MIN_CHARS &&
-            Boolean(introVideo.introVideoPreviewUrl)
+            publicPortfolioCount >= MIN_PORTFOLIO_VIDEOS &&
+            bio.trim().length >= BIO_MIN_CHARS
           );
+        case "intro-video":
+          return Boolean(introVideo.introVideoPreviewUrl);
         case "review":
           return goLiveMissing.length === 0;
         case "go-live":
@@ -510,9 +510,10 @@ export function CreatorProfileWizard({
       } else if (id === "identity") {
         if (facetCount("CONTENT_CATEGORY") === 0)
           missing.push("your niche");
-      } else if (id === "intro-video") {
+      } else if (id === "portfolio") {
         if (bio.trim().length < BIO_MIN_CHARS)
           missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
+      } else if (id === "intro-video") {
         if (!introVideo.introVideoPreviewUrl) missing.push("an intro video");
         else if (!introConfirmed) missing.push("the intro video confirmation");
       } else if (id === "pricing") {
@@ -699,9 +700,8 @@ export function CreatorProfileWizard({
     const aboutOk =
       displayName.trim() && dateOfBirth && gender && location.city.trim() && selectedLanguageCount > 0;
     const identityOk = facetCount("CONTENT_CATEGORY") > 0;
-    const introOk =
-      Boolean(introVideo.introVideoPreviewUrl) &&
-      bio.trim().length >= BIO_MIN_CHARS;
+    const bioOk = bio.trim().length >= BIO_MIN_CHARS;
+    const introOk = Boolean(introVideo.introVideoPreviewUrl);
     const pricingOk =
       validatePackagePrice(packages.packageDraft.priceAmount) === undefined &&
       packageDefaultsConfirmed &&
@@ -735,12 +735,14 @@ export function CreatorProfileWizard({
       {
         stepId: "portfolio",
         title: "Portfolio",
-        status: publicPortfolioCount >= 3 ? "complete" : "improve",
-        summary: `${publicPortfolioCount} of 10 videos. ${
-          publicPortfolioCount >= 3
-            ? "Great range — add more to boost visibility."
-            : "Add more to unlock higher Profile Strength."
-        }`,
+        status: !bioOk ? "incomplete" : publicPortfolioCount >= 3 ? "complete" : "improve",
+        summary: !bioOk
+          ? "Add your creator story to continue."
+          : `${publicPortfolioCount} of 10 videos. ${
+              publicPortfolioCount >= 3
+                ? "Great range — add more to boost visibility."
+                : "Add more to unlock higher Profile Strength."
+            }`,
       },
       {
         stepId: "intro-video",
@@ -976,8 +978,6 @@ export function CreatorProfileWizard({
                   onSelectFile={(file) => void introVideo.handleIntroVideoSelected(file)}
                   confirmed={introConfirmed}
                   onConfirmedChange={setIntroConfirmed}
-                  bio={bio}
-                  onBioChange={(v) => setBio(v.slice(0, BIO_MAX_CHARS))}
                 />
               ) : activeStep.id === "portfolio" ? (
                 <PortfolioStep
@@ -988,6 +988,9 @@ export function CreatorProfileWizard({
                   onAdd={() => openPortfolioDrawer(null)}
                   onEdit={(video) => openPortfolioDrawer(video)}
                   onDelete={(video) => deletePortfolioMutation.mutate({ videoId: video.id })}
+                  disabled={pending}
+                  bio={bio}
+                  onBioChange={(v) => setBio(v.slice(0, BIO_MAX_CHARS))}
                 />
               ) : activeStep.id === "pricing" ? (
                 <PricingStep

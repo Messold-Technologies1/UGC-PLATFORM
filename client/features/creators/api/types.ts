@@ -33,7 +33,6 @@ export type CreatorProfileAddOnApi = {
   id: string;
   name: string;
   priceAmount: string;
-  description?: string | null;
 };
 
 export type CreatorProfileFacetSelectionApi = {

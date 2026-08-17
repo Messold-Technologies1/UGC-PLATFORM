@@ -80,9 +80,6 @@ const AddOnRow = React.memo(function AddOnRow({
         <span className="om-addon-name">
           {addOn.label} <b>+{inr(addOn.price)}</b>
         </span>
-        {addOn.description ? (
-          <span className="om-addon-desc">{addOn.description}</span>
-        ) : null}
       </span>
     </label>
   );

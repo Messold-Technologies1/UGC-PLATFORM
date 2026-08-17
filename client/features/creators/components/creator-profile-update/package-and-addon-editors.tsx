@@ -57,6 +57,12 @@ const ADDON_HINTS: Record<string, string> = {
     "Turn this on to attract brands that need you on site. Many orders need a quick local shoot — enabling travel helps you win more of them.",
 };
 
+/** Stronger warning shown for an add-on regardless of selection, keyed by catalog slug. */
+const ADDON_WARNINGS: Record<string, string> = {
+  on_location_shoot:
+    "Only keep this on if you can genuinely travel to the brand's shoot location. Accepting an on-location order you can't reach leads to cancellations, refunds and a lower creator score.",
+};
+
 export function PackageEditor({
   draft,
   disabled,
@@ -80,7 +86,9 @@ export function PackageEditor({
     <div className="pe-pkg">
       <div className="pe-grid pe-grid-2">
         <div className="pe-field">
-          <label htmlFor="packagePriceAmount">Price (₹)</label>
+          <label htmlFor="packagePriceAmount">
+            Price (₹) <span className="pe-req" aria-label="Required">*</span>
+          </label>
           <div style={{ position: "relative" }}>
             <span
               style={{
@@ -123,7 +131,9 @@ export function PackageEditor({
         </div>
 
         <div className="pe-field">
-          <label htmlFor="packageDeliveryDays">Delivery (days)</label>
+          <label htmlFor="packageDeliveryDays">
+            Delivery (days) <span className="pe-req" aria-label="Required">*</span>
+          </label>
           <input
             id="packageDeliveryDays"
             className="pe-input"
@@ -261,9 +271,9 @@ export function AddOnCatalogEditor({
             const selected = selectedSlugs.includes(option.slug);
             const draft = drafts[option.slug] ?? {
               priceAmount: String(option.fixedPrice ?? option.minPrice ?? 0),
-              description: "",
             };
             const hint = ADDON_HINTS[option.slug];
+            const warning = ADDON_WARNINGS[option.slug];
 
             return (
               <div key={option.slug} className="pe-pkg pe-addon-card">
@@ -293,8 +303,14 @@ export function AddOnCatalogEditor({
 
                 {hint ? <p className="pe-addon-hint">{hint}</p> : null}
 
+                {warning ? (
+                  <p className="pe-delivery-warn" role="note">
+                    {warning}
+                  </p>
+                ) : null}
+
                 {selected ? (
-                  <div className="pe-grid pe-grid-2 pe-addon-fields">
+                  <div className="pe-addon-fields">
                     <div className="pe-field">
                       <label htmlFor={`addon-price-${option.slug}`}>
                         Price
@@ -329,23 +345,6 @@ export function AddOnCatalogEditor({
                           }
                         />
                       </div>
-                    </div>
-                    <div className="pe-field">
-                      <label htmlFor={`addon-description-${option.slug}`}>
-                        Description
-                      </label>
-                      <input
-                        id={`addon-description-${option.slug}`}
-                        className="pe-input"
-                        disabled={disabled}
-                        value={draft.description}
-                        onChange={(e) =>
-                          onDraftChange(option.slug, {
-                            description: e.target.value,
-                          })
-                        }
-                        placeholder="Optional"
-                      />
                     </div>
                   </div>
                 ) : null}

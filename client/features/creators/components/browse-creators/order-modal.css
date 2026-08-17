@@ -63,7 +63,6 @@
 .om-addon-txt { display: flex; flex-direction: column; gap: 2px; }
 .om-addon-name { font-size: 12.5px; font-weight: 600; }
 .om-addon-name b { font-weight: 800; color: var(--primary); }
-.om-addon-desc { font-size: 11px; color: var(--muted-foreground); line-height: 1.4; }
 .appx[data-dir="b"] .om-addon { border: 1.6px solid var(--foreground); }
 
 .om-notes { width: 100%; border: 1.4px solid var(--border); border-radius: var(--radius); padding: 12px 13px; font: inherit; font-size: 13px; color: var(--foreground); resize: vertical; outline: none; background: var(--card); }

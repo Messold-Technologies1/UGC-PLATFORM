@@ -474,9 +474,6 @@ const PackagesTab = React.memo(function PackagesTab({
                   +₹{addon.price.toLocaleString("en-IN")}
                 </div>
               </div>
-              {addon.description ? (
-                <p className="pkg-addon-desc">{addon.description}</p>
-              ) : null}
             </div>
           ))}
         </div>

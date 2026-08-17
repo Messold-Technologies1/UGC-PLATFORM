@@ -60,7 +60,6 @@ export function useCreatorAddOnsForm({
       nextSlugs.push(option.slug);
       nextDrafts[option.slug] = {
         priceAmount: String(Math.round(Number(addOn.priceAmount))),
-        description: addOn.description?.trim() ?? "",
       };
     }
 
@@ -90,7 +89,6 @@ export function useCreatorAddOnsForm({
       if (option.mandatory && !next[option.slug]) {
         next[option.slug] = {
           priceAmount: String(option.fixedPrice ?? option.minPrice ?? ""),
-          description: "",
         };
       }
     }
@@ -125,7 +123,6 @@ export function useCreatorAddOnsForm({
           ...base,
           [option.slug]: {
             priceAmount: String(option.fixedPrice ?? option.minPrice ?? 0),
-            description: "",
           },
         };
       });
@@ -141,7 +138,6 @@ export function useCreatorAddOnsForm({
         [slug]: {
           ...((addOnsTouched ? current : effectiveAddOnDrafts)[slug] ?? {
             priceAmount: "",
-            description: "",
           }),
           ...patch,
         },
@@ -168,13 +164,7 @@ export function useCreatorAddOnsForm({
         return null;
       }
 
-      out.push({
-        slug,
-        priceAmount: price,
-        ...(draft.description.trim()
-          ? { description: draft.description.trim() }
-          : {}),
-      });
+      out.push({ slug, priceAmount: price });
     }
 
     return out;

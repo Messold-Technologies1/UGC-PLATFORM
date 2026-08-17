@@ -617,11 +617,6 @@ export function CreatorAccountProfileView({
                               {formatINR(Number(addOn.priceAmount) || 0)}
                             </span>
                           </div>
-                          {addOn.description ? (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {addOn.description}
-                            </p>
-                          ) : null}
                         </li>
                       ))}
                     </ul>

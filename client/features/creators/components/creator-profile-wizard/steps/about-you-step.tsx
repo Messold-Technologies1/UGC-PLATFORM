@@ -386,21 +386,8 @@ export function AboutYouStep(props: AboutYouStepProps) {
 
       {/* Connected accounts */}
       <div className="cw-facet">
-        <div className="cw-facet-label">
-          <span>
-            <Instagram
-              size={14}
-              aria-hidden
-              style={{ verticalAlign: "-2px", marginRight: 6 }}
-            />
-            Connected accounts
-          </span>
-        </div>
-        <span className="cw-facet-help">
-          Link your Instagram to showcase live audience metrics and
-          demographics. YouTube and Reddit are coming soon.
-        </span>
-        <div style={{ marginTop: 12 }}>
+       
+        <div>
           <CreatorSocialAccounts profileId={profileId} />
         </div>
       </div>

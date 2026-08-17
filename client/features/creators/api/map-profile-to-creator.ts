@@ -198,7 +198,6 @@ function mapApiAddOns(
     id: addOn.id,
     label: addOn.name,
     price: Math.round(Number.parseFloat(addOn.priceAmount)) || 0,
-    description: addOn.description ?? null,
   }));
 }
 

@@ -37,7 +37,6 @@ export type CreatorPackageCreatePayload = {
 export type CreatorAddOnCreatePayload = {
   slug: string;
   priceAmount: string;
-  description?: string;
 };
 
 export type CreateCreatorProfilePayload = {

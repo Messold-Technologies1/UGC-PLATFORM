@@ -123,7 +123,6 @@ export type PackageDraft = {
 
 export type AddOnDraft = {
   priceAmount: string;
-  description: string;
 };
 
 

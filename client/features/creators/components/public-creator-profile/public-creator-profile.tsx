@@ -1469,11 +1469,6 @@ function PricingCard({
                       <p className="text-sm font-semibold text-neutral-900">
                         {a.name}
                       </p>
-                      {a.description && (
-                        <p className="mt-0.5 text-xs leading-snug text-neutral-500">
-                          {a.description}
-                        </p>
-                      )}
                     </div>
                     <span className="shrink-0 text-sm font-semibold text-neutral-900">
                       +{formatINR(toNumber(a.priceAmount))}

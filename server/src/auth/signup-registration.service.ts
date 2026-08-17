@@ -8,6 +8,7 @@ import { AgencyService } from '../agency/agency.service';
 import { BrandProfileService } from '../brand-profile/brand-profile.service';
 import { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
 import { CreatorProfileService } from '../creator-profile/creator-profile.service';
+import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
@@ -26,6 +27,7 @@ export class SignupRegistrationService {
     private readonly creatorProfileService: CreatorProfileService,
     private readonly brandProfileService: BrandProfileService,
     private readonly agencyService: AgencyService,
+    private readonly creatorReminders: CreatorReminderQueueService,
   ) {}
 
   private async assertSignupPhoneOtpApproved(
@@ -66,7 +68,7 @@ export class SignupRegistrationService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const { userId } = await this.prisma.$transaction(
+    const { userId, creatorProfileId } = await this.prisma.$transaction(
       async (tx) => {
         const user = await tx.user.create({
           data: {
@@ -96,6 +98,13 @@ export class SignupRegistrationService {
       },
       { timeout: 30_000, maxWait: 10_000 },
     );
+
+    // Schedule the "finish your profile" drip AFTER the transaction commits, so
+    // a rolled-back signup never leaves orphan reminder jobs. Best-effort — the
+    // backstop sweep covers any scheduling failure.
+    await this.creatorReminders
+      .scheduleReminders(creatorProfileId)
+      .catch(() => undefined);
 
     return userId;
   }

@@ -115,4 +115,25 @@ export const envValidationSchema = Joi.object({
     .default('v21.0'),
   /** Set while testing to route server events to Events Manager > Test Events. */
   META_CAPI_TEST_EVENT_CODE: Joi.string().optional(),
+
+  // AI (OpenRouter) — optional. When OPENROUTER_API_KEY is unset, AI features
+  // short-circuit (e.g. bio generation responds 503 Service Unavailable) so the
+  // app still boots and runs without an AI provider configured.
+  OPENROUTER_API_KEY: Joi.string().min(1).optional(),
+  OPENROUTER_BASE_URL: Joi.string()
+    .uri()
+    .optional()
+    .default('https://openrouter.ai/api/v1'),
+  /** Model id used for short bio generation. */
+  OPENROUTER_BIO_MODEL: Joi.string()
+    .optional()
+    .default('google/gemini-2.5-flash-lite'),
+  OPENROUTER_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .max(60_000)
+    .default(20_000),
+  /** Sent as OpenRouter ranking headers (HTTP-Referer / X-Title). Optional. */
+  OPENROUTER_APP_URL: Joi.string().uri().optional(),
+  OPENROUTER_APP_NAME: Joi.string().optional().default('GoCollab'),
 });

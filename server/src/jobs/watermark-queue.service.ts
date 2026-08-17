@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
+import { PrismaService } from '../prisma/prisma.service';
 import { WatermarkService } from '../watermark/watermark.service';
 import { buildBullmqConnection } from './bullmq-redis.connection';
 
@@ -20,9 +21,33 @@ const WATCHDOG_MS = 15_000;
  * run the delivery inline. Time the lookups out and process anyway.
  */
 const LOOKUP_TIMEOUT_MS = 5_000;
+/**
+ * Delay before the per-delivery self-check job fires. This is the fast,
+ * Redis-native recovery path (the "Mailchimp-style" delayed job): if the
+ * worker crashed or its blocking connection dropped, the delayed job re-drives
+ * the delivery ~2 min later. It no-ops (claim matches 0 rows) when the delivery
+ * is already `ready`, so it costs one cheap DB round-trip per delivery — not a
+ * standing poll — and lets Neon autosuspend between deliveries.
+ */
+const RECONCILE_DELAY_MS = 120_000;
+/**
+ * Total processing attempts allowed before a delivery is parked in the terminal
+ * `dead` state. Without this a poison delivery (one that always throws) would be
+ * re-driven forever by the worker retries, the delayed job, and the safety-net
+ * poller — burning DB/compute indefinitely.
+ */
+const DEFAULT_MAX_ATTEMPTS = 6;
+/**
+ * A delivery claimed into `processing` but not moved on within this window is
+ * assumed abandoned (instance crashed mid-run) and may be reclaimed. Must be
+ * comfortably larger than a real watermark run + any inline-slot wait.
+ */
+const STALE_PROCESSING_MS = 600_000; // 10 min
 
 interface WatermarkJobData {
   deliveryId: string;
+  /** Distinguishes the delayed self-check from the primary job (logging only). */
+  source?: string;
 }
 
 /**
@@ -48,9 +73,17 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly config: ConfigService,
     private readonly watermark: WatermarkService,
+    private readonly prisma: PrismaService,
   ) {
     this.enabled = config.get<string>('WATERMARK_ENABLED', 'true') !== 'false';
     this.redisUrl = config.get<string>('REDIS_URL');
+  }
+
+  private maxAttempts(): number {
+    return Math.max(
+      1,
+      Number(this.config.get('WATERMARK_MAX_ATTEMPTS', DEFAULT_MAX_ATTEMPTS)),
+    );
   }
 
   /** Reject if a promise hasn't settled within `ms`. */
@@ -114,7 +147,10 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
           `watermark: worker picked up ${job.data.deliveryId} (jobId=${job.id})`,
         );
         await this.withTimeout(
-          this.processDeliveryDirect(job.data.deliveryId, 'worker'),
+          this.processDeliveryDirect(
+            job.data.deliveryId,
+            job.data.source ?? 'worker',
+          ),
           Math.max(
             60_000,
             Number(this.config.get('WATERMARK_JOB_TIMEOUT_MS', 300_000)),
@@ -189,6 +225,23 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         }
         await this.queue.add(JOB_NAME, { deliveryId }, { jobId });
 
+        // Fast, Redis-native safety net: a delayed self-check that re-drives the
+        // delivery if the worker never completed it. Deterministic jobId dedupes
+        // repeat enqueues; it no-ops once the delivery is `ready`. This does NOT
+        // replace the DB-truth poller (Redis can't guard against its own loss) —
+        // it just shortens recovery for the common worker-crash case.
+        await this.queue
+          .add(
+            JOB_NAME,
+            { deliveryId, source: 'delayed-recheck' },
+            { jobId: `wm-recheck-${deliveryId}`, delay: RECONCILE_DELAY_MS },
+          )
+          .catch((err) =>
+            this.logger.warn(
+              `watermark: could not schedule delayed recheck for ${deliveryId}: ${(err as Error)?.message}`,
+            ),
+          );
+
         const counts = await this.queue
           .getJobCounts('wait', 'active', 'delayed', 'failed')
           .catch(() => null);
@@ -223,8 +276,42 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Atomically claim a delivery for processing. A single conditional UPDATE is
+   * the cross-instance lock: only the caller whose UPDATE flips the row wins, so
+   * the worker, watchdog, delayed recheck and safety-net poller can never
+   * double-process — even across horizontally-scaled instances (an in-memory Set
+   * only guards a single process).
+   *
+   * Claims a row that is `pending`/`failed`, or one stuck in `processing` past
+   * the stale window (crashed mid-run). Increments the attempt counter.
+   *
+   * Returns the new attempt count if claimed, or null if another owner holds it
+   * / it is already `ready` or `dead`.
+   */
+  private async claimForProcessing(deliveryId: string): Promise<number | null> {
+    const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS);
+    const rows = await this.prisma.$queryRaw<Array<{ previewAttempts: number }>>`
+      UPDATE "OrderDelivery"
+      SET "previewStatus" = 'processing',
+          "previewAttempts" = "previewAttempts" + 1,
+          "previewUpdatedAt" = now()
+      WHERE "id" = ${deliveryId}::uuid
+        AND (
+          "previewStatus" IN ('pending', 'failed')
+          OR ("previewStatus" = 'processing' AND "previewUpdatedAt" < ${staleBefore})
+        )
+      RETURNING "previewAttempts"
+    `;
+    return rows.length > 0 ? rows[0].previewAttempts : null;
+  }
+
+  /**
    * Run watermarking outside the HTTP request path. Used by the BullMQ worker,
-   * the enqueue watchdog, and the reconcile poller when jobs sit in `wait`.
+   * the enqueue watchdog, the delayed recheck job, and the safety-net poller.
+   *
+   * A local in-flight Set is a cheap fast-path to skip a redundant DB round-trip
+   * when this same process is already handling the delivery; the DB claim is the
+   * real, authoritative guard.
    */
   async processDeliveryDirect(
     deliveryId: string,
@@ -232,19 +319,55 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     if (this.processing.has(deliveryId)) return;
 
+    const attempt = await this.claimForProcessing(deliveryId);
+    if (attempt === null) {
+      // Already ready/dead, or another owner holds the claim — nothing to do.
+      return;
+    }
+
+    const max = this.maxAttempts();
     await this.acquireInlineSlot();
     this.processing.add(deliveryId);
     try {
-      this.logger.log(`watermark: ${source} processing ${deliveryId}`);
+      this.logger.log(
+        `watermark: ${source} processing ${deliveryId} (attempt ${attempt}/${max})`,
+      );
       await this.watermark.watermarkDelivery(deliveryId);
     } catch (err) {
+      // watermarkDelivery has already flipped the row to `failed`. If the retry
+      // budget is spent, park it in the terminal `dead` state so nothing keeps
+      // re-driving a poison delivery.
+      if (attempt >= max) {
+        await this.markDead(deliveryId, attempt, max);
+      }
       this.logger.error(
-        `watermark: ${source} failed for ${deliveryId}: ${(err as Error)?.message}`,
+        `watermark: ${source} failed for ${deliveryId} (attempt ${attempt}/${max}): ${(err as Error)?.message}`,
       );
       throw err;
     } finally {
       this.processing.delete(deliveryId);
       this.releaseInlineSlot();
+    }
+  }
+
+  /** Park a delivery in the terminal `dead` state after the retry budget is spent. */
+  private async markDead(
+    deliveryId: string,
+    attempt: number,
+    max: number,
+  ): Promise<void> {
+    try {
+      await this.prisma.orderDelivery.update({
+        where: { id: deliveryId },
+        data: { previewStatus: 'dead', previewUpdatedAt: new Date() },
+      });
+      this.logger.error(
+        `watermark: delivery ${deliveryId} marked dead after ${attempt}/${max} attempts`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `watermark: failed to mark ${deliveryId} dead: ${(err as Error)?.message}`,
+      );
     }
   }
 

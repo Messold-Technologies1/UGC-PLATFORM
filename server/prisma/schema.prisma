@@ -756,8 +756,17 @@ model OrderDelivery {
   // Watermark pipeline status for the brand-facing preview copies.
   // "ready" is the default so historical rows are never reprocessed; new
   // deliveries are explicitly created as "pending".
-  previewStatus  String   @default("ready")
-  createdAt      DateTime @default(now())
+  // Lifecycle: pending -> processing -> ready | failed -> (retry) -> dead.
+  //   "processing" is a short-lived claim so no two workers/instances process
+  //   the same delivery at once; "dead" is terminal after previewAttempts
+  //   exhausts the retry budget, so nothing re-drives a poison delivery forever.
+  previewStatus    String   @default("ready")
+  // Number of processing attempts. Used to cap retries (terminal "dead").
+  previewAttempts  Int      @default(0)
+  // Bumped whenever previewStatus changes. Lets the safety net reclaim a row
+  // that has been stuck in "processing" past the stale threshold (crashed mid-run).
+  previewUpdatedAt DateTime @default(now())
+  createdAt        DateTime @default(now())
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
@@ -766,6 +775,7 @@ model OrderDelivery {
   @@index([orderId, createdAt])
   @@index([creatorId, createdAt])
   @@index([previewStatus, createdAt])
+  @@index([previewStatus, previewUpdatedAt])
 }
 
 model OrderRevision {

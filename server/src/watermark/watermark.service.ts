@@ -109,7 +109,11 @@ export class WatermarkService {
       if (changed) {
         await this.prisma.orderDelivery.update({
           where: { id: deliveryId },
-          data: { assets: assets as unknown as object, previewStatus: 'ready' },
+          data: {
+            assets: assets as unknown as object,
+            previewStatus: 'ready',
+            previewUpdatedAt: new Date(),
+          },
         });
       } else {
         await this.markStatus(deliveryId, 'ready');
@@ -143,11 +147,11 @@ export class WatermarkService {
 
   private async markStatus(
     deliveryId: string,
-    status: 'pending' | 'ready' | 'failed',
+    status: 'pending' | 'processing' | 'ready' | 'failed' | 'dead',
   ): Promise<void> {
     await this.prisma.orderDelivery.update({
       where: { id: deliveryId },
-      data: { previewStatus: status },
+      data: { previewStatus: status, previewUpdatedAt: new Date() },
     });
   }
 

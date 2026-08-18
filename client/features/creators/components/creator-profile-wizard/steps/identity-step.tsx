@@ -125,7 +125,6 @@ export function IdentityStep({
   onToggleRestriction,
 }: IdentityStepProps) {
   const nicheOptions = optionsByDimension.CONTENT_CATEGORY ?? [];
-  const secondaryFull = secondaryNiches.length >= REQUIRED_SECONDARY_NICHES;
   const nicheOtherSelected =
     primaryNiche === OTHER_SLUG || secondaryNiches.includes(OTHER_SLUG);
 
@@ -135,8 +134,10 @@ export function IdentityStep({
         {/* ---- Niche: primary + secondary from the same list ---- */}
         <div className="cw-facet">
           <div className="cw-facet-label">
-            <span>Your primary niche</span>
-            <span className="cw-req">*</span>
+            <span>
+              Your primary niche
+              <span className="cw-req"> *</span>
+            </span>
           </div>
           <span className="cw-facet-help">
             The one thing you&apos;re best known for. Brands see this first.
@@ -156,8 +157,10 @@ export function IdentityStep({
 
         <div className="cw-facet">
           <div className="cw-facet-label">
-            <span>Your secondary niches</span>
-            <span className="cw-req">*</span>
+            <span>
+              Your secondary niches
+              <span className="cw-req"> *</span>
+            </span>
             <span className="cw-facet-count">
               {secondaryNiches.length}/{REQUIRED_SECONDARY_NICHES}
             </span>
@@ -177,11 +180,7 @@ export function IdentityStep({
                     key={opt.slug}
                     label={opt.label}
                     selected={isOn}
-                    disabled={
-                      disabled ||
-                      !primaryNiche ||
-                      (!isOn && secondaryFull)
-                    }
+                    disabled={disabled || !primaryNiche}
                     onClick={() => onToggleSecondaryNiche(opt.slug)}
                   />
                 );
@@ -207,8 +206,10 @@ export function IdentityStep({
           return (
             <div className="cw-facet" key={dimension}>
               <div className="cw-facet-label">
-                <span>{label}</span>
-                <span className="cw-req">*</span>
+                <span>
+                  {label}
+                  <span className="cw-req"> *</span>
+                </span>
               </div>
               <span className="cw-facet-help">{help}</span>
               <div className="pe-chips">
@@ -239,8 +240,10 @@ export function IdentityStep({
         {/* ---- Open to (required) ---- */}
         <div className="cw-facet">
           <div className="cw-facet-label">
-            <span>Comfortable with</span>
-            <span className="cw-req">*</span>
+            <span>
+              Comfortable with
+              <span className="cw-req"> *</span>
+            </span>
             {selectedRestrictions.length > 0 ? (
               <span className="cw-facet-count">
                 {selectedRestrictions.length}

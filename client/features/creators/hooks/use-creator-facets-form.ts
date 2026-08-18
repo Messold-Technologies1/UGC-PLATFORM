@@ -86,7 +86,8 @@ export function useCreatorFacetsForm({
       } else if (secondary.length < MAX_SECONDARY_NICHES) {
         nextSecondary = [...secondary, slug];
       } else {
-        return current; // already at the secondary cap
+        // At cap: keep earlier picks and swap in the new one for the last.
+        nextSecondary = [...secondary.slice(0, -1), slug];
       }
       return { ...current, [NICHE_DIMENSION]: [primary, ...nextSecondary] };
     });

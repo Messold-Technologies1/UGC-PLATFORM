@@ -285,9 +285,18 @@ export function CreatorProfileWizard({
         facets.setCustomFacetLabel(dimension, "");
       };
 
-      if ((res.action === "match" || res.action === "created") && res.option) {
-        if (res.action === "created") await facets.facetOptionsQuery.refetch();
+      if (res.action === "match" && res.option) {
+        // Existing option — swap the "Other" selection for the real one now.
         selectCanonical(res.option.slug);
+        markDirty();
+        setOtherNotices((n) => ({
+          ...n,
+          [dimension]: { type: "info", message: res.message ?? "" },
+        }));
+      } else if (res.action === "new") {
+        // Valid new value: keep "Other" selected and store the normalized label.
+        // The catalog option is created server-side only when the creator saves.
+        if (res.label) facets.setCustomFacetLabel(dimension, res.label);
         markDirty();
         setOtherNotices((n) => ({
           ...n,

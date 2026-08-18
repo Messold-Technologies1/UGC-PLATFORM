@@ -97,13 +97,9 @@ export class CreatorProfileController {
   @ApiOkResponse({ type: FacetOtherResolveResponseDto })
   async resolveFacetOther(
     @Body() dto: ResolveFacetOtherDto,
-    @Req() req: Request & { user: { id: string } },
   ): Promise<FacetOtherResolveResponseDto> {
-    return this.facetOtherResolverService.resolve(
-      req.user.id,
-      dto.dimension,
-      dto.text,
-    );
+    // Read-only classification — writes to the catalog happen only on profile save.
+    return this.facetOtherResolverService.classify(dto.dimension, dto.text);
   }
 
   @Post('profile/generate-bio')

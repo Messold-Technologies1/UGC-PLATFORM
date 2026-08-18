@@ -98,64 +98,75 @@ function OtherField({
   value,
   disabled,
   resolving,
-  notice,
   onChange,
   onCommit,
-  onDismissNotice,
 }: {
   dimension: NonLanguageDimension;
   value: string;
   disabled: boolean;
   resolving: boolean;
-  notice?: OtherNotice;
   onChange: (dimension: NonLanguageDimension, value: string) => void;
   onCommit: (dimension: NonLanguageDimension) => void;
-  onDismissNotice: (dimension: NonLanguageDimension) => void;
 }) {
   return (
-    <div className="cw-other-field">
-      <div className="cw-other-row">
-        <input
-          type="text"
-          className="cw-other-input"
-          value={value}
-          maxLength={40}
-          disabled={disabled || resolving}
-          placeholder="Type your own…"
-          onChange={(e) => onChange(dimension, e.target.value)}
-          onBlur={() => onCommit(dimension)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              e.currentTarget.blur();
-            }
-          }}
-        />
-        {resolving ? (
-          <span className="cw-other-checking">
-            <Loader2 size={13} className="cw-ai-spin" aria-hidden />
-            Checking…
-          </span>
-        ) : null}
-      </div>
-      {notice ? (
-        <div className="cw-other-notice" data-type={notice.type} role="status">
-          {notice.type === "warning" ? (
-            <AlertTriangle size={14} aria-hidden />
-          ) : (
-            <Sparkles size={14} aria-hidden />
-          )}
-          <span>{notice.message}</span>
-          <button
-            type="button"
-            className="cw-other-notice-x"
-            onClick={() => onDismissNotice(dimension)}
-            aria-label="Dismiss"
-          >
-            <X size={13} aria-hidden />
-          </button>
-        </div>
+    <div className="cw-other-row">
+      <input
+        type="text"
+        className="cw-other-input"
+        value={value}
+        maxLength={40}
+        disabled={disabled || resolving}
+        placeholder="Type your own…"
+        onChange={(e) => onChange(dimension, e.target.value)}
+        onBlur={() => onCommit(dimension)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+      />
+      {resolving ? (
+        <span className="cw-other-checking">
+          <Loader2 size={13} className="cw-ai-spin" aria-hidden />
+          Checking…
+        </span>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The "why we mapped / we'll add on save" banner. Rendered at the facet level —
+ * NOT inside OtherField — so it stays visible after a match auto-selects the
+ * real chip and the "Other" input unmounts.
+ */
+function FacetOtherNotice({
+  dimension,
+  notice,
+  onDismiss,
+}: {
+  dimension: NonLanguageDimension;
+  notice?: OtherNotice;
+  onDismiss: (dimension: NonLanguageDimension) => void;
+}) {
+  if (!notice) return null;
+  return (
+    <div className="cw-other-notice" data-type={notice.type} role="status">
+      {notice.type === "warning" ? (
+        <AlertTriangle size={14} aria-hidden />
+      ) : (
+        <Sparkles size={14} aria-hidden />
+      )}
+      <span>{notice.message}</span>
+      <button
+        type="button"
+        className="cw-other-notice-x"
+        onClick={() => onDismiss(dimension)}
+        aria-label="Dismiss"
+      >
+        <X size={13} aria-hidden />
+      </button>
     </div>
   );
 }
@@ -246,12 +257,15 @@ export function IdentityStep({
               value={customFacetLabels.CONTENT_CATEGORY ?? ""}
               disabled={disabled}
               resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
-              notice={otherNotices.CONTENT_CATEGORY}
               onChange={onCustomFacetLabelChange}
               onCommit={onCommitOther}
-              onDismissNotice={onDismissOtherNotice}
             />
           ) : null}
+          <FacetOtherNotice
+            dimension="CONTENT_CATEGORY"
+            notice={otherNotices.CONTENT_CATEGORY}
+            onDismiss={onDismissOtherNotice}
+          />
         </div>
 
         <div className="cw-hr cw-hr-soft" />
@@ -287,12 +301,15 @@ export function IdentityStep({
                   value={customFacetLabels[dimension] ?? ""}
                   disabled={disabled}
                   resolving={resolvingOtherDim === dimension}
-                  notice={otherNotices[dimension]}
                   onChange={onCustomFacetLabelChange}
                   onCommit={onCommitOther}
-                  onDismissNotice={onDismissOtherNotice}
                 />
               ) : null}
+              <FacetOtherNotice
+                dimension={dimension}
+                notice={otherNotices[dimension]}
+                onDismiss={onDismissOtherNotice}
+              />
             </div>
           );
         })}

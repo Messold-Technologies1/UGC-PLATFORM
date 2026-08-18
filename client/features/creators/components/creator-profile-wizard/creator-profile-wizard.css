@@ -14,6 +14,18 @@
   min-width: 0;
   padding-bottom: 40px;
 }
+/* The creator/admin route wrappers add no horizontal gutter, so give the
+   wizard its own side padding on phones — otherwise cards sit edge-to-edge. */
+@media (max-width: 640px) {
+  .cw-root {
+    padding-inline: 16px;
+  }
+}
+@media (max-width: 380px) {
+  .cw-root {
+    padding-inline: 12px;
+  }
+}
 
 /* ---- Layout ---- */
 .cw-layout {
@@ -121,6 +133,12 @@
   }
   .cw-steps::-webkit-scrollbar {
     display: none;
+  }
+  /* In the horizontal scroller, steps must size to content instead of the
+     full-width column layout used on desktop. */
+  .cw-step {
+    width: auto;
+    flex: 0 0 auto;
   }
 }
 .cw-step {
@@ -302,6 +320,25 @@
   display: flex;
   align-items: flex-start;
   gap: 16px;
+}
+/* Title/tagline wrapper — allow it to shrink so long text wraps instead of
+   pushing the inline Save button off-screen. */
+.cw-pane-head > div {
+  min-width: 0;
+}
+/* On phones, let the header wrap so the "Save changes" button drops onto its
+   own full-width row rather than overflowing next to the title. */
+@media (max-width: 560px) {
+  .cw-pane-head {
+    flex-wrap: wrap;
+    gap: 12px 16px;
+  }
+  .cw-pane-head > .cw-btn {
+    order: 3;
+    width: 100%;
+    margin-left: 0 !important;
+    align-self: stretch !important;
+  }
 }
 .cw-pane-icon {
   display: flex;
@@ -771,6 +808,12 @@
   .cw-foot-actions {
     justify-content: space-between;
   }
+  /* Share the row evenly so long labels ("Continue Building Profile") don't
+     wrap to two lines inside a shrunken button. */
+  .cw-foot-actions .cw-btn {
+    flex: 1;
+    padding-inline: 12px;
+  }
 }
 .cw-btn {
   display: inline-flex;
@@ -1138,6 +1181,11 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+@media (max-width: 400px) {
+  .cw-req-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .cw-req-item {
   display: inline-flex;
   align-items: center;
@@ -1401,6 +1449,15 @@
   border: 1px dashed var(--border);
   padding: 14px 16px;
 }
+@media (max-width: 460px) {
+  .cw-payout {
+    flex-wrap: wrap;
+  }
+  .cw-payout-btn {
+    margin-left: 0;
+    width: 100%;
+  }
+}
 .cw-payout-icon {
   display: grid;
   place-items: center;
@@ -1520,6 +1577,23 @@
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+/* Comfortable tap targets on touch screens — the 32px desktop chips are below
+   the ~44px guideline. Scoped to the wizard so shared .pe-chip pages are
+   unaffected. */
+@media (max-width: 640px) {
+  .cw-root .pe-chip {
+    height: 40px;
+    padding: 0 14px;
+    font-size: 13.5px;
+  }
+  .cw-root .pe-chips {
+    gap: 8px;
+  }
+  .cw-root .cw-other-input {
+    max-width: 100%;
   }
 }
 

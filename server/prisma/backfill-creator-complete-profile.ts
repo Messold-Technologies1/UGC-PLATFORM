@@ -1,4 +1,9 @@
-import { ApprovalStatus, PortfolioVisibilityStatus, PrismaClient } from '@prisma/client';
+import {
+  ApprovalStatus,
+  CreatorFacetDimension,
+  PortfolioVisibilityStatus,
+  PrismaClient,
+} from '@prisma/client';
 import { evaluateProfileCompleteness } from '../src/creator-profile/creator-profile-completeness.util';
 
 const prisma = new PrismaClient();
@@ -40,9 +45,17 @@ async function main(): Promise<void> {
       completeProfile: true,
       isListed: true,
       creatorApproval: { select: { status: true } },
-      facetSelections: { select: { option: { select: { dimension: true } } } },
+      facetSelections: {
+        select: { rank: true, option: { select: { dimension: true } } },
+      },
       addOns: { select: { name: true } },
-      _count: { select: { profileLanguages: true, packages: true } },
+      _count: {
+        select: {
+          profileLanguages: true,
+          packages: true,
+          restrictions: true,
+        },
+      },
     },
   });
 
@@ -78,6 +91,17 @@ async function main(): Promise<void> {
       selectedFacetDimensions: profile.facetSelections.map(
         (selection) => selection.option.dimension,
       ),
+      nichePrimaryCount: profile.facetSelections.filter(
+        (s) =>
+          s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+          s.rank === 0,
+      ).length,
+      nicheSecondaryCount: profile.facetSelections.filter(
+        (s) =>
+          s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+          s.rank > 0,
+      ).length,
+      restrictionCount: profile._count.restrictions,
       languageCount: profile._count.profileLanguages,
       packageCount: profile._count.packages,
       publicVideoCount,

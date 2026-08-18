@@ -31,6 +31,19 @@ export class CreatorFacetSelectionResponseDto {
 
   @ApiProperty()
   label!: string;
+
+  @ApiProperty({
+    description:
+      'Niche ordering (CONTENT_CATEGORY only): 0 = primary, 1..2 = secondary.',
+  })
+  rank!: number;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description: 'Free text when slug is "other".',
+  })
+  customLabel!: string | null;
 }
 
 export class CreatorPersonaTagResponseDto {

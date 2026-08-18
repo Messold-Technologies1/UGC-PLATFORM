@@ -48,6 +48,7 @@ import { capitalizeFirstLetter, toTitleCaseLabel } from "@/lib/string-lists";
 import {
   computeGoLiveMissing,
   MIN_PORTFOLIO_VIDEOS,
+  REQUIRED_SECONDARY_NICHES,
   type GoLiveSnapshot,
 } from "@/features/creators/lib/go-live-requirements";
 import { PortfolioEditDrawer } from "@/features/creators/components/creator-profile-update/portfolio-components";
@@ -64,7 +65,6 @@ import {
   BIO_MAX_CHARS,
   OPEN_TO_OPTIONS,
   type WizardStepId,
-  type WizardFacetGroup,
 } from "./wizard-config";
 import { AboutYouStep } from "./steps/about-you-step";
 import { IdentityStep } from "./steps/identity-step";
@@ -342,6 +342,32 @@ export function CreatorProfileWizard({
     [selectedFacets],
   );
 
+  // An "Other" chip is selected but its custom text is still blank.
+  const identityHasBlankOther = useMemo(() => {
+    const dims = [
+      "CONTENT_CATEGORY",
+      "CREATOR_TYPE",
+      "OCCUPATION",
+      "APPEARANCE",
+    ] as const;
+    return dims.some((dim) => {
+      const slugs = facets.selectedFacets[dim] ?? [];
+      return (
+        slugs.includes("other") &&
+        !(facets.customFacetLabels[dim] ?? "").trim()
+      );
+    });
+  }, [facets.selectedFacets, facets.customFacetLabels]);
+
+  const identityComplete =
+    Boolean(facets.primaryNiche) &&
+    facets.secondaryNiches.length >= REQUIRED_SECONDARY_NICHES &&
+    facetCount("CREATOR_TYPE") > 0 &&
+    facetCount("OCCUPATION") > 0 &&
+    facetCount("APPEARANCE") > 0 &&
+    selectedRestrictions.length > 0 &&
+    !identityHasBlankOther;
+
   const strength = useMemo(() => {
     const hasNiche = Object.entries(facets.selectedFacets).some(
       ([dim, vals]) => NICHE_DIMENSIONS.has(dim) && (vals?.length ?? 0) > 0,
@@ -395,6 +421,9 @@ export function CreatorProfileWizard({
       dateOfBirth,
       shippingAddress: initialProfile.shippingAddress ?? "",
       selectedFacetDimensions,
+      nichePrimaryCount: facets.primaryNiche ? 1 : 0,
+      nicheSecondaryCount: facets.secondaryNiches.length,
+      restrictionCount: selectedRestrictions.length,
       languageCount: selectedLanguageCount,
       hasPackage,
       mandatoryAddOnsPriced: addOns.mandatoryAddOnsPriced,
@@ -404,6 +433,9 @@ export function CreatorProfileWizard({
     };
   }, [
     facets.selectedFacets,
+    facets.primaryNiche,
+    facets.secondaryNiches,
+    selectedRestrictions,
     packages.packageDraft,
     addOns.mandatoryAddOnsPriced,
     packageDefaultsConfirmed,
@@ -440,7 +472,7 @@ export function CreatorProfileWizard({
             selectedLanguageCount > 0
           );
         case "identity":
-          return facetCount("CONTENT_CATEGORY") > 0;
+          return identityComplete;
         case "pricing":
           return (
             validatePackagePrice(packages.packageDraft.priceAmount) ===
@@ -467,7 +499,7 @@ export function CreatorProfileWizard({
       gender,
       location.city,
       selectedLanguageCount,
-      facetCount,
+      identityComplete,
       packages.packageDraft.priceAmount,
       addOns.mandatoryAddOnsPriced,
       publicPortfolioCount,
@@ -484,9 +516,17 @@ export function CreatorProfileWizard({
     (includePackages: boolean): UpdateCreatorProfilePayload | null => {
       const facetSelections: CreatorFacetSelectionPayload[] = [];
       for (const section of facetSections) {
-        for (const slug of facets.selectedFacets[section.dimension] ?? []) {
-          facetSelections.push({ dimension: section.dimension, slug });
-        }
+        const slugs = facets.selectedFacets[section.dimension] ?? [];
+        const customLabel = facets.customFacetLabels[section.dimension]?.trim();
+        slugs.forEach((slug, index) => {
+          facetSelections.push({
+            dimension: section.dimension,
+            slug,
+            // CONTENT_CATEGORY is ordered: index 0 = primary, rest = secondary.
+            ...(section.dimension === "CONTENT_CATEGORY" ? { rank: index } : {}),
+            ...(slug === "other" && customLabel ? { customLabel } : {}),
+          });
+        });
       }
       const profileLanguages: CreatorProfileLanguagePayload[] =
         selectedLanguages.map((slug) => ({ slug }));
@@ -527,6 +567,7 @@ export function CreatorProfileWizard({
     },
     [
       facets.selectedFacets,
+      facets.customFacetLabels,
       selectedLanguages,
       selectedRestrictions,
       displayName,
@@ -561,8 +602,16 @@ export function CreatorProfileWizard({
         if (selectedLanguageCount > 0 && !languageConfirmed)
           missing.push("the language confirmation");
       } else if (id === "identity") {
-        if (facetCount("CONTENT_CATEGORY") === 0)
-          missing.push("your niche");
+        if (!facets.primaryNiche) missing.push("your primary niche");
+        if (facets.secondaryNiches.length < REQUIRED_SECONDARY_NICHES)
+          missing.push(`${REQUIRED_SECONDARY_NICHES} secondary niches`);
+        if (facetCount("CREATOR_TYPE") === 0) missing.push("your creator type");
+        if (facetCount("OCCUPATION") === 0) missing.push("your occupation");
+        if (facetCount("APPEARANCE") === 0) missing.push("your appearance");
+        if (selectedRestrictions.length === 0)
+          missing.push('at least one "Comfortable with" option');
+        if (identityHasBlankOther)
+          missing.push('a value for your "Other" selection');
       } else if (id === "portfolio") {
         if (bio.trim().length < BIO_MIN_CHARS)
           missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
@@ -587,6 +636,10 @@ export function CreatorProfileWizard({
       selectedLanguageCount,
       languageConfirmed,
       facetCount,
+      facets.primaryNiche,
+      facets.secondaryNiches,
+      selectedRestrictions,
+      identityHasBlankOther,
       bio,
       introVideo.introVideoPreviewUrl,
       introConfirmed,
@@ -745,7 +798,7 @@ export function CreatorProfileWizard({
 
     const aboutOk =
       displayName.trim() && dateOfBirth && gender && location.city.trim() && selectedLanguageCount > 0;
-    const identityOk = facetCount("CONTENT_CATEGORY") > 0;
+    const identityOk = identityComplete;
     const bioOk = bio.trim().length >= BIO_MIN_CHARS;
     const introOk = Boolean(introVideo.introVideoPreviewUrl);
     const pricingOk =
@@ -806,7 +859,7 @@ export function CreatorProfileWizard({
     dateOfBirth,
     gender,
     selectedLanguageCount,
-    facetCount,
+    identityComplete,
     bio,
     introVideo.introVideoPreviewUrl,
     packages.packageDraft,
@@ -995,9 +1048,24 @@ export function CreatorProfileWizard({
                   disabled={pending}
                   optionsByDimension={facets.facetOptionsByDimension}
                   selectedFacets={facets.selectedFacets}
-                  onToggleFacet={(group: WizardFacetGroup, slug: string) => {
+                  onSelectSingleFacet={(dimension, slug) => {
                     markDirty();
-                    facets.toggleFacet(group.dimension, slug);
+                    facets.selectSingleFacet(dimension, slug);
+                  }}
+                  primaryNiche={facets.primaryNiche}
+                  secondaryNiches={facets.secondaryNiches}
+                  onSetPrimaryNiche={(slug) => {
+                    markDirty();
+                    facets.setPrimaryNiche(slug);
+                  }}
+                  onToggleSecondaryNiche={(slug) => {
+                    markDirty();
+                    facets.toggleSecondaryNiche(slug);
+                  }}
+                  customFacetLabels={facets.customFacetLabels}
+                  onCustomFacetLabelChange={(dimension, value) => {
+                    markDirty();
+                    facets.setCustomFacetLabel(dimension, value);
                   }}
                   selectedRestrictions={selectedRestrictions}
                   onToggleRestriction={(name) => {

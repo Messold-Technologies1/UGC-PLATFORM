@@ -458,6 +458,12 @@ model CreatorProfileFacetSelection {
   id               String   @id @default(uuid()) @db.Uuid
   creatorProfileId String   @db.Uuid
   optionId         String   @db.Uuid
+  // Only meaningful for the CONTENT_CATEGORY (niche) dimension: 0 = primary
+  // niche, 1..2 = secondary niches. Always 0 for the single-select dimensions.
+  rank             Int      @default(0)
+  // Free text captured when the selected option is the catalog "other" slug,
+  // e.g. a niche/occupation not in the list. Null for normal selections.
+  customLabel      String?
   createdAt        DateTime @default(now())
 
   creator CreatorProfile     @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)

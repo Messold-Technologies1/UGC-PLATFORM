@@ -48,6 +48,7 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     ['senior', 'Senior'],
     ['pet', 'Pet'],
     ['individual_solo', 'Individual / Solo'],
+    ['other', 'Other'],
   ].map(([slug, label], i) => ({
     dimension: CreatorFacetDimension.CREATOR_TYPE,
     slug,
@@ -108,6 +109,7 @@ export const CREATOR_FACET_SEED_ROWS: FacetRow[] = [
     ['midsize', 'Midsize'],
     ['plus_size_curvy', 'Plus Size / Curvy'],
     ['athletic_fit', 'Athletic / Fit'],
+    ['other', 'Other'],
   ].map(([slug, label], i) => ({
     dimension: CreatorFacetDimension.APPEARANCE,
     slug,

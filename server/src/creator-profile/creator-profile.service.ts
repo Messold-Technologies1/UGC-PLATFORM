@@ -77,6 +77,7 @@ import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-resp
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 import { recomputeCreatorListingState } from './creator-listing-state.util';
+import { FacetOtherResolverService } from './facet-other-resolver.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -250,6 +251,7 @@ export class CreatorProfileService {
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
     private readonly creatorReviews: CreatorReviewsService,
     private readonly metaCapi: MetaCapiService,
+    private readonly facetOtherResolver: FacetOtherResolverService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -2261,6 +2263,19 @@ export class CreatorProfileService {
     //   await this.assertPhoneVerifiedForCreator(actingUserId);
     // }
 
+    // Resolve any free-text "Other" facet selections to canonical options BEFORE
+    // the transaction (it makes network/LLM calls): "Other" becomes a real slug
+    // (matched or newly created), a kept generic "other", or is dropped. This is
+    // the only place a creator's typed value is written to the shared catalog —
+    // and only when they actually save.
+    const resolvedFacetSelections =
+      dto.facetSelections !== undefined
+        ? await this.facetOtherResolver.resolveSelectionsForPersist(
+            creatorProfileId,
+            dto.facetSelections,
+          )
+        : undefined;
+
     const { response, becameListed } = await this.prisma.$transaction(
       async (tx) => {
         const profile = await tx.creatorProfile.findUnique({
@@ -2392,10 +2407,10 @@ export class CreatorProfileService {
           });
         }
 
-        if (dto.facetSelections !== undefined) {
+        if (resolvedFacetSelections !== undefined) {
           const facetRows = await this.resolveFacetSelectionRows(
             tx,
-            dto.facetSelections,
+            resolvedFacetSelections,
           );
           await this.replaceFacetSelections(
             tx,

@@ -27,14 +27,22 @@ export class ResolvedFacetOptionDto {
 
 export class FacetOtherResolveResponseDto {
   @ApiProperty({
-    enum: ['match', 'created', 'rejected', 'kept'],
+    enum: ['match', 'new', 'rejected', 'kept'],
     description:
-      'match = mapped to an existing option; created = new option added to the catalog; rejected = not allowed; kept = keep as private custom text.',
+      'match = mapped to an existing option; new = a valid new value that will be added to the catalog when the creator saves; rejected = not allowed; kept = keep as private custom text.',
   })
-  action!: 'match' | 'created' | 'rejected' | 'kept';
+  action!: 'match' | 'new' | 'rejected' | 'kept';
 
-  @ApiPropertyOptional({ type: ResolvedFacetOptionDto })
+  @ApiPropertyOptional({
+    type: ResolvedFacetOptionDto,
+    description: 'The existing option this maps to (action = match).',
+  })
   option?: ResolvedFacetOptionDto;
+
+  @ApiPropertyOptional({
+    description: 'Normalized label to add on save (action = new).',
+  })
+  label?: string;
 
   @ApiProperty()
   typedText!: string;

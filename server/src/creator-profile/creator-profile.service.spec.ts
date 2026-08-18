@@ -248,6 +248,14 @@ describe('CreatorProfileService', () => {
       } as any,
       creatorReviewsMock as unknown as CreatorReviewsService,
       { enabled: false, sendEvent: jest.fn() } as any,
+      {
+        classify: jest.fn(),
+        resolveSelectionsForPersist: jest
+          .fn()
+          .mockImplementation((_creatorId: string, selections: unknown) =>
+            Promise.resolve(selections),
+          ),
+      } as any,
     );
   });
 

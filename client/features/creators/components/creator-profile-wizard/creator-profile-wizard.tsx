@@ -244,7 +244,14 @@ export function CreatorProfileWizard({
     mode: "update",
     profileId,
     adminMode,
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // Re-seed facet state from the saved profile so an "Other" value that the
+      // server just turned into a real catalog option shows as that option
+      // (not "Other") — and drop the now-stale "we'll add on save" notices.
+      if (result.status === "updated" && result.profile) {
+        facets.resetFromProfile(result.profile);
+        setOtherNotices({});
+      }
       const action = pendingActionRef.current;
       pendingActionRef.current = null;
       if (!action) return;

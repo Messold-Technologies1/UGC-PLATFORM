@@ -8,12 +8,14 @@ export type ResolveFacetOtherPayload = {
 };
 
 export type ResolveFacetOtherResponse = {
-  action: "match" | "created" | "rejected" | "kept";
+  action: "match" | "new" | "rejected" | "kept";
   option?: {
     dimension: CreatorFacetDimension;
     slug: string;
     label: string;
   };
+  /** Normalized label to be added to the catalog on save (action = "new"). */
+  label?: string;
   typedText: string;
   reason?: "inappropriate" | "invalid";
   message?: string;

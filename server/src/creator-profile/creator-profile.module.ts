@@ -10,6 +10,7 @@ import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module'
 import { CreatorDemoVideosModule } from '../creator-demo-videos/creator-demo-videos.module';
 import { AiModule } from '../ai/ai.module';
 import { CreatorBioGeneratorService } from './creator-bio-generator.service';
+import { FacetOtherResolverService } from './facet-other-resolver.service';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { CreatorBioGeneratorService } from './creator-bio-generator.service';
     CreatorPayoutDetailsService,
     CreatorUnavailabilityService,
     CreatorBioGeneratorService,
+    FacetOtherResolverService,
   ],
   exports: [CreatorProfileService],
 })

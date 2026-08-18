@@ -883,6 +883,7 @@ export class CreatorProfileService {
 
   async listFacetOptions(): Promise<CreatorFacetOptionsResponseDto> {
     const options = await this.prisma.creatorFacetOption.findMany({
+      where: { status: 'active' },
       orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }],
     });
     const optionsByDimension = options.reduce(

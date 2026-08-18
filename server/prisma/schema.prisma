@@ -445,13 +445,40 @@ model CreatorFacetOption {
   slug      String
   label     String
   sortOrder Int                   @default(0)
+  // "active" options show in the pick lists. Creator-proposed options added via
+  // the AI "Other" resolver are created active; "rejected" hides an option
+  // (soft-delete) without breaking existing selections that reference it.
+  status    String                @default("active")
+  // Creator who first proposed this option through the "Other" flow (audit;
+  // null for seeded catalog options).
+  proposedByCreatorId String?     @db.Uuid
   createdAt DateTime              @default(now())
 
   selections       CreatorProfileFacetSelection[]
   profileLanguages CreatorProfileLanguage[]       @relation("LanguageOption")
+  aliases          CreatorFacetOptionAlias[]
 
   @@unique([dimension, slug])
   @@index([dimension, sortOrder])
+  @@index([dimension, status])
+}
+
+// Learned synonym cache for the AI "Other" resolver. A normalized free-text
+// entry maps to a canonical option so the next creator who types the same thing
+// is resolved instantly (no AI call). Populated by exact/fuzzy/LLM matches.
+model CreatorFacetOptionAlias {
+  id             String                @id @default(uuid()) @db.Uuid
+  dimension      CreatorFacetDimension
+  normalizedText String
+  optionId       String                @db.Uuid
+  // How the alias was created: 'exact' | 'fuzzy' | 'llm' | 'manual'.
+  source         String
+  createdAt      DateTime              @default(now())
+
+  option CreatorFacetOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([dimension, normalizedText])
+  @@index([optionId])
 }
 
 model CreatorProfileFacetSelection {

@@ -28,7 +28,11 @@ import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-
 import {
   useSubmitCreatorProfileMutation,
   useGenerateCreatorBioMutation,
+  useResolveFacetOtherMutation,
 } from "@/features/creators/hooks/use-creator-profile-form-mutation";
+import type { OtherNotices } from "./steps/identity-step";
+import type { CreatorFacetDimension } from "@/features/creators/api/get-creator-facet-options";
+import type { ResolveFacetOtherResponse } from "@/features/creators/api/resolve-facet-other";
 import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
@@ -256,6 +260,86 @@ export function CreatorProfileWizard({
   // ---- AI bio generation ----
   const generateBioMutation = useGenerateCreatorBioMutation();
   const [showBioAiNotice, setShowBioAiNotice] = useState(false);
+
+  // ---- AI "Other" facet resolution ----
+  type NonLangDim = Exclude<CreatorFacetDimension, "LANGUAGE">;
+  const resolveOtherMutation = useResolveFacetOtherMutation();
+  const [resolvingOtherDim, setResolvingOtherDim] = useState<NonLangDim | null>(
+    null,
+  );
+  const [otherNotices, setOtherNotices] = useState<OtherNotices>({});
+
+  const applyOtherResult = useCallback(
+    async (dimension: NonLangDim, res: ResolveFacetOtherResponse) => {
+      const selectCanonical = (slug: string) => {
+        if (dimension === "CONTENT_CATEGORY") {
+          if (facets.primaryNiche === "other") {
+            facets.setPrimaryNiche(slug);
+          } else {
+            facets.removeFacetSlug("CONTENT_CATEGORY", "other");
+            facets.toggleSecondaryNiche(slug);
+          }
+        } else {
+          facets.selectSingleFacet(dimension, slug);
+        }
+        facets.setCustomFacetLabel(dimension, "");
+      };
+
+      if ((res.action === "match" || res.action === "created") && res.option) {
+        if (res.action === "created") await facets.facetOptionsQuery.refetch();
+        selectCanonical(res.option.slug);
+        markDirty();
+        setOtherNotices((n) => ({
+          ...n,
+          [dimension]: { type: "info", message: res.message ?? "" },
+        }));
+      } else if (res.action === "rejected") {
+        facets.removeFacetSlug(dimension, "other");
+        facets.setCustomFacetLabel(dimension, "");
+        markDirty();
+        setOtherNotices((n) => ({
+          ...n,
+          [dimension]: {
+            type: "warning",
+            message: res.message ?? "That entry can't be used.",
+          },
+        }));
+      } else {
+        // kept — the typed value stays as private custom text.
+        setOtherNotices((n) => {
+          const next = { ...n };
+          delete next[dimension];
+          return next;
+        });
+      }
+    },
+    [facets, markDirty],
+  );
+
+  const handleCommitOther = useCallback(
+    async (dimension: NonLangDim) => {
+      const text = (facets.customFacetLabels[dimension] ?? "").trim();
+      if (text.length < 2 || resolvingOtherDim) return;
+      setResolvingOtherDim(dimension);
+      try {
+        const res = await resolveOtherMutation.mutateAsync({ dimension, text });
+        await applyOtherResult(dimension, res);
+      } catch {
+        // network/500 — leave the custom text as-is (kept behavior)
+      } finally {
+        setResolvingOtherDim(null);
+      }
+    },
+    [facets, resolvingOtherDim, resolveOtherMutation, applyOtherResult],
+  );
+
+  const dismissOtherNotice = useCallback((dimension: NonLangDim) => {
+    setOtherNotices((n) => {
+      const next = { ...n };
+      delete next[dimension];
+      return next;
+    });
+  }, []);
 
   const facetLabelsFor = useCallback(
     (dimension: "CONTENT_CATEGORY" | "CREATOR_TYPE" | "OCCUPATION" | "LANGUAGE") => {
@@ -1066,7 +1150,12 @@ export function CreatorProfileWizard({
                   onCustomFacetLabelChange={(dimension, value) => {
                     markDirty();
                     facets.setCustomFacetLabel(dimension, value);
+                    if (otherNotices[dimension]) dismissOtherNotice(dimension);
                   }}
+                  onCommitOther={(dimension) => void handleCommitOther(dimension)}
+                  resolvingOtherDim={resolvingOtherDim}
+                  otherNotices={otherNotices}
+                  onDismissOtherNotice={dismissOtherNotice}
                   selectedRestrictions={selectedRestrictions}
                   onToggleRestriction={(name) => {
                     markDirty();

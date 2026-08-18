@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { creatorProfileMeQueryKey } from "../api/fetch-creator-profile-me";
+import { creatorFacetOptionsQueryKey } from "../api/get-creator-facet-options";
+import type { CreatorProfileItemApi } from "../api/types";
 
 import {
   updateCreatorProfile,
@@ -59,7 +61,13 @@ type SubmitCreatorProfileVariables = {
 
 type SubmitCreatorProfileResult =
   | { status: "skipped" }
-  | { status: "updated"; goLive: boolean };
+  | {
+      status: "updated";
+      goLive: boolean;
+      /** The saved profile, so callers can re-seed from server-resolved data
+       *  (e.g. an "Other" value that became a real catalog option). */
+      profile?: CreatorProfileItemApi;
+    };
 
 export function useUploadCreatorIntroVideoMutation(options: {
   mode: CreatorProfileMode;
@@ -179,6 +187,9 @@ export function useSubmitCreatorProfileMutation({
   const queryClient = useQueryClient();
 
   const invalidateCreatorQueries = useCallback(async () => {
+    // Saving can create a brand-new facet option (an accepted "Other" value), so
+    // refresh the catalog too — otherwise the new chip never appears.
+    await queryClient.invalidateQueries({ queryKey: creatorFacetOptionsQueryKey });
     if (adminMode) {
       await queryClient.invalidateQueries({ queryKey: ["creators", "list"] });
       if (profileId) {
@@ -200,12 +211,16 @@ export function useSubmitCreatorProfileMutation({
           throw new Error("Missing profile id");
         }
 
+        let profile: CreatorProfileItemApi | undefined;
         if (adminMode) {
           await updateCreatorProfileAdmin(profileId, payload as UpdateCreatorProfilePayload);
         } else {
-          await updateCreatorProfile(profileId, payload as UpdateCreatorProfilePayload);
+          profile = await updateCreatorProfile(
+            profileId,
+            payload as UpdateCreatorProfilePayload,
+          );
         }
-        return { status: "updated", goLive: payload.goLive === true };
+        return { status: "updated", goLive: payload.goLive === true, profile };
       }
       
       throw new Error("Create mode is no longer supported.");

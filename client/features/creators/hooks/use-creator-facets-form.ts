@@ -46,6 +46,17 @@ export function useCreatorFacetsForm({
     createInitialLanguages(initialProfile),
   );
 
+  /**
+   * Re-seed the form from a freshly-saved profile. Used after a save that may
+   * have converted an "Other" value into a real catalog option server-side, so
+   * the selection points at the new option (not "Other") without a full reload.
+   */
+  const resetFromProfile = useCallback((profile: CreatorProfileItemApi) => {
+    setSelectedFacets(createInitialSelectedFacets(profile));
+    setCustomFacetLabels(createInitialCustomFacetLabels(profile));
+    setSelectedLanguages(createInitialLanguages(profile));
+  }, []);
+
   const facetOptionsByDimension =
     facetOptionsQuery.data?.optionsByDimension ?? {};
 
@@ -163,6 +174,7 @@ export function useCreatorFacetsForm({
     setPrimaryNiche,
     toggleSecondaryNiche,
     removeFacetSlug,
+    resetFromProfile,
     customFacetLabels,
     setCustomFacetLabel,
     selectedLanguages,

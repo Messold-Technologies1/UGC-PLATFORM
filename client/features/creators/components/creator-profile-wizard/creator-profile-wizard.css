@@ -1024,20 +1024,15 @@
 .cw-other-input:disabled {
   opacity: 0.6;
 }
-.cw-other-field {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.cw-other-field .cw-other-input {
-  margin-top: 0;
-}
 .cw-other-row {
+  margin-top: 10px;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+.cw-other-row .cw-other-input {
+  margin-top: 0;
 }
 .cw-other-checking {
   display: inline-flex;
@@ -1048,6 +1043,7 @@
   color: var(--primary);
 }
 .cw-other-notice {
+  margin-top: 10px;
   display: flex;
   align-items: flex-start;
   gap: 8px;

@@ -189,6 +189,9 @@ export function CreatorProfileWizard({
         : [...current, name],
     );
   }, []);
+  const setAllRestrictions = useCallback((selected: boolean) => {
+    setSelectedRestrictions(selected ? [...OPEN_TO_OPTIONS] : []);
+  }, []);
   const [languageConfirmed, setLanguageConfirmed] = useState<boolean>(
     () => (initialProfile.profileLanguages ?? []).length > 0,
   );
@@ -1176,6 +1179,10 @@ export function CreatorProfileWizard({
                   onToggleRestriction={(name) => {
                     markDirty();
                     toggleRestriction(name);
+                  }}
+                  onSetAllRestrictions={(selected) => {
+                    markDirty();
+                    setAllRestrictions(selected);
                   }}
                 />
               ) : activeStep.id === "intro-video" ? (

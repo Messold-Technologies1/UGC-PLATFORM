@@ -7,6 +7,7 @@ import type {
   CreatorFacetOption,
 } from "@/features/creators/api/get-creator-facet-options";
 
+import { Switch } from "@/components/ui/switch";
 import { REQUIRED_SECONDARY_NICHES } from "@/features/creators/hooks/creator-profile-form-utils";
 
 import { OPEN_TO_OPTIONS } from "../wizard-config";
@@ -40,6 +41,7 @@ export type IdentityStepProps = {
   onDismissOtherNotice: (dimension: NonLanguageDimension) => void;
   selectedRestrictions: string[];
   onToggleRestriction: (name: string) => void;
+  onSetAllRestrictions: (selected: boolean) => void;
 };
 
 const SINGLE_FACETS: Array<{
@@ -188,10 +190,14 @@ export function IdentityStep({
   onDismissOtherNotice,
   selectedRestrictions,
   onToggleRestriction,
+  onSetAllRestrictions,
 }: IdentityStepProps) {
   const nicheOptions = optionsByDimension.CONTENT_CATEGORY ?? [];
   const nicheOtherSelected =
     primaryNiche === OTHER_SLUG || secondaryNiches.includes(OTHER_SLUG);
+  const allRestrictionsSelected =
+    OPEN_TO_OPTIONS.length > 0 &&
+    OPEN_TO_OPTIONS.every((name) => selectedRestrictions.includes(name));
 
   return (
     <div className="cw-card">
@@ -323,6 +329,15 @@ export function IdentityStep({
               Comfortable with
               <span className="cw-req"> *</span>
             </span>
+            <label className="cw-facet-select-all">
+              <span>Select all</span>
+              <Switch
+                checked={allRestrictionsSelected}
+                disabled={disabled}
+                onCheckedChange={onSetAllRestrictions}
+                aria-label="Select all Comfortable with options"
+              />
+            </label>
             {selectedRestrictions.length > 0 ? (
               <span className="cw-facet-count">
                 {selectedRestrictions.length}

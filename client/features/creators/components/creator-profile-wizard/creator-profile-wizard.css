@@ -864,6 +864,17 @@
   border-radius: 999px;
   padding: 2px 8px;
 }
+.cw-facet-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  user-select: none;
+}
 .cw-facet-help {
   font-size: 12.5px;
   color: var(--muted-foreground);

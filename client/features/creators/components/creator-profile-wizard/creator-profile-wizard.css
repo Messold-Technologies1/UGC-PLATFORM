@@ -119,29 +119,30 @@
 
 /* Step nav */
 .cw-steps {
+  /* Gap between steps; also feeds the connector length (see ::after below).
+     Inherited by .cw-step so the connector calc can read it. */
+  --cw-step-gap: 2px;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--cw-step-gap);
 }
 @media (max-width: 960px) {
   .cw-steps {
+    --cw-step-gap: 4px;
     flex-direction: row;
+    align-items: flex-start;
     overflow-x: auto;
-    gap: 6px;
+    gap: var(--cw-step-gap);
     scrollbar-width: none;
     padding-bottom: 2px;
   }
   .cw-steps::-webkit-scrollbar {
     display: none;
   }
-  /* In the horizontal scroller, steps must size to content instead of the
-     full-width column layout used on desktop. */
-  .cw-step {
-    width: auto;
-    flex: 0 0 auto;
-  }
 }
 .cw-step {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -154,6 +155,24 @@
   width: 100%;
   transition: background 0.14s;
 }
+/* Connecting line between steps — vertical on desktop, horizontal on mobile.
+   Drawn from this dot's centre to the next dot's; the solid dot background
+   masks the part behind each dot so only the between-dots segment shows. */
+.cw-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 23px; /* dot centre x: padding-left 12 + radius 11 */
+  top: 22px; /* dot centre y: padding-top 11 + radius 11 */
+  width: 2px;
+  height: calc(100% + var(--cw-step-gap));
+  transform: translateX(-50%);
+  background: var(--border);
+}
+/* Completed steps fill their connector to read as a progress trail. */
+.cw-step[data-done="true"]:not(:last-child)::after {
+  background: var(--primary);
+}
 .cw-step:hover:not(:disabled):not([data-active="true"]) {
   background: var(--muted);
 }
@@ -165,6 +184,8 @@
   animation: cw-step-glow 2.4s ease-in-out infinite;
 }
 .cw-step-dot {
+  position: relative;
+  z-index: 1; /* sit above the connector line */
   display: flex;
   width: 22px;
   height: 22px;
@@ -173,6 +194,7 @@
   justify-content: center;
   border-radius: 999px;
   border: 1px solid var(--border);
+  background: var(--background); /* mask the connector where the dot sits */
   color: var(--muted-foreground);
   font-size: 11px;
   font-weight: 600;
@@ -201,6 +223,30 @@
 }
 .cw-step[data-done="true"] .cw-step-label {
   color: var(--foreground);
+}
+
+/* Mobile stepper: a tight row of connected dots. Only the current step shows
+   its label, stacked beneath the dot so the horizontal connector stays clear.
+   Placed after the base connector rule so these geometry overrides win. */
+@media (max-width: 960px) {
+  .cw-step {
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 11px 8px;
+  }
+  .cw-step:not([data-active="true"]) .cw-step-label {
+    display: none;
+  }
+  .cw-step:not(:last-child)::after {
+    left: 19px; /* dot centre x: padding-left 8 + radius 11 */
+    top: 22px; /* dot centre y: padding-top 11 + radius 11 */
+    width: calc(100% + var(--cw-step-gap));
+    height: 2px;
+    transform: translateY(-50%);
+  }
 }
 
 /* How brands see you */

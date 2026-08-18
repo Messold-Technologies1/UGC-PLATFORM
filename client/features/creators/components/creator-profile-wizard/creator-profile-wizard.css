@@ -142,18 +142,22 @@
 }
 @media (max-width: 960px) {
   .cw-steps {
-    --cw-step-gap: 4px;
+    --cw-step-gap: 22px;
     flex-direction: row;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    align-items: center;
     overflow-x: auto;
+    overflow-y: hidden;
     gap: var(--cw-step-gap);
+    padding-bottom: 4px;
     scrollbar-width: none;
-    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
   }
   .cw-steps::-webkit-scrollbar {
     display: none;
   }
 }
+
 .cw-step {
   position: relative;
   display: flex;
@@ -238,25 +242,21 @@
   color: var(--foreground);
 }
 
-/* Mobile stepper: a tight row of connected dots. Only the current step shows
-   its label, stacked beneath the dot so the horizontal connector stays clear.
-   Placed after the base connector rule so these geometry overrides win. */
+/* Mobile stepper: horizontal scroller, names beside the circles, connector
+   in the gap so it doesn't cut through the label. */
 @media (max-width: 960px) {
   .cw-step {
     width: auto;
     flex: 0 0 auto;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
     gap: 8px;
-    padding: 11px 8px;
-  }
-  .cw-step:not([data-active="true"]) .cw-step-label {
-    display: none;
+    padding: 8px 10px;
   }
   .cw-step:not(:last-child)::after {
-    left: 19px; /* dot centre x: padding-left 8 + radius 11 */
-    top: 22px; /* dot centre y: padding-top 11 + radius 11 */
-    width: calc(100% + var(--cw-step-gap));
+    left: 100%;
+    top: 19px; /* padding-top 8 + dot radius 11 */
+    width: var(--cw-step-gap);
     height: 2px;
     transform: translateY(-50%);
   }

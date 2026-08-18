@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Loader2, Sparkles, X, AlertTriangle } from "lucide-react";
 
 import type {
   CreatorFacetDimension,
@@ -17,6 +17,9 @@ type CustomLabels = Partial<Record<NonLanguageDimension, string>>;
 
 const OTHER_SLUG = "other";
 
+export type OtherNotice = { type: "info" | "warning"; message: string };
+export type OtherNotices = Partial<Record<NonLanguageDimension, OtherNotice>>;
+
 export type IdentityStepProps = {
   disabled: boolean;
   optionsByDimension: Partial<Record<CreatorFacetDimension, CreatorFacetOption[]>>;
@@ -31,6 +34,10 @@ export type IdentityStepProps = {
     dimension: NonLanguageDimension,
     value: string,
   ) => void;
+  onCommitOther: (dimension: NonLanguageDimension) => void;
+  resolvingOtherDim: NonLanguageDimension | null;
+  otherNotices: OtherNotices;
+  onDismissOtherNotice: (dimension: NonLanguageDimension) => void;
   selectedRestrictions: string[];
   onToggleRestriction: (name: string) => void;
 };
@@ -86,27 +93,70 @@ function Chip({
   );
 }
 
-function OtherInput({
+function OtherField({
   dimension,
   value,
   disabled,
+  resolving,
+  notice,
   onChange,
+  onCommit,
+  onDismissNotice,
 }: {
   dimension: NonLanguageDimension;
   value: string;
   disabled: boolean;
+  resolving: boolean;
+  notice?: OtherNotice;
   onChange: (dimension: NonLanguageDimension, value: string) => void;
+  onCommit: (dimension: NonLanguageDimension) => void;
+  onDismissNotice: (dimension: NonLanguageDimension) => void;
 }) {
   return (
-    <input
-      type="text"
-      className="cw-other-input"
-      value={value}
-      maxLength={40}
-      disabled={disabled}
-      placeholder="Type your own…"
-      onChange={(e) => onChange(dimension, e.target.value)}
-    />
+    <div className="cw-other-field">
+      <div className="cw-other-row">
+        <input
+          type="text"
+          className="cw-other-input"
+          value={value}
+          maxLength={40}
+          disabled={disabled || resolving}
+          placeholder="Type your own…"
+          onChange={(e) => onChange(dimension, e.target.value)}
+          onBlur={() => onCommit(dimension)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+        />
+        {resolving ? (
+          <span className="cw-other-checking">
+            <Loader2 size={13} className="cw-ai-spin" aria-hidden />
+            Checking…
+          </span>
+        ) : null}
+      </div>
+      {notice ? (
+        <div className="cw-other-notice" data-type={notice.type} role="status">
+          {notice.type === "warning" ? (
+            <AlertTriangle size={14} aria-hidden />
+          ) : (
+            <Sparkles size={14} aria-hidden />
+          )}
+          <span>{notice.message}</span>
+          <button
+            type="button"
+            className="cw-other-notice-x"
+            onClick={() => onDismissNotice(dimension)}
+            aria-label="Dismiss"
+          >
+            <X size={13} aria-hidden />
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -121,6 +171,10 @@ export function IdentityStep({
   onToggleSecondaryNiche,
   customFacetLabels,
   onCustomFacetLabelChange,
+  onCommitOther,
+  resolvingOtherDim,
+  otherNotices,
+  onDismissOtherNotice,
   selectedRestrictions,
   onToggleRestriction,
 }: IdentityStepProps) {
@@ -187,11 +241,15 @@ export function IdentityStep({
               })}
           </div>
           {nicheOtherSelected ? (
-            <OtherInput
+            <OtherField
               dimension="CONTENT_CATEGORY"
               value={customFacetLabels.CONTENT_CATEGORY ?? ""}
               disabled={disabled}
+              resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
+              notice={otherNotices.CONTENT_CATEGORY}
               onChange={onCustomFacetLabelChange}
+              onCommit={onCommitOther}
+              onDismissNotice={onDismissOtherNotice}
             />
           ) : null}
         </div>
@@ -224,11 +282,15 @@ export function IdentityStep({
                 ))}
               </div>
               {selected === OTHER_SLUG ? (
-                <OtherInput
+                <OtherField
                   dimension={dimension}
                   value={customFacetLabels[dimension] ?? ""}
                   disabled={disabled}
+                  resolving={resolvingOtherDim === dimension}
+                  notice={otherNotices[dimension]}
                   onChange={onCustomFacetLabelChange}
+                  onCommit={onCommitOther}
+                  onDismissNotice={onDismissOtherNotice}
                 />
               ) : null}
             </div>

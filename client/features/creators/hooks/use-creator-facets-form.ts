@@ -133,6 +133,17 @@ export function useCreatorFacetsForm({
     [],
   );
 
+  /** Remove a specific slug from a dimension (used to clear a rejected "Other"). */
+  const removeFacetSlug = useCallback(
+    (dimension: NonLanguageDimension, slug: string) => {
+      setSelectedFacets((current) => ({
+        ...current,
+        [dimension]: (current[dimension] ?? []).filter((s) => s !== slug),
+      }));
+    },
+    [],
+  );
+
   const toggleLanguage = useCallback((slug: string) => {
     setSelectedLanguages((current) =>
       current.includes(slug)
@@ -151,6 +162,7 @@ export function useCreatorFacetsForm({
     secondaryNiches,
     setPrimaryNiche,
     toggleSecondaryNiche,
+    removeFacetSlug,
     customFacetLabels,
     setCustomFacetLabel,
     selectedLanguages,

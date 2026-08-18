@@ -65,6 +65,11 @@ import {
   GenerateCreatorBioDto,
   GeneratedBioResponseDto,
 } from './dto/generate-creator-bio.dto';
+import { FacetOtherResolverService } from './facet-other-resolver.service';
+import {
+  ResolveFacetOtherDto,
+  FacetOtherResolveResponseDto,
+} from './dto/resolve-facet-other.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -77,7 +82,29 @@ export class CreatorProfileController {
     private readonly creatorReviewsService: CreatorReviewsService,
     private readonly creatorDemoVideosService: CreatorDemoVideosService,
     private readonly creatorBioGeneratorService: CreatorBioGeneratorService,
+    private readonly facetOtherResolverService: FacetOtherResolverService,
   ) {}
+
+  @Post('facets/resolve-other')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Canonicalize a free-text "Other" facet value with AI',
+    description:
+      'Maps the typed value to an existing option (synonym/typo), adds it to the catalog as a new option if it is a valid new value, or rejects it if inappropriate/invalid.',
+  })
+  @ApiOkResponse({ type: FacetOtherResolveResponseDto })
+  async resolveFacetOther(
+    @Body() dto: ResolveFacetOtherDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<FacetOtherResolveResponseDto> {
+    return this.facetOtherResolverService.resolve(
+      req.user.id,
+      dto.dimension,
+      dto.text,
+    );
+  }
 
   @Post('profile/generate-bio')
   @UseGuards(JwtAuthGuard)

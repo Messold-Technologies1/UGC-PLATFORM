@@ -42,6 +42,7 @@ export const ENDPOINTS = {
     PROFILE_INTRO_VIDEO_PRESIGN:
       "/api/creators/profile/uploads/presign-intro-video",
     GENERATE_BIO: "/api/creators/profile/generate-bio",
+    RESOLVE_FACET_OTHER: "/api/creators/facets/resolve-other",
     FACET_OPTIONS: "/api/creators/facet-options",
     ADD_ON_OPTIONS: "/api/creators/add-on-options",
     SUGGESTIONS_CATEGORIES: "/api/creators/suggestions/categories",

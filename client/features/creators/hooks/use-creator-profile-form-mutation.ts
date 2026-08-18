@@ -28,6 +28,10 @@ import {
   generateCreatorBio,
   type GenerateCreatorBioPayload,
 } from "../api/generate-creator-bio";
+import {
+  resolveCreatorFacetOther,
+  type ResolveFacetOtherPayload,
+} from "../api/resolve-facet-other";
 
 /**
  * Pull the human-readable reason out of an API error so the toast can show
@@ -260,5 +264,17 @@ export function useGenerateCreatorBioMutation() {
           "Please try again in a moment.",
       });
     },
+  });
+}
+
+/**
+ * Canonicalize a free-text "Other" facet value via the AI resolver. Returns the
+ * resolution (match / created / rejected / kept); the caller applies it to the
+ * wizard state. Silent on error — the caller falls back to keeping the text.
+ */
+export function useResolveFacetOtherMutation() {
+  return useMutation({
+    mutationFn: (payload: ResolveFacetOtherPayload) =>
+      resolveCreatorFacetOther(payload),
   });
 }

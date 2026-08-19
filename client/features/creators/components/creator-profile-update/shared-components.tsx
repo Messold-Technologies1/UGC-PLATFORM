@@ -37,8 +37,8 @@ export function SectionCard({
 }: {
   id: string;
   icon: React.ComponentType<{ size?: number }>;
-  title: string;
-  desc: string;
+  title?: string;
+  desc?: string;
   headerNote?: string;
   tourId?: string;
   required?: boolean;
@@ -50,28 +50,30 @@ export function SectionCard({
       id={`pe-section-${id}`}
       data-tour={tourId}
     >
-      <div className="pe-card-head">
-        <h3>
-          <span className="pe-card-icon">
-            <IconCmp size={17} />
-          </span>
-          {title}
-          {required ? (
-            <span className="pe-required" aria-label="required" title="Required to go live">
-              {" "}*
+      {title ? (
+        <div className="pe-card-head">
+          <h3>
+            <span className="pe-card-icon">
+              <IconCmp size={17} />
             </span>
+            {title}
+            {required ? (
+              <span className="pe-required" aria-label="required" title="Required to go live">
+                {" "}*
+              </span>
+            ) : null}
+          </h3>
+          {desc ? <p>{desc}</p> : null}
+          {headerNote ? (
+            <p
+              className="pe-card-head-note"
+              style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.45 }}
+            >
+              {headerNote}
+            </p>
           ) : null}
-        </h3>
-        <p>{desc}</p>
-        {headerNote ? (
-          <p
-            className="pe-card-head-note"
-            style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.45 }}
-          >
-            {headerNote}
-          </p>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       <div className="pe-card-body">{children}</div>
     </section>
   );

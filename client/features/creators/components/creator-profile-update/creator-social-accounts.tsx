@@ -636,16 +636,7 @@ export function CreatorSocialAccounts({
   const isAdminView = Boolean(adminMode && profileId);
 
   return (
-    <SectionCard
-      id="social-accounts"
-      icon={Instagram}
-      title="Connected accounts"
-      desc={
-        isAdminView
-          ? "Instagram connection and audience metrics for this creator."
-          : "Link your Instagram to showcase live audience metrics and demographics. YouTube and Reddit are coming soon."
-      }
-    >
+    <SectionCard id="social-accounts" icon={Instagram}>
       {isAdminView ? (
         <AdminInstagramPanel profileId={profileId!} />
       ) : (

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -52,6 +53,8 @@ function readCookie(req: Request, name: string): string | undefined {
 @ApiTags('Social Connections')
 @Controller('social')
 export class SocialConnectionsController {
+  private readonly logger = new Logger(SocialConnectionsController.name);
+
   constructor(
     private readonly service: SocialConnectionsService,
     private readonly queue: SocialMetricsQueueService,
@@ -167,7 +170,11 @@ export class SocialConnectionsController {
       // Kick off the first metrics sync in the background.
       void this.queue.enqueue(connectionId);
       res.redirect(`${returnTo}?instagram=connected`);
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `instagram callback failed: ${(err as Error)?.message}`,
+        (err as Error)?.stack,
+      );
       res.redirect(`${returnTo}?instagram=error`);
     }
   }

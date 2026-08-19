@@ -501,6 +501,7 @@ export function CreatorProfileWizard({
       hasNiche,
       hasPackage: Boolean(validatePackagePrice(packages.packageDraft.priceAmount) === undefined),
       hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
+      hasInstagram: instagramConnected,
       portfolioCount: (portfolioQuery.data ?? []).length,
     });
   }, [
@@ -514,6 +515,7 @@ export function CreatorProfileWizard({
     bio,
     packages.packageDraft.priceAmount,
     introVideo.introVideoPreviewUrl,
+    instagramConnected,
     portfolioQuery.data,
   ]);
 

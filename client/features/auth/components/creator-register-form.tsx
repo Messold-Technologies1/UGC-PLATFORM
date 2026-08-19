@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Eye, EyeOff, Instagram } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,6 @@ import {
 } from "@/features/auth/api/creator-signup";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
-import { getInstagramConnectUrl } from "@/features/creators/api/social-connections";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import {
   getMetaBrowserIds,
@@ -56,10 +55,8 @@ const creatorSignupSchema = z.object({
     : z.string().optional().or(z.literal("")),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  // Optional now — creators are prompted to connect Instagram from their
-  // profile after signup (OAuth needs an authenticated account), rather than
-  // typing a handle here.
-  instagramUrl: z.string().max(500),
+  // Instagram is connected later from the edit-profile section (OAuth needs an
+  // authenticated account), so it's intentionally not collected at signup.
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
   }),
@@ -124,14 +121,6 @@ function normalizePhoneForSignup(raw: string): string {
   return `+${trimmed.replace(/\D/g, "")}`;
 }
 
-/** Mobile-only wizard steps. Desktop (xl:) shows all sections at once. */
-const STEP_TITLES = ["Account", "Social"] as const;
-const STEP_FIELDS: (keyof CreatorSignupData)[][] = [
-  ["name", "phone", "email", "password"],
-  ["instagramUrl", "termsAccepted"],
-];
-const LAST_STEP = STEP_TITLES.length - 1;
-
 export function CreatorRegisterForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -148,10 +137,6 @@ export function CreatorRegisterForm() {
     number | null
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
-  const [currentStep, setCurrentStep] = useState(0);
-  // When true, finish signup without redirecting to Instagram (the "connect
-  // later" path). Set by the secondary button just before submit.
-  const skipInstagramRef = useRef(false);
 
   const form = useForm<CreatorSignupData>({
     resolver: zodResolver(creatorSignupSchema),
@@ -160,7 +145,6 @@ export function CreatorRegisterForm() {
     defaultValues: {
       name: "",
       email: "",
-      instagramUrl: "",
       password: "",
       termsAccepted: false,
       phone: "",
@@ -261,24 +245,8 @@ export function CreatorRegisterForm() {
       const callback = searchParams.get("callbackUrl");
       const target = resolveImmediatePostAuthPath(result.user, callback);
 
-      // Make the flow *feel* like the account is created only after Instagram is
-      // connected: the account has just been created (and the creator is now
-      // authenticated), so we send the browser straight to Instagram's consent
-      // screen without announcing "profile created" first. The Instagram
-      // callback stores the connection and lands the creator on their profile —
-      // the same place a brand-new creator normally lands. If they chose "connect
-      // later", or Instagram isn't available, fall back to the normal flow.
-      if (!skipInstagramRef.current) {
-        try {
-          const url = await getInstagramConnectUrl();
-          beginClientNavigation();
-          window.location.href = url;
-          return;
-        } catch {
-          // Instagram unavailable / not configured — finish normally.
-        }
-      }
-
+      // Land the creator on their profile — they connect Instagram later from
+      // the edit-profile section, so signup finishes without any OAuth detour.
       toast.success("Creator profile created");
       beginClientNavigation();
       window.location.replace(target);
@@ -313,16 +281,6 @@ export function CreatorRegisterForm() {
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
 
-  const handleNextStep = useCallback(async () => {
-    const valid = await form.trigger(STEP_FIELDS[currentStep]);
-    if (!valid) return;
-    setCurrentStep((step) => Math.min(step + 1, LAST_STEP));
-  }, [form, currentStep]);
-
-  const handlePrevStep = useCallback(() => {
-    setCurrentStep((step) => Math.max(step - 1, 0));
-  }, []);
-
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForSignup(phoneInput);
     if (!PHONE_E164_REGEX.test(phone)) {
@@ -353,7 +311,6 @@ export function CreatorRegisterForm() {
       ...(SIGNUP_OTP_VERIFICATION_ENABLED
         ? { phoneOtpCode: data.phoneOtpCode?.trim() ?? "" }
         : {}),
-      instagramUrl: data.instagramUrl.trim(),
       ...(metaFbp ? { metaFbp } : {}),
       ...(metaFbc ? { metaFbc } : {}),
       metaSignupEventId,
@@ -385,46 +342,13 @@ export function CreatorRegisterForm() {
           </div>
         </div>
 
-        <div className="mt-3 space-y-1.5 xl:hidden">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>
-              Step {currentStep + 1} of {STEP_TITLES.length}:{" "}
-              {STEP_TITLES[currentStep]}
-            </span>
-            <span>
-              {Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)}%
-            </span>
-          </div>
-          <div className="flex gap-1.5">
-            {STEP_TITLES.map((title, i) => (
-              <div
-                key={title}
-                className={cn(
-                  "h-1.5 flex-1 rounded-full transition-colors",
-                  i <= currentStep
-                    ? "bg-[#ef3e51]"
-                    : "bg-slate-200 dark:bg-slate-800",
-                )}
-              />
-            ))}
-          </div>
-        </div>
       </div>
 
       <div className="min-w-0 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:px-8 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--ink-4)_transparent]">
         <div className="space-y-6">
-          {/* STEP 1: Account */}
-          <div
-            className={cn(
-              currentStep === 0 ? "block" : "hidden",
-              "xl:block",
-              "space-y-3",
-            )}
-          >
+          {/* Account details */}
+          <div className="space-y-3">
             <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                1
-              </div>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
                 Account
               </h2>
@@ -681,76 +605,11 @@ export function CreatorRegisterForm() {
             </div>
           </div>
 
-          {/* STEP 2: Social (Instagram only) */}
-          <div
-            className={cn(
-              currentStep === 1 ? "block" : "hidden",
-              "xl:block",
-              "space-y-3",
-            )}
-          >
-            <div className="inline-flex items-center gap-2">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white">
-                2
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                Social
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-[11px] border border-slate-200 bg-white p-4 dark:bg-slate-950 dark:border-slate-800">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white">
-                    <Instagram className="size-4" />
-                  </span>
-                  <div className="space-y-1">
-                    <p className="text-[13px] font-[800] text-black dark:text-white font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
-                      Finish by connecting your Instagram
-                    </p>
-                    <p className="text-[12px] leading-relaxed text-[#6b6469] dark:text-slate-400">
-                      Tap “Connect Instagram to finish” and authorise your account
-                      to verify your audience and get better brand matches — no
-                      handle to type. You can change or disconnect it anytime from
-                      your profile.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="shrink-0 sticky bottom-0 z-10 space-y-4 border-t border-slate-200 bg-[#fdfcfb] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5 md:px-8 dark:border-slate-800 dark:bg-slate-950">
-        {currentStep < LAST_STEP ? (
-          <div className="flex items-center gap-3 xl:hidden">
-            {currentStep > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevStep}
-                className="h-11 rounded-full px-6 text-[15px] font-bold"
-              >
-                Back
-              </Button>
-            )}
-            <Button
-              type="button"
-              onClick={handleNextStep}
-              className="h-11 flex-1 rounded-full bg-[#ef3e51] text-[15px] font-bold text-white hover:bg-[#d63647] dark:bg-[#ef3e51] dark:hover:bg-[#d63647]"
-            >
-              Next
-            </Button>
-          </div>
-        ) : null}
-
-        <div
-          className={cn(
-            currentStep === LAST_STEP ? "space-y-4" : "hidden",
-            "xl:block xl:space-y-4",
-          )}
-        >
+        <div className="space-y-4">
           <div className="flex items-start gap-3">
             <Checkbox
               id="terms"
@@ -807,9 +666,6 @@ export function CreatorRegisterForm() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
               <Button
                 type="submit"
-                onClick={() => {
-                  skipInstagramRef.current = false;
-                }}
                 disabled={!isSignupComplete || pendingSubmit}
                 className={cn(
                   "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
@@ -824,7 +680,7 @@ export function CreatorRegisterForm() {
                     Setting up your profile...
                   </>
                 ) : (
-                  <>Connect Instagram to finish &rarr;</>
+                  <>Create creator profile &rarr;</>
                 )}
               </Button>
 
@@ -838,17 +694,6 @@ export function CreatorRegisterForm() {
                 </Link>
               </div>
             </div>
-            {isSignupComplete && !pendingSubmit ? (
-              <button
-                type="submit"
-                onClick={() => {
-                  skipInstagramRef.current = true;
-                }}
-                className="self-center text-[12px] font-medium text-[#8B8489] underline underline-offset-2 hover:text-[#6b6469] dark:text-slate-400"
-              >
-                I&rsquo;ll connect Instagram later
-              </button>
-            ) : null}
           </div>
         </div>
       </div>

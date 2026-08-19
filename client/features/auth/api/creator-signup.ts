@@ -12,7 +12,6 @@ export type RegisterCreatorPayload = {
   name: string;
   phone: string;
   phoneOtpCode?: string;
-  instagramUrl: string;
   /** Meta attribution cookies captured in the creator's browser at signup,
    * replayed server-side via the Conversions API when the creator is listed. */
   metaFbp?: string;

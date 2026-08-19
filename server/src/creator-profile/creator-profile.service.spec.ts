@@ -262,7 +262,6 @@ describe('CreatorProfileService', () => {
   const signupInput = (): CreateCreatorProfileAtSignupInput => ({
     displayName: 'Jane',
     contactEmail: 'jane@example.com',
-    instagramUrl: '@jane',
   });
 
   it('throws ConflictException if profile already exists on signup tx', async () => {
@@ -307,7 +306,6 @@ describe('CreatorProfileService', () => {
           publicSlug: expect.stringMatching(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/),
           displayName: 'Jane',
           contactEmail: 'jane@example.com',
-          instagramUrl: '@jane',
         }),
       }),
     );

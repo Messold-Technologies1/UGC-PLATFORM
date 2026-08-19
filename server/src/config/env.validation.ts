@@ -35,6 +35,12 @@ export const envValidationSchema = Joi.object({
   INSTAGRAM_CLIENT_SECRET: Joi.string().min(1).optional(),
   INSTAGRAM_CALLBACK_URL: Joi.string().uri().optional(),
   /**
+   * Optional shared parent domain for the OAuth CSRF cookie (e.g. ".gocollab.io")
+   * so it rides from the app origin to the api origin when they are different
+   * subdomains. Leave unset for same-origin/local dev.
+   */
+  IG_OAUTH_STATE_COOKIE_DOMAIN: Joi.string().optional(),
+  /**
    * 32-byte key (hex or base64) used to AES-256-GCM encrypt stored OAuth tokens
    * and to sign the OAuth `state`. Required once Instagram connect is enabled.
    */

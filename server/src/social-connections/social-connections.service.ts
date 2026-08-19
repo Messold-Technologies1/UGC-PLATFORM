@@ -89,9 +89,18 @@ export class SocialConnectionsService {
   }
 
   /**
-   * Handle the OAuth callback: verify the signed state against the CSRF nonce
-   * cookie, exchange the code, and upsert the connection. Returns the
-   * connection id so the caller can enqueue an initial sync.
+   * Handle the OAuth callback: verify the signed state, exchange the code, and
+   * upsert the connection. Returns the connection id so the caller can enqueue
+   * an initial sync.
+   *
+   * CSRF protection is the HMAC-signed, time-bound `state` itself: it is
+   * unforgeable and carries the initiating user/profile + a nonce with a 10-min
+   * freshness window (see `verifyState`). The `ig_oauth_state` cookie is only a
+   * best-effort second factor — it cannot survive the app→api subdomain hop
+   * (the cookie is set on the app origin, the callback lands on the api origin)
+   * nor the Instagram in-app browser (webviews routinely drop/partition
+   * cookies across the redirect). So we require it to MATCH only when it is
+   * actually present, and otherwise trust the verified state.
    */
   async handleInstagramCallback(
     code: string,
@@ -101,7 +110,7 @@ export class SocialConnectionsService {
     this.assertInstagramConfigured();
 
     const payload = verifyState(state, this.encKey());
-    if (!cookieNonce || cookieNonce !== payload.nonce) {
+    if (cookieNonce && cookieNonce !== payload.nonce) {
       throw new BadRequestException('Invalid OAuth state');
     }
 

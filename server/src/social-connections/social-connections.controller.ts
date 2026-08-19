@@ -33,6 +33,13 @@ import {
 
 const IG_STATE_COOKIE = 'ig_oauth_state';
 const isProduction = process.env.NODE_ENV === 'production';
+// Optional shared parent domain (e.g. ".gocollab.io") so the CSRF cookie set on
+// the app origin still rides along to the api origin when they are different
+// subdomains. Leave unset for same-origin/local dev (host-only cookie). The
+// callback trusts the signed state regardless, so this only restores the
+// best-effort cookie check in normal (non-in-app) browsers.
+const IG_STATE_COOKIE_DOMAIN =
+  process.env.IG_OAUTH_STATE_COOKIE_DOMAIN?.trim() || undefined;
 
 function stateCookieOptions(): CookieOptions {
   return {
@@ -41,6 +48,7 @@ function stateCookieOptions(): CookieOptions {
     sameSite: 'lax',
     path: '/api/social',
     maxAge: 10 * 60 * 1000,
+    ...(IG_STATE_COOKIE_DOMAIN ? { domain: IG_STATE_COOKIE_DOMAIN } : {}),
   };
 }
 

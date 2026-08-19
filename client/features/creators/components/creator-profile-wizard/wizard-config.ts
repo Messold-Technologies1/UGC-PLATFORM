@@ -159,22 +159,26 @@ export type StrengthSignals = {
   hasNiche: boolean;
   hasPackage: boolean;
   hasIntroVideo: boolean;
+  /** Whether an Instagram account is connected. */
+  hasInstagram: boolean;
   /** Number of portfolio videos; 3+ earns the full portfolio weight. */
   portfolioCount: number;
 };
 
+// Weights sum to 100 so a fully-complete profile reads 100%.
 const STRENGTH_WEIGHTS = {
-  photo: 12,
-  name: 8,
-  dob: 6,
+  photo: 11,
+  name: 7,
+  dob: 5,
   gender: 5,
-  city: 8,
-  language: 8,
-  bio: 12,
-  niche: 13,
-  package: 12,
+  city: 7,
+  language: 7,
+  bio: 11,
+  niche: 12,
+  package: 11,
   introVideo: 4,
   portfolio: 12,
+  instagram: 8,
 } as const;
 
 const PORTFOLIO_TARGET = 3;
@@ -198,16 +202,19 @@ export function computeProfileStrength(signals: StrengthSignals): {
   if (signals.hasNiche) score += STRENGTH_WEIGHTS.niche;
   if (signals.hasPackage) score += STRENGTH_WEIGHTS.package;
   if (signals.hasIntroVideo) score += STRENGTH_WEIGHTS.introVideo;
+  if (signals.hasInstagram) score += STRENGTH_WEIGHTS.instagram;
   score +=
     Math.min(signals.portfolioCount / PORTFOLIO_TARGET, 1) *
     STRENGTH_WEIGHTS.portfolio;
 
   const pct = Math.max(0, Math.min(100, Math.round(score)));
 
-  // Ordered by impact — the first unmet signal becomes the hint.
+  // Ordered by impact — the last matching line wins (highest priority).
   let hint = "Your profile is looking strong. Keep it fresh to stay on top.";
   if (signals.portfolioCount < PORTFOLIO_TARGET)
     hint = "Add portfolio videos to appear in more searches.";
+  if (!signals.hasInstagram)
+    hint = "Connect Instagram so brands can verify your reach.";
   if (!signals.hasNiche)
     hint = "Pick your niche so the right briefs find you.";
   if (!signals.hasBio) hint = "Add a short bio brands can connect with.";

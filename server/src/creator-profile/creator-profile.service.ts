@@ -14,6 +14,8 @@ import {
   Prisma,
   PrismaClient,
   RoleName,
+  SocialConnectionStatus,
+  SocialPlatform,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCreatorProfileAtSignupInput } from './dto/create-creator-profile-at-signup.input';
@@ -1802,6 +1804,13 @@ export class CreatorProfileService {
           where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
           select: { id: true },
         },
+        socialConnections: {
+          where: {
+            platform: SocialPlatform.INSTAGRAM,
+            status: SocialConnectionStatus.ACTIVE,
+          },
+          select: { id: true },
+        },
       },
     });
 
@@ -1851,6 +1860,7 @@ export class CreatorProfileService {
         mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
           profile.addOns.some((addOn) => addOn.name === name),
         ),
+        instagramConnected: profile.socialConnections.length > 0,
       });
 
       for (const label of missing) {

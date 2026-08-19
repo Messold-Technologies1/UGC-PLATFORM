@@ -29,6 +29,7 @@ function completeInput(): ProfileCompletenessInput {
     packageCount: 1,
     publicVideoCount: MIN_PORTFOLIO_VIDEOS,
     mandatoryAddOnsPriced: true,
+    instagramConnected: true,
   };
 }
 
@@ -129,6 +130,15 @@ describe('evaluateProfileCompleteness', () => {
     expect(result.complete).toBe(false);
     expect(result.missing).toContain('Priced mandatory add-ons');
   });
+
+  it('requires an Instagram connection', () => {
+    const result = evaluateProfileCompleteness({
+      ...completeInput(),
+      instagramConnected: false,
+    });
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('Instagram connected');
+  });
 });
 
 describe('GO_LIVE_REQUIREMENTS catalog', () => {
@@ -155,6 +165,7 @@ describe('GO_LIVE_REQUIREMENTS catalog', () => {
       packageCount: 0,
       publicVideoCount: 0,
       mandatoryAddOnsPriced: false,
+      instagramConnected: false,
     });
 
     const catalogLabels = new Set(GO_LIVE_REQUIREMENTS.map((r) => r.label));

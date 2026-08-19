@@ -386,7 +386,17 @@ export function AboutYouStep(props: AboutYouStepProps) {
 
       {/* Connected accounts */}
       <div className="cw-facet">
-       
+        <div className="cw-facet-label">
+          <span>
+            <Instagram size={15} aria-hidden style={{ marginRight: 6 }} />
+            Connect your Instagram
+            <span className="cw-req"> *</span>
+          </span>
+        </div>
+        <span className="cw-facet-help">
+          Required to go live — brands use your connected Instagram to verify
+          your reach and audience.
+        </span>
         <div>
           <CreatorSocialAccounts profileId={profileId} />
         </div>

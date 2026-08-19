@@ -26,6 +26,11 @@ function dbFingerprint(): string {
  * set completeProfile accordingly, then isListed = approved AND completeProfile.
  * Already-approved creators who don't meet the bar will (intentionally) drop out
  * of brand discovery until they complete their profile.
+ *
+ * Exception: the Instagram-connection requirement is treated as satisfied here
+ * so this backfill never delists existing creators who went live before it was
+ * required. Instagram is enforced only for creators still finishing their
+ * profile, at runtime.
  */
 async function main(): Promise<void> {
   const profiles = await prisma.creatorProfile.findMany({
@@ -108,6 +113,12 @@ async function main(): Promise<void> {
       mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
         profile.addOns.some((addOn) => addOn.name === name),
       ),
+      // Deliberately treated as satisfied here. The Instagram-connected
+      // requirement is enforced only for creators still completing their
+      // profile (at runtime, via recomputeCreatorListingState). This one-off
+      // backfill must NOT retroactively delist already-complete/listed creators
+      // just because they connected Instagram before it was required.
+      instagramConnected: true,
     });
 
     const isListed =

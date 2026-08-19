@@ -54,6 +54,11 @@ export interface ProfileCompletenessInput {
    * (CreatorAddOnOption.mandatory). Required to go live.
    */
   mandatoryAddOnsPriced: boolean;
+  /**
+   * Whether the creator has an active Instagram connection (OAuth). Required to
+   * go live so brands see a verified handle and reach.
+   */
+  instagramConnected: boolean;
 }
 
 export interface ProfileCompletenessResult {
@@ -102,6 +107,7 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
     key: 'portfolioVideos',
     label: `At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`,
   },
+  { key: 'instagram', label: 'Instagram connected' },
 ] as const;
 
 function hasText(value?: string | null): boolean {
@@ -161,6 +167,9 @@ export function evaluateProfileCompleteness(
   if (input.publicVideoCount < MIN_PORTFOLIO_VIDEOS) {
     missing.push(`At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`);
   }
+
+  // Connected accounts — an active Instagram connection is required to go live.
+  if (!input.instagramConnected) missing.push('Instagram connected');
 
   return { complete: missing.length === 0, missing };
 }

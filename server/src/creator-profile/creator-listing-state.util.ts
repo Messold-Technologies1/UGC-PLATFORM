@@ -3,6 +3,8 @@ import {
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
   Prisma,
+  SocialConnectionStatus,
+  SocialPlatform,
 } from '@prisma/client';
 import { evaluateProfileCompleteness } from './creator-profile-completeness.util';
 
@@ -93,6 +95,15 @@ export async function recomputeCreatorListingState(
       creatorAddOnNames.has(option.name),
     );
 
+    // An active Instagram OAuth connection is required to go live.
+    const instagramConnectionCount = await client.socialConnection.count({
+      where: {
+        creatorProfileId,
+        platform: SocialPlatform.INSTAGRAM,
+        status: SocialConnectionStatus.ACTIVE,
+      },
+    });
+
     const { complete } = evaluateProfileCompleteness({
       profileImageUrl: profile.profileImageUrl,
       introVideoUrl: profile.introVideoUrl,
@@ -123,6 +134,7 @@ export async function recomputeCreatorListingState(
       packageCount: profile._count.packages,
       publicVideoCount,
       mandatoryAddOnsPriced,
+      instagramConnected: instagramConnectionCount > 0,
     });
 
     completeProfile = complete;

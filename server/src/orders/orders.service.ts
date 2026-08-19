@@ -30,6 +30,7 @@ import type { BrandOrderDetailsResponseDto } from './dto/brand-order-details-res
 import type { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
 import type { OrderDetailsPublicDto } from './dto/order-details-public.dto';
 import type { OrderDetailsAdminDto } from './dto/order-details-admin.dto';
+import { computeOrderPricingLedger } from './order-pricing-ledger.util';
 import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
 import type { PresignDeliveryUploadResponseDto } from './dto/presign-delivery-upload-response.dto';
 import type {
@@ -2494,6 +2495,16 @@ export class OrdersService {
         refundedAt: true,
         createdAt: true,
         updatedAt: true,
+        revisionPurchases: {
+          where: { status: 'PAID' },
+          select: {
+            revisionsAdded: true,
+            unitAmountPaise: true,
+            expectedAmountPaise: true,
+            paidAt: true,
+          },
+          orderBy: { paidAt: 'asc' },
+        },
         creator: {
           select: {
             id: true,
@@ -2510,8 +2521,33 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const { creator, brand, ...orderFields } = order;
+    const { creator, brand, revisionPurchases, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetailsAdmin(orderFields);
+
+    // Full pricing ledger: what the brand paid vs what to pay the creator and
+    // refund the brand (for extra revisions bought but not used).
+    const paidPurchases = (revisionPurchases ?? []) as Array<{
+      revisionsAdded: number;
+      unitAmountPaise: number;
+      expectedAmountPaise: number;
+      paidAt: Date | null;
+    }>;
+    mappedOrder.pricingLedger = computeOrderPricingLedger({
+      expectedAmountPaise: order.expectedAmountPaise,
+      maxRevisionsSnapshot: order.maxRevisionsSnapshot,
+      revisionCount: order.revisionCount,
+      paidPurchases: paidPurchases.map((p) => ({
+        revisionsAdded: p.revisionsAdded,
+        expectedAmountPaise: p.expectedAmountPaise,
+        paidAt: p.paidAt,
+      })),
+    });
+    mappedOrder.revisionPurchases = paidPurchases.map((p) => ({
+      revisionsAdded: p.revisionsAdded,
+      unitAmountPaise: p.unitAmountPaise,
+      expectedAmountPaise: p.expectedAmountPaise,
+      paidAt: p.paidAt,
+    }));
 
     // Surface the latest dispute so admins can see which party raised it, the
     // reason, and (once resolved) the resolution note.

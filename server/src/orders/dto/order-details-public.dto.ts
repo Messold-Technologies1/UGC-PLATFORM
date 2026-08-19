@@ -156,6 +156,26 @@ export class OrderDetailsPublicDto {
   @ApiProperty({ example: 0 })
   revisionCount!: number;
 
+  @ApiProperty({
+    example: 2,
+    description: 'Revisions granted by one paid extra-revisions purchase',
+  })
+  revisionsPerPurchase!: number;
+
+  @ApiPropertyOptional({
+    example: 20000,
+    nullable: true,
+    description:
+      "Price in paise to buy one extra-revisions add-on (the creator's Revision price). Null when unavailable. Brand details only.",
+  })
+  revisionAddOnUnitPaise?: number | null;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the brand can buy extra revisions for this order',
+  })
+  revisionAddOnAvailable!: boolean;
+
   @ApiPropertyOptional({
     type: () => OrderCurrentRevisionDto,
     description:

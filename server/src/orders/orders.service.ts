@@ -97,6 +97,15 @@ function toPaise(amount: Prisma.Decimal): number {
   return Math.round(n * 100);
 }
 
+/** Revisions granted per paid "extra revisions" purchase. */
+export const REVISIONS_PER_ADDON = 2;
+/**
+ * Catalog slug whose creator-set price is used as the unit price for buying
+ * extra revisions on an order. `CreatorAddOn` has no slug column, so we resolve
+ * this option's name and match the creator's row by name.
+ */
+const EXTRA_REVISION_OPTION_SLUG = 'extra_revision';
+
 function razorpayRefundErrorMessage(err: unknown): string {
   if (
     err &&
@@ -1654,6 +1663,232 @@ export class OrdersService {
     });
   }
 
+  /**
+   * The price (paise) a brand pays for one extra-revisions purchase on an order:
+   * the creator's own "Revision" add-on price. Resolved via the catalog option
+   * (slug 'extra_revision') → its name → the creator's `CreatorAddOn` of that
+   * name. Returns null when the creator hasn't priced it (UI hides the CTA).
+   */
+  private async resolveRevisionAddOnUnitPaise(
+    creatorId: string,
+  ): Promise<number | null> {
+    const option = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: EXTRA_REVISION_OPTION_SLUG },
+      select: { name: true },
+    });
+    if (!option) return null;
+    const row = await this.prisma.creatorAddOn.findFirst({
+      where: { creatorId, name: option.name },
+      select: { priceAmount: true },
+    });
+    if (!row) return null;
+    const paise = toPaise(row.priceAmount);
+    return paise > 0 ? paise : null;
+  }
+
+  /**
+   * Start a Razorpay checkout for buying extra revisions on an order once its
+   * revision cap is reached. Reuses/refreshes a pending purchase row (owns its
+   * own Razorpay order + verifiable amount, like OrderCheckoutBatch) so a
+   * dismissed modal doesn't orphan a charge. The cap is raised only on the
+   * verified webhook capture (see markRevisionPurchasePaidFromWebhook).
+   */
+  async createRevisionCheckout(params: {
+    orderId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
+    /** Number of revision packs to buy in one payment (each = REVISIONS_PER_ADDON). */
+    quantity?: number;
+  }): Promise<CheckoutSessionResult> {
+    const quantity = Math.max(1, Math.floor(params.quantity ?? 1));
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        creatorId: true,
+        status: true,
+        currency: true,
+        revisionCount: true,
+        maxRevisionsSnapshot: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id) {
+      throw new ForbiddenException('Not your order');
+    }
+
+    // Same eligibility as requesting a revision, and only once the cap is hit.
+    const allowed = new Set(['DELIVERED', 'REVISION_SUBMITTED']);
+    if (!allowed.has(String(order.status))) {
+      throw new BadRequestException('Order is not eligible for extra revisions');
+    }
+    if (order.revisionCount < order.maxRevisionsSnapshot) {
+      throw new BadRequestException('This order still has revisions remaining');
+    }
+
+    const unitPaise = await this.resolveRevisionAddOnUnitPaise(order.creatorId);
+    if (!unitPaise) {
+      throw new BadRequestException(
+        'Extra revisions are not available for this order',
+      );
+    }
+
+    const revisionsAdded = quantity * REVISIONS_PER_ADDON;
+    const expectedAmountPaise = quantity * unitPaise;
+
+    // Reuse an existing unpaid purchase (and its Razorpay order) to avoid
+    // orphaning charges when the brand reopens the modal. Refresh it if the
+    // price or the chosen quantity changed since the row was created.
+    let purchase = await this.prisma.orderRevisionPurchase.findFirst({
+      where: { orderId: order.id, status: 'PENDING_PAYMENT' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (
+      purchase &&
+      (purchase.unitAmountPaise !== unitPaise ||
+        purchase.revisionsAdded !== revisionsAdded)
+    ) {
+      purchase = await this.prisma.orderRevisionPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          revisionsAdded,
+          unitAmountPaise: unitPaise,
+          expectedAmountPaise,
+          razorpayOrderId: null,
+        },
+      });
+    }
+    if (!purchase) {
+      purchase = await this.prisma.orderRevisionPurchase.create({
+        data: {
+          orderId: order.id,
+          revisionsAdded,
+          unitAmountPaise: unitPaise,
+          expectedAmountPaise,
+          currency: order.currency,
+          createdByUserId: params.actorUserId,
+        },
+      });
+    }
+
+    let razorpayOrderId = purchase.razorpayOrderId;
+    if (!razorpayOrderId) {
+      const rzp = await this.razorpay.createOrder({
+        amountPaise: purchase.expectedAmountPaise,
+        currency: purchase.currency,
+        receipt: purchase.id,
+        notes: {
+          kind: 'revision_topup',
+          revisionPurchaseId: purchase.id,
+          platformOrderId: order.id,
+          brandProfileId: brand.id,
+          creatorProfileId: order.creatorId,
+        },
+      });
+      razorpayOrderId = rzp.id;
+      await this.prisma.orderRevisionPurchase.update({
+        where: { id: purchase.id },
+        data: { razorpayOrderId },
+      });
+    }
+
+    return this.buildCheckoutSessionResult({
+      orderId: order.id,
+      razorpayOrderId,
+      amountPaise: purchase.expectedAmountPaise,
+      currency: purchase.currency,
+      packageAmountPaise: purchase.expectedAmountPaise,
+      addOnsAmountPaise: 0,
+      addOnsCount: 0,
+    });
+  }
+
+  /**
+   * payment.captured for an extra-revisions purchase: verify the amount, mark
+   * the purchase paid, and atomically raise the order's revision cap. Idempotent
+   * (a replayed webhook is a no-op). Returns the affected order + grant, or null
+   * if the razorpayOrderId isn't a revision purchase / already settled / amount
+   * mismatch. Mirrors markBatchPaidFromWebhook.
+   */
+  async markRevisionPurchasePaidFromWebhook(params: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    paidAt: Date;
+    amountPaise?: number;
+  }): Promise<{ orderId: string; revisionsAdded: number } | null> {
+    const purchase = await this.prisma.orderRevisionPurchase.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: {
+        id: true,
+        orderId: true,
+        status: true,
+        revisionsAdded: true,
+        expectedAmountPaise: true,
+      },
+    });
+    if (!purchase) return null;
+    if (purchase.status !== 'PENDING_PAYMENT') return null; // idempotent
+
+    if (
+      purchase.expectedAmountPaise > 0 &&
+      params.amountPaise != null &&
+      purchase.expectedAmountPaise !== params.amountPaise
+    ) {
+      this.logger.warn(
+        `payment.captured amount mismatch revisionPurchase=${purchase.id} expectedPaise=${purchase.expectedAmountPaise} gotPaise=${params.amountPaise} — not granting revisions`,
+      );
+      return null;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderRevisionPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          status: 'PAID',
+          paidAt: params.paidAt,
+          razorpayPaymentId: params.razorpayPaymentId,
+        },
+      });
+      await tx.order.update({
+        where: { id: purchase.orderId },
+        data: { maxRevisionsSnapshot: { increment: purchase.revisionsAdded } },
+      });
+    });
+
+    this.orderMail.notifyExtraRevisionsPurchased(
+      purchase.orderId,
+      purchase.revisionsAdded,
+    );
+    void this.orderRealtime.emitOrderRevisionsPurchased({
+      orderId: purchase.orderId,
+      revisionsAdded: purchase.revisionsAdded,
+    });
+
+    return { orderId: purchase.orderId, revisionsAdded: purchase.revisionsAdded };
+  }
+
+  /** payment.failed for an extra-revisions purchase: flip its row to FAILED. */
+  async markRevisionPurchaseFailedFromWebhook(params: {
+    razorpayOrderId: string;
+  }): Promise<string | null> {
+    const purchase = await this.prisma.orderRevisionPurchase.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: { id: true, orderId: true, status: true },
+    });
+    if (!purchase || purchase.status !== 'PENDING_PAYMENT') return null;
+    await this.prisma.orderRevisionPurchase.update({
+      where: { id: purchase.id },
+      data: { status: 'FAILED' },
+    });
+    return purchase.orderId;
+  }
+
   async listRevisionsForOrder(params: {
     orderId: string;
     viewerUserId: string;
@@ -1839,6 +2074,11 @@ export class OrdersService {
       creatorPaidAt: order.creatorPaidAt,
       revisionCount: order.revisionCount,
       refundedAt: order.refundedAt,
+      // Extra-revisions purchase info. Unit price is resolved only on the brand
+      // details path (below); other viewers keep the null default.
+      revisionsPerPurchase: REVISIONS_PER_ADDON,
+      revisionAddOnUnitPaise: null,
+      revisionAddOnAvailable: false,
     };
   }
 
@@ -1945,6 +2185,11 @@ export class OrdersService {
 
     const { creator, brandId, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
+
+    // Surface the price to buy +N revisions so the brand's CTA can show it.
+    const revisionUnitPaise = await this.resolveRevisionAddOnUnitPaise(creator.id);
+    mappedOrder.revisionAddOnUnitPaise = revisionUnitPaise;
+    mappedOrder.revisionAddOnAvailable = revisionUnitPaise != null;
 
     const revisionActiveStatuses = new Set<OrderStatus>([
       'REVISION_REQUESTED',

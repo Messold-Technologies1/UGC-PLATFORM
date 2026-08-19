@@ -53,6 +53,7 @@ import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto'
 import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 import { CreatorDeliveriesResponseDto } from './dto/creator-deliveries-response.dto';
 import { RequestRevisionDto } from './dto/request-revision.dto';
+import { BuyExtraRevisionsDto } from './dto/buy-extra-revisions.dto';
 import { OrderRevisionsResponseDto } from './dto/order-revisions-response.dto';
 import { brandActorParams } from '../brand-access/brand-actor-params.util';
 
@@ -430,6 +431,29 @@ export class OrdersController {
       orderId: id,
       ...brandActorParams(req),
       note: dto.note,
+    });
+  }
+
+  @Post(':id/revisions/checkout')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create/reuse a Razorpay checkout to buy extra revisions for an order',
+    description:
+      'Available once the order has reached its revision cap. Each paid purchase raises the cap by a fixed amount after the payment is captured (webhook).',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CheckoutResponseDto })
+  async createRevisionCheckout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: BuyExtraRevisionsDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CheckoutResponseDto> {
+    return this.ordersService.createRevisionCheckout({
+      orderId: id,
+      ...brandActorParams(req),
+      quantity: dto.quantity,
     });
   }
 

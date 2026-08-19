@@ -8,6 +8,7 @@ export enum EmailTemplateKey {
   ORDER_PRODUCT_SHIPPED_FOR_CREATOR = 'order-product-shipped-for-creator',
   ORDER_PRODUCT_RECEIVED_FOR_BRAND = 'order-product-received-for-brand',
   ORDER_REVISION_REQUESTED_FOR_CREATOR = 'order-revision-requested-for-creator',
+  ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR = 'order-extra-revisions-purchased-for-creator',
   ORDER_CONTENT_DELIVERED_FOR_BRAND = 'order-content-delivered-for-brand',
   ORDER_CONTENT_ACCEPTED_FOR_CREATOR = 'order-content-accepted-for-creator',
   ORDER_COMPLETED_FOR_BRAND = 'order-completed-for-brand',

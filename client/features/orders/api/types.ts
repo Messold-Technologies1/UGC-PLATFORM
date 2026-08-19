@@ -81,6 +81,12 @@ export interface OrderDetailsPublic extends OrderListSummary {
   acceptedAt?: string | null;
   creatorPaidAt?: string | null;
   revisionCount: number;
+  /** Revisions granted by one paid extra-revisions purchase. */
+  revisionsPerPurchase: number;
+  /** Price (paise) to buy one extra-revisions add-on; null when unavailable. */
+  revisionAddOnUnitPaise?: number | null;
+  /** Whether the brand can buy extra revisions for this order. */
+  revisionAddOnAvailable: boolean;
   currentRevision?: OrderCurrentRevision;
   dispute?: OrderActiveDispute;
 }

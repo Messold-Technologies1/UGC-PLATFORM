@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAcceptOrderDeliveryMutation } from "../../../hooks/use-accept-order-delivery-mutation";
 import { useRequestOrderRevisionMutation } from "../../../hooks/use-request-order-revision-mutation";
 import { useOpenBrandDisputeMutation } from "../../../hooks/use-open-brand-dispute-mutation";
+import { useBuyExtraRevisions } from "@/features/payments/hooks/use-buy-extra-revisions";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface YourActionRequiredCardProps {
@@ -115,7 +116,22 @@ export function YourActionRequiredCard({
   const canRequestRevision = canReviewDelivery && hasRevisionsRemaining;
   const revisionsUsed = order.revisionCount;
   const revisionsMax = order.maxRevisionsSnapshot;
+  const {
+    isGatewayReady: isRevisionGatewayReady,
+    isProcessing: isBuyingRevisions,
+    buyRevisions,
+  } = useBuyExtraRevisions(orderId);
+  const revisionAddOnPrice =
+    order.revisionAddOnUnitPaise != null
+      ? Math.round(order.revisionAddOnUnitPaise / 100)
+      : null;
   const timeLeft = computeTimeLeft(order.deliveredAt);
+  const canBuyRevisions =
+    canReviewDelivery &&
+    !hasRevisionsRemaining &&
+    order.revisionAddOnAvailable &&
+    revisionAddOnPrice != null &&
+    timeLeft !== "0 hours";
   const isAcceptPending = acceptMutation.isPending;
   const isRevisionPending = revisionMutation.isPending;
   const isIssuePending = issueMutation.isPending;
@@ -244,6 +260,29 @@ export function YourActionRequiredCard({
               <RotateCcw className="size-4 mr-1.5" />
               Request Revision
             </Button>
+
+            {canBuyRevisions ? (
+              <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  You&apos;ve used all {revisionsMax} revisions on this order.
+                  Need another round? Buy {order.revisionsPerPurchase} more.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full font-semibold h-11 rounded-xl mt-2.5"
+                  disabled={!isRevisionGatewayReady || isBuyingRevisions}
+                  onClick={() => void buyRevisions()}
+                >
+                  {isBuyingRevisions ? (
+                    <Spinner className="size-4 mr-1.5" />
+                  ) : (
+                    <RotateCcw className="size-4 mr-1.5" />
+                  )}
+                  Buy {order.revisionsPerPurchase} revisions · ₹
+                  {revisionAddOnPrice}
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-3 mt-5">

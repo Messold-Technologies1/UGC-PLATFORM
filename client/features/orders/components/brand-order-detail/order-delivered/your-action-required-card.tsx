@@ -89,6 +89,7 @@ export function YourActionRequiredCard({
   const [isIssueDrawerOpen, setIsIssueDrawerOpen] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [issueReason, setIssueReason] = useState("");
+  const [revisionQty, setRevisionQty] = useState(1);
 
   const acceptMutation = useAcceptOrderDeliveryMutation({
     onSuccess: () => setIsApproveDialogOpen(false),
@@ -265,21 +266,58 @@ export function YourActionRequiredCard({
               <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   You&apos;ve used all {revisionsMax} revisions on this order.
-                  Need another round? Buy {order.revisionsPerPurchase} more.
+                  Need more? Buy extra revisions in packs of{" "}
+                  {order.revisionsPerPurchase}.
                 </p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Packs
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="size-8 rounded-lg p-0"
+                      disabled={isBuyingRevisions || revisionQty <= 1}
+                      onClick={() =>
+                        setRevisionQty((q) => Math.max(1, q - 1))
+                      }
+                      aria-label="Fewer packs"
+                    >
+                      −
+                    </Button>
+                    <span className="w-6 text-center text-sm font-semibold tabular-nums">
+                      {revisionQty}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="size-8 rounded-lg p-0"
+                      disabled={isBuyingRevisions || revisionQty >= 20}
+                      onClick={() =>
+                        setRevisionQty((q) => Math.min(20, q + 1))
+                      }
+                      aria-label="More packs"
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
                 <Button
                   variant="outline"
-                  className="w-full font-semibold h-11 rounded-xl mt-2.5"
+                  className="w-full font-semibold h-11 rounded-xl mt-3"
                   disabled={!isRevisionGatewayReady || isBuyingRevisions}
-                  onClick={() => void buyRevisions()}
+                  onClick={() => void buyRevisions(revisionQty)}
                 >
                   {isBuyingRevisions ? (
                     <Spinner className="size-4 mr-1.5" />
                   ) : (
                     <RotateCcw className="size-4 mr-1.5" />
                   )}
-                  Buy {order.revisionsPerPurchase} revisions · ₹
-                  {revisionAddOnPrice}
+                  Buy {revisionQty * order.revisionsPerPurchase} revisions · ₹
+                  {revisionAddOnPrice != null
+                    ? revisionAddOnPrice * revisionQty
+                    : null}
                 </Button>
               </div>
             ) : null}

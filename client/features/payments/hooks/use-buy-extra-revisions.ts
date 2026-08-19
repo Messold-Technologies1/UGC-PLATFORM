@@ -80,7 +80,7 @@ export function useBuyExtraRevisions(orderId: string) {
     };
   }, []);
 
-  const buyRevisions = useCallback(async () => {
+  const buyRevisions = useCallback(async (quantity = 1) => {
     if (isProcessing) return false;
     setIsProcessing(true);
 
@@ -90,7 +90,7 @@ export function useBuyExtraRevisions(orderId: string) {
     const beforeMax = before?.order?.maxRevisionsSnapshot ?? null;
 
     try {
-      const session = await createRevisionCheckout(orderId);
+      const session = await createRevisionCheckout(orderId, quantity);
       await openRazorpayCheckout({
         session,
         description: "Extra revisions",

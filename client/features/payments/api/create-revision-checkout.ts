@@ -9,9 +9,12 @@ import type { CheckoutSession } from "./create-checkout";
  */
 export async function createRevisionCheckout(
   orderId: string,
+  /** Number of revision packs to buy in one payment (each = 2 revisions). */
+  quantity = 1,
 ): Promise<CheckoutSession> {
   const { data } = await api.post<CheckoutSession>(
     ENDPOINTS.ORDERS.REVISION_CHECKOUT(orderId),
+    { quantity },
   );
   return data;
 }

@@ -50,6 +50,9 @@ export type AboutYouStepProps = {
   cities: Array<{ name: string }>;
   onCityChange: (value: string) => void;
 
+  shippingAddress: string;
+  onShippingAddressChange: (value: string) => void;
+
   // Languages — a single multi-select of slugs.
   languageOptions: CreatorFacetOption[];
   selectedLanguages: string[];
@@ -59,10 +62,12 @@ export type AboutYouStepProps = {
   languageConfirmed: boolean;
   onLanguageConfirmedChange: (value: boolean) => void;
   errors?: {
+    photo?: string;
     displayName?: string;
     dateOfBirth?: string;
     gender?: string;
     city?: string;
+    shippingAddress?: string;
     language?: string;
     languageConfirmed?: string;
     instagram?: string;
@@ -95,6 +100,8 @@ export function AboutYouStep(props: AboutYouStepProps) {
     city,
     cities,
     onCityChange,
+    shippingAddress,
+    onShippingAddressChange,
     languageOptions,
     selectedLanguages,
     languagesLoading,
@@ -197,7 +204,10 @@ export function AboutYouStep(props: AboutYouStepProps) {
         </div>
 
         <div className="cw-photo-info">
-          <span className="cw-photo-title">Choose your best creator photo</span>
+          <span className="cw-photo-title">
+            Choose your best creator photo{" "}
+            <span className="cw-req" aria-label="required">*</span>
+          </span>
           <span className="cw-photo-hint">
             Smile, use good lighting and avoid group photos.
           </span>
@@ -216,6 +226,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
           </button>
         </div>
       </div>
+      {errors.photo ? (
+        <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.photo}</p>
+      ) : null}
 
       <div className="cw-hr" />
 
@@ -330,6 +343,28 @@ export function AboutYouStep(props: AboutYouStepProps) {
           />
           {errors.city ? (
             <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.city}</p>
+          ) : null}
+        </div>
+
+        <div className="cw-col-2 cw-field">
+          <label htmlFor="cw-shipping" className="cw-fieldlabel">
+            Shipping Address <span className="cw-req">*</span>
+          </label>
+          <span className="cw-facet-help cw-shipping-hint">
+            Brands send products to your home for unboxing &amp; review videos. This is only shared with a brand when they place an order with you — never shown publicly.
+          </span>
+          <textarea
+            id="cw-shipping"
+            className="cw-input cw-shipping-textarea"
+            rows={3}
+            value={shippingAddress}
+            disabled={disabled}
+            placeholder="Flat / house no., street, area, city, state, PIN code"
+            autoComplete="street-address"
+            onChange={(e) => onShippingAddressChange(e.target.value)}
+          />
+          {errors.shippingAddress ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.shippingAddress}</p>
           ) : null}
         </div>
 

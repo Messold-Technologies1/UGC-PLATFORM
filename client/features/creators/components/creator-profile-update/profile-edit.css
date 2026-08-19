@@ -988,10 +988,6 @@
   color: var(--muted-foreground);
 }
 
-.pe-defaults .cw-confirm {
-  margin-top: 2px;
-  background: var(--card);
-}
 
 .pe-addon-grid {
   display: grid;

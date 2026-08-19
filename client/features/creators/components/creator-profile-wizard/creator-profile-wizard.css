@@ -676,6 +676,18 @@
   color: var(--foreground);
 }
 
+.cw-shipping-textarea {
+  height: auto;
+  padding: 10px 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.cw-shipping-hint {
+  display: block;
+  margin-bottom: 6px;
+}
+
 /* Admin phone field with +91 prefix */
 .cw-phone {
   display: flex;
@@ -742,6 +754,44 @@
 .cw-confirm[data-checked="true"] {
   background: var(--p05);
   box-shadow: inset 0 0 0 1px var(--p20);
+}
+
+/* Standalone confirmation (outside a card section) — just adds top margin */
+.cw-confirm.cw-confirm--standalone {
+  margin-top: 16px;
+}
+
+/* Policy list — rows inside the shared outer box, no individual card bg */
+.cw-policy-list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cw-policy-item:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+.cw-policy-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 4px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cw-policy-row[data-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cw-policy-row .cw-confirm-tick {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.cw-policy-row[data-checked="true"] .cw-confirm-tick {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground, #fff);
 }
 .cw-confirm[data-disabled="true"] {
   opacity: 0.6;
@@ -845,7 +895,7 @@
 .cw-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
 }
 @media (max-width: 560px) {
@@ -1570,68 +1620,149 @@
 }
 
 /* Go live */
+/* ═══════════════════════════════════════════
+   Go-live step — fills the card height
+═══════════════════════════════════════════ */
 .cw-golive {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0 !important;
+  padding: 0 !important;
+  min-height: calc(100vh - 220px);
+  overflow: hidden;
+}
+
+/* ── Hero ── */
+.cw-golive-hero {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
-  padding: 44px 24px;
+  padding: 40px 32px 32px;
+  border-bottom: 1px solid var(--border);
 }
-.cw-golive-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  display: grid;
-  place-items: center;
+.cw-golive-emoji {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 16px;
+  user-select: none;
+}
+.cw-golive-title {
+  margin: 0 0 10px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--foreground);
+  line-height: 1.1;
+}
+.cw-golive-tagline {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+  max-width: 400px;
+}
+.cw-golive-tagline-accent {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ── Steps ── */
+.cw-golive-steps {
+  list-style: none;
+  margin: 0;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+.cw-golive-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  position: relative;
+  color: var(--muted-foreground);
+}
+.cw-golive-step:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+.cw-golive-step--done {
+  color: var(--foreground);
+}
+.cw-golive-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.cw-golive-step--done .cw-golive-step-icon {
   background: var(--p10);
   color: var(--primary);
 }
-.cw-golive-title {
-  margin: 6px 0 0;
-  font-size: 24px;
+.cw-golive-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 2px;
+}
+.cw-golive-step-label {
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--foreground);
+  color: inherit;
+  line-height: 1.3;
 }
-.cw-golive-sub {
-  margin: 0;
-  font-size: 14px;
+.cw-golive-step-note {
+  font-size: 13px;
   color: var(--muted-foreground);
-  max-width: 420px;
+  line-height: 1.5;
 }
+.cw-golive-step--done .cw-golive-step-note {
+  color: color-mix(in oklab, var(--primary) 70%, var(--muted-foreground));
+}
+
+/* ── Strength bar ── */
 .cw-golive-strength {
-  width: min(100%, 320px);
-  margin-top: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--p20);
-  background: var(--p05);
-  padding: 18px;
-  text-align: left;
+  padding: 20px 32px 28px;
+}
+.cw-golive-strength-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 .cw-golive-strength-head {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--primary);
+  margin-bottom: 2px;
 }
 .cw-golive-strength-pct {
-  margin-top: 6px;
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 36px;
+  font-weight: 800;
   color: var(--foreground);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+.cw-golive-strength-right {
+  flex: 1;
 }
 .cw-golive-strength-hint {
-  margin: 10px 0 0;
-  font-size: 12.5px;
+  margin: 6px 0 0;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--muted-foreground);
-}
-.cw-golive-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
 }
 
 /* Animations */

@@ -117,7 +117,7 @@ export function CreatorProfileWizard({
   const [activeIndex, setActiveIndex] = useState(0);
   const [triedContinue, setTriedContinue] = useState<Partial<Record<WizardStepId, boolean>>>({});
   const [completed, setCompleted] = useState<Set<WizardStepId>>(new Set());
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(() => Boolean(initialProfile.completeProfile));
 
   // An already-live (or admin-edited) profile behaves like a free editor:
   // every step is reachable from the rail, filled steps show as done, and each
@@ -145,6 +145,9 @@ export function CreatorProfileWizard({
     () => initialProfile.dateOfBirth?.trim() ?? "",
   );
   const [bio, setBio] = useState(() => initialProfile.bio?.trim() ?? "");
+  const [shippingAddress, setShippingAddress] = useState(
+    () => initialProfile.shippingAddress?.trim() ?? "",
+  );
   const [phone, setPhone] = useState(
     () => initialProfile.phone?.replace("+91", "") ?? "",
   );
@@ -542,7 +545,7 @@ export function CreatorProfileWizard({
       city: location.city ?? "",
       gender,
       dateOfBirth,
-      shippingAddress: initialProfile.shippingAddress ?? "",
+      shippingAddress: shippingAddress,
       selectedFacetDimensions,
       nichePrimaryCount: facets.primaryNiche ? 1 : 0,
       nicheSecondaryCount: facets.secondaryNiches.length,
@@ -573,7 +576,7 @@ export function CreatorProfileWizard({
     location.city,
     gender,
     dateOfBirth,
-    initialProfile.shippingAddress,
+    shippingAddress,
     selectedLanguageCount,
     publicPortfolioCount,
     goLivePolicies,
@@ -594,6 +597,7 @@ export function CreatorProfileWizard({
             Boolean(dateOfBirth) &&
             Boolean(gender) &&
             location.city.trim().length > 0 &&
+            shippingAddress.trim().length > 0 &&
             selectedLanguageCount > 0 &&
             instagramConnected
           );
@@ -624,6 +628,7 @@ export function CreatorProfileWizard({
       dateOfBirth,
       gender,
       location.city,
+      shippingAddress,
       selectedLanguageCount,
       instagramConnected,
       identityComplete,
@@ -666,6 +671,7 @@ export function CreatorProfileWizard({
         stateName: location.stateName || undefined,
         city: location.city.trim() || undefined,
         bio: bio.trim() || undefined,
+        shippingAddress: shippingAddress.trim() || undefined,
         contactEmail: contactEmail || undefined,
         facetSelections,
         profileLanguages,
@@ -704,6 +710,7 @@ export function CreatorProfileWizard({
       location.stateName,
       location.city,
       bio,
+      shippingAddress,
       contactEmail,
       adminMode,
       phone,
@@ -721,10 +728,12 @@ export function CreatorProfileWizard({
     (id: WizardStepId): string[] => {
       const missing: string[] = [];
       if (id === "about") {
+        if (!profileImage.profileImagePreviewUrl) missing.push("a profile photo");
         if (!displayName.trim()) missing.push("your full name");
         if (!dateOfBirth) missing.push("date of birth");
         if (!gender) missing.push("gender");
         if (!location.city.trim()) missing.push("city");
+        if (!shippingAddress.trim()) missing.push("your shipping address");
         if (selectedLanguageCount === 0) missing.push("at least one language");
         if (selectedLanguageCount > 0 && !languageConfirmed)
           missing.push("the language confirmation");
@@ -757,10 +766,12 @@ export function CreatorProfileWizard({
       return missing;
     },
     [
+      profileImage.profileImagePreviewUrl,
       displayName,
       dateOfBirth,
       gender,
       location.city,
+      shippingAddress,
       selectedLanguageCount,
       languageConfirmed,
       instagramConnected,
@@ -794,10 +805,12 @@ export function CreatorProfileWizard({
     return {
       about: tried.about
         ? {
+            photo: !profileImage.profileImagePreviewUrl ? "Upload a profile photo — brands need to see you." : undefined,
             displayName: !displayName.trim() ? "Please enter your full name." : undefined,
             dateOfBirth: !dateOfBirth ? "Please add your date of birth." : !isEighteenPlus ? "Creators must be at least 18 years old." : undefined,
             gender: !gender ? "Please select your gender." : undefined,
             city: !location.city.trim() ? "Please select your city." : undefined,
+            shippingAddress: !shippingAddress.trim() ? "Add your shipping address so brands can send products to you." : undefined,
             language: selectedLanguageCount === 0 ? "Add at least one language." : undefined,
             languageConfirmed: selectedLanguageCount > 0 && !languageConfirmed ? "Please confirm your languages." : undefined,
             instagram: !instagramConnected ? "Connect your Instagram account to continue." : undefined,
@@ -840,7 +853,8 @@ export function CreatorProfileWizard({
     };
   }, [
     triedContinue,
-    displayName, dateOfBirth, isEighteenPlus, gender, location.city,
+    profileImage.profileImagePreviewUrl,
+    displayName, dateOfBirth, isEighteenPlus, gender, location.city, shippingAddress,
     selectedLanguageCount, languageConfirmed, instagramConnected,
     facets.primaryNiche, facets.secondaryNiches, facetCount,
     selectedRestrictions, identityHasBlankOther,
@@ -1066,8 +1080,14 @@ export function CreatorProfileWizard({
     if (activeStep.id === "review") return "Submit my profile";
     if (activeStep.id === "go-live") return "Go to dashboard";
     if (canEditFreely) return "Save changes";
-    if (activeStep.id === "portfolio") return "Almost there";
-    return "Continue Building Profile";
+    const labelMap: Partial<Record<WizardStepId, string>> = {
+      about: "Save & Set Your Identity",
+      identity: "Save & Set Your Pricing",
+      pricing: "Save & Build Portfolio",
+      portfolio: "Save & Add Intro Video",
+      "intro-video": "Save & Review Profile",
+    };
+    return labelMap[activeStep.id] ?? "Continue";
   }, [activeStep.id, canEditFreely]);
 
   // In editor mode, editable steps get a "save this step" reminder + a Save
@@ -1226,6 +1246,8 @@ export function CreatorProfileWizard({
                   city={location.city}
                   cities={location.cities}
                   onCityChange={location.setCity}
+                  shippingAddress={shippingAddress}
+                  onShippingAddressChange={setShippingAddress}
                   languageOptions={facets.facetOptionsByDimension.LANGUAGE ?? []}
                   selectedLanguages={selectedLanguages}
                   languagesLoading={facets.facetOptionsQuery.isLoading}
@@ -1339,7 +1361,7 @@ export function CreatorProfileWizard({
                   policies={goLivePolicies}
                   onPoliciesChange={setGoLivePolicies}
                   policiesDisabled={Boolean(initialProfile.completeProfile)}
-                  onAddPayout={() => onExit?.()}
+                  missingItems={goLiveMissing}
                 />
               ) : (
                 <GoLiveStep
@@ -1356,11 +1378,9 @@ export function CreatorProfileWizard({
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
             <div className="cw-foot">
-              <span className="cw-foot-note">
-                {canEditFreely
-                  ? "Save each step after you edit it."
-                  : "Autosaved. You can come back any time."}
-              </span>
+              {canEditFreely ? (
+                <span className="cw-foot-note">Save each step after you edit it.</span>
+              ) : null}
               <div className="cw-foot-actions">
                 <button
                   type="button"

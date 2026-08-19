@@ -89,7 +89,7 @@ export const WIZARD_STEPS: WizardStep[] = [
     id: "go-live",
     label: "Go Live",
     title: "Go live",
-    tagline: "Flip the switch and start receiving briefs.",
+    tagline: "Your profile is submitted — hang tight while we review it.",
     icon: Rocket,
     ready: false,
   },

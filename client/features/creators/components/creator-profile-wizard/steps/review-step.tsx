@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Pencil, TriangleAlert, Wallet } from "lucide-react";
+import { Check, Pencil, TriangleAlert } from "lucide-react";
 
 import {
   GoLivePolicyAcceptance,
@@ -24,7 +24,7 @@ export type ReviewStepProps = {
   policies: GoLivePolicyAcceptanceState;
   onPoliciesChange: (value: GoLivePolicyAcceptanceState) => void;
   policiesDisabled: boolean;
-  onAddPayout: () => void;
+  missingItems?: string[];
 };
 
 const STATUS_LABEL: Record<ReviewRow["status"], string> = {
@@ -39,7 +39,7 @@ export function ReviewStep({
   policies,
   onPoliciesChange,
   policiesDisabled,
-  onAddPayout,
+  missingItems = [],
 }: ReviewStepProps) {
   return (
     <div className="cw-card">
@@ -84,28 +84,22 @@ export function ReviewStep({
         ))}
       </div>
 
-      {/* Payout prompt */}
-      <div className="cw-payout">
-        <span className="cw-payout-icon">
-          <Wallet size={16} aria-hidden />
-        </span>
-        <div className="cw-payout-text">
-          <span className="cw-payout-title">Payout details</span>
-          <span className="cw-payout-sub">
-            Add a bank account or UPI ID so we can pay you.
-          </span>
-        </div>
-        <button type="button" className="cw-btn cw-btn-ghost cw-payout-btn" onClick={onAddPayout}>
-          Add payout
-        </button>
-      </div>
-
       <GoLivePolicyAcceptance
         value={policies}
         onChange={onPoliciesChange}
         showRequiredHint
         disabled={policiesDisabled}
       />
+
+      {missingItems.length > 0 ? (
+        <div className="cw-field-warn">
+          <TriangleAlert size={14} aria-hidden style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <strong>Still needed to go live:</strong>{" "}
+            {missingItems.join(", ")}.
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

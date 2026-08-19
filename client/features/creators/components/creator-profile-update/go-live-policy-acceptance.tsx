@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const GO_LIVE_POLICY_LINKS = [
@@ -80,33 +80,41 @@ export function GoLivePolicyAcceptance({
           </span>
         ) : null}
       </p>
-      <ul className="space-y-3">
+      <ul className="cw-policy-list">
         {GO_LIVE_POLICY_LINKS.map((policy) => {
           const checkboxId = `go-live-policy-${policy.id}`;
           return (
-            <li key={policy.id} className="flex items-start gap-3">
-              <Checkbox
-                id={checkboxId}
-                checked={value[policy.id]}
-                disabled={disabled}
-                onCheckedChange={(checked) =>
-                  onChange({ ...value, [policy.id]: checked === true })
-                }
-                className="mt-0.5 shrink-0"
-              />
+            <li key={policy.id} className="cw-policy-item">
               <label
                 htmlFor={checkboxId}
-                className="min-w-0 flex-1 text-sm leading-snug text-muted-foreground"
+                className="cw-policy-row"
+                data-checked={String(Boolean(value[policy.id]))}
+                data-disabled={String(disabled)}
               >
-                I have read and agree to the{" "}
-                <Link
-                  href={policy.href}
-                  target="_blank"
-                  className="font-semibold text-foreground underline underline-offset-2"
-                >
-                  {policy.label}
-                </Link>
-                .
+                <input
+                  type="checkbox"
+                  id={checkboxId}
+                  className="cw-confirm-box"
+                  checked={Boolean(value[policy.id])}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange({ ...value, [policy.id]: e.target.checked })
+                  }
+                />
+                <span className="cw-confirm-tick" aria-hidden>
+                  <Check size={13} strokeWidth={3} />
+                </span>
+                <span className="cw-confirm-text">
+                  I have read and agree to the{" "}
+                  <Link
+                    href={policy.href}
+                    target="_blank"
+                    className="font-semibold text-foreground underline underline-offset-2"
+                  >
+                    {policy.label}
+                  </Link>
+                  .
+                </span>
               </label>
             </li>
           );

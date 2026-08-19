@@ -167,6 +167,42 @@ export class OrderRealtimeNotifier {
     });
   }
 
+  /**
+   * A brand bought extra revisions (cap raised). Notify both parties so the
+   * brand's UI re-enables Request Revision and the creator sees the grant.
+   */
+  async emitOrderRevisionsPurchased(params: {
+    orderId: string;
+    revisionsAdded: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitOrderRevisionsPurchased: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const payload = {
+      orderId: params.orderId,
+      revisionsAdded: params.revisionsAdded,
+    };
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    if (brandUserId) {
+      this.gateway.server
+        .to(`user:${brandUserId}`)
+        .emit('order.revisions_purchased', payload);
+    }
+    this.gateway.server
+      .to(`user:${order.creator.userId}`)
+      .emit('order.revisions_purchased', payload);
+  }
+
   /** Creator received physical product; notify brand. Includes the now-set delivery deadlines. */
   async emitOrderProductReceived(params: {
     orderId: string;

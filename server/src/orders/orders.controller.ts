@@ -433,6 +433,27 @@ export class OrdersController {
     });
   }
 
+  @Post(':id/revisions/checkout')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create/reuse a Razorpay checkout to buy extra revisions for an order',
+    description:
+      'Available once the order has reached its revision cap. Each paid purchase raises the cap by a fixed amount after the payment is captured (webhook).',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CheckoutResponseDto })
+  async createRevisionCheckout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CheckoutResponseDto> {
+    return this.ordersService.createRevisionCheckout({
+      orderId: id,
+      ...brandActorParams(req),
+    });
+  }
+
   @Get(':id/revisions')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({

@@ -185,6 +185,7 @@ model User {
   auditLogs              AuditLog[]           @relation("AuditLogActor")
   resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
   requestedRevisions     OrderRevision[]      @relation("OrderRevisionRequester")
+  revisionPurchases      OrderRevisionPurchase[] @relation("RevisionPurchaseCreator")
   sentChatMessages       OrderChatMessage[]
   orderChatReadStates    OrderChatReadState[]
   passwordResetTokens    PasswordResetToken[]
@@ -603,6 +604,7 @@ model Order {
   checkoutBatch  OrderCheckoutBatch?  @relation(fields: [checkoutBatchId], references: [id], onDelete: SetNull)
   disputes       OrderDispute[]
   revisions      OrderRevision[]
+  revisionPurchases OrderRevisionPurchase[]
   deliveries     OrderDelivery[]
   chatMessages   OrderChatMessage[]
   chatReadStates OrderChatReadState[]
@@ -647,6 +649,41 @@ model OrderCheckoutBatch {
   orders Order[]
 
   @@index([brandId, createdAt])
+}
+
+enum OrderRevisionPurchaseStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+/// A supplemental, standalone charge on an already-paid Order: the brand buys
+/// extra revisions once the order's revision cap is reached. Each paid purchase
+/// increments `Order.maxRevisionsSnapshot` by `revisionsAdded`. Owns its own
+/// Razorpay order + verifiable amount (the Order row can only hold one), exactly
+/// like OrderCheckoutBatch does for bulk checkout. Unlimited per order.
+model OrderRevisionPurchase {
+  id                  String                      @id @default(uuid()) @db.Uuid
+  orderId             String                      @db.Uuid
+  /// Revisions this purchase grants once paid (REVISIONS_PER_ADDON, currently 2).
+  revisionsAdded      Int
+  /// Creator's "Revision" add-on price, in paise, snapshotted at purchase time.
+  unitAmountPaise     Int
+  /// Amount the Razorpay order is created for and verified against on capture.
+  expectedAmountPaise Int
+  currency            String                      @default("INR")
+  status              OrderRevisionPurchaseStatus @default(PENDING_PAYMENT)
+  razorpayOrderId     String?                     @unique
+  razorpayPaymentId   String?
+  paidAt              DateTime?
+  createdByUserId     String                      @db.Uuid
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("RevisionPurchaseCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 enum BriefShootLocationKind {

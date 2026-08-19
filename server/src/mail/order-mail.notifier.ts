@@ -167,6 +167,29 @@ export class OrderMailNotifier {
     });
   }
 
+  notifyExtraRevisionsPurchased(orderId: string, revisionsAdded: number): void {
+    void this.run('extra_revisions_purchased', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      // loadOrder runs after the cap increment, so maxRevisionsSnapshot is fresh.
+      const vars: Record<string, string> = {
+        brandName: this.brandDisplayName(order.brand),
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        revisionsAdded: String(revisionsAdded),
+        maxRevisions: String(order.maxRevisionsSnapshot),
+        actionUrl: this.creatorOrderListUrl(order.id, 'revisions'),
+      };
+
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR,
+        vars,
+      );
+    });
+  }
+
   notifyContentDelivered(
     orderId: string,
     params: { revisionNumber: number; deliveredAt: Date },

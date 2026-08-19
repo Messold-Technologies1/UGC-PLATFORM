@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { AlertTriangle, Check } from "lucide-react";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
@@ -70,6 +70,7 @@ export function PackageEditor({
   errors,
   defaultsConfirmed,
   onDefaultsConfirmedChange,
+  defaultsConfirmedError,
 }: {
   draft: PackageDraft;
   disabled: boolean;
@@ -81,6 +82,7 @@ export function PackageEditor({
   };
   defaultsConfirmed?: boolean;
   onDefaultsConfirmedChange?: (confirmed: boolean) => void;
+  defaultsConfirmedError?: string;
 }) {
   return (
     <div className="pe-pkg">
@@ -195,26 +197,34 @@ export function PackageEditor({
           ))}
         </ul>
         {onDefaultsConfirmedChange ? (
-          <label
-            className="cw-confirm"
-            data-checked={Boolean(defaultsConfirmed)}
-            data-disabled={disabled}
-          >
-            <input
-              type="checkbox"
-              className="cw-confirm-box"
-              checked={Boolean(defaultsConfirmed)}
-              disabled={disabled}
-              onChange={(e) => onDefaultsConfirmedChange(e.target.checked)}
-            />
-            <span className="cw-confirm-tick" aria-hidden>
-              <Check size={13} strokeWidth={3} />
-            </span>
-            <span className="cw-confirm-text">
-              I can deliver all of the above on every order.{" "}
-              <span className="cw-req">*</span>
-            </span>
-          </label>
+          <>
+            <label
+              className="cw-confirm"
+              data-checked={Boolean(defaultsConfirmed)}
+              data-disabled={disabled}
+            >
+              <input
+                type="checkbox"
+                className="cw-confirm-box"
+                checked={Boolean(defaultsConfirmed)}
+                disabled={disabled}
+                onChange={(e) => onDefaultsConfirmedChange(e.target.checked)}
+              />
+              <span className="cw-confirm-tick" aria-hidden>
+                <Check size={13} strokeWidth={3} />
+              </span>
+              <span className="cw-confirm-text">
+                I can deliver all of the above on every order.{" "}
+                <span className="cw-req">*</span>
+              </span>
+            </label>
+            {defaultsConfirmedError ? (
+              <p className="cw-field-warn">
+                <AlertTriangle size={13} aria-hidden />
+                {defaultsConfirmedError}
+              </p>
+            ) : null}
+          </>
         ) : null}
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import {
   PackageEditor,
@@ -31,6 +32,7 @@ export type PricingStepProps = {
   onAddOnDraftChange: (slug: string, patch: Partial<AddOnDraft>) => void;
   defaultsConfirmed: boolean;
   onDefaultsConfirmedChange: (confirmed: boolean) => void;
+  errors?: { defaultsConfirmed?: string; addOnPrices?: string };
 };
 
 export function PricingStep({
@@ -49,6 +51,7 @@ export function PricingStep({
   onAddOnDraftChange,
   defaultsConfirmed,
   onDefaultsConfirmedChange,
+  errors = {},
 }: PricingStepProps) {
   return (
     <div className="cw-card">
@@ -65,6 +68,7 @@ export function PricingStep({
         errors={packageErrors}
         defaultsConfirmed={defaultsConfirmed}
         onDefaultsConfirmedChange={onDefaultsConfirmedChange}
+        defaultsConfirmedError={errors.defaultsConfirmed}
       />
 
       <div className="cw-hr" />
@@ -75,6 +79,10 @@ export function PricingStep({
         label="add-on options"
         onRetry={onAddOnsRetry}
       />
+
+      {errors.addOnPrices ? (
+        <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.addOnPrices}</p>
+      ) : null}
 
       {!addOnsLoading && !addOnsError ? (
         <AddOnCatalogEditor

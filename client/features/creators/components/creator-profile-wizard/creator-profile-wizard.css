@@ -983,6 +983,27 @@
   margin-top: -4px;
 }
 
+/* Inline field-level validation warning */
+.cw-field-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.1);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: color-mix(in oklab, #b45309 82%, var(--foreground));
+  margin-top: 4px;
+}
+.cw-field-warn svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #d97706;
+}
+
 /* Textarea + bio */
 .cw-textarea {
   width: 100%;

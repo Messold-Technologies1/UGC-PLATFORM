@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2, Sparkles, X, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Sparkles, X } from "lucide-react";
 
 import type {
   CreatorFacetDimension,
@@ -42,6 +42,15 @@ export type IdentityStepProps = {
   selectedRestrictions: string[];
   onToggleRestriction: (name: string) => void;
   onSetAllRestrictions: (selected: boolean) => void;
+  errors?: {
+    primaryNiche?: string;
+    secondaryNiches?: string;
+    creatorType?: string;
+    occupation?: string;
+    appearance?: string;
+    restrictions?: string;
+    blankOther?: string;
+  };
 };
 
 const SINGLE_FACETS: Array<{
@@ -191,10 +200,11 @@ export function IdentityStep({
   selectedRestrictions,
   onToggleRestriction,
   onSetAllRestrictions,
+  errors = {},
 }: IdentityStepProps) {
   const nicheOptions = optionsByDimension.CONTENT_CATEGORY ?? [];
-  const nicheOtherSelected =
-    primaryNiche === OTHER_SLUG || secondaryNiches.includes(OTHER_SLUG);
+  const primaryOtherSelected = primaryNiche === OTHER_SLUG;
+  const secondaryOtherSelected = secondaryNiches.includes(OTHER_SLUG);
   const allRestrictionsSelected =
     OPEN_TO_OPTIONS.length > 0 &&
     OPEN_TO_OPTIONS.every((name) => selectedRestrictions.includes(name));
@@ -224,6 +234,19 @@ export function IdentityStep({
               />
             ))}
           </div>
+          {errors.primaryNiche ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.primaryNiche}</p>
+          ) : null}
+          {primaryOtherSelected ? (
+            <OtherField
+              dimension="CONTENT_CATEGORY"
+              value={customFacetLabels.CONTENT_CATEGORY ?? ""}
+              disabled={disabled}
+              resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
+              onChange={onCustomFacetLabelChange}
+              onCommit={onCommitOther}
+            />
+          ) : null}
         </div>
 
         <div className="cw-facet">
@@ -257,7 +280,10 @@ export function IdentityStep({
                 );
               })}
           </div>
-          {nicheOtherSelected ? (
+          {errors.secondaryNiches ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.secondaryNiches}</p>
+          ) : null}
+          {secondaryOtherSelected ? (
             <OtherField
               dimension="CONTENT_CATEGORY"
               value={customFacetLabels.CONTENT_CATEGORY ?? ""}
@@ -281,6 +307,14 @@ export function IdentityStep({
           const options = optionsByDimension[dimension] ?? [];
           if (options.length === 0) return null;
           const selected = (selectedFacets[dimension] ?? [])[0] ?? "";
+          const dimErr =
+            dimension === "CREATOR_TYPE"
+              ? errors.creatorType
+              : dimension === "OCCUPATION"
+                ? errors.occupation
+                : dimension === "APPEARANCE"
+                  ? errors.appearance
+                  : undefined;
           return (
             <div className="cw-facet" key={dimension}>
               <div className="cw-facet-label">
@@ -301,6 +335,9 @@ export function IdentityStep({
                   />
                 ))}
               </div>
+              {dimErr ? (
+                <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{dimErr}</p>
+              ) : null}
               {selected === OTHER_SLUG ? (
                 <OtherField
                   dimension={dimension}
@@ -348,6 +385,9 @@ export function IdentityStep({
             Pick the categories you&apos;re open to creating for so brands can
             match you to the right briefs. Select at least one.
           </span>
+          {errors.restrictions ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.restrictions}</p>
+          ) : null}
           <div className="pe-chips">
             {OPEN_TO_OPTIONS.map((name) => {
               const isOn = selectedRestrictions.includes(name);

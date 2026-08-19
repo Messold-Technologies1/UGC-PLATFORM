@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Check } from "lucide-react";
+import { AlertTriangle, Check } from "lucide-react";
 
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-update/creator-profile-intro-video-field";
 import { INTRO_VIDEO_ACCEPT } from "@/features/creators/hooks/creator-profile-form-utils";
@@ -34,6 +34,7 @@ export type IntroVideoStepProps = {
   onSelectFile: (file: File | null) => void;
   confirmed: boolean;
   onConfirmedChange: (value: boolean) => void;
+  errors?: { video?: string; confirmed?: string };
 };
 
 export function IntroVideoStep({
@@ -44,6 +45,7 @@ export function IntroVideoStep({
   onSelectFile,
   confirmed,
   onConfirmedChange,
+  errors = {},
 }: IntroVideoStepProps) {
   return (
     <div className="cw-card">
@@ -60,6 +62,9 @@ export function IntroVideoStep({
         </div>
 
         <div className="cw-video-side">
+          {errors.video ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.video}</p>
+          ) : null}
           <div className="cw-req-card">
             <div className="cw-req-title">Video requirements</div>
             <div className="cw-req-grid">
@@ -93,6 +98,9 @@ export function IntroVideoStep({
             </span>
           </label>
 
+          {errors.confirmed ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.confirmed}</p>
+          ) : null}
           <div className="cw-script">
             <div className="cw-script-title">Sample script</div>
             <p>{SAMPLE_SCRIPT}</p>

@@ -47,6 +47,8 @@ import { useAuth } from "@/providers/auth-provider";
 import {
   facetSections,
   getInitialCreatorName,
+  PACKAGE_MIN_DELIVERY_DAYS,
+  PACKAGE_MAX_DELIVERY_DAYS,
   type PackageDraft,
 } from "@/features/creators/hooks/creator-profile-form-utils";
 import { capitalizeFirstLetter, toTitleCaseLabel } from "@/lib/string-lists";
@@ -113,6 +115,7 @@ export function CreatorProfileWizard({
     : (user?.email ?? "");
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [triedContinue, setTriedContinue] = useState<Partial<Record<WizardStepId, boolean>>>({});
   const [completed, setCompleted] = useState<Set<WizardStepId>>(new Set());
   const [submitted, setSubmitted] = useState(false);
 
@@ -784,6 +787,68 @@ export function CreatorProfileWizard({
     return dob <= cutoff;
   }, [dateOfBirth]);
 
+  // Structured per-field errors for inline banners — only active after the
+  // user first pressed "Continue" on that step.
+  const stepErrors = useMemo(() => {
+    const tried = triedContinue;
+    return {
+      about: tried.about
+        ? {
+            displayName: !displayName.trim() ? "Please enter your full name." : undefined,
+            dateOfBirth: !dateOfBirth ? "Please add your date of birth." : !isEighteenPlus ? "Creators must be at least 18 years old." : undefined,
+            gender: !gender ? "Please select your gender." : undefined,
+            city: !location.city.trim() ? "Please select your city." : undefined,
+            language: selectedLanguageCount === 0 ? "Add at least one language." : undefined,
+            languageConfirmed: selectedLanguageCount > 0 && !languageConfirmed ? "Please confirm your languages." : undefined,
+            instagram: !instagramConnected ? "Connect your Instagram account to continue." : undefined,
+          }
+        : {},
+      identity: tried.identity
+        ? {
+            primaryNiche: !facets.primaryNiche ? "Choose your primary niche." : undefined,
+            secondaryNiches: facets.secondaryNiches.length < REQUIRED_SECONDARY_NICHES ? `Pick ${REQUIRED_SECONDARY_NICHES} secondary niches.` : undefined,
+            creatorType: facetCount("CREATOR_TYPE") === 0 ? "Select your creator type." : undefined,
+            occupation: facetCount("OCCUPATION") === 0 ? "Select your occupation." : undefined,
+            appearance: facetCount("APPEARANCE") === 0 ? "Select your appearance." : undefined,
+            restrictions: selectedRestrictions.length === 0 ? "Choose at least one category you're comfortable with." : undefined,
+            blankOther: identityHasBlankOther ? 'Fill in your "Other" selection.' : undefined,
+          }
+        : {},
+      portfolio: tried.portfolio
+        ? {
+            bio: bio.trim().length < BIO_MIN_CHARS ? `Your bio needs at least ${BIO_MIN_CHARS} characters (${bio.trim().length} so far).` : undefined,
+          }
+        : {},
+      "intro-video": tried["intro-video"]
+        ? {
+            video: !introVideo.introVideoPreviewUrl ? "Upload your intro video to continue." : undefined,
+            confirmed: introVideo.introVideoPreviewUrl && !introConfirmed ? "Confirm your video meets the requirements." : undefined,
+          }
+        : {},
+      pricing: tried.pricing
+        ? {
+            deliveryDays: (() => {
+              const d = Number(packages.packageDraft.deliveryDays);
+              if (!packages.packageDraft.deliveryDays || !Number.isInteger(d) || d < PACKAGE_MIN_DELIVERY_DAYS || d > PACKAGE_MAX_DELIVERY_DAYS)
+                return `Delivery must be between ${PACKAGE_MIN_DELIVERY_DAYS} and ${PACKAGE_MAX_DELIVERY_DAYS} days.`;
+              return undefined;
+            })(),
+            defaultsConfirmed: !packageDefaultsConfirmed ? "Confirm you can deliver the package defaults." : undefined,
+            addOnPrices: !addOns.mandatoryAddOnsPriced ? "Enter prices for the required add-ons." : undefined,
+          }
+        : {},
+    };
+  }, [
+    triedContinue,
+    displayName, dateOfBirth, isEighteenPlus, gender, location.city,
+    selectedLanguageCount, languageConfirmed, instagramConnected,
+    facets.primaryNiche, facets.secondaryNiches, facetCount,
+    selectedRestrictions, identityHasBlankOther,
+    bio, introVideo.introVideoPreviewUrl, introConfirmed,
+    packages.packageDraft.deliveryDays,
+    packageDefaultsConfirmed, addOns.mandatoryAddOnsPriced,
+  ]);
+
   const persist = useCallback(
     (opts: { completeId: WizardStepId; nextIndex: number; includePackages?: boolean; goLive?: boolean }) => {
       if (introVideo.uploadingIntroVideo || profileImage.uploadingProfileImage) {
@@ -818,6 +883,7 @@ export function CreatorProfileWizard({
 
     const missing = validateStep(id);
     if (missing.length > 0) {
+      setTriedContinue((prev) => ({ ...prev, [id]: true }));
       toast.error(`Almost there — add ${missing.join(", ")}.`);
       return;
     }
@@ -853,6 +919,7 @@ export function CreatorProfileWizard({
     const id = activeStep.id;
     const missing = validateStep(id);
     if (missing.length > 0) {
+      setTriedContinue((prev) => ({ ...prev, [id]: true }));
       toast.error(`Almost there — add ${missing.join(", ")}.`);
       return;
     }
@@ -1168,6 +1235,7 @@ export function CreatorProfileWizard({
                   }}
                   languageConfirmed={languageConfirmed}
                   onLanguageConfirmedChange={setLanguageConfirmed}
+                  errors={stepErrors.about}
                 />
               ) : activeStep.id === "identity" ? (
                 <IdentityStep
@@ -1207,6 +1275,7 @@ export function CreatorProfileWizard({
                     markDirty();
                     setAllRestrictions(selected);
                   }}
+                  errors={stepErrors.identity}
                 />
               ) : activeStep.id === "intro-video" ? (
                 <IntroVideoStep
@@ -1217,6 +1286,7 @@ export function CreatorProfileWizard({
                   onSelectFile={(file) => void introVideo.handleIntroVideoSelected(file)}
                   confirmed={introConfirmed}
                   onConfirmedChange={setIntroConfirmed}
+                  errors={stepErrors["intro-video"]}
                 />
               ) : activeStep.id === "portfolio" ? (
                 <PortfolioStep
@@ -1238,13 +1308,17 @@ export function CreatorProfileWizard({
                   canGenerateBio={canGenerateBio}
                   showAiNotice={showBioAiNotice}
                   onDismissAiNotice={() => setShowBioAiNotice(false)}
+                  errors={stepErrors.portfolio}
                 />
               ) : activeStep.id === "pricing" ? (
                 <PricingStep
                   disabled={pending}
                   packageDraft={packages.packageDraft}
                   onPackageChange={onPackageChange}
-                  packageErrors={packageErrors}
+                  packageErrors={{
+                    ...packageErrors,
+                    deliveryDays: packageErrors.deliveryDays ?? stepErrors.pricing?.deliveryDays,
+                  }}
                   addOnOptions={addOns.addOnOptions}
                   selectedAddOnSlugs={addOns.selectedAddOnSlugs}
                   addOnDrafts={addOns.addOnDrafts}
@@ -1256,6 +1330,7 @@ export function CreatorProfileWizard({
                   onAddOnDraftChange={(slug, patch) => addOns.updateAddOnDraft(slug, patch)}
                   defaultsConfirmed={packageDefaultsConfirmed}
                   onDefaultsConfirmedChange={setPackageDefaultsConfirmed}
+                  errors={stepErrors.pricing}
                 />
               ) : activeStep.id === "review" ? (
                 <ReviewStep

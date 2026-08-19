@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Loader2, X } from "lucide-react";
+import { AlertTriangle, Sparkles, Loader2, X } from "lucide-react";
 
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import { PortfolioGrid } from "@/features/creators/components/creator-profile-update/portfolio-components";
@@ -42,6 +42,7 @@ export type PortfolioStepProps = {
   canGenerateBio: boolean;
   showAiNotice: boolean;
   onDismissAiNotice: () => void;
+  errors?: { bio?: string };
 };
 
 export function PortfolioStep({
@@ -60,6 +61,7 @@ export function PortfolioStep({
   canGenerateBio,
   showAiNotice,
   onDismissAiNotice,
+  errors = {},
 }: PortfolioStepProps) {
   const publicCount = videos.filter((v) => v.visibilityStatus === "public").length;
   const bioLen = bio.trim().length;
@@ -126,6 +128,9 @@ export function PortfolioStep({
               <X size={14} aria-hidden />
             </button>
           </div>
+        ) : null}
+        {errors.bio ? (
+          <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.bio}</p>
         ) : null}
         <div className="cw-bio-foot">
           <span

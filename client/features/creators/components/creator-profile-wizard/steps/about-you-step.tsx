@@ -3,7 +3,7 @@
 import { useState, type RefObject } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Check, Eye, ImageUp, Instagram, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Camera, Check, Eye, ImageUp, Instagram, RefreshCw, X } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
@@ -58,6 +58,15 @@ export type AboutYouStepProps = {
 
   languageConfirmed: boolean;
   onLanguageConfirmedChange: (value: boolean) => void;
+  errors?: {
+    displayName?: string;
+    dateOfBirth?: string;
+    gender?: string;
+    city?: string;
+    language?: string;
+    languageConfirmed?: string;
+    instagram?: string;
+  };
 };
 
 export function AboutYouStep(props: AboutYouStepProps) {
@@ -92,6 +101,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
     onToggleLanguage,
     languageConfirmed,
     onLanguageConfirmedChange,
+    errors = {},
   } = props;
 
   const today = new Date().toISOString().split("T")[0];
@@ -224,6 +234,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
             autoComplete="name"
             onChange={(e) => onDisplayNameChange(e.target.value)}
           />
+          {errors.displayName ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.displayName}</p>
+          ) : null}
         </div>
 
         <div className="cw-field">
@@ -248,6 +261,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
             }}
             onChange={(e) => onDateOfBirthChange(e.target.value)}
           />
+          {errors.dateOfBirth ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.dateOfBirth}</p>
+          ) : null}
         </div>
 
         <div className="cw-field cw-select-field">
@@ -264,6 +280,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
             allowClear
             onChange={(value) => onGenderChange(value as CreatorGender | "")}
           />
+          {errors.gender ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.gender}</p>
+          ) : null}
         </div>
 
         <div className="cw-field cw-select-field">
@@ -309,6 +328,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
             options={cities.map((row) => ({ value: row.name, label: row.name }))}
             onChange={onCityChange}
           />
+          {errors.city ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.city}</p>
+          ) : null}
         </div>
 
         {adminMode ? (
@@ -357,6 +379,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onToggle={onToggleLanguage}
           />
         )}
+        {errors.language ? (
+          <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.language}</p>
+        ) : null}
       </div>
 
       {/* Confirmation gate */}
@@ -381,6 +406,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
           and a lower creator score.
         </span>
       </label>
+      {errors.languageConfirmed ? (
+        <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.languageConfirmed}</p>
+      ) : null}
 
       <div className="cw-hr" />
 
@@ -389,7 +417,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
         <div className="cw-facet-label">
           <span>
             <Instagram size={15} aria-hidden style={{ marginRight: 6 }} />
-            Connect your Instagram
+            Connect your Accounts
             <span className="cw-req"> *</span>
           </span>
         </div>
@@ -400,6 +428,9 @@ export function AboutYouStep(props: AboutYouStepProps) {
         <div>
           <CreatorSocialAccounts profileId={profileId} />
         </div>
+        {errors.instagram ? (
+          <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.instagram}</p>
+        ) : null}
       </div>
 
       {/* Full-size photo viewer */}

@@ -4,7 +4,6 @@
 export type CreateCreatorProfileAtSignupInput = {
   displayName: string;
   contactEmail: string;
-  instagramUrl?: string | null;
   /** Meta attribution identifiers captured in the creator's browser at signup. */
   metaFbp?: string | null;
   metaFbc?: string | null;

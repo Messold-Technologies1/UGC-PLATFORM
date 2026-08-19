@@ -87,7 +87,6 @@ export class SignupRegistrationService {
           {
             displayName: dto.name.trim(),
             contactEmail: email,
-            instagramUrl: dto.instagramUrl?.trim() || null,
             metaFbp: dto.metaFbp?.trim() || null,
             metaFbc: dto.metaFbc?.trim() || null,
             metaSignupIp: meta?.ipAddress ?? null,

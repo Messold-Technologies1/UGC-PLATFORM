@@ -42,17 +42,6 @@ export class RegisterCreatorDto {
   phoneOtpCode?: string;
 
   @ApiPropertyOptional({
-    example: '@jane',
-    description:
-      'Optional Instagram handle/URL. Creators are prompted to connect their ' +
-      'Instagram from their profile after signup instead, so this may be empty.',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  instagramUrl?: string;
-
-  @ApiPropertyOptional({
     description:
       'Meta Pixel _fbp cookie captured in the browser at signup (for Conversions API attribution).',
   })

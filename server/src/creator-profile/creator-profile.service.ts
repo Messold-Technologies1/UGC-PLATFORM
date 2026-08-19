@@ -989,7 +989,6 @@ export class CreatorProfileService {
         displayName: input.displayName.trim(),
         publicSlug,
         contactEmail: input.contactEmail.trim(),
-        instagramUrl: input.instagramUrl?.trim() || null,
         metaFbp: input.metaFbp?.trim() || null,
         metaFbc: input.metaFbc?.trim() || null,
         metaSignupIp: input.metaSignupIp?.trim() || null,

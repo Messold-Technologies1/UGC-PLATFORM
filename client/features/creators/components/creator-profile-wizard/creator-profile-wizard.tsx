@@ -725,6 +725,7 @@ export function CreatorProfileWizard({
         if (selectedLanguageCount === 0) missing.push("at least one language");
         if (selectedLanguageCount > 0 && !languageConfirmed)
           missing.push("the language confirmation");
+        if (!instagramConnected) missing.push("an Instagram connection");
       } else if (id === "identity") {
         if (!facets.primaryNiche) missing.push("your primary niche");
         if (facets.secondaryNiches.length < REQUIRED_SECONDARY_NICHES)
@@ -759,6 +760,7 @@ export function CreatorProfileWizard({
       location.city,
       selectedLanguageCount,
       languageConfirmed,
+      instagramConnected,
       facetCount,
       facets.primaryNiche,
       facets.secondaryNiches,

@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAcceptOrderDeliveryMutation } from "../../../hooks/use-accept-order-delivery-mutation";
 import { useRequestOrderRevisionMutation } from "../../../hooks/use-request-order-revision-mutation";
 import { useOpenBrandDisputeMutation } from "../../../hooks/use-open-brand-dispute-mutation";
+import { useBuyExtraRevisions } from "@/features/payments/hooks/use-buy-extra-revisions";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface YourActionRequiredCardProps {
@@ -88,6 +89,7 @@ export function YourActionRequiredCard({
   const [isIssueDrawerOpen, setIsIssueDrawerOpen] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [issueReason, setIssueReason] = useState("");
+  const [revisionQty, setRevisionQty] = useState(1);
 
   const acceptMutation = useAcceptOrderDeliveryMutation({
     onSuccess: () => setIsApproveDialogOpen(false),
@@ -115,7 +117,22 @@ export function YourActionRequiredCard({
   const canRequestRevision = canReviewDelivery && hasRevisionsRemaining;
   const revisionsUsed = order.revisionCount;
   const revisionsMax = order.maxRevisionsSnapshot;
+  const {
+    isGatewayReady: isRevisionGatewayReady,
+    isProcessing: isBuyingRevisions,
+    buyRevisions,
+  } = useBuyExtraRevisions(orderId);
+  const revisionAddOnPrice =
+    order.revisionAddOnUnitPaise != null
+      ? Math.round(order.revisionAddOnUnitPaise / 100)
+      : null;
   const timeLeft = computeTimeLeft(order.deliveredAt);
+  const canBuyRevisions =
+    canReviewDelivery &&
+    !hasRevisionsRemaining &&
+    order.revisionAddOnAvailable &&
+    revisionAddOnPrice != null &&
+    timeLeft !== "0 hours";
   const isAcceptPending = acceptMutation.isPending;
   const isRevisionPending = revisionMutation.isPending;
   const isIssuePending = issueMutation.isPending;
@@ -244,6 +261,66 @@ export function YourActionRequiredCard({
               <RotateCcw className="size-4 mr-1.5" />
               Request Revision
             </Button>
+
+            {canBuyRevisions ? (
+              <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  You&apos;ve used all {revisionsMax} revisions on this order.
+                  Need more? Buy extra revisions in packs of{" "}
+                  {order.revisionsPerPurchase}.
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Packs
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="size-8 rounded-lg p-0"
+                      disabled={isBuyingRevisions || revisionQty <= 1}
+                      onClick={() =>
+                        setRevisionQty((q) => Math.max(1, q - 1))
+                      }
+                      aria-label="Fewer packs"
+                    >
+                      −
+                    </Button>
+                    <span className="w-6 text-center text-sm font-semibold tabular-nums">
+                      {revisionQty}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="size-8 rounded-lg p-0"
+                      disabled={isBuyingRevisions || revisionQty >= 20}
+                      onClick={() =>
+                        setRevisionQty((q) => Math.min(20, q + 1))
+                      }
+                      aria-label="More packs"
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full font-semibold h-11 rounded-xl mt-3"
+                  disabled={!isRevisionGatewayReady || isBuyingRevisions}
+                  onClick={() => void buyRevisions(revisionQty)}
+                >
+                  {isBuyingRevisions ? (
+                    <Spinner className="size-4 mr-1.5" />
+                  ) : (
+                    <RotateCcw className="size-4 mr-1.5" />
+                  )}
+                  Buy {revisionQty * order.revisionsPerPurchase} revisions · ₹
+                  {revisionAddOnPrice != null
+                    ? revisionAddOnPrice * revisionQty
+                    : null}
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-3 mt-5">

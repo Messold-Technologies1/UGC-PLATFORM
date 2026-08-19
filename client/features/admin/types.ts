@@ -308,10 +308,33 @@ export interface AdminCreatorPayoutDetailsDto {
   upiId?: string | null;
 }
 
+export interface OrderRevisionPurchaseDto {
+  revisionsAdded: number;
+  unitAmountPaise: number;
+  expectedAmountPaise: number;
+  paidAt?: string | null;
+}
+
+/** Settlement figures (paise). brandPaid = payToCreator + platformFee + refundToBrand. */
+export interface OrderPricingLedgerDto {
+  brandPaidPaise: number;
+  basePlusAddOnsPaise: number;
+  extraPaidPaise: number;
+  extraRevisionsPurchased: number;
+  extraRevisionsUsed: number;
+  extraRevisionsUnused: number;
+  refundToBrandPaise: number;
+  earnedPaise: number;
+  platformFeePaise: number;
+  payToCreatorPaise: number;
+}
+
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;
   razorpayRefundId?: string | null;
+  pricingLedger?: OrderPricingLedgerDto;
+  revisionPurchases?: OrderRevisionPurchaseDto[];
 }
 
 export interface AdminOrderDetailsResponseDto {

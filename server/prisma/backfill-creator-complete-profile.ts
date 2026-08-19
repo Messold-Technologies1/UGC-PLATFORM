@@ -3,6 +3,8 @@ import {
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
   PrismaClient,
+  SocialConnectionStatus,
+  SocialPlatform,
 } from '@prisma/client';
 import { evaluateProfileCompleteness } from '../src/creator-profile/creator-profile-completeness.util';
 
@@ -76,6 +78,14 @@ async function main(): Promise<void> {
       },
     });
 
+    const instagramConnectionCount = await prisma.socialConnection.count({
+      where: {
+        creatorProfileId: profile.id,
+        platform: SocialPlatform.INSTAGRAM,
+        status: SocialConnectionStatus.ACTIVE,
+      },
+    });
+
     const { complete } = evaluateProfileCompleteness({
       profileImageUrl: profile.profileImageUrl,
       introVideoUrl: profile.introVideoUrl,
@@ -108,6 +118,7 @@ async function main(): Promise<void> {
       mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
         profile.addOns.some((addOn) => addOn.name === name),
       ),
+      instagramConnected: instagramConnectionCount > 0,
     });
 
     const isListed =

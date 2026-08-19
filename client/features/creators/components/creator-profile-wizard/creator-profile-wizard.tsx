@@ -25,6 +25,7 @@ import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-lo
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
+import { useSocialConnectionsQuery } from "@/features/creators/hooks/use-social-connections";
 import {
   useSubmitCreatorProfileMutation,
   useGenerateCreatorBioMutation,
@@ -171,6 +172,20 @@ export function CreatorProfileWizard({
   const deletePortfolioMutation = useDeletePortfolioVideoMutation();
   const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({ enabled });
   const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({ enabled });
+
+  // An active Instagram connection is required to go live. The connections
+  // endpoint returns the signed-in user's own accounts, so only gate on it for
+  // creators editing their own profile — admins can't connect on a creator's
+  // behalf, and the server enforces the requirement per-creator regardless.
+  const socialConnectionsQuery = useSocialConnectionsQuery({
+    enabled: !adminMode && Boolean(user),
+  });
+  const instagramConnected =
+    adminMode ||
+    (socialConnectionsQuery.data ?? []).some(
+      (connection) =>
+        connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
+    );
 
   const selectedLanguages = facets.selectedLanguages;
   // "Open to" opt-ins are stored as restrictions. Only surface values that are
@@ -533,6 +548,7 @@ export function CreatorProfileWizard({
       packageDefaultsConfirmed,
       publicVideoCount: publicPortfolioCount,
       policiesAccepted: areAllGoLivePoliciesAccepted(goLivePolicies),
+      instagramConnected,
     };
   }, [
     facets.selectedFacets,
@@ -556,6 +572,7 @@ export function CreatorProfileWizard({
     selectedLanguageCount,
     publicPortfolioCount,
     goLivePolicies,
+    instagramConnected,
   ]);
 
   const goLiveMissing = useMemo(() => computeGoLiveMissing(goLiveSnapshot), [goLiveSnapshot]);
@@ -572,7 +589,8 @@ export function CreatorProfileWizard({
             Boolean(dateOfBirth) &&
             Boolean(gender) &&
             location.city.trim().length > 0 &&
-            selectedLanguageCount > 0
+            selectedLanguageCount > 0 &&
+            instagramConnected
           );
         case "identity":
           return identityComplete;
@@ -602,6 +620,7 @@ export function CreatorProfileWizard({
       gender,
       location.city,
       selectedLanguageCount,
+      instagramConnected,
       identityComplete,
       packages.packageDraft.priceAmount,
       addOns.mandatoryAddOnsPriced,

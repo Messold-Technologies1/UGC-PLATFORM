@@ -62,6 +62,8 @@ export interface GoLiveSnapshot {
    * server also requires `acceptedGoLivePolicies: true` on Go Live.
    */
   policiesAccepted: boolean;
+  /** Whether the creator has an active Instagram connection (OAuth). */
+  instagramConnected: boolean;
 }
 
 function blank(value: string | null | undefined): boolean {
@@ -110,6 +112,8 @@ export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
   if (snapshot.publicVideoCount < MIN_PORTFOLIO_VIDEOS) {
     missing.push(`At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`);
   }
+
+  if (!snapshot.instagramConnected) missing.push("Instagram connected");
 
   if (!snapshot.policiesAccepted) {
     missing.push("Policy acceptance (AI Content, Usage Rights, Payout, Creator Guidelines)");

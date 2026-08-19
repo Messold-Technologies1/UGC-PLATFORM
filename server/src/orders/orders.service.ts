@@ -1697,7 +1697,10 @@ export class OrdersService {
     orderId: string;
     actorUserId: string;
     brandProfileId?: string | null;
+    /** Number of revision packs to buy in one payment (each = REVISIONS_PER_ADDON). */
+    quantity?: number;
   }): Promise<CheckoutSessionResult> {
+    const quantity = Math.max(1, Math.floor(params.quantity ?? 1));
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
@@ -1736,19 +1739,27 @@ export class OrdersService {
       );
     }
 
+    const revisionsAdded = quantity * REVISIONS_PER_ADDON;
+    const expectedAmountPaise = quantity * unitPaise;
+
     // Reuse an existing unpaid purchase (and its Razorpay order) to avoid
     // orphaning charges when the brand reopens the modal. Refresh it if the
-    // creator changed their price since the row was created.
+    // price or the chosen quantity changed since the row was created.
     let purchase = await this.prisma.orderRevisionPurchase.findFirst({
       where: { orderId: order.id, status: 'PENDING_PAYMENT' },
       orderBy: { createdAt: 'desc' },
     });
-    if (purchase && purchase.unitAmountPaise !== unitPaise) {
+    if (
+      purchase &&
+      (purchase.unitAmountPaise !== unitPaise ||
+        purchase.revisionsAdded !== revisionsAdded)
+    ) {
       purchase = await this.prisma.orderRevisionPurchase.update({
         where: { id: purchase.id },
         data: {
+          revisionsAdded,
           unitAmountPaise: unitPaise,
-          expectedAmountPaise: unitPaise,
+          expectedAmountPaise,
           razorpayOrderId: null,
         },
       });
@@ -1757,9 +1768,9 @@ export class OrdersService {
       purchase = await this.prisma.orderRevisionPurchase.create({
         data: {
           orderId: order.id,
-          revisionsAdded: REVISIONS_PER_ADDON,
+          revisionsAdded,
           unitAmountPaise: unitPaise,
-          expectedAmountPaise: unitPaise,
+          expectedAmountPaise,
           currency: order.currency,
           createdByUserId: params.actorUserId,
         },

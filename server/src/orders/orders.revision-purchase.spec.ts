@@ -145,6 +145,32 @@ describe('OrdersService extra-revisions purchase', () => {
     expect(session.orderId).toBe('order-1');
   });
 
+  it('buys multiple packs in one payment for the summed total', async () => {
+    const { service, razorpay, prisma } = makeService({
+      order: atCapOrder,
+      addOnPrice: 200, // ₹200/pack → 20000 paise
+    });
+    const session = await service.createRevisionCheckout({
+      orderId: 'order-1',
+      actorUserId: 'u1',
+      quantity: 3,
+    });
+    expect(prisma.orderRevisionPurchase.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          revisionsAdded: 3 * REVISIONS_PER_ADDON, // +6 revisions
+          unitAmountPaise: 20000, // per pack
+          expectedAmountPaise: 60000, // 3 × 20000
+        }),
+      }),
+    );
+    expect(razorpay.createOrder).toHaveBeenCalledTimes(1);
+    expect(razorpay.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ amountPaise: 60000 }),
+    );
+    expect(session.amountPaise).toBe(60000);
+  });
+
   it('captures the webhook: raises the cap, notifies, and is amount-verified', async () => {
     const { service, orderUpdate, orderMail, orderRealtime } = makeService({
       purchaseForWebhook: {

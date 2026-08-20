@@ -87,6 +87,16 @@ export interface OrderDetailsPublic extends OrderListSummary {
   revisionAddOnUnitPaise?: number | null;
   /** Whether the brand can buy extra revisions for this order. */
   revisionAddOnAvailable: boolean;
+  /** Usage-rights days granted by one paid extension block. */
+  usageRightsPerPurchase: number;
+  /** Base usage-rights days every order includes. */
+  usageRightsBaseDays: number;
+  /** Extra usage-rights days the brand has purchased on this order. */
+  usageRightsExtraDays: number;
+  /** Price (paise) for one usage-rights extension block; null when unavailable. */
+  usageRightsAddOnUnitPaise?: number | null;
+  /** Whether the brand can buy extra usage-rights time (only after completion). */
+  usageRightsAddOnAvailable: boolean;
   currentRevision?: OrderCurrentRevision;
   dispute?: OrderActiveDispute;
 }

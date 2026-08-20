@@ -203,6 +203,42 @@ export class OrderRealtimeNotifier {
       .emit('order.revisions_purchased', payload);
   }
 
+  /**
+   * A brand bought extra usage-rights time on a completed order. Notify both
+   * parties so their UIs reflect the extended usage window.
+   */
+  async emitOrderUsageRightsPurchased(params: {
+    orderId: string;
+    daysAdded: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitOrderUsageRightsPurchased: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const payload = {
+      orderId: params.orderId,
+      daysAdded: params.daysAdded,
+    };
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    if (brandUserId) {
+      this.gateway.server
+        .to(`user:${brandUserId}`)
+        .emit('order.usage_rights_purchased', payload);
+    }
+    this.gateway.server
+      .to(`user:${order.creator.userId}`)
+      .emit('order.usage_rights_purchased', payload);
+  }
+
   /** Creator received physical product; notify brand. Includes the now-set delivery deadlines. */
   async emitOrderProductReceived(params: {
     orderId: string;

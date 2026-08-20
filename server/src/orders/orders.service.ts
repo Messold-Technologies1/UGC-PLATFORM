@@ -30,7 +30,10 @@ import type { BrandOrderDetailsResponseDto } from './dto/brand-order-details-res
 import type { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-response.dto';
 import type { OrderDetailsPublicDto } from './dto/order-details-public.dto';
 import type { OrderDetailsAdminDto } from './dto/order-details-admin.dto';
-import { computeOrderPricingLedger } from './order-pricing-ledger.util';
+import {
+  computeOrderPricingLedger,
+  PLATFORM_FEE_RATE,
+} from './order-pricing-ledger.util';
 import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
 import type { PresignDeliveryUploadResponseDto } from './dto/presign-delivery-upload-response.dto';
 import type {
@@ -106,6 +109,17 @@ export const REVISIONS_PER_ADDON = 2;
  * this option's name and match the creator's row by name.
  */
 const EXTRA_REVISION_OPTION_SLUG = 'extra_revision';
+
+/** Usage-rights days granted per paid "extra usage rights" block. */
+export const USAGE_RIGHTS_DAYS_PER_ADDON = 30;
+/** Base content usage-rights window every order includes (descriptive text today). */
+export const BASE_USAGE_RIGHTS_DAYS = 30;
+/**
+ * Catalog slug whose creator-set price is the unit price for buying extra
+ * usage-rights time on a completed order. Resolved by name like the revision
+ * add-on (`CreatorAddOn` has no slug column).
+ */
+const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
 
 function razorpayRefundErrorMessage(err: unknown): string {
   if (
@@ -1890,6 +1904,231 @@ export class OrdersService {
     return purchase.orderId;
   }
 
+  /**
+   * The price (paise) a brand pays for one extra usage-rights block (30 days):
+   * the creator's own "Usage Rights extra 30 days" add-on price. Resolved via the
+   * catalog option (slug 'paid_ads_usage_30_days') → its name → the creator's
+   * `CreatorAddOn` of that name. Returns null when unpriced (UI hides the CTA).
+   */
+  private async resolveUsageRightsAddOnUnitPaise(
+    creatorId: string,
+  ): Promise<number | null> {
+    const option = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: EXTRA_USAGE_RIGHTS_OPTION_SLUG },
+      select: { name: true },
+    });
+    if (!option) return null;
+    const row = await this.prisma.creatorAddOn.findFirst({
+      where: { creatorId, name: option.name },
+      select: { priceAmount: true },
+    });
+    if (!row) return null;
+    const paise = toPaise(row.priceAmount);
+    return paise > 0 ? paise : null;
+  }
+
+  /**
+   * Start a Razorpay checkout for buying extra usage-rights time (30-day blocks,
+   * non-refundable) on a COMPLETED order. Reuses/refreshes a pending purchase row
+   * (owns its own Razorpay order + verifiable amount) so a dismissed modal doesn't
+   * orphan a charge. Usage days are added only on the verified webhook capture
+   * (see markUsageRightsPurchasePaidFromWebhook).
+   */
+  async createUsageRightsCheckout(params: {
+    orderId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
+    /** Number of 30-day blocks to buy in one payment (each = USAGE_RIGHTS_DAYS_PER_ADDON). */
+    quantity?: number;
+  }): Promise<CheckoutSessionResult> {
+    const quantity = Math.max(1, Math.floor(params.quantity ?? 1));
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        creatorId: true,
+        status: true,
+        currency: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id) {
+      throw new ForbiddenException('Not your order');
+    }
+
+    // Only offered once the order has completed successfully.
+    const allowed = new Set(['ACCEPTED', 'CREATOR_PAYMENT_DONE']);
+    if (!allowed.has(String(order.status))) {
+      throw new BadRequestException(
+        'Usage-rights extensions are available only after the order is completed',
+      );
+    }
+
+    const unitPaise = await this.resolveUsageRightsAddOnUnitPaise(
+      order.creatorId,
+    );
+    if (!unitPaise) {
+      throw new BadRequestException(
+        'Usage-rights extensions are not available for this order',
+      );
+    }
+
+    const daysAdded = quantity * USAGE_RIGHTS_DAYS_PER_ADDON;
+    const expectedAmountPaise = quantity * unitPaise;
+
+    // Reuse an existing unpaid purchase (and its Razorpay order) to avoid
+    // orphaning charges when the brand reopens the modal. Refresh it if the
+    // price or the chosen quantity changed since the row was created.
+    let purchase = await this.prisma.orderUsageRightsPurchase.findFirst({
+      where: { orderId: order.id, status: 'PENDING_PAYMENT' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (
+      purchase &&
+      (purchase.unitAmountPaise !== unitPaise ||
+        purchase.daysAdded !== daysAdded)
+    ) {
+      purchase = await this.prisma.orderUsageRightsPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          daysAdded,
+          unitAmountPaise: unitPaise,
+          expectedAmountPaise,
+          razorpayOrderId: null,
+        },
+      });
+    }
+    if (!purchase) {
+      purchase = await this.prisma.orderUsageRightsPurchase.create({
+        data: {
+          orderId: order.id,
+          daysAdded,
+          unitAmountPaise: unitPaise,
+          expectedAmountPaise,
+          currency: order.currency,
+          createdByUserId: params.actorUserId,
+        },
+      });
+    }
+
+    let razorpayOrderId = purchase.razorpayOrderId;
+    if (!razorpayOrderId) {
+      const rzp = await this.razorpay.createOrder({
+        amountPaise: purchase.expectedAmountPaise,
+        currency: purchase.currency,
+        receipt: purchase.id,
+        notes: {
+          kind: 'usage_rights_topup',
+          usageRightsPurchaseId: purchase.id,
+          platformOrderId: order.id,
+          brandProfileId: brand.id,
+          creatorProfileId: order.creatorId,
+        },
+      });
+      razorpayOrderId = rzp.id;
+      await this.prisma.orderUsageRightsPurchase.update({
+        where: { id: purchase.id },
+        data: { razorpayOrderId },
+      });
+    }
+
+    return this.buildCheckoutSessionResult({
+      orderId: order.id,
+      razorpayOrderId,
+      amountPaise: purchase.expectedAmountPaise,
+      currency: purchase.currency,
+      packageAmountPaise: purchase.expectedAmountPaise,
+      addOnsAmountPaise: 0,
+      addOnsCount: 0,
+    });
+  }
+
+  /**
+   * payment.captured for a usage-rights purchase: verify the amount, mark the
+   * purchase paid, and atomically extend the order's usage-rights days. Idempotent
+   * (a replayed webhook is a no-op). Returns the affected order + grant, or null
+   * if the razorpayOrderId isn't a usage-rights purchase / already settled /
+   * amount mismatch. Mirrors markRevisionPurchasePaidFromWebhook.
+   */
+  async markUsageRightsPurchasePaidFromWebhook(params: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    paidAt: Date;
+    amountPaise?: number;
+  }): Promise<{ orderId: string; daysAdded: number } | null> {
+    const purchase = await this.prisma.orderUsageRightsPurchase.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: {
+        id: true,
+        orderId: true,
+        status: true,
+        daysAdded: true,
+        expectedAmountPaise: true,
+      },
+    });
+    if (!purchase) return null;
+    if (purchase.status !== 'PENDING_PAYMENT') return null; // idempotent
+
+    if (
+      purchase.expectedAmountPaise > 0 &&
+      params.amountPaise != null &&
+      purchase.expectedAmountPaise !== params.amountPaise
+    ) {
+      this.logger.warn(
+        `payment.captured amount mismatch usageRightsPurchase=${purchase.id} expectedPaise=${purchase.expectedAmountPaise} gotPaise=${params.amountPaise} — not granting usage-rights days`,
+      );
+      return null;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderUsageRightsPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          status: 'PAID',
+          paidAt: params.paidAt,
+          razorpayPaymentId: params.razorpayPaymentId,
+        },
+      });
+      await tx.order.update({
+        where: { id: purchase.orderId },
+        data: { usageRightsExtraDays: { increment: purchase.daysAdded } },
+      });
+    });
+
+    this.orderMail.notifyExtraUsageRightsPurchased(
+      purchase.orderId,
+      purchase.daysAdded,
+    );
+    void this.orderRealtime.emitOrderUsageRightsPurchased({
+      orderId: purchase.orderId,
+      daysAdded: purchase.daysAdded,
+    });
+
+    return { orderId: purchase.orderId, daysAdded: purchase.daysAdded };
+  }
+
+  /** payment.failed for a usage-rights purchase: flip its row to FAILED. */
+  async markUsageRightsPurchaseFailedFromWebhook(params: {
+    razorpayOrderId: string;
+  }): Promise<string | null> {
+    const purchase = await this.prisma.orderUsageRightsPurchase.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: { id: true, orderId: true, status: true },
+    });
+    if (!purchase || purchase.status !== 'PENDING_PAYMENT') return null;
+    await this.prisma.orderUsageRightsPurchase.update({
+      where: { id: purchase.id },
+      data: { status: 'FAILED' },
+    });
+    return purchase.orderId;
+  }
+
   async listRevisionsForOrder(params: {
     orderId: string;
     viewerUserId: string;
@@ -2002,6 +2241,7 @@ export class OrdersService {
     currency: string;
     deliveryDaysSnapshot: number;
     maxRevisionsSnapshot: number;
+    usageRightsExtraDays: number;
     addOnsSnapshot: Prisma.JsonValue;
     addOnsTotalSnapshot: Prisma.Decimal | null;
     expectedAmountPaise: number;
@@ -2080,6 +2320,13 @@ export class OrdersService {
       revisionsPerPurchase: REVISIONS_PER_ADDON,
       revisionAddOnUnitPaise: null,
       revisionAddOnAvailable: false,
+      // Usage-rights extension info. Unit price/availability resolved only on the
+      // brand details path (below); other viewers keep the null default.
+      usageRightsPerPurchase: USAGE_RIGHTS_DAYS_PER_ADDON,
+      usageRightsBaseDays: BASE_USAGE_RIGHTS_DAYS,
+      usageRightsExtraDays: order.usageRightsExtraDays,
+      usageRightsAddOnUnitPaise: null,
+      usageRightsAddOnAvailable: false,
     };
   }
 
@@ -2191,6 +2438,17 @@ export class OrdersService {
     const revisionUnitPaise = await this.resolveRevisionAddOnUnitPaise(creator.id);
     mappedOrder.revisionAddOnUnitPaise = revisionUnitPaise;
     mappedOrder.revisionAddOnAvailable = revisionUnitPaise != null;
+
+    // Surface the usage-rights extension price; only offered once the order is
+    // completed (ACCEPTED / CREATOR_PAYMENT_DONE) and the creator has priced it.
+    const usageRightsUnitPaise = await this.resolveUsageRightsAddOnUnitPaise(
+      creator.id,
+    );
+    const orderCompleted =
+      order.status === 'ACCEPTED' || order.status === 'CREATOR_PAYMENT_DONE';
+    mappedOrder.usageRightsAddOnUnitPaise = usageRightsUnitPaise;
+    mappedOrder.usageRightsAddOnAvailable =
+      orderCompleted && usageRightsUnitPaise != null;
 
     const revisionActiveStatuses = new Set<OrderStatus>([
       'REVISION_REQUESTED',
@@ -2505,6 +2763,16 @@ export class OrdersService {
           },
           orderBy: { paidAt: 'asc' },
         },
+        usageRightsPurchases: {
+          where: { status: 'PAID' },
+          select: {
+            daysAdded: true,
+            unitAmountPaise: true,
+            expectedAmountPaise: true,
+            paidAt: true,
+          },
+          orderBy: { paidAt: 'asc' },
+        },
         creator: {
           select: {
             id: true,
@@ -2521,7 +2789,8 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const { creator, brand, revisionPurchases, ...orderFields } = order;
+    const { creator, brand, revisionPurchases, usageRightsPurchases, ...orderFields } =
+      order;
     const mappedOrder = this.mapOrderDetailsAdmin(orderFields);
 
     // Full pricing ledger: what the brand paid vs what to pay the creator and
@@ -2548,6 +2817,37 @@ export class OrdersService {
       expectedAmountPaise: p.expectedAmountPaise,
       paidAt: p.paidAt,
     }));
+
+    // Usage-rights extensions are non-refundable: every block is kept, so the
+    // whole spend is earned — 80% to creator, 20% platform fee.
+    const paidUsageRights = (usageRightsPurchases ?? []) as Array<{
+      daysAdded: number;
+      unitAmountPaise: number;
+      expectedAmountPaise: number;
+      paidAt: Date | null;
+    }>;
+    mappedOrder.usageRightsPurchases = paidUsageRights.map((p) => ({
+      daysAdded: p.daysAdded,
+      unitAmountPaise: p.unitAmountPaise,
+      expectedAmountPaise: p.expectedAmountPaise,
+      paidAt: p.paidAt,
+    }));
+    const usageRightsBrandPaid = paidUsageRights.reduce(
+      (sum, p) => sum + Math.max(0, p.expectedAmountPaise),
+      0,
+    );
+    const usageRightsPlatformFee = Math.round(
+      usageRightsBrandPaid * PLATFORM_FEE_RATE,
+    );
+    mappedOrder.usageRightsSettlement = {
+      brandPaidPaise: usageRightsBrandPaid,
+      platformFeePaise: usageRightsPlatformFee,
+      payToCreatorPaise: usageRightsBrandPaid - usageRightsPlatformFee,
+      daysPurchased: paidUsageRights.reduce(
+        (sum, p) => sum + Math.max(0, p.daysAdded),
+        0,
+      ),
+    };
 
     // Surface the latest dispute so admins can see which party raised it, the
     // reason, and (once resolved) the resolution note.

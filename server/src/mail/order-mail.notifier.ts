@@ -17,6 +17,7 @@ const orderMailInclude = {
   currency: true,
   revisionCount: true,
   maxRevisionsSnapshot: true,
+  usageRightsExtraDays: true,
   brand: {
     select: {
       id: true,
@@ -186,6 +187,36 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR,
         vars,
+      );
+    });
+  }
+
+  /** A brand bought extra usage-rights time (non-refundable). Mail BOTH parties. */
+  notifyExtraUsageRightsPurchased(orderId: string, daysAdded: number): void {
+    void this.run('extra_usage_rights_purchased', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      // loadOrder runs after the increment, so usageRightsExtraDays is fresh.
+      const totalUsageDays = 30 + order.usageRightsExtraDays;
+      const base: Record<string, string> = {
+        brandName: this.brandDisplayName(order.brand),
+        creatorName: order.creator.displayName,
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        daysAdded: String(daysAdded),
+        totalUsageDays: String(totalUsageDays),
+      };
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND,
+        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+      );
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR,
+        { ...base, actionUrl: this.creatorOrderListUrl(order.id, 'completed') },
       );
     });
   }

@@ -1,0 +1,13 @@
+{{!-- context: recipientName, platformName, brandName, creatorName, packageName, orderId, daysAdded, totalUsageDays, actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Usage rights extended 📄</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{brandName}}</strong> purchased a <strong>{{daysAdded}}-day</strong> usage-rights extension on your completed order for <strong>"{{packageName}}"</strong>.
+</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#374151;">
+  This order now includes <strong>{{totalUsageDays}} days</strong> of content usage rights in total.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order →"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team ✨</p>

@@ -54,6 +54,7 @@ import { MarkProductShippedDto } from './dto/mark-product-shipped.dto';
 import { CreatorDeliveriesResponseDto } from './dto/creator-deliveries-response.dto';
 import { RequestRevisionDto } from './dto/request-revision.dto';
 import { BuyExtraRevisionsDto } from './dto/buy-extra-revisions.dto';
+import { BuyExtraUsageRightsDto } from './dto/buy-extra-usage-rights.dto';
 import { OrderRevisionsResponseDto } from './dto/order-revisions-response.dto';
 import { brandActorParams } from '../brand-access/brand-actor-params.util';
 
@@ -451,6 +452,30 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CheckoutResponseDto> {
     return this.ordersService.createRevisionCheckout({
+      orderId: id,
+      ...brandActorParams(req),
+      quantity: dto.quantity,
+    });
+  }
+
+  @Post(':id/usage-rights/checkout')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Create/reuse a Razorpay checkout to buy extra usage-rights time for a completed order',
+    description:
+      'Available only after the order is completed. Each paid 30-day block extends the order usage-rights window after the payment is captured (webhook). Non-refundable.',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CheckoutResponseDto })
+  async createUsageRightsCheckout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: BuyExtraUsageRightsDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CheckoutResponseDto> {
+    return this.ordersService.createUsageRightsCheckout({
       orderId: id,
       ...brandActorParams(req),
       quantity: dto.quantity,

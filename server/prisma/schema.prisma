@@ -186,6 +186,7 @@ model User {
   resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
   requestedRevisions     OrderRevision[]      @relation("OrderRevisionRequester")
   revisionPurchases      OrderRevisionPurchase[] @relation("RevisionPurchaseCreator")
+  usageRightsPurchases   OrderUsageRightsPurchase[] @relation("UsageRightsPurchaseCreator")
   sentChatMessages       OrderChatMessage[]
   orderChatReadStates    OrderChatReadState[]
   passwordResetTokens    PasswordResetToken[]
@@ -545,6 +546,11 @@ model Order {
   currency             String  @default("INR")
   deliveryDaysSnapshot Int
   maxRevisionsSnapshot Int     @default(0)
+  /// Extra content usage-rights days the brand has purchased after completion
+  /// (each paid OrderUsageRightsPurchase increments this by daysAdded). The base
+  /// 30 days lives only as descriptive text in deliverablesSnapshot; total usage
+  /// days = BASE_USAGE_RIGHTS_DAYS + this.
+  usageRightsExtraDays Int     @default(0)
 
   // Add-ons at purchase (catalog may change later)
   addOnsSnapshot      Json     @default("[]")
@@ -605,6 +611,7 @@ model Order {
   disputes       OrderDispute[]
   revisions      OrderRevision[]
   revisionPurchases OrderRevisionPurchase[]
+  usageRightsPurchases OrderUsageRightsPurchase[]
   deliveries     OrderDelivery[]
   chatMessages   OrderChatMessage[]
   chatReadStates OrderChatReadState[]
@@ -682,6 +689,41 @@ model OrderRevisionPurchase {
 
   order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdBy User  @relation("RevisionPurchaseCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+enum OrderUsageRightsPurchaseStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+/// A supplemental, standalone charge on a COMPLETED Order: the brand buys extra
+/// content usage-rights time in 30-day blocks (non-refundable). Each paid purchase
+/// increments `Order.usageRightsExtraDays` by `daysAdded`. Owns its own Razorpay
+/// order + verifiable amount, exactly like OrderRevisionPurchase. Unlimited per
+/// order.
+model OrderUsageRightsPurchase {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  orderId             String                         @db.Uuid
+  /// Usage-rights days this purchase grants once paid (quantity * USAGE_RIGHTS_DAYS_PER_ADDON).
+  daysAdded           Int
+  /// Creator's "Usage Rights extra 30 days" add-on price, in paise, snapshotted at purchase time.
+  unitAmountPaise     Int
+  /// Amount the Razorpay order is created for and verified against on capture.
+  expectedAmountPaise Int
+  currency            String                         @default("INR")
+  status              OrderUsageRightsPurchaseStatus @default(PENDING_PAYMENT)
+  razorpayOrderId     String?                        @unique
+  razorpayPaymentId   String?
+  paidAt              DateTime?
+  createdByUserId     String                         @db.Uuid
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("UsageRightsPurchaseCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }

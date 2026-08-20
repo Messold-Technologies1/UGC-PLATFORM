@@ -35,6 +35,7 @@ import { DeliveredVideosCard } from "./order-delivered/delivered-videos-card";
 import { YourActionRequiredCard } from "./order-delivered/your-action-required-card";
 import { CompletedNotificationBanner } from "./order-completed/completed-notification-banner";
 import { CompletedPaymentSummaryCard } from "./order-completed/completed-payment-summary-card";
+import { UsageRightsCard } from "./order-completed/usage-rights-card";
 import { ShareExperienceCard } from "./order-completed/share-experience-card";
 import { SupportBanner } from "./order-completed/support-banner";
 import { cn } from "@/lib/utils";
@@ -210,6 +211,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           </div>
           <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
             <CompletedPaymentSummaryCard order={order} />
+            <UsageRightsCard orderId={orderId} order={order} />
           </aside>
         </div>
 

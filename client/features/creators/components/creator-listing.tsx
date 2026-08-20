@@ -115,6 +115,7 @@ function stringArraysEqual(a: string[], b: string[]): boolean {
 
 function filtersEqual(a: Filters, b: Filters): boolean {
   return (
+    a.search === b.search &&
     a.city === b.city &&
     stringArraysEqual(a.categories, b.categories) &&
     a.gender === b.gender &&
@@ -240,9 +241,8 @@ export function CreatorListing({
 
   const syncUrlImmediate = useCallback(
     (nextFilters: Filters) => {
-      // Free-text search was removed (brands can't search creators by name);
-      // the URL only carries structured filters now.
-      const qs = serializeBrowseListingParams(nextFilters, "");
+      // The keyword search rides on nextFilters.search and round-trips as `?q=`.
+      const qs = serializeBrowseListingParams(nextFilters, nextFilters.search);
       if (qs === searchParamsKey) return;
       const nextUrl = qs ? `?${qs}` : window.location.pathname;
       window.history.replaceState(null, "", nextUrl);
@@ -279,6 +279,7 @@ export function CreatorListing({
   const apiFilters = useMemo(
     () => ({
       limit: listLimit,
+      search: filters.search || undefined,
       city: filters.city || undefined,
       categories: filters.categories,
       gender: filters.gender || undefined,

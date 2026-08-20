@@ -1,4 +1,5 @@
 export interface Filters {
+  search: string;
   city: string;
   categories: string[];
   gender: string;
@@ -25,6 +26,7 @@ export const DELIVERY_WITHIN_OPTIONS = [
 ] as const;
 
 export const DEFAULT_FILTERS: Filters = {
+  search: "",
   city: "",
   categories: [],
   gender: "",

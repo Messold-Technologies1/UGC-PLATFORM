@@ -33,9 +33,11 @@ function parseBoolean(
 export function parseBrowseListingParams(
   sp: Pick<URLSearchParams, "get" | "getAll">,
 ): { filters: Filters; search: string } {
+  const search = sp.get("q")?.trim() ?? "";
   return {
-    search: sp.get("q") ?? "",
+    search,
     filters: {
+      search,
       city: sp.get("city")?.trim() ?? DEFAULT_FILTERS.city,
       categories: parseMultiValue(sp, "categories"),
       gender: sp.get("gender")?.trim() ?? DEFAULT_FILTERS.gender,
@@ -71,11 +73,12 @@ const MULTI_VALUE_KEYS = [
 
 export function serializeBrowseListingParams(
   filters: Filters,
-  search: string,
+  search?: string,
 ): string {
   const params = new URLSearchParams();
 
-  const query = search.trim();
+  // Prefer the explicit arg (back-compat); otherwise use the search on filters.
+  const query = (search ?? filters.search ?? "").trim();
   if (query) params.set("q", query);
 
   const city = filters.city.trim();

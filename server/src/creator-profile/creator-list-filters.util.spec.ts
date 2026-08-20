@@ -137,16 +137,42 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('searches by location or bio, never by creator name', () => {
-      expect(buildListCreatorsWhere({ search: 'mumbai' })).toEqual({
+    it('searches across location, bio, niche, portfolio industry/tags, packages and restrictions — never the creator name', () => {
+      const like = { contains: 'fashion', mode: 'insensitive' };
+      expect(buildListCreatorsWhere({ search: 'fashion' })).toEqual({
         AND: [
           { isListed: true },
           {
             OR: [
-              { city: { contains: 'mumbai', mode: 'insensitive' } },
-              { stateName: { contains: 'mumbai', mode: 'insensitive' } },
-              { countryName: { contains: 'mumbai', mode: 'insensitive' } },
-              { bio: { contains: 'mumbai', mode: 'insensitive' } },
+              { city: like },
+              { stateName: like },
+              { countryName: like },
+              { bio: like },
+              {
+                portfolioVideos: {
+                  some: {
+                    visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+                    industryLabel: like,
+                  },
+                },
+              },
+              {
+                portfolioVideos: {
+                  some: {
+                    visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+                    tags: { some: { tag: like } },
+                  },
+                },
+              },
+              {
+                facetSelections: {
+                  some: {
+                    OR: [{ option: { label: like } }, { customLabel: like }],
+                  },
+                },
+              },
+              { packages: { some: { name: like } } },
+              { restrictions: { some: { restriction: like } } },
             ],
           },
         ],

@@ -85,9 +85,9 @@ function trimOrUndefined(value: unknown): string | undefined {
 
 export class ListCreatorsQueryDto {
   @ApiPropertyOptional({
-    example: 'aanya',
+    example: 'fashion',
     description:
-      'Free-text search by creator name, city, state, country, or bio (case-insensitive substring).',
+      'Free-text keyword search (case-insensitive substring). Matches location, bio, niche/category labels, portfolio-video industry & tags, package names, and open-to restrictions. Never matches the creator name.',
   })
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))

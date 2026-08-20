@@ -490,6 +490,12 @@ interface ActiveChip {
 function buildActiveChips(filters: Filters): ActiveChip[] {
   const chips: ActiveChip[] = [];
 
+  if (filters.search)
+    chips.push({
+      id: `search-${filters.search}`,
+      label: `Search: ${filters.search}`,
+      type: "search",
+    });
   if (filters.city)
     chips.push({
       id: `city-${filters.city}`,
@@ -589,6 +595,11 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     setLocalCity(filters.city);
   }, [filters.city]);
 
+  const [localSearch, setLocalSearch] = useState(filters.search);
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
+
   const commitField = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
       onChange({ ...filters, [key]: value });
@@ -598,6 +609,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 
   const debouncedCityChange = useDebouncedCallback((value: string) => {
     commitField("city", value.trim());
+  }, 400);
+
+  const debouncedSearchChange = useDebouncedCallback((value: string) => {
+    commitField("search", value.trim());
   }, 400);
 
   const toggleArrayField = useCallback(
@@ -623,6 +638,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
       } else if (chip.type === "onLocationAvailable") {
         onChange({ ...filters, onLocationAvailable: false });
       } else if (
+        chip.type === "search" ||
         chip.type === "city" ||
         chip.type === "gender" ||
         chip.type === "ageGroup"
@@ -732,6 +748,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     (filters.city ? 1 : 0);
 
   const activeFilterCount =
+    (filters.search ? 1 : 0) +
     categoryCount +
     langCount +
     priceCount +
@@ -822,6 +839,33 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
             </div>
           ) : (
             <>
+              <div className="relative w-full lg:w-[280px] shrink-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  type="search"
+                  value={localSearch}
+                  onChange={(e) => {
+                    setLocalSearch(e.target.value);
+                    debouncedSearchChange(e.target.value);
+                  }}
+                  placeholder="Search creators by keyword…"
+                  aria-label="Search creators"
+                  className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm"
+                />
+                {localSearch ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-foreground"
+                    onClick={() => {
+                      setLocalSearch("");
+                      commitField("search", "");
+                    }}
+                  >
+                    <X className="size-4" />
+                  </button>
+                ) : null}
+              </div>
               <div
                 className={cn(
                   "flex items-center gap-2.5",

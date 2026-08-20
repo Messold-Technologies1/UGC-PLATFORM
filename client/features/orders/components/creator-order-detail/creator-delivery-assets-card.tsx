@@ -8,6 +8,7 @@ import {
   type CarouselAsset,
 } from "@/components/ui/thumbnails-carousel";
 import type { OrderDeliveryAsset } from "../../api/get-brand-order-deliveries";
+import type { CreatorDeliveryItem } from "../../api/get-creator-deliveries";
 import { useGetCreatorOrderDeliveriesQuery } from "../../hooks/use-get-creator-deliveries-query";
 
 interface CreatorDeliveryAssetsCardProps {
@@ -91,6 +92,48 @@ function AssetButton({
   );
 }
 
+/** One submitted revision: its video(s), label, date, note and download links. */
+function DeliveryBlock({ delivery }: { delivery: CreatorDeliveryItem }) {
+  const assets = delivery.assets ?? [];
+  const submittedDate = formatDateTime(delivery.createdAt);
+  if (assets.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <ThumbnailsCarousel
+        assets={toCarouselAssets(assets)}
+        itemGroupClassName="aspect-auto h-36 rounded-lg"
+      />
+
+      <div>
+        <p className="text-sm font-semibold text-foreground">
+          {revisionLabel(delivery.revisionNumber)}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {assets.length} file{assets.length === 1 ? "" : "s"}
+          {submittedDate && ` • Submitted on ${submittedDate}`}
+        </p>
+      </div>
+
+      {delivery.note ? (
+        <p className="rounded-lg bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+          {delivery.note}
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {assets.map((asset, index) => (
+          <AssetButton
+            key={`${delivery.id}-${asset.key}`}
+            asset={asset}
+            index={index}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CreatorDeliveryAssetsCard({
   orderId,
   title,
@@ -102,9 +145,10 @@ export function CreatorDeliveryAssetsCard({
     enabled: Boolean(orderId),
   });
 
-  const latestDelivery = data?.items.at(-1);
-  const assets = latestDelivery?.assets ?? [];
-  const submittedDate = formatDateTime(latestDelivery?.createdAt);
+  // Every submitted revision, newest first (current on top, history below).
+  const deliveries = [...(data?.items ?? [])]
+    .filter((d) => (d.assets ?? []).length > 0)
+    .reverse();
 
   if (isLoading) {
     return (
@@ -120,38 +164,18 @@ export function CreatorDeliveryAssetsCard({
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <h3 className="font-bold text-sm mb-4">{title}</h3>
 
-      {latestDelivery && assets.length > 0 ? (
-        <div className="space-y-3">
-          <ThumbnailsCarousel
-            assets={toCarouselAssets(assets)}
-            itemGroupClassName="aspect-auto h-36 rounded-lg"
-          />
-
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              {revisionLabel(latestDelivery.revisionNumber)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {assets.length} file{assets.length === 1 ? "" : "s"}
-              {submittedDate && ` • Submitted on ${submittedDate}`}
-            </p>
-          </div>
-
-          {latestDelivery.note ? (
-            <p className="rounded-lg bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-              {latestDelivery.note}
-            </p>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            {assets.map((asset, index) => (
-              <AssetButton
-                key={`${latestDelivery.id}-${asset.key}`}
-                asset={asset}
-                index={index}
-              />
-            ))}
-          </div>
+      {deliveries.length > 0 ? (
+        <div className="space-y-5">
+          {deliveries.map((delivery, index) => (
+            <div
+              key={delivery.id}
+              className={
+                index > 0 ? "border-t border-border/40 pt-5" : undefined
+              }
+            >
+              <DeliveryBlock delivery={delivery} />
+            </div>
+          ))}
         </div>
       ) : !hideEmptyState ? (
         <div className="flex flex-col items-center justify-center py-8 text-center flex-1">

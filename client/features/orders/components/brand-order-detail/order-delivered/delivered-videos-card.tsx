@@ -12,7 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetBrandOrderDeliveriesQuery } from "../../../hooks/use-get-brand-order-deliveries-query";
-import type { OrderDeliveryAsset } from "../../../api/get-brand-order-deliveries";
+import type {
+  OrderDeliveryAsset,
+  OrderDeliveryItem,
+} from "../../../api/get-brand-order-deliveries";
 import {
   ThumbnailsCarousel,
   type CarouselAsset,
@@ -121,6 +124,81 @@ function AdditionalFileCard({ asset }: { asset: OrderDeliveryAsset }) {
   );
 }
 
+function revisionLabel(revisionNumber?: number): string {
+  if (!revisionNumber) return "Initial delivery";
+  return `Revision ${revisionNumber}`;
+}
+
+/** A superseded delivery shown under "Previous versions". */
+function PreviousVersionBlock({
+  delivery,
+}: {
+  delivery: OrderDeliveryItem;
+}) {
+  const assets = delivery.assets ?? [];
+  if (assets.length === 0) return null;
+  const carouselAssets: CarouselAsset[] = assets.map((asset) => ({
+    id: asset.key,
+    type: asset.kind,
+    full: asset.url,
+    thumb: asset.url,
+  }));
+
+  return (
+    <div className="rounded-xl border border-border/50 p-4">
+      <div className="flex flex-col gap-4 md:flex-row">
+        <div className="w-full shrink-0 md:w-[220px]">
+          <ThumbnailsCarousel
+            assets={carouselAssets}
+            itemGroupClassName="aspect-auto h-40 rounded-lg"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">
+            {revisionLabel(delivery.revisionsUsed)}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {formatDeliveryDate(delivery.createdAt)}
+          </p>
+          {delivery.note?.trim() ? (
+            <p className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/30 p-2.5 text-xs leading-relaxed text-muted-foreground">
+              {delivery.note.trim()}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {assets.map((asset, index) => {
+              const filename = filenameFromKey(asset.key);
+              const Icon = asset.kind === "video" ? FileVideo : ImageIcon;
+              return (
+                <Button
+                  key={asset.key}
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="h-8 max-w-full justify-start rounded-lg border-border/50 px-2.5 text-xs font-semibold"
+                >
+                  <a
+                    href={asset.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={filename}
+                  >
+                    <Icon className="size-3.5 shrink-0" />
+                    <span className="truncate">
+                      {asset.kind === "video" ? "Video" : "Image"} {index + 1}
+                    </span>
+                    <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+                  </a>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeliveredVideosSkeleton() {
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm space-y-5">
@@ -163,6 +241,12 @@ export function DeliveredVideosCard({
     isRevision,
     playableAssets,
   } = getLatestDeliveryPreviewState(deliveries);
+  // Every superseded delivery, newest first (below the current one).
+  const previousVersions = deliveries
+    .filter(
+      (d) => d.id !== latestDelivery?.id && (d.assets ?? []).length > 0,
+    )
+    .reverse();
   const allAssets = latestDelivery?.assets ?? [];
   const videoAssets = allAssets.filter((a) => a.kind === "video");
   const imageAssets = allAssets.filter((a) => a.kind === "image");
@@ -341,6 +425,19 @@ export function DeliveredVideosCard({
           <div className="flex flex-wrap gap-2">
             {imageAssets.map((asset) => (
               <AdditionalFileCard key={asset.key} asset={asset} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {previousVersions.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-border/60">
+          <h4 className="text-sm font-bold text-foreground mb-3">
+            Previous versions ({previousVersions.length})
+          </h4>
+          <div className="space-y-3">
+            {previousVersions.map((delivery) => (
+              <PreviousVersionBlock key={delivery.id} delivery={delivery} />
             ))}
           </div>
         </div>

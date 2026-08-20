@@ -657,7 +657,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     const seen = new Set<string>();
     for (const item of categorySuggestionsQuery.data ?? []) {
       const slug = item.slug?.trim();
-      if (!slug || seen.has(slug)) continue;
+      // "Other" is a catch-all niche creators can pick; not a useful filter.
+      if (!slug || slug === "other" || seen.has(slug)) continue;
       const label = item.name
         .trim()
         .replace(/\s*\/\s*/g, " & ")
@@ -679,10 +680,13 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     if (!optionsMap) return result;
 
     for (const [dim, options] of Object.entries(optionsMap)) {
-      result[dim] = options.map((o) => ({
-        slug: o.slug,
-        label: o.label.replace(/\s*\/\s*/g, " & ").replace(/\bAnd\b/g, "&"),
-      }));
+      result[dim] = options
+        // "Other" is a catch-all creators can pick; it's not a useful filter.
+        .filter((o) => o.slug !== "other")
+        .map((o) => ({
+          slug: o.slug,
+          label: o.label.replace(/\s*\/\s*/g, " & ").replace(/\bAnd\b/g, "&"),
+        }));
     }
     return result;
   }, [facetOptionsByDimension]);

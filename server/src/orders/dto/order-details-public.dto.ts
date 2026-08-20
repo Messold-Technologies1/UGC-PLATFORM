@@ -217,10 +217,11 @@ export class OrderDetailsPublicDto {
   extraRevisionsPaidPaise!: number;
 
   @ApiProperty({
-    example: 2,
-    description: 'Number of paid extra-revisions purchases. Brand details only.',
+    example: 4,
+    description:
+      'Total extra revisions granted by paid purchases (packs × per-pack). Brand details only.',
   })
-  extraRevisionsPurchases!: number;
+  extraRevisionsAdded!: number;
 
   @ApiProperty({
     example: 90000,

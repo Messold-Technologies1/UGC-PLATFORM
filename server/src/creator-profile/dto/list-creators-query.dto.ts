@@ -112,28 +112,6 @@ export class ListCreatorsQueryDto {
   limit?: number;
 
   @ApiPropertyOptional({
-    example: 'fashion',
-    description:
-      'Public portfolio video industry label (case-insensitive). Matches creators with at least one matching video.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => trimOrUndefined(value))
-  @IsString()
-  @MaxLength(100)
-  industry?: string;
-
-  @ApiPropertyOptional({
-    example: 'skincare',
-    description:
-      'Public portfolio video tag (case-insensitive). Matches creators with at least one video having this tag.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => trimOrUndefined(value))
-  @IsString()
-  @MaxLength(100)
-  portfolioTag?: string;
-
-  @ApiPropertyOptional({
     example: 'Kolkata',
     description: 'Substring match on city (case-insensitive).',
   })

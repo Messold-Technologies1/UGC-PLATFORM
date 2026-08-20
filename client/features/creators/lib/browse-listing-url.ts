@@ -48,10 +48,6 @@ export function parseBrowseListingParams(
         "onLocationAvailable",
         DEFAULT_FILTERS.onLocationAvailable,
       ),
-      industry: sp.get("industry")?.trim() ?? DEFAULT_FILTERS.industry,
-      portfolioTag:
-        sp.get("portfolioTag")?.trim() ?? DEFAULT_FILTERS.portfolioTag,
-      // personaTags: parseMultiValue(sp, "personaTags"),
       restrictions: parseMultiValue(sp, "restrictions"),
       // Facet-based filters
       creatorType: parseMultiValue(sp, "creatorType"),
@@ -100,12 +96,6 @@ export function serializeBrowseListingParams(
     params.set("maxDeliveryDays", filters.maxDeliveryDays);
   }
   if (filters.onLocationAvailable) params.set("onLocationAvailable", "true");
-
-  const industry = filters.industry.trim();
-  if (industry) params.set("industry", industry);
-
-  const portfolioTag = filters.portfolioTag.trim();
-  if (portfolioTag) params.set("portfolioTag", portfolioTag);
 
   const ageGroup = filters.ageGroup.trim();
   if (ageGroup) params.set("ageGroup", ageGroup);

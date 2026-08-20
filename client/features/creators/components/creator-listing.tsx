@@ -37,7 +37,6 @@ import {
   parseBrowseListingParams,
   serializeBrowseListingParams,
 } from "../lib/browse-listing-url";
-import { deriveCreatorFilterOptions } from "../lib/derive-filter-options";
 import {
   useInfiniteCreatorsListQuery,
   type CreatorsListResult,
@@ -123,9 +122,6 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.maxPrice === b.maxPrice &&
     a.maxDeliveryDays === b.maxDeliveryDays &&
     a.onLocationAvailable === b.onLocationAvailable &&
-    a.industry === b.industry &&
-    a.portfolioTag === b.portfolioTag &&
-    // stringArraysEqual(a.personaTags, b.personaTags) &&
     stringArraysEqual(a.restrictions, b.restrictions) &&
     stringArraysEqual(a.creatorType, b.creatorType) &&
     stringArraysEqual(a.appearance, b.appearance) &&
@@ -286,8 +282,6 @@ export function CreatorListing({
       city: filters.city || undefined,
       categories: filters.categories,
       gender: filters.gender || undefined,
-      industry: filters.industry || undefined,
-      portfolioTag: filters.portfolioTag || undefined,
       onLocationAvailable: filters.onLocationAvailable || undefined,
       minPrice: filters.minPrice || undefined,
       maxPrice: filters.maxPrice || undefined,
@@ -332,11 +326,6 @@ export function CreatorListing({
       landingPage ? creators.slice(0, LANDING_PAGE_CREATOR_LIMIT) : creators,
     [creators, landingPage],
   );
-  const { categoryOptions } = useMemo(
-    () => deriveCreatorFilterOptions(creators),
-    [creators],
-  );
-
   const handleFiltersChange = useCallback(
     (next: Filters) => {
       listingRef.current.filters = next;
@@ -405,7 +394,6 @@ export function CreatorListing({
         total={displayedCount}
         isPending={isPending && !data}
         onClear={handleResetFilters}
-        categoryOptions={categoryOptions}
         landingPage={landingPage}
       />
 

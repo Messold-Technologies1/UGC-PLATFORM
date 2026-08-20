@@ -11,8 +11,6 @@ export type CreatorListApiFilters = {
   minAge?: number;
   maxAge?: number;
   ageGroup?: string;
-  industry?: string;
-  portfolioTag?: string;
   onLocationAvailable?: boolean;
   minPrice?: string | number;
   maxPrice?: string | number;
@@ -55,12 +53,6 @@ export function serializeCreatorListApiParams(
 
   const ageGroup = filters.ageGroup?.trim();
   if (ageGroup) params.set("ageGroup", ageGroup);
-
-  const industry = filters.industry?.trim();
-  if (industry) params.set("industry", industry);
-
-  const portfolioTag = filters.portfolioTag?.trim();
-  if (portfolioTag) params.set("portfolioTag", portfolioTag);
 
   if (filters.onLocationAvailable) {
     params.set("onLocationAvailable", "true");

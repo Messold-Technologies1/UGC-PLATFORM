@@ -562,20 +562,6 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
       type: "onLocationAvailable",
     });
 
-  if (filters.industry)
-    chips.push({
-      id: `ind-${filters.industry}`,
-      label: `Industry: ${filters.industry}`,
-      type: "industry",
-    });
-
-  if (filters.portfolioTag)
-    chips.push({
-      id: `pt-${filters.portfolioTag}`,
-      label: `Tag: ${filters.portfolioTag}`,
-      type: "portfolioTag",
-    });
-
   return chips;
 }
 
@@ -585,7 +571,6 @@ export interface CreatorFilterBarProps {
   total: number;
   isPending: boolean;
   onClear: () => void;
-  categoryOptions: string[];
   landingPage?: boolean;
 }
 
@@ -595,7 +580,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   total,
   isPending,
   onClear,
-  categoryOptions,
   landingPage,
 }: CreatorFilterBarProps) {
   const [mode, setMode] = useState<"smart" | "manual">("manual");
@@ -604,18 +588,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   useEffect(() => {
     setLocalCity(filters.city);
   }, [filters.city]);
-
-  const [localIndustry, setLocalIndustry] = useState(filters.industry);
-  useEffect(() => {
-    setLocalIndustry(filters.industry);
-  }, [filters.industry]);
-
-  const [localPortfolioTag, setLocalPortfolioTag] = useState(
-    filters.portfolioTag,
-  );
-  useEffect(() => {
-    setLocalPortfolioTag(filters.portfolioTag);
-  }, [filters.portfolioTag]);
 
   const commitField = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
@@ -626,14 +598,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
 
   const debouncedCityChange = useDebouncedCallback((value: string) => {
     commitField("city", value.trim());
-  }, 400);
-
-  const debouncedIndustryChange = useDebouncedCallback((value: string) => {
-    commitField("industry", value.trim());
-  }, 400);
-
-  const debouncedPortfolioTagChange = useDebouncedCallback((value: string) => {
-    commitField("portfolioTag", value.trim());
   }, 400);
 
   const toggleArrayField = useCallback(
@@ -661,9 +625,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
       } else if (
         chip.type === "city" ||
         chip.type === "gender" ||
-        chip.type === "ageGroup" ||
-        chip.type === "industry" ||
-        chip.type === "portfolioTag"
+        chip.type === "ageGroup"
       ) {
         onChange({ ...filters, [chip.type]: "" });
       } else {
@@ -687,39 +649,25 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     staleTime: 5 * 60_000,
   });
 
+  // Category chips are sourced ONLY from the canonical suggestions endpoint so
+  // each chip's slug is the real DB CreatorFacetOption slug — the same value the
+  // server matches against a creator's niche selections (primary or secondary).
   const categoryItems = useMemo(() => {
     const items: { slug: string; label: string }[] = [];
     const seen = new Set<string>();
     for (const item of categorySuggestionsQuery.data ?? []) {
+      const slug = item.slug?.trim();
+      if (!slug || seen.has(slug)) continue;
       const label = item.name
         .trim()
         .replace(/\s*\/\s*/g, " & ")
         .replace(/\bAnd\b/g, "&");
-      const slug =
-        item.slug?.trim() ||
-        label
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "_")
-          .replace(/^_+|_+$/g, "");
-      if (!label || seen.has(slug)) continue;
-      items.push({ slug, label });
-      seen.add(slug);
-    }
-    for (const fallback of categoryOptions) {
-      const label = fallback
-        .trim()
-        .replace(/\s*\/\s*/g, " & ")
-        .replace(/\bAnd\b/g, "&");
-      const slug = label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-      if (!label || seen.has(slug)) continue;
+      if (!label) continue;
       items.push({ slug, label });
       seen.add(slug);
     }
     return items.sort((a, b) => a.label.localeCompare(b.label));
-  }, [categoryOptions, categorySuggestionsQuery.data]);
+  }, [categorySuggestionsQuery.data]);
 
   const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
@@ -777,9 +725,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     filters.restrictions.length +
     (filters.gender ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
-    (filters.city ? 1 : 0) +
-    (filters.industry ? 1 : 0) +
-    (filters.portfolioTag ? 1 : 0);
+    (filters.city ? 1 : 0);
 
   const activeFilterCount =
     categoryCount +
@@ -1126,36 +1072,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           }
                         />
                       </div>
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Industry
-                        </h5>
-                        <Input
-                          placeholder="Search industry"
-                          value={localIndustry}
-                          onChange={(e) => {
-                            setLocalIndustry(e.target.value);
-                            debouncedIndustryChange(e.target.value);
-                          }}
-                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                        />
-                      </div>
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Portfolio Tag
-                        </h5>
-                        <Input
-                          placeholder="Search tag"
-                          value={localPortfolioTag}
-                          onChange={(e) => {
-                            setLocalPortfolioTag(e.target.value);
-                            debouncedPortfolioTagChange(e.target.value);
-                          }}
-                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                        />
-                      </div>
                     </div>
 
                     <div className="flex gap-2.5 border-t border-gray-200 pt-3.5 mt-1">
@@ -1335,34 +1251,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             onCheckedChange={(checked) =>
                               commitField("onLocationAvailable", checked)
                             }
-                          />
-                        </div>
-                        <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Industry
-                          </h5>
-                          <Input
-                            placeholder="Search industry"
-                            value={localIndustry}
-                            onChange={(e) => {
-                              setLocalIndustry(e.target.value);
-                              debouncedIndustryChange(e.target.value);
-                            }}
-                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
-                          />
-                        </div>
-                        <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Portfolio Tag
-                          </h5>
-                          <Input
-                            placeholder="Search tag"
-                            value={localPortfolioTag}
-                            onChange={(e) => {
-                              setLocalPortfolioTag(e.target.value);
-                              debouncedPortfolioTagChange(e.target.value);
-                            }}
-                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
                           />
                         </div>
                       </div>

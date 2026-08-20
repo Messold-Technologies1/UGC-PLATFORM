@@ -6,8 +6,6 @@ export interface Filters {
   maxPrice: string;
   maxDeliveryDays: string;
   onLocationAvailable: boolean;
-  industry: string;
-  portfolioTag: string;
   restrictions: string[];
   creatorType: string[];
   appearance: string[];
@@ -34,8 +32,6 @@ export const DEFAULT_FILTERS: Filters = {
   maxPrice: "",
   maxDeliveryDays: "",
   onLocationAvailable: false,
-  industry: "",
-  portfolioTag: "",
   restrictions: [],
   creatorType: [],
   appearance: [],

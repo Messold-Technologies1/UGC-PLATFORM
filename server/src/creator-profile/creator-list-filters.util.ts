@@ -84,44 +84,6 @@ function buildRestrictionRowMatch(
   return { AND: perToken };
 }
 
-/**
- * Builds `portfolioVideos.some` / nested portfolio `where` for PUBLIC videos,
- * optionally requiring industry and/or tag on the **same** video when both are set.
- * Uses `contains` for industry so "gym" matches "gym", "Gym", or "Local gym tour".
- */
-export function buildPortfolioVideoMatchWhere(
-  query: ListCreatorsQueryDto,
-): Prisma.CreatorPortfolioVideoWhereInput | undefined {
-  const industry = query.industry?.trim();
-  const portfolioTag = query.portfolioTag?.trim();
-
-  if (!industry && !portfolioTag) return undefined;
-
-  const parts: Prisma.CreatorPortfolioVideoWhereInput[] = [
-    { visibilityStatus: PUBLIC },
-  ];
-
-  if (industry) {
-    parts.push({
-      industryLabel: { contains: industry, mode: 'insensitive' },
-    });
-  }
-  if (portfolioTag) {
-    parts.push({
-      tags: {
-        some: {
-          tag: { contains: portfolioTag, mode: 'insensitive' },
-        },
-      },
-    });
-  }
-
-  if (parts.length === 1) {
-    return parts[0];
-  }
-  return { AND: parts };
-}
-
 export type BuildListCreatorsWhereOptions = {
   /**
    * When true (default), only listed creators appear in discovery lists.
@@ -223,13 +185,6 @@ export function buildListCreatorsWhere(
     });
   }
 
-  const portfolioMatch = buildPortfolioVideoMatchWhere(query);
-  if (portfolioMatch) {
-    clauses.push({
-      portfolioVideos: { some: portfolioMatch },
-    });
-  }
-
   const minPrice = query.minPrice;
   const maxPrice = query.maxPrice;
   if (minPrice !== undefined || maxPrice !== undefined) {
@@ -287,15 +242,14 @@ const facetOptionSelect = {
 } as const;
 
 /**
- * Include for list endpoint: one preview video — latest public, or latest matching
- * industry/tag filters when those are present.
+ * Include for list endpoint: one preview video — the latest public one.
  */
 export function buildCreatorListRelationsInclude(
-  query: ListCreatorsQueryDto,
+  _query: ListCreatorsQueryDto,
 ): Prisma.CreatorProfileInclude {
-  const portfolioMatch = buildPortfolioVideoMatchWhere(query);
-  const baseWhere: Prisma.CreatorPortfolioVideoWhereInput =
-    portfolioMatch ?? { visibilityStatus: PUBLIC };
+  const baseWhere: Prisma.CreatorPortfolioVideoWhereInput = {
+    visibilityStatus: PUBLIC,
+  };
 
   return {
     facetSelections: { include: { option: { select: facetOptionSelect } } },

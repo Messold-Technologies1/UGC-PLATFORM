@@ -9,60 +9,11 @@ import {
   buildCreatorListRelationsInclude,
   buildCreatorListSearchWhere,
   buildListCreatorsWhere,
-  buildPortfolioVideoMatchWhere,
 } from './creator-list-filters.util';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 
 describe('creator-list-filters.util', () => {
-  describe('buildPortfolioVideoMatchWhere', () => {
-    it('returns undefined when no portfolio filters', () => {
-      expect(buildPortfolioVideoMatchWhere({})).toBeUndefined();
-    });
-
-    it('builds industry-only match with contains', () => {
-      const q: ListCreatorsQueryDto = { industry: 'Fashion' };
-      expect(buildPortfolioVideoMatchWhere(q)).toEqual({
-        AND: [
-          { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-          { industryLabel: { contains: 'Fashion', mode: 'insensitive' } },
-        ],
-      });
-    });
-
-    it('builds tag-only match with contains', () => {
-      const q: ListCreatorsQueryDto = { portfolioTag: 'skincare' };
-      expect(buildPortfolioVideoMatchWhere(q)).toEqual({
-        AND: [
-          { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-          {
-            tags: {
-              some: { tag: { contains: 'skincare', mode: 'insensitive' } },
-            },
-          },
-        ],
-      });
-    });
-
-    it('requires same video for industry and tag', () => {
-      const q: ListCreatorsQueryDto = {
-        industry: 'fashion',
-        portfolioTag: 'summer',
-      };
-      expect(buildPortfolioVideoMatchWhere(q)).toEqual({
-        AND: [
-          { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-          { industryLabel: { contains: 'fashion', mode: 'insensitive' } },
-          {
-            tags: {
-              some: { tag: { contains: 'summer', mode: 'insensitive' } },
-            },
-          },
-        ],
-      });
-    });
-  });
-
   describe('buildListCreatorsWhere', () => {
     it('requires listed creators when no other filters', () => {
       expect(buildListCreatorsWhere({})).toEqual({
@@ -76,7 +27,7 @@ describe('creator-list-filters.util', () => {
       );
     });
 
-    it('filters by content category facet slugs', () => {
+    it('matches any selected category across primary or secondary niche (no rank restriction)', () => {
       const q: ListCreatorsQueryDto = {
         contentCategory: ['fashion', 'beauty_skincare'],
       };
@@ -97,27 +48,22 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('ANDs city and industry', () => {
+    it('ANDs a category filter with city (composite filter)', () => {
       const q: ListCreatorsQueryDto = {
         city: 'Kolkata',
-        industry: 'fashion',
+        contentCategory: ['fashion'],
       };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
           { isListed: true },
           { city: { contains: 'Kolkata', mode: 'insensitive' } },
           {
-            portfolioVideos: {
+            facetSelections: {
               some: {
-                AND: [
-                  { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-                  {
-                    industryLabel: {
-                      contains: 'fashion',
-                      mode: 'insensitive',
-                    },
-                  },
-                ],
+                option: {
+                  dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+                  slug: { in: ['fashion'] },
+                },
               },
             },
           },
@@ -232,20 +178,6 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('narrows preview when industry filter set', () => {
-      const inc = buildCreatorListRelationsInclude({ industry: 'beauty' });
-      expect(inc.portfolioVideos).toMatchObject({
-        where: {
-          AND: [
-            { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
-            {
-              industryLabel: { contains: 'beauty', mode: 'insensitive' },
-            },
-          ],
-        },
-        take: 1,
-      });
-    });
   });
 
   describe('buildAdminCreatorApprovalSearchWhere', () => {

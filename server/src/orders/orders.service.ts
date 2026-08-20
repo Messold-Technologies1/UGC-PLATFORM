@@ -101,8 +101,11 @@ function toPaise(amount: Prisma.Decimal): number {
   return Math.round(n * 100);
 }
 
-/** Revisions granted per paid "extra revisions" purchase. */
-export const REVISIONS_PER_ADDON = 2;
+/** Revisions granted per "Revision" add-on — one at initial checkout and one per
+ *  paid mid-order top-up purchase. */
+export const REVISIONS_PER_ADDON = 1;
+/** Base revisions every package includes, regardless of add-ons (fixed). */
+export const BASE_INCLUDED_REVISIONS = 2;
 /**
  * Catalog slug whose creator-set price is used as the unit price for buying
  * extra revisions on an order. `CreatorAddOn` has no slug column, so we resolve
@@ -424,6 +427,9 @@ export class OrdersService {
       priceAmount: string;
       description: string | null;
     }>;
+    /** Revision cap for the order: BASE_INCLUDED_REVISIONS + 1 per selected
+     * "Revision" add-on. */
+    maxRevisionsSnapshot: number;
   }> {
     const pkg = await this.prisma.creatorPackage.findFirst({
       where: params.packageId
@@ -478,6 +484,19 @@ export class OrdersService {
       description: a.description ?? null,
     }));
 
+    // Revision cap: every package includes BASE_INCLUDED_REVISIONS, and each
+    // selected "Revision" add-on grants REVISIONS_PER_ADDON more. The add-on has
+    // no slug on CreatorAddOn, so match by the catalog option's name.
+    const revisionOption = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: EXTRA_REVISION_OPTION_SLUG },
+      select: { name: true },
+    });
+    const revisionAddOnCount = revisionOption
+      ? addOnRows.filter((a) => a.name === revisionOption.name).length
+      : 0;
+    const maxRevisionsSnapshot =
+      BASE_INCLUDED_REVISIONS + revisionAddOnCount * REVISIONS_PER_ADDON;
+
     return {
       pkg,
       available: mapUnavailabilityToPublicAvailability(
@@ -490,6 +509,7 @@ export class OrdersService {
       addOnsTotalDecimal,
       amountPaise,
       addOnsSnapshot,
+      maxRevisionsSnapshot,
     };
   }
 
@@ -514,6 +534,7 @@ export class OrdersService {
       addOnsTotalDecimal,
       amountPaise,
       addOnsSnapshot,
+      maxRevisionsSnapshot,
     } = await this.computeOrderDraftForItem({
       creatorId: params.creatorId,
       packageId: params.packageId,
@@ -606,7 +627,7 @@ export class OrdersService {
             pkg.deliverables as unknown as Prisma.InputJsonValue,
           priceAmountSnapshot: pkg.priceAmount,
           deliveryDaysSnapshot: effectiveDeliveryDays,
-          maxRevisionsSnapshot: pkg.maxRevisions,
+          maxRevisionsSnapshot,
           addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: amountPaise,
@@ -647,7 +668,7 @@ export class OrdersService {
         priceAmountSnapshot: pkg.priceAmount,
         currency: 'INR',
         deliveryDaysSnapshot: effectiveDeliveryDays,
-        maxRevisionsSnapshot: pkg.maxRevisions,
+        maxRevisionsSnapshot,
         addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
         addOnsTotalSnapshot: addOnsTotalDecimal,
         expectedAmountPaise: amountPaise,
@@ -769,7 +790,7 @@ export class OrdersService {
             priceAmountSnapshot: draft.pkg.priceAmount,
             currency,
             deliveryDaysSnapshot: draft.effectiveDeliveryDays,
-            maxRevisionsSnapshot: draft.pkg.maxRevisions,
+            maxRevisionsSnapshot: draft.maxRevisionsSnapshot,
             addOnsSnapshot:
               draft.addOnsSnapshot as unknown as Prisma.InputJsonValue,
             addOnsTotalSnapshot: draft.addOnsTotalDecimal,

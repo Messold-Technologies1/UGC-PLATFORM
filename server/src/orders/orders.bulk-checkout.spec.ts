@@ -23,6 +23,8 @@ describe('OrdersService bulk checkout', () => {
 
   function makeService(overrides: {
     packages: Record<string, ReturnType<typeof pkgFor> | null>;
+    /** When set, creatorAddOn.findMany returns these rows (e.g. a Revision add-on). */
+    addOns?: Array<{ id: string; name: string; priceAmount: Prisma.Decimal }>;
   }) {
     const created: Array<Record<string, unknown>> = [];
     const prisma = {
@@ -35,7 +37,12 @@ describe('OrdersService bulk checkout', () => {
           return Promise.resolve(pkg);
         }),
       },
-      creatorAddOn: { findMany: jest.fn(() => Promise.resolve([])) },
+      creatorAddOn: {
+        findMany: jest.fn(() => Promise.resolve(overrides.addOns ?? [])),
+      },
+      creatorAddOnOption: {
+        findUnique: jest.fn(() => Promise.resolve({ name: 'Revision' })),
+      },
       $transaction: jest.fn((cb: any) =>
         cb({
           orderCheckoutBatch: {
@@ -99,7 +106,26 @@ describe('OrdersService bulk checkout', () => {
     for (const data of created) {
       expect(data.checkoutBatchId).toBe('batch-1');
       expect(data.razorpayOrderId).toBeUndefined();
+      // No Revision add-on selected → the fixed base of 2 revisions.
+      expect(data.maxRevisionsSnapshot).toBe(2);
     }
+  });
+
+  it('grants base 2 + 1 per selected Revision add-on (cap 3)', async () => {
+    const { service, created } = makeService({
+      packages: { c1: pkgFor('c1', 1000) },
+      addOns: [
+        { id: 'ao-rev', name: 'Revision', priceAmount: new Prisma.Decimal(300) },
+      ],
+    });
+
+    await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [{ creatorId: 'c1', packageId: 'pkg-c1', addOnIds: ['ao-rev'] }],
+    });
+
+    expect(created).toHaveLength(1);
+    expect(created[0].maxRevisionsSnapshot).toBe(3);
   });
 
   it('resolves the creator package when packageId is omitted', async () => {

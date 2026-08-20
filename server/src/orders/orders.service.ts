@@ -1498,7 +1498,7 @@ export class OrdersService {
     for (const h of submittedHashes) {
       if (seenInBatch.has(h)) {
         throw new BadRequestException(
-          'Duplicate file detected in this submission. Each file must be unique.',
+          "You've added the same video twice in this upload. Each file must be different.",
         );
       }
       seenInBatch.add(h);
@@ -1523,7 +1523,7 @@ export class OrdersService {
       const dup = submittedHashes.find((h) => priorHashes.has(h));
       if (dup) {
         throw new BadRequestException(
-          'One or more files were already submitted for this order in a previous revision.',
+          "You've already submitted this exact video in an earlier revision of this order. Please upload the updated video with your changes.",
         );
       }
     }

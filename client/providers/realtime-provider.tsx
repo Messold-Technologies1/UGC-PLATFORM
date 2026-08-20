@@ -17,6 +17,8 @@ import type {
   OrderProductShippedEvent,
   OrderRevisionRequestedEvent,
   OrderContentDeliveredEvent,
+  OrderDisputeOpenedEvent,
+  OrderDisputeResolvedEvent,
   OrderChatMessageEvent,
   DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
@@ -24,19 +26,26 @@ import {
   brandOrderDeliveriesQueryKey,
 } from "@/features/orders/api/get-brand-order-deliveries";
 import { brandOrderDetailsQueryKey } from "@/features/orders/api/get-brand-order-details";
+import { creatorOrderDetailsQueryKey } from "@/features/orders/api/get-creator-order-details";
 import { getCreatorOrdersPageHref } from "@/features/orders/components/creator-order-detail/creator-orders-tabs";
 
-function refetchBrandOrderDeliveryViews(
-  queryClient: QueryClient,
-  orderId: string,
-) {
+function refetchOrderViews(queryClient: QueryClient, orderId: string) {
+  // Force an immediate refetch of whichever order detail page is open
+  // (brand or creator). Invalidate alone can leave an active query stale.
+  void queryClient.refetchQueries({
+    queryKey: brandOrderDetailsQueryKey(orderId),
+    exact: true,
+  });
+  void queryClient.refetchQueries({
+    queryKey: creatorOrderDetailsQueryKey(orderId),
+    exact: true,
+  });
   void queryClient.refetchQueries({
     queryKey: brandOrderDeliveriesQueryKey(orderId),
+    exact: true,
   });
-  void queryClient.invalidateQueries({
-    queryKey: brandOrderDetailsQueryKey(orderId),
-  });
-  queryClient.invalidateQueries({ queryKey: ["orders"] });
+  void queryClient.invalidateQueries({ queryKey: ["orders"] });
+  void queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
 }
 
 type RealtimeCtx = { connected: boolean };
@@ -211,19 +220,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     const onContentDelivered = (e: OrderContentDeliveredEvent) => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Always refresh order data for whoever is viewing — brand or creator.
+      refetchOrderViews(queryClient, e.orderId);
+
       if (user.primaryRole === "BRAND") {
-        refetchBrandOrderDeliveryViews(queryClient, e.orderId);
-        
         const isRevision = e.status === "REVISION_SUBMITTED";
-        const title = isRevision 
-          ? `Revision ${e.revisionNumber} submitted` 
+        const title = isRevision
+          ? `Revision ${e.revisionNumber} submitted`
           : "Content delivered";
-          
+
         toast.success(title, {
           description: `Order ${e.orderId.slice(0, 8)}...`,
         });
-        
+
         addNotification({
           type: "success",
           title,
@@ -233,8 +242,58 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const onDisputeOpened = (e: OrderDisputeOpenedEvent) => {
+      refetchOrderViews(queryClient, e.orderId);
+
+      const openedByUs =
+        (e.openedBy === "BRAND" && user.primaryRole === "BRAND") ||
+        (e.openedBy === "CREATOR" && user.primaryRole === "CREATOR");
+      if (openedByUs) return;
+
+      const title = "Order disputed";
+      const description =
+        e.openedBy === "BRAND"
+          ? "The brand raised a dispute on this order."
+          : "The creator raised a dispute on this order.";
+      toast.info(title, { description });
+      addNotification({
+        type: "info",
+        title,
+        description,
+        link: orderNotificationLink(e.orderId, "DISPUTED"),
+      });
+    };
+
+    const onDisputeResolved = (e: OrderDisputeResolvedEvent) => {
+      refetchOrderViews(queryClient, e.orderId);
+
+      const title =
+        e.outcome === "REJECTED"
+          ? "Dispute resolved — order rejected"
+          : e.outcome === "WITHDRAWN"
+            ? "Dispute withdrawn"
+            : "Dispute resolved";
+      const description =
+        e.outcome === "REJECTED"
+          ? `Order ${e.orderId.slice(0, 8)}… has been rejected.`
+          : e.restoredStatus
+            ? `Order returned to ${String(e.restoredStatus).replace(/_/g, " ").toLowerCase()}.`
+            : `Order ${e.orderId.slice(0, 8)}…`;
+
+      toast.success(title, { description });
+      addNotification({
+        type: "success",
+        title,
+        description,
+        link: orderNotificationLink(
+          e.orderId,
+          e.restoredStatus ?? undefined,
+        ),
+      });
+    };
+
     const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {
-      refetchBrandOrderDeliveryViews(queryClient, e.orderId);
+      refetchOrderViews(queryClient, e.orderId);
     };
 
     const onChatMessage = (e: OrderChatMessageEvent) => {
@@ -262,6 +321,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.product_received", onProductReceived);
     s.on("order.revision_requested", onRevisionRequested);
     s.on("order.content_delivered", onContentDelivered);
+    s.on("order.dispute_opened", onDisputeOpened);
+    s.on("order.dispute_resolved", onDisputeResolved);
     s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("chat.message", onChatMessage);
 
@@ -277,6 +338,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.product_received", onProductReceived);
       s.off("order.revision_requested", onRevisionRequested);
       s.off("order.content_delivered", onContentDelivered);
+      s.off("order.dispute_opened", onDisputeOpened);
+      s.off("order.dispute_resolved", onDisputeResolved);
       s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("chat.message", onChatMessage);
       disconnectSocket();

@@ -11,6 +11,7 @@ import {
   Star,
   RotateCcw,
   FileVideo,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -29,8 +30,19 @@ interface StepDefinition {
   getDate?: (order: OrderDetailsPublic) => string | null | undefined;
   statusMatch: string[];
   revisionStep?: boolean;
+  disputeStep?: boolean;
   getHref?: (orderId: string) => string;
 }
+
+const DISPUTE_STEP: StepDefinition = {
+  label: "Disputed",
+  icon: AlertTriangle,
+  dateKey: null,
+  getDate: (order) => order.dispute?.openedAt ?? null,
+  statusMatch: ["DISPUTED"],
+  disputeStep: true,
+  getHref: (orderId) => `/brand/orders/${orderId}`,
+};
 
 const STEPS: StepDefinition[] = [
   {
@@ -102,22 +114,38 @@ const STEPS: StepDefinition[] = [
   },
 ];
 
-function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]): number {
-  let effectiveStatus = order.status;
-
-  if (order.status === "DISPUTED") {
-    if (order.deliveredAt) {
-      effectiveStatus = "DELIVERED";
-    } else if (order.requiresPhysicalProductShipment) {
-      if (order.productReceivedAt) effectiveStatus = "PRODUCT_RECEIVED";
-      else if (order.dispatchedAt) effectiveStatus = "PRODUCT_SHIPPED";
-      else if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
-      else effectiveStatus = "BRIEF_SUBMITTED";
-    } else {
-      if (order.briefAcceptedAt) effectiveStatus = "BRIEF_ACCEPTED";
-      else effectiveStatus = "BRIEF_SUBMITTED";
-    }
+/** Reconstruct the status the order was in when the dispute was opened. */
+function getPreDisputeStatus(order: OrderDetailsPublic): string {
+  if (order.currentRevision?.requestedAt && !order.deliveredAt) {
+    return "REVISION_REQUESTED";
   }
+  if (order.deliveredAt) {
+    // Prefer the latest revision stage when a revision was in flight.
+    if (order.status === "REVISION_SUBMITTED") return "REVISION_SUBMITTED";
+    if (order.status === "REVISION_REQUESTED") return "REVISION_REQUESTED";
+    if (order.revisionCount > 0 && order.currentRevision) {
+      // After a revision request/submit, deliveredAt is still set.
+      return "REVISION_SUBMITTED";
+    }
+    return "DELIVERED";
+  }
+  if (order.requiresPhysicalProductShipment) {
+    if (order.productReceivedAt) return "PRODUCT_RECEIVED";
+    if (order.dispatchedAt) return "PRODUCT_SHIPPED";
+    if (order.briefAcceptedAt) return "BRIEF_ACCEPTED";
+    return "BRIEF_SUBMITTED";
+  }
+  if (order.briefAcceptedAt) return "BRIEF_ACCEPTED";
+  return "BRIEF_SUBMITTED";
+}
+
+function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]): number {
+  if (order.status === "DISPUTED") {
+    const disputeIndex = steps.findIndex((step) => step.disputeStep);
+    if (disputeIndex >= 0) return disputeIndex;
+  }
+
+  const effectiveStatus = order.status;
 
   for (let i = 0; i < steps.length; i++) {
     if (steps[i].statusMatch.includes(effectiveStatus)) {
@@ -155,13 +183,17 @@ function formatStepDate(value?: string | null) {
 }
 
 export function OrderProgressStepper({ order, onStepClick, previewState }: OrderProgressStepperProps) {
-  const steps = STEPS
+  const baseSteps = STEPS
     .filter((step) => {
       if (step.revisionStep) {
         return (
           order.revisionCount > 0 ||
           order.status === "REVISION_REQUESTED" ||
-          order.status === "REVISION_SUBMITTED"
+          order.status === "REVISION_SUBMITTED" ||
+          (order.status === "DISPUTED" &&
+            (order.revisionCount > 0 ||
+              getPreDisputeStatus(order) === "REVISION_REQUESTED" ||
+              getPreDisputeStatus(order) === "REVISION_SUBMITTED"))
         );
       }
       if (
@@ -184,8 +216,25 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
       }
       return step;
     });
+
+  // Insert "Disputed" right after the stage the order was in when it opened,
+  // so earlier stages stay completed and later ones stay pending.
+  let steps = baseSteps;
+  if (order.status === "DISPUTED") {
+    const preStatus = getPreDisputeStatus(order);
+    let insertAfter = baseSteps.findIndex((step) =>
+      step.statusMatch.includes(preStatus),
+    );
+    if (insertAfter < 0) insertAfter = baseSteps.length - 2;
+    steps = [
+      ...baseSteps.slice(0, insertAfter + 1),
+      DISPUTE_STEP,
+      ...baseSteps.slice(insertAfter + 1),
+    ];
+  }
   
   const activeIndex = getActiveStepIndex(order, steps);
+  const isDisputed = order.status === "DISPUTED";
 
   return (
     <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">
@@ -197,6 +246,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
           const isPending = index > activeIndex;
           const isAwaitingPayment =
             order.status === "PENDING_PAYMENT" && index === 0;
+          const isDisputeActive = isDisputed && isActive && Boolean(step.disputeStep);
           const displayLabel = getStepDisplayLabel(step, order, index);
           const Icon = step.icon;
 
@@ -214,7 +264,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   isCompleted
                     ? "border-primary bg-primary text-primary-foreground"
                     : isActive
-                      ? isAwaitingPayment
+                      ? isAwaitingPayment || isDisputeActive
                         ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
                         : "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
                       : "border-border bg-muted text-muted-foreground",
@@ -250,12 +300,16 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 <span
                   className={cn(
                     "mt-1.5 text-[10px] font-semibold",
-                    isAwaitingPayment
+                    isAwaitingPayment || isDisputeActive
                       ? "text-amber-600 dark:text-amber-400"
                       : "text-primary",
                   )}
                 >
-                  {isAwaitingPayment ? "Payment pending" : "Current step"}
+                  {isAwaitingPayment
+                    ? "Payment pending"
+                    : isDisputeActive
+                      ? "Under review"
+                      : "Current step"}
                 </span>
               ) : isPending ? (
                 <span className="mt-1 h-3" />
@@ -276,7 +330,13 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   <div
                     className={cn(
                       "h-full w-full",
-                      isPassed ? "bg-primary" : "bg-border",
+                      isPassed
+                        ? isDisputeActive || (isDisputed && index <= activeIndex)
+                          ? index === activeIndex
+                            ? "bg-amber-500"
+                            : "bg-primary"
+                          : "bg-primary"
+                        : "bg-border",
                     )}
                   />
                 </div>

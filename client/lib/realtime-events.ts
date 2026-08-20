@@ -84,6 +84,19 @@ export interface OrderContentDeliveredEvent {
   deliveredAt: string;
 }
 
+export interface OrderDisputeOpenedEvent {
+  orderId: string;
+  openedBy: "BRAND" | "CREATOR";
+  reason?: string | null;
+}
+
+export interface OrderDisputeResolvedEvent {
+  orderId: string;
+  outcome: "CONTINUED" | "WITHDRAWN" | "REJECTED";
+  restoredStatus?: string | null;
+  resolutionNotes?: string | null;
+}
+
 export interface ClientToServerEvents {
   /** Admin joins an order's live chat room (dispute group chat). */
   "order-chat:subscribe": (payload: { orderId: string }) => void;
@@ -99,6 +112,8 @@ export interface ServerToClientEvents {
   "order.product_received": (e: OrderProductReceivedEvent) => void;
   "order.revision_requested": (e: OrderRevisionRequestedEvent) => void;
   "order.content_delivered": (e: OrderContentDeliveredEvent) => void;
+  "order.dispute_opened": (e: OrderDisputeOpenedEvent) => void;
+  "order.dispute_resolved": (e: OrderDisputeResolvedEvent) => void;
   "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;

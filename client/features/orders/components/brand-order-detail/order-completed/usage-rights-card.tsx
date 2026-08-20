@@ -4,12 +4,14 @@ import { useState } from "react";
 import { CalendarClock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { useBuyExtraUsageRights } from "@/features/payments/hooks/use-buy-extra-usage-rights";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface UsageRightsCardProps {
   orderId: string;
   order: OrderDetailsPublic;
+  className?: string;
 }
 
 /**
@@ -17,7 +19,7 @@ interface UsageRightsCardProps {
  * 30-day blocks. Shows the current total window (base + purchased), a quantity
  * stepper, the live total price, and a clear "non-refundable" warning.
  */
-export function UsageRightsCard({ orderId, order }: UsageRightsCardProps) {
+export function UsageRightsCard({ orderId, order, className }: UsageRightsCardProps) {
   const { isGatewayReady, isProcessing, buyUsageRights } =
     useBuyExtraUsageRights(orderId);
   const [qty, setQty] = useState(1);
@@ -37,7 +39,12 @@ export function UsageRightsCard({ orderId, order }: UsageRightsCardProps) {
   const addedDays = daysPerBlock * qty;
 
   return (
-    <div className="rounded-xl border bg-card p-6 shadow-sm flex flex-col">
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-6 shadow-sm flex flex-col",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2 mb-1.5">
         <CalendarClock className="size-4 text-primary" />
         <h3 className="text-base font-bold text-foreground">Extend usage rights</h3>

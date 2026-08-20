@@ -328,4 +328,59 @@ export class OrderRealtimeNotifier {
         revisionNumber: params.revisionNumber,
       });
   }
+
+  private async emitToBrandAndCreator(
+    orderId: string,
+    event: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        brand: { select: { id: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) {
+      this.logger.warn(`${event}: order not found ${orderId}`);
+      return;
+    }
+    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const creatorUserId = order.creator.userId;
+    this.gateway.server.to(`user:${brandUserId}`).emit(event, payload);
+    if (creatorUserId !== brandUserId) {
+      this.gateway.server.to(`user:${creatorUserId}`).emit(event, payload);
+    }
+  }
+
+  /** Dispute opened — both parties should switch into the dispute UI. */
+  async emitOrderDisputeOpened(params: {
+    orderId: string;
+    openedBy: 'BRAND' | 'CREATOR';
+    reason?: string | null;
+  }): Promise<void> {
+    await this.emitToBrandAndCreator(params.orderId, 'order.dispute_opened', {
+      orderId: params.orderId,
+      openedBy: params.openedBy,
+      reason: params.reason ?? null,
+    });
+  }
+
+  /**
+   * Dispute resolved / withdrawn / rejected — both parties should leave the
+   * dispute UI and return to the restored (or rejected) order stage.
+   */
+  async emitOrderDisputeResolved(params: {
+    orderId: string;
+    outcome: 'CONTINUED' | 'WITHDRAWN' | 'REJECTED';
+    restoredStatus?: string | null;
+    resolutionNotes?: string | null;
+  }): Promise<void> {
+    await this.emitToBrandAndCreator(params.orderId, 'order.dispute_resolved', {
+      orderId: params.orderId,
+      outcome: params.outcome,
+      restoredStatus: params.restoredStatus ?? null,
+      resolutionNotes: params.resolutionNotes ?? null,
+    });
+  }
 }

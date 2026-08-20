@@ -3367,6 +3367,17 @@ export class OrdersService {
       openedBy: params.openedBy,
       reason: params.reason,
     });
+    void this.orderRealtime
+      .emitOrderDisputeOpened({
+        orderId: order.id,
+        openedBy: params.openedBy,
+        reason: params.reason,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `dispute_opened realtime failed for ${order.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   /**
@@ -3433,6 +3444,19 @@ export class OrdersService {
       });
       await this.restoreOrderFromDispute(tx, order.id, order.preDisputeStatus);
     });
+
+    const restoredStatus = order.preDisputeStatus ?? 'DELIVERED';
+    void this.orderRealtime
+      .emitOrderDisputeResolved({
+        orderId: order.id,
+        outcome: 'WITHDRAWN',
+        restoredStatus,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `dispute_resolved realtime failed for ${order.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   /**
@@ -3473,6 +3497,19 @@ export class OrdersService {
       outcome: 'CONTINUED',
       resolutionNotes: params.resolutionNotes,
     });
+    const restoredStatus = order.preDisputeStatus ?? 'DELIVERED';
+    void this.orderRealtime
+      .emitOrderDisputeResolved({
+        orderId: order.id,
+        outcome: 'CONTINUED',
+        restoredStatus,
+        resolutionNotes: params.resolutionNotes,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `dispute_resolved realtime failed for ${order.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   /**
@@ -3563,6 +3600,18 @@ export class OrdersService {
     });
 
     this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
+    void this.orderRealtime
+      .emitOrderDisputeResolved({
+        orderId: order.id,
+        outcome: 'REJECTED',
+        restoredStatus: 'REJECTED',
+        resolutionNotes: params.resolutionNotes,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `dispute_resolved realtime failed for ${order.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   /**

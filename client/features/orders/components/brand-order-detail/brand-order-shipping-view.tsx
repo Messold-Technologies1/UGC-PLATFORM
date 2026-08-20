@@ -99,6 +99,21 @@ export function BrandOrderShippingView({
   const { order, creator } = data;
   const briefId = order.briefId ?? orderBriefData?.brief?.id ?? null;
 
+  // Once content is delivered (or later), leave the shipping page so the brand
+  // sees the live delivered/completed UI without a manual refresh.
+  useEffect(() => {
+    const leaveShipping = [
+      "DELIVERED",
+      "REVISION_REQUESTED",
+      "REVISION_SUBMITTED",
+      "ACCEPTED",
+      "CREATOR_PAYMENT_DONE",
+    ];
+    if (leaveShipping.includes(order.status)) {
+      router.replace(`/brand/orders/${orderId}`);
+    }
+  }, [order.status, orderId, router]);
+
   return (
     <div className="w-full min-w-0 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col gap-5">
       <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,7 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
   );
 
   const [previewState, setPreviewState] = useState<string | null>(null);
+  const lastStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,6 +96,21 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  // When realtime updates the order status, drop any stepper preview so the
+  // live status UI takes over without a manual refresh.
+  useEffect(() => {
+    const status = data?.order.status;
+    if (!status) return;
+    if (lastStatusRef.current === null) {
+      lastStatusRef.current = status;
+      return;
+    }
+    if (lastStatusRef.current !== status) {
+      lastStatusRef.current = status;
+      setPreviewState(null);
+    }
+  }, [data?.order.status]);
 
   if (isLoading) {
     return <BrandOrderDetailsSkeleton />;

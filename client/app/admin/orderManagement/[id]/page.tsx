@@ -611,6 +611,95 @@ export default function AdminOrderDetailsPage() {
             )}
           </motion.div>
 
+          {order.usageRightsPurchases && order.usageRightsPurchases.length > 0 ? (
+            <motion.div variants={itemVariants}>
+              <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+                <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+                  <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
+                    <BadgeDollarSign className="h-5 w-5 text-primary" />
+                    Usage rights purchases
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  {(() => {
+                    const purchases = order.usageRightsPurchases!;
+                    const settle = order.usageRightsSettlement;
+                    const inr = (paise: number) =>
+                      formatCurrency((paise ?? 0) / 100, order.currency);
+                    const fmtDate = (value?: string | null) =>
+                      value
+                        ? new Date(value).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—";
+                    return (
+                      <div className="grid gap-8 lg:grid-cols-2">
+                        <div className="space-y-2.5">
+                          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                            Extensions purchased
+                          </p>
+                          {purchases.map((p, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center justify-between text-sm"
+                            >
+                              <span className="text-muted-foreground">
+                                {fmtDate(p.paidAt)} · {p.daysAdded} days
+                              </span>
+                              <span className="font-semibold">
+                                {inr(p.expectedAmountPaise)}
+                              </span>
+                            </div>
+                          ))}
+                          {settle ? (
+                            <div className="mt-1 flex items-center justify-between border-t border-border/50 pt-2.5 text-sm">
+                              <span className="font-bold">
+                                Brand paid · {settle.daysPurchased} days
+                              </span>
+                              <span className="font-bold">
+                                {inr(settle.brandPaidPaise)}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {settle ? (
+                          <div className="space-y-2.5">
+                            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                              Settlement
+                            </p>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Platform fee (20%)
+                              </span>
+                              <span className="font-semibold">
+                                {inr(settle.platformFeePaise)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
+                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                Pay to creator
+                              </span>
+                              <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                {inr(settle.payToCreatorPaise)}
+                              </span>
+                            </div>
+                            <p className="pt-1 text-xs text-muted-foreground">
+                              Usage-rights extensions are non-refundable — the
+                              full amount is settled (80% creator / 20% platform).
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : null}
+
           <motion.div variants={itemVariants}>
             <AdminOrderChat
               orderId={order.id}

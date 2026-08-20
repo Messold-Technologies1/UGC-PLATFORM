@@ -329,12 +329,29 @@ export interface OrderPricingLedgerDto {
   payToCreatorPaise: number;
 }
 
+export interface OrderUsageRightsPurchaseDto {
+  daysAdded: number;
+  unitAmountPaise: number;
+  expectedAmountPaise: number;
+  paidAt?: string | null;
+}
+
+/** Usage-rights settlement (paise, non-refundable). brandPaid = platformFee + payToCreator. */
+export interface OrderUsageRightsSettlementDto {
+  brandPaidPaise: number;
+  platformFeePaise: number;
+  payToCreatorPaise: number;
+  daysPurchased: number;
+}
+
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;
   razorpayRefundId?: string | null;
   pricingLedger?: OrderPricingLedgerDto;
   revisionPurchases?: OrderRevisionPurchaseDto[];
+  usageRightsPurchases?: OrderUsageRightsPurchaseDto[];
+  usageRightsSettlement?: OrderUsageRightsSettlementDto;
 }
 
 export interface AdminOrderDetailsResponseDto {

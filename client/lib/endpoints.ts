@@ -127,6 +127,8 @@ export const ENDPOINTS = {
       `/api/orders/${encodeURIComponent(id)}/revisions/request`,
     REVISION_CHECKOUT: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions/checkout`,
+    USAGE_RIGHTS_CHECKOUT: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/usage-rights/checkout`,
     REVISIONS: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions`,
     RATING_REVIEW: (id: string) =>

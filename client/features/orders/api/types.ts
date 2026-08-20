@@ -97,6 +97,12 @@ export interface OrderDetailsPublic extends OrderListSummary {
   usageRightsAddOnUnitPaise?: number | null;
   /** Whether the brand can buy extra usage-rights time (only after completion). */
   usageRightsAddOnAvailable: boolean;
+  /** Total paid for mid-order extra-revisions purchases (paise). Brand details only. */
+  extraRevisionsPaidPaise: number;
+  /** Number of paid extra-revisions purchases. Brand details only. */
+  extraRevisionsPurchases: number;
+  /** Total paid for post-order usage-rights extensions (paise). Brand details only. */
+  extraUsageRightsPaidPaise: number;
   currentRevision?: OrderCurrentRevision;
   dispute?: OrderActiveDispute;
 }

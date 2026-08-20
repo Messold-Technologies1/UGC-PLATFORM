@@ -2327,6 +2327,11 @@ export class OrdersService {
       usageRightsExtraDays: order.usageRightsExtraDays,
       usageRightsAddOnUnitPaise: null,
       usageRightsAddOnAvailable: false,
+      // Totals for supplemental purchases. Filled only on the brand details
+      // path (below); other viewers keep the zero defaults.
+      extraRevisionsPaidPaise: 0,
+      extraRevisionsPurchases: 0,
+      extraUsageRightsPaidPaise: 0,
     };
   }
 
@@ -2449,6 +2454,26 @@ export class OrdersService {
     mappedOrder.usageRightsAddOnUnitPaise = usageRightsUnitPaise;
     mappedOrder.usageRightsAddOnAvailable =
       orderCompleted && usageRightsUnitPaise != null;
+
+    // Totals paid for supplemental purchases (mid-order extra revisions and
+    // post-order usage-rights extensions), so the brand's payment summary can
+    // reflect everything charged beyond the original checkout.
+    const [revisionPurchaseAgg, usageRightsPurchaseAgg] = await Promise.all([
+      this.prisma.orderRevisionPurchase.aggregate({
+        where: { orderId: order.id, status: 'PAID' },
+        _sum: { expectedAmountPaise: true },
+        _count: true,
+      }),
+      this.prisma.orderUsageRightsPurchase.aggregate({
+        where: { orderId: order.id, status: 'PAID' },
+        _sum: { expectedAmountPaise: true },
+      }),
+    ]);
+    mappedOrder.extraRevisionsPaidPaise =
+      revisionPurchaseAgg._sum.expectedAmountPaise ?? 0;
+    mappedOrder.extraRevisionsPurchases = revisionPurchaseAgg._count;
+    mappedOrder.extraUsageRightsPaidPaise =
+      usageRightsPurchaseAgg._sum.expectedAmountPaise ?? 0;
 
     const revisionActiveStatuses = new Set<OrderStatus>([
       'REVISION_REQUESTED',

@@ -209,6 +209,26 @@ export class OrderDetailsPublicDto {
   })
   usageRightsAddOnAvailable!: boolean;
 
+  @ApiProperty({
+    example: 60000,
+    description:
+      'Total the brand paid for mid-order extra-revisions purchases (paise). Brand details only.',
+  })
+  extraRevisionsPaidPaise!: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Number of paid extra-revisions purchases. Brand details only.',
+  })
+  extraRevisionsPurchases!: number;
+
+  @ApiProperty({
+    example: 90000,
+    description:
+      'Total the brand paid for post-order usage-rights extensions (paise). Brand details only.',
+  })
+  extraUsageRightsPaidPaise!: number;
+
   @ApiPropertyOptional({
     type: () => OrderCurrentRevisionDto,
     description:

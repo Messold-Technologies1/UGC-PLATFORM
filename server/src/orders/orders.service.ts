@@ -2330,7 +2330,7 @@ export class OrdersService {
       // Totals for supplemental purchases. Filled only on the brand details
       // path (below); other viewers keep the zero defaults.
       extraRevisionsPaidPaise: 0,
-      extraRevisionsPurchases: 0,
+      extraRevisionsAdded: 0,
       extraUsageRightsPaidPaise: 0,
     };
   }
@@ -2403,6 +2403,7 @@ export class OrdersService {
         addOnsSnapshot: true,
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
+        usageRightsExtraDays: true,
         paidAt: true,
         briefId: true,
         briefSubmittedAt: true,
@@ -2461,8 +2462,7 @@ export class OrdersService {
     const [revisionPurchaseAgg, usageRightsPurchaseAgg] = await Promise.all([
       this.prisma.orderRevisionPurchase.aggregate({
         where: { orderId: order.id, status: 'PAID' },
-        _sum: { expectedAmountPaise: true },
-        _count: true,
+        _sum: { expectedAmountPaise: true, revisionsAdded: true },
       }),
       this.prisma.orderUsageRightsPurchase.aggregate({
         where: { orderId: order.id, status: 'PAID' },
@@ -2471,7 +2471,10 @@ export class OrdersService {
     ]);
     mappedOrder.extraRevisionsPaidPaise =
       revisionPurchaseAgg._sum.expectedAmountPaise ?? 0;
-    mappedOrder.extraRevisionsPurchases = revisionPurchaseAgg._count;
+    // Count of revisions granted (each pack = REVISIONS_PER_ADDON), matching the
+    // admin ledger and the buy CTA ("Buy N revisions") — not the number of rows.
+    mappedOrder.extraRevisionsAdded =
+      revisionPurchaseAgg._sum.revisionsAdded ?? 0;
     mappedOrder.extraUsageRightsPaidPaise =
       usageRightsPurchaseAgg._sum.expectedAmountPaise ?? 0;
 
@@ -2553,6 +2556,7 @@ export class OrdersService {
         addOnsSnapshot: true,
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
+        usageRightsExtraDays: true,
         paidAt: true,
         briefId: true,
         briefSubmittedAt: true,
@@ -2757,6 +2761,7 @@ export class OrdersService {
         addOnsSnapshot: true,
         addOnsTotalSnapshot: true,
         expectedAmountPaise: true,
+        usageRightsExtraDays: true,
         paidAt: true,
         briefId: true,
         briefSubmittedAt: true,

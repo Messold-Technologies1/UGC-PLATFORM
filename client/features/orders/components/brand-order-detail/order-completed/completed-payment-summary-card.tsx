@@ -53,7 +53,7 @@ export function CompletedPaymentSummaryCard({
         {extraRevisionsAmount > 0 ? (
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground font-medium">
-              Extra revisions ({order.extraRevisionsPurchases})
+              Extra revisions ({order.extraRevisionsAdded})
             </span>
             <span className="font-semibold text-foreground tabular-nums">
               {formatMoney(extraRevisionsAmount, order.currency)}

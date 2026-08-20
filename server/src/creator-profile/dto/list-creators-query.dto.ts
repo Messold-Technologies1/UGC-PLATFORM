@@ -85,9 +85,9 @@ function trimOrUndefined(value: unknown): string | undefined {
 
 export class ListCreatorsQueryDto {
   @ApiPropertyOptional({
-    example: 'aanya',
+    example: 'fashion',
     description:
-      'Free-text search by creator name, city, state, country, or bio (case-insensitive substring).',
+      'Free-text keyword search (case-insensitive substring). Matches location, bio, niche/category labels, portfolio-video industry & tags, package names, and open-to restrictions. Never matches the creator name.',
   })
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))
@@ -110,28 +110,6 @@ export class ListCreatorsQueryDto {
   @Min(1)
   @Max(50)
   limit?: number;
-
-  @ApiPropertyOptional({
-    example: 'fashion',
-    description:
-      'Public portfolio video industry label (case-insensitive). Matches creators with at least one matching video.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => trimOrUndefined(value))
-  @IsString()
-  @MaxLength(100)
-  industry?: string;
-
-  @ApiPropertyOptional({
-    example: 'skincare',
-    description:
-      'Public portfolio video tag (case-insensitive). Matches creators with at least one video having this tag.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => trimOrUndefined(value))
-  @IsString()
-  @MaxLength(100)
-  portfolioTag?: string;
 
   @ApiPropertyOptional({
     example: 'Kolkata',

@@ -84,44 +84,6 @@ function buildRestrictionRowMatch(
   return { AND: perToken };
 }
 
-/**
- * Builds `portfolioVideos.some` / nested portfolio `where` for PUBLIC videos,
- * optionally requiring industry and/or tag on the **same** video when both are set.
- * Uses `contains` for industry so "gym" matches "gym", "Gym", or "Local gym tour".
- */
-export function buildPortfolioVideoMatchWhere(
-  query: ListCreatorsQueryDto,
-): Prisma.CreatorPortfolioVideoWhereInput | undefined {
-  const industry = query.industry?.trim();
-  const portfolioTag = query.portfolioTag?.trim();
-
-  if (!industry && !portfolioTag) return undefined;
-
-  const parts: Prisma.CreatorPortfolioVideoWhereInput[] = [
-    { visibilityStatus: PUBLIC },
-  ];
-
-  if (industry) {
-    parts.push({
-      industryLabel: { contains: industry, mode: 'insensitive' },
-    });
-  }
-  if (portfolioTag) {
-    parts.push({
-      tags: {
-        some: {
-          tag: { contains: portfolioTag, mode: 'insensitive' },
-        },
-      },
-    });
-  }
-
-  if (parts.length === 1) {
-    return parts[0];
-  }
-  return { AND: parts };
-}
-
 export type BuildListCreatorsWhereOptions = {
   /**
    * When true (default), only listed creators appear in discovery lists.
@@ -223,13 +185,6 @@ export function buildListCreatorsWhere(
     });
   }
 
-  const portfolioMatch = buildPortfolioVideoMatchWhere(query);
-  if (portfolioMatch) {
-    clauses.push({
-      portfolioVideos: { some: portfolioMatch },
-    });
-  }
-
   const minPrice = query.minPrice;
   const maxPrice = query.maxPrice;
   if (minPrice !== undefined || maxPrice !== undefined) {
@@ -287,15 +242,14 @@ const facetOptionSelect = {
 } as const;
 
 /**
- * Include for list endpoint: one preview video — latest public, or latest matching
- * industry/tag filters when those are present.
+ * Include for list endpoint: one preview video — the latest public one.
  */
 export function buildCreatorListRelationsInclude(
-  query: ListCreatorsQueryDto,
+  _query: ListCreatorsQueryDto,
 ): Prisma.CreatorProfileInclude {
-  const portfolioMatch = buildPortfolioVideoMatchWhere(query);
-  const baseWhere: Prisma.CreatorPortfolioVideoWhereInput =
-    portfolioMatch ?? { visibilityStatus: PUBLIC };
+  const baseWhere: Prisma.CreatorPortfolioVideoWhereInput = {
+    visibilityStatus: PUBLIC,
+  };
 
   return {
     facetSelections: { include: { option: { select: facetOptionSelect } } },
@@ -325,14 +279,40 @@ export function buildCreatorListSearchWhere(
 ): Prisma.CreatorProfileWhereInput | undefined {
   const q = search?.trim();
   if (!q) return undefined;
+  const like = { contains: q, mode: 'insensitive' as const };
   return {
     OR: [
-      { city: { contains: q, mode: 'insensitive' } },
-      { stateName: { contains: q, mode: 'insensitive' } },
-      { countryName: { contains: q, mode: 'insensitive' } },
-      { bio: { contains: q, mode: 'insensitive' } },
+      // Location + bio (as before).
+      { city: like },
+      { stateName: like },
+      { countryName: like },
+      { bio: like },
+      // Portfolio video industry label + tags (PUBLIC videos only, so a hidden
+      // video can't surface a creator).
+      { portfolioVideos: { some: { visibilityStatus: PUBLIC, industryLabel: like } } },
+      {
+        portfolioVideos: {
+          some: {
+            visibilityStatus: PUBLIC,
+            tags: { some: { tag: like } },
+          },
+        },
+      },
+      // Niche / facet labels (and any free-text "Other" custom label).
+      {
+        facetSelections: {
+          some: {
+            OR: [{ option: { label: like } }, { customLabel: like }],
+          },
+        },
+      },
+      // Package names.
+      { packages: { some: { name: like } } },
+      // "Open to" restrictions.
+      { restrictions: { some: { restriction: like } } },
     ],
   };
+  // Note: the creator's real name is intentionally never matched (privacy).
 }
 
 /** Admin pending/rejected queues: search by creator display name only. */

@@ -33,9 +33,11 @@ function parseBoolean(
 export function parseBrowseListingParams(
   sp: Pick<URLSearchParams, "get" | "getAll">,
 ): { filters: Filters; search: string } {
+  const search = sp.get("q")?.trim() ?? "";
   return {
-    search: sp.get("q") ?? "",
+    search,
     filters: {
+      search,
       city: sp.get("city")?.trim() ?? DEFAULT_FILTERS.city,
       categories: parseMultiValue(sp, "categories"),
       gender: sp.get("gender")?.trim() ?? DEFAULT_FILTERS.gender,
@@ -48,10 +50,6 @@ export function parseBrowseListingParams(
         "onLocationAvailable",
         DEFAULT_FILTERS.onLocationAvailable,
       ),
-      industry: sp.get("industry")?.trim() ?? DEFAULT_FILTERS.industry,
-      portfolioTag:
-        sp.get("portfolioTag")?.trim() ?? DEFAULT_FILTERS.portfolioTag,
-      // personaTags: parseMultiValue(sp, "personaTags"),
       restrictions: parseMultiValue(sp, "restrictions"),
       // Facet-based filters
       creatorType: parseMultiValue(sp, "creatorType"),
@@ -75,11 +73,12 @@ const MULTI_VALUE_KEYS = [
 
 export function serializeBrowseListingParams(
   filters: Filters,
-  search: string,
+  search?: string,
 ): string {
   const params = new URLSearchParams();
 
-  const query = search.trim();
+  // Prefer the explicit arg (back-compat); otherwise use the search on filters.
+  const query = (search ?? filters.search ?? "").trim();
   if (query) params.set("q", query);
 
   const city = filters.city.trim();
@@ -100,12 +99,6 @@ export function serializeBrowseListingParams(
     params.set("maxDeliveryDays", filters.maxDeliveryDays);
   }
   if (filters.onLocationAvailable) params.set("onLocationAvailable", "true");
-
-  const industry = filters.industry.trim();
-  if (industry) params.set("industry", industry);
-
-  const portfolioTag = filters.portfolioTag.trim();
-  if (portfolioTag) params.set("portfolioTag", portfolioTag);
 
   const ageGroup = filters.ageGroup.trim();
   if (ageGroup) params.set("ageGroup", ageGroup);

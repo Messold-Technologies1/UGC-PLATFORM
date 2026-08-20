@@ -490,6 +490,12 @@ interface ActiveChip {
 function buildActiveChips(filters: Filters): ActiveChip[] {
   const chips: ActiveChip[] = [];
 
+  if (filters.search)
+    chips.push({
+      id: `search-${filters.search}`,
+      label: `Search: ${filters.search}`,
+      type: "search",
+    });
   if (filters.city)
     chips.push({
       id: `city-${filters.city}`,
@@ -562,20 +568,6 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
       type: "onLocationAvailable",
     });
 
-  if (filters.industry)
-    chips.push({
-      id: `ind-${filters.industry}`,
-      label: `Industry: ${filters.industry}`,
-      type: "industry",
-    });
-
-  if (filters.portfolioTag)
-    chips.push({
-      id: `pt-${filters.portfolioTag}`,
-      label: `Tag: ${filters.portfolioTag}`,
-      type: "portfolioTag",
-    });
-
   return chips;
 }
 
@@ -585,7 +577,6 @@ export interface CreatorFilterBarProps {
   total: number;
   isPending: boolean;
   onClear: () => void;
-  categoryOptions: string[];
   landingPage?: boolean;
 }
 
@@ -595,7 +586,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   total,
   isPending,
   onClear,
-  categoryOptions,
   landingPage,
 }: CreatorFilterBarProps) {
   const [mode, setMode] = useState<"smart" | "manual">("manual");
@@ -605,17 +595,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     setLocalCity(filters.city);
   }, [filters.city]);
 
-  const [localIndustry, setLocalIndustry] = useState(filters.industry);
+  const [localSearch, setLocalSearch] = useState(filters.search);
   useEffect(() => {
-    setLocalIndustry(filters.industry);
-  }, [filters.industry]);
-
-  const [localPortfolioTag, setLocalPortfolioTag] = useState(
-    filters.portfolioTag,
-  );
-  useEffect(() => {
-    setLocalPortfolioTag(filters.portfolioTag);
-  }, [filters.portfolioTag]);
+    setLocalSearch(filters.search);
+  }, [filters.search]);
 
   const commitField = useCallback(
     <K extends keyof Filters>(key: K, value: Filters[K]) => {
@@ -628,12 +611,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     commitField("city", value.trim());
   }, 400);
 
-  const debouncedIndustryChange = useDebouncedCallback((value: string) => {
-    commitField("industry", value.trim());
-  }, 400);
-
-  const debouncedPortfolioTagChange = useDebouncedCallback((value: string) => {
-    commitField("portfolioTag", value.trim());
+  const debouncedSearchChange = useDebouncedCallback((value: string) => {
+    commitField("search", value.trim());
   }, 400);
 
   const toggleArrayField = useCallback(
@@ -659,11 +638,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
       } else if (chip.type === "onLocationAvailable") {
         onChange({ ...filters, onLocationAvailable: false });
       } else if (
+        chip.type === "search" ||
         chip.type === "city" ||
         chip.type === "gender" ||
-        chip.type === "ageGroup" ||
-        chip.type === "industry" ||
-        chip.type === "portfolioTag"
+        chip.type === "ageGroup"
       ) {
         onChange({ ...filters, [chip.type]: "" });
       } else {
@@ -687,39 +665,26 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     staleTime: 5 * 60_000,
   });
 
+  // Category chips are sourced ONLY from the canonical suggestions endpoint so
+  // each chip's slug is the real DB CreatorFacetOption slug — the same value the
+  // server matches against a creator's niche selections (primary or secondary).
   const categoryItems = useMemo(() => {
     const items: { slug: string; label: string }[] = [];
     const seen = new Set<string>();
     for (const item of categorySuggestionsQuery.data ?? []) {
+      const slug = item.slug?.trim();
+      // "Other" is a catch-all niche creators can pick; not a useful filter.
+      if (!slug || slug === "other" || seen.has(slug)) continue;
       const label = item.name
         .trim()
         .replace(/\s*\/\s*/g, " & ")
         .replace(/\bAnd\b/g, "&");
-      const slug =
-        item.slug?.trim() ||
-        label
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "_")
-          .replace(/^_+|_+$/g, "");
-      if (!label || seen.has(slug)) continue;
-      items.push({ slug, label });
-      seen.add(slug);
-    }
-    for (const fallback of categoryOptions) {
-      const label = fallback
-        .trim()
-        .replace(/\s*\/\s*/g, " & ")
-        .replace(/\bAnd\b/g, "&");
-      const slug = label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-      if (!label || seen.has(slug)) continue;
+      if (!label) continue;
       items.push({ slug, label });
       seen.add(slug);
     }
     return items.sort((a, b) => a.label.localeCompare(b.label));
-  }, [categoryOptions, categorySuggestionsQuery.data]);
+  }, [categorySuggestionsQuery.data]);
 
   const facetOptionsByDimension = facetOptionsQuery.data?.optionsByDimension;
 
@@ -731,10 +696,13 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     if (!optionsMap) return result;
 
     for (const [dim, options] of Object.entries(optionsMap)) {
-      result[dim] = options.map((o) => ({
-        slug: o.slug,
-        label: o.label.replace(/\s*\/\s*/g, " & ").replace(/\bAnd\b/g, "&"),
-      }));
+      result[dim] = options
+        // "Other" is a catch-all creators can pick; it's not a useful filter.
+        .filter((o) => o.slug !== "other")
+        .map((o) => ({
+          slug: o.slug,
+          label: o.label.replace(/\s*\/\s*/g, " & ").replace(/\bAnd\b/g, "&"),
+        }));
     }
     return result;
   }, [facetOptionsByDimension]);
@@ -777,11 +745,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     filters.restrictions.length +
     (filters.gender ? 1 : 0) +
     (filters.onLocationAvailable ? 1 : 0) +
-    (filters.city ? 1 : 0) +
-    (filters.industry ? 1 : 0) +
-    (filters.portfolioTag ? 1 : 0);
+    (filters.city ? 1 : 0);
 
   const activeFilterCount =
+    (filters.search ? 1 : 0) +
     categoryCount +
     langCount +
     priceCount +
@@ -872,6 +839,33 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
             </div>
           ) : (
             <>
+              <div className="relative w-full lg:w-[280px] shrink-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  type="search"
+                  value={localSearch}
+                  onChange={(e) => {
+                    setLocalSearch(e.target.value);
+                    debouncedSearchChange(e.target.value);
+                  }}
+                  placeholder="Search creators by keyword…"
+                  aria-label="Search creators"
+                  className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm"
+                />
+                {localSearch ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-foreground"
+                    onClick={() => {
+                      setLocalSearch("");
+                      commitField("search", "");
+                    }}
+                  >
+                    <X className="size-4" />
+                  </button>
+                ) : null}
+              </div>
               <div
                 className={cn(
                   "flex items-center gap-2.5",
@@ -1126,36 +1120,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           }
                         />
                       </div>
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Industry
-                        </h5>
-                        <Input
-                          placeholder="Search industry"
-                          value={localIndustry}
-                          onChange={(e) => {
-                            setLocalIndustry(e.target.value);
-                            debouncedIndustryChange(e.target.value);
-                          }}
-                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                        />
-                      </div>
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Portfolio Tag
-                        </h5>
-                        <Input
-                          placeholder="Search tag"
-                          value={localPortfolioTag}
-                          onChange={(e) => {
-                            setLocalPortfolioTag(e.target.value);
-                            debouncedPortfolioTagChange(e.target.value);
-                          }}
-                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                        />
-                      </div>
                     </div>
 
                     <div className="flex gap-2.5 border-t border-gray-200 pt-3.5 mt-1">
@@ -1335,34 +1299,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             onCheckedChange={(checked) =>
                               commitField("onLocationAvailable", checked)
                             }
-                          />
-                        </div>
-                        <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Industry
-                          </h5>
-                          <Input
-                            placeholder="Search industry"
-                            value={localIndustry}
-                            onChange={(e) => {
-                              setLocalIndustry(e.target.value);
-                              debouncedIndustryChange(e.target.value);
-                            }}
-                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
-                          />
-                        </div>
-                        <div>
-                          <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                            Portfolio Tag
-                          </h5>
-                          <Input
-                            placeholder="Search tag"
-                            value={localPortfolioTag}
-                            onChange={(e) => {
-                              setLocalPortfolioTag(e.target.value);
-                              debouncedPortfolioTagChange(e.target.value);
-                            }}
-                            className="h-10 rounded-lg border-gray-200 bg-white text-[13px] shadow-sm"
                           />
                         </div>
                       </div>

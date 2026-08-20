@@ -1,4 +1,5 @@
 export interface Filters {
+  search: string;
   city: string;
   categories: string[];
   gender: string;
@@ -6,8 +7,6 @@ export interface Filters {
   maxPrice: string;
   maxDeliveryDays: string;
   onLocationAvailable: boolean;
-  industry: string;
-  portfolioTag: string;
   restrictions: string[];
   creatorType: string[];
   appearance: string[];
@@ -27,6 +26,7 @@ export const DELIVERY_WITHIN_OPTIONS = [
 ] as const;
 
 export const DEFAULT_FILTERS: Filters = {
+  search: "",
   city: "",
   categories: [],
   gender: "",
@@ -34,8 +34,6 @@ export const DEFAULT_FILTERS: Filters = {
   maxPrice: "",
   maxDeliveryDays: "",
   onLocationAvailable: false,
-  industry: "",
-  portfolioTag: "",
   restrictions: [],
   creatorType: [],
   appearance: [],

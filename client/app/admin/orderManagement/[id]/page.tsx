@@ -818,6 +818,98 @@ export default function AdminOrderDetailsPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {order.pricingLedger ? (
+          <motion.div variants={itemVariants} className="xl:col-span-3">
+            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+              <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+                <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
+                  <BadgeDollarSign className="h-5 w-5 text-primary" />
+                  Pricing ledger
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-8">
+                {(() => {
+                  const led = order.pricingLedger!;
+                  const inr = (paise: number) =>
+                    formatCurrency((paise ?? 0) / 100, order.currency);
+                  return (
+                    <div className="grid gap-8 lg:grid-cols-2">
+                      {/* What the brand paid */}
+                      <div className="space-y-2.5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                          Collected from brand
+                        </p>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Base package + add-ons
+                          </span>
+                          <span className="font-semibold">
+                            {inr(led.basePlusAddOnsPaise)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Extra revisions ({led.extraRevisionsPurchased})
+                          </span>
+                          <span className="font-semibold">
+                            {inr(led.extraPaidPaise)}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between border-t border-border/50 pt-2.5 text-sm">
+                          <span className="font-bold">Brand paid</span>
+                          <span className="font-bold">
+                            {inr(led.brandPaidPaise)}
+                          </span>
+                        </div>
+                        <p className="pt-1 text-xs text-muted-foreground">
+                          Extra revisions used {led.extraRevisionsUsed} /{" "}
+                          {led.extraRevisionsPurchased} · unused{" "}
+                          {led.extraRevisionsUnused}
+                        </p>
+                      </div>
+
+                      {/* Settlement */}
+                      <div className="space-y-2.5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                          Settlement
+                        </p>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Platform fee (20%)
+                          </span>
+                          <span className="font-semibold">
+                            {inr(led.platformFeePaise)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            Pay to creator
+                          </span>
+                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                            {inr(led.payToCreatorPaise)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm dark:bg-amber-900/20">
+                          <span className="font-semibold text-amber-700 dark:text-amber-500">
+                            Refund to brand
+                          </span>
+                          <span className="font-bold text-amber-700 dark:text-amber-500">
+                            {inr(led.refundToBrandPaise)}
+                          </span>
+                        </div>
+                        <p className="pt-1 text-xs text-muted-foreground">
+                          Refund = unused extra revisions (at full price).
+                          Amounts are provisional until the order closes.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </motion.div>
+        ) : null}
       </motion.div>
 
       <Dialog

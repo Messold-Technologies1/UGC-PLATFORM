@@ -280,12 +280,23 @@ export class WebhooksService {
         } else {
           // Not an order or a bulk batch — may be a standalone extra-revisions
           // purchase. Grant the revisions; it emits its own realtime event.
-          await this.orders.markRevisionPurchasePaidFromWebhook({
-            razorpayOrderId: entity.order_id,
-            razorpayPaymentId: entity.id,
-            paidAt: new Date(entity.created_at * 1000),
-            amountPaise: paymentAmountPaise(entity),
-          });
+          const revisionResult =
+            await this.orders.markRevisionPurchasePaidFromWebhook({
+              razorpayOrderId: entity.order_id,
+              razorpayPaymentId: entity.id,
+              paidAt: new Date(entity.created_at * 1000),
+              amountPaise: paymentAmountPaise(entity),
+            });
+          if (!revisionResult) {
+            // ...or a standalone usage-rights extension purchase. Extend the
+            // order's usage-rights days; it emits its own realtime event.
+            await this.orders.markUsageRightsPurchasePaidFromWebhook({
+              razorpayOrderId: entity.order_id,
+              razorpayPaymentId: entity.id,
+              paidAt: new Date(entity.created_at * 1000),
+              amountPaise: paymentAmountPaise(entity),
+            });
+          }
         }
       }
     } else if (body.event === 'payment.failed') {
@@ -325,9 +336,16 @@ export class WebhooksService {
       } else {
         // May be a standalone extra-revisions purchase — flag it FAILED so the
         // pending row is settled and a retry starts a fresh charge.
-        await this.orders.markRevisionPurchaseFailedFromWebhook({
-          razorpayOrderId: entity.order_id,
-        });
+        const failedRevisionOrderId =
+          await this.orders.markRevisionPurchaseFailedFromWebhook({
+            razorpayOrderId: entity.order_id,
+          });
+        if (!failedRevisionOrderId) {
+          // ...or a standalone usage-rights extension purchase.
+          await this.orders.markUsageRightsPurchaseFailedFromWebhook({
+            razorpayOrderId: entity.order_id,
+          });
+        }
       }
     } else if (body.event === 'refund.processed') {
       const entity = body.payload?.refund?.entity;

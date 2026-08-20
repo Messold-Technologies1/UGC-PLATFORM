@@ -176,6 +176,39 @@ export class OrderDetailsPublicDto {
   })
   revisionAddOnAvailable!: boolean;
 
+  @ApiProperty({
+    example: 30,
+    description: 'Usage-rights days granted by one paid extension block',
+  })
+  usageRightsPerPurchase!: number;
+
+  @ApiProperty({
+    example: 30,
+    description: 'Base usage-rights days every order includes',
+  })
+  usageRightsBaseDays!: number;
+
+  @ApiProperty({
+    example: 60,
+    description: 'Extra usage-rights days the brand has purchased on this order',
+  })
+  usageRightsExtraDays!: number;
+
+  @ApiPropertyOptional({
+    example: 30000,
+    nullable: true,
+    description:
+      "Price in paise for one usage-rights extension block (the creator's 'Usage Rights extra 30 days' price). Null when unavailable. Brand details only.",
+  })
+  usageRightsAddOnUnitPaise?: number | null;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether the brand can buy extra usage-rights time (only after the order is completed)',
+  })
+  usageRightsAddOnAvailable!: boolean;
+
   @ApiPropertyOptional({
     type: () => OrderCurrentRevisionDto,
     description:

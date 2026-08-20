@@ -99,8 +99,8 @@ export interface OrderDetailsPublic extends OrderListSummary {
   usageRightsAddOnAvailable: boolean;
   /** Total paid for mid-order extra-revisions purchases (paise). Brand details only. */
   extraRevisionsPaidPaise: number;
-  /** Number of paid extra-revisions purchases. Brand details only. */
-  extraRevisionsPurchases: number;
+  /** Total extra revisions granted by paid purchases (packs × per-pack). Brand details only. */
+  extraRevisionsAdded: number;
   /** Total paid for post-order usage-rights extensions (paise). Brand details only. */
   extraUsageRightsPaidPaise: number;
   currentRevision?: OrderCurrentRevision;

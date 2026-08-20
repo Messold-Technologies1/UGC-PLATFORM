@@ -24,6 +24,12 @@ export function CompletedPaymentSummaryCard({
   // charges made afterwards (mid-order extra revisions, post-order usage-rights
   // extensions).
   const extraRevisionsAmount = (order.extraRevisionsPaidPaise ?? 0) / 100;
+  // Number of revision packs the brand bought (each pack grants
+  // `revisionsPerPurchase` revisions) — this is the "×N" they selected.
+  const extraRevisionPacks =
+    order.revisionsPerPurchase > 0
+      ? Math.round(order.extraRevisionsAdded / order.revisionsPerPurchase)
+      : 0;
   const extraUsageRightsAmount = (order.extraUsageRightsPaidPaise ?? 0) / 100;
   const totalPaid =
     (order.expectedAmountPaise +
@@ -53,7 +59,9 @@ export function CompletedPaymentSummaryCard({
         {extraRevisionsAmount > 0 ? (
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground font-medium">
-              Extra revisions ({order.extraRevisionsPurchases})
+              Extra revisions ({extraRevisionPacks} pack
+              {extraRevisionPacks === 1 ? "" : "s"} ·{" "}
+              {order.extraRevisionsAdded} revisions)
             </span>
             <span className="font-semibold text-foreground tabular-nums">
               {formatMoney(extraRevisionsAmount, order.currency)}

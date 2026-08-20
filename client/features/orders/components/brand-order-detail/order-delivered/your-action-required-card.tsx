@@ -319,6 +319,9 @@ export function YourActionRequiredCard({
                     ? revisionAddOnPrice * revisionQty
                     : null}
                 </Button>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  Unused revisions will be refunded when the order closes.
+                </p>
               </div>
             ) : null}
           </div>

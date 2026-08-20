@@ -241,8 +241,6 @@ export default function AdminOrderDetailsPage() {
     rejectOrderMutation.isPending ||
     refundOrderMutation.isPending ||
     closeDisputeMutation.isPending;
-  const totalAmount = order.expectedAmountPaise / 100;
-  const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
 
   const handleConfirmAction = () => {
     if (!confirmAction) return;
@@ -510,123 +508,116 @@ export default function AdminOrderDetailsPage() {
           </div>
 
           <motion.div variants={itemVariants}>
+            {order.pricingLedger ? (
+              <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+                <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+                  <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
+                    <BadgeDollarSign className="h-5 w-5 text-primary" />
+                    Pricing ledger
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  {(() => {
+                    const led = order.pricingLedger!;
+                    const inr = (paise: number) =>
+                      formatCurrency((paise ?? 0) / 100, order.currency);
+                    return (
+                      <div className="grid gap-8 lg:grid-cols-2">
+                        <div className="space-y-2.5">
+                          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                            Collected from brand
+                          </p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Base package + add-ons
+                            </span>
+                            <span className="font-semibold">
+                              {inr(led.basePlusAddOnsPaise)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Extra revisions ({led.extraRevisionsPurchased})
+                            </span>
+                            <span className="font-semibold">
+                              {inr(led.extraPaidPaise)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between border-t border-border/50 pt-2.5 text-sm">
+                            <span className="font-bold">Brand paid</span>
+                            <span className="font-bold">
+                              {inr(led.brandPaidPaise)}
+                            </span>
+                          </div>
+                          <p className="pt-1 text-xs text-muted-foreground">
+                            Extra revisions used {led.extraRevisionsUsed} /{" "}
+                            {led.extraRevisionsPurchased} · unused{" "}
+                            {led.extraRevisionsUnused}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                            Settlement
+                          </p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Platform fee (20%)
+                            </span>
+                            <span className="font-semibold">
+                              {inr(led.platformFeePaise)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              Pay to creator
+                            </span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                              {inr(led.payToCreatorPaise)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm dark:bg-amber-900/20">
+                            <span className="font-semibold text-amber-700 dark:text-amber-500">
+                              Refund to brand
+                            </span>
+                            <span className="font-bold text-amber-700 dark:text-amber-500">
+                              {inr(led.refundToBrandPaise)}
+                            </span>
+                          </div>
+                          <p className="pt-1 text-xs text-muted-foreground">
+                            Refund = unused extra revisions (at full price).
+                            Amounts are provisional until the order closes.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+                <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+                  <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
+                    <BadgeDollarSign className="h-5 w-5 text-primary" />
+                    Pricing ledger
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <p className="text-sm text-muted-foreground">
+                    No pricing ledger is available for this order yet.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
             <AdminOrderChat
               orderId={order.id}
               brand={brand}
               creator={creator}
               orderStatus={order.status}
             />
-          </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-              <div className="border-b border-border/50 bg-linear-to-br from-primary/10 via-primary/5 to-transparent px-8 py-6 dark:border-border/10">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                  <div>
-                    <Badge
-                      variant="outline"
-                      className="mb-3 border-primary/20 bg-background/50 text-primary"
-                    >
-                      Package Selection
-                    </Badge>
-                    <h3 className="flex items-center gap-2 font-headline text-2xl font-bold text-foreground">
-                      <Package className="h-6 w-6 text-primary" />
-                      {order.packageNameSnapshot}
-                    </h3>
-                    <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      Delivery in {order.deliveryDaysSnapshot} days
-                    </p>
-                  </div>
-                  <div className="rounded-2xl p-5 backdrop-blur-sm dark:border-border/10 md:text-right">
-                    <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Base Price
-                    </p>
-                    <p className="text-3xl font-extrabold tracking-tight">
-                      {formatCurrency(
-                        order.priceAmountSnapshot,
-                        order.currency,
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <CardContent className="p-0">
-                <div className="p-8">
-                  <h4 className="mb-5 flex items-center gap-2 font-headline text-lg font-bold">
-                    Included Deliverables
-                  </h4>
-                  <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {order.deliverablesSnapshot.length === 0 ? (
-                      <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground dark:border-border/10 dark:bg-card/20">
-                        No deliverables were captured for this order.
-                      </div>
-                    ) : (
-                      order.deliverablesSnapshot.map((item) => (
-                        <div
-                          key={item}
-                          className="flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50 dark:border-border/10 dark:bg-card/20"
-                        >
-                          <div className="rounded-full bg-primary/10 p-2">
-                            <CheckCircle2 className="h-4 w-4 text-primary" />
-                          </div>
-                          <span className="text-sm font-medium">{item}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {order.addOnsSnapshot.length > 0 ? (
-                    <div className="space-y-5">
-                      <h4 className="flex items-center gap-2 font-headline text-lg font-bold">
-                        <Package className="h-5 w-5 text-indigo-500" />
-                        Selected Add-Ons
-                      </h4>
-                      <div className="space-y-3">
-                        {order.addOnsSnapshot.map((addon) => (
-                          <div
-                            key={addon.id}
-                            className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-muted/30 p-5 transition-colors hover:bg-muted/50 dark:border-border/10 dark:bg-card/20 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div>
-                              <span className="font-medium">{addon.name}</span>
-                              {addon.description ? (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {addon.description}
-                                </p>
-                              ) : null}
-                            </div>
-                            <span className="w-fit rounded-xl border border-border/50 bg-background px-4 py-1.5 text-sm font-bold shadow-sm">
-                              +
-                              {formatCurrency(
-                                addon.priceAmount,
-                                order.currency,
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="flex items-center justify-between border-t border-border/50 bg-linear-to-r from-muted/50 to-muted/20 px-8 py-6 dark:border-border/10">
-                  <div>
-                    <p className="mb-1 text-xs font-black uppercase tracking-[0.15em] text-muted-foreground">
-                      Total Value
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Add-ons total:{" "}
-                      {formatCurrency(addOnsTotal, order.currency)}
-                    </p>
-                  </div>
-                  <p className="text-right text-4xl font-extrabold tracking-tight text-primary">
-                    {formatCurrency(totalAmount, order.currency)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </motion.div>
         </div>
 
@@ -745,171 +736,79 @@ export default function AdminOrderDetailsPage() {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card className="overflow-hidden rounded-3xl border-border/50 bg-linear-to-b from-card to-secondary/10 shadow-sm dark:border-border/10 dark:from-black/80 dark:to-black/50">
-              <CardHeader className="border-b border-border/50 px-6 py-5 dark:border-border/10">
+            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
+              <CardHeader className="border-b border-border/50 bg-muted/30 px-6 py-5 dark:border-border/10 dark:bg-card/20">
                 <CardTitle className="flex items-center gap-2 font-headline text-lg font-bold text-foreground">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  System Details
+                  <Clock className="h-5 w-5 text-primary" />
+                  Order Journey
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6 p-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-border/50 bg-background/80 p-4 shadow-sm backdrop-blur">
-                    <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      <History className="h-3 w-3" />
-                      Revisions
-                    </p>
-                    <p className="text-xl font-extrabold">
-                      {order.revisionCount}{" "}
-                      <span className="text-sm font-medium text-muted-foreground">
-                        / {order.maxRevisionsSnapshot}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border/50 bg-background/80 p-4 shadow-sm backdrop-blur">
-                    <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      <FileText className="h-3 w-3" />
-                      Brief
-                    </p>
-                    {order.hasBrief ? (
-                      <Badge className="border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-bold text-emerald-600 shadow-none hover:bg-emerald-500/20">
-                        Submitted
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="px-2.5 py-0.5 font-bold shadow-none"
-                      >
-                        Pending
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-5 pt-2">
-                  <CopyableId
-                    label="Razorpay Order ID"
-                    id={order.razorpayOrderId}
-                  />
-                  <CopyableId
-                    label="Razorpay Payment ID"
-                    id={order.razorpayPaymentId}
-                  />
-                  <CopyableId
-                    label="Razorpay Refund ID"
-                    id={order.razorpayRefundId}
-                  />
-                </div>
+              <CardContent className="p-6">
+                <TrackingTimeline items={timelineItems} />
               </CardContent>
             </Card>
           </motion.div>
         </div>
 
         <motion.div variants={itemVariants} className="xl:col-span-3">
-          <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-            <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
+          <Card className="overflow-hidden rounded-3xl border-border/50 bg-linear-to-b from-card to-secondary/10 shadow-sm dark:border-border/10 dark:from-black/80 dark:to-black/50">
+            <CardHeader className="border-b border-border/50 px-8 py-6 dark:border-border/10">
               <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
-                <Clock className="h-5 w-5 text-primary" />
-                Order Journey
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                System Details
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8">
-              <TrackingTimeline items={timelineItems} />
+            <CardContent className="space-y-6 p-8">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="rounded-2xl border border-border/50 bg-background/80 p-4 shadow-sm backdrop-blur">
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    <History className="h-3 w-3" />
+                    Revisions
+                  </p>
+                  <p className="text-xl font-extrabold">
+                    {order.revisionCount}{" "}
+                    <span className="text-sm font-medium text-muted-foreground">
+                      / {order.maxRevisionsSnapshot}
+                    </span>
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border/50 bg-background/80 p-4 shadow-sm backdrop-blur">
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    <FileText className="h-3 w-3" />
+                    Brief
+                  </p>
+                  {order.hasBrief ? (
+                    <Badge className="border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-bold text-emerald-600 shadow-none hover:bg-emerald-500/20">
+                      Submitted
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className="px-2.5 py-0.5 font-bold shadow-none"
+                    >
+                      Pending
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-3">
+                <CopyableId
+                  label="Razorpay Order ID"
+                  id={order.razorpayOrderId}
+                />
+                <CopyableId
+                  label="Razorpay Payment ID"
+                  id={order.razorpayPaymentId}
+                />
+                <CopyableId
+                  label="Razorpay Refund ID"
+                  id={order.razorpayRefundId}
+                />
+              </div>
             </CardContent>
           </Card>
         </motion.div>
-
-        {order.pricingLedger ? (
-          <motion.div variants={itemVariants} className="xl:col-span-3">
-            <Card className="overflow-hidden rounded-3xl border-border/50 shadow-sm dark:border-border/10 dark:bg-black/60">
-              <CardHeader className="border-b border-border/50 bg-muted/30 px-8 py-6 dark:border-border/10 dark:bg-card/20">
-                <CardTitle className="flex items-center gap-2 font-headline text-xl font-bold text-foreground">
-                  <BadgeDollarSign className="h-5 w-5 text-primary" />
-                  Pricing ledger
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                {(() => {
-                  const led = order.pricingLedger!;
-                  const inr = (paise: number) =>
-                    formatCurrency((paise ?? 0) / 100, order.currency);
-                  return (
-                    <div className="grid gap-8 lg:grid-cols-2">
-                      {/* What the brand paid */}
-                      <div className="space-y-2.5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                          Collected from brand
-                        </p>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            Base package + add-ons
-                          </span>
-                          <span className="font-semibold">
-                            {inr(led.basePlusAddOnsPaise)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            Extra revisions ({led.extraRevisionsPurchased})
-                          </span>
-                          <span className="font-semibold">
-                            {inr(led.extraPaidPaise)}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between border-t border-border/50 pt-2.5 text-sm">
-                          <span className="font-bold">Brand paid</span>
-                          <span className="font-bold">
-                            {inr(led.brandPaidPaise)}
-                          </span>
-                        </div>
-                        <p className="pt-1 text-xs text-muted-foreground">
-                          Extra revisions used {led.extraRevisionsUsed} /{" "}
-                          {led.extraRevisionsPurchased} · unused{" "}
-                          {led.extraRevisionsUnused}
-                        </p>
-                      </div>
-
-                      {/* Settlement */}
-                      <div className="space-y-2.5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                          Settlement
-                        </p>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            Platform fee (20%)
-                          </span>
-                          <span className="font-semibold">
-                            {inr(led.platformFeePaise)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
-                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                            Pay to creator
-                          </span>
-                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                            {inr(led.payToCreatorPaise)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm dark:bg-amber-900/20">
-                          <span className="font-semibold text-amber-700 dark:text-amber-500">
-                            Refund to brand
-                          </span>
-                          <span className="font-bold text-amber-700 dark:text-amber-500">
-                            {inr(led.refundToBrandPaise)}
-                          </span>
-                        </div>
-                        <p className="pt-1 text-xs text-muted-foreground">
-                          Refund = unused extra revisions (at full price).
-                          Amounts are provisional until the order closes.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : null}
       </motion.div>
 
       <Dialog

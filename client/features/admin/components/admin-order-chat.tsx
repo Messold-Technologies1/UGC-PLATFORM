@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { AlertCircle, Loader2, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   MessagingConversation,
   type MessagingConversationMessage,
@@ -97,6 +98,7 @@ export function AdminOrderChat({
   const meQuery = useMeQuery();
   const sendMutation = useSendAdminOrderChatMessageMutation(orderId);
   useAdminOrderChatRealtime(orderId);
+  const [chatOpen, setChatOpen] = useState(false);
   const state = stateQuery.data;
   const isDisputed = orderStatus === "DISPUTED";
   const adminUserId = meQuery.data?.id ?? null;
@@ -165,11 +167,34 @@ export function AdminOrderChat({
   const messages = mapMessages(
     messagesQuery.data?.pages.map((page) => page.items) ?? [],
   );
+  const hasMessages = messages.length > 0;
+  const showChatPanel = chatOpen || hasMessages;
 
   // While the order is disputed, the admin joins the brand/creator conversation
   // as "Support", turning it into a three-way group chat. Outside a dispute the
   // history stays read-only.
   const canSend = isDisputed && Boolean(adminUserId);
+
+  if (!showChatPanel) {
+    return (
+      <AdminOrderChatShell className={className}>
+        <div className="flex max-w-sm flex-col items-center gap-4">
+          <div className="rounded-2xl bg-muted p-4 text-muted-foreground">
+            <MessageSquare className="h-6 w-6" aria-hidden />
+          </div>
+          <div>
+            <h3 className="font-headline text-lg font-bold">No messages yet</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              There are no chat messages for this order.
+            </p>
+          </div>
+          <Button type="button" onClick={() => setChatOpen(true)}>
+            Open chat
+          </Button>
+        </div>
+      </AdminOrderChatShell>
+    );
+  }
 
   return (
     <MessagingConversation

@@ -38,10 +38,10 @@ export function CompletedPaymentSummaryCard({
     100;
 
   return (
-    <div className="rounded-xl border bg-card p-6 shadow-sm flex flex-col h-full">
+    <div className="rounded-xl border bg-card p-6 shadow-sm">
       <h3 className="text-base font-bold text-foreground mb-6">Payment Summary</h3>
 
-      <div className="space-y-4 text-sm flex-1">
+      <div className="space-y-4 text-sm">
         <div className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground font-medium">Base Package</span>
           <span className="font-semibold text-foreground tabular-nums">

@@ -37,7 +37,7 @@ export function UsageRightsCard({ orderId, order }: UsageRightsCardProps) {
   const addedDays = daysPerBlock * qty;
 
   return (
-    <div className="rounded-xl border bg-card p-6 shadow-sm flex flex-col h-full">
+    <div className="rounded-xl border bg-card p-6 shadow-sm flex flex-col">
       <div className="flex items-center gap-2 mb-1.5">
         <CalendarClock className="size-4 text-primary" />
         <h3 className="text-base font-bold text-foreground">Extend usage rights</h3>

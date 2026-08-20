@@ -58,6 +58,41 @@ export function InprogressOrderDetailsCard({
     return due ? formatDeliveryDate(due.toISOString()) : null;
   }, [order]);
 
+  // Checkout add-ons + anything bought after order (extra revisions / usage rights).
+  const addonBadges = useMemo(() => {
+    const badges: Array<{ key: string; label: string }> = order.addOnsSnapshot.map(
+      (addon) => ({ key: addon.id, label: addon.name }),
+    );
+
+    if (order.extraRevisionsAdded > 0) {
+      const packs =
+        order.revisionsPerPurchase > 0
+          ? Math.round(order.extraRevisionsAdded / order.revisionsPerPurchase)
+          : 0;
+      badges.push({
+        key: "extra-revisions",
+        label:
+          packs > 0
+            ? `Extra revisions (${packs} pack${packs === 1 ? "" : "s"} · ${order.extraRevisionsAdded})`
+            : `Extra revisions (${order.extraRevisionsAdded})`,
+      });
+    }
+
+    if (order.usageRightsExtraDays > 0) {
+      badges.push({
+        key: "usage-rights",
+        label: `Usage rights extension (${order.usageRightsExtraDays} days)`,
+      });
+    }
+
+    return badges;
+  }, [
+    order.addOnsSnapshot,
+    order.extraRevisionsAdded,
+    order.revisionsPerPurchase,
+    order.usageRightsExtraDays,
+  ]);
+
   const brandName = brief?.brandName ?? "Not specified";
   const productName = brief?.productName ?? "Not specified";
   const contentTypes = brief?.contentType
@@ -235,14 +270,14 @@ export function InprogressOrderDetailsCard({
           <div>
             <h4 className="text-sm font-bold text-foreground mb-4">Add-ons</h4>
             <div className="flex flex-wrap gap-2.5">
-              {order.addOnsSnapshot.length > 0 ? (
-                order.addOnsSnapshot.map((addon) => (
+              {addonBadges.length > 0 ? (
+                addonBadges.map((badge) => (
                   <Badge
-                    key={addon.id}
+                    key={badge.key}
                     variant="secondary"
                     className="bg-muted/60 text-foreground font-medium rounded-lg px-3 py-1.5 text-xs"
                   >
-                    {addon.name}
+                    {badge.label}
                   </Badge>
                 ))
               ) : (

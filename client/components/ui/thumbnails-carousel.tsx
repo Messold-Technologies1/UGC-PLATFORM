@@ -121,7 +121,11 @@ export function ThumbnailsCarousel({
       onPageChange={handlePageChange}
       className={cn("w-full transition-opacity duration-300", className)}
     >
-      <Carousel.ItemGroup className={cn("relative mb-4 aspect-video max-h-[70vh] overflow-hidden rounded-2xl border bg-black shadow-sm", itemGroupClassName)}>
+      <Carousel.ItemGroup className={cn(
+        "relative aspect-video max-h-[70vh] overflow-hidden rounded-2xl border bg-black shadow-sm",
+        assets.length > 1 && "mb-4",
+        itemGroupClassName,
+      )}>
         {assets.map((asset, index) => (
           <Carousel.Item key={asset.id ?? index} index={index} className="relative h-full w-full">
             {asset.type === "video" ? (
@@ -201,74 +205,72 @@ export function ThumbnailsCarousel({
         ))}
       </Carousel.ItemGroup>
 
-      <div className="flex items-center gap-3">
-        {assets.length > 1 && (
+      {assets.length > 1 ? (
+        <div className="flex items-center gap-3">
           <Carousel.PrevTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">
             <ChevronLeft className="w-5 h-5" />
           </Carousel.PrevTrigger>
-        )}
 
-        <div className="scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto px-0.5 py-1">
-          {assets.map((asset, index) => (
-            <div key={asset.id ?? index} className="group/thumb relative aspect-video w-24 shrink-0">
-              <Carousel.Indicator
-                index={index}
-                className="absolute inset-0 w-full h-full ring-2 ring-transparent data-current:ring-primary data-current:ring-offset-2 ring-offset-background rounded-lg overflow-hidden cursor-pointer transition-all hover:ring-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {asset.type === "video" ? (
-                  <video
-                    src={asset.thumb}
-                    className={cn(
-                      "h-full w-full object-cover transition-opacity",
-                      currentPage === index ? "opacity-100" : "opacity-65",
-                    )}
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                ) : (
-                  <Image
-                    src={asset.thumb}
-                    alt={`Thumbnail ${index + 1}`}
-                    fill
-                    sizes="8rem"
-                    className={cn(
-                      "object-cover transition-opacity",
-                      currentPage === index ? "opacity-100" : "opacity-65",
-                    )}
-                    unoptimized={asset.thumb.startsWith("blob:")}
-                  />
-                )}
-                {asset.type === "video" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />
-                  </div>
-                )}
-              </Carousel.Indicator>
-              {isEditable && onRemove && (
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onRemove(index);
-                  }}
-                  className="absolute top-1 right-1 bg-black/60 rounded-full p-1 hover:bg-destructive/80 transition-colors z-10"
-                  aria-label="Remove asset"
+          <div className="scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto px-0.5 py-1">
+            {assets.map((asset, index) => (
+              <div key={asset.id ?? index} className="group/thumb relative aspect-video w-24 shrink-0">
+                <Carousel.Indicator
+                  index={index}
+                  className="absolute inset-0 w-full h-full ring-2 ring-transparent data-current:ring-primary data-current:ring-offset-2 ring-offset-background rounded-lg overflow-hidden cursor-pointer transition-all hover:ring-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <X className="w-3 h-3 text-white" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+                  {asset.type === "video" ? (
+                    <video
+                      src={asset.thumb}
+                      className={cn(
+                        "h-full w-full object-cover transition-opacity",
+                        currentPage === index ? "opacity-100" : "opacity-65",
+                      )}
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <Image
+                      src={asset.thumb}
+                      alt={`Thumbnail ${index + 1}`}
+                      fill
+                      sizes="8rem"
+                      className={cn(
+                        "object-cover transition-opacity",
+                        currentPage === index ? "opacity-100" : "opacity-65",
+                      )}
+                      unoptimized={asset.thumb.startsWith("blob:")}
+                    />
+                  )}
+                  {asset.type === "video" && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />
+                    </div>
+                  )}
+                </Carousel.Indicator>
+                {isEditable && onRemove && (
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onRemove(index);
+                    }}
+                    className="absolute top-1 right-1 bg-black/60 rounded-full p-1 hover:bg-destructive/80 transition-colors z-10"
+                    aria-label="Remove asset"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
 
-        {assets.length > 1 && (
           <Carousel.NextTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">
             <ChevronRight className="w-5 h-5" />
           </Carousel.NextTrigger>
-        )}
-      </div>
+        </div>
+      ) : null}
     </Carousel.Root>
   );
 }

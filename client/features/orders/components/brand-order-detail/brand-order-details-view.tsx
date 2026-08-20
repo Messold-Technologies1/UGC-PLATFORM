@@ -205,11 +205,11 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
         <CompletedNotificationBanner />
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
-          <div className="flex flex-col gap-5 lg:col-span-8 h-full">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          <div className="flex flex-col gap-5 lg:col-span-8">
             <DeliveredVideosCard orderId={orderId} order={order} variant="completed" />
           </div>
-          <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
+          <aside className="flex flex-col gap-5 lg:col-span-4">
             <CompletedPaymentSummaryCard order={order} />
             <UsageRightsCard orderId={orderId} order={order} />
           </aside>

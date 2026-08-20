@@ -145,54 +145,52 @@ function PreviousVersionBlock({
   }));
 
   return (
-    <div className="rounded-xl border border-border/50 p-4">
-      <div className="flex flex-col gap-4 md:flex-row">
-        <div className="w-full shrink-0 md:w-[220px]">
-          <ThumbnailsCarousel
-            assets={carouselAssets}
-            itemGroupClassName="aspect-auto h-40 rounded-lg"
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">
-            {revisionLabel(delivery.revisionsUsed)}
+    <div className="rounded-xl border border-border/50 p-3 flex flex-col gap-3">
+      <div className="w-full">
+        <ThumbnailsCarousel
+          assets={carouselAssets}
+          itemGroupClassName="aspect-video h-auto rounded-lg"
+        />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">
+          {revisionLabel(delivery.revisionsUsed)}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {formatDeliveryDate(delivery.createdAt)}
+        </p>
+        {delivery.note?.trim() ? (
+          <p className="mt-2 line-clamp-3 whitespace-pre-wrap rounded-lg bg-muted/30 p-2 text-xs leading-relaxed text-muted-foreground">
+            {delivery.note.trim()}
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {formatDeliveryDate(delivery.createdAt)}
-          </p>
-          {delivery.note?.trim() ? (
-            <p className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/30 p-2.5 text-xs leading-relaxed text-muted-foreground">
-              {delivery.note.trim()}
-            </p>
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {assets.map((asset, index) => {
-              const filename = filenameFromKey(asset.key);
-              const Icon = asset.kind === "video" ? FileVideo : ImageIcon;
-              return (
-                <Button
-                  key={asset.key}
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="h-8 max-w-full justify-start rounded-lg border-border/50 px-2.5 text-xs font-semibold"
+        ) : null}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {assets.map((asset, index) => {
+            const filename = filenameFromKey(asset.key);
+            const Icon = asset.kind === "video" ? FileVideo : ImageIcon;
+            return (
+              <Button
+                key={asset.key}
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 max-w-full justify-start rounded-lg border-border/50 px-2.5 text-xs font-semibold"
+              >
+                <a
+                  href={asset.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={filename}
                 >
-                  <a
-                    href={asset.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={filename}
-                  >
-                    <Icon className="size-3.5 shrink-0" />
-                    <span className="truncate">
-                      {asset.kind === "video" ? "Video" : "Image"} {index + 1}
-                    </span>
-                    <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
-                  </a>
-                </Button>
-              );
-            })}
-          </div>
+                  <Icon className="size-3.5 shrink-0" />
+                  <span className="truncate">
+                    {asset.kind === "video" ? "Video" : "Image"} {index + 1}
+                  </span>
+                  <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+                </a>
+              </Button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -435,7 +433,7 @@ export function DeliveredVideosCard({
           <h4 className="text-sm font-bold text-foreground mb-3">
             Previous versions ({previousVersions.length})
           </h4>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {previousVersions.map((delivery) => (
               <PreviousVersionBlock key={delivery.id} delivery={delivery} />
             ))}

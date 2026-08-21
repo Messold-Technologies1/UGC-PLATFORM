@@ -461,7 +461,10 @@ export function AboutYouStep(props: AboutYouStepProps) {
           your reach and audience.
         </span>
         <div>
-          <CreatorSocialAccounts profileId={profileId} />
+          <CreatorSocialAccounts
+            profileId={profileId}
+            adminMode={adminMode}
+          />
         </div>
         {errors.instagram ? (
           <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.instagram}</p>

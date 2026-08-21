@@ -25,6 +25,7 @@ type Persona = {
   stateName: string;
   bio: string;
   contentFormat: string;
+  creatorType: string[];
   contentCategory: string;
   categoryExperience: string;
   languages: string[];
@@ -62,7 +63,8 @@ const PERSONAS: Persona[] = [
     stateName: 'Maharashtra',
     bio: 'I create UGC ads for pet food and pet care brands. Specialize in dog food demos, treat unboxings, and playful pet-owner storytelling for D2C pet brands like Pedigree-style campaigns.',
     contentFormat: 'pet_owner',
-    contentCategory: 'food_cooking',
+    creatorType: ['pet'],
+    contentCategory: 'food',
     categoryExperience: 'ecommerce_d2c_brand',
     languages: ['english', 'hindi'],
     optionalFacets: {
@@ -107,13 +109,14 @@ const PERSONAS: Persona[] = [
     stateName: 'Delhi',
     bio: 'Beauty and skincare UGC creator. I mostly shoot serum, sunscreen, and makeup tutorials. Occasionally my dog makes a cameo in lifestyle skincare reels.',
     contentFormat: 'solo_individual',
-    contentCategory: 'beauty_skincare',
+    creatorType: ['individual_solo'],
+    contentCategory: 'beauty',
     categoryExperience: 'beauty_skincare_brand',
     languages: ['english', 'hindi'],
     optionalFacets: {
       canCreateWith: ['pets'],
       lifeStyle: ['pet_owner'],
-      appearance: ['casual_relatable'],
+      appearance: ['midsize'],
       contentStyle: ['talking_to_camera', 'aesthetic_cinematic'],
     },
     portfolio: [
@@ -147,11 +150,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Karnataka',
     bio: 'Fitness and gym content creator. I shoot workout supplements, activewear try-ons, and gym tour reels for fitness studios and sportswear brands.',
     contentFormat: 'solo_individual',
-    contentCategory: 'fitness_gym',
+    creatorType: ['individual_solo'],
+    contentCategory: 'fitness',
     categoryExperience: 'gym_fitness_studio',
     languages: ['english', 'kannada'],
     optionalFacets: {
-      appearance: ['fitness_sporty'],
+      appearance: ['athletic_fit'],
       contentStyle: ['product_demo', 'talking_to_camera'],
       occupation: ['fitness_trainer'],
       capability: ['can_shoot_outdoor', 'can_travel_on_location'],
@@ -186,11 +190,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Rajasthan',
     bio: 'Food and restaurant UGC specialist. Cloud kitchen unboxings, menu launches, and cafe ambience reels for F&B brands across North India.',
     contentFormat: 'solo_individual',
-    contentCategory: 'food_cooking',
+    creatorType: ['individual_solo'],
+    contentCategory: 'food',
     categoryExperience: 'restaurant_cafe',
     languages: ['hindi', 'english'],
     optionalFacets: {
-      occupation: ['chef_food_creator'],
+      occupation: ['chef'],
       contentStyle: ['aesthetic_cinematic', 'product_demo'],
       capability: ['can_travel_on_location'],
     },
@@ -222,11 +227,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Maharashtra',
     bio: 'Fashion and clothing brand creator. GRWM outfits, jewelry styling, and boutique haul videos for D2C apparel labels.',
     contentFormat: 'solo_individual',
+    creatorType: ['individual_solo'],
     contentCategory: 'fashion',
     categoryExperience: 'fashion_clothing_brand',
     languages: ['english', 'hindi'],
     optionalFacets: {
-      appearance: ['premium_model'],
+      appearance: ['slim_lean'],
       contentStyle: ['aesthetic_cinematic', 'ugc_ad_style'],
       lifeStyle: ['luxury_lifestyle'],
     },
@@ -260,7 +266,8 @@ const PERSONAS: Persona[] = [
     stateName: 'Maharashtra',
     bio: 'Tech and gadgets reviewer. Unboxing earbuds, smartwatches, and app walkthroughs for SaaS and consumer electronics brands.',
     contentFormat: 'solo_individual',
-    contentCategory: 'technology_gadgets',
+    creatorType: ['individual_solo'],
+    contentCategory: 'tech',
     categoryExperience: 'tech_product_app_saas',
     languages: ['english', 'hindi'],
     optionalFacets: {
@@ -297,7 +304,8 @@ const PERSONAS: Persona[] = [
     stateName: 'Telangana',
     bio: 'Mom creator making family-friendly UGC for toys, kids snacks, and baby care brands. I film with my 4-year-old for authentic parent-child content.',
     contentFormat: 'parent_child',
-    contentCategory: 'home_lifestyle',
+    creatorType: ['mom'],
+    contentCategory: 'parenting',
     categoryExperience: 'ecommerce_d2c_brand',
     languages: ['english', 'telugu'],
     optionalFacets: {
@@ -334,6 +342,7 @@ const PERSONAS: Persona[] = [
     stateName: 'Haryana',
     bio: 'Real estate and property walkthrough creator. Apartment tours, amenity highlights, and broker-style explainers for builders and Airbnb hosts.',
     contentFormat: 'solo_individual',
+    creatorType: ['dad'],
     contentCategory: 'travel',
     categoryExperience: 'real_estate_property',
     languages: ['english', 'hindi'],
@@ -370,11 +379,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Kerala',
     bio: 'Salon, spa, and makeup UGC creator. Bridal makeup transitions, hair spa demos, and salon ambience reels for beauty service businesses.',
     contentFormat: 'solo_individual',
-    contentCategory: 'beauty_skincare',
+    creatorType: ['individual_solo'],
+    contentCategory: 'beauty',
     categoryExperience: 'salon_spa_makeup_artist',
     languages: ['english', 'malayalam'],
     optionalFacets: {
-      appearance: ['premium_model'],
+      appearance: ['slim_lean'],
       contentStyle: ['aesthetic_cinematic', 'product_demo'],
       occupation: ['actor'],
     },
@@ -406,14 +416,15 @@ const PERSONAS: Persona[] = [
     stateName: 'Uttar Pradesh',
     bio: 'Couple creators for lifestyle, food dates, and home decor brands. We shoot relatable couple POV content for apps, restaurants, and furniture labels.',
     contentFormat: 'couple',
-    contentCategory: 'home_lifestyle',
+    creatorType: ['couple'],
+    contentCategory: 'home',
     categoryExperience: 'restaurant_cafe',
     languages: ['hindi', 'english'],
     optionalFacets: {
       lifeStyle: ['in_relationship'],
       canCreateWith: ['partner'],
       contentStyle: ['talking_to_camera', 'ugc_ad_style'],
-      appearance: ['casual_relatable'],
+      appearance: ['midsize'],
     },
     portfolio: [
       {
@@ -443,6 +454,7 @@ const PERSONAS: Persona[] = [
     stateName: 'Goa',
     bio: 'Travel and hospitality creator. Hotel room tours, beach resort highlights, and experience reels for travel brands and Airbnb hosts.',
     contentFormat: 'solo_individual',
+    creatorType: ['individual_solo'],
     contentCategory: 'travel',
     categoryExperience: 'travel_hotel_airbnb',
     languages: ['english', 'hindi', 'bengali'],
@@ -479,13 +491,14 @@ const PERSONAS: Persona[] = [
     stateName: 'Gujarat',
     bio: 'Doctor and healthcare educator creating clinic explainers, dental awareness reels, and patient-friendly testimonial-style content for clinics.',
     contentFormat: 'solo_individual',
-    contentCategory: 'health_wellness',
+    creatorType: ['senior'],
+    contentCategory: 'health',
     categoryExperience: 'clinic_doctor_dentist',
     languages: ['english', 'gujarati', 'hindi'],
     optionalFacets: {
-      occupation: ['doctor_healthcare'],
+      occupation: ['doctor'],
       contentStyle: ['talking_to_camera', 'testimonial'],
-      appearance: ['casual_relatable'],
+      appearance: ['midsize'],
     },
     portfolio: [
       {
@@ -515,11 +528,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Uttarakhand',
     bio: 'Yoga and wellness creator for studios, mats, and supplement brands. Calm voiceover flows, morning ritual content, and retreat ambience reels.',
     contentFormat: 'solo_individual',
-    contentCategory: 'health_wellness',
+    creatorType: ['individual_solo'],
+    contentCategory: 'health',
     categoryExperience: 'yoga_studio',
     languages: ['english', 'hindi'],
     optionalFacets: {
-      appearance: ['fitness_sporty'],
+      appearance: ['athletic_fit'],
       contentStyle: ['voiceover', 'aesthetic_cinematic'],
       capability: ['can_shoot_outdoor'],
       lifeStyle: ['outdoor_travel'],
@@ -552,7 +566,8 @@ const PERSONAS: Persona[] = [
     stateName: 'Maharashtra',
     bio: 'Automobile enthusiast creating car feature walkthroughs, dealership POV test drives, and accessory install demos for auto brands and local dealers.',
     contentFormat: 'solo_individual',
-    contentCategory: 'technology_gadgets',
+    creatorType: ['dad'],
+    contentCategory: 'automobile',
     categoryExperience: 'local_business',
     languages: ['marathi', 'hindi', 'english'],
     optionalFacets: {
@@ -587,11 +602,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Tamil Nadu',
     bio: 'South Indian home cooking creator for masala brands, kitchen appliances, and cloud kitchen launches. Authentic Tamil kitchen POV recipe reels.',
     contentFormat: 'solo_individual',
-    contentCategory: 'food_cooking',
+    creatorType: ['senior'],
+    contentCategory: 'food',
     categoryExperience: 'cloud_kitchen_food_brand',
     languages: ['tamil', 'english'],
     optionalFacets: {
-      occupation: ['chef_food_creator'],
+      occupation: ['chef'],
       contentStyle: ['product_demo', 'talking_to_camera'],
       capability: ['can_shoot_at_home'],
     },
@@ -623,7 +639,8 @@ const PERSONAS: Persona[] = [
     stateName: 'West Bengal',
     bio: 'Education and coaching creator. Course promos, teacher-style explainers, and student testimonial formats for edtech and coaching institutes.',
     contentFormat: 'solo_individual',
-    contentCategory: 'technology_gadgets',
+    creatorType: ['individual_solo'],
+    contentCategory: 'education',
     categoryExperience: 'coaching_education_courses',
     languages: ['english', 'bengali', 'hindi'],
     optionalFacets: {
@@ -659,7 +676,8 @@ const PERSONAS: Persona[] = [
     stateName: 'Maharashtra',
     bio: 'Interior and home decor creator. Room makeovers, furniture unboxing, and decor styling for D2C furniture and home lifestyle brands.',
     contentFormat: 'solo_individual',
-    contentCategory: 'home_lifestyle',
+    creatorType: ['individual_solo'],
+    contentCategory: 'home',
     categoryExperience: 'interior_home_decor',
     languages: ['english', 'marathi'],
     optionalFacets: {
@@ -695,12 +713,13 @@ const PERSONAS: Persona[] = [
     stateName: 'Punjab',
     bio: 'Punjabi lifestyle influencer doing bold streetwear hauls, sneaker unboxings, and energetic talking-head ads for youth D2C brands.',
     contentFormat: 'solo_individual',
+    creatorType: ['individual_solo'],
     contentCategory: 'fashion',
     categoryExperience: 'ecommerce_d2c_brand',
     languages: ['punjabi', 'hindi', 'english'],
     optionalFacets: {
-      occupation: ['influencer'],
-      appearance: ['bold_alternative'],
+      occupation: ['full_time_creator'],
+      appearance: ['other'],
       contentStyle: ['ugc_ad_style', 'talking_to_camera'],
       lifeStyle: ['outdoor_travel'],
     },
@@ -734,11 +753,12 @@ const PERSONAS: Persona[] = [
     stateName: 'Maharashtra',
     bio: 'Plus-size fashion creator promoting inclusive sizing, confident try-ons, and body-positive GRWM content for apparel brands.',
     contentFormat: 'solo_individual',
+    creatorType: ['individual_solo'],
     contentCategory: 'fashion',
     categoryExperience: 'fashion_clothing_brand',
     languages: ['english', 'hindi', 'marathi'],
     optionalFacets: {
-      appearance: ['plus_size', 'casual_relatable'],
+      appearance: ['plus_size_curvy', 'midsize'],
       contentStyle: ['talking_to_camera', 'testimonial'],
       lifeStyle: ['in_relationship'],
       canCreateWith: ['partner'],
@@ -760,7 +780,7 @@ const PERSONAS: Persona[] = [
         description: 'Comfort wear brand try-on testimonial',
       },
     ],
-    restrictions: ['alcohol'],
+    restrictions: ['Lingerie'],
     startingPrice: 4100,
     deliveryDays: 4,
   },
@@ -772,7 +792,8 @@ const PERSONAS: Persona[] = [
     stateName: 'Madhya Pradesh',
     bio: 'Family of four creating multi-person UGC for FMCG, snacks, and board games. Wholesome family reaction and unboxing formats.',
     contentFormat: 'family_three_plus',
-    contentCategory: 'food_cooking',
+    creatorType: ['family'],
+    contentCategory: 'food',
     categoryExperience: 'ecommerce_d2c_brand',
     languages: ['hindi', 'english'],
     optionalFacets: {
@@ -855,7 +876,7 @@ const EXTRA_NAMES = [
 
 const CATEGORY_COMBOS = [
   {
-    contentCategory: 'beauty_skincare',
+    contentCategory: 'beauty',
     categoryExperience: 'beauty_skincare_brand',
     industries: ['Skincare', 'Beauty', 'Makeup'],
     tags: ['serum', 'routine', 'glow', 'product demo'],
@@ -863,7 +884,7 @@ const CATEGORY_COMBOS = [
     contentFormat: 'solo_individual',
   },
   {
-    contentCategory: 'fitness_gym',
+    contentCategory: 'fitness',
     categoryExperience: 'gym_fitness_studio',
     industries: ['Gym', 'Fitness', 'Supplements'],
     tags: ['workout', 'protein', 'activewear', 'gym tour'],
@@ -871,7 +892,7 @@ const CATEGORY_COMBOS = [
     contentFormat: 'solo_individual',
   },
   {
-    contentCategory: 'food_cooking',
+    contentCategory: 'food',
     categoryExperience: 'cloud_kitchen_food_brand',
     industries: ['Food', 'Restaurant', 'Snacks'],
     tags: ['recipe', 'taste test', 'unboxing', 'kitchen POV'],
@@ -887,7 +908,7 @@ const CATEGORY_COMBOS = [
     contentFormat: 'solo_individual',
   },
   {
-    contentCategory: 'home_lifestyle',
+    contentCategory: 'home',
     categoryExperience: 'interior_home_decor',
     industries: ['Home Decor', 'Furniture', 'Lifestyle'],
     tags: ['room tour', 'styling', 'unboxing', 'aesthetic'],
@@ -895,7 +916,7 @@ const CATEGORY_COMBOS = [
     contentFormat: 'solo_individual',
   },
   {
-    contentCategory: 'technology_gadgets',
+    contentCategory: 'tech',
     categoryExperience: 'tech_product_app_saas',
     industries: ['Tech', 'Gadgets', 'Apps'],
     tags: ['unboxing', 'review', 'features', 'demo'],
@@ -911,7 +932,7 @@ const CATEGORY_COMBOS = [
     contentFormat: 'solo_individual',
   },
   {
-    contentCategory: 'health_wellness',
+    contentCategory: 'health',
     categoryExperience: 'clinic_doctor_dentist',
     industries: ['Healthcare', 'Wellness', 'Clinic'],
     tags: ['tips', 'explainer', 'testimonial', 'routine'],
@@ -920,12 +941,35 @@ const CATEGORY_COMBOS = [
   },
 ];
 
+// Every CreatorFacetDimension.CREATOR_TYPE slug, cycled through the generated
+// personas so the creatorType filter chip has matches for every value.
+const CREATOR_TYPE_CYCLE = [
+  'individual_solo',
+  'mom',
+  'dad',
+  'couple',
+  'family',
+  'senior',
+  'pet',
+  'other',
+] as const;
+
+// Canonical "Open to" restriction labels, cycled so the restrictions filter
+// has matches for every value too.
+const RESTRICTION_CYCLE = [
+  'Gambling / Betting',
+  'Lingerie',
+  'Intimacy / Adult',
+  'Dating / Dating Apps',
+  'Night Clubs',
+] as const;
+
 const OPTIONAL_FACET_POOL = {
-  appearance: ['casual_relatable', 'premium_model', 'fitness_sporty', 'plus_size'],
+  appearance: ['midsize', 'slim_lean', 'athletic_fit', 'plus_size_curvy'],
   contentStyle: ['talking_to_camera', 'product_demo', 'ugc_ad_style', 'aesthetic_cinematic'],
   capability: ['can_shoot_at_home', 'can_shoot_outdoor', 'can_travel_on_location'],
   lifeStyle: ['parent', 'pet_owner', 'outdoor_travel', 'luxury_lifestyle'],
-  occupation: ['influencer', 'fitness_trainer', 'teacher', 'entrepreneur'],
+  occupation: ['full_time_creator', 'fitness_trainer', 'teacher', 'entrepreneur'],
   canCreateWith: ['pets', 'child', 'partner', 'friends'],
   aiContentPermission: ['ai_subtitles', 'ai_voice_cleanup'],
 } as const;
@@ -966,11 +1010,14 @@ function buildExtraPersonas(targetTotal: number): Persona[] {
       stateName: loc.state,
       bio: `${combo.bio} Based in ${loc.city}.`,
       contentFormat: combo.contentFormat,
+      creatorType: [CREATOR_TYPE_CYCLE[i % CREATOR_TYPE_CYCLE.length]!],
       contentCategory: combo.contentCategory,
       categoryExperience: combo.categoryExperience,
       languages:
         i % 2 === 0 ? ['english', 'hindi'] : ['hindi', 'english'],
       optionalFacets,
+      restrictions:
+        i % 6 === 0 ? [RESTRICTION_CYCLE[i % RESTRICTION_CYCLE.length]!] : undefined,
       portfolio: [
         {
           industryLabel: industry,
@@ -1061,6 +1108,15 @@ function ageDateOfBirth(ageYears: number): Date {
   return d;
 }
 
+// Ages spanning every CreatorAgeGroup bucket (18-24, 25-34, 35-44, 45-54,
+// 55+) so both the ageGroup chip and minAge/maxAge sliders have matches
+// across the whole range, not just the 20s/30s.
+const AGE_CYCLE = [19, 21, 24, 27, 30, 33, 36, 39, 42, 46, 50, 53, 58, 65];
+
+function ageForIndex(index: number): number {
+  return AGE_CYCLE[index % AGE_CYCLE.length]!;
+}
+
 async function ensureCreatorRoleId(): Promise<string> {
   const role = await prisma.role.findUnique({
     where: { name: 'CREATOR' },
@@ -1098,6 +1154,9 @@ async function seedOneCreator(
       maps,
       CreatorFacetDimension.CONTENT_CATEGORY,
       persona.contentCategory,
+    ),
+    ...persona.creatorType.map((slug) =>
+      resolveFacetId(maps, CreatorFacetDimension.CREATOR_TYPE, slug),
     ),
   ]);
 
@@ -1145,7 +1204,7 @@ async function seedOneCreator(
         stateName: persona.stateName,
         countryName: 'India',
         gender: persona.gender,
-        dateOfBirth: ageDateOfBirth(22 + (index % 18)),
+        dateOfBirth: ageDateOfBirth(ageForIndex(index)),
         shippingAddress: `${100 + index} Test Street, ${persona.city}, ${persona.stateName}, India`,
         contactEmail: email,
         onLocationAvailable: index % 3 === 0,

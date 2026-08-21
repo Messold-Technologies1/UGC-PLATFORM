@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   Calendar,
-  Eye,
   Globe,
   Grid3X3,
   Search,
@@ -457,7 +456,7 @@ const SmartSearchBar = memo(function SmartSearchBar({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 min-h-[32px] xl:col-span-2 mt-2 xl:mt-0">
+      <div className="mt-2 flex min-h-[32px] flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-foreground">
           <Zap className="size-[13px] text-primary" /> Try:
         </span>
@@ -740,6 +739,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const ageCount = filters.ageGroup ? 1 : 0;
 
   const moreCount =
+    appearanceCount +
     filters.creatorType.length +
     filters.occupation.length +
     filters.restrictions.length +
@@ -753,7 +753,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     langCount +
     priceCount +
     deliveryCount +
-    appearanceCount +
     ageCount +
     moreCount;
 
@@ -775,14 +774,9 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
           landingPage ? "px-0" : "px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12",
         )}
       >
-        <div
-          className={cn(
-            landingPage
-              ? "flex min-w-0 flex-wrap items-center gap-2.5"
-              : "grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3",
-          )}
-        >
-          <div className="flex shrink-0 items-start">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+            <div className="flex shrink-0 items-center">
             <div
               className="inline-flex gap-[3px] rounded-[13px] border border-gray-200 bg-gray-100/80 p-1"
               role="tablist"
@@ -829,7 +823,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
           </div>
 
           {mode === "smart" ? (
-            <div className={cn(landingPage && "min-w-0 flex-1")}>
+            <div className="min-w-0 flex-1">
               <SmartSearchBar
                 onSubmit={(val) => {
                   // TODO: Wire up smart search logic here once backend is ready
@@ -839,7 +833,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
             </div>
           ) : (
             <>
-              <div className="relative w-full lg:w-[280px] shrink-0">
+              <div className="relative w-full min-[480px]:min-w-[240px] min-[480px]:w-auto min-[480px]:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                 <Input
                   type="search"
@@ -850,7 +844,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   }}
                   placeholder="Search creators by keyword…"
                   aria-label="Search creators"
-                  className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm"
+                  className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                 />
                 {localSearch ? (
                   <button
@@ -868,20 +862,9 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
               </div>
               <div
                 className={cn(
-                  "flex items-center gap-2.5",
-                  landingPage
-                    ? "min-w-0 flex-1 flex-wrap"
-                    : "flex-wrap",
+                  landingPage ? "hidden lg:contents" : "hidden xl:contents",
                 )}
               >
-                <div
-                  className={cn(
-                    "items-center gap-2.5",
-                    landingPage
-                      ? "hidden lg:flex flex-nowrap shrink-0"
-                      : "hidden xl:flex flex-wrap",
-                  )}
-                >
                   <FilterPopover
                     id="category"
                     openId={openPopover}
@@ -929,7 +912,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   </FilterPopover>
 
                   {/* Delivery & Language stay inline only on very wide (2xl) screens; on laptop (xl) they live inside "More filters" */}
-                  <div className="hidden 2xl:flex items-center gap-2.5">
+                  <div className="hidden 2xl:contents">
                     <FilterPopover
                       id="delivery"
                       openId={openPopover}
@@ -964,25 +947,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       />
                     </FilterPopover>
                   </div>
-
-                  <FilterPopover
-                    id="appearance"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Appearance"
-                    icon={<Eye className="size-[15px]" />}
-                    activeCount={appearanceCount}
-                    wide
-                  >
-                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                      Appearance
-                    </h5>
-                    <ChipGrid
-                      items={getFacetItems("APPEARANCE")}
-                      selected={filters.appearance}
-                      onToggle={(slug) => toggleArrayField("appearance", slug)}
-                    />
-                  </FilterPopover>
 
                   <FilterPopover
                     id="age"
@@ -1036,6 +1000,19 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           items={getFacetItems("LANGUAGE")}
                           selected={filters.language}
                           onToggle={(slug) => toggleArrayField("language", slug)}
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Appearance
+                        </h5>
+                        <ChipGrid
+                          items={getFacetItems("APPEARANCE")}
+                          selected={filters.appearance}
+                          onToggle={(slug) =>
+                            toggleArrayField("appearance", slug)
+                          }
                         />
                       </div>
 
@@ -1321,8 +1298,11 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     </DrawerContent>
                   </Drawer>
                 </div>
-              </div>
+            </>
+          )}
+          </div>
 
+          {mode === "manual" && (
               <AnimatePresence>
                 {hasActiveFilters && (
                   <motion.div
@@ -1330,11 +1310,9 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className={cn(
-                      landingPage ? "w-full overflow-hidden" : "xl:col-span-2 overflow-hidden",
-                    )}
+                    className="w-full overflow-hidden"
                   >
-                    <div className="flex flex-wrap items-center gap-2 mt-2.5 xl:mt-0 pt-1 pb-1">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
                       <span className="text-[13.5px] font-bold text-foreground">
                         {isPending
                           ? "Searching…"
@@ -1379,7 +1357,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </>
           )}
         </div>
       </div>

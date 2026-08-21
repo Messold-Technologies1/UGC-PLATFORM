@@ -87,6 +87,22 @@ function minPackagePrice(
   return min ?? 0;
 }
 
+/** Fastest delivery across a creator's packages — shown as the headline promise
+ *  so it stays consistent with a "within N days" filter (which matches a creator
+ *  who has any package delivering that fast). */
+function minDeliveryDays(
+  packages: Array<{ deliveryDays?: number }> | undefined,
+): number {
+  if (!packages?.length) return 5;
+  let min: number | null = null;
+  for (const p of packages) {
+    const n = p.deliveryDays;
+    if (typeof n !== "number" || Number.isNaN(n)) continue;
+    min = min === null || n < min ? n : min;
+  }
+  return min ?? 5;
+}
+
 function parseRating(value: string | number | null | undefined): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (!value) return 0;
@@ -147,9 +163,9 @@ export function mapProfileToListingCreator(
     categories,
     industryLabel,
     languages: getProfileLanguages(profile),
-    deliveryDays:
-      (profile.packages?.[0] as { deliveryDays?: number } | undefined)
-        ?.deliveryDays ?? 5,
+    deliveryDays: minDeliveryDays(
+      profile.packages as Array<{ deliveryDays?: number }> | undefined,
+    ),
     basicEditing: (() => {
       const firstPkg = profile.packages?.[0] as
         | {

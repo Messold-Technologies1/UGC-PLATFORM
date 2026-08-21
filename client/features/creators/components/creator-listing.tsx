@@ -309,11 +309,17 @@ export function CreatorListing({
     isFetchingNextPage,
   } = useInfiniteCreatorsListQuery({
     filters: apiFilters,
+    // Only seed with the (unfiltered) SSR list while the LIVE filters are still
+    // default. Gating on parsedInitial.filters was wrong: the URL is updated via
+    // history.replaceState, which never updates useSearchParams, so that gate
+    // stayed true and React Query kept serving the unfiltered initialData for
+    // every filtered query (refetchOnMount:false + staleTime) — i.e. filters
+    // appeared to do nothing.
     initialData:
       initialData &&
       initialData.page === 1 &&
       initialData.limit === listLimit &&
-      filtersEqual(parsedInitial.filters, DEFAULT_FILTERS)
+      filtersEqual(filters, DEFAULT_FILTERS)
         ? initialData
         : undefined,
   });

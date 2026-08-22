@@ -554,6 +554,10 @@ function CreatorOwnSocialAccounts() {
     if (status === "connected") {
       toast.success("Instagram connected. Fetching your metrics…");
       queryClient.invalidateQueries({ queryKey: socialConnectionsQueryKey });
+    } else if (status === "already_linked") {
+      toast.error(
+        "This Instagram account is already connected to another creator. Disconnect it there first, or use a different account.",
+      );
     } else if (status === "error") {
       toast.error("Instagram connection failed. Please try again.");
     }

@@ -23,7 +23,10 @@ import type { CookieOptions, Request, Response } from 'express';
 import { SocialPlatform } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
-import { SocialConnectionsService } from './social-connections.service';
+import {
+  InstagramAccountAlreadyLinkedError,
+  SocialConnectionsService,
+} from './social-connections.service';
 import { SocialMetricsQueueService } from './social-metrics-queue.service';
 import {
   PublicInstagramInsightsDto,
@@ -183,7 +186,11 @@ export class SocialConnectionsController {
         `instagram callback failed: ${(err as Error)?.message}`,
         (err as Error)?.stack,
       );
-      res.redirect(`${returnTo}?instagram=error`);
+      const code =
+        err instanceof InstagramAccountAlreadyLinkedError
+          ? 'already_linked'
+          : 'error';
+      res.redirect(`${returnTo}?instagram=${code}`);
     }
   }
 

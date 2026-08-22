@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -127,59 +128,79 @@ export class SocialConnectionsService {
     const account = await this.instagram.fetchAccount(token.accessToken);
     const encrypted = encryptSecret(token.accessToken, this.encKey());
 
+    const alreadyLinked = await this.prisma.socialConnection.findUnique({
+      where: {
+        platform_providerAccountId: {
+          platform: SocialPlatform.INSTAGRAM,
+          providerAccountId: account.userId,
+        },
+      },
+      select: { creatorProfileId: true },
+    });
+    if (alreadyLinked && alreadyLinked.creatorProfileId !== creator.id) {
+      throw new InstagramAccountAlreadyLinkedError();
+    }
+
     // The Instagram connection is the source of truth for the creator's public
     // Instagram handle: upsert the connection and mirror the URL onto the
     // CreatorProfile in one transaction so they never drift.
-    const connectionId = await this.prisma.$transaction(async (tx) => {
-      const connection = await tx.socialConnection.upsert({
-        where: {
-          creatorProfileId_platform: {
+    try {
+      const connectionId = await this.prisma.$transaction(async (tx) => {
+        const connection = await tx.socialConnection.upsert({
+          where: {
+            creatorProfileId_platform: {
+              creatorProfileId: creator.id,
+              platform: SocialPlatform.INSTAGRAM,
+            },
+          },
+          create: {
             creatorProfileId: creator.id,
             platform: SocialPlatform.INSTAGRAM,
+            providerAccountId: account.userId,
+            username: account.username,
+            accountType: account.accountType,
+            accessToken: encrypted,
+            tokenExpiresAt: token.expiresAt,
+            scopes: token.scopes,
+            status: SocialConnectionStatus.ACTIVE,
+            followersCount: account.followersCount,
+            mediaCount: account.mediaCount,
+            connectedAt: new Date(),
           },
-        },
-        create: {
-          creatorProfileId: creator.id,
-          platform: SocialPlatform.INSTAGRAM,
-          providerAccountId: account.userId,
-          username: account.username,
-          accountType: account.accountType,
-          accessToken: encrypted,
-          tokenExpiresAt: token.expiresAt,
-          scopes: token.scopes,
-          status: SocialConnectionStatus.ACTIVE,
-          followersCount: account.followersCount,
-          mediaCount: account.mediaCount,
-          connectedAt: new Date(),
-        },
-        update: {
-          providerAccountId: account.userId,
-          username: account.username,
-          accountType: account.accountType,
-          accessToken: encrypted,
-          tokenExpiresAt: token.expiresAt,
-          scopes: token.scopes,
-          status: SocialConnectionStatus.ACTIVE,
-          followersCount: account.followersCount,
-          mediaCount: account.mediaCount,
-          lastSyncError: null,
-          connectedAt: new Date(),
-        },
-        select: { id: true },
+          update: {
+            providerAccountId: account.userId,
+            username: account.username,
+            accountType: account.accountType,
+            accessToken: encrypted,
+            tokenExpiresAt: token.expiresAt,
+            scopes: token.scopes,
+            status: SocialConnectionStatus.ACTIVE,
+            followersCount: account.followersCount,
+            mediaCount: account.mediaCount,
+            lastSyncError: null,
+            connectedAt: new Date(),
+          },
+          select: { id: true },
+        });
+
+        const igUrl = instagramUrlFromUsername(account.username);
+        if (igUrl) {
+          await tx.creatorProfile.update({
+            where: { id: creator.id },
+            data: { instagramUrl: igUrl },
+          });
+        }
+
+        return connection.id;
       });
 
-      const igUrl = instagramUrlFromUsername(account.username);
-      if (igUrl) {
-        await tx.creatorProfile.update({
-          where: { id: creator.id },
-          data: { instagramUrl: igUrl },
-        });
+      return { connectionId };
+    } catch (err) {
+      if (isProviderAccountTakenError(err)) {
+        throw new InstagramAccountAlreadyLinkedError();
       }
-
-      return connection.id;
-    });
-
-    return { connectionId };
+      throw err;
+    }
   }
 
   async disconnect(userId: string, platform: SocialPlatform): Promise<void> {
@@ -588,6 +609,27 @@ export class SocialConnectionsService {
     }
     return profile.id;
   }
+}
+
+/** Thrown when this IG account is already linked to a different creator. */
+export class InstagramAccountAlreadyLinkedError extends ConflictException {
+  constructor() {
+    super(
+      'This Instagram account is already connected to another creator on GoCollab.',
+    );
+  }
+}
+
+function isProviderAccountTakenError(err: unknown): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (err.code !== 'P2002') return false;
+  const target = err.meta?.target;
+  if (Array.isArray(target)) {
+    return (
+      target.includes('platform') && target.includes('providerAccountId')
+    );
+  }
+  return String(target ?? '').includes('providerAccountId');
 }
 
 function dateOnly(yyyyMmDd: string): Date {

@@ -292,20 +292,20 @@ export function Navbar() {
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <nav className="hidden lg:flex items-center gap-1">
                 <Link
-                  href="/register/creator"
+                  href="/creators"
                   prefetch
                   className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <User className="size-4" />
-                  <span>As Creators</span>
+                  <span>For Creators</span>
                 </Link>
                 <Link
-                  href="/register/brand"
+                  href="/brands"
                   prefetch
                   className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <Briefcase className="size-4" />
-                  <span>As Brands</span>
+                  <span>For Brands</span>
                 </Link>
                 {/* <Link
                   href="#"
@@ -554,6 +554,29 @@ export function Navbar() {
                 </div>
               ) : (
                 <>
+                  {/* Mirrors the desktop audience links, which are lg-only. */}
+                  <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    Explore
+                  </div>
+                  <Link
+                    href="/creators"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <User className="size-4 opacity-70" />
+                    For Creators
+                  </Link>
+                  <Link
+                    href="/brands"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Briefcase className="size-4 opacity-70" />
+                    For Brands
+                  </Link>
+                  <div className="my-2 h-px bg-border/60" />
                   <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
                     Log in
                   </div>

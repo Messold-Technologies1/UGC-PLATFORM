@@ -145,6 +145,148 @@ function isNavItemActive(pathname: string, item: NavItem): boolean {
   return false;
 }
 
+const guestPill =
+  "font-heading rounded-full px-3.5 sm:px-4";
+
+function GuestLoginMenu({
+  onNavigate,
+  triggerClassName,
+}: {
+  onNavigate?: () => void;
+  triggerClassName?: string;
+}) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("gap-1", guestPill, triggerClassName)}
+        >
+          Log in
+          <ChevronDown className="size-3.5 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={16}
+        className="w-56 p-2 rounded-2xl shadow-xl border-border/50"
+      >
+        <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-1">
+          Log in as
+        </div>
+        <DropdownMenuItem
+          asChild
+          className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
+        >
+          <Link
+            href="/login?role=creator"
+            prefetch
+            onClick={onNavigate}
+            className="flex items-center gap-3 w-full"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ef3e51]/10 text-[#ef3e51]">
+              <Camera className="size-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm leading-none mb-1">
+                As a Creator
+              </span>
+              <span className="text-[11px] text-muted-foreground leading-none">
+                Find work
+              </span>
+            </div>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          asChild
+          className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
+        >
+          <Link
+            href="/login?role=brand"
+            prefetch
+            onClick={onNavigate}
+            className="flex items-center gap-3 w-full"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5138ed]/10 text-[#5138ed]">
+              <Megaphone className="size-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm leading-none mb-1">
+                As a Brand
+              </span>
+              <span className="text-[11px] text-muted-foreground leading-none">
+                Hire creators
+              </span>
+            </div>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          asChild
+          className="rounded-xl p-2 focus:bg-accent cursor-pointer"
+        >
+          <Link
+            href="/login?role=agency"
+            prefetch
+            onClick={onNavigate}
+            className="flex items-center gap-3 w-full"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0e9384]/10 text-[#0e9384]">
+              <Building2 className="size-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm leading-none mb-1">
+                As an Agency
+              </span>
+              <span className="text-[11px] text-muted-foreground leading-none">
+                Manage talent
+              </span>
+            </div>
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function GuestAudienceNav({
+  onNavigate,
+  className,
+}: {
+  onNavigate?: () => void;
+  className?: string;
+}) {
+  const pathname = usePathname();
+  const audienceLinkClass = (href: string) =>
+    cn(
+      "relative flex items-center whitespace-nowrap px-3 py-1.5 text-sm font-medium transition-colors rounded-full font-heading",
+      pathname === href
+        ? "text-primary bg-primary/10"
+        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+    );
+
+  return (
+    <nav className={cn("flex items-center gap-1", className)}>
+      <Link
+        href="/creators"
+        prefetch
+        onClick={onNavigate}
+        className={audienceLinkClass("/creators")}
+      >
+        For Creators
+      </Link>
+      <Link
+        href="/brands"
+        prefetch
+        onClick={onNavigate}
+        className={audienceLinkClass("/brands")}
+      >
+        For Brands
+      </Link>
+    </nav>
+  );
+}
+
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -220,7 +362,7 @@ export function Navbar() {
           </div>
 
           {navItems.length > 0 ? (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
               <nav className="hidden lg:flex items-center gap-1">
                 {navItems.map((item) => {
                   const isActive = isNavItemActive(pathname || "", item);
@@ -289,33 +431,8 @@ export function Navbar() {
               </nav>
             </div>
           ) : !isAuthenticated && !isLoading && mounted ? (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <nav className="hidden lg:flex items-center gap-1">
-                <Link
-                  href="/creators"
-                  prefetch
-                  className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <User className="size-4" />
-                  <span>For Creators</span>
-                </Link>
-                <Link
-                  href="/brands"
-                  prefetch
-                  className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <Briefcase className="size-4" />
-                  <span>For Brands</span>
-                </Link>
-                {/* <Link
-                  href="#"
-                  prefetch
-                  className="relative flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-colors rounded-full font-heading text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <Users className="size-4" />
-                  <span>For Agencies</span>
-                </Link> */}
-              </nav>
+            <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+              <GuestAudienceNav className="hidden lg:flex" />
             </div>
           ) : null}
           <div className="hidden items-center gap-2 lg:flex shrink-0">
@@ -346,95 +463,7 @@ export function Navbar() {
                 </span>
               </>
             ) : (
-              <>
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="font-heading gap-1 rounded-full px-4"
-                    >
-                      Log in
-                      <ChevronDown className="size-3.5 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    sideOffset={16}
-                    className="w-56 p-2 rounded-2xl shadow-xl border-border/50"
-                  >
-                    <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-1">
-                      Choose Account Type
-                    </div>
-                    <DropdownMenuItem
-                      asChild
-                      className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
-                    >
-                      <Link
-                        href="/login?role=brand"
-                        prefetch
-                        className="flex items-center gap-3 w-full"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5138ed]/10 text-[#5138ed]">
-                          <Megaphone className="size-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-none mb-1">
-                            Brand
-                          </span>
-                          <span className="text-[11px] text-muted-foreground leading-none">
-                            Hire creators
-                          </span>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      asChild
-                      className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
-                    >
-                      <Link
-                        href="/login?role=creator"
-                        prefetch
-                        className="flex items-center gap-3 w-full"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ef3e51]/10 text-[#ef3e51]">
-                          <Camera className="size-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-none mb-1">
-                            Creator
-                          </span>
-                          <span className="text-[11px] text-muted-foreground leading-none">
-                            Find work
-                          </span>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      asChild
-                      className="rounded-xl p-2 focus:bg-accent cursor-pointer"
-                    >
-                      <Link
-                        href="/login?role=agency"
-                        prefetch
-                        className="flex items-center gap-3 w-full"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0e9384]/10 text-[#0e9384]">
-                          <Building2 className="size-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-none mb-1">
-                            Agency
-                          </span>
-                          <span className="text-[11px] text-muted-foreground leading-none">
-                            Manage talent
-                          </span>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
+              <GuestLoginMenu />
             )}
           </div>
 
@@ -450,6 +479,9 @@ export function Navbar() {
               </Tooltip>
             )}
             {isAuthenticated && <NotificationDropdown />}
+            {mounted && !isLoading && !isAuthenticated && (
+              <GuestLoginMenu />
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -581,22 +613,22 @@ export function Navbar() {
                     Log in
                   </div>
                   <Link
-                    href="/login?role=brand"
-                    prefetch
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <Megaphone className="size-4 text-[#5138ed]" />
-                    As Brand
-                  </Link>
-                  <Link
                     href="/login?role=creator"
                     prefetch
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <Camera className="size-4 text-[#ef3e51]" />
-                    As Creator
+                    As a Creator
+                  </Link>
+                  <Link
+                    href="/login?role=brand"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Megaphone className="size-4 text-[#5138ed]" />
+                    As a Brand
                   </Link>
                   <Link
                     href="/login?role=agency"
@@ -605,7 +637,7 @@ export function Navbar() {
                     className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <Building2 className="size-4 text-[#0e9384]" />
-                    As Agency
+                    As an Agency
                   </Link>
                   <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
                     <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">

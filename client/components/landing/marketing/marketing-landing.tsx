@@ -320,7 +320,7 @@ export function MarketingLanding() {
   return (
     <div className="bg-grain text-foreground bg-background overflow-x-clip">
       {/* 1. HERO */}
-      <section className="relative px-6 pt-[clamp(72px,10vw,120px)] pb-[clamp(72px,9vw,110px)]">
+      <section className="relative px-6 pt-[clamp(32px,4.5vw,52px)] pb-[clamp(40px,5.5vw,68px)]">
         <div className="bg-pink/12 pointer-events-none absolute -top-[390px] left-1/2 h-[470px] w-[min(820px,92vw)] -translate-x-1/2 rounded-full blur-[90px]" />
 
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,72px)] lg:grid-cols-[1.02fr_0.98fr]">

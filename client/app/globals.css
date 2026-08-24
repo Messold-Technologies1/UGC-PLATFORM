@@ -151,6 +151,18 @@ html {
   --color-sky-foreground: #181313;
   --color-grape: #8b5cf6;
   --color-grape-foreground: #ffffff;
+
+  /* Soft pink wash ramp for the marketing surface. Deliberately namespaced
+     as `blush` rather than `rose` so it can't clobber Tailwind's built-in
+     rose-* scale, which the messaging and admin screens already use. */
+  --color-blush-50: #fff7f9;
+  --color-blush-100: #ffeff4;
+  --color-blush-150: #fce3eb;
+  --color-blush-200: #f9d2df;
+  --color-blush-300: #f5afc6;
+  --color-blush-400: #ffa8c5;
+  --color-blush-700: #b3123f;
+
   --shadow-pop: 0 8px 30px -8px rgb(24 19 19 / 0.12);
   --shadow-sticker: 0 4px 0 rgb(24 19 19 / 0.9);
   --shadow-hard: 6px 6px 0 rgb(24 19 19);

@@ -4,9 +4,6 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-/** Matches `lg:top-24` so the pin lines up with the floating navbar. */
-const STICKY_TOP = "6rem";
-
 /**
  * Pins the profile card and slides the text block downward as the user
  * scrolls, so copy travels toward the bottom of the card instead of off
@@ -54,7 +51,7 @@ export function StickyCardScroll({
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: [`start ${STICKY_TOP}`, `end ${STICKY_TOP}`],
+    offset: ["start start", "end end"],
   });
 
   const pinRatio = cardH + travel > 0 ? travel / (cardH + travel) : 1;

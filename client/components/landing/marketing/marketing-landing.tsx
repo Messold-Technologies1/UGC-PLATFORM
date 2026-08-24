@@ -339,7 +339,7 @@ export function MarketingLanding() {
             </p>
             <div className="mb-[26px] flex flex-wrap gap-3">
               <PillButton
-                href="/register/brand"
+                href="/brands"
                 className={cn(pinkCta, "px-[30px] py-[17px] text-[15px]")}
               >
                 Find Creators — Free
@@ -504,7 +504,7 @@ export function MarketingLanding() {
                 </div>
               </div>
               <PillButton
-                href="/brand/creators"
+                href="/brands"
                 className={cn(
                   pinkCta,
                   "mt-auto self-start px-[27px] py-[15px] text-[14.5px]",
@@ -694,7 +694,7 @@ export function MarketingLanding() {
               </div>
             ))}
             <PillButton
-              href="/brand/creators"
+              href="/brands"
               className={cn(
                 pinkCta,
                 "rounded-2xl px-[26px] py-4 text-[14.5px]",
@@ -744,7 +744,7 @@ export function MarketingLanding() {
               </div>
             ))}
           </div>
-          <PillButton href="/brand/creators" className={lightCta}>
+          <PillButton href="/brands" className={lightCta}>
             View All Creators →
           </PillButton>
         </div>
@@ -905,7 +905,7 @@ export function MarketingLanding() {
                 Find creators without the endless search.
               </p>
               <PillButton
-                href="/register/brand"
+                href="/brands"
                 className={cn(lightCta, "px-[27px] py-[15px] text-[14.5px]")}
               >
                 Explore Creators — Free
@@ -919,7 +919,7 @@ export function MarketingLanding() {
                 Make it easier for brands to find you.
               </p>
               <PillButton
-                href="/register/creator"
+                href="/creators"
                 className={cn(pinkCta, "px-[27px] py-[15px] text-[14.5px]")}
               >
                 Create My Profile — Free
@@ -933,13 +933,13 @@ export function MarketingLanding() {
       <div className="h-[84px] md:hidden" aria-hidden />
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
-          href="/register/brand"
+          href="/brands"
           className="bg-pink hover:bg-pink text-foreground border-foreground flex-1 border-2 py-3.5 text-sm font-bold"
         >
           Find Creators — Free
         </PillButton>
         <PillButton
-          href="/register/creator"
+          href="/creators"
           className="bg-card hover:bg-card text-foreground border-foreground flex-1 border-2 py-3.5 text-sm font-bold"
         >
           Create Profile

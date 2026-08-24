@@ -1,10 +1,77 @@
 "use client";
 
-import { Check } from "lucide-react";
+import type { ReactNode } from "react";
+import { Check, ChevronDown } from "lucide-react";
 
-import type { CreatorFacetDimension } from "@/features/creators/api/get-creator-facet-options";
-import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
+import type {
+  CreatorFacetDimension,
+  CreatorFacetOption,
+} from "@/features/creators/api/get-creator-facet-options";
 import type { WizardFacetGroup } from "../wizard-config";
+
+/**
+ * One accordion block. On desktop the header is hidden and the body always
+ * shows. On small screens only the open section's body is visible so Identity
+ * and Pricing don't stack into a long scroll.
+ */
+export function WizardAccordionSection({
+  id,
+  title,
+  required = false,
+  summary,
+  complete,
+  open,
+  onOpen,
+  extra,
+  children,
+}: {
+  id: string;
+  title: string;
+  required?: boolean;
+  summary?: string;
+  complete: boolean;
+  open: boolean;
+  onOpen: (id: string) => void;
+  extra?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="cw-acc" data-open={open} data-complete={complete}>
+      <div className="cw-acc-head">
+        <button
+          type="button"
+          className="cw-acc-toggle"
+          aria-expanded={open}
+          onClick={() => onOpen(id)}
+        >
+          <span className="cw-acc-mark" data-complete={complete} aria-hidden>
+            {complete ? <Check size={12} strokeWidth={3} /> : null}
+          </span>
+          <span className="cw-acc-text">
+            <span className="cw-acc-title">
+              {title}
+              {required ? <span className="cw-req"> *</span> : null}
+            </span>
+            {!open && summary ? (
+              <span className="cw-acc-summary">{summary}</span>
+            ) : null}
+          </span>
+        </button>
+        {extra ? <div className="cw-acc-extra">{extra}</div> : null}
+        <button
+          type="button"
+          className="cw-acc-chevron-btn"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => onOpen(id)}
+        >
+          <ChevronDown size={18} className="cw-acc-chevron" />
+        </button>
+      </div>
+      <div className="cw-acc-body">{children}</div>
+    </section>
+  );
+}
 
 type SelectedFacets = Partial<
   Record<Exclude<CreatorFacetDimension, "LANGUAGE">, string[]>

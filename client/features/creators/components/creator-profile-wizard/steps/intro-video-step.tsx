@@ -92,9 +92,14 @@ export function IntroVideoStep({
             <span className="cw-confirm-tick" aria-hidden>
               <Check size={13} strokeWidth={3} />
             </span>
-            <span className="cw-confirm-text">
-              I confirm my intro video meets all the requirements above and does
-              not include any brand watermark.
+            <span className="cw-confirm-copy">
+              <span className="cw-confirm-title">
+                My intro video meets the requirements
+              </span>
+              <span className="cw-confirm-desc">
+                It follows the checklist above and does not include any brand
+                watermark.
+              </span>
             </span>
           </label>
 

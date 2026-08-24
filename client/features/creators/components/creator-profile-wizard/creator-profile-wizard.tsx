@@ -6,7 +6,15 @@ import "./creator-profile-wizard.css";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, Flame, Lightbulb } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  Lightbulb,
+} from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 
@@ -74,6 +82,7 @@ import {
   type WizardStepId,
 } from "./wizard-config";
 import { AboutYouStep } from "./steps/about-you-step";
+import { YourBaseStep } from "./steps/your-base-step";
 import { IdentityStep } from "./steps/identity-step";
 import { IntroVideoStep } from "./steps/intro-video-step";
 import { PortfolioStep } from "./steps/portfolio-step";
@@ -222,6 +231,13 @@ export function CreatorProfileWizard({
   const [packageDefaultsConfirmed, setPackageDefaultsConfirmed] = useState(
     () => Boolean(initialProfile.completeProfile) || adminMode,
   );
+  const [portfolioConfirmed, setPortfolioConfirmed] = useState(
+    () => Boolean(initialProfile.completeProfile) || adminMode,
+  );
+  const [addonsReviewed, setAddonsReviewed] = useState(
+    () => Boolean(initialProfile.completeProfile) || adminMode,
+  );
+  const markAddonsReviewed = useCallback(() => setAddonsReviewed(true), []);
   const [goLivePolicies, setGoLivePolicies] = useState<GoLivePolicyAcceptanceState>(
     () =>
       createEmptyGoLivePolicyAcceptance(
@@ -596,10 +612,14 @@ export function CreatorProfileWizard({
             displayName.trim().length > 0 &&
             Boolean(dateOfBirth) &&
             Boolean(gender) &&
+            instagramConnected
+          );
+        case "base":
+          return (
             location.city.trim().length > 0 &&
             shippingAddress.trim().length > 0 &&
             selectedLanguageCount > 0 &&
-            instagramConnected
+            languageConfirmed
           );
         case "identity":
           return identityComplete;
@@ -611,7 +631,8 @@ export function CreatorProfileWizard({
         case "portfolio":
           return (
             publicPortfolioCount >= MIN_PORTFOLIO_VIDEOS &&
-            bio.trim().length >= BIO_MIN_CHARS
+            bio.trim().length >= BIO_MIN_CHARS &&
+            portfolioConfirmed
           );
         case "intro-video":
           return Boolean(introVideo.introVideoPreviewUrl);
@@ -631,10 +652,12 @@ export function CreatorProfileWizard({
       shippingAddress,
       selectedLanguageCount,
       instagramConnected,
+      languageConfirmed,
       identityComplete,
       packages.packageDraft.priceAmount,
       addOns.mandatoryAddOnsPriced,
       publicPortfolioCount,
+      portfolioConfirmed,
       bio,
       introVideo.introVideoPreviewUrl,
       goLiveMissing,
@@ -732,12 +755,13 @@ export function CreatorProfileWizard({
         if (!displayName.trim()) missing.push("your full name");
         if (!dateOfBirth) missing.push("date of birth");
         if (!gender) missing.push("gender");
+        if (!instagramConnected) missing.push("an Instagram connection");
+      } else if (id === "base") {
         if (!location.city.trim()) missing.push("city");
         if (!shippingAddress.trim()) missing.push("your shipping address");
         if (selectedLanguageCount === 0) missing.push("at least one language");
         if (selectedLanguageCount > 0 && !languageConfirmed)
           missing.push("the language confirmation");
-        if (!instagramConnected) missing.push("an Instagram connection");
       } else if (id === "identity") {
         if (!facets.primaryNiche) missing.push("your primary niche");
         if (facets.secondaryNiches.length < REQUIRED_SECONDARY_NICHES)
@@ -752,6 +776,8 @@ export function CreatorProfileWizard({
       } else if (id === "portfolio") {
         if (bio.trim().length < BIO_MIN_CHARS)
           missing.push(`a bio of at least ${BIO_MIN_CHARS} characters`);
+        if (!portfolioConfirmed)
+          missing.push("the portfolio video confirmation");
       } else if (id === "intro-video") {
         if (!introVideo.introVideoPreviewUrl) missing.push("an intro video");
         else if (!introConfirmed) missing.push("the intro video confirmation");
@@ -781,6 +807,7 @@ export function CreatorProfileWizard({
       selectedRestrictions,
       identityHasBlankOther,
       bio,
+      portfolioConfirmed,
       introVideo.introVideoPreviewUrl,
       introConfirmed,
       packageDefaultsConfirmed,
@@ -809,11 +836,15 @@ export function CreatorProfileWizard({
             displayName: !displayName.trim() ? "Please enter your full name." : undefined,
             dateOfBirth: !dateOfBirth ? "Please add your date of birth." : !isEighteenPlus ? "Creators must be at least 18 years old." : undefined,
             gender: !gender ? "Please select your gender." : undefined,
+            instagram: !instagramConnected ? "Connect your Instagram account to continue." : undefined,
+          }
+        : {},
+      base: tried.base
+        ? {
             city: !location.city.trim() ? "Please select your city." : undefined,
             shippingAddress: !shippingAddress.trim() ? "Add your shipping address so brands can send products to you." : undefined,
             language: selectedLanguageCount === 0 ? "Add at least one language." : undefined,
             languageConfirmed: selectedLanguageCount > 0 && !languageConfirmed ? "Please confirm your languages." : undefined,
-            instagram: !instagramConnected ? "Connect your Instagram account to continue." : undefined,
           }
         : {},
       identity: tried.identity
@@ -830,6 +861,7 @@ export function CreatorProfileWizard({
       portfolio: tried.portfolio
         ? {
             bio: bio.trim().length < BIO_MIN_CHARS ? `Your bio needs at least ${BIO_MIN_CHARS} characters (${bio.trim().length} so far).` : undefined,
+            confirmed: !portfolioConfirmed ? "Confirm your portfolio videos meet the requirements." : undefined,
           }
         : {},
       "intro-video": tried["intro-video"]
@@ -858,7 +890,7 @@ export function CreatorProfileWizard({
     selectedLanguageCount, languageConfirmed, instagramConnected,
     facets.primaryNiche, facets.secondaryNiches, facetCount,
     selectedRestrictions, identityHasBlankOther,
-    bio, introVideo.introVideoPreviewUrl, introConfirmed,
+    bio, portfolioConfirmed, introVideo.introVideoPreviewUrl, introConfirmed,
     packages.packageDraft.deliveryDays,
     packageDefaultsConfirmed, addOns.mandatoryAddOnsPriced,
   ]);
@@ -988,6 +1020,30 @@ export function CreatorProfileWizard({
     [steps, activeIndex, completed, canEditFreely, stepFilled, confirmLeaveIfDirty],
   );
 
+  const handleMobileNext = useCallback(() => {
+    const next = activeIndex + 1;
+    if (next >= steps.length) return;
+    const target = steps[next];
+    const reachable =
+      canEditFreely ||
+      target.ready ||
+      completed.has(target.id) ||
+      stepFilled(target.id);
+    if (reachable) {
+      goToStep(next);
+      return;
+    }
+    onPrimaryAction();
+  }, [
+    activeIndex,
+    steps,
+    canEditFreely,
+    completed,
+    stepFilled,
+    goToStep,
+    onPrimaryAction,
+  ]);
+
   // Package editor onChange with live price validation (mirrors the long form).
   const onPackageChange = useCallback((draft: PackageDraft) => {
     packages.setPackageDraft(draft);
@@ -1004,7 +1060,12 @@ export function CreatorProfileWizard({
       .join(", ");
 
     const aboutOk =
-      displayName.trim() && dateOfBirth && gender && location.city.trim() && selectedLanguageCount > 0;
+      displayName.trim() && dateOfBirth && gender;
+    const baseOk =
+      location.city.trim() &&
+      shippingAddress.trim() &&
+      selectedLanguageCount > 0 &&
+      languageConfirmed;
     const identityOk = identityComplete;
     const bioOk = bio.trim().length >= BIO_MIN_CHARS;
     const introOk = Boolean(introVideo.introVideoPreviewUrl);
@@ -1021,6 +1082,13 @@ export function CreatorProfileWizard({
         status: aboutOk ? "complete" : "incomplete",
         details: [
           { label: "Name", value: displayName.trim() || "—" },
+        ],
+      },
+      {
+        stepId: "base",
+        title: "Your Base",
+        status: baseOk ? "complete" : "incomplete",
+        details: [
           { label: "Location", value: locationSummary || "—" },
           { label: "Languages", value: languageSummary || "—" },
         ],
@@ -1065,7 +1133,9 @@ export function CreatorProfileWizard({
     displayName,
     dateOfBirth,
     gender,
+    shippingAddress,
     selectedLanguageCount,
+    languageConfirmed,
     identityComplete,
     bio,
     introVideo.introVideoPreviewUrl,
@@ -1081,7 +1151,8 @@ export function CreatorProfileWizard({
     if (activeStep.id === "go-live") return "Go to dashboard";
     if (canEditFreely) return "Save changes";
     const labelMap: Partial<Record<WizardStepId, string>> = {
-      about: "Save & Set Your Identity",
+      about: "Save & Set Your Base",
+      base: "Save & Set Your Identity",
       identity: "Save & Set Your Pricing",
       pricing: "Save & Build Portfolio",
       portfolio: "Save & Add Intro Video",
@@ -1096,11 +1167,54 @@ export function CreatorProfileWizard({
     canEditFreely &&
     activeStep.id !== "review" &&
     activeStep.id !== "go-live";
+  const isLastStep = activeIndex >= steps.length - 1;
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
 
   return (
     <div className="pe-scope cw-root">
+      <div className="cw-mobile-stepper">
+        <div className="cw-mobile-stepper-row">
+          <button
+            type="button"
+            className="cw-mobile-nav"
+            disabled={pending}
+            onClick={handleBack}
+            aria-label={activeIndex === 0 ? "Exit" : "Previous step"}
+          >
+            <ChevronLeft size={20} strokeWidth={2.25} />
+          </button>
+          <div className="cw-mobile-stepper-copy">
+            <p className="cw-mobile-stepper-meta">
+              Step {activeIndex + 1} of {steps.length} · {strength.pct}% complete
+            </p>
+            <h1 className="cw-mobile-stepper-title">{activeStep.title}</h1>
+          </div>
+          <button
+            type="button"
+            className="cw-mobile-nav"
+            disabled={
+              pending ||
+              uploadingMedia ||
+              activeIndex >= steps.length - 1
+            }
+            onClick={handleMobileNext}
+            aria-label="Next step"
+          >
+            <ChevronRight size={20} strokeWidth={2.25} />
+          </button>
+        </div>
+        <div className="cw-mobile-segments" aria-hidden>
+          {steps.map((step, index) => (
+            <span
+              key={step.id}
+              className="cw-mobile-segment"
+              data-filled={index <= activeIndex}
+            />
+          ))}
+        </div>
+      </div>
+
       <div className="cw-layout">
         {/* ---- Left rail ---- */}
         <aside className="cw-rail">
@@ -1195,7 +1309,7 @@ export function CreatorProfileWizard({
                 ) : (
                   <>
                     {continueLabel}
-                    <ArrowRight size={16} />
+                    {isLastStep ? null : <ArrowRight size={16} />}
                   </>
                 )}
               </button>
@@ -1230,6 +1344,12 @@ export function CreatorProfileWizard({
                   onDateOfBirthChange={setDateOfBirth}
                   gender={gender}
                   onGenderChange={setGender}
+                  errors={stepErrors.about}
+                />
+              ) : activeStep.id === "base" ? (
+                <YourBaseStep
+                  disabled={pending}
+                  adminMode={adminMode}
                   countryCode={location.countryCode}
                   countries={location.countries}
                   onCountryChange={(value) => {
@@ -1254,10 +1374,11 @@ export function CreatorProfileWizard({
                   onToggleLanguage={(slug) => {
                     markDirty();
                     facets.toggleLanguage(slug);
+                    setLanguageConfirmed(false);
                   }}
                   languageConfirmed={languageConfirmed}
                   onLanguageConfirmedChange={setLanguageConfirmed}
-                  errors={stepErrors.about}
+                  errors={stepErrors.base}
                 />
               ) : activeStep.id === "identity" ? (
                 <IdentityStep
@@ -1330,6 +1451,8 @@ export function CreatorProfileWizard({
                   canGenerateBio={canGenerateBio}
                   showAiNotice={showBioAiNotice}
                   onDismissAiNotice={() => setShowBioAiNotice(false)}
+                  confirmed={portfolioConfirmed}
+                  onConfirmedChange={setPortfolioConfirmed}
                   errors={stepErrors.portfolio}
                 />
               ) : activeStep.id === "pricing" ? (
@@ -1352,6 +1475,8 @@ export function CreatorProfileWizard({
                   onAddOnDraftChange={(slug, patch) => addOns.updateAddOnDraft(slug, patch)}
                   defaultsConfirmed={packageDefaultsConfirmed}
                   onDefaultsConfirmedChange={setPackageDefaultsConfirmed}
+                  addonsReviewed={addonsReviewed}
+                  onAddonsReviewed={markAddonsReviewed}
                   errors={stepErrors.pricing}
                 />
               ) : activeStep.id === "review" ? (
@@ -1409,7 +1534,7 @@ export function CreatorProfileWizard({
                   ) : (
                     <>
                       {continueLabel}
-                      <ArrowRight size={16} />
+                      {isLastStep ? null : <ArrowRight size={16} />}
                     </>
                   )}
                 </button>

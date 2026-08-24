@@ -3,6 +3,7 @@ import {
   Film,
   IndianRupee,
   Images,
+  MapPin,
   Rocket,
   Sparkles,
   UserRound,
@@ -10,6 +11,7 @@ import {
 
 export type WizardStepId =
   | "about"
+  | "base"
   | "identity"
   | "intro-video"
   | "portfolio"
@@ -31,10 +33,8 @@ export type WizardStep = {
 };
 
 /**
- * The eight milestones of the redesigned creator onboarding, in the order
- * defined by the Creator Onboarding design. Only "About you" is interactive in
- * this iteration; the rest surface on the rail so the whole journey stays
- * visible and the creator can see how far they have to go.
+ * Creator onboarding steps, in order. About You is always reachable first;
+ * later steps unlock as the creator saves each one.
  */
 export const WIZARD_STEPS: WizardStep[] = [
   {
@@ -44,6 +44,14 @@ export const WIZARD_STEPS: WizardStep[] = [
     tagline: "This is how brands will first recognize you.",
     icon: UserRound,
     ready: true,
+  },
+  {
+    id: "base",
+    label: "Your Base",
+    title: "Where you create",
+    tagline: "Your city and languages help brands find and book you.",
+    icon: MapPin,
+    ready: false,
   },
   {
     id: "identity",
@@ -107,7 +115,7 @@ export type WizardFacetGroup = {
   max?: number;
 };
 
-/** Facet groups rendered on Step 2 — Creator Identity & Discovery. */
+/** Facet groups rendered on the Identity step. */
 export const IDENTITY_FACET_GROUPS: WizardFacetGroup[] = [
   {
     dimension: "CONTENT_CATEGORY",

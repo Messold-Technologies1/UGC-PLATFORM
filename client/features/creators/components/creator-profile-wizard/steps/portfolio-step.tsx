@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Sparkles, Loader2, X } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Check, Sparkles, Loader2, X } from "lucide-react";
 
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import { PortfolioGrid } from "@/features/creators/components/creator-profile-update/portfolio-components";
@@ -11,19 +12,11 @@ import { BIO_MIN_CHARS, BIO_MAX_CHARS } from "../wizard-config";
 const BIO_EXAMPLE =
   "I'm a Mumbai-based beauty and skincare creator shooting in Hindi and English. I make honest first-impression reviews, GRWM routines and product demos, mostly at home with natural light. Brands book me when they want a warm, unscripted voice rather than a polished ad read.";
 
-const IDEAS = [
-  {
-    title: "A 30-second honest review",
-    body: "Most requested format by brands this month.",
-  },
-  {
-    title: "A hands-on product demo",
-    body: "Show the product being used, not just held.",
-  },
-  {
-    title: "One video in each language",
-    body: "Proves the languages on your profile.",
-  },
+const PORTFOLIO_CONFIRM_ITEMS = [
+  "Do not contain any social media handle, watermark, logo or platform branding.",
+  "Are my original work or I have permission to use them.",
+  "Are uploaded in 1080p (Full HD) or higher.",
+  "Accurately represent the quality I will deliver to brands through GoCollab.",
 ];
 
 export type PortfolioStepProps = {
@@ -42,7 +35,9 @@ export type PortfolioStepProps = {
   canGenerateBio: boolean;
   showAiNotice: boolean;
   onDismissAiNotice: () => void;
-  errors?: { bio?: string };
+  confirmed: boolean;
+  onConfirmedChange: (value: boolean) => void;
+  errors?: { bio?: string; confirmed?: string };
 };
 
 export function PortfolioStep({
@@ -61,10 +56,13 @@ export function PortfolioStep({
   canGenerateBio,
   showAiNotice,
   onDismissAiNotice,
+  confirmed,
+  onConfirmedChange,
   errors = {},
 }: PortfolioStepProps) {
   const publicCount = videos.filter((v) => v.visibilityStatus === "public").length;
   const bioLen = bio.trim().length;
+  const [exampleOpen, setExampleOpen] = useState(false);
   return (
     <div className="cw-card">
       {/* Creator story */}
@@ -143,10 +141,20 @@ export function PortfolioStep({
             No links, phone numbers, emails, social handles or pricing.
           </span>
         </div>
-        <div className="cw-bio-example">
-          <span className="cw-bio-example-tag">Example</span>
-          {BIO_EXAMPLE}
-        </div>
+        <button
+          type="button"
+          className="cw-bio-example-btn"
+          aria-expanded={exampleOpen}
+          onClick={() => setExampleOpen((open) => !open)}
+        >
+          {exampleOpen ? "Hide example" : "View example"}
+        </button>
+        {exampleOpen ? (
+          <div className="cw-bio-example">
+            <span className="cw-bio-example-tag">Example</span>
+            {BIO_EXAMPLE}
+          </div>
+        ) : null}
       </div>
 
       <div className="cw-hr" />
@@ -182,21 +190,43 @@ export function PortfolioStep({
         />
       )}
 
-      <div className="cw-hr" />
-
-      <div className="cw-facet">
-        <div className="cw-facet-label">
-          <span>Need ideas for your next upload?</span>
-        </div>
-        <div className="cw-ideas">
-          {IDEAS.map((idea) => (
-            <div key={idea.title} className="cw-idea">
-              <div className="cw-idea-title">{idea.title}</div>
-              <div className="cw-idea-body">{idea.body}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <label
+        className="cw-confirm cw-confirm--standalone cw-confirm--top"
+        data-checked={confirmed}
+        data-disabled={disabled}
+      >
+        <input
+          type="checkbox"
+          className="cw-confirm-box"
+          checked={confirmed}
+          disabled={disabled}
+          onChange={(e) => onConfirmedChange(e.target.checked)}
+        />
+        <span className="cw-confirm-tick" aria-hidden>
+          <Check size={13} strokeWidth={3} />
+        </span>
+        <span className="cw-confirm-copy">
+          <span className="cw-confirm-title">
+            I confirm these portfolio videos:
+          </span>
+          <ul className="cw-confirm-list">
+            {PORTFOLIO_CONFIRM_ITEMS.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <span className="cw-confirm-warn">
+            If the quality of your deliveries is significantly lower than your
+            portfolio, it may result in order cancellations, disputes, lower
+            ratings, reduced visibility, or account review.
+          </span>
+        </span>
+      </label>
+      {errors.confirmed ? (
+        <p className="cw-field-warn">
+          <AlertTriangle size={13} aria-hidden />
+          {errors.confirmed}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -65,12 +65,7 @@ export function GoLivePolicyAcceptance({
   showRequiredHint = true,
 }: Readonly<GoLivePolicyAcceptanceProps>) {
   return (
-    <div
-      className={cn(
-        "mt-5 space-y-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-4 sm:px-5",
-        className,
-      )}
-    >
+    <div className={cn("mt-5 space-y-3", className)}>
       <p className="text-sm font-medium text-foreground">
         Before going live, confirm you have read and agree to these policies
         {showRequiredHint ? (
@@ -87,9 +82,9 @@ export function GoLivePolicyAcceptance({
             <li key={policy.id} className="cw-policy-item">
               <label
                 htmlFor={checkboxId}
-                className="cw-policy-row"
-                data-checked={String(Boolean(value[policy.id]))}
-                data-disabled={String(disabled)}
+                className="cw-confirm"
+                data-checked={value[policy.id]}
+                data-disabled={disabled}
               >
                 <input
                   type="checkbox"
@@ -104,16 +99,22 @@ export function GoLivePolicyAcceptance({
                 <span className="cw-confirm-tick" aria-hidden>
                   <Check size={13} strokeWidth={3} />
                 </span>
-                <span className="cw-confirm-text">
-                  I have read and agree to the{" "}
-                  <Link
-                    href={policy.href}
-                    target="_blank"
-                    className="font-semibold text-foreground underline underline-offset-2"
-                  >
-                    {policy.label}
-                  </Link>
-                  .
+                <span className="cw-confirm-copy">
+                  <span className="cw-confirm-title">
+                    I agree to the {policy.label}
+                  </span>
+                  <span className="cw-confirm-desc">
+                    I have read and agree to the{" "}
+                    <Link
+                      href={policy.href}
+                      target="_blank"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-semibold text-foreground underline underline-offset-2"
+                    >
+                      {policy.label}
+                    </Link>
+                    .
+                  </span>
                 </span>
               </label>
             </li>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, Loader2, Sparkles, X } from "lucide-react";
 
 import type {
@@ -11,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { REQUIRED_SECONDARY_NICHES } from "@/features/creators/hooks/creator-profile-form-utils";
 
 import { OPEN_TO_OPTIONS } from "../wizard-config";
+import { WizardAccordionSection } from "./wizard-parts";
 
 type NonLanguageDimension = Exclude<CreatorFacetDimension, "LANGUAGE">;
 type SelectedFacets = Partial<Record<NonLanguageDimension, string[]>>;
@@ -54,26 +56,47 @@ export type IdentityStepProps = {
 };
 
 const SINGLE_FACETS: Array<{
-  dimension: NonLanguageDimension;
+  dimension: "CREATOR_TYPE" | "OCCUPATION" | "APPEARANCE";
   label: string;
+  shortLabel: string;
   help: string;
 }> = [
   {
     dimension: "CREATOR_TYPE",
     label: "What's your creator type?",
+    shortLabel: "Creator type",
     help: "Pick the one that best describes you on camera.",
   },
   {
     dimension: "OCCUPATION",
     label: "What do you do besides creating?",
+    shortLabel: "Occupation",
     help: "Your main occupation — it adds credibility with brands.",
   },
   {
     dimension: "APPEARANCE",
     label: "Appearance",
+    shortLabel: "Appearance",
     help: "Helps brands find the right look for their product.",
   },
 ];
+
+type IdentitySectionId =
+  | "primary"
+  | "secondary"
+  | "creator-type"
+  | "occupation"
+  | "appearance"
+  | "comfortable";
+
+const FACET_SECTION_ID: Record<
+  "CREATOR_TYPE" | "OCCUPATION" | "APPEARANCE",
+  IdentitySectionId
+> = {
+  CREATOR_TYPE: "creator-type",
+  OCCUPATION: "occupation",
+  APPEARANCE: "appearance",
+};
 
 function Chip({
   label,
@@ -208,10 +231,68 @@ export function IdentityStep({
   const allRestrictionsSelected =
     OPEN_TO_OPTIONS.length > 0 &&
     OPEN_TO_OPTIONS.every((name) => selectedRestrictions.includes(name));
+  const nicheLabelBySlug = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const opt of nicheOptions) map.set(opt.slug, opt.label);
+    return map;
+  }, [nicheOptions]);
+  const facetLabel = (dimension: NonLanguageDimension, slug: string) =>
+    (optionsByDimension[dimension] ?? []).find((opt) => opt.slug === slug)
+      ?.label ?? slug;
+
+  const firstIncomplete = ((): IdentitySectionId => {
+    if (!primaryNiche) return "primary";
+    if (secondaryNiches.length < REQUIRED_SECONDARY_NICHES) return "secondary";
+    if (!(selectedFacets.CREATOR_TYPE ?? [])[0]) return "creator-type";
+    if (!(selectedFacets.OCCUPATION ?? [])[0]) return "occupation";
+    if (!(selectedFacets.APPEARANCE ?? [])[0]) return "appearance";
+    if (selectedRestrictions.length === 0) return "comfortable";
+    return "primary";
+  })();
+  const firstError = ((): IdentitySectionId | null => {
+    if (errors.primaryNiche) return "primary";
+    if (errors.secondaryNiches) return "secondary";
+    if (errors.creatorType) return "creator-type";
+    if (errors.occupation) return "occupation";
+    if (errors.appearance) return "appearance";
+    if (errors.restrictions) return "comfortable";
+    return null;
+  })();
+
+  const [openId, setOpenId] = useState<IdentitySectionId | "closed" | null>(
+    null,
+  );
+  const fallback = firstError ?? firstIncomplete;
+  const open = openId === "closed" ? null : (openId ?? fallback);
+
+  function toggleSection(id: string) {
+    setOpenId((current) => {
+      const resolved = current === "closed" ? null : (current ?? fallback);
+      return resolved === id ? "closed" : (id as IdentitySectionId);
+    });
+  }
+
+  useEffect(() => {
+    if (!firstError) return;
+    setOpenId(firstError);
+  }, [firstError]);
 
   return (
     <div className="cw-card">
-      <div className="cw-facet-groups-stack">
+      <div className="cw-facet-groups-stack cw-acc-stack">
+        <WizardAccordionSection
+          id="primary"
+          title="Primary niche"
+          required
+          complete={Boolean(primaryNiche)}
+          summary={
+            primaryNiche
+              ? nicheLabelBySlug.get(primaryNiche) ?? primaryNiche
+              : undefined
+          }
+          open={open === "primary"}
+          onOpen={toggleSection}
+        >
         {/* ---- Niche: primary + secondary from the same list ---- */}
         <div className="cw-facet">
           <div className="cw-facet-label">
@@ -248,7 +329,23 @@ export function IdentityStep({
             />
           ) : null}
         </div>
+        </WizardAccordionSection>
 
+        <WizardAccordionSection
+          id="secondary"
+          title="Secondary niches"
+          required
+          complete={secondaryNiches.length >= REQUIRED_SECONDARY_NICHES}
+          summary={
+            secondaryNiches.length > 0
+              ? `${secondaryNiches
+                  .map((slug) => nicheLabelBySlug.get(slug) ?? slug)
+                  .join(", ")} (${secondaryNiches.length}/${REQUIRED_SECONDARY_NICHES})`
+              : `${secondaryNiches.length}/${REQUIRED_SECONDARY_NICHES}`
+          }
+          open={open === "secondary"}
+          onOpen={toggleSection}
+        >
         <div className="cw-facet">
           <div className="cw-facet-label">
             <span>
@@ -299,14 +396,14 @@ export function IdentityStep({
             onDismiss={onDismissOtherNotice}
           />
         </div>
-
-        <div className="cw-hr cw-hr-soft" />
+        </WizardAccordionSection>
 
         {/* ---- Single-select identity facets ---- */}
-        {SINGLE_FACETS.map(({ dimension, label, help }) => {
+        {SINGLE_FACETS.map(({ dimension, label, shortLabel, help }) => {
           const options = optionsByDimension[dimension] ?? [];
           if (options.length === 0) return null;
           const selected = (selectedFacets[dimension] ?? [])[0] ?? "";
+          const sectionId = FACET_SECTION_ID[dimension];
           const dimErr =
             dimension === "CREATOR_TYPE"
               ? errors.creatorType
@@ -316,7 +413,17 @@ export function IdentityStep({
                   ? errors.appearance
                   : undefined;
           return (
-            <div className="cw-facet" key={dimension}>
+            <WizardAccordionSection
+              key={dimension}
+              id={sectionId}
+              title={shortLabel}
+              required
+              complete={Boolean(selected)}
+              summary={selected ? facetLabel(dimension, selected) : undefined}
+              open={open === sectionId}
+              onOpen={toggleSection}
+            >
+            <div className="cw-facet">
               <div className="cw-facet-label">
                 <span>
                   {label}
@@ -354,12 +461,34 @@ export function IdentityStep({
                 onDismiss={onDismissOtherNotice}
               />
             </div>
+            </WizardAccordionSection>
           );
         })}
 
-        <div className="cw-hr cw-hr-soft" />
-
-        {/* ---- Open to (required) ---- */}
+        <WizardAccordionSection
+          id="comfortable"
+          title="Comfortable with"
+          required
+          complete={selectedRestrictions.length > 0}
+          summary={
+            selectedRestrictions.length > 0
+              ? selectedRestrictions.join(", ")
+              : undefined
+          }
+          open={open === "comfortable"}
+          onOpen={toggleSection}
+          extra={
+            <label className="cw-facet-select-all">
+              <span>All</span>
+              <Switch
+                checked={allRestrictionsSelected}
+                disabled={disabled}
+                onCheckedChange={onSetAllRestrictions}
+                aria-label="Select all Comfortable with options"
+              />
+            </label>
+          }
+        >
         <div className="cw-facet">
           <div className="cw-facet-label">
             <span>
@@ -411,6 +540,7 @@ export function IdentityStep({
             })}
           </div>
         </div>
+        </WizardAccordionSection>
       </div>
     </div>
   );

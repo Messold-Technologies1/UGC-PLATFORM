@@ -3,15 +3,13 @@
 import { useState, type RefObject } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Camera, Check, Eye, ImageUp, Instagram, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Camera, Eye, ImageUp, Instagram, RefreshCw, X } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
 import { CreatorSocialAccounts } from "@/features/creators/components/creator-profile-update/creator-social-accounts";
-import { LanguageMultiSelect } from "@/features/creators/components/creator-profile-update/language-multi-select";
 import { genderOptions } from "@/features/creators/hooks/creator-profile-form-utils";
 import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
-import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 
 export type AboutYouStepProps = {
@@ -20,7 +18,7 @@ export type AboutYouStepProps = {
   /** Creator profile id — used to render the Instagram connection block. */
   profileId: string;
 
-  /** Admin editing on a creator's behalf — shows the phone field, locks country. */
+  /** Admin editing on a creator's behalf — shows the phone field. */
   adminMode?: boolean;
   phone?: string;
   onPhoneChange?: (value: string) => void;
@@ -39,37 +37,11 @@ export type AboutYouStepProps = {
   gender: CreatorGender | "";
   onGenderChange: (value: CreatorGender | "") => void;
 
-  // Location
-  countryCode: string;
-  countries: Array<{ isoCode: string; name: string }>;
-  onCountryChange: (value: string) => void;
-  stateCode: string;
-  states: Array<{ isoCode: string; name: string }>;
-  onStateChange: (value: string) => void;
-  city: string;
-  cities: Array<{ name: string }>;
-  onCityChange: (value: string) => void;
-
-  shippingAddress: string;
-  onShippingAddressChange: (value: string) => void;
-
-  // Languages — a single multi-select of slugs.
-  languageOptions: CreatorFacetOption[];
-  selectedLanguages: string[];
-  languagesLoading: boolean;
-  onToggleLanguage: (slug: string) => void;
-
-  languageConfirmed: boolean;
-  onLanguageConfirmedChange: (value: boolean) => void;
   errors?: {
     photo?: string;
     displayName?: string;
     dateOfBirth?: string;
     gender?: string;
-    city?: string;
-    shippingAddress?: string;
-    language?: string;
-    languageConfirmed?: string;
     instagram?: string;
   };
 };
@@ -91,29 +63,11 @@ export function AboutYouStep(props: AboutYouStepProps) {
     onDateOfBirthChange,
     gender,
     onGenderChange,
-    countryCode,
-    countries,
-    onCountryChange,
-    stateCode,
-    states,
-    onStateChange,
-    city,
-    cities,
-    onCityChange,
-    shippingAddress,
-    onShippingAddressChange,
-    languageOptions,
-    selectedLanguages,
-    languagesLoading,
-    onToggleLanguage,
-    languageConfirmed,
-    onLanguageConfirmedChange,
     errors = {},
   } = props;
 
   const today = new Date().toISOString().split("T")[0];
   const hasPhoto = Boolean(profileImagePreviewUrl);
-  const selectedLanguageCount = selectedLanguages.length;
 
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -298,76 +252,6 @@ export function AboutYouStep(props: AboutYouStepProps) {
           ) : null}
         </div>
 
-        <div className="cw-field cw-select-field">
-          <label className="cw-fieldlabel">
-            Country <span className="cw-req">*</span>
-          </label>
-          <PeSelectField
-            id="cw-country"
-            label="Country"
-            value={countryCode}
-            placeholder="Select country"
-            disabled={disabled || adminMode}
-            options={countries.map((c) => ({ value: c.isoCode, label: c.name }))}
-            onChange={onCountryChange}
-          />
-        </div>
-
-        <div className="cw-field cw-select-field">
-          <label className="cw-fieldlabel">
-            State <span className="cw-req">*</span>
-          </label>
-          <PeSelectField
-            id="cw-state"
-            label="State"
-            value={stateCode}
-            placeholder={countryCode ? "Select state" : "Pick country first"}
-            disabled={disabled || !countryCode || states.length === 0}
-            options={states.map((s) => ({ value: s.isoCode, label: s.name }))}
-            onChange={onStateChange}
-          />
-        </div>
-
-        <div className="cw-col-2 cw-field cw-select-field">
-          <label className="cw-fieldlabel">
-            City <span className="cw-req">*</span>
-          </label>
-          <PeSelectField
-            id="cw-city"
-            label="City"
-            value={city}
-            placeholder={stateCode ? "Select city" : "Pick state first"}
-            disabled={disabled || !stateCode || cities.length === 0}
-            options={cities.map((row) => ({ value: row.name, label: row.name }))}
-            onChange={onCityChange}
-          />
-          {errors.city ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.city}</p>
-          ) : null}
-        </div>
-
-        <div className="cw-col-2 cw-field">
-          <label htmlFor="cw-shipping" className="cw-fieldlabel">
-            Shipping Address <span className="cw-req">*</span>
-          </label>
-          <span className="cw-facet-help cw-shipping-hint">
-            Brands send products to your home for unboxing &amp; review videos. This is only shared with a brand when they place an order with you — never shown publicly.
-          </span>
-          <textarea
-            id="cw-shipping"
-            className="cw-input cw-shipping-textarea"
-            rows={3}
-            value={shippingAddress}
-            disabled={disabled}
-            placeholder="Flat / house no., street, area, city, state, PIN code"
-            autoComplete="street-address"
-            onChange={(e) => onShippingAddressChange(e.target.value)}
-          />
-          {errors.shippingAddress ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.shippingAddress}</p>
-          ) : null}
-        </div>
-
         {adminMode ? (
           <div className="cw-col-2 cw-field">
             <label htmlFor="cw-phone" className="cw-fieldlabel">
@@ -391,59 +275,6 @@ export function AboutYouStep(props: AboutYouStepProps) {
           </div>
         ) : null}
       </div>
-
-      <div className="cw-hr" />
-
-      {/* Languages */}
-      <div className="cw-field cw-lang-block">
-        <label className="cw-fieldlabel">
-          Languages you can create in <span className="cw-req">*</span>
-        </label>
-        <span className="cw-facet-help">
-          Pick every language you can confidently create videos in.
-        </span>
-        {languagesLoading ? (
-          <div className="cw-lang-loading">
-            <Spinner className="size-4" aria-hidden /> Loading languages…
-          </div>
-        ) : (
-          <LanguageMultiSelect
-            options={languageOptions}
-            selected={selectedLanguages}
-            disabled={disabled}
-            onToggle={onToggleLanguage}
-          />
-        )}
-        {errors.language ? (
-          <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.language}</p>
-        ) : null}
-      </div>
-
-      {/* Confirmation gate */}
-      <label
-        className="cw-confirm"
-        data-checked={languageConfirmed}
-        data-disabled={disabled || selectedLanguageCount === 0}
-      >
-        <input
-          type="checkbox"
-          className="cw-confirm-box"
-          checked={languageConfirmed}
-          disabled={disabled || selectedLanguageCount === 0}
-          onChange={(e) => onLanguageConfirmedChange(e.target.checked)}
-        />
-        <span className="cw-confirm-tick" aria-hidden>
-          <Check size={13} strokeWidth={3} />
-        </span>
-        <span className="cw-confirm-text">
-          I confirm that I can confidently create videos in all selected
-          languages. Incorrect information may lead to cancellations, refunds
-          and a lower creator score.
-        </span>
-      </label>
-      {errors.languageConfirmed ? (
-        <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.languageConfirmed}</p>
-      ) : null}
 
       <div className="cw-hr" />
 

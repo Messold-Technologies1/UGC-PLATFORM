@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { formatINR } from "@/lib/format-currency";
 import {
   PLATFORM_FEE_RATE,
@@ -26,11 +28,12 @@ export function PackageEarningsBanner({
     packagePriceAmount,
     selectedAddOnPrices,
   });
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
 
   if (!preview) {
     return (
       <div
-        className="rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+        className="cw-earn rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
         role="status"
       >
         GoCollab takes {platformFeePercent}% of the complete order value (base
@@ -43,14 +46,15 @@ export function PackageEarningsBanner({
 
   return (
     <div
-      className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground"
+      className="cw-earn rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground"
+      data-breakdown={breakdownOpen}
       role="status"
       aria-live="polite"
     >
-      <p className="font-medium">
+      <p className="cw-earn-title font-medium">
         Estimated payout when a brand books this package
       </p>
-      <div className="mt-2 space-y-1 text-muted-foreground">
+      <div className="cw-earn-lines mt-2 space-y-1 text-muted-foreground">
         <p>
           Total order value:{" "}
           <span className="font-medium text-foreground">
@@ -70,12 +74,22 @@ export function PackageEarningsBanner({
             {formatINR(preview.platformFee)}
           </span>
         </p>
-        <p className="text-foreground">
+      </div>
+      <div className="cw-earn-foot">
+        <p className="cw-earn-receive mt-0 text-foreground">
           You receive:{" "}
           <strong className="text-base">
             {formatINR(preview.creatorEarnings)}
           </strong>
         </p>
+        <button
+          type="button"
+          className="cw-earn-breakdown-btn"
+          aria-expanded={breakdownOpen}
+          onClick={() => setBreakdownOpen((open) => !open)}
+        >
+          {breakdownOpen ? "Hide detailed breakdown" : "View detailed breakdown"}
+        </button>
       </div>
     </div>
   );

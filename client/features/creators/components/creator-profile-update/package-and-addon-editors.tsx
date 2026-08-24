@@ -215,9 +215,14 @@ export function PackageEditor({
             <span className="cw-confirm-tick" aria-hidden>
               <Check size={13} strokeWidth={3} />
             </span>
-            <span className="cw-confirm-text">
-              I can deliver all of the above on every order.{" "}
-              <span className="cw-req">*</span>
+            <span className="cw-confirm-copy">
+              <span className="cw-confirm-title">
+                I can deliver all of the above on every order
+                <span className="cw-req"> *</span>
+              </span>
+              <span className="cw-confirm-desc">
+                These defaults apply to every package order you accept.
+              </span>
             </span>
           </label>
           {defaultsConfirmedError ? (
@@ -251,7 +256,7 @@ export function AddOnCatalogEditor({
 }) {
   return (
     <div>
-      <div className="pe-field" style={{ marginBottom: 14 }}>
+      <div className="pe-field cw-acc-heading-block" style={{ marginBottom: 14 }}>
         <label style={{ fontSize: 14, fontWeight: 700 }}>Add-ons</label>
         <span className="pe-help">
           Extras brands can add to your package. Required add-ons (marked *)
@@ -287,16 +292,23 @@ export function AddOnCatalogEditor({
             const warning = ADDON_WARNINGS[option.slug];
 
             return (
-              <div key={option.slug} className="pe-pkg pe-addon-card">
+              <div
+                key={option.slug}
+                className="pe-pkg pe-addon-card"
+                data-selected={selected}
+              >
                 <div className="pe-addon-card-top">
                   <label className="pe-addon-card-label">
                     <input
                       type="checkbox"
+                      className="cw-confirm-box"
                       disabled={disabled || option.mandatory}
                       checked={selected}
                       onChange={() => onToggle(option)}
-                      style={{ width: 16, height: 16 }}
                     />
+                    <span className="cw-confirm-tick" aria-hidden>
+                      <Check size={13} strokeWidth={3} />
+                    </span>
                     {option.name}
                     {option.mandatory ? (
                       <span className="pe-req" aria-label="Required">

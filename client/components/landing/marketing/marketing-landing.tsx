@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
@@ -10,12 +10,12 @@ import { cn } from "@/lib/utils";
 /**
  * Public marketing landing page.
  *
- * Creator-first narrative: it argues the case for listing a profile rather
- * than leading with brand-side features. Leans on the pink accent paired with
- * the `blush` wash ramp for the alternating section backgrounds.
+ * Two-sided narrative — it sells the marketplace to brands and creators at
+ * once, handing each side its own CTA rather than picking a primary audience.
+ * Shares the pink accent and `blush` wash ramp with the /creators page.
  */
 
-/** Vertical rhythm for this page. */
+/** Vertical rhythm shared with the /creators page. */
 const sectionPadY = "py-[clamp(84px,11vw,152px)]";
 
 /**
@@ -27,100 +27,38 @@ const sectionPadY = "py-[clamp(84px,11vw,152px)]";
 const pinkCta =
   "bg-pink hover:bg-pink text-foreground shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
 
+/** White CTA used on the dark sections. */
+const lightCta =
+  "bg-background hover:bg-background/90 text-foreground border-0 px-[30px] py-4 text-[15px] font-bold";
+
 /** Cards that slide into their own shadow on hover. */
-const hardCard = "border-foreground shadow-hard rounded-[28px] border-2";
+const lift =
+  "shadow-hard transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-hard";
 
-const DISCOVERY = [
-  {
-    title: "Brand searched: Beauty Creator • Delhi",
-    sub: "Budget ₹3,000–₹7,000 · Delivery ≤5 days",
-    dot: "bg-pink",
-  },
-  { title: "Your profile appeared", sub: null, dot: "bg-pink/60" },
-  { title: "Brand viewed your work", sub: null, dot: "bg-pink/40" },
-  {
-    title: "New collaboration",
-    sub: "Order placed · 1 reel + 2 stories",
-    dot: "bg-lime",
-  },
-];
+const HERO_FILTERS = ["Beauty", "Delhi", "₹3K–₹10K", "≤5 Days"];
 
-const NOT_TO = [
-  "Search for brand contacts",
-  "Send 50 cold DMs",
-  "Send your portfolio repeatedly",
-  "Explain your pricing again and again",
-  "Ask “Any update?”",
-  "Track everything through WhatsApp",
-];
-
-const REALITY = [
-  "Create content",
-  "Search brands",
-  "Check Instagram",
-  "Find email/contact",
-  "Send DM",
-  "Wait",
-  "Follow up",
-  "Send portfolio",
-  "Share prices",
-  "Wait again",
-  "Maybe get a collaboration",
-];
-
-const BRAND_SEARCH = [
-  { label: "Creator", value: "Female Creator" },
-  { label: "Category", value: "Beauty" },
-  { label: "Location", value: "Delhi NCR" },
-  { label: "Budget", value: "₹3,000–₹7,000" },
-  { label: "Delivery", value: "≤5 Days" },
-];
-
-const REVERSE_FLOW = [
-  "Search",
-  "Your profile appears",
-  "Brand sees your portfolio",
-  "Brand sees your pricing",
-  "Brand selects your service",
-  "Collaboration begins",
-];
-
-const CALLOUTS = [
-  { title: "Your Portfolio", desc: "Show brands what you can create." },
+const HERO_CARDS = [
   {
-    title: "Your Pricing",
-    desc: "No need to send commercials repeatedly.",
+    img: "/1.jpg",
+    name: "Aditi R.",
+    meta: "Beauty · Delhi",
+    price: "₹2,400",
+    rating: "4.9",
   },
   {
-    title: "Your Services",
-    desc: "Show exactly what brands can hire you for.",
-  },
-  { title: "Your Delivery Time", desc: "Set realistic timelines." },
-  {
-    title: "Your Add-ons",
-    desc: "Additional revisions, faster delivery, location shoots etc.",
+    img: "/3.jpg",
+    name: "Meher K.",
+    meta: "Fashion · Delhi",
+    price: "₹3,200",
+    rating: "4.8",
   },
   {
-    title: "Your Creator Details",
-    desc: "Category, city, followers and relevant information.",
+    img: "/5.jpg",
+    name: "Sana V.",
+    meta: "Skincare · Noida",
+    price: "₹1,900",
+    rating: "5.0",
   },
-];
-
-const CONTROL = [
-  { title: "Your Price", desc: "You decide what your work costs." },
-  {
-    title: "Your Services",
-    desc: "Choose what you want brands to hire you for.",
-  },
-  {
-    title: "Your Timeline",
-    desc: "Set a delivery timeline that works for you.",
-  },
-  {
-    title: "Your Add-ons",
-    desc: "Offer additional services and earn more.",
-  },
-  { title: "Your Profile", desc: "Show brands what makes you different." },
 ];
 
 const BRAND_NAMES = [
@@ -132,130 +70,249 @@ const BRAND_NAMES = [
   "SUGAR",
 ];
 
-const ASPIRATION_CARDS = [
-  { img: "/1.jpg", name: "Aditi Rathore", meta: "Beauty · Delhi" },
-  { img: "/5.jpg", name: "Sana Verma", meta: "Skincare · Noida" },
-  { img: "/2.jpg", name: "Nikhil Menon", meta: "Tech · Bengaluru" },
-  { img: "/4.jpg", name: "Riya Sharma", meta: "Food · Mumbai" },
+const BRAND_BENEFITS = [
+  "Search using relevant filters",
+  "See pricing upfront",
+  "Compare creators",
+  "Place structured orders",
+  "Track collaborations",
 ];
 
-const CREATOR_TYPES = [
+const CREATOR_BENEFITS = [
+  "Create your creator storefront",
+  "Set your own pricing",
+  "Set your delivery time",
+  "Showcase your portfolio",
+  "Get discovered by brands",
+];
+
+const MINI_BRAND_CARDS = [
+  { img: "/2.jpg", price: "₹1,599" },
+  { img: "/4.jpg", price: "₹2,750" },
+  { img: "/5.jpg", price: "₹3,400" },
+];
+
+const OLD_WAY = [
+  "Search Instagram",
+  "→ Open profiles",
+  "→ DM creators",
+  "→ Wait",
+  "→ Ask pricing",
+  "→ Ask availability",
+  "→ Send brief",
+  "→ Move to WhatsApp",
+  "→ Follow up",
+  "→ Track manually",
+];
+
+const NEW_WAY = ["Search", "→ Compare", "→ Order", "→ Track", "→ Receive"];
+
+const HOW_STEPS = [
   {
-    title: "UGC Creators",
-    desc: "Brands need your content, not necessarily your audience.",
-    img: "/4.jpg",
+    n: "01",
+    title: "Discover",
+    desc: "Brands search creators that match their requirements.",
   },
   {
-    title: "Nano Creators",
-    desc: "Smaller audience. Strong community.",
-    img: "/5.jpg",
+    n: "02",
+    title: "Collaborate",
+    desc: "Choose deliverables, pricing and timeline.",
   },
   {
-    title: "Micro Creators",
-    desc: "Niche audience and engaged followers.",
+    n: "03",
+    title: "Create",
+    desc: "Creator receives the brief and creates the content.",
+  },
+  {
+    n: "04",
+    title: "Deliver",
+    desc: `Content is delivered, reviewed and completed through ${SITE_NAME}.`,
+  },
+];
+
+const MP_FILTERS = [
+  { label: "Category", value: "Beauty" },
+  { label: "Location", value: "Delhi NCR" },
+  { label: "Price", value: "₹3K–₹10K" },
+  { label: "Followers", value: "10k–100k" },
+  { label: "Delivery Time", value: "≤5 Days" },
+];
+
+const MARKETPLACE = [
+  {
+    img: "/1.jpg",
+    name: "Aditi Rathore",
+    category: "Beauty",
+    city: "Delhi",
+    followers: "42k",
+    price: "₹2,400",
+    delivery: "3 days",
+  },
+  {
     img: "/2.jpg",
+    name: "Nikhil Menon",
+    category: "Tech",
+    city: "Bengaluru",
+    followers: "18k",
+    price: "₹3,800",
+    delivery: "5 days",
   },
   {
-    title: "Influencers",
-    desc: "Collaborate using your content and audience.",
     img: "/3.jpg",
+    name: "Meher Kaur",
+    category: "Fashion",
+    city: "Delhi",
+    followers: "76k",
+    price: "₹3,200",
+    delivery: "4 days",
+  },
+  {
+    img: "/4.jpg",
+    name: "Riya Sharma",
+    category: "Food",
+    city: "Mumbai",
+    followers: "31k",
+    price: "₹2,100",
+    delivery: "3 days",
+  },
+  {
+    img: "/5.jpg",
+    name: "Sana Verma",
+    category: "Skincare",
+    city: "Noida",
+    followers: "9.4k",
+    price: "₹1,900",
+    delivery: "2 days",
+  },
+  {
+    img: "/2.jpg",
+    name: "Arjun Verma",
+    category: "Fitness",
+    city: "Pune",
+    followers: "54k",
+    price: "₹4,500",
+    delivery: "6 days",
+  },
+  {
+    img: "/4.jpg",
+    name: "Ananya Singh",
+    category: "Parenting",
+    city: "Jaipur",
+    followers: "22k",
+    price: "₹2,650",
+    delivery: "4 days",
+  },
+  {
+    img: "/1.jpg",
+    name: "Tanvi Iyer",
+    category: "Lifestyle",
+    city: "Chennai",
+    followers: "13k",
+    price: "₹1,750",
+    delivery: "3 days",
   },
 ];
 
-const CATEGORIES = [
-  "Beauty",
-  "Fashion",
-  "Lifestyle",
-  "Food",
-  "Fitness",
-  "Parenting",
-  "Travel",
-  "Technology",
+const REMOVES = [
+  {
+    title: "Discovery",
+    desc: "Find relevant creators without endless scrolling.",
+    bg: "bg-blush-100",
+    bar: "border-t-pink",
+  },
+  {
+    title: "Transparency",
+    desc: "See pricing, services and timelines before starting.",
+    bg: "bg-blush-150",
+    bar: "border-t-blush-300",
+  },
+  {
+    title: "Structure",
+    desc: "Keep briefs, orders, revisions and deliveries organised.",
+    bg: "bg-blush-100",
+    bar: "border-t-blush-700",
+  },
+  {
+    title: "Visibility",
+    desc: `Creators get a professional place where brands can discover them.`,
+    bg: "bg-blush-150",
+    bar: "border-t-pink",
+  },
 ];
 
-const STEPS = [
-  "Create your profile",
-  "Showcase your work",
-  "Set pricing & services",
-  "Get discovered",
-  "Receive collaborations",
-  "Create & deliver",
-  "Complete & earn",
+const ORDER_FLOW = [
+  "Payment / Order",
+  "Brief",
+  "Awaiting Shipment",
+  "Shipped",
+  "In Progress",
+  "Delivered",
+  "Revision",
+  "Approved",
+  "Completed",
 ];
-
-const AVATARS = ["/1.jpg", "/2.jpg", "/3.jpg", "/4.jpg", "/5.jpg"];
 
 const TESTIMONIALS = [
   {
+    tag: "CREATOR",
     quote:
-      "Earlier I was sending my portfolio separately to every brand. Now everything they need to know is on my profile.",
+      "I don’t have to explain my pricing and services to every brand separately anymore.",
     name: "Meher Kaur",
     role: "Fashion creator, Delhi",
     img: "/3.jpg",
   },
   {
+    tag: "BRAND",
     quote:
-      "Brands can understand my services and pricing before approaching me.",
-    name: "Sana Verma",
-    role: "Skincare creator, Noida",
+      "Instead of asking ten creators the same questions, I can compare everything before I decide.",
+    name: "Priya Nambiar",
+    role: "Marketing lead, D2C skincare",
     img: "/5.jpg",
-  },
-  {
-    quote:
-      "I can focus more on creating instead of constantly searching for collaborations.",
-    name: "Riya Sharma",
-    role: "Food creator, Mumbai",
-    img: "/4.jpg",
   },
 ];
 
-const CREATOR_FAQS = [
+const MARKETING_FAQS = [
   {
-    q: `Is ${SITE_NAME} free for creators?`,
-    a: "Yes. Creating your profile and being discoverable costs nothing. There is no joining fee.",
+    q: `What is ${SITE_NAME}?`,
+    a: `${SITE_NAME} is a marketplace where brands find and hire creators, and creators create a profile that brands can discover, understand and order from.`,
   },
   {
-    q: "Do I need a minimum follower count?",
-    a: "No. Brands search for different things — some need content, some need audience. Your profile shows what you offer either way.",
+    q: `Is ${SITE_NAME} free?`,
+    a: "Creating an account is free for both brands and creators. Brands can browse creators without any payment, and creators join without a joining fee.",
   },
   {
-    q: "Can UGC creators join without a large audience?",
-    a: "Yes. Many brands are looking for content they can use in ads and on product pages, not for your follower count.",
+    q: "Can brands browse creators before paying?",
+    a: "Yes. Search, filters, portfolios, pricing and delivery timelines are visible before you place an order.",
   },
   {
-    q: "Can I decide my own pricing?",
-    a: "You set your own prices, for every service you list.",
+    q: "How do creators get discovered?",
+    a: `Brands search ${SITE_NAME} by category, location, budget, followers and delivery time. Profiles matching those requirements appear in the results.`,
   },
   {
-    q: "Can I choose what services I offer?",
-    a: "Yes. You choose your deliverables, what is included, and any add-ons you want to offer.",
+    q: "How does an order work?",
+    a: "A brand selects a creator’s service, agrees the deliverables and timeline, and places the order. The collaboration then moves through clearly defined stages until delivery.",
   },
   {
-    q: "Can I change my pricing later?",
-    a: "You can update your pricing, services, delivery timelines and add-ons whenever you want.",
+    q: "What happens after content is delivered?",
+    a: "The brand reviews the delivery, can request revisions where applicable, and approves it to complete the order.",
   },
   {
-    q: "How do brands discover me?",
-    a: "Brands search by category, location, budget, followers and delivery time. Profiles matching their requirements appear in the results.",
-  },
-  {
-    q: "What happens when I receive an order?",
-    a: "You receive the brief and the agreed deliverables, timeline and pricing. You accept it and then create the content.",
-  },
-  {
-    q: "How do revisions work?",
-    a: "Revisions are part of the service you listed. You decide how many are included, and can offer extra revisions as an add-on.",
-  },
-  {
-    q: "When do creators get paid?",
-    a: "Payment is released once the delivery is completed according to the agreed brief and platform policy.",
+    q: "How are revisions handled?",
+    a: "Revisions are part of the agreed service. Creators list how many are included, and additional revisions can be offered as an add-on.",
   },
 ];
 
 /** Horizontal snap-carousel on small screens, 4-up grid from md. */
 const carousel =
-  "flex snap-x snap-mandatory gap-[clamp(14px,1.7vw,22px)] overflow-x-auto pb-1.5 md:grid md:grid-cols-4 md:overflow-visible md:pb-0";
+  "flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1.5 md:grid md:grid-cols-4 md:overflow-visible md:pb-0";
 const carouselItem = "w-[62%] shrink-0 snap-start sm:w-[76%] md:w-auto";
+
+/** Colours for a stage chip in the order-flow strip. */
+function orderStageClass(index: number, last: boolean) {
+  if (last) return "bg-pink border-pink text-white";
+  if (index < 5) return "bg-pink/15 border-pink/20 text-[#8E0E32]";
+  return "bg-secondary border-pink/15 text-muted-foreground";
+}
 
 export function MarketingLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -264,510 +321,517 @@ export function MarketingLanding() {
     <div className="bg-grain text-foreground bg-background overflow-x-clip">
       {/* 1. HERO */}
       <section className="relative px-6 pt-[clamp(72px,10vw,120px)] pb-[clamp(72px,9vw,110px)]">
-        <div className="bg-pink/15 pointer-events-none absolute -top-[380px] -right-[32%] h-[480px] w-[min(700px,84vw)] rounded-full blur-[90px]" />
+        <div className="bg-pink/12 pointer-events-none absolute -top-[390px] left-1/2 h-[470px] w-[min(820px,92vw)] -translate-x-1/2 rounded-full blur-[90px]" />
 
-        <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,72px)] lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,72px)] lg:grid-cols-[1.02fr_0.98fr]">
           <div>
-            <div className="bg-pink/12 mb-6 inline-flex rounded-full px-4 py-[7px]">
+            <div className="bg-pink/15 mb-6 inline-flex items-center gap-2 rounded-full px-4 py-[7px]">
               <span className="font-heading text-blush-700 text-[11px] font-bold tracking-[0.13em]">
-                FOR CREATORS
+                BUILT FOR BRANDS &amp; CREATORS
               </span>
             </div>
-            <h1 className="font-heading mb-[22px] text-[clamp(2.4rem,5vw,4rem)] leading-[1.02] font-bold tracking-[-0.03em] text-balance">
-              Your job is to create.
-              <br />
-              Not chase brands.
+            <h1 className="font-heading mb-[22px] text-[clamp(2.3rem,4.5vw,3.7rem)] leading-[1.04] font-bold tracking-[-0.03em] text-balance">
+              Where brands find creators — and creators get found.
             </h1>
-            <p className="text-muted-foreground mb-[22px] max-w-[540px] text-[clamp(1rem,1.35vw,1.15rem)] leading-relaxed text-pretty">
-              You shouldn&rsquo;t have to spend your day finding brand contacts,
-              sending DMs, sharing your portfolio, explaining your prices and
-              following up.
+            <p className="text-muted-foreground mb-[34px] max-w-[520px] text-[clamp(1.02rem,1.4vw,1.2rem)] leading-[1.55] text-pretty">
+              Discover creators, compare collaborations and manage everything
+              from order to delivery — all in one place.
             </p>
-            <p className="font-heading mb-[34px] max-w-[540px] text-[clamp(1.1rem,1.7vw,1.35rem)] leading-[1.38] font-bold text-balance">
-              Create your {SITE_NAME} profile once. Let brands find you when
-              they need creators like you.
-            </p>
-            <PillButton
-              href="/register/creator"
-              className={cn(pinkCta, "px-8 py-[18px] text-[15.5px] font-bold")}
-            >
-              Create My Profile — Free
-            </PillButton>
-            <div className="text-muted-foreground mt-[22px] text-[13px]">
-              Free to join &nbsp;•&nbsp; Your pricing &nbsp;•&nbsp; Your terms
-              &nbsp;•&nbsp; Your work
+            <div className="mb-[26px] flex flex-wrap gap-3">
+              <PillButton
+                href="/register/brand"
+                className={cn(pinkCta, "px-[30px] py-[17px] text-[15px]")}
+              >
+                Find Creators — Free
+              </PillButton>
+              <PillButton
+                href="/creators"
+                className="bg-card hover:bg-card text-foreground border-foreground shadow-hard border-2 px-[30px] py-[17px] text-[15px] font-bold hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none"
+              >
+                Get Discovered as a Creator
+              </PillButton>
+            </div>
+            <div className="text-muted-foreground text-[13px]">
+              Free to explore &nbsp;•&nbsp; No payment to browse &nbsp;•&nbsp;
+              Creators control their own pricing
             </div>
           </div>
 
           <div className="relative">
-            <div className="shadow-hard overflow-hidden rounded-[28px]">
-              <Image
-                src="/4.jpg"
-                alt="Creator filming content"
-                width={720}
-                height={540}
-                priority
-                className="aspect-[4/3] w-full object-cover"
-              />
-            </div>
-
-            {/* Discovery timeline, overlapping the photo */}
-            <div className="border-foreground shadow-hard bg-card relative -mt-[46px] ml-[clamp(0px,3vw,28px)] max-w-[340px] rounded-[22px] border-2 p-5">
-              {DISCOVERY.map((d) => (
-                <div key={d.title} className="flex items-start gap-3 py-[9px]">
+            <div className="border-foreground shadow-hard bg-card rounded-[28px] border-2 p-[22px]">
+              <div className="mb-[18px] flex flex-wrap gap-2">
+                {HERO_FILTERS.map((f) => (
                   <span
+                    key={f}
+                    className="font-heading bg-blush-100 text-blush-700 border-foreground/10 rounded-full border px-3.5 py-2 text-[12.5px] font-semibold"
+                  >
+                    {f}
+                  </span>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {HERO_CARDS.map((c, i) => (
+                  <div
+                    key={c.name}
                     className={cn(
-                      "mt-1.5 h-[9px] w-[9px] shrink-0 rounded-full",
-                      d.dot,
+                      "border-foreground bg-card overflow-hidden rounded-[18px] border-2",
+                      i === 2 && "hidden sm:block",
                     )}
-                  />
-                  <div>
-                    <div className="font-heading text-[13.5px] leading-[1.35] font-bold">
-                      {d.title}
-                    </div>
-                    {d.sub ? (
-                      <div className="text-muted-foreground mt-0.5 text-xs">
-                        {d.sub}
+                  >
+                    <Image
+                      src={c.img}
+                      alt=""
+                      width={240}
+                      height={320}
+                      priority={i === 0}
+                      className="aspect-[3/4] w-full object-cover"
+                    />
+                    <div className="px-3 pt-[11px] pb-[13px]">
+                      <div className="font-heading text-[13px] font-bold">
+                        {c.name}
                       </div>
-                    ) : null}
+                      <div className="text-muted-foreground mb-2 text-[11px]">
+                        {c.meta}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-heading font-bold">{c.price}</span>
+                        <span className="text-muted-foreground">
+                          ★ {c.rating}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div className="border-foreground bg-foreground text-background animate-float absolute top-[22px] -right-3.5 rounded-full border-2 px-4 py-2.5 shadow-sticker">
+            <div className="border-foreground bg-card animate-float absolute -top-4 -right-3 rounded-full border-2 px-4 py-2.5 shadow-sticker">
               <span className="font-heading text-[12.5px] font-bold">
-                You create → you get discovered
+                <span className="text-pink">✦</span> Creator Found
+              </span>
+            </div>
+            <div className="border-foreground bg-foreground text-background animate-float-delayed absolute bottom-11 -left-[26px] rounded-full border-2 px-4 py-2.5 shadow-sticker">
+              <span className="font-heading text-[12.5px] font-bold">
+                ₹4,500 / Video
               </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. EMOTIONAL RECOGNITION */}
-      <section className={cn("bg-blush-50 px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1000px]">
-          <h2 className="font-heading mb-[clamp(36px,4.5vw,56px)] text-[clamp(2rem,4vw,3.2rem)] leading-[1.06] font-bold tracking-[-0.03em] text-balance">
-            You became a creator to create content.
-          </h2>
-          <div className="font-heading text-muted-foreground mb-5 text-[15px] font-bold">
-            Not to:
+      {/* 2. BRAND SOCIAL PROOF */}
+      <section className="border-foreground/7 border-t px-6 py-[clamp(40px,5vw,64px)]">
+        <div className="mx-auto max-w-[1240px] text-center">
+          <div className="font-heading text-muted-foreground mb-8 text-sm font-semibold">
+            Creators on {SITE_NAME} have created for brands like
           </div>
-          <div className="mb-[clamp(48px,6vw,76px)] flex max-w-[640px] flex-col gap-0.5">
-            {NOT_TO.map((n) => (
-              <div
-                key={n}
-                className="text-muted-foreground border-foreground/10 flex items-center gap-3.5 border-b py-[15px] text-[clamp(1rem,1.5vw,1.15rem)]"
-              >
-                <X
-                  className="text-foreground/30 h-[15px] w-[15px] shrink-0"
-                  strokeWidth={2.6}
-                />
-                {n}
-              </div>
-            ))}
-          </div>
-          <h2 className="font-heading text-[clamp(1.9rem,3.8vw,3rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Let {SITE_NAME} handle the discovery part.
-            <br />
-            <span className="text-blush-700">You focus on creating.</span>
-          </h2>
-        </div>
-      </section>
-
-      {/* 3. CURRENT REALITY */}
-      <section className={cn("px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1180px]">
-          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[720px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Does getting a collaboration currently look like this?
-          </h2>
-          <div className="mb-[clamp(44px,5vw,64px)] flex flex-wrap items-center gap-2.5">
-            {REALITY.map((label, i) => (
-              <div key={label} className="contents">
-                {i > 0 ? (
-                  <span
-                    aria-hidden
-                    className="border-foreground bg-blush-100 text-foreground/30 font-heading rounded-full border-2 px-5 py-3 text-sm font-semibold"
-                  >
-                    ↓
-                  </span>
-                ) : null}
-                <span className="border-foreground bg-blush-100 text-muted-foreground font-heading rounded-full border-2 px-5 py-3 text-sm font-semibold">
-                  {label}
-                </span>
-              </div>
-            ))}
-          </div>
-          <h2 className="font-heading max-w-[900px] text-[clamp(1.7rem,3.2vw,2.6rem)] leading-[1.1] font-bold tracking-[-0.03em] text-balance">
-            It shouldn&rsquo;t take all this just to get paid for what
-            you&rsquo;re already good at.
-          </h2>
-        </div>
-      </section>
-
-      {/* 4. REVERSE THE PROCESS */}
-      <section
-        className={cn("bg-foreground text-background px-6", sectionPadY)}
-      >
-        <div className="mx-auto max-w-[1180px]">
-          <h2 className="font-heading text-background mb-[clamp(40px,5vw,60px)] max-w-[680px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Imagine if the brand came looking for you.
-          </h2>
-          <div className="grid items-start gap-[clamp(28px,4vw,52px)] lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="border-background/30 bg-background/5 rounded-[26px] border-2 p-[clamp(24px,3vw,34px)]">
-              <div className="font-heading text-background/45 mb-[22px] text-[11px] font-bold tracking-[0.13em]">
-                LOOKING FOR:
-              </div>
-              <div className="flex flex-col gap-3">
-                {BRAND_SEARCH.map((s) => (
-                  <div
-                    key={s.label}
-                    className="border-background/10 flex items-center justify-between gap-4 border-b pb-3"
-                  >
-                    <span className="text-background/50 text-[12.5px]">
-                      {s.label}
-                    </span>
-                    <span className="font-heading text-sm font-bold">
-                      {s.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-background/15 flex flex-col border-b">
-              {REVERSE_FLOW.map((label, i) => {
-                const last = i === REVERSE_FLOW.length - 1;
-                return (
-                  <div
-                    key={label}
-                    className="border-background/15 flex items-baseline gap-[clamp(14px,2vw,26px)] border-t py-[clamp(15px,1.9vw,22px)]"
-                  >
-                    <span
-                      className={cn(
-                        "font-heading min-w-[22px] text-xs font-bold",
-                        last ? "text-blush-400" : "text-background/35",
-                      )}
-                    >
-                      0{i + 1}
-                    </span>
-                    <span
-                      className={cn(
-                        "font-heading text-[clamp(17px,2.3vw,27px)] leading-[1.18] font-bold tracking-[-0.025em]",
-                        last ? "text-lime" : "text-background/90",
-                      )}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <h2 className="font-heading text-blush-400 mt-[clamp(44px,5vw,68px)] text-[clamp(2rem,4.2vw,3.3rem)] leading-[1.06] font-bold tracking-[-0.03em]">
-            That&rsquo;s {SITE_NAME}.
-          </h2>
-        </div>
-      </section>
-
-      {/* 5. PROFILE AS STOREFRONT */}
-      <section className={cn("px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1240px]">
-          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[640px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Your profile should do the pitching for you.
-          </h2>
-          <div className="grid items-start gap-[clamp(32px,4vw,56px)] lg:grid-cols-[0.85fr_1.15fr]">
-            <div
-              className={cn(
-                hardCard,
-                "bg-card mx-auto w-full max-w-[520px] overflow-hidden lg:mx-0 lg:max-w-none",
-              )}
-            >
-              <Image
-                src="/3.jpg"
-                alt=""
-                width={560}
-                height={420}
-                className="aspect-[4/3] w-full object-cover"
-              />
-              <div className="px-6 pt-[22px] pb-[26px]">
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <div className="font-heading text-[19px] font-bold">
-                    Meher Kaur
-                  </div>
-                  <span className="font-heading text-muted-foreground text-[11px] font-bold">
-                    ● Profile live
-                  </span>
-                </div>
-                <div className="text-muted-foreground mb-5 text-[13px]">
-                  Fashion &amp; Beauty · Delhi · 76k followers
-                </div>
-                <div className="mb-5 grid grid-cols-3 gap-2">
-                  {["/1.jpg", "/2.jpg", "/5.jpg"].map((src) => (
-                    <Image
-                      key={src}
-                      src={src}
-                      alt=""
-                      width={180}
-                      height={320}
-                      className="aspect-[9/16] w-full rounded-[10px] object-cover"
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-col gap-2.5 text-[13px]">
-                  {[
-                    { k: "1 reel + 2 stories", v: "₹3,200" },
-                    { k: "Delivery", v: "4 days" },
-                    { k: "Add-ons", v: "Faster delivery, extra revision" },
-                  ].map((row) => (
-                    <div key={row.k} className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">{row.k}</span>
-                      <span className="font-heading text-right font-bold">
-                        {row.v}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="grid gap-x-[clamp(28px,4vw,56px)] sm:grid-cols-2">
-                {CALLOUTS.map((c) => (
-                  <div
-                    key={c.title}
-                    className="border-foreground/15 border-t py-[clamp(18px,2.2vw,24px)]"
-                  >
-                    <div className="font-heading mb-[7px] text-[clamp(16px,1.7vw,19px)] font-bold">
-                      {c.title}
-                    </div>
-                    <p className="text-muted-foreground text-[14.5px] leading-relaxed text-pretty">
-                      {c.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <h3 className="font-heading mt-[clamp(32px,4vw,48px)] text-[clamp(1.35rem,2.4vw,2rem)] leading-[1.14] font-bold tracking-[-0.02em] text-balance">
-                One profile. Everything a brand needs to decide if you&rsquo;re
-                right for them.
-              </h3>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. CONTROL */}
-      <section className={cn("bg-blush-50 px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1240px]">
-          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[620px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            {SITE_NAME} brings you opportunities.
-            <br />
-            You stay in control.
-          </h2>
-          <div className="border-foreground/20 mb-[clamp(48px,6vw,72px)] flex flex-col border-b">
-            {CONTROL.map((c) => (
-              <div
-                key={c.title}
-                className="border-foreground/20 grid items-baseline gap-2 border-t py-[clamp(20px,2.6vw,30px)] sm:grid-cols-[minmax(220px,0.85fr)_1fr] sm:gap-[clamp(8px,3vw,52px)]"
-              >
-                <div className="font-heading text-[clamp(1.45rem,2.9vw,2.2rem)] leading-[1.08] font-extrabold tracking-[-0.03em]">
-                  {c.title}
-                </div>
-                <p className="text-muted-foreground text-[clamp(15px,1.5vw,17.5px)] leading-relaxed text-pretty">
-                  {c.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-          <h2 className="font-heading text-[clamp(1.7rem,3.4vw,2.7rem)] leading-[1.08] font-bold tracking-[-0.03em]">
-            Your work. Your price.{" "}
-            <span className="text-blush-700">Your terms.</span>
-          </h2>
-        </div>
-      </section>
-
-      {/* 7. BRAND ASPIRATION */}
-      <section className={cn("px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1180px]">
-          <h2 className="font-heading mb-[clamp(36px,4.5vw,52px)] max-w-[820px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            The next brand looking for someone like you should be able to find
-            you.
-          </h2>
-          <div className="border-foreground/10 mb-[clamp(32px,4vw,48px)] flex flex-wrap items-center gap-[clamp(24px,4vw,56px)] border-y py-[26px]">
+          <div className="flex flex-wrap items-center justify-center gap-[clamp(28px,5vw,64px)]">
             {BRAND_NAMES.map((b) => (
               <span
                 key={b}
-                className="font-heading text-foreground/30 text-[clamp(16px,1.8vw,20px)] font-bold tracking-[-0.02em] whitespace-nowrap"
+                className="font-heading text-foreground/35 text-[clamp(17px,2vw,22px)] font-bold tracking-[-0.02em] whitespace-nowrap"
               >
                 {b}
               </span>
             ))}
           </div>
-          <div className={cn(carousel, "mb-[clamp(28px,3.5vw,40px)]")}>
-            {ASPIRATION_CARDS.map((c) => (
-              <div
-                key={c.name}
-                className={cn(carouselItem, "relative overflow-hidden rounded")}
-              >
-                <Image
-                  src={c.img}
-                  alt=""
-                  width={420}
-                  height={560}
-                  className="aspect-[3/4] w-full object-cover"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(24,19,19,0.86)] to-transparent px-[15px] py-3.5 text-white">
-                  <div className="font-heading text-[13.5px] font-bold">
-                    {c.name}
+        </div>
+      </section>
+
+      {/* 3. TWO-SIDED PLATFORM */}
+      <section className={cn("bg-blush-50 px-6", sectionPadY)}>
+        <div className="mx-auto max-w-[1240px]">
+          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[720px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+            One platform. Built for both sides of the collaboration.
+          </h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Brands */}
+            <div
+              className={cn(
+                lift,
+                "border-foreground bg-card flex flex-col rounded-[32px] border-2 p-[clamp(28px,3.4vw,44px)]",
+              )}
+            >
+              <div className="font-heading text-blush-700 mb-[18px] text-[11px] font-bold tracking-[0.13em]">
+                FOR BRANDS
+              </div>
+              <h3 className="font-heading mb-3.5 text-[clamp(1.35rem,2.2vw,1.75rem)] leading-[1.18] font-bold tracking-[-0.02em] text-balance">
+                Stop searching everywhere. Start searching in one place.
+              </h3>
+              <p className="text-muted-foreground mb-[26px] text-[15px] leading-relaxed">
+                Find creators, compare their work, pricing and delivery
+                timelines, and place orders directly.
+              </p>
+              <div className="mb-7 flex flex-col">
+                {BRAND_BENEFITS.map((b) => (
+                  <div
+                    key={b}
+                    className="border-foreground/13 border-t py-[11px] text-[15px]"
+                  >
+                    {b}
                   </div>
-                  <div className="text-[11.5px] opacity-70">{c.meta}</div>
+                ))}
+              </div>
+              <div className="bg-blush-100 mb-7 rounded-2xl p-4">
+                <div className="mb-3 flex flex-wrap gap-[7px]">
+                  {["Beauty", "Delhi", "≤5 Days"].map((t) => (
+                    <span
+                      key={t}
+                      className="font-heading bg-card border-foreground/15 rounded-full border px-[11px] py-1.5 text-[11px] font-semibold"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2.5">
+                  {MINI_BRAND_CARDS.map((m, i) => (
+                    <div
+                      key={`${m.img}-${i}`}
+                      className="bg-card flex-1 overflow-hidden rounded-[11px]"
+                    >
+                      <Image
+                        src={m.img}
+                        alt=""
+                        width={120}
+                        height={120}
+                        className="aspect-square w-full object-cover"
+                      />
+                      <div className="font-heading px-[9px] py-2 text-[10.5px] font-bold">
+                        {m.price}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+              <PillButton
+                href="/brand/creators"
+                className={cn(
+                  pinkCta,
+                  "mt-auto self-start px-[27px] py-[15px] text-[14.5px]",
+                )}
+              >
+                Explore Creators →
+              </PillButton>
+            </div>
+
+            {/* Creators */}
+            <div
+              className={cn(
+                lift,
+                "bg-foreground text-background flex flex-col rounded-[32px] p-[clamp(28px,3.4vw,44px)]",
+              )}
+            >
+              <div className="font-heading text-blush-400 mb-[18px] text-[11px] font-bold tracking-[0.13em]">
+                FOR CREATORS
+              </div>
+              <h3 className="font-heading text-background mb-3.5 text-[clamp(1.35rem,2.2vw,1.75rem)] leading-[1.18] font-bold tracking-[-0.02em] text-balance">
+                Stop hoping brands discover your Instagram.
+              </h3>
+              <p className="text-background/60 mb-[26px] text-[15px] leading-relaxed">
+                Create a professional profile that helps brands discover,
+                understand and hire you.
+              </p>
+              <div className="mb-7 flex flex-col">
+                {CREATOR_BENEFITS.map((b) => (
+                  <div
+                    key={b}
+                    className="border-background/15 text-background/85 border-t py-[11px] text-[15px]"
+                  >
+                    {b}
+                  </div>
+                ))}
+              </div>
+              <div className="bg-background/5 mb-7 flex items-center gap-3.5 rounded-2xl p-4">
+                <Image
+                  src="/3.jpg"
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="h-14 w-14 shrink-0 rounded-[14px] object-cover"
+                />
+                <div className="min-w-0">
+                  <div className="font-heading text-[13.5px] font-bold">
+                    Your creator profile
+                  </div>
+                  <div className="text-background/55 mb-[7px] text-[11.5px]">
+                    Beauty &amp; Skincare · Delhi
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="font-heading text-blush-400 rounded-full bg-[rgba(255,158,197,0.16)] px-[9px] py-1 text-[10.5px] font-semibold">
+                      From ₹1,599
+                    </span>
+                    <span className="font-heading bg-background/10 rounded-full px-[9px] py-1 text-[10.5px] font-semibold">
+                      3-day delivery
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <PillButton
+                href="/creators"
+                className={cn(
+                  lightCta,
+                  "mt-auto self-start px-[27px] py-[15px] text-[14.5px]",
+                )}
+              >
+                Create My Profile →
+              </PillButton>
+            </div>
           </div>
-          <p className="text-muted-foreground max-w-[660px] text-[clamp(1rem,1.5vw,1.15rem)] text-pretty">
-            Good content deserves to be discoverable beyond referrals, agencies
-            and cold DMs.
+        </div>
+      </section>
+
+      {/* 4. BIG HUMAN PROBLEM */}
+      <section className="px-6 py-[clamp(88px,12vw,164px)] text-center">
+        <div className="mx-auto max-w-[940px]">
+          <div className="font-heading text-muted-foreground mb-1.5 text-[clamp(1.35rem,2.6vw,2rem)] leading-[1.24] font-bold">
+            Thousands of brands need creators.
+          </div>
+          <div className="font-heading text-muted-foreground mb-[34px] text-[clamp(1.35rem,2.6vw,2rem)] leading-[1.24] font-bold">
+            Thousands of creators want opportunities.
+          </div>
+          <h2 className="font-heading mb-[26px] text-[clamp(2.1rem,5vw,3.8rem)] leading-[1.04] font-bold tracking-[-0.03em] text-balance">
+            Finding each other shouldn&rsquo;t be this hard.
+          </h2>
+          <p className="text-muted-foreground text-[clamp(1rem,1.4vw,1.15rem)]">
+            That&rsquo;s the problem {SITE_NAME} is built to solve.
           </p>
         </div>
       </section>
 
-      {/* 8. WHO CAN JOIN */}
-      <section
-        className={cn("bg-foreground text-background px-6", sectionPadY)}
-      >
-        <div className="mx-auto max-w-[1240px]">
-          <h2 className="font-heading text-background mb-[clamp(40px,5vw,60px)] max-w-[780px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            You don&rsquo;t need millions of followers to be valuable to a
-            brand.
+      {/* 5. OLD WAY VS GOCOLLAB */}
+      <section className={cn("bg-blush-100 px-6", sectionPadY)}>
+        <div className="mx-auto max-w-[1180px]">
+          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[680px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+            Creator collaborations shouldn&rsquo;t be this complicated.
           </h2>
-          <div
-            className={cn(
-              carousel,
-              "mb-[clamp(40px,5vw,56px)] md:gap-[clamp(16px,2.2vw,30px)]",
-            )}
-          >
-            {CREATOR_TYPES.map((t) => (
-              <div key={t.title} className={carouselItem}>
-                <Image
-                  src={t.img}
-                  alt=""
-                  width={420}
-                  height={525}
-                  className="mb-[18px] aspect-[4/5] w-full rounded object-cover"
-                />
-                <div className="font-heading mb-2 text-[clamp(17px,1.9vw,21px)] font-bold tracking-[-0.02em]">
-                  {t.title}
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            <div className="border-foreground bg-card rounded-[28px] border-2 p-[clamp(26px,3.2vw,40px)]">
+              <div className="font-heading text-muted-foreground mb-6 text-[11px] font-bold tracking-[0.13em]">
+                THE OLD WAY
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {OLD_WAY.map((s) => (
+                  <div key={s} className="text-muted-foreground text-[15px]">
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-pink text-foreground shadow-hard rounded-[28px] p-[clamp(26px,3.2vw,40px)]">
+              <div className="font-heading mb-6 text-[11px] font-bold tracking-[0.13em] text-white/75">
+                THE {SITE_NAME.toUpperCase()} WAY
+              </div>
+              <div className="flex flex-col gap-3.5">
+                {NEW_WAY.map((s) => (
+                  <div
+                    key={s}
+                    className="font-heading text-[clamp(1.2rem,2.2vw,1.7rem)] leading-[1.15] font-bold"
+                  >
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="font-heading mt-[clamp(36px,4vw,56px)] text-center text-[clamp(1.2rem,2.2vw,1.7rem)] font-bold text-balance">
+            That&rsquo;s how simple it should have been all along.
+          </div>
+        </div>
+      </section>
+
+      {/* 6. HOW IT WORKS */}
+      <section id="how-it-works" className={cn("px-6", sectionPadY)}>
+        <div className="mx-auto max-w-[1240px]">
+          <h2 className="font-heading mb-[clamp(44px,5vw,64px)] max-w-[600px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+            From discovery to delivery. One place.
+          </h2>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {HOW_STEPS.map((s) => (
+              <div
+                key={s.n}
+                className="border-foreground border-t-2 pt-6"
+              >
+                <div className="font-heading text-muted-foreground mb-3.5 text-xs font-bold tracking-[0.1em]">
+                  {s.n}
                 </div>
-                <p className="text-background/60 text-sm leading-relaxed text-pretty">
-                  {t.desc}
+                <div className="font-heading mb-2.5 text-[clamp(20px,2.3vw,26px)] font-extrabold tracking-[-0.025em]">
+                  {s.title}
+                </div>
+                <p className="text-muted-foreground text-[15px] leading-[1.55] text-pretty">
+                  {s.desc}
                 </p>
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2.5">
-            {CATEGORIES.map((c) => (
-              <span
-                key={c}
-                className="border-background/30 bg-background/5 text-background/85 font-heading rounded-full border-2 px-5 py-[11px] text-sm font-semibold"
-              >
-                {c}
-              </span>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* 9. HOW IT WORKS */}
-      <section className={cn("px-6", sectionPadY)}>
+      {/* 7. LIVE MARKETPLACE */}
+      <section
+        id="marketplace"
+        className={cn("bg-foreground text-background px-6", sectionPadY)}
+      >
         <div className="mx-auto max-w-[1240px]">
-          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[660px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Set it up once. Let your profile keep working for you.
+          <h2 className="font-heading text-background mb-3.5 text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+            Your next creator could already be here.
           </h2>
-          <div className="border-foreground/10 flex flex-col border-b">
-            {STEPS.map((title, i) => (
+          <p className="text-background/60 mb-[clamp(34px,4vw,48px)] text-[clamp(1rem,1.3vw,1.12rem)]">
+            Search based on what your campaign actually needs.
+          </p>
+
+          <div className="border-background/30 bg-background/5 mb-[26px] flex flex-wrap items-end gap-3 rounded-3xl border-2 p-[18px]">
+            {MP_FILTERS.map((f) => (
               <div
-                key={title}
-                className="border-foreground/10 grid grid-cols-[76px_1fr] items-center gap-[clamp(16px,3vw,40px)] border-t py-[22px]"
+                key={f.label}
+                className="border-background/30 bg-background/5 min-w-[150px] flex-1 rounded-2xl border-2 px-4 py-3"
               >
-                <div className="font-heading text-blush-700 text-[clamp(17px,2vw,22px)] font-bold">
-                  0{i + 1}
+                <div className="font-heading text-background/45 mb-1.5 text-[10px] font-bold tracking-[0.11em] uppercase">
+                  {f.label}
                 </div>
-                <div className="font-heading text-[clamp(1.15rem,2.2vw,1.7rem)] leading-[1.2] font-bold tracking-[-0.02em]">
-                  {title}
+                <div className="font-heading text-background text-sm font-semibold">
+                  {f.value}
+                </div>
+              </div>
+            ))}
+            <PillButton
+              href="/brand/creators"
+              className={cn(
+                pinkCta,
+                "rounded-2xl px-[26px] py-4 text-[14.5px]",
+              )}
+            >
+              Search
+            </PillButton>
+          </div>
+
+          <div className={cn(carousel, "mb-[clamp(34px,4vw,48px)]")}>
+            {MARKETPLACE.map((c, i) => (
+              <div
+                key={`${c.name}-${i}`}
+                className={cn(
+                  carouselItem,
+                  "overflow-hidden rounded-md transition-transform duration-200 hover:-translate-y-1",
+                )}
+              >
+                <div className="relative">
+                  <Image
+                    src={c.img}
+                    alt=""
+                    width={300}
+                    height={400}
+                    className="aspect-[3/4] w-full object-cover"
+                  />
+                  <span className="font-heading text-background absolute top-[11px] left-[11px] rounded-full bg-[rgba(24,19,19,0.72)] px-[11px] py-[5px] text-[10.5px] font-bold backdrop-blur-[6px]">
+                    {c.category}
+                  </span>
+                </div>
+                <div className="px-0.5 pt-3.5">
+                  <div className="font-heading text-[15.5px] font-bold">
+                    {c.name}
+                  </div>
+                  <div className="text-background/50 mb-3 text-xs">
+                    {c.city} · {c.followers}
+                  </div>
+                  <div className="border-background/10 flex items-center justify-between border-t pt-3">
+                    <span className="font-heading text-[14.5px] font-bold">
+                      {c.price}
+                    </span>
+                    <span className="text-background/50 text-[11.5px]">
+                      {c.delivery}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-          <h3 className="font-heading mt-[clamp(40px,5vw,60px)] text-[clamp(1.5rem,2.8vw,2.2rem)] leading-[1.1] font-bold tracking-[-0.02em]">
-            Less time pitching. More time creating.
-          </h3>
+          <PillButton href="/brand/creators" className={lightCta}>
+            View All Creators →
+          </PillButton>
         </div>
       </section>
 
-      {/* 10. WHY JOIN NOW */}
-      <section className={cn("bg-blush-100 px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1000px] text-center">
-          <h2 className="font-heading mb-6 text-[clamp(1.8rem,3.6vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Every brand search you&rsquo;re not part of is an opportunity you
-            can&rsquo;t be considered for.
+      {/* 8. WHAT GOCOLLAB REMOVES */}
+      <section className={cn("px-6", sectionPadY)}>
+        <div className="mx-auto max-w-[1240px]">
+          <h2 className="font-heading mb-[clamp(44px,5vw,64px)] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em]">
+            Less chasing. More collaborating.
           </h2>
-          <p className="text-muted-foreground mb-[30px] text-[clamp(1rem,1.4vw,1.15rem)]">
-            You can&rsquo;t control whether every brand chooses you.
-          </p>
-          <h3 className="font-heading text-blush-700 mb-[38px] text-[clamp(1.4rem,2.8vw,2.2rem)] leading-[1.12] font-bold tracking-[-0.02em] text-balance">
-            But you can make sure you&rsquo;re there when they search.
-          </h3>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <div className="flex pl-3">
-              {AVATARS.map((a) => (
-                <Image
-                  key={a}
-                  src={a}
-                  alt=""
-                  width={42}
-                  height={42}
-                  className="border-foreground -ml-3 h-[42px] w-[42px] rounded-full border-2 object-cover"
-                />
-              ))}
-            </div>
-            <PillButton
-              href="/register/creator"
-              className={cn(pinkCta, "px-8 py-[17px] text-[15.5px] font-bold")}
-            >
-              Make My Profile Discoverable
-            </PillButton>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {REMOVES.map((r) => (
+              <div
+                key={r.title}
+                className={cn(
+                  "rounded-[22px] border-t-[3px] px-6 py-[26px]",
+                  r.bg,
+                  r.bar,
+                )}
+              >
+                <div className="font-heading mb-2.5 text-xl font-bold">
+                  {r.title}
+                </div>
+                <p className="text-foreground/70 text-[15px] leading-relaxed text-pretty">
+                  {r.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 11. TESTIMONIALS */}
+      {/* 9. TRUST / PLATFORM FLOW */}
+      <section className={cn("bg-blush-50 px-6", sectionPadY)}>
+        <div className="mx-auto max-w-[1180px]">
+          <h2 className="font-heading mb-[clamp(36px,4.5vw,56px)] max-w-[740px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+            Collaboration shouldn&rsquo;t disappear into a WhatsApp chat.
+          </h2>
+          <div className="border-foreground shadow-hard bg-card mb-7 rounded-[28px] border-2 p-[clamp(24px,3.5vw,44px)]">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {ORDER_FLOW.map((label, i) => (
+                <span
+                  key={label}
+                  className={cn(
+                    "font-heading rounded-full border px-[18px] py-[11px] text-[13.5px] font-semibold",
+                    orderStageClass(i, i === ORDER_FLOW.length - 1),
+                  )}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <p className="font-heading text-[clamp(1.05rem,1.7vw,1.35rem)] font-bold">
+            Both sides always know where the collaboration stands.
+          </p>
+        </div>
+      </section>
+
+      {/* 10. TESTIMONIALS */}
       <section className={cn("px-6", sectionPadY)}>
-        <div className="mx-auto grid max-w-[1240px] gap-5 md:grid-cols-3">
+        <div className="mx-auto grid max-w-[1180px] gap-6 lg:grid-cols-2">
           {TESTIMONIALS.map((t) => (
             <div
               key={t.name}
-              className={cn(
-                hardCard,
-                "bg-card flex flex-col rounded-[26px] p-[clamp(26px,3vw,36px)]",
-              )}
+              className="bg-blush-50 border-blush-200 flex flex-col rounded-[28px] border-2 p-[clamp(26px,3.2vw,40px)]"
             >
-              <div className="font-heading mb-[26px] text-[clamp(1.05rem,1.6vw,1.25rem)] leading-[1.38] font-bold text-pretty">
+              <div className="font-heading text-blush-700 mb-[22px] text-[11px] font-bold tracking-[0.13em]">
+                {t.tag}
+              </div>
+              <div className="font-heading mb-7 text-[clamp(1.3rem,2.4vw,1.95rem)] leading-[1.24] font-extrabold tracking-[-0.025em] text-pretty">
                 &ldquo;{t.quote}&rdquo;
               </div>
-              <div className="mt-auto flex items-center gap-3">
+              <div className="mt-auto flex items-center gap-[13px]">
                 <Image
                   src={t.img}
                   alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 rounded-full object-cover"
+                  width={44}
+                  height={44}
+                  className="h-11 w-11 rounded-full object-cover"
                 />
                 <div>
-                  <div className="font-heading text-[13.5px] font-bold">
-                    {t.name}
+                  <div className="font-heading text-sm font-bold">{t.name}</div>
+                  <div className="text-muted-foreground text-[12.5px]">
+                    {t.role}
                   </div>
-                  <div className="text-muted-foreground text-xs">{t.role}</div>
                 </div>
               </div>
             </div>
@@ -775,14 +839,14 @@ export function MarketingLanding() {
         </div>
       </section>
 
-      {/* 12. FAQ */}
-      <section className={cn("bg-blush-50 px-6", sectionPadY)}>
+      {/* 11. FAQ */}
+      <section className={cn("bg-blush-100 px-6", sectionPadY)}>
         <div className="mx-auto max-w-[880px]">
           <h2 className="font-heading mb-[clamp(36px,4.5vw,52px)] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em]">
-            Creator questions, answered.
+            Questions, answered.
           </h2>
           <div className="flex flex-col gap-3">
-            {CREATOR_FAQS.map((f, i) => {
+            {MARKETING_FAQS.map((f, i) => {
               const open = openFaq === i;
               return (
                 <div
@@ -794,13 +858,13 @@ export function MarketingLanding() {
                       type="button"
                       onClick={() => setOpenFaq(open ? null : i)}
                       aria-expanded={open}
-                      aria-controls={`creator-faq-${i}`}
-                      className="font-heading flex w-full cursor-pointer items-center justify-between gap-[18px] px-[26px] py-[21px] text-left text-base font-bold"
+                      aria-controls={`marketing-faq-${i}`}
+                      className="font-heading flex w-full cursor-pointer items-center justify-between gap-[18px] px-[26px] py-[22px] text-left text-[16.5px] font-bold"
                     >
                       {f.q}
                       <span
                         className={cn(
-                          "bg-pink/12 inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full transition-transform duration-200",
+                          "bg-pink/15 inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full transition-transform duration-200",
                           open && "rotate-180",
                         )}
                       >
@@ -813,7 +877,7 @@ export function MarketingLanding() {
                   </h3>
                   {open ? (
                     <p
-                      id={`creator-faq-${i}`}
+                      id={`marketing-faq-${i}`}
                       className="text-muted-foreground px-[26px] pb-6 text-[15px] leading-[1.62] text-pretty"
                     >
                       {f.a}
@@ -826,40 +890,41 @@ export function MarketingLanding() {
         </div>
       </section>
 
-      {/* 13. FINAL CTA */}
-      <section
-        id="final"
-        className="px-6 pt-[clamp(84px,11vw,152px)] pb-[clamp(84px,10vw,140px)]"
-      >
-        <div className="border-foreground shadow-hard bg-foreground text-background mx-auto grid max-w-[1180px] items-stretch overflow-hidden rounded-[36px] border-2 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="p-[clamp(34px,5vw,68px)]">
-            <h2 className="font-heading text-background mb-[22px] text-[clamp(1.9rem,3.6vw,3rem)] leading-[1.05] font-bold tracking-[-0.03em] text-balance">
-              You keep creating.
-              <br />
-              We&rsquo;ll make it easier to get discovered.
-            </h2>
-            <p className="text-background/70 mb-[34px] max-w-[460px] text-[clamp(1rem,1.4vw,1.15rem)] text-pretty">
-              Your next collaboration might come from a brand that doesn&rsquo;t
-              even know you yet.
-            </p>
-            <PillButton
-              href="/register/creator"
-              className="bg-background text-foreground hover:bg-background/90 px-8 py-[18px] text-[15.5px] font-bold"
-            >
-              Create Your {SITE_NAME} Profile — Free
-            </PillButton>
-            <div className="text-background/55 mt-5 text-[13px]">
-              It costs nothing to be discoverable.
+      {/* 12. FINAL DUAL CTA */}
+      <section className="px-6 pt-[clamp(84px,11vw,152px)] pb-[clamp(84px,10vw,140px)]">
+        <div className="bg-foreground text-background shadow-hard mx-auto max-w-[1180px] rounded-[36px] p-[clamp(36px,5vw,72px)]">
+          <h2 className="font-heading text-background mb-[clamp(36px,4.5vw,52px)] text-center text-[clamp(2rem,3.8vw,3.1rem)] leading-[1.06] font-bold tracking-[-0.03em] text-balance">
+            Ready to collaborate differently?
+          </h2>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="border-background/30 border-t-2 pt-[clamp(24px,3vw,34px)]">
+              <div className="font-heading mb-2.5 text-[clamp(1.25rem,2vw,1.6rem)] font-bold">
+                I&rsquo;m a Brand
+              </div>
+              <p className="text-background/70 mb-[26px] text-[15px]">
+                Find creators without the endless search.
+              </p>
+              <PillButton
+                href="/register/brand"
+                className={cn(lightCta, "px-[27px] py-[15px] text-[14.5px]")}
+              >
+                Explore Creators — Free
+              </PillButton>
             </div>
-          </div>
-          <div className="relative aspect-[4/3] lg:aspect-auto lg:min-h-[280px]">
-            <Image
-              src="/1.jpg"
-              alt=""
-              fill
-              sizes="(max-width: 1024px) 100vw, 45vw"
-              className="object-cover object-[50%_18%] opacity-90"
-            />
+            <div className="border-background/30 border-t-2 pt-[clamp(24px,3vw,34px)]">
+              <div className="font-heading mb-2.5 text-[clamp(1.25rem,2vw,1.6rem)] font-bold">
+                I&rsquo;m a Creator
+              </div>
+              <p className="text-background/70 mb-[26px] text-[15px]">
+                Make it easier for brands to find you.
+              </p>
+              <PillButton
+                href="/register/creator"
+                className={cn(pinkCta, "px-[27px] py-[15px] text-[14.5px]")}
+              >
+                Create My Profile — Free
+              </PillButton>
+            </div>
           </div>
         </div>
       </section>
@@ -868,10 +933,16 @@ export function MarketingLanding() {
       <div className="h-[84px] md:hidden" aria-hidden />
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
-          href="/register/creator"
-          className="bg-pink hover:bg-pink text-foreground border-foreground w-full border-2 py-3.5 text-sm font-bold"
+          href="/register/brand"
+          className="bg-pink hover:bg-pink text-foreground border-foreground flex-1 border-2 py-3.5 text-sm font-bold"
         >
-          Create My Profile — Free
+          Find Creators — Free
+        </PillButton>
+        <PillButton
+          href="/register/creator"
+          className="bg-card hover:bg-card text-foreground border-foreground flex-1 border-2 py-3.5 text-sm font-bold"
+        >
+          Create Profile
         </PillButton>
       </div>
     </div>

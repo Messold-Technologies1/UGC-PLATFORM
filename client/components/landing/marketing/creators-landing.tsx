@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { ChevronDown, X } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
+import { StickyCardScroll } from "@/components/landing/marketing/sticky-card-scroll";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -261,9 +262,9 @@ export function CreatorsLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <div className="bg-grain text-foreground bg-background overflow-x-clip">
+    <div className="bg-grain text-foreground bg-background">
       {/* 1. HERO */}
-      <section className="relative px-6 pt-[clamp(32px,4.5vw,52px)] pb-[clamp(40px,5.5vw,68px)]">
+      <section className="relative overflow-x-clip px-6 pt-[clamp(32px,4.5vw,52px)] pb-[clamp(40px,5.5vw,68px)]">
         <div className="bg-pink/15 pointer-events-none absolute -top-[380px] -right-[32%] h-[480px] w-[min(700px,84vw)] rounded-full blur-[90px]" />
 
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,72px)] lg:grid-cols-[1.05fr_0.95fr]">
@@ -473,86 +474,87 @@ export function CreatorsLanding() {
       {/* 5. PROFILE AS STOREFRONT */}
       <section className={cn("px-6", sectionPadY)}>
         <div className="mx-auto max-w-[1240px]">
-          <h2 className="font-heading mb-[clamp(40px,5vw,60px)] max-w-[640px] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
-            Your profile should do the pitching for you.
-          </h2>
-          <div className="grid items-start gap-[clamp(32px,4vw,56px)] lg:grid-cols-[0.85fr_1.15fr]">
-            <div
-              className={cn(
-                hardCard,
-                "bg-card mx-auto w-full max-w-[520px] overflow-hidden lg:mx-0 lg:max-w-none",
-              )}
-            >
-              <Image
-                src="/3.jpg"
-                alt=""
-                width={560}
-                height={420}
-                className="aspect-[4/3] w-full object-cover"
-              />
-              <div className="px-6 pt-[22px] pb-[26px]">
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <div className="font-heading text-[19px] font-bold">
-                    Meher Kaur
-                  </div>
-                  <span className="font-heading text-muted-foreground text-[11px] font-bold">
-                    ● Profile live
-                  </span>
-                </div>
-                <div className="text-muted-foreground mb-5 text-[13px]">
-                  Fashion &amp; Beauty · Delhi · 76k followers
-                </div>
-                <div className="mb-5 grid grid-cols-3 gap-2">
-                  {["/1.jpg", "/2.jpg", "/5.jpg"].map((src) => (
-                    <Image
-                      key={src}
-                      src={src}
-                      alt=""
-                      width={180}
-                      height={320}
-                      className="aspect-[9/16] w-full rounded-[10px] object-cover"
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-col gap-2.5 text-[13px]">
-                  {[
-                    { k: "1 reel + 2 stories", v: "₹3,200" },
-                    { k: "Delivery", v: "4 days" },
-                    { k: "Add-ons", v: "Faster delivery, extra revision" },
-                  ].map((row) => (
-                    <div key={row.k} className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">{row.k}</span>
-                      <span className="font-heading text-right font-bold">
-                        {row.v}
-                      </span>
+          <StickyCardScroll
+            className="gap-[clamp(32px,4vw,56px)] lg:grid-cols-[0.85fr_1.15fr]"
+            card={
+              <div
+                className={cn(
+                  hardCard,
+                  "bg-card mx-auto w-full max-w-[520px] overflow-hidden lg:mx-0 lg:max-w-none",
+                )}
+              >
+                <Image
+                  src="/3.jpg"
+                  alt=""
+                  width={560}
+                  height={420}
+                  className="aspect-[4/3] w-full object-cover"
+                />
+                <div className="px-6 pt-[22px] pb-[26px]">
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <div className="font-heading text-[19px] font-bold">
+                      Meher Kaur
                     </div>
-                  ))}
+                    <span className="font-heading text-muted-foreground text-[11px] font-bold">
+                      ● Profile live
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground mb-5 text-[13px]">
+                    Fashion &amp; Beauty · Delhi · 76k followers
+                  </div>
+                  <div className="mb-5 grid grid-cols-3 gap-2">
+                    {["/1.jpg", "/2.jpg", "/5.jpg"].map((src) => (
+                      <Image
+                        key={src}
+                        src={src}
+                        alt=""
+                        width={180}
+                        height={320}
+                        className="aspect-[9/16] w-full rounded-[10px] object-cover"
+                      />
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-2.5 text-[13px]">
+                    {[
+                      { k: "1 reel + 2 stories", v: "₹3,200" },
+                      { k: "Delivery", v: "4 days" },
+                      { k: "Add-ons", v: "Faster delivery, extra revision" },
+                    ].map((row) => (
+                      <div key={row.k} className="flex justify-between gap-3">
+                        <span className="text-muted-foreground">{row.k}</span>
+                        <span className="font-heading text-right font-bold">
+                          {row.v}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div>
-              <div className="grid gap-x-[clamp(28px,4vw,56px)] sm:grid-cols-2">
-                {CALLOUTS.map((c) => (
-                  <div
-                    key={c.title}
-                    className="border-foreground/15 border-t py-[clamp(18px,2.2vw,24px)]"
-                  >
-                    <div className="font-heading mb-[7px] text-[clamp(16px,1.7vw,19px)] font-bold">
-                      {c.title}
-                    </div>
-                    <p className="text-muted-foreground text-[14.5px] leading-relaxed text-pretty">
-                      {c.desc}
-                    </p>
+            }
+          >
+            <h2 className="font-heading mb-[clamp(28px,3.5vw,40px)] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+              Your profile should do the pitching for you.
+            </h2>
+            <div className="grid gap-x-[clamp(28px,4vw,56px)] sm:grid-cols-2">
+              {CALLOUTS.map((c) => (
+                <div
+                  key={c.title}
+                  className="border-foreground/15 border-t py-[clamp(18px,2.2vw,24px)]"
+                >
+                  <div className="font-heading mb-[7px] text-[clamp(16px,1.7vw,19px)] font-bold">
+                    {c.title}
                   </div>
-                ))}
-              </div>
-              <h3 className="font-heading mt-[clamp(32px,4vw,48px)] text-[clamp(1.35rem,2.4vw,2rem)] leading-[1.14] font-bold tracking-[-0.02em] text-balance">
-                One profile. Everything a brand needs to decide if you&rsquo;re
-                right for them.
-              </h3>
+                  <p className="text-muted-foreground text-[14.5px] leading-relaxed text-pretty">
+                    {c.desc}
+                  </p>
+                </div>
+              ))}
             </div>
-          </div>
+            <h3 className="font-heading mt-[clamp(32px,4vw,48px)] text-[clamp(1.35rem,2.4vw,2rem)] leading-[1.14] font-bold tracking-[-0.02em] text-balance">
+              One profile. Everything a brand needs to decide if you&rsquo;re
+              right for them.
+            </h3>
+          </StickyCardScroll>
         </div>
       </section>
 

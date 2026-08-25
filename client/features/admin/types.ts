@@ -10,7 +10,8 @@ export type ApprovalStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
-  | "SHORTLISTED";
+  | "SHORTLISTED"
+  | "SELF_COMPLETED";
 
 export type CreatorFacetDimension =
   | "CONTENT_CATEGORY"
@@ -186,6 +187,7 @@ export type AdminCreatorListSegment =
   | "non_approved"
   | "incomplete"
   | "shortlisted"
+  | "self_completed"
   | "listed"
   | "featured";
 
@@ -199,6 +201,7 @@ export interface AdminCreatorSegmentCountsDto {
   nonApproved: number;
   incomplete: number;
   shortlisted: number;
+  selfCompleted: number;
   listed: number;
   featured: number;
 }

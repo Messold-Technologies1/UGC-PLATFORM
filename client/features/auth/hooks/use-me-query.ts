@@ -5,7 +5,12 @@ import api, { persistAuthMeSnapshot } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 export type WorkspaceRole = "CREATOR" | "BRAND" | "ADMIN" | "AGENCY";
 
-export type CreatorApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type CreatorApprovalStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "SHORTLISTED"
+  | "SELF_COMPLETED";
 
 export type AccessibleBrandSummary = {
   id: string;

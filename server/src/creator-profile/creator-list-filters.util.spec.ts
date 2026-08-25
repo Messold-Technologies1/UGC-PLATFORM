@@ -311,6 +311,47 @@ describe('creator-list-filters.util', () => {
       });
     });
 
+    it('filters self completed profiles awaiting a send-for-review', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.SELF_COMPLETED,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        completeProfile: true,
+        creatorApproval: { status: ApprovalStatus.SELF_COMPLETED },
+      });
+    });
+
+    it('keeps self completed profiles out of the awaiting review queue', () => {
+      const pending = buildAdminCreatorsListWhere(
+        AdminCreatorListSegment.PENDING,
+        undefined,
+        'profile_first',
+      );
+      expect(pending).toEqual({
+        creatorApproval: { status: ApprovalStatus.PENDING },
+        completeProfile: true,
+      });
+    });
+
+    it('keeps self completed profiles out of the building profile queue', () => {
+      const incomplete = buildAdminCreatorsListWhere(
+        AdminCreatorListSegment.INCOMPLETE,
+        undefined,
+        'profile_first',
+      );
+      expect(incomplete).toEqual({
+        completeProfile: false,
+        creatorApproval: {
+          status: {
+            in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED],
+          },
+        },
+      });
+    });
+
     it('puts all rejected creators in non_approved regardless of completeProfile', () => {
       expect(
         buildAdminCreatorsListWhere(

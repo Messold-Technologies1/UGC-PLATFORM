@@ -43,6 +43,7 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   SHORTLISTED
+  SELF_COMPLETED
 }
 
 enum RoleName {

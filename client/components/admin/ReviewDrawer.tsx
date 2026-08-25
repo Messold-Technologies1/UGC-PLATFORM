@@ -5,6 +5,7 @@ import type { AdminCreatorListItemDto } from "@/features/admin/types";
 import { formatInrPrice } from "@/features/admin/constants/admin-creator-tabs";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
+import { useSendCreatorForReviewMutation } from "@/features/admin/hooks/use-send-creator-for-review-mutation";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatorProfileQuery } from "@/features/creators/hooks/use-creator-profile-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -703,8 +704,14 @@ export default function ReviewDrawer({
   const { mutate: approve, isPending: isApproving } =
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } = useRejectCreatorMutation();
+  const { mutate: sendForReview, isPending: isSendingForReview } =
+    useSendCreatorForReviewMutation();
 
   const [isRejectOpen, setIsRejectOpen] = React.useState(false);
+
+  // A self completed profile has to be sent for review before it can be
+  // approved, so the primary action becomes "Send for review" instead.
+  const isSelfCompleted = creator?.approvalStatus === "SELF_COMPLETED";
 
   const creatorId = creator?.id ?? "";
   const drawerOpen = isOpen && !!creator;
@@ -732,6 +739,15 @@ export default function ReviewDrawer({
     });
   };
 
+  const handleSendForReview = () => {
+    if (!creator) return;
+    sendForReview(creator.id, {
+      onSuccess: () => {
+        onClose();
+      },
+    });
+  };
+
   const handleRejectClick = () => {
     setIsRejectOpen(true);
   };
@@ -747,7 +763,7 @@ export default function ReviewDrawer({
     );
   };
 
-  const isWorking = isApproving || isRejecting;
+  const isWorking = isApproving || isRejecting || isSendingForReview;
   const isLoading = profileLoading || portfolioLoading;
 
   return (
@@ -809,16 +825,22 @@ export default function ReviewDrawer({
                 </button>
                 <button
                   className="flex w-full flex-2 items-center justify-center space-x-2 rounded-xl bg-primary py-2 text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:brightness-110 disabled:opacity-50"
-                  onClick={handleApprove}
+                  onClick={isSelfCompleted ? handleSendForReview : handleApprove}
                   disabled={isWorking || isLoading}
                 >
-                  {isApproving && (
+                  {(isApproving || isSendingForReview) && (
                     <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
                   )}
                   <span>
-                    {isApproving ? "Approving..." : "Approve Creator"}
+                    {isSelfCompleted
+                      ? isSendingForReview
+                        ? "Sending..."
+                        : "Send for Review"
+                      : isApproving
+                        ? "Approving..."
+                        : "Approve Creator"}
                   </span>
                 </button>
               </div>

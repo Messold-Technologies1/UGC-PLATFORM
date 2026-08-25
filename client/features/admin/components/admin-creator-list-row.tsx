@@ -10,6 +10,7 @@ import {
   MapPin,
   Pencil,
   Play,
+  SendHorizontal,
   Sparkles,
   Star,
   UserX,
@@ -27,6 +28,7 @@ import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboar
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
+import { useSendCreatorForReviewMutation } from "@/features/admin/hooks/use-send-creator-for-review-mutation";
 import { useShortlistCreatorMutation } from "@/features/admin/hooks/use-shortlist-creator-mutation";
 import { useUnfeatureCreatorMutation } from "@/features/admin/hooks/use-unfeature-creator-mutation";
 import { useUnshortlistCreatorMutation } from "@/features/admin/hooks/use-unshortlist-creator-mutation";
@@ -178,6 +180,11 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
           Shortlisted
         </Badge>
       ) : null}
+      {creator.approvalStatus === "SELF_COMPLETED" ? (
+        <Badge className="border-teal-500/20 bg-teal-500/10 text-teal-700 hover:bg-teal-500/20">
+          Self complete
+        </Badge>
+      ) : null}
       {creator.approvalStatus === "REJECTED" ? (
         <Badge
           variant="outline"
@@ -245,6 +252,8 @@ export function AdminCreatorListRow({
     useRejectCreatorMutation();
   const { mutate: shortlist, isPending: isShortlisting } =
     useShortlistCreatorMutation();
+  const { mutate: sendForReview, isPending: isSendingForReview } =
+    useSendCreatorForReviewMutation();
   const { mutate: unshortlist, isPending: isUnshortlisting } =
     useUnshortlistCreatorMutation();
   const { mutate: featureCreator, isPending: isFeaturing } =
@@ -257,8 +266,10 @@ export function AdminCreatorListRow({
   const isPending = creator.approvalStatus === "PENDING";
   const isRejected = creator.approvalStatus === "REJECTED";
   const isApproved = creator.approvalStatus === "APPROVED";
+  const isSelfCompleted = creator.approvalStatus === "SELF_COMPLETED";
   const isIncompleteSegment = segment === "incomplete";
   const isShortlistedSegment = segment === "shortlisted";
+  const isSelfCompletedSegment = segment === "self_completed";
   const isListedSegment = segment === "listed";
   const isFeaturedSegment = segment === "featured";
   const showFeatureControls = isListedSegment || isFeaturedSegment;
@@ -269,6 +280,7 @@ export function AdminCreatorListRow({
     isApproving ||
     isRejecting ||
     isShortlisting ||
+    isSendingForReview ||
     isUnshortlisting ||
     isFeaturing ||
     isUnfeaturing;
@@ -303,6 +315,11 @@ export function AdminCreatorListRow({
   const handleUnshortlistClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     unshortlist(creator.id);
+  };
+
+  const handleSendForReviewClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    sendForReview(creator.id);
   };
 
   const handleFeatureClick = (event: React.MouseEvent) => {
@@ -419,7 +436,8 @@ export function AdminCreatorListRow({
             ) : null}
 
             <div className="flex items-center gap-2 self-center">
-              {(canModeratePending || isRejected) && onReview ? (
+              {(canModeratePending || isRejected || isSelfCompleted) &&
+              onReview ? (
                 <Button variant="ghost" size="sm" onClick={onReview}>
                   Review
                 </Button>
@@ -477,6 +495,30 @@ export function AdminCreatorListRow({
                   >
                     <BookmarkX className="size-3.5" />
                     {isUnshortlisting ? "Removing…" : "Remove"}
+                  </Button>
+                </>
+              ) : null}
+
+              {isSelfCompletedSegment ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 text-muted-foreground hover:text-destructive"
+                    onClick={handleRejectClick}
+                    disabled={isWorking}
+                    aria-label="Reject creator"
+                  >
+                    <UserX className="size-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="rounded-full"
+                    onClick={handleSendForReviewClick}
+                    disabled={isWorking}
+                  >
+                    <SendHorizontal className="size-3.5" />
+                    {isSendingForReview ? "Sending…" : "Send for review"}
                   </Button>
                 </>
               ) : null}

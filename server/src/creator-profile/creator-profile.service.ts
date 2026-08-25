@@ -1554,7 +1554,8 @@ export class CreatorProfileService {
     const where = buildAdminCreatorsListWhere(query.segment, query.search);
 
     const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
-      query.segment === AdminCreatorListSegment.PENDING
+      query.segment === AdminCreatorListSegment.PENDING ||
+      query.segment === AdminCreatorListSegment.SELF_COMPLETED
         ? [{ createdAt: 'asc' }]
         : query.segment === AdminCreatorListSegment.NON_APPROVED
           ? [{ creatorApproval: { approvedAt: 'desc' } }]
@@ -1733,6 +1734,7 @@ export class CreatorProfileService {
       AdminCreatorListSegment.NON_APPROVED,
       AdminCreatorListSegment.INCOMPLETE,
       AdminCreatorListSegment.SHORTLISTED,
+      AdminCreatorListSegment.SELF_COMPLETED,
       AdminCreatorListSegment.LISTED,
     ] as const;
 
@@ -1760,7 +1762,8 @@ export class CreatorProfileService {
       nonApproved: counts[2],
       incomplete: counts[3],
       shortlisted: counts[4],
-      listed: counts[5],
+      selfCompleted: counts[5],
+      listed: counts[6],
       featured: featuredCount,
     };
   }
@@ -1987,6 +1990,12 @@ export class CreatorProfileService {
       );
     }
 
+    if (profile.creatorApproval?.status === ApprovalStatus.SELF_COMPLETED) {
+      throw new BadRequestException(
+        'Self completed profiles must be sent for review before they can be approved',
+      );
+    }
+
     await this.prisma.creatorApproval.upsert({
       where: { creatorId: creatorProfileId },
       create: {
@@ -2129,6 +2138,59 @@ export class CreatorProfileService {
       },
     });
 
+    await recomputeCreatorListingState(this.prisma, creatorProfileId);
+
+    const updated = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      include: creatorProfileWithRelationsInclude as any,
+    });
+    if (!updated) {
+      throw new Error('Creator profile load failed');
+    }
+
+    return this.mapCreatorProfileResponseDto(updated);
+  }
+
+  /**
+   * Move a self completed profile into the review queue (SELF_COMPLETED ->
+   * PENDING), the admin's explicit "Send for review" action.
+   *
+   * This is the only way out of Self complete other than a rejection: approval
+   * is blocked while the status is SELF_COMPLETED, so every self-completing
+   * creator is looked at once before they can be listed. No email is sent.
+   */
+  async sendCreatorProfileForReview(
+    adminUserId: string,
+    creatorProfileId: string,
+  ): Promise<CreatorProfileResponseDto> {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: {
+        id: true,
+        creatorApproval: { select: { status: true } },
+      },
+    });
+    if (!profile) {
+      throw new NotFoundException('Creator not found');
+    }
+    if (profile.creatorApproval?.status !== ApprovalStatus.SELF_COMPLETED) {
+      throw new BadRequestException(
+        'Only self completed profiles can be sent for review',
+      );
+    }
+
+    await this.prisma.creatorApproval.update({
+      where: { creatorId: creatorProfileId },
+      data: {
+        status: ApprovalStatus.PENDING,
+        approvedById: adminUserId,
+        approvedAt: new Date(),
+        rejectionReason: null,
+      },
+    });
+
+    // PENDING is not a listing status, so this cannot flip isListed — recompute
+    // anyway so the denormalized flags can never drift from the approval row.
     await recomputeCreatorListingState(this.prisma, creatorProfileId);
 
     const updated = await this.prisma.creatorProfile.findUnique({

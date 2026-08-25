@@ -210,6 +210,8 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/shortlist`,
       UNSHORTLIST: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/unshortlist`,
+      SEND_FOR_REVIEW: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/send-for-review`,
       FEATURE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/feature`,
       PAYOUT_DETAILS: (id: string) =>

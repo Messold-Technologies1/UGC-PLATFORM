@@ -1,196 +1,217 @@
 "use client";
 
-import {
-  CalendarCheck,
-  Handshake,
-  IndianRupee,
-  Sparkles,
-  UserCheck,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { AuthLogoLink } from "./auth-logo-link";
 import { CreatorRegisterForm } from "./creator-register-form";
 
-const featureCards: {
-  icon: LucideIcon;
-  iconBg: string;
-  starColor: string;
-  title: string;
-  description: string;
-}[] = [
+/**
+ * Creator signup shell (/register/creator).
+ *
+ * Owns the page chrome from the Creator Registration design — sticky header,
+ * the headline above the form card, and the sticky right-hand rail. The form
+ * card itself, and every field in it, stays in CreatorRegisterForm.
+ */
+
+const LINK_CARRIES = [
+  "Your work",
+  "Your rates",
+  "Your services",
+  "Delivery time",
+  "Add-ons",
+  "Reviews",
+];
+
+const NEXT_STEPS = [
   {
-    icon: UserCheck,
-    iconBg: "bg-[#f9a8c4]",
-    starColor: "text-[#CCFF00]",
-    title: "Get booked, not ghosted.",
-    description: "Your profile works for you even while you're offline.",
+    n: "1",
+    title: "Add your work",
+    note: "Four to six pieces is enough to start getting found.",
   },
   {
-    icon: IndianRupee,
-    iconBg: "bg-[#d9f99d]",
-    starColor: "text-[#f9a8c4]",
-    title: "Extra revisions? Charge for them.",
-    description:
-      "Protect your time with clear deliverables and revision limits.",
+    n: "2",
+    title: "Set your rates and services",
+    note: "Your price, your delivery time, your add-ons — all editable later.",
   },
   {
-    icon: CalendarCheck,
-    iconBg: "bg-[#ddd6fe]",
-    starColor: "text-[#CCFF00]",
-    title: "More creating. Less admin.",
-    description:
-      "No spreadsheets. No payment reminders. No messy WhatsApp threads.",
-  },
-  {
-    icon: Handshake,
-    iconBg: "bg-[#fed7aa]",
-    starColor: "text-[#c4b5fd]",
-    title: "Professional brand collaborations",
-    description:
-      "Clear briefs, fixed deliverables, and organized communication from start to finish.",
+    n: "3",
+    title: "Publish and share your link",
+    note: "One URL for your Instagram bio and every brand enquiry.",
   },
 ];
 
+/** Cards that drop out on the narrowest screens, per the design. */
+const railCard = "hidden border-foreground rounded-[24px] border-2 sm:block";
+
 export function CreatorRegisterPage() {
   return (
-    <div className="grid min-h-dvh xl:h-dvh xl:overflow-hidden xl:grid-cols-[47.5%_52.5%] box-border">
-      <div
-        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 xl:flex"
-        style={{
-          background:
-            "linear-gradient(165deg, #fef5ee 0%, #fde9e8 55%, #fbd9d7 100%)",
-        }}
-      >
-        <div
-          className="absolute inset-0 z-0 pointer-events-none opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, #D2B4B4 1.5px, transparent 1.5px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div
-          className="absolute pointer-events-none z-0 rounded-full blur-[100px]"
-          style={{
-            width: "360px",
-            height: "360px",
-            top: "-120px",
-            right: "-120px",
-            background: "rgba(239, 62, 81, 0.25)",
-          }}
-        />
-        <div className="relative z-10">
-          <div className="-mt-10 mb-6">
-            <AuthLogoLink imageClassName="h-32" />
-          </div>
-
-          {/* <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-semibold shadow-sm mb-6">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white">
-              <Sparkles className="size-3" />
-            </div>
-            For creators
-          </div> */}
-
-          <h1 className="text-4xl font-extrabold tracking-tight xl:text-[40px] mb-4 leading-tight">
-            Get booked,{" "}
-            <span className="relative inline-block">
-              <span className="relative z-10">not ghosted.</span>
-              <div className="absolute bottom-2 left-0 h-4 w-full bg-[#CCFF00] -z-10 rounded-sm" />
+    <div className="bg-grain bg-background text-foreground min-h-screen">
+      <header className="border-foreground bg-background/92 sticky top-0 z-40 border-b-2 backdrop-blur-[12px]">
+        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-4 px-5 py-3.5">
+          <div className="flex items-center gap-[11px]">
+            {/* The design's wordmark is 21px; brand-logo.png carries more
+                padding, so it needs a touch more height to read the same. */}
+            <AuthLogoLink imageClassName="h-7" />
+            <span className="font-heading border-foreground bg-pink text-foreground rounded-full border-2 px-[11px] py-1 text-[11px] font-bold tracking-[0.12em] uppercase">
+              Creator sign up
             </span>
-          </h1>
-
-          <p className="text-base text-slate-700/80 max-w-lg mb-6">
-            Build your creator profile, set your rates, and collaborate with D2C
-            brands — on your terms.
-          </p>
-
-          <div className="space-y-3 w-full">
-            {featureCards.map((card) => (
-              <div
-                key={card.title}
-                className="relative grid items-center gap-3 rounded-2xl bg-white py-3.5 px-4 shadow-sm"
-                style={{ gridTemplateColumns: "40px 1fr" }}
-              >
-                <Sparkles
-                  className={`absolute top-3 right-3 size-3.5 ${card.starColor}`}
-                />
-                <div
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${card.iconBg} text-slate-900`}
-                >
-                  <card.icon className="size-5" />
-                </div>
-                <div className="pr-6">
-                  <h3 className="font-bold text-slate-900 text-sm">
-                    {card.title}
-                  </h3>
-                  <p className="text-xs text-slate-600">{card.description}</p>
-                </div>
-              </div>
-            ))}
           </div>
-        </div>
-
-        <div className="relative z-10 mt-auto w-full rounded-3xl bg-[#221C1D] p-5 text-white shadow-xl overflow-hidden">
-          <div className="absolute top-5 right-6 opacity-40">
-            <svg
-              width="44"
-              height="44"
-              viewBox="0 0 24 24"
-              fill="#CCFF00"
-              xmlns="http://www.w3.org/2000/svg"
+          <span className="text-muted-foreground text-[13.5px]">
+            Already a creator?{" "}
+            <Link
+              href="/login?role=creator"
+              className="font-heading text-foreground font-bold hover:underline"
             >
-              <path d="M10 11L8.5 16H5L6.5 11H4V5H10V11ZM20 11L18.5 16H15L16.5 11H14V5H20V11Z" />
-            </svg>
-          </div>
+              Log in as Creator
+            </Link>
+          </span>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-[1180px] px-5 pt-[clamp(28px,4vw,56px)] pb-[clamp(48px,7vw,88px)]">
+        <div className="grid items-start gap-[clamp(28px,4vw,56px)] lg:grid-cols-[1.05fr_0.95fr]">
+          {/* FORM */}
           <div>
-            <div className="flex gap-1 mb-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <svg
-                  key={i}
-                  className="size-4 text-[#CCFF00]"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              ))}
-            </div>
-            <p className="text-sm font-medium leading-relaxed max-w-[420px] pr-12">
-              &ldquo;GoCollab changed how I work with brands. Better projects,
-              on time payments, and zero DM chasing.&rdquo;
+            <h1 className="font-heading mb-3 text-[clamp(1.9rem,3.6vw,2.8rem)] leading-[1.04] font-bold tracking-[-0.03em] text-balance">
+              Create your creator profile
+            </h1>
+            <p className="text-muted-foreground mb-[clamp(28px,3.5vw,40px)] max-w-[520px] text-base leading-relaxed text-pretty">
+              Four details and you&rsquo;re in. Your work, pricing and services
+              come next — and you set all of them.
             </p>
-            <div className="mt-3 flex items-center gap-2.5">
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[#ef3e51] text-[11px] font-extrabold text-white">
-                ES
+
+            <CreatorRegisterForm />
+
+            <div className="mt-[22px] flex flex-wrap items-center justify-between gap-4">
+              <span className="text-muted-foreground text-sm">
+                Already a creator?{" "}
+                <Link
+                  href="/login?role=creator"
+                  className="font-heading text-foreground font-bold hover:underline"
+                >
+                  Log in as Creator
+                </Link>
               </span>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-bold text-white">Elina Sadh</span>
-                <span className="text-white/50">
-                  · Beauty creator, Mumbai
-                </span>
-                <span className="rounded-full bg-[#CCFF00] px-2 py-0.5 font-semibold text-slate-950">
-                  Verified Creator
-                </span>
+              <span className="text-muted-foreground text-[13px]">
+                Hiring creators?{" "}
+                <Link
+                  href="/register/brand"
+                  className="text-foreground underline underline-offset-2"
+                >
+                  Sign up as a brand
+                </Link>
+              </span>
+            </div>
+          </div>
+
+          {/* RAIL */}
+          <div>
+            <div className="lg:sticky lg:top-24">
+              <div className="border-foreground shadow-hard mb-[18px] rounded-[28px] border-2 bg-[#FFEDF4] p-[clamp(24px,3vw,32px)]">
+                <p className="font-heading mb-6 text-[clamp(1.35rem,2.5vw,1.85rem)] leading-[1.14] font-extrabold tracking-[-0.03em] text-balance">
+                  The last time you&rsquo;ll type your rates into a DM.
+                </p>
+
+                <div className="mb-[22px] flex flex-col gap-2.5">
+                  <div className="border-foreground max-w-[88%] self-start rounded-[16px_16px_16px_5px] border-2 bg-white px-[15px] py-3 text-sm leading-[1.5]">
+                    Hi! Can you share your portfolio, rates and delivery time?
+                  </div>
+                  <div className="border-foreground bg-pink max-w-[88%] self-end rounded-[16px_16px_5px_16px] border-2 px-[15px] py-3 text-sm leading-[1.5] shadow-sticker">
+                    Everything&rsquo;s here →{" "}
+                    <span className="font-heading font-bold underline underline-offset-2">
+                      gocollab.in/yourname
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-foreground rounded-[18px] border-2 bg-[#FFF7FA] px-[18px] py-[17px]">
+                  <div className="font-heading text-muted-foreground mb-3.5 text-[11px] font-bold tracking-[0.12em] uppercase">
+                    That one link carries
+                  </div>
+                  <div className="flex flex-wrap gap-[9px]">
+                    {LINK_CARRIES.map((c) => (
+                      <span
+                        key={c}
+                        className="font-heading border-foreground rounded-full border-2 bg-white px-[13px] py-[7px] text-[12.5px] font-bold"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`${railCard} bg-white p-[clamp(20px,2.6vw,26px)]`}>
+                <div className="mb-4 flex items-center gap-[11px]">
+                  <Image
+                    src="/3.jpg"
+                    alt=""
+                    width={38}
+                    height={38}
+                    className="border-foreground h-[38px] w-[38px] rounded-full border-2 object-cover"
+                  />
+                  <div>
+                    <div className="font-heading text-[13.5px] font-bold">
+                      Meher Kaur
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      Fashion creator, Delhi · joined 8 months ago
+                    </div>
+                  </div>
+                </div>
+                <div className="text-muted-foreground text-[14.5px] leading-relaxed text-pretty">
+                  &ldquo;I stopped sending Drive folders and screenshots of my
+                  rate card. Now brands read all of it before they message me —
+                  so the conversation starts at the brief, not at &lsquo;what do
+                  you charge&rsquo;.&rdquo;
+                </div>
+              </div>
+
+              <div
+                className={`${railCard} mt-[18px] bg-[#FFF7FA] p-[clamp(20px,2.6vw,26px)]`}
+              >
+                <div className="font-heading text-muted-foreground mb-[18px] text-[11px] font-bold tracking-[0.12em] uppercase">
+                  Right after you sign up
+                </div>
+                <div className="flex flex-col">
+                  {NEXT_STEPS.map((n) => (
+                    <div
+                      key={n.n}
+                      className="border-foreground/10 flex items-start gap-[13px] border-t-2 py-3.5"
+                    >
+                      <span className="font-heading border-foreground grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 bg-white text-[11.5px] font-extrabold">
+                        {n.n}
+                      </span>
+                      <div>
+                        <div className="font-heading mb-[3px] text-[14.5px] font-bold">
+                          {n.title}
+                        </div>
+                        <div className="text-muted-foreground text-[13px] leading-[1.5]">
+                          {n.note}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-foreground/10 text-muted-foreground mt-[18px] flex items-center gap-2.5 border-t-2 pt-[18px] text-[13px]">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    className="text-foreground shrink-0"
+                    aria-hidden
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7.5v5l3 2" strokeLinecap="round" />
+                  </svg>
+                  Most creators finish in under 15 minutes.
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:h-dvh xl:min-h-0 xl:overflow-hidden">
-        <div className="shrink-0 border-b border-pink-100/80 px-4 pb-4 pt-4 dark:border-slate-800 xl:hidden">
-          <AuthLogoLink className="flex justify-center" imageClassName="h-20 sm:h-24" />
-          <p className="mt-3 text-base font-bold leading-snug text-slate-900">
-            Get booked,{" "}
-            <span className="text-[#ef3e51]">not ghosted.</span>
-          </p>
-          <p className="mt-1.5 text-sm text-slate-600">
-            Build your creator profile, set your rates, and collaborate with D2C
-            brands — on your terms.
-          </p>
-        </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:overflow-hidden">
-          <CreatorRegisterForm />
         </div>
       </div>
     </div>

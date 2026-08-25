@@ -51,7 +51,9 @@ export function resolveCreatorOnboardingPath(
     if (status === "PENDING" && !complete) {
       return "/creator/settings/profile";
     }
-    if (status === "PENDING" && complete) {
+    // SELF_COMPLETED sits behind an admin "Send for review" gate, but from the
+    // creator's side it is indistinguishable from awaiting review.
+    if ((status === "PENDING" || status === "SELF_COMPLETED") && complete) {
       return "/creator/under-review";
     }
     if (status === "APPROVED" && !complete) {

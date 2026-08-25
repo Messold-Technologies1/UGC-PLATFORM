@@ -148,7 +148,12 @@ export type CreatorProfileItemApi = {
   responseRate?: number;
   topReviews?: CreatorRatingReviewApi[];
   /** Admin approval status; the public profile is only reachable when APPROVED. */
-  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | "SHORTLISTED";
+  approvalStatus?:
+    | "PENDING"
+    | "APPROVED"
+    | "REJECTED"
+    | "SHORTLISTED"
+    | "SELF_COMPLETED";
   /** One-way Go-Live latch: true once every requirement has been met. */
   completeProfile?: boolean;
   /** Discovery gate = approved AND completeProfile. */

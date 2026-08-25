@@ -1,0 +1,13 @@
+-- New "Self complete" stage for profile_first onboarding.
+--
+-- A creator who finishes their profile without ever being shortlisted no longer
+-- lands straight in Awaiting review (PENDING + complete). They stop at
+-- SELF_COMPLETED until an admin explicitly clicks "Send for review", which
+-- moves them to PENDING.
+--
+-- Shortlisted creators are unaffected: completing their profile still promotes
+-- them straight to PENDING (Awaiting review).
+--
+-- Postgres cannot use a new enum value in the transaction that adds it, so the
+-- data backfill lives in the migration that follows this one.
+ALTER TYPE "ApprovalStatus" ADD VALUE IF NOT EXISTS 'SELF_COMPLETED';

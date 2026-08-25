@@ -47,7 +47,9 @@ export function CreatorOnboardingGuard({ children }: { children: React.ReactNode
       return;
     }
 
-    if (status === "PENDING" && complete && !allowed) {
+    // SELF_COMPLETED is an internal admin gate — the creator has submitted
+    // everything, so they see the same "under review" screen as PENDING.
+    if ((status === "PENDING" || status === "SELF_COMPLETED") && complete && !allowed) {
       router.replace(UNDER_REVIEW_PATH);
     }
   }, [isLoading, pathname, router, user]);

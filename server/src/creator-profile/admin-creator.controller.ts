@@ -100,7 +100,7 @@ export class AdminCreatorController {
   @Get()
   @ApiOperation({
     summary:
-      'List creators for admin (segment: approved, non_approved, incomplete, listed)',
+      'List creators for admin (segment: pending, approved, non_approved, incomplete, shortlisted, self_completed, listed, featured)',
   })
   @ApiOkResponse({ type: AdminCreatorsListResponseDto })
   async listCreators(
@@ -184,6 +184,23 @@ export class AdminCreatorController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
     return this.creatorProfileService.unshortlistCreatorProfile(
+      req.user.id,
+      id,
+    );
+  }
+
+  @Patch(':id/send-for-review')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Move a self completed profile into the review queue (awaiting review). No email is sent.',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async sendCreatorForReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.sendCreatorProfileForReview(
       req.user.id,
       id,
     );

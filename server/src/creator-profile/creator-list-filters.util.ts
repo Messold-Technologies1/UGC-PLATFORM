@@ -384,6 +384,14 @@ export function buildAdminCreatorsListWhere(
         creatorApproval: { status: ApprovalStatus.SHORTLISTED },
       };
       break;
+    case AdminCreatorListSegment.SELF_COMPLETED:
+      // profile_first only: creators who finished their profile without ever
+      // being shortlisted. They wait here until an admin sends them for review.
+      segmentClause = {
+        completeProfile: true,
+        creatorApproval: { status: ApprovalStatus.SELF_COMPLETED },
+      };
+      break;
     case AdminCreatorListSegment.LISTED:
       segmentClause = { isListed: true };
       break;

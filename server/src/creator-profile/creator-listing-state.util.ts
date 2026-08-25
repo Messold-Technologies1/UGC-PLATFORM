@@ -7,6 +7,7 @@ import {
   SocialPlatform,
 } from '@prisma/client';
 import { evaluateProfileCompleteness } from './creator-profile-completeness.util';
+import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 
 /**
  * Single source of truth for the `completeProfile` latch and the derived
@@ -140,21 +141,34 @@ export async function recomputeCreatorListingState(
     completeProfile = complete;
   }
 
-  // Shortlisted creators move to awaiting review (PENDING) once the profile
-  // completes — clears shortlist automatically with no email.
-  if (
-    !wasComplete &&
-    completeProfile &&
-    profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED
-  ) {
-    await client.creatorApproval.update({
-      where: { creatorId: creatorProfileId },
-      data: {
-        status: ApprovalStatus.PENDING,
-        rejectionReason: null,
-      },
-    });
-    profile.creatorApproval = { status: ApprovalStatus.PENDING };
+  // On the false -> true completion transition the approval status may advance,
+  // and where it lands depends on whether an admin has already vetted them:
+  //
+  //   SHORTLISTED -> PENDING         (Awaiting review — admin already picked them)
+  //   PENDING     -> SELF_COMPLETED  (Self complete — needs "Send for review")
+  //
+  // Either way it is silent: no email is sent on these transitions.
+  if (!wasComplete && completeProfile) {
+    const nextStatus =
+      profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED
+        ? ApprovalStatus.PENDING
+        : profile.creatorApproval?.status === ApprovalStatus.PENDING &&
+            isProfileFirstOnboardingMode(process.env.CREATOR_ONBOARDING_MODE)
+          ? // approval_first keeps PENDING as the single review queue, so the
+            // Self complete gate only exists in profile_first.
+            ApprovalStatus.SELF_COMPLETED
+          : null;
+
+    if (nextStatus) {
+      await client.creatorApproval.update({
+        where: { creatorId: creatorProfileId },
+        data: {
+          status: nextStatus,
+          rejectionReason: null,
+        },
+      });
+      profile.creatorApproval = { status: nextStatus };
+    }
   }
 
   const isListed =

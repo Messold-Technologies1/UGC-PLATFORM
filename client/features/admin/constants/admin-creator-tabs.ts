@@ -5,6 +5,7 @@ import {
   Clock3,
   Globe,
   ListTodo,
+  SendHorizontal,
   Sparkles,
   UserX,
 } from "lucide-react";
@@ -99,15 +100,25 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "shortlisted",
     label: "Shortlisted",
     description:
-      "Incomplete profiles shortlisted by admin. They move to Awaiting review when complete.",
+      "Incomplete profiles shortlisted by admin. They move straight to Awaiting review when complete.",
     icon: Bookmark,
     countKey: "shortlisted",
     badgeClassName: "bg-indigo-100 text-indigo-700",
   },
   {
+    value: "self_completed",
+    label: "Self complete",
+    description:
+      "Completed their profile without being shortlisted. Send for review to queue them for approval.",
+    icon: SendHorizontal,
+    countKey: "selfCompleted",
+    badgeClassName: "bg-teal-100 text-teal-700",
+  },
+  {
     value: "pending",
     label: "Awaiting review",
-    description: "Profiles completed and submitted — ready for your approval.",
+    description:
+      "Shortlisted completions and profiles you sent for review — ready for your approval.",
     icon: Clock3,
     countKey: "pending",
     badgeClassName: "bg-sky-100 text-sky-700",
@@ -194,6 +205,8 @@ export function getAdminCreatorEmptyMessage(
         : "No approved creators with incomplete profiles at the moment.";
     case "shortlisted":
       return "No shortlisted creators yet.";
+    case "self_completed":
+      return "No self completed profiles waiting to be sent for review.";
     case "featured":
       return "No featured creators yet. Feature a listed creator to pin them to the top of browse results.";
     default:

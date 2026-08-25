@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
-import { openSupportChat } from "@/components/tawk-to";
+import { ContactSupportButton } from "@/components/contact-support-dialog";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
 
 interface CreatorOrderCancelledPanelProps {
@@ -266,14 +266,13 @@ function CancelledPayoutCard() {
         If you have questions, feel free to contact support.
       </p>
 
-      <Button
-        variant="outline"
+      <ContactSupportButton
         className="w-full rounded-lg h-10 text-xs font-semibold border-border/50 gap-1.5"
-        onClick={openSupportChat}
+        defaultSubject="Cancelled order — payout question"
       >
         <Headphones className="w-3.5 h-3.5" />
         Contact Support
-      </Button>
+      </ContactSupportButton>
     </div>
   );
 }

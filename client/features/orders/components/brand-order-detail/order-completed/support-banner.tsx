@@ -1,8 +1,7 @@
 "use client";
 
 import { LifeBuoy } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { openSupportChat } from "@/components/tawk-to";
+import { ContactSupportButton } from "@/components/contact-support-dialog";
 
 export function SupportBanner() {
   return (
@@ -20,13 +19,12 @@ export function SupportBanner() {
           </p>
         </div>
       </div>
-      <Button
-        variant="outline"
+      <ContactSupportButton
         className="rounded-lg text-sm font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
-        onClick={openSupportChat}
+        defaultSubject="Order support"
       >
         Contact Support
-      </Button>
+      </ContactSupportButton>
     </div>
   );
 }

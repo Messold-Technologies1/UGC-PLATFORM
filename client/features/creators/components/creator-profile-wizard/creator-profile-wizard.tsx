@@ -452,6 +452,20 @@ export function CreatorProfileWizard({
         : WIZARD_STEPS,
     [initialProfile.isListed],
   );
+  /**
+   * Steps shown in the stepper. Go Live is a destination, not a step the
+   * creator works through — completing Review submits the profile and lands
+   * them there — so it is kept navigable in `steps` but hidden from the rail,
+   * the progress segments and the step counter.
+   *
+   * Go Live is last in `steps`, so filtering it leaves every remaining index
+   * aligned with `steps` and `goToStep` keeps working unchanged.
+   */
+  const navSteps = useMemo(
+    () => steps.filter((step) => step.id !== "go-live"),
+    [steps],
+  );
+
   const stepIndex = useMemo(() => {
     const map = {} as Record<WizardStepId, number>;
     steps.forEach((step, index) => {
@@ -1186,7 +1200,9 @@ export function CreatorProfileWizard({
           </button>
           <div className="cw-mobile-stepper-copy">
             <p className="cw-mobile-stepper-meta">
-              Step {activeIndex + 1} of {steps.length} · {strength.pct}% complete
+              {activeStep.id === "go-live"
+                ? `${strength.pct}% complete`
+                : `Step ${activeIndex + 1} of ${navSteps.length} · ${strength.pct}% complete`}
             </p>
             <h1 className="cw-mobile-stepper-title">{activeStep.title}</h1>
           </div>
@@ -1205,7 +1221,7 @@ export function CreatorProfileWizard({
           </button>
         </div>
         <div className="cw-mobile-segments" aria-hidden>
-          {steps.map((step, index) => (
+          {navSteps.map((step, index) => (
             <span
               key={step.id}
               className="cw-mobile-segment"
@@ -1243,7 +1259,7 @@ export function CreatorProfileWizard({
           </div>
 
           <nav className="cw-steps" aria-label="Onboarding steps">
-            {steps.map((step, index) => {
+            {navSteps.map((step, index) => {
               const isActive = index === activeIndex;
               const isDone = completed.has(step.id) || stepFilled(step.id);
               const isReachable =

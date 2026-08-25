@@ -1,29 +1,14 @@
 "use client";
 
-import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Navbar } from "@/components/navbar/navbar";
-import { NavbarFallback } from "@/components/navbar/navbar-fallback";
-import { AuthenticatedAppProviders } from "@/providers/app-providers";
 import { BrandRegisterForm, brandEyebrow } from "./brand-register-form";
 
 /**
  * Brand signup shell (/register/brand).
  *
- * Owns the page chrome from the Brand Registration design — the headline
- * above the form, the sticky right rail, and the footer links. The signup
- * flow itself lives in BrandRegisterForm.
- *
- * The site Navbar replaces the design's own header bar. It needs the auth
- * context, which the (auth) route group does not provide, so it is wrapped
- * here the same way (main)/layout.tsx wraps it. Both providers no-op while
- * logged out — RealtimeProvider opens no socket and the notification
- * dropdown only renders when authenticated.
- *
- * This surface is deliberately quieter than the creator side: a restrained
- * plum accent on warm ash neutrals, 1px hairlines and 11–12px radii rather
- * than the marketing pages' 2px borders and hard shadows.
+ * Owns the page chrome — headline, sticky right rail, and footer links.
+ * Navbar + AuthProvider live in the route layout, same as creator signup.
  */
 
 const BENEFITS = [
@@ -54,90 +39,84 @@ export function BrandRegisterPage() {
   }`;
 
   return (
-    <AuthenticatedAppProviders>
-      <Suspense fallback={<NavbarFallback />}>
-        <Navbar />
-      </Suspense>
-      <div className="text-foreground min-h-screen bg-white">
-        <div className="mx-auto max-w-[1160px] px-6 pt-[clamp(34px,4.5vw,64px)] pb-[clamp(56px,7vw,96px)]">
-          <div className="grid items-start gap-[clamp(36px,5vw,76px)] lg:grid-cols-[1.08fr_0.92fr]">
-            <div>
-              <h1 className="font-heading mb-3.5 text-[clamp(2rem,3.6vw,2.7rem)] leading-[1.06] font-bold tracking-[-0.03em] text-balance">
-                Create your brand profile
-              </h1>
-              <p className="text-muted-foreground mb-[clamp(30px,3.6vw,42px)] max-w-[480px] text-[16.5px] leading-relaxed text-pretty">
-                Brand name, categories and the rest can wait — add them from
-                your profile whenever you like.
-              </p>
+    <div className="text-foreground bg-white">
+      <div className="mx-auto flex min-h-[calc(100dvh-6.5rem)] max-w-[1160px] items-center p-6">
+        <div className="grid w-full gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-x-20">
+          <div className="mx-auto w-full max-w-[520px] lg:mx-0 lg:max-w-none">
+            <h1 className="mb-2 text-center text-[1.5rem] leading-tight font-bold tracking-[-0.03em] text-balance sm:text-[1.7rem] md:text-left">
+              Create your brand profile
+            </h1>
+            <p className="text-muted-foreground mb-6 max-w-[460px] text-center text-sm leading-relaxed text-pretty md:text-left">
+              Brand name, categories and the rest can wait — add them from
+              your profile whenever you like.
+            </p>
 
-              <BrandRegisterForm />
+            <BrandRegisterForm />
 
-              <div className="border-foreground/10 text-muted-foreground mt-[34px] flex flex-wrap items-center justify-between gap-4 border-t pt-6 text-[13.5px]">
-                <span>
-                  Already have an account?{" "}
-                  <Link
-                    href={loginHref}
-                    className="text-plum-700 font-semibold hover:underline"
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-muted-foreground text-[13px]">
+                Already have an account?{" "}
+                <Link
+                  href={loginHref}
+                    className="font-medium text-plum-700 hover:underline"
                   >
                     Log in as Brand
-                  </Link>
-                </span>
-                <span>
-                  Are you a creator?{" "}
-                  <Link
-                    href="/register/creator"
-                    className="text-plum-700 hover:underline"
+                </Link>
+              </span>
+              <span className="text-muted-foreground text-[13px]">
+                Are you a creator?{" "}
+                <Link
+                  href="/register/creator"
+                    className="font-medium text-plum-700 hover:underline"
                   >
                     Sign up as a creator
-                  </Link>
-                </span>
-              </div>
+                </Link>
+              </span>
             </div>
+          </div>
 
-            {/* RAIL */}
-            <div>
-              <div className="lg:sticky lg:top-25">
-                <div className="border-plum-150 bg-plum-50 rounded-[20px] border p-[clamp(26px,3vw,34px)]">
-                  <div className={`${brandEyebrow} mb-5`}>Free to explore</div>
-                  <h2 className="font-heading mb-3.5 text-[clamp(1.3rem,2.2vw,1.65rem)] leading-[1.18] font-bold tracking-[-0.03em] text-balance">
-                    Manage creator collaborations without the chaos.
-                  </h2>
-                  <p className="text-muted-foreground mb-2 text-[15px] leading-relaxed text-pretty">
-                    Everything you need to find creators, manage projects and
-                    get content that performs — in one place.
-                  </p>
-                  <div className="flex flex-col">
-                    {BENEFITS.map((b) => (
-                      <div
-                        key={b.title}
-                        className="border-plum-150 border-t py-4"
-                      >
-                        <div className="mb-1 text-[15px] font-semibold">
-                          {b.title}
-                        </div>
-                        <div className="text-muted-foreground text-[13.5px] leading-[1.5]">
-                          {b.note}
-                        </div>
+          <div className="lg:py-2">
+            <div className="lg:sticky lg:top-25">
+              <div className="border-plum-150 bg-plum-50 rounded-[20px] border p-[clamp(26px,3vw,34px)]">
+                <div className={`${brandEyebrow} mb-5`}>Free to explore</div>
+                <h2 className="font-heading mb-3.5 text-[clamp(1.3rem,2.2vw,1.65rem)] leading-[1.18] font-bold tracking-[-0.03em] text-balance">
+                  Manage creator collaborations without the chaos.
+                </h2>
+                <p className="text-muted-foreground mb-2 text-[15px] leading-relaxed text-pretty">
+                  Everything you need to find creators, manage projects and
+                  get content that performs — in one place.
+                </p>
+                <div className="flex flex-col">
+                  {BENEFITS.map((b) => (
+                    <div
+                      key={b.title}
+                      className="border-plum-150 border-t py-4"
+                    >
+                      <div className="mb-1 text-[15px] font-semibold">
+                        {b.title}
                       </div>
-                    ))}
-                  </div>
+                      <div className="text-muted-foreground text-[13.5px] leading-normal">
+                        {b.note}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              </div>
 
-                <div className="border-foreground/10 mt-7 hidden border-t pt-[26px] sm:block">
-                  <div className={`${brandEyebrow} mb-[13px]`}>
-                    No card, no commitment
-                  </div>
-                  <p className="text-muted-foreground text-[14.5px] leading-[1.62] text-pretty">
-                    Creating an account just gets you into the marketplace.
-                    You&rsquo;ll see every creator&rsquo;s pricing and delivery
-                    time before you order anything.
-                  </p>
+              <div className="border-foreground/10 mt-7 hidden border-t pt-6 sm:block">
+                <div className={`${brandEyebrow} mb-3`}>
+                  No card, no commitment
                 </div>
+                <p className="text-muted-foreground text-[14.5px] leading-[1.62] text-pretty">
+                  Creating an account just gets you into the marketplace.
+                  You&rsquo;ll see every creator&rsquo;s pricing and delivery
+                  time before you order anything.
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </AuthenticatedAppProviders>
+    </div>
   );
 }

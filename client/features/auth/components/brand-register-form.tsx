@@ -49,9 +49,12 @@ function normalizeWebsite(raw: string): string {
 const brandSignupSchema = z.object({
   email: z
     .string()
-    .email("Enter a valid email address")
-    .min(1, "Email is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+    .min(1, "Email is required")
+    .email("Enter a valid email address"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .min(8, "Password must be at least 8 characters"),
   contactFullName: z.string().min(1, "Contact name is required"),
   contactPhone: z
     .string()
@@ -74,9 +77,6 @@ const brandSignupSchema = z.object({
     }, "Enter a valid website URL"),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
-  }),
-  guidelinesAccepted: z.boolean().refine((val) => val === true, {
-    message: "You must accept the Brand Guidelines",
   }),
 });
 
@@ -124,7 +124,6 @@ const STEP_FIELDS: (keyof BrandSignupData)[][] = [
     "contactPhone",
     "website",
     "termsAccepted",
-    "guidelinesAccepted",
   ],
 ];
 const LAST_STEP = STEP_TITLES.length - 1;
@@ -219,7 +218,6 @@ export function BrandRegisterForm() {
       contactPhone: "",
       website: "",
       termsAccepted: false,
-      guidelinesAccepted: false,
     },
   });
 
@@ -261,17 +259,8 @@ export function BrandRegisterForm() {
   const pendingSubmit = registerBrandMutation.isPending || isUploading;
   const pendingAny = pendingSubmit || googleLoading;
 
-  /* All display-only. Submission still gates on pendingAny and the zod
-     resolver, and handleNextStep still gates steps via form.trigger(). */
-  const watchedEmail = form.watch("email");
   const watchedPassword = form.watch("password");
   const passwordScore = scorePassword(watchedPassword || "");
-  const stepOneReady =
-    Boolean(watchedEmail) &&
-    Boolean(watchedPassword) &&
-    !form.formState.errors.email &&
-    !form.formState.errors.password;
-  const formIsValid = form.formState.isValid;
 
   const applyPhone = useCallback(
     (dialCode: string, national: string) => {
@@ -300,7 +289,9 @@ export function BrandRegisterForm() {
   );
 
   const handleNextStep = useCallback(async () => {
-    const valid = await form.trigger(STEP_FIELDS[currentStep]);
+    const valid = await form.trigger(STEP_FIELDS[currentStep], {
+      shouldFocus: true,
+    });
     if (!valid) return;
     setCurrentStep((step) => Math.min(step + 1, LAST_STEP));
   }, [form, currentStep]);
@@ -373,15 +364,15 @@ export function BrandRegisterForm() {
   if (!showEmailForm) {
     return (
       <div>
-        <div className={`${brandEyebrow} mb-[18px]`}>
+        <div className={`${brandEyebrow} mb-3`}>
           Choose how you want to sign up
         </div>
-        <div className="flex flex-col gap-[11px]">
+        <div className="flex flex-col gap-2.5">
           <button
             type="button"
             disabled={pendingAny}
             onClick={() => setShowEmailForm(true)}
-            className="bg-plum-700 border-plum-700 cursor-pointer rounded-xl border p-4 text-[15.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="h-11 cursor-pointer rounded-xl border-0 bg-plum-700 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
           >
             Sign up with email
           </button>
@@ -390,24 +381,27 @@ export function BrandRegisterForm() {
             type="button"
             disabled={pendingAny}
             onClick={handleGoogleSignup}
-            className="border-foreground/16 hover:bg-plum-50 hover:border-foreground/30 text-foreground flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border bg-white p-[15px] text-[15px] font-semibold transition-colors disabled:opacity-60"
+            className="border-foreground/16 text-foreground flex h-11 cursor-pointer items-center justify-center gap-2.5 rounded-xl border bg-white text-sm font-semibold transition-colors hover:bg-neutral-50 disabled:opacity-70"
           >
             {googleLoading ? (
               <Spinner className="size-4" aria-hidden />
             ) : (
-              <GoogleMark className="size-[17px] shrink-0" />
+              <GoogleMark className="size-4 shrink-0" />
             )}
             Sign up with Google
           </button>
         </div>
 
-        <div className="border-foreground/10 mt-6 flex flex-wrap gap-x-[22px] gap-y-[9px] border-t pt-[22px]">
+        <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
           {BRAND_TRUST.map((t) => (
             <span
               key={t}
-              className="text-muted-foreground inline-flex items-center gap-[7px] text-[12.5px]"
+              className="text-muted-foreground inline-flex items-center gap-1.5 text-xs"
             >
-              <Check className="text-plum-700 size-[11px] shrink-0" strokeWidth={3.2} />
+              <Check
+                className="text-plum-700 size-3.5 shrink-0"
+                strokeWidth={2.6}
+              />
               {t}
             </span>
           ))}
@@ -476,6 +470,7 @@ export function BrandRegisterForm() {
             placeholder="you@company.com"
             autoComplete="email"
             disabled={pendingAny}
+            aria-invalid={Boolean(form.formState.errors.email)}
             className={inputClassName}
             {...form.register("email")}
           />
@@ -500,6 +495,7 @@ export function BrandRegisterForm() {
               placeholder="At least 8 characters"
               autoComplete="new-password"
               disabled={pendingAny}
+              aria-invalid={Boolean(form.formState.errors.password)}
               className={cn(inputClassName, "pr-20")}
               {...form.register("password")}
             />
@@ -538,12 +534,7 @@ export function BrandRegisterForm() {
           type="button"
           onClick={handleNextStep}
           disabled={pendingAny}
-          className={cn(
-            "mt-1 h-auto w-full rounded-xl border p-4 text-[15.5px] font-semibold transition-opacity",
-            stepOneReady
-              ? "bg-foreground border-foreground hover:bg-foreground text-white hover:opacity-90"
-              : "border-foreground/9 bg-[#F4F1F1] text-foreground/38 hover:bg-[#F4F1F1] hover:text-foreground/38",
-          )}
+          className="mt-1 h-11 w-full rounded-xl border-0 bg-plum-700 text-sm font-semibold text-white shadow-none hover:bg-plum-700/90 hover:translate-x-0 hover:translate-y-0 disabled:opacity-70"
         >
           Continue
         </Button>
@@ -572,6 +563,7 @@ export function BrandRegisterForm() {
             placeholder="Jane Doe"
             autoComplete="name"
             disabled={pendingAny}
+            aria-invalid={Boolean(form.formState.errors.contactFullName)}
             className={inputClassName}
             {...form.register("contactFullName")}
           />
@@ -725,67 +717,50 @@ export function BrandRegisterForm() {
               }
               className="border-foreground/25 data-[state=checked]:bg-plum-700 data-[state=checked]:border-plum-700 mt-px size-[17px] shrink-0 rounded-[4px] data-[state=checked]:text-white"
             />
-            <Label
-              htmlFor="terms"
-              className="text-muted-foreground block min-w-0 flex-1 text-sm leading-[1.55] font-normal"
-            >
-              I agree to the{" "}
-              <Link
-                href="/legal/terms"
-                target="_blank"
-                className="text-plum-700 font-medium hover:underline"
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label
+                htmlFor="terms"
+                className="text-muted-foreground block text-sm leading-[1.55] font-normal"
               >
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/legal/privacy"
-                target="_blank"
-                className="text-plum-700 font-medium hover:underline"
-              >
-                Privacy Policy
-              </Link>
-              , and confirm I&rsquo;m authorised to represent this brand.
-            </Label>
-          </div>
-
-          <div className="flex items-start gap-[11px]">
-            <Checkbox
-              id="brand-guidelines"
-              checked={form.watch("guidelinesAccepted")}
-              onCheckedChange={(checked) =>
-                form.setValue("guidelinesAccepted", checked === true, {
-                  shouldValidate: true,
-                })
-              }
-              className="border-foreground/25 data-[state=checked]:bg-plum-700 data-[state=checked]:border-plum-700 mt-px size-[17px] shrink-0 rounded-[4px] data-[state=checked]:text-white"
-            />
-            <Label
-              htmlFor="brand-guidelines"
-              className="text-muted-foreground block min-w-0 flex-1 text-sm leading-[1.55] font-normal"
-            >
-              I have read and agree to the{" "}
-              <Link
-                href="/legal/brand-guidelines"
-                target="_blank"
-                className="text-plum-700 font-medium hover:underline"
-              >
-                Brand Guidelines
-              </Link>
-              .
-            </Label>
+                I agree to the{" "}
+                <Link
+                  href="/legal/terms"
+                  target="_blank"
+                  className="text-plum-700 font-medium hover:underline"
+                >
+                  Terms of Service
+                </Link>
+                {", "}
+                <Link
+                  href="/legal/privacy"
+                  target="_blank"
+                  className="text-plum-700 font-medium hover:underline"
+                >
+                  Privacy Policy
+                </Link>
+                {" and "}
+                <Link
+                  href="/legal/brand-guidelines"
+                  target="_blank"
+                  className="text-plum-700 font-medium hover:underline"
+                >
+                  Brand Guidelines
+                </Link>
+                {", and confirm I'm authorised to represent this brand."}
+              </Label>
+              {form.formState.errors.termsAccepted ? (
+                <FieldWarn>
+                  {form.formState.errors.termsAccepted.message}
+                </FieldWarn>
+              ) : null}
+            </div>
           </div>
         </div>
 
         <Button
           type="submit"
           disabled={pendingAny}
-          className={cn(
-            "h-auto w-full rounded-xl border p-4 text-[15.5px] font-semibold transition-opacity",
-            formIsValid
-              ? "bg-foreground border-foreground hover:bg-foreground text-white hover:opacity-90 disabled:opacity-70"
-              : "border-foreground/9 bg-[#F4F1F1] text-foreground/38 hover:bg-[#F4F1F1] hover:text-foreground/38",
-          )}
+          className="h-11 w-full rounded-xl border-0 bg-plum-700 text-sm font-semibold text-white shadow-none hover:bg-plum-700/90 hover:translate-x-0 hover:translate-y-0 disabled:opacity-70"
         >
           {pendingSubmit ? (
             <>

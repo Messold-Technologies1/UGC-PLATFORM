@@ -1,16 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { AuthLogoLink } from "./auth-logo-link";
 import { CreatorRegisterForm } from "./creator-register-form";
 
 /**
  * Creator signup shell (/register/creator).
  *
- * Owns the page chrome from the Creator Registration design — sticky header,
- * the headline above the form card, and the sticky right-hand rail. The form
- * card itself, and every field in it, stays in CreatorRegisterForm.
+ * Owns the page chrome from the Creator Registration design — the headline
+ * above the form and the sticky right-hand rail. The form itself stays in
+ * CreatorRegisterForm.
  */
 
 const LINK_CARRIES = [
@@ -24,79 +22,56 @@ const LINK_CARRIES = [
 
 const NEXT_STEPS = [
   {
-    n: "1",
+    n: "01",
     title: "Add your work",
     note: "Four to six pieces is enough to start getting found.",
   },
   {
-    n: "2",
+    n: "02",
     title: "Set your rates and services",
     note: "Your price, your delivery time, your add-ons — all editable later.",
   },
   {
-    n: "3",
+    n: "03",
     title: "Publish and share your link",
     note: "One URL for your Instagram bio and every brand enquiry.",
   },
 ];
 
-/** Cards that drop out on the narrowest screens, per the design. */
-const railCard = "hidden border-foreground rounded-[24px] border-2 sm:block";
+const railCard = "hidden sm:block";
 
 export function CreatorRegisterPage() {
   return (
-    <div className="bg-grain bg-background text-foreground min-h-screen">
-      <header className="border-foreground bg-background/92 sticky top-0 z-40 border-b-2 backdrop-blur-[12px]">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-4 px-5 py-3.5">
-          <div className="flex items-center gap-[11px]">
-            {/* The design's wordmark is 21px; brand-logo.png carries more
-                padding, so it needs a touch more height to read the same. */}
-            <AuthLogoLink imageClassName="h-7" />
-            <span className="font-heading border-foreground bg-pink text-foreground rounded-full border-2 px-[11px] py-1 text-[11px] font-bold tracking-[0.12em] uppercase">
-              Creator sign up
-            </span>
-          </div>
-          <span className="text-muted-foreground text-[13.5px]">
-            Already a creator?{" "}
-            <Link
-              href="/login?role=creator"
-              className="font-heading text-foreground font-bold hover:underline"
-            >
-              Log in as Creator
-            </Link>
-          </span>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-[1180px] px-5 pt-[clamp(28px,4vw,56px)] pb-[clamp(48px,7vw,88px)]">
-        <div className="grid items-start gap-[clamp(28px,4vw,56px)] lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="text-foreground relative min-h-screen bg-[linear-gradient(180deg,#FFFFFF_0%,#FFFBFB_58%,#FFF7F9_100%)]">
+      <div className="mx-auto max-w-[1180px] px-5 md:pt-6 pb-[clamp(48px,7vw,88px)]">
+        <div className="grid items-start gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-x-20">
           {/* FORM */}
           <div>
-            <h1 className="font-heading mb-3 text-[clamp(1.9rem,3.6vw,2.8rem)] leading-[1.04] font-bold tracking-[-0.03em] text-balance">
+            <h1 className="mb-2 text-[1.5rem] leading-tight font-bold tracking-[-0.03em] md:text-left text-center text-balance sm:text-[1.7rem]">
               Create your creator profile
             </h1>
-            <p className="text-muted-foreground mb-[clamp(28px,3.5vw,40px)] max-w-[520px] text-base leading-relaxed text-pretty">
-              Four details and you&rsquo;re in. Your work, pricing and services
-              come next — and you set all of them.
+            <p className="text-muted-foreground mb-6 max-w-[460px] text-sm leading-relaxed text-pretty text-center md:text-left">
+              Takes a minute to start. Your work, rates, and services come
+              after — you stay in control of all of it.
             </p>
 
             <CreatorRegisterForm />
 
-            <div className="mt-[22px] flex flex-wrap items-center justify-between gap-4">
-              <span className="text-muted-foreground text-sm">
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-muted-foreground text-[13px]">
                 Already a creator?{" "}
                 <Link
                   href="/login?role=creator"
-                  className="font-heading text-foreground font-bold hover:underline"
+                  className="font-medium text-deep-pink hover:underline"
                 >
-                  Log in as Creator
+                  Log in
                 </Link>
               </span>
               <span className="text-muted-foreground text-[13px]">
                 Hiring creators?{" "}
                 <Link
                   href="/register/brand"
-                  className="text-foreground underline underline-offset-2"
+                  className="font-medium text-deep-pink hover:underline"
                 >
                   Sign up as a brand
                 </Link>
@@ -107,32 +82,34 @@ export function CreatorRegisterPage() {
           {/* RAIL */}
           <div>
             <div className="lg:sticky lg:top-24">
-              <div className="border-foreground shadow-hard mb-[18px] rounded-[28px] border-2 bg-[#FFEDF4] p-[clamp(24px,3vw,32px)]">
-                <p className="font-heading mb-6 text-[clamp(1.35rem,2.5vw,1.85rem)] leading-[1.14] font-extrabold tracking-[-0.03em] text-balance">
-                  The last time you&rsquo;ll type your rates into a DM.
+              <div className="rounded-2xl border border-deep-pink/30 bg-[#FFF5F7] px-8 py-8 sm:px-9 sm:py-9">
+                <p className="mb-6 text-[22px] leading-[1.2] font-bold tracking-[-0.03em] text-[#181313] sm:text-[24px]">
+                  The last time you&rsquo;ll type
+                  <br />
+                  your rates into a DM.
                 </p>
 
-                <div className="mb-[22px] flex flex-col gap-2.5">
-                  <div className="border-foreground max-w-[88%] self-start rounded-[16px_16px_16px_5px] border-2 bg-white px-[15px] py-3 text-sm leading-[1.5]">
+                <div className="mb-7 flex flex-col gap-2">
+                  <div className="max-w-[88%] self-start rounded-[18px_18px_18px_5px] border border-[#EDE8EA] bg-white px-4 py-3 text-[14px] leading-snug text-[#6F6A6E]">
                     Hi! Can you share your portfolio, rates and delivery time?
                   </div>
-                  <div className="border-foreground bg-pink max-w-[88%] self-end rounded-[16px_16px_5px_16px] border-2 px-[15px] py-3 text-sm leading-[1.5] shadow-sticker">
+                  <div className="max-w-[90%] self-end rounded-[18px_18px_5px_18px] bg-[#181313] px-4 py-2.5 text-[13.5px] leading-snug text-white">
                     Everything&rsquo;s here →{" "}
-                    <span className="font-heading font-bold underline underline-offset-2">
+                    <span className="font-medium underline underline-offset-2">
                       gocollab.in/yourname
                     </span>
                   </div>
                 </div>
 
-                <div className="border-foreground rounded-[18px] border-2 bg-[#FFF7FA] px-[18px] py-[17px]">
-                  <div className="font-heading text-muted-foreground mb-3.5 text-[11px] font-bold tracking-[0.12em] uppercase">
+                <div>
+                  <div className="mb-3.5 text-[11px] font-bold tracking-[0.14em] text-[#8B8489] uppercase">
                     That one link carries
                   </div>
-                  <div className="flex flex-wrap gap-[9px]">
+                  <div className="flex flex-wrap gap-2">
                     {LINK_CARRIES.map((c) => (
                       <span
                         key={c}
-                        className="font-heading border-foreground rounded-full border-2 bg-white px-[13px] py-[7px] text-[12.5px] font-bold"
+                        className="rounded-full border border-[#E8E4E6] bg-white px-3.5 py-1.5 text-[13.5px] font-medium text-[#181313]"
                       >
                         {c}
                       </span>
@@ -141,74 +118,30 @@ export function CreatorRegisterPage() {
                 </div>
               </div>
 
-              <div className={`${railCard} bg-white p-[clamp(20px,2.6vw,26px)]`}>
-                <div className="mb-4 flex items-center gap-[11px]">
-                  <Image
-                    src="/3.jpg"
-                    alt=""
-                    width={38}
-                    height={38}
-                    className="border-foreground h-[38px] w-[38px] rounded-full border-2 object-cover"
-                  />
-                  <div>
-                    <div className="font-heading text-[13.5px] font-bold">
-                      Meher Kaur
-                    </div>
-                    <div className="text-muted-foreground text-xs">
-                      Fashion creator, Delhi · joined 8 months ago
-                    </div>
-                  </div>
-                </div>
-                <div className="text-muted-foreground text-[14.5px] leading-relaxed text-pretty">
-                  &ldquo;I stopped sending Drive folders and screenshots of my
-                  rate card. Now brands read all of it before they message me —
-                  so the conversation starts at the brief, not at &lsquo;what do
-                  you charge&rsquo;.&rdquo;
-                </div>
-              </div>
-
-              <div
-                className={`${railCard} mt-[18px] bg-[#FFF7FA] p-[clamp(20px,2.6vw,26px)]`}
-              >
-                <div className="font-heading text-muted-foreground mb-[18px] text-[11px] font-bold tracking-[0.12em] uppercase">
+              <div className={`${railCard} mt-8 border-t border-[#E8E4E6] pt-8`}>
+                <div className="mb-5 text-[11px] font-bold tracking-[0.14em] text-[#8B8489] uppercase">
                   Right after you sign up
                 </div>
-                <div className="flex flex-col">
+                <div className="flex flex-col gap-5">
                   {NEXT_STEPS.map((n) => (
-                    <div
-                      key={n.n}
-                      className="border-foreground/10 flex items-start gap-[13px] border-t-2 py-3.5"
-                    >
-                      <span className="font-heading border-foreground grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 bg-white text-[11.5px] font-extrabold">
+                    <div key={n.n} className="flex items-start gap-3">
+                      <span className="shrink-0 text-[15px] font-bold text-deep-pink">
                         {n.n}
                       </span>
                       <div>
-                        <div className="font-heading mb-[3px] text-[14.5px] font-bold">
+                        <div className="text-[15px] font-bold text-[#181313]">
                           {n.title}
                         </div>
-                        <div className="text-muted-foreground text-[13px] leading-[1.5]">
+                        <div className="mt-0.5 text-[14px] leading-snug text-[#8B8489]">
                           {n.note}
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="border-foreground/10 text-muted-foreground mt-[18px] flex items-center gap-2.5 border-t-2 pt-[18px] text-[13px]">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    className="text-foreground shrink-0"
-                    aria-hidden
-                  >
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7.5v5l3 2" strokeLinecap="round" />
-                  </svg>
+                <p className="mt-6 text-[13px] text-[#8B8489]">
                   Most creators finish in under 15 minutes.
-                </div>
+                </p>
               </div>
             </div>
           </div>

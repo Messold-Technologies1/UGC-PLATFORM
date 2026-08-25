@@ -143,7 +143,7 @@ export function BrandRegisterPage() {
               <span className="text-[26px] font-black tracking-tighter lowercase text-slate-800">
                 bo<span className="text-slate-600">A</span>t
               </span>
-              <span className="text-[22px] font-medium tracking-wide lowercase text-slate-800 font-['Outfit']">
+              <span className="text-[22px] font-medium tracking-wide lowercase text-slate-800 font-heading">
                 plum
               </span>
               <span className="text-[19px] font-bold tracking-tight lowercase text-slate-800">

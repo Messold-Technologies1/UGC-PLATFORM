@@ -192,7 +192,7 @@ export function BrandPronunciationAudioField({
 
   return (
     <div className="space-y-1">
-      <label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+      <label className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-heading">
         Voice Pronunciation
       </label>
       <div className="flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] dark:bg-slate-950 dark:border-slate-800">

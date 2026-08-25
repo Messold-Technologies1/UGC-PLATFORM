@@ -21,12 +21,12 @@ import { cn } from "@/lib/utils";
 const sectionPadY = "py-[clamp(84px,11vw,152px)]";
 
 /**
- * Pink CTA: solid fill with dark text. `hover:bg-pink` is required —
+ * Deep-pink CTA (`#B3123F`). `hover:bg-deep-pink` is required —
  * PillButton's primary variant ships `hover:bg-foreground/90`, which would
- * otherwise darken the fill and leave dark text on a near-black background.
+ * otherwise darken the fill and leave text on a near-black background.
  */
 const pinkCta =
-  "bg-pink hover:bg-pink text-foreground shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
+  "bg-deep-pink hover:bg-deep-pink text-white shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
 
 /** Cards that lift on hover. */
 const lift = "transition-transform duration-200 hover:-translate-y-1";
@@ -57,7 +57,7 @@ const CHAOS = [
 
 /** Status pill colours for the collaboration dashboard mock. */
 const STATUS_STYLE: Record<string, string> = {
-  "In Progress": "bg-pink/15 text-[#8E0E32]",
+  "In Progress": "bg-pink/15 text-deep-pink",
   "Awaiting Shipment": "bg-secondary text-muted-foreground",
   Delivered: "bg-[#E8F7F0] text-foreground",
   Revision: "bg-[#FFF1F5] text-[#B02A62]",
@@ -970,7 +970,7 @@ export function BrandsLanding() {
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
           href="/register/brand"
-          className="bg-pink hover:bg-pink text-foreground border-foreground w-full border-2 py-3.5 text-sm font-bold"
+          className="bg-deep-pink hover:bg-deep-pink text-white border-foreground w-full border-2 py-3.5 text-sm font-bold"
         >
           Explore Creators — Free
         </PillButton>

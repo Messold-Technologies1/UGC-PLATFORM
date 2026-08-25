@@ -1,5 +1,5 @@
 .browse-redesign-scope {
-  --font-heading: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   --shadow-pop: 0 8px 30px -8px rgb(24 19 19 / 0.12);
   --shadow-sm: 0 1px 2px 0 rgb(24 19 19 / 0.05);
   --shadow-md: 0 6px 18px -8px rgb(24 19 19 / 0.12);

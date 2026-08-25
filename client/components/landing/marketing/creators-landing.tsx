@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { ChevronDown, X } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
-import { StickyCardScroll } from "@/components/landing/marketing/sticky-card-scroll";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -20,13 +19,12 @@ import { cn } from "@/lib/utils";
 const sectionPadY = "py-[clamp(84px,11vw,152px)]";
 
 /**
- * Pink CTA: solid fill with dark text, matching the onboarding screens.
- * `hover:bg-pink` is required — PillButton's primary variant ships
- * `hover:bg-foreground/90`, which would otherwise darken the fill on hover
- * and leave dark text on a near-black background.
+ * Deep-pink CTA (`#B3123F`). `hover:bg-deep-pink` is required —
+ * PillButton's primary variant ships `hover:bg-foreground/90`, which would
+ * otherwise darken the fill on hover.
  */
 const pinkCta =
-  "bg-pink hover:bg-pink text-foreground shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
+  "bg-deep-pink hover:bg-deep-pink text-white shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
 
 /** Cards that slide into their own shadow on hover. */
 const hardCard = "border-foreground shadow-hard rounded-[28px] border-2";
@@ -270,7 +268,7 @@ export function CreatorsLanding() {
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,72px)] lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <div className="bg-pink/12 mb-6 inline-flex rounded-full px-4 py-[7px]">
-              <span className="font-heading text-blush-700 text-[11px] font-bold tracking-[0.13em]">
+              <span className="font-heading text-deep-pink text-[11px] font-bold tracking-[0.13em]">
                 FOR CREATORS
               </span>
             </div>
@@ -371,7 +369,7 @@ export function CreatorsLanding() {
           <h2 className="font-heading text-[clamp(1.9rem,3.8vw,3rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
             Let {SITE_NAME} handle the discovery part.
             <br />
-            <span className="text-blush-700">You focus on creating.</span>
+            <span className="text-deep-pink">You focus on creating.</span>
           </h2>
         </div>
       </section>
@@ -474,64 +472,61 @@ export function CreatorsLanding() {
       {/* 5. PROFILE AS STOREFRONT */}
       <section className={cn("px-6", sectionPadY)}>
         <div className="mx-auto max-w-[1240px]">
-          <StickyCardScroll
-            className="gap-[clamp(32px,4vw,56px)] lg:grid-cols-[0.85fr_1.15fr]"
-            card={
-              <div
-                className={cn(
-                  hardCard,
-                  "bg-card mx-auto w-full max-w-[520px] overflow-hidden lg:mx-0 lg:max-w-none",
-                )}
-              >
-                <Image
-                  src="/3.jpg"
-                  alt=""
-                  width={560}
-                  height={420}
-                  className="aspect-[4/3] w-full object-cover"
-                />
-                <div className="px-6 pt-[22px] pb-[26px]">
-                  <div className="mb-1 flex items-center justify-between gap-3">
-                    <div className="font-heading text-[19px] font-bold">
-                      Meher Kaur
+          <div className="grid items-end gap-[clamp(32px,4vw,56px)] lg:grid-cols-[0.85fr_1.15fr]">
+            <div
+              className={cn(
+                hardCard,
+                "bg-card mx-auto w-full max-w-[520px] overflow-hidden lg:mx-0 lg:max-w-none",
+              )}
+            >
+              <Image
+                src="/3.jpg"
+                alt=""
+                width={560}
+                height={420}
+                className="aspect-[4/3] w-full object-cover"
+              />
+              <div className="px-6 pt-[22px] pb-[26px]">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <div className="font-heading text-[19px] font-bold">
+                    Meher Kaur
+                  </div>
+                  <span className="font-heading text-muted-foreground text-[11px] font-bold">
+                    ● Profile live
+                  </span>
+                </div>
+                <div className="text-muted-foreground mb-5 text-[13px]">
+                  Fashion &amp; Beauty · Delhi · 76k followers
+                </div>
+                <div className="mb-5 grid grid-cols-3 gap-2">
+                  {["/1.jpg", "/2.jpg", "/5.jpg"].map((src) => (
+                    <Image
+                      key={src}
+                      src={src}
+                      alt=""
+                      width={180}
+                      height={320}
+                      className="aspect-[9/16] w-full rounded-[10px] object-cover"
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-col gap-2.5 text-[13px]">
+                  {[
+                    { k: "1 reel + 2 stories", v: "₹3,200" },
+                    { k: "Delivery", v: "4 days" },
+                    { k: "Add-ons", v: "Faster delivery, extra revision" },
+                  ].map((row) => (
+                    <div key={row.k} className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">{row.k}</span>
+                      <span className="font-heading text-right font-bold">
+                        {row.v}
+                      </span>
                     </div>
-                    <span className="font-heading text-muted-foreground text-[11px] font-bold">
-                      ● Profile live
-                    </span>
-                  </div>
-                  <div className="text-muted-foreground mb-5 text-[13px]">
-                    Fashion &amp; Beauty · Delhi · 76k followers
-                  </div>
-                  <div className="mb-5 grid grid-cols-3 gap-2">
-                    {["/1.jpg", "/2.jpg", "/5.jpg"].map((src) => (
-                      <Image
-                        key={src}
-                        src={src}
-                        alt=""
-                        width={180}
-                        height={320}
-                        className="aspect-[9/16] w-full rounded-[10px] object-cover"
-                      />
-                    ))}
-                  </div>
-                  <div className="flex flex-col gap-2.5 text-[13px]">
-                    {[
-                      { k: "1 reel + 2 stories", v: "₹3,200" },
-                      { k: "Delivery", v: "4 days" },
-                      { k: "Add-ons", v: "Faster delivery, extra revision" },
-                    ].map((row) => (
-                      <div key={row.k} className="flex justify-between gap-3">
-                        <span className="text-muted-foreground">{row.k}</span>
-                        <span className="font-heading text-right font-bold">
-                          {row.v}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
               </div>
-            }
-          >
+            </div>
+            <div>
             <h2 className="font-heading mb-[clamp(28px,3.5vw,40px)] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
               Your profile should do the pitching for you.
             </h2>
@@ -554,7 +549,8 @@ export function CreatorsLanding() {
               One profile. Everything a brand needs to decide if you&rsquo;re
               right for them.
             </h3>
-          </StickyCardScroll>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -583,7 +579,7 @@ export function CreatorsLanding() {
           </div>
           <h2 className="font-heading text-[clamp(1.7rem,3.4vw,2.7rem)] leading-[1.08] font-bold tracking-[-0.03em]">
             Your work. Your price.{" "}
-            <span className="text-blush-700">Your terms.</span>
+            <span className="text-deep-pink">Your terms.</span>
           </h2>
         </div>
       </section>
@@ -692,7 +688,7 @@ export function CreatorsLanding() {
                 key={title}
                 className="border-foreground/10 grid grid-cols-[76px_1fr] items-center gap-[clamp(16px,3vw,40px)] border-t py-[22px]"
               >
-                <div className="font-heading text-blush-700 text-[clamp(17px,2vw,22px)] font-bold">
+                <div className="font-heading text-deep-pink text-[clamp(17px,2vw,22px)] font-bold">
                   0{i + 1}
                 </div>
                 <div className="font-heading text-[clamp(1.15rem,2.2vw,1.7rem)] leading-[1.2] font-bold tracking-[-0.02em]">
@@ -717,7 +713,7 @@ export function CreatorsLanding() {
           <p className="text-muted-foreground mb-[30px] text-[clamp(1rem,1.4vw,1.15rem)]">
             You can&rsquo;t control whether every brand chooses you.
           </p>
-          <h3 className="font-heading text-blush-700 mb-[38px] text-[clamp(1.4rem,2.8vw,2.2rem)] leading-[1.12] font-bold tracking-[-0.02em] text-balance">
+          <h3 className="font-heading text-deep-pink mb-[38px] text-[clamp(1.4rem,2.8vw,2.2rem)] leading-[1.12] font-bold tracking-[-0.02em] text-balance">
             But you can make sure you&rsquo;re there when they search.
           </h3>
           <div className="flex flex-wrap items-center justify-center gap-4">
@@ -807,7 +803,7 @@ export function CreatorsLanding() {
                         )}
                       >
                         <ChevronDown
-                          className="text-blush-700 h-3 w-3"
+                          className="text-deep-pink h-3 w-3"
                           strokeWidth={3}
                         />
                       </span>
@@ -871,7 +867,7 @@ export function CreatorsLanding() {
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
           href="/register/creator"
-          className="bg-pink hover:bg-pink text-foreground border-foreground w-full border-2 py-3.5 text-sm font-bold"
+          className="bg-deep-pink hover:bg-deep-pink text-white border-foreground w-full border-2 py-3.5 text-sm font-bold"
         >
           Create My Profile — Free
         </PillButton>

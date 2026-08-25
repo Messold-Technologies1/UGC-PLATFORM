@@ -75,6 +75,7 @@ export function CountryCodeSelect({
 
   return (
     <ReactSelect<CountryCodeOption>
+      instanceId={inputId ?? "country-code-select"}
       inputId={inputId}
       options={options}
       value={selected}
@@ -104,16 +105,14 @@ export function CountryCodeSelect({
       styles={{
         control: (base, state) => ({
           ...base,
-          height: "42px",
-          minHeight: "42px",
+          height: "44px",
+          minHeight: "44px",
           width: "116px",
-          borderRadius: "11px",
+          borderRadius: "12px",
           backgroundColor: "#ffffff",
-          borderColor: state.isFocused ? "#ef3e51" : "#e2e8f0",
-          boxShadow: state.isFocused
-            ? "0 0 0 3px rgba(239,62,81,0.13)"
-            : "none",
-          "&:hover": { borderColor: state.isFocused ? "#ef3e51" : "#c8c2c5" },
+          borderColor: state.isFocused ? "#d4d4d4" : "#e5e5e5",
+          boxShadow: "none",
+          "&:hover": { borderColor: "#d4d4d4" },
         }),
         valueContainer: (base) => ({ ...base, padding: "0 8px" }),
         singleValue: (base) => ({
@@ -128,7 +127,8 @@ export function CountryCodeSelect({
           ...base,
           width: "280px",
           borderRadius: "11px",
-          border: "1px solid #e2e8f0",
+          border: "1px solid #e5e5e5",
+          boxShadow: "none",
           overflow: "hidden",
           zIndex: 9999,
         }),

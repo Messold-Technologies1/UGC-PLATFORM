@@ -270,7 +270,7 @@ verifyPhoneOtpMutation.mutate({ phone, code });
       ) : null}
       {activeOtpPhone && !phoneVerified ? (
         <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <Label htmlFor={`${idPrefix}-phone-otp`} className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">Verification code</Label>
+          <Label htmlFor={`${idPrefix}-phone-otp`} className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-heading">Verification code</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               id={`${idPrefix}-phone-otp`}

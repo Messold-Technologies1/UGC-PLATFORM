@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,27 +32,26 @@ import {
 } from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
 import { CountryCodeSelect } from "@/features/auth/components/country-code-select";
+import { FieldWarn } from "@/features/auth/components/field-warn";
 
-/**
- * Field styling from the Creator Registration design: 2px near-black border,
- * 14px radius, pink focus ring. Shared so every field stays in step.
- */
-const gcLabel =
-  "font-heading flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground";
+const gcLabel = "flex items-center gap-1.5 text-[13px] font-semibold text-foreground";
 
 const gcInput =
-  "h-[52px] w-full rounded-[14px] border-2 border-foreground bg-white px-4 text-[16px] text-foreground placeholder:text-foreground/35 transition-shadow focus-visible:border-foreground focus-visible:ring-[3px] focus-visible:ring-pink/35 dark:bg-slate-950";
+  "h-11 w-full rounded-xl border border-neutral-200 bg-white px-3.5 text-sm text-foreground shadow-none placeholder:text-foreground/35 focus-visible:border-neutral-300 focus-visible:ring-0 dark:bg-slate-950";
 
 const gcFieldBox =
-  "flex items-stretch h-[52px] rounded-[14px] border-2 border-foreground bg-white overflow-hidden transition-shadow focus-within:ring-[3px] focus-within:ring-pink/35 dark:bg-slate-950";
+  "flex items-stretch h-11 rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-none focus-within:border-neutral-300 dark:bg-slate-950";
 
-const gcHelp = "text-[12.5px] leading-[1.45] text-muted-foreground";
+const gcHelp = "text-xs leading-normal text-muted-foreground";
 
-/** Strength-bar colour by score, per the design (weak red → pink → lime). */
+const gcLink =
+  "whitespace-nowrap font-medium text-deep-pink hover:underline underline-offset-2";
+
+/** Strength-bar colour by score (weak red → pink → green). */
 const PASSWORD_BAR_COLOR: Record<number, string> = {
   1: "bg-[#DB4A4A]",
-  2: "bg-pink",
-  3: "bg-lime",
+  2: "bg-deep-pink",
+  3: "bg-[#2E9B57]",
 };
 
 /** Same three checks the design scores: length, letters+digits, symbol. */
@@ -101,28 +100,6 @@ const creatorSignupSchema = z.object({
 });
 
 type CreatorSignupData = z.infer<typeof creatorSignupSchema>;
-
-const SIGNUP_FIELD_LABELS: Partial<Record<keyof CreatorSignupData, string>> = {
-  name: "Full name",
-  phone: "Phone number",
-  phoneOtpCode: "Phone verification code",
-  email: "Email",
-  password: "Password (at least 8 characters)",
-  termsAccepted: "Terms & guidelines acceptance",
-};
-
-function getCreatorSignupBlockers(values: CreatorSignupData): string[] {
-  const blockers: string[] = [];
-  const parsed = creatorSignupSchema.safeParse(values);
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0] as keyof CreatorSignupData | undefined;
-      const label = key ? SIGNUP_FIELD_LABELS[key] : undefined;
-      if (label && !blockers.includes(label)) blockers.push(label);
-    }
-  }
-  return blockers;
-}
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -304,13 +281,6 @@ export function CreatorRegisterForm() {
   const pendingSubmit = registerCreatorMutation.isPending;
   const pendingAny = pendingSubmit || sendSignupPhoneOtpMutation.isPending;
 
-  const signupFormValues = form.watch();
-  const signupBlockers = useMemo(
-    () => getCreatorSignupBlockers(signupFormValues),
-    [signupFormValues],
-  );
-  const isSignupComplete = signupBlockers.length === 0;
-
   useEffect(() => {
     if (!otpResendAvailableAt) return;
 
@@ -360,21 +330,15 @@ export function CreatorRegisterForm() {
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      /* The heading and the "log in" link live in CreatorRegisterPage — this
-         is just the card. */
-      className="border-foreground shadow-hard flex min-w-0 flex-col overflow-hidden rounded-[28px] border-2 bg-white dark:bg-slate-950"
+      className="flex min-w-0 flex-col"
     >
-      <div className="min-w-0 p-[clamp(24px,3.2vw,36px)]">
+      <div className="min-w-0">
         <div className="space-y-6">
-          {/* Account details */}
           <div className="space-y-3">
-            <div className="flex flex-col gap-[22px]">
-              <div className="space-y-1">
-                <Label
-                  htmlFor="name"
-                  className={gcLabel}
-                >
-                  Full name <span className="text-red-500">*</span>
+            <div className="flex flex-col gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className={gcLabel}>
+                  Full name
                 </Label>
                 <Input
                   id="name"
@@ -382,19 +346,14 @@ export function CreatorRegisterForm() {
                   className={gcInput}
                   {...form.register("name")}
                 />
-                {form.formState.errors.name && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.name.message}
-                  </p>
-                )}
+                {form.formState.errors.name ? (
+                  <FieldWarn>{form.formState.errors.name.message}</FieldWarn>
+                ) : null}
               </div>
 
-              <div className="space-y-1">
-                <Label
-                  htmlFor="phone"
-                  className={gcLabel}
-                >
-                  Phone number <span className="text-red-500">*</span>
+              <div className="space-y-1.5">
+                <Label htmlFor="phone" className={gcLabel}>
+                  Phone number
                 </Label>
                 <div className="grid gap-3">
                   <div className="flex items-stretch gap-2">
@@ -412,7 +371,7 @@ export function CreatorRegisterForm() {
                       inputMode="tel"
                       disabled={pendingAny}
                       aria-invalid={phoneError ? true : undefined}
-                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-4 text-[15px] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3.5 text-sm font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                       value={nationalNumber}
                       onChange={(event) =>
                         handleNationalNumberChange(event.target.value)
@@ -446,9 +405,6 @@ export function CreatorRegisterForm() {
                     ) : null}
                     </div>
                   </div>
-                  <p className={gcHelp}>
-                    Select your country code, then enter your mobile number.
-                  </p>
                   {SIGNUP_OTP_VERIFICATION_ENABLED ? (
                     <>
                       {phoneError ? (
@@ -523,106 +479,78 @@ export function CreatorRegisterForm() {
                       ) : null}
                     </>
                   ) : phoneError ? (
-                    <p className="text-xs text-red-500">{phoneError}</p>
+                    <FieldWarn>{phoneError}</FieldWarn>
                   ) : null}
                 </div>
-                {form.formState.errors.phone && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.phone.message}
-                  </p>
-                )}
+                {form.formState.errors.phone ? (
+                  <FieldWarn>{form.formState.errors.phone.message}</FieldWarn>
+                ) : null}
                 {SIGNUP_OTP_VERIFICATION_ENABLED &&
                 form.formState.errors.phoneOtpCode ? (
-                  <p className="text-xs text-red-500">
+                  <FieldWarn>
                     {form.formState.errors.phoneOtpCode.message}
-                  </p>
+                  </FieldWarn>
                 ) : null}
               </div>
 
-              <div className="space-y-1">
-                <Label
-                  htmlFor="email"
-                  className={gcLabel}
-                >
-                  Email <span className="text-red-500">*</span>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className={gcLabel}>
+                  Email
                 </Label>
-                <div className={gcFieldBox}>
-                  <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-[#8b8489]">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect width="20" height="16" x="2" y="4" rx="2" />
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                    </svg>
-                  </div>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-                    {...form.register("email")}
-                  />
-                </div>
-                {form.formState.errors.email && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.email.message}
-                  </p>
-                )}
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className={gcInput}
+                  {...form.register("email")}
+                />
+                {form.formState.errors.email ? (
+                  <FieldWarn>{form.formState.errors.email.message}</FieldWarn>
+                ) : null}
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label htmlFor="password" className={gcLabel}>
-                  Password <span className="text-red-500">*</span>
+                  Password
                 </Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••••"
-                    className={cn(gcInput, "pr-13")}
+                    className={cn(gcInput, "pr-16")}
                     {...form.register("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center pr-4"
+                    className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center pr-4 text-sm font-medium"
                   >
-                    {showPassword ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
+                    {showPassword ? "Hide" : "Show"}
                   </button>
                 </div>
-                <div className="flex gap-1.5 pt-[11px]">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className={cn(
-                        "h-1.5 flex-1 rounded-full transition-colors",
-                        i < passwordScore
-                          ? PASSWORD_BAR_COLOR[passwordScore]
-                          : "bg-foreground/12",
-                      )}
-                    />
-                  ))}
+                <div className="flex gap-1.5 pt-2">
+                  {[0, 1, 2, 3].map((i) => {
+                    const filled = passwordScore === 3 ? 4 : passwordScore;
+                    return (
+                      <span
+                        key={i}
+                        className={cn(
+                          "h-1 flex-1 rounded-full transition-colors",
+                          i < filled
+                            ? PASSWORD_BAR_COLOR[Math.max(passwordScore, 1)]
+                            : "bg-neutral-200",
+                        )}
+                      />
+                    );
+                  })}
                 </div>
                 <p className={gcHelp}>
-                  Minimum 8 characters, with letters, a number and a symbol.
+                  8+ characters, a number and a symbol.
                 </p>
-                {form.formState.errors.password && (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
+                {form.formState.errors.password ? (
+                  <FieldWarn>{form.formState.errors.password.message}</FieldWarn>
+                ) : null}
               </div>
             </div>
           </div>
@@ -630,9 +558,8 @@ export function CreatorRegisterForm() {
         </div>
       </div>
 
-      <div className="border-foreground bg-secondary shrink-0 space-y-4 border-t-2 p-[clamp(22px,3vw,30px)]">
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
+      <div className="mt-9 space-y-6">
+        <div className="flex items-start gap-3">
             <Checkbox
               id="terms"
               checked={form.watch("termsAccepted")}
@@ -641,59 +568,40 @@ export function CreatorRegisterForm() {
                   shouldValidate: true,
                 })
               }
-              className="border-foreground data-[state=checked]:bg-pink data-[state=checked]:border-foreground data-[state=checked]:text-foreground mt-px h-5 w-5 shrink-0 rounded-[6px] border-2"
+              className="data-[state=checked]:bg-deep-pink data-[state=checked]:border-deep-pink data-[state=checked]:text-white mt-0.5 size-4 shrink-0 rounded-[4px] border border-neutral-300 shadow-none"
             />
             <div className="min-w-0 flex-1 space-y-1">
               <Label
                 htmlFor="terms"
-                className="text-foreground block min-w-0 text-sm leading-[1.55] font-normal"
+                className="text-muted-foreground block min-w-0 text-[13px] leading-normal font-normal"
               >
                 I agree to the{" "}
-                <Link
-                  href="/legal/terms"
-                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-                >
+                <Link href="/legal/terms" className={gcLink}>
                   Terms of Service
                 </Link>
                 {", "}
-                <Link
-                  href="/legal/privacy"
-                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-                >
+                <Link href="/legal/privacy" className={gcLink}>
                   Privacy Policy
                 </Link>
-                {", "}
-                <Link
-                  href="/legal/guidelines"
-                  className="whitespace-nowrap font-bold text-slate-900 underline decoration-slate-900 underline-offset-2 dark:text-slate-200 dark:decoration-slate-200"
-                >
+                {" and "}
+                <Link href="/legal/guidelines" className={gcLink}>
                   Creator Quality Guidelines
                 </Link>
                 {", and confirm I'm over 13."}
               </Label>
-              {form.formState.errors.termsAccepted && (
-                <p className="text-xs text-red-500">
+              {form.formState.errors.termsAccepted ? (
+                <FieldWarn>
                   {form.formState.errors.termsAccepted.message}
-                </p>
-              )}
+                </FieldWarn>
+              ) : null}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Still needed: {signupBlockers.join(" · ")}
-              </p>
-            ) : null}
+          <div className="flex flex-col gap-5">
             <Button
               type="submit"
-              disabled={!isSignupComplete || pendingSubmit}
-              className={cn(
-                "font-heading h-auto w-full rounded-full border-2 py-[17px] text-base font-bold transition-all",
-                isSignupComplete
-                  ? "bg-grape border-foreground shadow-hard text-white hover:-translate-y-0.5 hover:translate-x-0.5 hover:bg-grape hover:shadow-none disabled:opacity-70"
-                  : "border-foreground/15 text-foreground/40 bg-foreground/[0.07] hover:bg-foreground/[0.07] hover:text-foreground/40",
-              )}
+              disabled={pendingSubmit}
+              className="h-11 w-full rounded-xl border-0 bg-deep-pink text-sm font-semibold text-white shadow-none hover:bg-deep-pink/85 hover:translate-x-0 hover:translate-y-0 disabled:opacity-70"
             >
               {pendingSubmit ? (
                 <>
@@ -701,26 +609,25 @@ export function CreatorRegisterForm() {
                   Setting up your profile...
                 </>
               ) : (
-                <>Create creator profile &rarr;</>
+                "Create creator profile"
               )}
             </Button>
 
-            <div className="flex flex-wrap gap-x-5 gap-y-2.5 pt-1">
+            <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">
               {CREATOR_TRUST.map((t) => (
                 <span
                   key={t}
-                  className="text-muted-foreground inline-flex items-center gap-[7px] text-[12.5px]"
+                  className="text-muted-foreground inline-flex items-center gap-1.5 text-xs"
                 >
                   <Check
-                    className="text-foreground size-3 shrink-0"
-                    strokeWidth={3.4}
+                    className="text-deep-pink size-3.5 shrink-0"
+                    strokeWidth={2.6}
                   />
                   {t}
                 </span>
               ))}
             </div>
           </div>
-        </div>
       </div>
     </form>
   );

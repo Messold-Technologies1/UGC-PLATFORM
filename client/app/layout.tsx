@@ -44,18 +44,11 @@ fbq('track', 'PageView');
 // Self-hosted (via next/font/local) instead of next/font/google so the
 // production build never has to reach fonts.googleapis.com — the Turbopack
 // build fails to resolve Google fonts when that network call is blocked.
-// These are the latin-subset variable woff2 files for DM Sans and Inter.
-const dmSans = localFont({
-  src: "./fonts/DMSans-latin.woff2",
-  variable: "--font-heading",
-  weight: "100 1000",
-  display: "swap",
-});
-
-const inter = localFont({
-  src: "./fonts/Inter-latin.woff2",
-  variable: "--font-sans",
-  weight: "100 900",
+// Satoshi (Fontshare) for UI copy and headings on every page.
+const satoshi = localFont({
+  src: "./fonts/Satoshi-Variable.woff2",
+  variable: "--font-satoshi",
+  weight: "300 900",
   display: "swap",
 });
 
@@ -95,9 +88,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={satoshi.variable} suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${dmSans.variable} font-sans antialiased flex min-h-svh flex-col`}
+        className="font-sans antialiased flex min-h-svh flex-col"
       >
         <Script
           id="ugc-theme-color-init"

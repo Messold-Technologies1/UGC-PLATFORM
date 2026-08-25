@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FieldWarn } from "@/features/auth/components/field-warn";
 import {
   presignBrandSignupLogo,
   putBlobToPresignedUrl,
@@ -79,16 +80,6 @@ const brandSignupSchema = z.object({
 
 type BrandSignupData = z.infer<typeof brandSignupSchema>;
 
-const SIGNUP_FIELD_LABELS: Partial<Record<keyof BrandSignupData, string>> = {
-  email: "Account email",
-  password: "Password (at least 8 characters)",
-  contactFullName: "Contact name",
-  contactPhone: "Phone number",
-  website: "Website URL",
-  termsAccepted: "Terms acceptance",
-  guidelinesAccepted: "Brand Guidelines acceptance",
-};
-
 /** Mobile-only wizard steps. Desktop (xl:) shows all sections at once. */
 const STEP_TITLES = ["Account", "Brand"] as const;
 const STEP_FIELDS: (keyof BrandSignupData)[][] = [
@@ -104,26 +95,13 @@ const STEP_FIELDS: (keyof BrandSignupData)[][] = [
 const LAST_STEP = STEP_TITLES.length - 1;
 
 const labelClassName =
-  "inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]";
+  "inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-heading";
 
 const inputClassName =
   "h-[42px] rounded-[11px] border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white transition-[border-color,box-shadow] duration-150 focus-visible:border-[#3e76ef] focus-visible:ring-[3px] focus-visible:ring-[#3e76ef]/[0.13] focus-visible:bg-white dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:border-slate-700 dark:focus-visible:ring-slate-800";
 
 const prefixedFieldClassName =
   "flex items-stretch h-[42px] rounded-[11px] border border-slate-200 hover:border-[#c8c2c5] dark:hover:border-[#c8c2c5] bg-white overflow-hidden transition-[border-color,box-shadow] duration-150 focus-within:border-[#3e76ef] focus-within:ring-[3px] focus-within:ring-[#3e76ef]/[0.13] focus-within:bg-white dark:bg-slate-950 dark:border-slate-800";
-
-function getBrandSignupBlockers(values: BrandSignupData): string[] {
-  const blockers: string[] = [];
-  const parsed = brandSignupSchema.safeParse(values);
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0] as keyof BrandSignupData | undefined;
-      const label = key ? SIGNUP_FIELD_LABELS[key] : undefined;
-      if (label && !blockers.includes(label)) blockers.push(label);
-    }
-  }
-  return blockers;
-}
 
 function readApiErrorMessage(error: unknown): string | undefined {
   if (!isAxiosError(error)) return undefined;
@@ -240,13 +218,6 @@ export function BrandRegisterForm() {
 
   const pendingSubmit = registerBrandMutation.isPending || isUploading;
   const pendingAny = pendingSubmit || googleLoading;
-
-  const signupFormValues = form.watch();
-  const signupBlockers = useMemo(
-    () => getBrandSignupBlockers(signupFormValues),
-    [signupFormValues],
-  );
-  const isSignupComplete = signupBlockers.length === 0;
 
   const handleNextStep = useCallback(async () => {
     const valid = await form.trigger(STEP_FIELDS[currentStep]);
@@ -468,7 +439,7 @@ export function BrandRegisterForm() {
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 1
               </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-heading">
                 Secure Your Account
               </h2>
             </div>
@@ -506,9 +477,7 @@ export function BrandRegisterForm() {
                   />
                 </div>
                 {form.formState.errors.email ? (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.email.message}
-                  </p>
+                  <FieldWarn>{form.formState.errors.email.message}</FieldWarn>
                 ) : (
                   <p className="text-xs text-slate-500">
                     Used for login. Contact email can be set later in profile.
@@ -551,9 +520,7 @@ export function BrandRegisterForm() {
                   </button>
                 </div>
                 {form.formState.errors.password ? (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.password.message}
-                  </p>
+                  <FieldWarn>{form.formState.errors.password.message}</FieldWarn>
                 ) : null}
               </div>
             </div>
@@ -570,7 +537,7 @@ export function BrandRegisterForm() {
               <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">
                 2
               </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-['DM_Sans',ui-sans-serif,system-ui,sans-serif]">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B8489] font-heading">
                 About Your Brand
               </h2>
             </div>
@@ -589,9 +556,9 @@ export function BrandRegisterForm() {
                   {...form.register("contactFullName")}
                 />
                 {form.formState.errors.contactFullName ? (
-                  <p className="text-xs text-red-500">
+                  <FieldWarn>
                     {form.formState.errors.contactFullName.message}
-                  </p>
+                  </FieldWarn>
                 ) : null}
               </div>
 
@@ -632,9 +599,9 @@ export function BrandRegisterForm() {
                   So we can reach you with support and collaboration updates.
                 </p>
                 {form.formState.errors.contactPhone ? (
-                  <p className="text-xs text-red-500">
+                  <FieldWarn>
                     {form.formState.errors.contactPhone.message}
-                  </p>
+                  </FieldWarn>
                 ) : null}
               </div>
 
@@ -655,9 +622,7 @@ export function BrandRegisterForm() {
                   Optional — helps creators learn about your brand before they collaborate.
                 </p>
                 {form.formState.errors.website ? (
-                  <p className="text-xs text-red-500">
-                    {form.formState.errors.website.message}
-                  </p>
+                  <FieldWarn>{form.formState.errors.website.message}</FieldWarn>
                 ) : null}
               </div>
 
@@ -710,9 +675,7 @@ export function BrandRegisterForm() {
                     <p className="mt-0.5 text-[13px] text-slate-500">
                       JPG, PNG, WebP up to 5 MB
                     </p>
-                    {logoError ? (
-                      <p className="mt-1 text-xs text-red-500">{logoError}</p>
-                    ) : null}
+                    {logoError ? <FieldWarn>{logoError}</FieldWarn> : null}
                   </div>
                 </div>
 
@@ -814,9 +777,9 @@ export function BrandRegisterForm() {
                 {", and confirm I'm authorized to represent this brand."}
               </Label>
               {form.formState.errors.termsAccepted ? (
-                <p className="text-xs text-red-500">
+                <FieldWarn>
                   {form.formState.errors.termsAccepted.message}
-                </p>
+                </FieldWarn>
               ) : null}
             </div>
           </div>
@@ -848,29 +811,19 @@ export function BrandRegisterForm() {
                 .
               </Label>
               {form.formState.errors.guidelinesAccepted ? (
-                <p className="text-xs text-red-500">
+                <FieldWarn>
                   {form.formState.errors.guidelinesAccepted.message}
-                </p>
+                </FieldWarn>
               ) : null}
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            {!isSignupComplete && signupBlockers.length > 0 && !pendingSubmit ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Still needed: {signupBlockers.join(" · ")}
-              </p>
-            ) : null}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
               <Button
                 type="submit"
-                disabled={!isSignupComplete || pendingAny}
-                className={cn(
-                  "h-11 w-full rounded-full text-[15px] font-bold transition-colors lg:flex-1",
-                  isSignupComplete
-                    ? "bg-[#3e76ef] text-white hover:bg-[#2d5cc5] disabled:opacity-70 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
-                    : "bg-[#F2F2F2] text-[#8B8489] hover:bg-[#E8E8E8] hover:text-[#7A7579] dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
-                )}
+                disabled={pendingAny}
+                className="h-11 w-full rounded-full bg-[#3e76ef] text-[15px] font-bold text-white transition-colors hover:bg-[#2d5cc5] disabled:opacity-70 lg:flex-1 dark:bg-[#3e76ef] dark:hover:bg-[#2d5cc5]"
               >
                 {pendingSubmit ? (
                   <>

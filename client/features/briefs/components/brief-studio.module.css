@@ -1,7 +1,7 @@
 .studio,
 .briefCard,
 .briefsDrawer {
-  --bs-font-heading: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --bs-font-heading: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   --bs-lime: #c6ff3d;
   --bs-grape: #8b5cf6;
   --bs-radius-lg: var(--radius);

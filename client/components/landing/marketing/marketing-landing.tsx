@@ -19,13 +19,12 @@ import { cn } from "@/lib/utils";
 const sectionPadY = "py-[clamp(84px,11vw,152px)]";
 
 /**
- * Pink CTA: solid fill with dark text, matching the onboarding screens.
- * `hover:bg-pink` is required — PillButton's primary variant ships
- * `hover:bg-foreground/90`, which would otherwise darken the fill on hover
- * and leave dark text on a near-black background.
+ * Deep-pink CTA (`#B3123F`). `hover:bg-deep-pink` is required —
+ * PillButton's primary variant ships `hover:bg-foreground/90`, which would
+ * otherwise darken the fill on hover.
  */
 const pinkCta =
-  "bg-pink hover:bg-pink text-foreground shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
+  "bg-deep-pink hover:bg-deep-pink text-white shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
 
 /** White CTA used on the dark sections. */
 const lightCta =
@@ -230,7 +229,7 @@ const REMOVES = [
     title: "Structure",
     desc: "Keep briefs, orders, revisions and deliveries organised.",
     bg: "bg-blush-100",
-    bar: "border-t-blush-700",
+    bar: "border-t-deep-pink",
   },
   {
     title: "Visibility",
@@ -310,7 +309,7 @@ const carouselItem = "w-[62%] shrink-0 snap-start sm:w-[76%] md:w-auto";
 /** Colours for a stage chip in the order-flow strip. */
 function orderStageClass(index: number, last: boolean) {
   if (last) return "bg-pink border-pink text-white";
-  if (index < 5) return "bg-pink/15 border-pink/20 text-[#8E0E32]";
+  if (index < 5) return "bg-pink/15 border-pink/20 text-deep-pink";
   return "bg-secondary border-pink/15 text-muted-foreground";
 }
 
@@ -326,7 +325,7 @@ export function MarketingLanding() {
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,72px)] lg:grid-cols-[1.02fr_0.98fr]">
           <div>
             <div className="bg-pink/15 mb-6 inline-flex items-center gap-2 rounded-full px-4 py-[7px]">
-              <span className="font-heading text-blush-700 text-[11px] font-bold tracking-[0.13em]">
+              <span className="font-heading text-deep-pink text-[11px] font-bold tracking-[0.13em]">
                 BUILT FOR BRANDS &amp; CREATORS
               </span>
             </div>
@@ -363,7 +362,7 @@ export function MarketingLanding() {
                 {HERO_FILTERS.map((f) => (
                   <span
                     key={f}
-                    className="font-heading bg-blush-100 text-blush-700 border-foreground/10 rounded-full border px-3.5 py-2 text-[12.5px] font-semibold"
+                    className="font-heading bg-blush-100 text-deep-pink border-foreground/10 rounded-full border px-3.5 py-2 text-[12.5px] font-semibold"
                   >
                     {f}
                   </span>
@@ -452,7 +451,7 @@ export function MarketingLanding() {
                 "border-foreground bg-card flex flex-col rounded-[32px] border-2 p-[clamp(28px,3.4vw,44px)]",
               )}
             >
-              <div className="font-heading text-blush-700 mb-[18px] text-[11px] font-bold tracking-[0.13em]">
+              <div className="font-heading text-deep-pink mb-[18px] text-[11px] font-bold tracking-[0.13em]">
                 FOR BRANDS
               </div>
               <h3 className="font-heading mb-3.5 text-[clamp(1.35rem,2.2vw,1.75rem)] leading-[1.18] font-bold tracking-[-0.02em] text-balance">
@@ -813,7 +812,7 @@ export function MarketingLanding() {
               key={t.name}
               className="bg-blush-50 border-blush-200 flex flex-col rounded-[28px] border-2 p-[clamp(26px,3.2vw,40px)]"
             >
-              <div className="font-heading text-blush-700 mb-[22px] text-[11px] font-bold tracking-[0.13em]">
+              <div className="font-heading text-deep-pink mb-[22px] text-[11px] font-bold tracking-[0.13em]">
                 {t.tag}
               </div>
               <div className="font-heading mb-7 text-[clamp(1.3rem,2.4vw,1.95rem)] leading-[1.24] font-extrabold tracking-[-0.025em] text-pretty">
@@ -869,7 +868,7 @@ export function MarketingLanding() {
                         )}
                       >
                         <ChevronDown
-                          className="text-blush-700 h-3 w-3"
+                          className="text-deep-pink h-3 w-3"
                           strokeWidth={3}
                         />
                       </span>
@@ -934,7 +933,7 @@ export function MarketingLanding() {
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
           href="/register/brand"
-          className="bg-pink hover:bg-pink text-foreground border-foreground flex-1 border-2 py-3.5 text-sm font-bold"
+          className="bg-deep-pink hover:bg-deep-pink text-white border-foreground flex-1 border-2 py-3.5 text-sm font-bold"
         >
           Find Creators — Free
         </PillButton>

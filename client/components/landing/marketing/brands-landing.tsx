@@ -11,22 +11,25 @@ import { cn } from "@/lib/utils";
 /**
  * Public "For Brands" marketing page (/brands).
  *
- * Argues the case for searching instead of cold-DMing. Unlike the landing
- * and /creators pages, the brand surface pairs the pink CTAs with lime
- * accents — the badge, the "GoCollab way" panel, the why-cards and the FAQ
- * chevrons — which is what separates it visually from the creator side.
+ * Argues the case for searching instead of cold-DMing. The brand surface
+ * pairs plum CTAs with light-plum accents — the badge, the "GoCollab way"
+ * panel, the why-cards and the FAQ chevrons — which is what separates it
+ * visually from the creator side.
  */
 
 /** Vertical rhythm shared across the marketing pages. */
 const sectionPadY = "py-[clamp(84px,11vw,152px)]";
 
 /**
- * Deep-pink CTA (`#B3123F`). `hover:bg-deep-pink` is required —
+ * Plum CTA (`#6e2545`). `hover:bg-plum-700` is required —
  * PillButton's primary variant ships `hover:bg-foreground/90`, which would
  * otherwise darken the fill and leave text on a near-black background.
  */
-const pinkCta =
-  "bg-deep-pink hover:bg-deep-pink text-white shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
+const plumCta =
+  "bg-plum-700 hover:bg-plum-700 text-white shadow-hard border-0 hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none";
+
+/** Light plum fill (`#e8dde2`) used in place of lime on this page. */
+const plumFill = "bg-plum-150";
 
 /** Cards that lift on hover. */
 const lift = "transition-transform duration-200 hover:-translate-y-1";
@@ -57,7 +60,7 @@ const CHAOS = [
 
 /** Status pill colours for the collaboration dashboard mock. */
 const STATUS_STYLE: Record<string, string> = {
-  "In Progress": "bg-pink/15 text-deep-pink",
+  "In Progress": "bg-plum-50 text-plum-700",
   "Awaiting Shipment": "bg-secondary text-muted-foreground",
   Delivered: "bg-[#E8F7F0] text-foreground",
   Revision: "bg-[#FFF1F5] text-[#B02A62]",
@@ -326,7 +329,7 @@ export function BrandsLanding() {
 
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-[clamp(40px,5vw,68px)] lg:grid-cols-[1.02fr_0.98fr]">
           <div>
-            <div className="border-foreground bg-lime mb-[26px] inline-flex items-center gap-2.5 rounded-full border-2 px-[22px] py-[11px] shadow-sticker">
+            <div className={`border-foreground ${plumFill} mb-[26px] inline-flex items-center gap-2.5 rounded-full border-2 px-[22px] py-[11px] shadow-sticker`}>
               <span className="bg-foreground h-[9px] w-[9px] rounded-full" />
               <span className="font-heading text-foreground text-[15px] font-extrabold tracking-[0.1em]">
                 FREE TO EXPLORE
@@ -347,7 +350,7 @@ export function BrandsLanding() {
             <div className="mb-6 flex flex-wrap gap-3">
               <PillButton
                 href="/register/brand"
-                className={cn(pinkCta, "px-[30px] py-[17px] text-[15px]")}
+                className={cn(plumCta, "px-[30px] py-[17px] text-[15px]")}
               >
                 Explore Creators — Free
               </PillButton>
@@ -388,7 +391,7 @@ export function BrandsLanding() {
               <PillButton
                 href="/register/brand"
                 className={cn(
-                  pinkCta,
+                  plumCta,
                   "mb-[18px] w-full rounded-[14px] py-[15px] text-[14.5px]",
                 )}
               >
@@ -426,7 +429,7 @@ export function BrandsLanding() {
                 ))}
               </div>
             </div>
-            <div className="border-foreground bg-lime animate-float absolute -top-3.5 -right-3 rounded-full border-2 px-[15px] py-[9px] shadow-sticker">
+            <div className={`border-foreground ${plumFill} animate-float absolute -top-3.5 -right-3 rounded-full border-2 px-[15px] py-[9px] shadow-sticker`}>
               <span className="font-heading text-foreground text-xs font-bold">
                 12 creators match
               </span>
@@ -591,7 +594,7 @@ export function BrandsLanding() {
             </div>
             <PillButton
               href="/register/brand"
-              className={cn(pinkCta, "px-[30px] py-4 text-[15px]")}
+              className={cn(plumCta, "px-[30px] py-4 text-[15px]")}
             >
               Show Me Creators
             </PillButton>
@@ -662,7 +665,7 @@ export function BrandsLanding() {
             </h3>
             <PillButton
               href="/register/brand"
-              className={cn(pinkCta, "px-[30px] py-4 text-[15px]")}
+              className={cn(plumCta, "px-[30px] py-4 text-[15px]")}
             >
               Explore Creators
             </PillButton>
@@ -689,7 +692,7 @@ export function BrandsLanding() {
                 ))}
               </div>
             </div>
-            <div className="border-foreground bg-lime text-foreground shadow-hard rounded-[28px] border-2 p-[clamp(26px,3.2vw,40px)]">
+            <div className={`border-foreground ${plumFill} text-foreground shadow-hard rounded-[28px] border-2 p-[clamp(26px,3.2vw,40px)]`}>
               <div className="font-heading text-foreground/55 mb-6 text-[11px] font-bold tracking-[0.13em]">
                 {SITE_NAME.toUpperCase()}
               </div>
@@ -841,7 +844,7 @@ export function BrandsLanding() {
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {WHY.map((w) => (
-              <div key={w.title} className="border-t-lime border-t-2 pt-[22px]">
+              <div key={w.title} className="border-t-plum-150 border-t-2 pt-[22px]">
                 <div className="font-heading mb-[11px] text-[clamp(20px,2.1vw,24px)] font-bold tracking-[-0.02em]">
                   {w.title}
                 </div>
@@ -872,7 +875,7 @@ export function BrandsLanding() {
           </div>
           <PillButton
             href="/register/brand"
-            className={cn(pinkCta, "px-8 py-[18px] text-[15.5px]")}
+            className={cn(plumCta, "px-8 py-[18px] text-[15.5px]")}
           >
             Explore Creators — Free
           </PillButton>
@@ -904,7 +907,7 @@ export function BrandsLanding() {
                       {f.q}
                       <span
                         className={cn(
-                          "bg-lime inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full transition-transform duration-200",
+                          `${plumFill} inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full transition-transform duration-200`,
                           open && "rotate-180",
                         )}
                       >
@@ -970,7 +973,7 @@ export function BrandsLanding() {
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
           href="/register/brand"
-          className="bg-deep-pink hover:bg-deep-pink text-white border-foreground w-full border-2 py-3.5 text-sm font-bold"
+          className="bg-plum-700 hover:bg-plum-700 border-foreground w-full border-2 py-3.5 text-sm font-bold text-white"
         >
           Explore Creators — Free
         </PillButton>

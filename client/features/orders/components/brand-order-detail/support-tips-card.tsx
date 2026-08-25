@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  CheckCircle,
-  Clapperboard,
-  Headphones,
-  MessageCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { openSupportChat } from "@/components/tawk-to";
+import { CheckCircle, Clapperboard, Headphones } from "lucide-react";
 
 export function NeedHelpCard() {
   return (
@@ -21,15 +14,6 @@ export function NeedHelpCard() {
       <p className="text-sm text-muted-foreground mt-1">
         Our support team is here to help you.
       </p>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full mt-4 rounded-lg text-sm font-medium"
-        onClick={openSupportChat}
-      >
-        <MessageCircle className="size-4" />
-        Chat with Support
-      </Button>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Check,
   ExternalLink,
-  Headphones,
   MessageSquare,
   X,
   XCircle,
@@ -18,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { type StepDef } from "./order-progress-stepper";
 import { CreatorOrderPanelLayout } from "./creator-order-panel-layout";
-import { openSupportChat } from "@/components/tawk-to";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
 
 interface CreatorOrderCancelledPanelProps {
@@ -265,15 +263,6 @@ function CancelledPayoutCard() {
       <p className="text-sm text-muted-foreground mb-4">
         If you have questions, feel free to contact support.
       </p>
-
-      <Button
-        variant="outline"
-        className="w-full rounded-lg h-10 text-xs font-semibold border-border/50 gap-1.5"
-        onClick={openSupportChat}
-      >
-        <Headphones className="w-3.5 h-3.5" />
-        Contact Support
-      </Button>
     </div>
   );
 }

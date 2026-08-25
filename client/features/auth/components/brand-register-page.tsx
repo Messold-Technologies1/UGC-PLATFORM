@@ -1,172 +1,148 @@
 "use client";
 
-import { Search, ClipboardList, ShieldCheck, MonitorPlay } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AuthLogoLink } from "./auth-logo-link";
-import { BrandRegisterForm } from "./brand-register-form";
+import { BrandRegisterForm, brandEyebrow } from "./brand-register-form";
+
+/**
+ * Brand signup shell (/register/brand).
+ *
+ * Owns the page chrome from the Brand Registration design — sticky header,
+ * the headline above the form, the sticky right rail, and the footer links.
+ * The signup flow itself lives in BrandRegisterForm.
+ *
+ * This surface is deliberately quieter than the creator side: a restrained
+ * plum accent on warm neutrals, 1px hairlines and 11–12px radii rather than
+ * the marketing pages' 2px borders and hard shadows.
+ */
+
+const BENEFITS = [
+  {
+    title: "Discover creators faster",
+    note: "Search by category, city, budget and delivery time instead of scrolling Instagram.",
+  },
+  {
+    title: "Streamline your workflow",
+    note: "Brief, approve and track every deliverable from one dashboard.",
+  },
+  {
+    title: "Secure payments, always",
+    note: "Protected transactions on every collaboration.",
+  },
+  {
+    title: "Build a content engine",
+    note: "Save creators you like, reuse briefs, scale what works.",
+  },
+];
 
 export function BrandRegisterPage() {
+  const searchParams = useSearchParams();
+  /* Keep the post-login redirect intact — the form used to own this link. */
+  const callbackUrl = searchParams.get("callbackUrl");
+  const loginHref = `/login?role=brand${
+    callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+  }`;
+
   return (
-    <div className="grid min-h-dvh xl:h-dvh xl:overflow-hidden xl:grid-cols-[47.5%_52.5%] box-border">
-      <div
-        className="relative hidden flex-col overflow-hidden h-screen py-7 px-10 text-slate-900 xl:flex"
-        style={{
-          background:
-            "linear-gradient(165deg, #eef5fe 0%, #e8eefd 55%, #d7e4fb 100%)",
-        }}
-      >
-        <div
-          className="absolute inset-0 z-0 pointer-events-none opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, #B4C6D2 1.5px, transparent 1.5px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div
-          className="absolute pointer-events-none z-0 rounded-full blur-[100px]"
-          style={{
-            width: "360px",
-            height: "360px",
-            top: "-120px",
-            right: "-120px",
-            background: "rgba(62, 118, 239, 0.25)",
-          }}
-        />
-        <div className="relative z-10 flex flex-col h-full">
-          <div className="-mt-10 mb-6">
-            <AuthLogoLink imageClassName="h-32" />
+    <div className="text-foreground min-h-screen bg-white">
+      <header className="border-foreground/10 sticky top-0 z-40 border-b bg-white/86 backdrop-blur-[14px]">
+        <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-6 py-[15px]">
+          <div className="flex items-center gap-[13px]">
+            {/* The design's wordmark is 20px; brand-logo.png carries more padding,
+                so it needs more height to read the same. */}
+            <AuthLogoLink imageClassName="h-8" />
+            <span className="bg-foreground/16 h-[17px] w-px" />
+            <span className={brandEyebrow}>Brand sign up</span>
           </div>
-
-          <h1 className="text-[42px] font-extrabold tracking-tight mb-5 leading-[1.1]">
-            Manage creator collaborations <br />
-            <span className="text-[#5138ed]">without the chaos.</span>
-          </h1>
-
-          <p className="text-[15px] text-slate-700/90 max-w-lg mb-8 font-medium leading-relaxed">
-            Everything you need to find creators, manage projects, and get high
-            performing content— all in one place.
-          </p>
-
-          <div className="space-y-3 w-full max-w-lg">
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
+          <span className="text-muted-foreground text-[13.5px]">
+            Already have an account?{" "}
+            <Link
+              href={loginHref}
+              className="text-plum-700 font-semibold hover:underline"
             >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-500 text-white">
-                <Search className="size-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Discover creators faster
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Find the right creators in minutes, not hours.
-                </p>
-              </div>
-            </div>
+              Log in as Brand
+            </Link>
+          </span>
+        </div>
+      </header>
 
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                <ClipboardList className="size-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Streamline your workflow
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Brief, manage, approve and track deliverables from one clean dashboard.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#5138ed] text-white">
-                <ShieldCheck className="size-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Secure payments, always
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Safe payments and protected transactions for every collaboration.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="grid items-center gap-3 rounded-[14px] py-[11px] px-[14px] border border-white/70 backdrop-blur-[4px]"
-              style={{
-                gridTemplateColumns: "36px 1fr",
-                background: "rgba(255, 255, 255, 0.72)",
-              }}
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white">
-                <MonitorPlay className="size-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Build a reusable content engine
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Save creators, reuse briefs and scale winning content.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* <div className="mt-auto pt-8">
-            <p className="text-[13px] font-semibold text-slate-600 mb-4">
-              Trusted by 500+ brands worldwide
+      <div className="mx-auto max-w-[1160px] px-6 pt-[clamp(34px,4.5vw,64px)] pb-[clamp(56px,7vw,96px)]">
+        <div className="grid items-start gap-[clamp(36px,5vw,76px)] lg:grid-cols-[1.08fr_0.92fr]">
+          <div>
+            <h1 className="font-heading mb-3.5 text-[clamp(2rem,3.6vw,2.7rem)] leading-[1.06] font-bold tracking-[-0.03em] text-balance">
+              Create your brand profile
+            </h1>
+            <p className="text-muted-foreground mb-[clamp(30px,3.6vw,42px)] max-w-[480px] text-[16.5px] leading-relaxed text-pretty">
+              Brand name, categories and the rest can wait — add them from your
+              profile whenever you like.
             </p>
-            <div className="flex flex-wrap items-center justify-between max-w-lg opacity-60 grayscale mix-blend-multiply">
-              <span className="text-[22px] font-serif font-bold tracking-tight text-slate-800">
-                mamaearth
+
+            <BrandRegisterForm />
+
+            <div className="border-foreground/10 text-muted-foreground mt-[34px] flex flex-wrap items-center justify-between gap-4 border-t pt-6 text-[13.5px]">
+              <span>
+                Already have an account?{" "}
+                <Link
+                  href={loginHref}
+                  className="text-plum-700 font-semibold hover:underline"
+                >
+                  Log in as Brand
+                </Link>
               </span>
-              <span className="text-[15px] font-bold tracking-[0.15em] uppercase text-slate-800">
-                Sugar
-              </span>
-              <span className="text-[26px] font-black tracking-tighter lowercase text-slate-800">
-                bo<span className="text-slate-600">A</span>t
-              </span>
-              <span className="text-[22px] font-medium tracking-wide lowercase text-slate-800 font-['Outfit']">
-                plum
-              </span>
-              <span className="text-[19px] font-bold tracking-tight lowercase text-slate-800">
-                minimalist
+              <span>
+                Are you a creator?{" "}
+                <Link
+                  href="/register/creator"
+                  className="text-plum-700 hover:underline"
+                >
+                  Sign up as a creator
+                </Link>
               </span>
             </div>
-          </div> */}
-        </div>
-      </div>
+          </div>
 
-      <div className="flex min-w-0 flex-col bg-[#fdfcfb] dark:bg-slate-950 xl:h-dvh xl:min-h-0 xl:overflow-hidden">
-        <div className="shrink-0 border-b border-blue-100/80 px-4 pb-4 pt-4 dark:border-slate-800 xl:hidden">
-          <AuthLogoLink className="flex justify-center" imageClassName="h-20 sm:h-24" />
-          <p className="mt-3 text-base font-bold leading-snug text-slate-900">
-            Manage creator collaborations{" "}
-            <span className="text-[#5138ed]">without the chaos.</span>
-          </p>
-          <p className="mt-1.5 text-sm text-slate-600">
-            Find creators, manage projects, and get high-performing content in one place.
-          </p>
-        </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:overflow-hidden">
-          <BrandRegisterForm />
+          {/* RAIL */}
+          <div>
+            <div className="lg:sticky lg:top-25">
+              <div className="border-plum-150 bg-plum-50 rounded-[20px] border p-[clamp(26px,3vw,34px)]">
+                <div className={`${brandEyebrow} mb-5`}>Free to explore</div>
+                <h2 className="font-heading mb-3.5 text-[clamp(1.3rem,2.2vw,1.65rem)] leading-[1.18] font-bold tracking-[-0.03em] text-balance">
+                  Manage creator collaborations without the chaos.
+                </h2>
+                <p className="text-muted-foreground mb-2 text-[15px] leading-relaxed text-pretty">
+                  Everything you need to find creators, manage projects and get
+                  content that performs — in one place.
+                </p>
+                <div className="flex flex-col">
+                  {BENEFITS.map((b) => (
+                    <div
+                      key={b.title}
+                      className="border-plum-150 border-t py-4"
+                    >
+                      <div className="mb-1 text-[15px] font-semibold">
+                        {b.title}
+                      </div>
+                      <div className="text-muted-foreground text-[13.5px] leading-[1.5]">
+                        {b.note}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-foreground/10 mt-7 hidden border-t pt-[26px] sm:block">
+                <div className={`${brandEyebrow} mb-[13px]`}>
+                  No card, no commitment
+                </div>
+                <p className="text-muted-foreground text-[14.5px] leading-[1.62] text-pretty">
+                  Creating an account just gets you into the marketplace.
+                  You&rsquo;ll see every creator&rsquo;s pricing and delivery
+                  time before you order anything.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

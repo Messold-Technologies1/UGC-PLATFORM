@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckCircle, Clapperboard, Headphones } from "lucide-react";
+import {
+  CheckCircle,
+  Clapperboard,
+  Headphones,
+  MessageCircle,
+} from "lucide-react";
+import { ContactSupportButton } from "@/components/contact-support-dialog";
 
 export function NeedHelpCard() {
   return (
@@ -14,6 +20,13 @@ export function NeedHelpCard() {
       <p className="text-sm text-muted-foreground mt-1">
         Our support team is here to help you.
       </p>
+      <ContactSupportButton
+        className="w-full mt-4 rounded-lg text-sm font-medium"
+        defaultSubject="Order support"
+      >
+        <MessageCircle className="size-4" />
+        Chat with Support
+      </ContactSupportButton>
     </div>
   );
 }

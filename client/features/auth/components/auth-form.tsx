@@ -8,7 +8,7 @@ import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isAxiosError } from "axios";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, Plus, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,13 +31,20 @@ import {
   LOGIN_ROLES,
   ROLE_CONFIGS,
   setRememberedRole,
-  clearRememberedRole,
 } from "@/features/auth/lib/login-role-config";
-import { AuthLogoLink } from "./auth-logo-link";
 import { GoogleMark } from "./google-mark";
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
-import styles from "./login-page.module.css";
 
+const loginLabel = "text-[13px] font-semibold text-[#181313]";
+
+const loginInput =
+  "h-[46px] w-full rounded-xl border border-[#E8E4E6] bg-white px-3.5 text-sm text-[#181313] shadow-none outline-none placeholder:text-[#B0AAAE] focus:border-[#D4CED2]";
+
+const loginSubmit =
+  "flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-(--login-accent) text-[14.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-70";
+
+const loginSecondary =
+  "flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#E8E4E6] bg-white text-[14.5px] font-semibold text-[#181313] no-underline transition-colors hover:border-[#DDD8DA] hover:bg-[#FAFAFA]";
 
 const loginSchema = z.object({
   email: z
@@ -47,6 +54,18 @@ const loginSchema = z.object({
 });
 
 type LoginData = z.infer<typeof loginSchema>;
+
+function LoginDivider({ children }: { children: ReactNode }) {
+  return (
+    <div className="my-7 flex items-center gap-3">
+      <span className="h-px flex-1 bg-[#EDE8EA]" />
+      <span className="text-[13px] font-medium whitespace-nowrap text-[#8B8489]">
+        {children}
+      </span>
+      <span className="h-px flex-1 bg-[#EDE8EA]" />
+    </div>
+  );
+}
 
 
 interface AuthFormProps {
@@ -146,180 +165,162 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
   );
 
   if (roleConfig) {
-    const TagIcon = roleConfig.icon;
+    const callbackUrl = searchParams.get("callbackUrl");
+    const callbackQuery = callbackUrl
+      ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      : "";
+    const callbackAmp = callbackUrl
+      ? `&callbackUrl=${encodeURIComponent(callbackUrl)}`
+      : "";
 
     return (
-      <div className="w-full max-w-[392px]">
-        <div className={styles.mobileHead}>
-          <AuthLogoLink className="-ml-2" imageClassName="h-16 sm:h-20" />
-          <Link
-            href={`/login${searchParams.get("callbackUrl") ? `?callbackUrl=${encodeURIComponent(searchParams.get("callbackUrl")!)}` : ""}`}
-            className={styles.mobileHeadBack}
-            onClick={clearRememberedRole}
-          >
-            <ArrowLeft size={14} aria-hidden="true" />
-            Account types
-          </Link>
-        </div>
+      <div className="w-full max-w-100">
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+          <span className="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.14em] text-(--login-accent) uppercase">
+            <span
+              className="size-1.5 shrink-0 rounded-full bg-(--login-accent)"
+              aria-hidden="true"
+            />
+            {view === "login" ? roleConfig.tag : "Reset password"}
+          </span>
 
-        <span className={styles.formTag}>
-          <TagIcon size={13} aria-hidden="true" />
-          {view === "login" ? roleConfig.tag : "Reset password"}
-        </span>
+          {view === "login" && (
+            <>
+              <h2 className="font-heading mt-3.5 text-[28px] font-bold tracking-[-0.03em] text-[#181313]">
+                {roleConfig.formTitle}
+              </h2>
+              <p className="mt-1.5 text-[14.5px] leading-snug text-[#8B8489]">
+                {roleConfig.formSub}
+              </p>
+            </>
+          )}
+
+          {view === "forgot" && (
+            <>
+              <h2 className="font-heading mt-3.5 text-[28px] font-bold tracking-[-0.03em] text-[#181313]">
+                Reset your password
+              </h2>
+              <p className="mt-1.5 text-[14.5px] leading-snug text-[#8B8489]">
+                Enter your email and we&apos;ll send you a link to reset your
+                password.
+              </p>
+            </>
+          )}
+
+          {view === "forgot-sent" && (
+            <>
+              <h2 className="font-heading mt-3.5 text-[28px] font-bold tracking-[-0.03em] text-[#181313]">
+                Check your email
+              </h2>
+              <p className="mt-1.5 text-[14.5px] leading-snug text-[#8B8489]">
+                If an account exists for that email, we sent reset instructions.
+                The link expires in one hour.
+              </p>
+            </>
+          )}
+        </div>
 
         {view === "login" && (
           <>
-            <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
-              {roleConfig.formTitle}
-            </h2>
-            <p className="mt-[7px] text-[13.5px] text-muted-foreground">
-              {roleConfig.formSub}
-            </p>
             <form
               onSubmit={loginForm.handleSubmit(handleLogin)}
-              className="mt-[26px] flex flex-col gap-[15px]"
+              className="mt-7 flex flex-col gap-4"
               noValidate
             >
-              <div className="flex flex-col gap-[7px]">
-                <Label
-                  htmlFor="login-email"
-                  className="text-[12.5px] font-bold"
-                >
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="login-email" className={loginLabel}>
                   Email
                 </Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
-                    <Mail size={17} aria-hidden="true" />
-                  </span>
-                  <input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@company.com"
-                    disabled={pendingAuth}
-                    autoComplete="email"
-                    className={cn(
-                      "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[14px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
-                      "placeholder:text-muted-foreground",
-                      "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
-                      loginForm.formState.errors.email && "border-destructive",
-                    )}
-                    {...loginForm.register("email")}
-                  />
-                </div>
+                <input
+                  id="login-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  disabled={pendingAuth}
+                  autoComplete="email"
+                  aria-invalid={
+                    loginForm.formState.errors.email ? true : undefined
+                  }
+                  className={cn(
+                    loginInput,
+                    loginForm.formState.errors.email && "border-[#DB4A4A]",
+                  )}
+                  {...loginForm.register("email")}
+                />
                 {loginForm.formState.errors.email && (
-                  <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                  <p className="text-destructive text-xs font-semibold">
                     {loginForm.formState.errors.email.message}
                   </p>
                 )}
               </div>
-              <div className="flex flex-col gap-[7px]">
-                <Label
-                  htmlFor="login-password"
-                  className="text-[12.5px] font-bold"
-                >
-                  Password
-                </Label>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="login-password" className={loginLabel}>
+                    Password
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setView("forgot")}
+                    className="cursor-pointer border-0 bg-transparent p-0 text-[13px] font-medium whitespace-nowrap text-(--login-accent) no-underline hover:underline hover:underline-offset-[3px]"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
-                    <Lock size={16} aria-hidden="true" />
-                  </span>
                   <input
                     id="login-password"
                     type={showLoginPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder="Your password"
                     disabled={pendingAuth}
                     autoComplete="current-password"
+                    aria-invalid={
+                      loginForm.formState.errors.password ? true : undefined
+                    }
                     className={cn(
-                      "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[44px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
-                      "placeholder:text-muted-foreground",
-                      "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
-                      loginForm.formState.errors.password && "border-destructive",
+                      loginInput,
+                      "pr-14",
+                      loginForm.formState.errors.password && "border-[#DB4A4A]",
                     )}
                     {...loginForm.register("password")}
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex size-[34px] items-center justify-center rounded-[9px] border-0 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-0 text-[13px] font-medium text-[#8B8489] hover:text-[#181313]"
                     onClick={() => setShowLoginPassword((v) => !v)}
                     aria-label={
                       showLoginPassword ? "Hide password" : "Show password"
                     }
                   >
-                    {showLoginPassword ? (
-                      <EyeOff size={17} aria-hidden="true" />
-                    ) : (
-                      <Eye size={17} aria-hidden="true" />
-                    )}
+                    {showLoginPassword ? "Hide" : "Show"}
                   </button>
                 </div>
                 {loginForm.formState.errors.password && (
-                  <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                  <p className="text-destructive text-xs font-semibold">
                     {loginForm.formState.errors.password.message}
                   </p>
                 )}
               </div>
-              <div className="flex items-center justify-end gap-3 -mt-0.5">
-                {/* <label className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground cursor-pointer select-none">
-                  <input type="checkbox" defaultChecked className="sr-only peer" />
-                  <span
-                    className={cn(
-                      "flex size-[18px] items-center justify-center rounded-[6px] border-[1.6px] border-border text-white transition-all",
-                      "peer-checked:bg-[var(--login-accent)] peer-checked:border-[var(--login-accent)]",
-                    )}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </span>
-                  Remember me
-                </label> */}
-                <button
-                  type="button"
-                  onClick={() => setView("forgot")}
-                  className="text-[13px] font-bold text-[var(--login-accent)] no-underline whitespace-nowrap hover:underline hover:underline-offset-[3px] cursor-pointer bg-transparent border-0 p-0"
-                >
-                  Forgot password?
-                </button>
-              </div>
               <button
                 type="submit"
                 disabled={pendingAuth}
-                className={styles.submitBtn}
+                className={cn(loginSubmit, "mt-2")}
               >
                 {loginMutation.isPending ? (
                   <>
-                    <span className={styles.spinner} />
+                    <Spinner className="size-4" aria-hidden />
                     <span>Logging in…</span>
                   </>
                 ) : (
-                  <>
-                    <span>Log in</span>
-                    <ArrowRight size={17} aria-hidden="true" />
-                  </>
+                  roleConfig.submitLabel
                 )}
               </button>
             </form>
             {roleConfig.key === "brand" ? (
               <>
-                <div className={styles.formDivider}>
-                  <span className={styles.formDividerLine} />
-                  <span className={styles.formDividerText}>or</span>
-                  <span className={styles.formDividerLine} />
-                </div>
+                <LoginDivider>or</LoginDivider>
                 <button
                   type="button"
                   disabled={pendingAuth}
-                  className={styles.formSecondary}
+                  className={loginSecondary}
                   onClick={() => {
                     setGoogleLoading(true);
                     startGoogleOAuth({
@@ -337,50 +338,40 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
                 </button>
               </>
             ) : null}
-            <div className={styles.formDivider}>
-              <span className={styles.formDividerLine} />
-              <span className={styles.formDividerText}>
-                {roleConfig.signupLine}
-              </span>
-              <span className={styles.formDividerLine} />
-            </div>
-            <Link 
-              href={`${roleConfig.signupHref}${searchParams.get("callbackUrl") ? `?callbackUrl=${encodeURIComponent(searchParams.get("callbackUrl")!)}` : ""}`} 
-              className={styles.formSecondary}
+            <LoginDivider>{roleConfig.signupLine}</LoginDivider>
+            <Link
+              href={`${roleConfig.signupHref}${callbackQuery}`}
+              className={loginSecondary}
             >
-              <Plus size={16} aria-hidden="true" />
-              {roleConfig.signupCta}
+              {roleConfig.signupCta} →
             </Link>
-            <div className={styles.roleSwitch}>
-              <span className={styles.roleSwitchLabel}>
+            <div className="mt-6 text-left">
+              <span className="text-[13.5px] text-[#8B8489]">
                 Not a {roleConfig.name.toLowerCase()}?
               </span>
-              <span className={styles.roleSwitchLinks}>
-                {LOGIN_ROLES.filter((k) => k !== roleConfig.key).map((k) => {
-                  const other = ROLE_CONFIGS[k];
-                  const callbackUrl = searchParams.get("callbackUrl");
-                  const callbackQuery = callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : "";
-                  return (
-                    <Link
-                      key={k}
-                      href={`/login?role=${k}${callbackQuery}`}
-                      replace
-                      className={styles.roleSwitchLink}
-                      onClick={() => setRememberedRole(k)}
-                    >
-                      <span>Log in as {other.name}</span>
-                      <ArrowRight size={12} aria-hidden="true" />
-                    </Link>
-                  );
-                })}
-              </span>
+              {LOGIN_ROLES.filter(
+                (k) => k !== roleConfig.key && k !== "agency",
+              ).map((k) => {
+                const other = ROLE_CONFIGS[k];
+                return (
+                  <Link
+                    key={k}
+                    href={`/login?role=${k}${callbackAmp}`}
+                    replace
+                    className="ml-1.5 inline text-[13.5px] font-bold text-[#181313] no-underline hover:underline hover:underline-offset-[3px]"
+                    onClick={() => setRememberedRole(k)}
+                  >
+                    Log in as {other.name}
+                  </Link>
+                );
+              })}
             </div>
-            <p className="mt-[22px] text-center text-[11.5px] text-muted-foreground leading-[1.55]">
-              By continuing, you agree to our{" "}
+            <p className="mt-8 text-[12px] leading-relaxed text-[#8B8489]">
+              By continuing you agree to our{" "}
               <Link
                 href="/legal/terms"
                 prefetch={false}
-                className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                className="text-(--login-accent) no-underline hover:underline hover:underline-offset-2"
               >
                 Terms of Service
               </Link>{" "}
@@ -388,7 +379,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
               <Link
                 href="/legal/privacy"
                 prefetch={false}
-                className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                className="text-(--login-accent) no-underline hover:underline hover:underline-offset-2"
               >
                 Privacy Policy
               </Link>
@@ -399,47 +390,32 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
 
         {view === "forgot" && (
           <>
-            <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
-              Reset your password
-            </h2>
-            <p className="mt-[7px] text-[13.5px] text-muted-foreground">
-              Enter your email and we&apos;ll send you a link to reset your
-              password.
-            </p>
-
             <form
               onSubmit={forgotForm.handleSubmit(handleForgotPassword)}
-              className="mt-[26px] flex flex-col gap-[15px]"
+              className="mt-7 flex flex-col gap-4"
               noValidate
             >
-              <div className="flex flex-col gap-[7px]">
-                <Label
-                  htmlFor="forgot-email"
-                  className="text-[12.5px] font-bold"
-                >
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="forgot-email" className={loginLabel}>
                   Email
                 </Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground">
-                    <Mail size={17} aria-hidden="true" />
-                  </span>
-                  <input
-                    id="forgot-email"
-                    type="email"
-                    placeholder="you@company.com"
-                    disabled={forgotMutation.isPending}
-                    autoComplete="email"
-                    className={cn(
-                      "h-[46px] w-full rounded-xl border-[1.5px] border-border bg-white pl-[42px] pr-[14px] text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150",
-                      "placeholder:text-muted-foreground",
-                      "focus:border-[var(--login-accent)] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--login-accent)_14%,transparent)]",
-                      forgotForm.formState.errors.email && "border-destructive",
-                    )}
-                    {...forgotForm.register("email")}
-                  />
-                </div>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  disabled={forgotMutation.isPending}
+                  autoComplete="email"
+                  aria-invalid={
+                    forgotForm.formState.errors.email ? true : undefined
+                  }
+                  className={cn(
+                    loginInput,
+                    forgotForm.formState.errors.email && "border-[#DB4A4A]",
+                  )}
+                  {...forgotForm.register("email")}
+                />
                 {forgotForm.formState.errors.email && (
-                  <p className="text-xs font-semibold text-destructive flex items-center gap-[5px]">
+                  <p className="text-destructive text-xs font-semibold">
                     {forgotForm.formState.errors.email.message}
                   </p>
                 )}
@@ -448,18 +424,15 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
               <button
                 type="submit"
                 disabled={forgotMutation.isPending}
-                className={styles.submitBtn}
+                className={cn(loginSubmit, "mt-2")}
               >
                 {forgotMutation.isPending ? (
                   <>
-                    <span className={styles.spinner} />
+                    <Spinner className="size-4" aria-hidden />
                     <span>Sending…</span>
                   </>
                 ) : (
-                  <>
-                    <span>Send reset link</span>
-                    <ArrowRight size={17} aria-hidden="true" />
-                  </>
+                  "Send reset link"
                 )}
               </button>
             </form>
@@ -467,7 +440,7 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
             <button
               type="button"
               onClick={() => setView("login")}
-              className="mt-[18px] flex items-center justify-center gap-[6px] w-full text-[13px] font-bold text-[var(--login-accent)] cursor-pointer bg-transparent border-0 p-0 hover:underline hover:underline-offset-[3px]"
+              className="mt-5 flex w-full cursor-pointer items-center justify-center gap-1.5 border-0 bg-transparent p-0 text-[13px] font-bold text-(--login-accent) hover:underline hover:underline-offset-[3px]"
             >
               <ArrowLeft size={14} aria-hidden="true" />
               Back to login
@@ -476,27 +449,17 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
         )}
 
         {view === "forgot-sent" && (
-          <>
-            <h2 className="mt-4 text-[25px] font-extrabold tracking-tight font-heading">
-              Check your email
-            </h2>
-            <p className="mt-[7px] text-[13.5px] text-muted-foreground">
-              If an account exists for that email, we sent reset instructions.
-              The link expires in one hour.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                setView("login");
-                forgotForm.reset();
-              }}
-              className={cn(styles.submitBtn, "mt-[26px]")}
-            >
-              <ArrowLeft size={17} aria-hidden="true" />
-              <span>Back to login</span>
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => {
+              setView("login");
+              forgotForm.reset();
+            }}
+            className={cn(loginSubmit, "mt-7")}
+          >
+            <ArrowLeft size={17} aria-hidden="true" />
+            <span>Back to login</span>
+          </button>
         )}
       </div>
     );

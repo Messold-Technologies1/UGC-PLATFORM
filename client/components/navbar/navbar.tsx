@@ -221,29 +221,6 @@ function GuestLoginMenu({
             </div>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          asChild
-          className="rounded-xl p-2 focus:bg-accent cursor-pointer"
-        >
-          <Link
-            href="/login?role=agency"
-            prefetch
-            onClick={onNavigate}
-            className="flex items-center gap-3 w-full"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0e9384]/10 text-[#0e9384]">
-              <Building2 className="size-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm leading-none mb-1">
-                As an Agency
-              </span>
-              <span className="text-[11px] text-muted-foreground leading-none">
-                Manage talent
-              </span>
-            </div>
-          </Link>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -287,7 +264,7 @@ function GuestAudienceNav({
   );
 }
 
-export function Navbar() {
+export function Navbar({ className }: { className?: string } = {}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, isLoading, user } = useAuth();
   const pathname = usePathname();
@@ -332,7 +309,10 @@ export function Navbar() {
         },
       }}
       animate={hidden ? "hidden" : "visible"}
-      className="sticky top-4 z-50 mx-auto w-[90%] xl:w-[75%] mb-10"
+      className={cn(
+        "sticky top-4 z-50 mx-auto mb-10 w-[90%] xl:w-[75%]",
+        className,
+      )}
     >
       <div
         className={cn(
@@ -629,15 +609,6 @@ export function Navbar() {
                   >
                     <Megaphone className="size-4 text-[#5138ed]" />
                     As a Brand
-                  </Link>
-                  <Link
-                    href="/login?role=agency"
-                    prefetch
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <Building2 className="size-4 text-[#0e9384]" />
-                    As an Agency
                   </Link>
                   <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
                     <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">

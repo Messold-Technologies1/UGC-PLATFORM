@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthForm } from "./auth-form";
 
@@ -15,7 +15,6 @@ import {
   inferLoginRoleFromPath,
   normalizeCallbackPath,
 } from "@/features/auth/lib/login-redirect";
-import styles from "./login-page.module.css";
 
 export function AuthPage() {
   return (
@@ -37,8 +36,6 @@ function LoginRouter() {
     if (roleParam) return roleParam;
     const inferred = callbackPath ? inferLoginRoleFromPath(callbackPath) : null;
     if (inferred) return inferred;
-    const remembered = getRememberedRole();
-    if (remembered) return remembered;
     return "brand";
   });
 
@@ -62,23 +59,13 @@ function LoginRouter() {
 
   return (
     <div
-      className={styles.authpage}
+      className="min-h-dvh bg-white"
       data-login-role={role}
-      style={
-        {
-          "--login-accent": config.theme.accent,
-          "--login-accent2": config.theme.accent2,
-          "--login-tint": config.theme.tint,
-          "--login-hero-grad": config.theme.heroGrad,
-          "--login-blob": config.theme.blob,
-          "--login-dot": config.theme.dot,
-          "--login-highlight": config.theme.highlight,
-        } as React.CSSProperties
-      }
+      style={{ "--login-accent": config.theme.accent } as CSSProperties}
     >
-      <div className={styles.authGrid}>
+      <div className="grid min-h-dvh lg:grid-cols-2">
         <LoginHero config={config} />
-        <div className={styles.formWrap}>
+        <div className="flex items-center justify-center bg-white px-6 pt-24 pb-10 sm:px-10 lg:px-16 xl:px-18">
           <AuthForm roleConfig={config} />
         </div>
       </div>

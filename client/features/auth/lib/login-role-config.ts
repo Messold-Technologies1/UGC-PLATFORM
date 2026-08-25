@@ -39,6 +39,7 @@ export interface LoginRoleConfig {
   authorInitials: string;
   formTitle: string;
   formSub: string;
+  submitLabel: string;
   signupCta: string;
   signupLine: string;
   signupHref: string;
@@ -96,8 +97,8 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     icon: Megaphone,
     eyebrow: "For Brands",
     tag: "Brand login",
-    headline: ["Launch UGC that", "actually converts."],
-    sub: "Discover vetted creators, brief them in minutes, and get\nscroll-stopping videos that are ready for paid — all in one place.",
+    headline: ["Launch UGC that actually converts.", ""],
+    sub: "Discover vetted creators, brief them in minutes, and get scroll-stopping videos that are ready for paid — all in one place.",
     bullets: [
       {
         icon: Search,
@@ -126,17 +127,17 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     author: "Yuti Edward",
     authorRole: "Growth Lead, Udd Studio",
     authorInitials: "YW",
-    formTitle: "Log in to your brand workspace",
-    formSub: "Welcome back. Pick up right where your campaigns left off.",
+    formTitle: "Welcome back",
+    formSub: "Log in to manage your campaigns, briefs and orders.",
+    submitLabel: "Log in as Brand",
     signupCta: "Create a brand account",
-    signupLine: "New to GoCollab as brands?",
+    signupLine: "New to GoCollab as a brand?",
     signupHref: "/register/brand",
     theme: {
       accent: "#5138ed",
       accent2: "#7c6cf5",
-      tint: "#eef0fe",
-      heroGrad:
-        "linear-gradient(165deg, #eef5fe 0%, #e8eefd 55%, #d7e4fb 100%)",
+      tint: "#F7F6FB",
+      heroGrad: "#F7F6FB",
       blob: "rgba(62,118,239,.22)",
       dot: "rgba(80,110,160,.16)",
       highlight: "transparent",
@@ -149,23 +150,23 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     icon: Camera,
     eyebrow: "For Creators",
     tag: "Creator login",
-    headline: ["Get booked by", "brands you love."],
-    sub: "Show off your reels, set your own packages, and get paid securely for every collaboration you take on.",
+    headline: ["Your profile kept working while you were shooting.", ""],
+    sub: "Nothing pauses when you close the app. Brands keep searching, keep reading your rates, keep watching your work.",
     bullets: [
       {
         icon: Camera,
-        title: "Showcase your best reels",
-        desc: "A profile that sells you 24/7.",
+        title: "Questions it answered for you",
+        desc: "Rates, deliverables, delivery time, usage rights — all read before anyone typed a message.",
       },
       {
         icon: Layers,
-        title: "Set your own packages & rates",
-        desc: "You decide pricing, delivery and add-ons.",
+        title: "One link doing the rounds",
+        desc: "Every time you send your profile, it goes to work again — no new PDF, no fresh rate card, no repeat explaining.",
       },
       {
         icon: CheckCircle2,
-        title: "Get paid safely, on time",
-        desc: "Funds held in escrow until you deliver.",
+        title: "Work waiting for you here",
+        desc: "New briefs, approvals and revisions are all queued in one place, not scattered across chats.",
       },
     ],
     quote:
@@ -173,20 +174,20 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     author: "Elina Sadh",
     authorRole: "Beauty creator, Mumbai",
     authorInitials: "ES",
-    formTitle: "Log in to your creator studio",
-    formSub: "Welcome back. Your next collab could be one login away.",
+    formTitle: "Welcome back",
+    formSub: "Log in to manage your profile, orders and deliveries.",
+    submitLabel: "Log in as Creator",
     signupCta: "Create a creator account",
-    signupLine: "New to GoCollab as creators?",
+    signupLine: "New to GoCollab as a creator?",
     signupHref: "/register/creator",
     theme: {
-      accent: "#ef3e51",
-      accent2: "#ff8a5b",
-      tint: "#fff1f2",
-      heroGrad:
-        "linear-gradient(165deg, #fef5ee 0%, #fde9e8 55%, #fbd9d7 100%)",
-      blob: "rgba(239,62,81,.20)",
-      dot: "rgba(150,90,90,.16)",
-      highlight: "#ccff00",
+      accent: "#B3123F",
+      accent2: "#B3123F",
+      tint: "#FDF8F8",
+      heroGrad: "#FDF8F8",
+      blob: "rgba(179,18,63,.12)",
+      dot: "rgba(150,90,90,.10)",
+      highlight: "transparent",
     },
   },
 
@@ -196,7 +197,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     icon: Building2,
     eyebrow: "For Agencies",
     tag: "Agency login",
-    headline: ["Run UGC for every", "client, in one place."],
+    headline: ["Run UGC for every client, in one place.", ""],
     sub: "Manage multiple brand workspaces, invite your team, and keep billing and reporting consolidated across clients.",
     bullets: [
       {
@@ -221,17 +222,17 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     author: "Rahul Verma",
     authorRole: "Founder, Spark Media",
     authorInitials: "RV",
-    formTitle: "Log in to your agency workspace",
-    formSub: "Welcome back. All your clients, right where you left them.",
+    formTitle: "Welcome back",
+    formSub: "Log in to manage your client workspaces and orders.",
+    submitLabel: "Log in as Agency",
     signupCta: "Set up an agency account",
-    signupLine: "New to GoCollab as agencies?",
+    signupLine: "New to GoCollab as an agency?",
     signupHref: "/register/agency",
     theme: {
       accent: "#0e9384",
       accent2: "#4fd1c5",
-      tint: "#ecfdf7",
-      heroGrad:
-        "linear-gradient(165deg, #eafaf6 0%, #def5ef 55%, #cbeee4 100%)",
+      tint: "#F6FAF9",
+      heroGrad: "#F6FAF9",
       blob: "rgba(14,147,132,.20)",
       dot: "rgba(70,150,138,.15)",
       highlight: "transparent",

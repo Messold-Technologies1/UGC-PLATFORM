@@ -131,3 +131,7 @@ export function useNotification() {
   }
   return context;
 }
+
+export function useOptionalNotification() {
+  return useContext(NotificationContext);
+}

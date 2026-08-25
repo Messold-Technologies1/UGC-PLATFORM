@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  useNotification,
+  useOptionalNotification,
   type AppNotification,
 } from "@/providers/notification-provider";
 
@@ -47,8 +47,11 @@ const NotificationIcon = ({ type }: { type: AppNotification["type"] }) => {
 };
 
 export function NotificationDropdown() {
+  const notification = useOptionalNotification();
+  if (!notification) return null;
+
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
-    useNotification();
+    notification;
 
   return (
     <div className="group relative">

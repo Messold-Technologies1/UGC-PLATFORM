@@ -31,11 +31,13 @@ import {
   trackPixelCustom,
 } from "@/lib/meta-pixel";
 import { cn } from "@/lib/utils";
+import { CountryCodeSelect } from "@/features/auth/components/country-code-select";
 import { GoogleMark } from "@/features/auth/components/google-mark";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-const PHONE_E164_IN_REGEX = /^\+91[6-9]\d{9}$/;
+/** Same rule the creator signup uses — any country code, 8-15 digits. */
+const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 
 function normalizeWebsite(raw: string): string {
   const trimmed = raw.trim();
@@ -55,8 +57,8 @@ const brandSignupSchema = z.object({
     .string()
     .min(1, "Phone number is required")
     .regex(
-      PHONE_E164_IN_REGEX,
-      "Enter a valid 10-digit Indian mobile number",
+      PHONE_E164_REGEX,
+      "Enter a valid phone number with country code, e.g. +14155552671",
     ),
   website: z
     .string()
@@ -200,6 +202,11 @@ export function BrandRegisterForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  /* Country calling code + national number, combined into the E.164 value
+     stored on the form — same shape as the creator signup. */
+  const [countryIso, setCountryIso] = useState("IN");
+  const [countryDialCode, setCountryDialCode] = useState("91");
+  const [nationalNumber, setNationalNumber] = useState("");
 
   const form = useForm<BrandSignupData>({
     resolver: zodResolver(brandSignupSchema),
@@ -265,6 +272,32 @@ export function BrandRegisterForm() {
     !form.formState.errors.email &&
     !form.formState.errors.password;
   const formIsValid = form.formState.isValid;
+
+  const applyPhone = useCallback(
+    (dialCode: string, national: string) => {
+      const composed = national ? `+${dialCode}${national}` : "";
+      form.setValue("contactPhone", composed, { shouldValidate: true });
+    },
+    [form],
+  );
+
+  const handleCountryChange = useCallback(
+    (iso: string, dialCode: string) => {
+      setCountryIso(iso);
+      setCountryDialCode(dialCode);
+      applyPhone(dialCode, nationalNumber);
+    },
+    [applyPhone, nationalNumber],
+  );
+
+  const handleNationalNumberChange = useCallback(
+    (raw: string) => {
+      const digits = raw.replace(/\D/g, "");
+      setNationalNumber(digits);
+      applyPhone(countryDialCode, digits);
+    },
+    [applyPhone, countryDialCode],
+  );
 
   const handleNextStep = useCallback(async () => {
     const valid = await form.trigger(STEP_FIELDS[currentStep]);
@@ -551,32 +584,27 @@ export function BrandRegisterForm() {
           <Label htmlFor="brand-phone" className={labelClassName}>
             Phone number
           </Label>
-          <div className={prefixedFieldClassName}>
-            <div className="border-foreground/16 text-muted-foreground bg-ash-50 flex h-full items-center justify-center border-r px-3.5 text-[15px] font-semibold">
-              +91
-            </div>
-            <Input
-              id="brand-phone"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              placeholder="98765 43210"
+          <div className="flex items-stretch gap-2">
+            <CountryCodeSelect
+              inputId="brand-signup-country"
+              value={countryIso}
+              onChange={handleCountryChange}
               disabled={pendingAny}
-              className="h-full flex-1 rounded-none border-0 bg-transparent px-3.5 focus-visible:ring-0 focus-visible:ring-offset-0"
-              value={
-                form.watch("contactPhone").startsWith("+91")
-                  ? form.watch("contactPhone").slice(3)
-                  : form.watch("contactPhone")
-              }
-              onChange={(e) => {
-                let val = e.target.value;
-                if (val.startsWith("+91")) val = val.slice(3);
-                const digits = val.replace(/\D/g, "").slice(0, 10);
-                form.setValue("contactPhone", digits ? `+91${digits}` : "", {
-                  shouldValidate: true,
-                });
-              }}
             />
+            <div className={cn(prefixedFieldClassName, "w-full flex-1")}>
+              <Input
+                id="brand-phone"
+                placeholder="9876543210"
+                autoComplete="tel-national"
+                inputMode="tel"
+                disabled={pendingAny}
+                className="h-full flex-1 rounded-none border-0 bg-transparent px-3.5 text-[15.5px] focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-70"
+                value={nationalNumber}
+                onChange={(event) =>
+                  handleNationalNumberChange(event.target.value)
+                }
+              />
+            </div>
           </div>
           {form.formState.errors.contactPhone ? (
             <FieldWarn>{form.formState.errors.contactPhone.message}</FieldWarn>

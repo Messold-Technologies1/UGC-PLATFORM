@@ -229,12 +229,16 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
             >
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="login-email" className={loginLabel}>
-                  Email
+                  {roleConfig.key === "brand" ? "Work email" : "Email"}
                 </Label>
                 <input
                   id="login-email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={
+                    roleConfig.key === "brand"
+                      ? "you@company.com"
+                      : "you@example.com"
+                  }
                   disabled={pendingAuth}
                   autoComplete="email"
                   aria-invalid={
@@ -341,13 +345,18 @@ export function AuthForm({ roleConfig }: AuthFormProps) {
             <LoginDivider>{roleConfig.signupLine}</LoginDivider>
             <Link
               href={`${roleConfig.signupHref}${callbackQuery}`}
-              className={loginSecondary}
+              className={cn(
+                loginSecondary,
+                roleConfig.key === "brand" && "border-[#181313]",
+              )}
             >
               {roleConfig.signupCta} →
             </Link>
             <div className="mt-6 text-left">
               <span className="text-[13.5px] text-[#8B8489]">
-                Not a {roleConfig.name.toLowerCase()}?
+                {roleConfig.key === "brand"
+                  ? "Are you a creator?"
+                  : `Not a ${roleConfig.name.toLowerCase()}?`}
               </span>
               {LOGIN_ROLES.filter(
                 (k) => k !== roleConfig.key && k !== "agency",

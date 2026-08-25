@@ -30,7 +30,8 @@ export function LoginHero({ config }: LoginHeroProps) {
           {config.bullets.map((bullet) => (
             <li
               key={bullet.title}
-              className="border-t border-[#EDE8EA] py-5.5"
+              className="border-t py-5.5"
+              style={{ borderColor: config.theme.hairline }}
             >
               <span className="block text-base font-bold text-[#181313]">
                 {bullet.title}

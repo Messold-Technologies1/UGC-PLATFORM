@@ -11,7 +11,6 @@ import {
   LayoutGrid,
   Users,
   Zap,
-  HandCoinsIcon,
 } from "lucide-react";
 
 export const LOGIN_ROLES = ["brand", "creator", "agency"] as const;
@@ -48,6 +47,7 @@ export interface LoginRoleConfig {
     accent2: string;
     tint: string;
     heroGrad: string;
+    hairline: string;
     blob: string;
     dot: string;
     highlight: string;
@@ -97,28 +97,23 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     icon: Megaphone,
     eyebrow: "For Brands",
     tag: "Brand login",
-    headline: ["Launch UGC that actually converts.", ""],
-    sub: "Discover vetted creators, brief them in minutes, and get scroll-stopping videos that are ready for paid — all in one place.",
+    headline: ["Pick up the shortlist exactly where you left it.", ""],
+    sub: "Saved creators, half-written briefs and everything currently in production — all still sitting where you put them.",
     bullets: [
       {
         icon: Search,
-        title: "Browse vetted creators",
-        desc: "Filter by niche, language, budget, content style & platform.",
+        title: "Your saved creators",
+        desc: "The shortlist you built last campaign, with rates and delivery times still visible.",
       },
       {
         icon: Film,
-        title: "Create and send briefs",
-        desc: "Share campaign details, deliverables,references & requirements to get started.",
-      },
-      {
-        icon: HandCoinsIcon,
-        title: "Book the right creator",
-        desc: "Pick a package, add-ons, timeline and check out securely.",
+        title: "Collaborations in flight",
+        desc: "See what has shipped, what needs approval and what is awaiting a revision.",
       },
       {
         icon: ShoppingBag,
-        title: "Manage every order in one place",
-        desc: "Track delivery, revisions, approvals, files & communication.",
+        title: "New in your categories",
+        desc: "Creators who joined since your last search, in the niches you actually hire for.",
       },
     ],
 
@@ -128,18 +123,19 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     authorRole: "Growth Lead, Udd Studio",
     authorInitials: "YW",
     formTitle: "Welcome back",
-    formSub: "Log in to manage your campaigns, briefs and orders.",
+    formSub: "Log in to continue exploring creators and managing collaborations.",
     submitLabel: "Log in as Brand",
     signupCta: "Create a brand account",
     signupLine: "New to GoCollab as a brand?",
     signupHref: "/register/brand",
     theme: {
-      accent: "#5138ed",
-      accent2: "#7c6cf5",
-      tint: "#F7F6FB",
-      heroGrad: "#F7F6FB",
-      blob: "rgba(62,118,239,.22)",
-      dot: "rgba(80,110,160,.16)",
+      accent: "#6e2545",
+      accent2: "#6e2545",
+      tint: "#f9f5f7",
+      heroGrad: "#f9f5f7",
+      hairline: "#e8dde2",
+      blob: "rgba(110,37,69,.12)",
+      dot: "rgba(110,37,69,.10)",
       highlight: "transparent",
     },
   },
@@ -185,6 +181,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
       accent2: "#B3123F",
       tint: "#FDF8F8",
       heroGrad: "#FDF8F8",
+      hairline: "#EDE8EA",
       blob: "rgba(179,18,63,.12)",
       dot: "rgba(150,90,90,.10)",
       highlight: "transparent",
@@ -233,6 +230,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
       accent2: "#4fd1c5",
       tint: "#F6FAF9",
       heroGrad: "#F6FAF9",
+      hairline: "#EDE8EA",
       blob: "rgba(14,147,132,.20)",
       dot: "rgba(70,150,138,.15)",
       highlight: "transparent",

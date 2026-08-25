@@ -63,7 +63,13 @@ function LoginRouter() {
       data-login-role={role}
       style={{ "--login-accent": config.theme.accent } as CSSProperties}
     >
-      <div className="grid min-h-dvh lg:grid-cols-2">
+      <div
+        className={
+          role === "brand"
+            ? "grid min-h-dvh lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"
+            : "grid min-h-dvh lg:grid-cols-2"
+        }
+      >
         <LoginHero config={config} />
         <div className="flex items-center justify-center bg-white px-6 pt-24 pb-10 sm:px-10 lg:px-16 xl:px-18">
           <AuthForm roleConfig={config} />

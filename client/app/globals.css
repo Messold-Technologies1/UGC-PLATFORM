@@ -170,6 +170,18 @@ html {
   --color-blush-400: #ffa8c5;
   --color-blush-700: var(--color-deep-pink);
 
+  /* Brand-registration palette: restrained plum accent over warm ash
+     neutrals. Namespaced `plum`/`ash` — neither collides with a built-in
+     Tailwind scale. */
+  --color-plum-50: #f9f5f7;
+  --color-plum-150: #e8dde2;
+  --color-plum-300: #c9a9b8;
+  --color-plum-500: #a8798c;
+  --color-plum-700: #6e2545;
+  --color-ash-50: #f7f6f6;
+  --color-ash-150: #e7e4e4;
+  --color-ash-300: #c7c1c2;
+
   --shadow-pop: 0 8px 30px -8px rgb(24 19 19 / 0.12);
   --shadow-sticker: 0 4px 0 rgb(24 19 19 / 0.9);
   --shadow-hard: 6px 6px 0 rgb(24 19 19);

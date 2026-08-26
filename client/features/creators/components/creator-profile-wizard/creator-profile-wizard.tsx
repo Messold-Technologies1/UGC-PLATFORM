@@ -212,11 +212,22 @@ export function CreatorProfileWizard({
         connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
     );
 
-  /** Drives the Instagram option in the add-reel chooser. */
+  /**
+   * Drives the Instagram option in the add-reel chooser. Admin mode always
+   * reports "connected" here — not because a connection exists, but because
+   * admin never runs the connect flow (there is no creator to OAuth as), and
+   * the connections query above is disabled for admins anyway. Reporting
+   * anything else would route the click to onConnectInstagram, which starts
+   * the OAuth flow for the *admin's* account and 400s with "Creator profile
+   * not found". Sending admin straight to the gallery instead is safe: it
+   * reads this creator's real connection status server-side and shows its own
+   * "not connected" state correctly if there truly is none.
+   */
   const instagramChooserState:
     | "connected"
     | "not_connected"
     | "reconnect_required" = (() => {
+    if (adminMode) return "connected";
     const connection = (socialConnectionsQuery.data ?? []).find(
       (c) => c.platform === "INSTAGRAM",
     );

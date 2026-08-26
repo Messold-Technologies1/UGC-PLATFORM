@@ -53,6 +53,30 @@ enum RoleName {
   AGENCY
 }
 
+enum PortfolioVideoSource {
+  UPLOAD
+  INSTAGRAM
+}
+
+/// READY     — playable from our CDN.
+/// PROCESSING— row exists, the mirror job has not finished yet.
+/// FAILED    — the mirror gave up; the creator can retry.
+/// LINK_ONLY — deliberately never mirrored (PORTFOLIO_IG_IMPORT_MODE=link).
+enum PortfolioVideoAssetState {
+  READY
+  PROCESSING
+  FAILED
+  LINK_ONLY
+}
+
+enum IgMediaSyncStatus {
+  IDLE
+  QUEUED
+  SYNCING
+  READY
+  ERROR
+}
+
 enum PortfolioVisibilityStatus {
   PUBLIC
   PRIVATE
@@ -926,13 +950,28 @@ model OrderDispute {
 }
 
 model CreatorPortfolioVideo {
-  id               String                    @id @default(uuid()) @db.Uuid
-  creatorId        String                    @db.Uuid
-  videoKey         String
-  videoUrl         String
-  thumbnailKey     String?
-  thumbnailUrl     String?
+  id        String @id @default(uuid()) @db.Uuid
+  creatorId String @db.Uuid
+
+  /// Nullable because an Instagram import exists before its mirror finishes,
+  /// and stays null for the lifetime of a LINK_ONLY row. Every read must
+  /// tolerate that; the public profile filters on assetState instead.
+  videoKey     String?
+  videoUrl     String?
+  thumbnailKey String?
+  thumbnailUrl String?
+
   visibilityStatus PortfolioVisibilityStatus @default(PUBLIC)
+
+  /// Where the video came from. UPLOAD rows are always READY.
+  source     PortfolioVideoSource     @default(UPLOAD)
+  assetState PortfolioVideoAssetState @default(READY)
+
+  /// Instagram provenance, set when source = INSTAGRAM.
+  igMediaId   String?
+  igPermalink String?
+  igPostedAt  DateTime?
+  importedAt  DateTime?
   /// SHA-256 hex of the uploaded bytes, supplied by the client. Used only to
   /// stop the same file being added to one portfolio twice; null for rows
   /// created before the guard existed, or for files too large to hash in the
@@ -945,8 +984,11 @@ model CreatorPortfolioVideo {
   sectionVideos CreatorPortfolioSectionVideo[]
 
   @@unique([creatorId, contentHash])
+  /// One Instagram reel can only be imported into a portfolio once.
+  @@unique([creatorId, igMediaId])
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
+  @@index([assetState])
 }
 
 model CreatorPortfolioSection {
@@ -1291,6 +1333,73 @@ model EmailSuppression {
 /// which is sign-in identity. Holds the OAuth tokens (encrypted at rest via the
 /// app-level crypto util) plus a small set of denormalized "latest" values for
 /// quick profile display without touching the snapshot tables.
+/// A creator's reels, cached from `GET /me/media` so the gallery never calls
+/// Graph on the request path. Only REELS are stored — photos and carousels are
+/// discarded during the page walk.
+model InstagramMediaItem {
+  id           String @id @default(uuid()) @db.Uuid
+  connectionId String @db.Uuid
+
+  /// Instagram's stable media id — the only durable IG identifier.
+  igMediaId String
+
+  mediaType        String
+  mediaProductType String?
+  permalink        String?
+  caption          String?
+
+  /// Short-lived signed CDN URLs. Never treated as durable: `urlsExpireAt` is a
+  /// conservative estimate of when they stop working.
+  mediaUrl     String?
+  thumbnailUrl String?
+  urlsExpireAt DateTime?
+
+  postedAt        DateTime?
+  durationSeconds Int?
+  likeCount       Int?
+  commentsCount   Int?
+  viewCount       Int?
+
+  /// Set once this reel has been imported, so the gallery can dim it.
+  importedVideoId String? @db.Uuid
+
+  fetchedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, igMediaId])
+  /// Drives the gallery's keyset pagination (postedAt desc, igMediaId desc).
+  @@index([connectionId, mediaProductType, postedAt(sort: Desc), igMediaId(sort: Desc)])
+  @@index([importedVideoId])
+}
+
+/// One row per connection: where the page walk got to, and how fresh the cache
+/// is. The 7-day TTL is measured from `lastFullSyncAt`.
+model InstagramMediaSyncState {
+  connectionId String            @id @db.Uuid
+  status       IgMediaSyncStatus @default(IDLE)
+
+  /// Graph's `paging.cursors.after`, for resuming a partial walk. Server-side
+  /// only — never confused with the gallery's own keyset cursor.
+  nextCursor   String?
+  hasMore      Boolean @default(true)
+  pagesFetched Int     @default(0)
+  reelCount    Int     @default(0)
+
+  lastFullSyncAt DateTime?
+  /// Rate-limits the manual Refresh button server-side.
+  lastRefreshAt DateTime?
+  lastError     String?
+  updatedAt     DateTime  @updatedAt
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([lastFullSyncAt])
+}
+
 model SocialConnection {
   id                String                 @id @default(uuid()) @db.Uuid
   creatorProfileId  String                 @db.Uuid
@@ -1328,8 +1437,10 @@ model SocialConnection {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  creator  CreatorProfile          @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  audience SocialAudienceSnapshot?
+  creator       CreatorProfile           @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  audience      SocialAudienceSnapshot?
+  mediaItems    InstagramMediaItem[]
+  mediaSyncState InstagramMediaSyncState?
 
   /// One platform account maps to a single creator.
   @@unique([platform, providerAccountId])

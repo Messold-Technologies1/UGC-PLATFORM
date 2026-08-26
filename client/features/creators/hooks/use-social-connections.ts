@@ -24,8 +24,13 @@ export function useSocialConnectionsQuery(options?: { enabled?: boolean }) {
  * navigates the browser to Instagram. The callback returns to the profile page.
  */
 export function useConnectInstagramMutation() {
-  return useMutation({
-    mutationFn: getInstagramConnectUrl,
+  // Typed so `mutate()` still works with no argument, while a caller that
+  // wants to come back to its own page can pass a path.
+  return useMutation<string, Error, string | void>({
+    mutationFn: (returnTo) =>
+      getInstagramConnectUrl(
+        typeof returnTo === "string" ? returnTo : undefined,
+      ),
     onSuccess: (url) => {
       window.location.href = url;
     },
@@ -49,7 +54,9 @@ export function useDisconnectSocialMutation() {
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error ? error.message : "Failed to disconnect account.",
+        error instanceof Error
+          ? error.message
+          : "Failed to disconnect account.",
       );
     },
   });

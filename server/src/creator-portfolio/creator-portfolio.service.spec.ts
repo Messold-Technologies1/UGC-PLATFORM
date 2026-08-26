@@ -4,6 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, RoleName } from '@prisma/client';
+
+/** Only PORTFOLIO_IG_IMPORT_MODE is read by the service under test. */
+const configMock = {
+  get: jest.fn((_key: string, fallback?: unknown) => fallback),
+};
 import { CreatorPortfolioService } from './creator-portfolio.service';
 
 describe('CreatorPortfolioService admin portfolio access', () => {
@@ -41,6 +46,7 @@ describe('CreatorPortfolioService admin portfolio access', () => {
     service = new CreatorPortfolioService(
       prismaMock as never,
       storageMock as never,
+      configMock as never,
     );
   });
 
@@ -361,6 +367,7 @@ describe('CreatorPortfolioService video lifecycle', () => {
     service = new CreatorPortfolioService(
       prismaMock as never,
       storageMock as never,
+      configMock as never,
     );
   });
 
@@ -544,6 +551,7 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
     service = new CreatorPortfolioService(
       prismaMock as never,
       storageMock as never,
+      configMock as never,
     );
   });
 
@@ -665,5 +673,230 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
         videoKey,
       }),
     ).rejects.toBe(other);
+  });
+});
+
+describe('CreatorPortfolioService Instagram import', () => {
+  const creatorUserId = 'creator-user';
+  const creatorProfileId = 'profile-1';
+  const videoKey = `creator-portfolio/${creatorProfileId}/videos/new.mp4`;
+  const thumbKey = `creator-portfolio/${creatorProfileId}/thumbnails/new.jpg`;
+
+  const prismaMock = {
+    creatorProfile: { findUnique: jest.fn(), update: jest.fn() },
+    creatorPortfolioVideo: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
+    },
+    instagramMediaItem: { findMany: jest.fn(), update: jest.fn() },
+  };
+  const storageMock = {
+    buildCdnUrl: jest.fn((k: string) => `https://cdn.example/${k}`),
+    buildObjectKey: jest.fn(({ kind }: { kind: string }) =>
+      kind === 'creator_portfolio_video' ? videoKey : thumbKey,
+    ),
+  };
+  let mode: string;
+  const configMock = {
+    get: jest.fn((key: string, fallback?: unknown) =>
+      key === 'PORTFOLIO_IG_IMPORT_MODE' ? mode : fallback,
+    ),
+  };
+
+  let service: CreatorPortfolioService;
+
+  const cached = (over: Record<string, unknown> = {}) => ({
+    id: 'cache-1',
+    igMediaId: 'reel-1',
+    permalink: 'https://www.instagram.com/reel/abc/',
+    postedAt: new Date('2026-07-01T00:00:00Z'),
+    mediaUrl: 'https://scontent.cdninstagram.com/reel-1.mp4',
+    mediaProductType: 'REELS',
+    importedVideoId: null,
+    ...over,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mode = 'mirror';
+    prismaMock.creatorProfile.findUnique.mockResolvedValue({
+      id: creatorProfileId,
+      userId: creatorUserId,
+    });
+    prismaMock.creatorPortfolioVideo.findMany.mockResolvedValue([]);
+    prismaMock.creatorPortfolioVideo.create.mockResolvedValue({
+      id: 'video-1',
+      assetState: 'PROCESSING',
+    });
+    service = new CreatorPortfolioService(
+      prismaMock as never,
+      storageMock as never,
+      configMock as never,
+    );
+  });
+
+  it('refuses an id that is not cached against this creator', async () => {
+    // The scoped cache lookup is the authorization boundary: a guessed id from
+    // another creator's account simply is not returned.
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['someone-elses-reel'],
+    });
+
+    expect(result.imported).toHaveLength(0);
+    expect(result.skipped).toEqual([
+      { igMediaId: 'someone-elses-reel', reason: 'not_found' },
+    ]);
+    expect(prismaMock.creatorPortfolioVideo.create).not.toHaveBeenCalled();
+  });
+
+  it('scopes the cache lookup to the creator own connections', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);
+    await service.importInstagramReels(creatorUserId, { igMediaIds: ['r'] });
+    expect(prismaMock.instagramMediaItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          connection: { creatorProfileId },
+        }),
+      }),
+    );
+  });
+
+  it('creates a PROCESSING row with its S3 key already allocated', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([cached()]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.imported).toEqual([
+      { id: 'video-1', igMediaId: 'reel-1', assetState: 'PROCESSING' },
+    ]);
+    const { data } = prismaMock.creatorPortfolioVideo.create.mock.calls[0]![0];
+    expect(data).toMatchObject({
+      source: 'INSTAGRAM',
+      assetState: 'PROCESSING',
+      videoKey,
+      igMediaId: 'reel-1',
+      visibilityStatus: 'PUBLIC',
+    });
+    // Not playable yet, so no URL is published.
+    expect(data.videoUrl).toBeNull();
+  });
+
+  it('dims the reel in the gallery once imported', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([cached()]);
+    await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+    expect(prismaMock.instagramMediaItem.update).toHaveBeenCalledWith({
+      where: { id: 'cache-1' },
+      data: { importedVideoId: 'video-1' },
+    });
+  });
+
+  it('skips a reel the creator already imported', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([cached()]);
+    prismaMock.creatorPortfolioVideo.findMany.mockResolvedValue([
+      { igMediaId: 'reel-1' },
+    ]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.skipped).toEqual([
+      { igMediaId: 'reel-1', reason: 'already_imported' },
+    ]);
+    expect(prismaMock.creatorPortfolioVideo.create).not.toHaveBeenCalled();
+  });
+
+  it('re-asserts the reels filter as defence in depth', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+      cached({ mediaProductType: 'FEED' }),
+    ]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.skipped).toEqual([
+      { igMediaId: 'reel-1', reason: 'not_a_reel' },
+    ]);
+  });
+
+  it('skips a reel with no media URL when it has to be mirrored', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+      cached({ mediaUrl: null }),
+    ]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.skipped).toEqual([
+      { igMediaId: 'reel-1', reason: 'no_media_url' },
+    ]);
+  });
+
+  it('stores the Instagram URL directly in link mode', async () => {
+    mode = 'link';
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([cached()]);
+    prismaMock.creatorPortfolioVideo.create.mockResolvedValue({
+      id: 'video-1',
+      assetState: 'LINK_ONLY',
+    });
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    const { data } = prismaMock.creatorPortfolioVideo.create.mock.calls[0]![0];
+    expect(data).toMatchObject({
+      assetState: 'LINK_ONLY',
+      videoKey: null,
+      videoUrl: 'https://scontent.cdninstagram.com/reel-1.mp4',
+    });
+    // Nothing to mirror in link mode.
+    expect((result as { mirrorVideoIds?: string[] }).mirrorVideoIds).toEqual(
+      [],
+    );
+  });
+
+  it('reports the unique-index race as already_imported, not a 500', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([cached()]);
+    prismaMock.creatorPortfolioVideo.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['creatorId', 'igMediaId'] },
+      }),
+    );
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.skipped).toEqual([
+      { igMediaId: 'reel-1', reason: 'already_imported' },
+    ]);
+  });
+
+  it('hands back exactly the videos needing a mirror', async () => {
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+      cached(),
+      cached({ id: 'cache-2', igMediaId: 'reel-2' }),
+    ]);
+    prismaMock.creatorPortfolioVideo.create
+      .mockResolvedValueOnce({ id: 'video-1', assetState: 'PROCESSING' })
+      .mockResolvedValueOnce({ id: 'video-2', assetState: 'PROCESSING' });
+
+    const result = (await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1', 'reel-2'],
+    })) as { mirrorVideoIds?: string[] };
+
+    expect(result.mirrorVideoIds).toEqual(['video-1', 'video-2']);
   });
 });

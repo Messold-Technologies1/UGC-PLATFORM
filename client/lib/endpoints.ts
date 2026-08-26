@@ -162,6 +162,9 @@ export const ENDPOINTS = {
   SOCIAL: {
     CONNECTIONS: "/api/social/connections",
     INSTAGRAM_CONNECT_URL: "/api/social/instagram/connect-url",
+    INSTAGRAM_MEDIA: "/api/social/instagram/media",
+    INSTAGRAM_MEDIA_STATUS: "/api/social/instagram/media/status",
+    INSTAGRAM_MEDIA_REFRESH: "/api/social/instagram/media/refresh",
     INSTAGRAM_REFRESH: "/api/social/instagram/refresh",
     INSTAGRAM_REFRESH_CREATOR: (creatorProfileId: string) =>
       `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/refresh`,
@@ -177,6 +180,7 @@ export const ENDPOINTS = {
       "/api/creator-portfolio/uploads/multipart/complete",
     UPLOADS_MULTIPART_ABORT: "/api/creator-portfolio/uploads/multipart/abort",
     VIDEOS: "/api/creator-portfolio/videos",
+    VIDEOS_IMPORT_INSTAGRAM: "/api/creator-portfolio/videos/import-instagram",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
     VIDEOS_ADMIN: "/api/creator-portfolio/videos/admin",
     SECTIONS: "/api/creator-portfolio/sections",
@@ -273,6 +277,10 @@ export const ENDPOINTS = {
   },
   CONTACT_US: "/api/contact-us",
 } as const;
+
+export function portfolioRetryMirrorPath(id: string): string {
+  return `/api/creator-portfolio/videos/${encodeURIComponent(id)}/retry-mirror`;
+}
 
 export function creatorPortfolioVideoPath(id: string): string {
   return `/api/creator-portfolio/videos/${encodeURIComponent(id)}`;

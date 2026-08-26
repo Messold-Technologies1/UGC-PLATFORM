@@ -4,6 +4,15 @@ export type PortfolioVideoApi = {
   videoUrl: string;
   thumbnailUrl?: string | null;
   visibilityStatus: "public" | "private";
+  /** UPLOAD, or INSTAGRAM for an imported reel. */
+  source?: "UPLOAD" | "INSTAGRAM";
+  /**
+   * Whether the bytes are servable. PROCESSING means an import's mirror is
+   * still running and there is no videoUrl yet; FAILED means it gave up and the
+   * creator can retry.
+   */
+  assetState?: "READY" | "PROCESSING" | "FAILED" | "LINK_ONLY";
+  igPermalink?: string | null;
   createdAt: string;
 };
 

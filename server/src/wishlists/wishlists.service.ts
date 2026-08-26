@@ -18,6 +18,7 @@ import type { ImportSharedWishlistResponseDto } from './dto/import-shared-wishli
 import type { CreatorPublicListItemDto } from '../creator-profile/dto/creator-public-list-item.dto';
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import { PortfolioVisibilityStatus } from '@prisma/client';
+import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 
 const creatorWithRelationsInclude = {
   facetSelections: { include: { option: true } },
@@ -27,7 +28,10 @@ const creatorWithRelationsInclude = {
   addOns: true,
   unavailability: { select: { startsOn: true, endsOn: true } },
   portfolioVideos: {
-    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    where: {
+      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+      ...playableAssetWhere(),
+    },
     orderBy: { createdAt: 'desc' as const },
     take: 1,
     select: {

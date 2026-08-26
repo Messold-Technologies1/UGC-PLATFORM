@@ -46,6 +46,54 @@ export class InstagramApiError extends Error {
   }
 }
 
+/** One media item as returned by `GET /me/media`. */
+export interface InstagramMediaNode {
+  id: string;
+  mediaType: string;
+  /** REELS | FEED | AD. Absent on older media. */
+  mediaProductType: string | null;
+  /** Short-lived signed CDN URL. Never durable. */
+  mediaUrl: string | null;
+  thumbnailUrl: string | null;
+  permalink: string | null;
+  caption: string | null;
+  postedAt: Date | null;
+  likeCount: number | null;
+  commentsCount: number | null;
+}
+
+export interface InstagramMediaPage {
+  items: InstagramMediaNode[];
+  /** Graph's `paging.cursors.after`; null when the walk is done. */
+  nextCursor: string | null;
+  /** Usage telemetry from the response headers, when Meta sent any. */
+  usage: InstagramUsage | null;
+}
+
+/**
+ * Meta's rate-limit telemetry. Each figure is a *percentage* of the allowance,
+ * not an absolute count, which is why we steer by these rather than by a
+ * hard-coded quota — the formula has changed more than once and differs between
+ * the Instagram-Login and Facebook-Login variants.
+ */
+export interface InstagramUsage {
+  callCountPct: number;
+  totalCpuTimePct: number;
+  totalTimePct: number;
+  /** Minutes Meta says to wait, when it has throttled us. */
+  estimatedTimeToRegainAccessMin: number | null;
+}
+
+/** The worst figure across every usage header on a response. */
+export function peakUsagePct(usage: InstagramUsage | null): number {
+  if (!usage) return 0;
+  return Math.max(
+    usage.callCountPct,
+    usage.totalCpuTimePct,
+    usage.totalTimePct,
+  );
+}
+
 export interface InstagramTokenResult {
   accessToken: string;
   userId: string;
@@ -257,6 +305,91 @@ export class InstagramClient {
     };
   }
 
+  /**
+   * One page of the creator's media, newest first.
+   *
+   * `/me/media` has no server-side type filter, so reels are separated from
+   * photos and carousels by the caller. `media_product_type` is requested so
+   * that filter can be exact rather than inferred from `media_type`.
+   */
+  async fetchMediaPage(
+    accessToken: string,
+    cursor?: string | null,
+    limit = 25,
+  ): Promise<InstagramMediaPage> {
+    const url = new URL(`${GRAPH_BASE}/${this.version()}/me/media`);
+    url.searchParams.set(
+      'fields',
+      [
+        'id',
+        'media_type',
+        'media_product_type',
+        'media_url',
+        'thumbnail_url',
+        'permalink',
+        'caption',
+        'timestamp',
+        'like_count',
+        'comments_count',
+      ].join(','),
+    );
+    url.searchParams.set('limit', String(limit));
+    if (cursor) url.searchParams.set('after', cursor);
+    url.searchParams.set('access_token', accessToken);
+
+    const res = await this.timedFetch('media page', url);
+    const usage = parseUsageHeaders(res);
+    const data = (await res.json()) as {
+      data?: Array<{
+        id?: string;
+        media_type?: string;
+        media_product_type?: string;
+        media_url?: string;
+        thumbnail_url?: string;
+        permalink?: string;
+        caption?: string;
+        timestamp?: string;
+        like_count?: number;
+        comments_count?: number;
+      }>;
+      paging?: { cursors?: { after?: string }; next?: string };
+    } & GraphError;
+
+    if (!res.ok) {
+      const err = this.toError(data, 'Instagram media fetch failed');
+      // 429 with a wait hint: surface it so the queue can honour the exact
+      // cool-down rather than guessing a backoff.
+      throw Object.assign(err, {
+        usage,
+        rateLimited: res.status === 429 || err.code === 4 || err.code === 17,
+      });
+    }
+
+    const items: InstagramMediaNode[] = (data.data ?? [])
+      .filter((n): n is typeof n & { id: string } => Boolean(n.id))
+      .map((n) => ({
+        id: String(n.id),
+        mediaType: n.media_type ?? 'UNKNOWN',
+        mediaProductType: n.media_product_type ?? null,
+        mediaUrl: n.media_url ?? null,
+        thumbnailUrl: n.thumbnail_url ?? null,
+        permalink: n.permalink ?? null,
+        caption: n.caption ?? null,
+        postedAt: n.timestamp ? new Date(n.timestamp) : null,
+        likeCount: numOrNull(n.like_count),
+        commentsCount: numOrNull(n.comments_count),
+      }));
+
+    // Only treat the cursor as live when Graph also gave us a `next` link.
+    // `cursors.after` is present on the last page too, and following it would
+    // loop forever over an empty result.
+    const nextCursor = data.paging?.next
+      ? (data.paging?.cursors?.after ?? null)
+      : null;
+
+    return { items, nextCursor, usage };
+  }
+
   async fetchAccount(accessToken: string): Promise<InstagramAccount> {
     const url = new URL(`${GRAPH_BASE}/${this.version()}/me`);
     url.searchParams.set(
@@ -394,6 +527,59 @@ export class InstagramClient {
       e?.error_subcode,
     );
   }
+}
+
+/**
+ * Read `x-app-usage` and `X-Business-Use-Case-Usage`. Both are JSON strings and
+ * either may be absent, so every field degrades to 0 rather than throwing — a
+ * missing header must never block a sync.
+ */
+function parseUsageHeaders(res: Response): InstagramUsage | null {
+  const app = safeJson(res.headers.get('x-app-usage'));
+  const buc = safeJson(res.headers.get('x-business-use-case-usage'));
+
+  // The BUC header is keyed by account id; take the worst entry across accounts.
+  let bucCall = 0;
+  let bucCpu = 0;
+  let bucTime = 0;
+  let regain: number | null = null;
+  if (buc && typeof buc === 'object') {
+    for (const entries of Object.values(buc as Record<string, unknown>)) {
+      for (const e of Array.isArray(entries) ? entries : []) {
+        const rec = e as Record<string, unknown>;
+        bucCall = Math.max(bucCall, pct(rec.call_count));
+        bucCpu = Math.max(bucCpu, pct(rec.total_cputime));
+        bucTime = Math.max(bucTime, pct(rec.total_time));
+        const wait = pct(rec.estimated_time_to_regain_access);
+        if (wait > 0) regain = Math.max(regain ?? 0, wait);
+      }
+    }
+  }
+
+  const appRec = (app ?? {}) as Record<string, unknown>;
+  const usage: InstagramUsage = {
+    callCountPct: Math.max(pct(appRec.call_count), bucCall),
+    totalCpuTimePct: Math.max(pct(appRec.total_cputime), bucCpu),
+    totalTimePct: Math.max(pct(appRec.total_time), bucTime),
+    estimatedTimeToRegainAccessMin: regain,
+  };
+
+  const sawAnything = app != null || buc != null;
+  return sawAnything ? usage : null;
+}
+
+function safeJson(raw: string | null): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function pct(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 function numOrNull(v: unknown): number | null {

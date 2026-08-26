@@ -80,15 +80,16 @@ describe('InstagramMediaService', () => {
       findMany: jest.fn(),
     },
   };
+  const baseConfig: Record<string, unknown> = {
+    IG_MEDIA_CACHE_TTL_DAYS: 7,
+    IG_MEDIA_MAX_PAGES: 2,
+    IG_MEDIA_REFRESH_MIN_INTERVAL_MIN: 60,
+  };
+  let configValues: Record<string, unknown> = { ...baseConfig };
   const configMock = {
-    get: jest.fn((key: string, fallback?: unknown) => {
-      const values: Record<string, unknown> = {
-        IG_MEDIA_CACHE_TTL_DAYS: 7,
-        IG_MEDIA_MAX_PAGES: 2,
-        IG_MEDIA_REFRESH_MIN_INTERVAL_MIN: 60,
-      };
-      return values[key] ?? fallback;
-    }),
+    get: jest.fn(
+      (key: string, fallback?: unknown) => configValues[key] ?? fallback,
+    ),
   };
   const instagramMock = { fetchMediaPage: jest.fn() };
   const connectionsMock = {
@@ -99,7 +100,15 @@ describe('InstagramMediaService', () => {
   let service: InstagramMediaService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    // resetAllMocks, not clearAllMocks: clear leaves queued mockResolvedValueOnce
+    // values and implementations in place, so a test that queues two pages and
+    // consumes one hands the leftover to whichever test runs next. Every
+    // implementation the suite relies on is (re-)established below.
+    jest.resetAllMocks();
+    configValues = { ...baseConfig };
+    configMock.get.mockImplementation(
+      (key: string, fallback?: unknown) => configValues[key] ?? fallback,
+    );
     connectionsMock.getFreshAccessToken.mockResolvedValue('token');
     prismaMock.creatorProfile.findUnique.mockResolvedValue({ id: 'profile-1' });
     prismaMock.socialConnection.findUnique.mockResolvedValue({
@@ -172,11 +181,57 @@ describe('InstagramMediaService', () => {
         prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
       expect(final.data.hasMore).toBe(true);
       expect(final.data.nextCursor).toBe('cur-2');
-      // A budget-capped walk is not a full sync, so the TTL clock is untouched.
-      expect(final.data).not.toHaveProperty('lastFullSyncAt');
     });
 
-    it('stamps lastFullSyncAt only when the walk actually finishes', async () => {
+    it('stops at the reel budget even when Instagram has more pages', async () => {
+      configValues.IG_MEDIA_SYNC_BATCH_REELS = 2;
+      configValues.IG_MEDIA_MAX_PAGES = 12;
+      instagramMock.fetchMediaPage
+        .mockResolvedValueOnce(page([reel('1'), reel('2')], 'cur-1'))
+        .mockResolvedValueOnce(page([reel('3')], 'cur-2'));
+
+      const result = await service.syncConnectionMedia(connectionId);
+
+      // The budget binds first: one page was enough, so the second was never
+      // requested even though eleven pages of headroom remained.
+      expect(result.pages).toBe(1);
+      expect(instagramMock.fetchMediaPage).toHaveBeenCalledTimes(1);
+      const final =
+        prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
+      expect(final.data.hasMore).toBe(true);
+      expect(final.data.nextCursor).toBe('cur-1');
+    });
+
+    it('keeps paging past a photo-only page to reach its reel budget', async () => {
+      configValues.IG_MEDIA_SYNC_BATCH_REELS = 1;
+      instagramMock.fetchMediaPage
+        .mockResolvedValueOnce(page([photo('1'), photo('2')], 'cur-1'))
+        .mockResolvedValueOnce(page([reel('3')], 'cur-2'));
+
+      const result = await service.syncConnectionMedia(connectionId);
+
+      // Photos do not count towards the budget, so the walk continued.
+      expect(result.pages).toBe(2);
+      expect(result.reels).toBe(1);
+    });
+
+    it('stamps lastSyncedAt on a budget-capped batch, not just a full walk', async () => {
+      // The bug this fixes: stamping only on a completed walk left any account
+      // bigger than one batch permanently "stale", so the gallery reported
+      // syncing on every open and re-enqueued a Graph walk each time.
+      instagramMock.fetchMediaPage
+        .mockResolvedValueOnce(page([reel('1')], 'cur-1'))
+        .mockResolvedValueOnce(page([reel('2')], 'cur-2'));
+
+      await service.syncConnectionMedia(connectionId);
+
+      const final =
+        prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
+      expect(final.data.hasMore).toBe(true);
+      expect(final.data.lastSyncedAt).toBeInstanceOf(Date);
+    });
+
+    it('stamps lastSyncedAt when the walk finishes the account too', async () => {
       instagramMock.fetchMediaPage.mockResolvedValueOnce(
         page([reel('1')], null),
       );
@@ -184,17 +239,18 @@ describe('InstagramMediaService', () => {
       const final =
         prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
       expect(final.data.hasMore).toBe(false);
-      expect(final.data.lastFullSyncAt).toBeInstanceOf(Date);
+      expect(final.data.lastSyncedAt).toBeInstanceOf(Date);
     });
 
-    it('resumes from the stored cursor unless told to start over', async () => {
+    it('resumes from the stored cursor when extending', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         nextCursor: 'saved',
         hasMore: true,
+        lastSyncedAt: new Date(),
       });
       instagramMock.fetchMediaPage.mockResolvedValueOnce(page([], null));
 
-      await service.syncConnectionMedia(connectionId);
+      await service.syncConnectionMedia(connectionId, { mode: 'extend' });
 
       expect(instagramMock.fetchMediaPage).toHaveBeenCalledWith(
         'token',
@@ -203,14 +259,106 @@ describe('InstagramMediaService', () => {
       );
     });
 
-    it('ignores the stored cursor on a forced refresh', async () => {
+    it('ignores the stored cursor on a refresh', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         nextCursor: 'saved',
         hasMore: true,
+        lastSyncedAt: new Date(),
       });
       instagramMock.fetchMediaPage.mockResolvedValueOnce(page([], null));
 
-      await service.syncConnectionMedia(connectionId, { fromStart: true });
+      await service.syncConnectionMedia(connectionId, { mode: 'refresh' });
+
+      expect(instagramMock.fetchMediaPage).toHaveBeenCalledWith(
+        'token',
+        null,
+        25,
+      );
+    });
+
+    it('leaves the paging frontier alone on a refresh', async () => {
+      // A creator who had paged out to reel 500 must not have the cursor reset
+      // to reel 100 by a freshness pass, or Load more would spend four clicks
+      // re-fetching reels they already have before it advanced again.
+      configValues.IG_MEDIA_SYNC_BATCH_REELS = 1;
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: 'deep-frontier',
+        hasMore: true,
+        lastSyncedAt: new Date(),
+      });
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(
+        page([reel('1')], 'top-of-account'),
+      );
+
+      await service.syncConnectionMedia(connectionId, { mode: 'refresh' });
+
+      const final =
+        prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
+      expect(final.data).not.toHaveProperty('nextCursor');
+      expect(final.data).not.toHaveProperty('hasMore');
+      expect(final.data.lastSyncedAt).toBeInstanceOf(Date);
+    });
+
+    it('moves the frontier on an extend', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: 'page-4',
+        hasMore: true,
+        lastSyncedAt: new Date(),
+      });
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(
+        page([reel('101')], 'page-5'),
+      );
+      configValues.IG_MEDIA_SYNC_BATCH_REELS = 1;
+
+      await service.syncConnectionMedia(connectionId, { mode: 'extend' });
+
+      const final =
+        prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
+      expect(final.data.nextCursor).toBe('page-5');
+      expect(final.data.hasMore).toBe(true);
+    });
+
+    it('spends no Graph call extending an account that is fully cached', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: null,
+        hasMore: false,
+        lastSyncedAt: new Date(),
+      });
+
+      const result = await service.syncConnectionMedia(connectionId, {
+        mode: 'extend',
+      });
+
+      expect(result).toEqual({ reels: 0, pages: 0, usage: null });
+      expect(instagramMock.fetchMediaPage).not.toHaveBeenCalled();
+      // Not even marked SYNCING: a no-op must not leave the gallery spinning.
+      expect(prismaMock.instagramMediaSyncState.upsert).not.toHaveBeenCalled();
+    });
+
+    it('extends on a first sync, so the very first batch sets the frontier', async () => {
+      // `auto` with nothing synced yet has to be an extend: a refresh would
+      // leave nextCursor null and Load more would restart from the top forever.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue(null);
+      instagramMock.fetchMediaPage
+        .mockResolvedValueOnce(page([reel('1')], 'cur-1'))
+        .mockResolvedValueOnce(page([reel('2')], 'cur-2'));
+
+      await service.syncConnectionMedia(connectionId, { mode: 'auto' });
+
+      const final =
+        prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
+      expect(final.data.nextCursor).toBe('cur-2');
+    });
+
+    it('refreshes rather than extends once a batch has already synced', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: 'saved',
+        hasMore: true,
+        lastSyncedAt: new Date('2026-08-01T00:00:00Z'),
+      });
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(page([], null));
+
+      await service.syncConnectionMedia(connectionId, { mode: 'auto' });
 
       expect(instagramMock.fetchMediaPage).toHaveBeenCalledWith(
         'token',
@@ -229,6 +377,27 @@ describe('InstagramMediaService', () => {
         prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
       expect(failed.data.status).toBe(IgMediaSyncStatus.ERROR);
       expect(failed.data.lastError).toBe('Graph down');
+    });
+  });
+
+  describe('hasMoreToFetch', () => {
+    it('is true while Instagram has reels past the cache', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        hasMore: true,
+      });
+      await expect(service.hasMoreToFetch(connectionId)).resolves.toBe(true);
+    });
+
+    it('is false once the whole account is cached', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        hasMore: false,
+      });
+      await expect(service.hasMoreToFetch(connectionId)).resolves.toBe(false);
+    });
+
+    it('is true for a connection that has never synced', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue(null);
+      await expect(service.hasMoreToFetch(connectionId)).resolves.toBe(true);
     });
   });
 
@@ -280,7 +449,7 @@ describe('InstagramMediaService', () => {
     it('serves a fresh cache as ready, with no cursor on the last page', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         status: IgMediaSyncStatus.READY,
-        lastFullSyncAt: new Date(),
+        lastSyncedAt: new Date(),
         reelCount: 1,
         lastError: null,
       });
@@ -312,7 +481,7 @@ describe('InstagramMediaService', () => {
       // sync on every single page load, in a loop that never settled.
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         status: IgMediaSyncStatus.READY,
-        lastFullSyncAt: new Date(),
+        lastSyncedAt: new Date(),
         reelCount: 0,
         lastError: null,
       });
@@ -325,10 +494,69 @@ describe('InstagramMediaService', () => {
       expect(result.items).toHaveLength(0);
     });
 
+    it('serves a populated cache with more on Instagram as ready, not syncing', async () => {
+      // The gallery must not report 'syncing' just because the account is
+      // bigger than one batch — that is what made every open re-enqueue a
+      // Graph walk. `hasMoreOnInstagram` is how the tail is offered instead.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        status: IgMediaSyncStatus.READY,
+        lastSyncedAt: new Date(),
+        hasMore: true,
+        reelCount: 100,
+        lastError: null,
+      });
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+        {
+          igMediaId: '1',
+          permalink: null,
+          thumbnailUrl: null,
+          caption: null,
+          postedAt: new Date(),
+          durationSeconds: null,
+          likeCount: null,
+          viewCount: null,
+          importedVideoId: null,
+        },
+      ]);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.status).toBe('ready');
+      expect(result.hasMoreOnInstagram).toBe(true);
+      expect(result.reelCount).toBe(100);
+    });
+
+    it('reports no more on Instagram once the account is fully cached', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        status: IgMediaSyncStatus.READY,
+        lastSyncedAt: new Date(),
+        hasMore: false,
+        reelCount: 4,
+        lastError: null,
+      });
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.hasMoreOnInstagram).toBe(false);
+    });
+
+    it('assumes more exists for a cache that has never synced', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue(null);
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);
+
+      const result = await service.getGalleryPage(userId);
+
+      // Better to offer a fetch that finds nothing than to tell the creator
+      // their account is empty before we have looked.
+      expect(result.hasMoreOnInstagram).toBe(true);
+      expect(result.status).toBe('syncing');
+    });
+
     it('returns a stale cache immediately, flagged for a background refresh', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         status: IgMediaSyncStatus.READY,
-        lastFullSyncAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+        lastSyncedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
         reelCount: 1,
         lastError: null,
       });
@@ -357,7 +585,7 @@ describe('InstagramMediaService', () => {
     it('emits a cursor when another page exists', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         status: IgMediaSyncStatus.READY,
-        lastFullSyncAt: new Date(),
+        lastSyncedAt: new Date(),
         reelCount: 3,
         lastError: null,
       });
@@ -417,7 +645,7 @@ describe('InstagramMediaService', () => {
     it('serves the creator own cache on the admin path', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         status: IgMediaSyncStatus.READY,
-        lastFullSyncAt: new Date(),
+        lastSyncedAt: new Date(),
         reelCount: 1,
         lastError: null,
       });

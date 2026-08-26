@@ -542,6 +542,7 @@ export class CreatorPortfolioService {
         creatorId: true,
         videoKey: true,
         thumbnailKey: true,
+        igMediaId: true,
       },
     });
     if (!existing) throw new NotFoundException('Video not found');
@@ -584,6 +585,15 @@ export class CreatorPortfolioService {
       );
     }
 
+    // Replacing the file makes the Instagram provenance a lie: this row now
+    // holds an uploaded clip, not the reel it was imported from. Leaving it
+    // behind kept the reel dimmed as "Added" in the picker and blocked the
+    // creator from importing it again. READY because an uploaded key is a
+    // finished asset — which also stops a still-pending mirror overwriting the
+    // replacement, since the mirror skips rows that are already READY.
+    const clearIgProvenance =
+      Boolean(nextVideoKey) && existing.igMediaId != null;
+
     const updated = await this.updateVideoRow(videoId, profile.id, {
       videoKey: nextVideoKey,
       videoUrl: nextVideoKey
@@ -596,7 +606,33 @@ export class CreatorPortfolioService {
         : nextThumbnailKey
           ? this.storage.buildCdnUrl(nextThumbnailKey)
           : undefined,
+      ...(clearIgProvenance
+        ? {
+            source: PortfolioVideoSource.UPLOAD,
+            assetState: PortfolioVideoAssetState.READY,
+            igMediaId: null,
+            igPermalink: null,
+            igPostedAt: null,
+            importedAt: null,
+          }
+        : {}),
     });
+
+    // Un-dim the tile in the reel picker. The foreign key clears this pointer
+    // when a video is deleted, but a replace keeps the row alive, so this one
+    // has to be cleared by hand.
+    if (clearIgProvenance) {
+      await this.prisma.instagramMediaItem
+        .updateMany({
+          where: { importedVideoId: videoId },
+          data: { importedVideoId: null },
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to clear the Instagram import marker for replaced video ${videoId}: ${err}`,
+          ),
+        );
+    }
 
     // Drop the objects the replacement superseded. Deliberately *after* the
     // transaction commits: doing it inside would delete the still-live video if

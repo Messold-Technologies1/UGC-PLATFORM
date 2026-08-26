@@ -62,16 +62,21 @@ export class InstagramMediaPageDto {
   @ApiProperty({
     enum: ['ready', 'syncing', 'error', 'not_connected', 'reconnect_required'],
     description:
-      '`syncing` also covers a cold or stale cache: whatever is cached is ' +
-      'returned alongside it so the gallery can render immediately.',
+      '`syncing` means a batch is in flight or the cache has aged past its ' +
+      'TTL. Whatever is cached is returned alongside it so the gallery renders ' +
+      'immediately.',
   })
   status!: string;
 
   @ApiPropertyOptional({ example: 'creator.handle' })
   username!: string | null;
 
-  @ApiPropertyOptional()
-  lastFullSyncAt!: Date | null;
+  @ApiPropertyOptional({
+    description:
+      'When a sync batch last completed. Not "last full walk" — a batch that ' +
+      'stopped at its reel budget still refreshed the top of the account.',
+  })
+  lastSyncedAt!: Date | null;
 
   @ApiProperty({ description: 'True once the cache is older than the TTL.' })
   stale!: boolean;
@@ -83,6 +88,15 @@ export class InstagramMediaPageDto {
     description: 'Pass back as `cursor` for the next page.',
   })
   nextCursor!: string | null;
+
+  @ApiProperty({
+    description:
+      'True when Instagram has reels past the end of the cache. Reaching the ' +
+      'cache tail with this set is what surfaces "Load more"; POST ' +
+      '`media/load-more` fetches the next batch. Paging within the cache is ' +
+      'free, so only that call spends a Graph request.',
+  })
+  hasMoreOnInstagram!: boolean;
 
   @ApiProperty({ example: 47 })
   reelCount!: number;
@@ -98,10 +112,14 @@ export class InstagramMediaStatusDto {
   @ApiProperty({ example: 47 })
   reelCount!: number;
 
-  @ApiPropertyOptional()
-  lastFullSyncAt!: Date | null;
+  @ApiPropertyOptional({
+    description: 'When a sync batch last completed successfully.',
+  })
+  lastSyncedAt!: Date | null;
 
-  @ApiProperty({ description: 'True when the page walk has more to fetch.' })
+  @ApiProperty({
+    description: 'True when Instagram has reels past the end of the cache.',
+  })
   hasMore!: boolean;
 
   @ApiPropertyOptional()

@@ -165,12 +165,15 @@ export const ENDPOINTS = {
     INSTAGRAM_MEDIA: "/api/social/instagram/media",
     INSTAGRAM_MEDIA_STATUS: "/api/social/instagram/media/status",
     INSTAGRAM_MEDIA_REFRESH: "/api/social/instagram/media/refresh",
+    INSTAGRAM_MEDIA_LOAD_MORE: "/api/social/instagram/media/load-more",
     INSTAGRAM_MEDIA_FOR_CREATOR: (creatorProfileId: string) =>
       `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/media`,
     INSTAGRAM_MEDIA_STATUS_FOR_CREATOR: (creatorProfileId: string) =>
       `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/media/status`,
     INSTAGRAM_MEDIA_REFRESH_FOR_CREATOR: (creatorProfileId: string) =>
       `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/media/refresh`,
+    INSTAGRAM_MEDIA_LOAD_MORE_FOR_CREATOR: (creatorProfileId: string) =>
+      `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/media/load-more`,
     INSTAGRAM_REFRESH: "/api/social/instagram/refresh",
     INSTAGRAM_REFRESH_CREATOR: (creatorProfileId: string) =>
       `/api/social/creators/${encodeURIComponent(creatorProfileId)}/instagram/refresh`,

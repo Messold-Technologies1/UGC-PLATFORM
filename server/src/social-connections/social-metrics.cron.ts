@@ -87,9 +87,12 @@ export class SocialMetricsCron {
         `ig-media cron: enqueuing ${ids.length} stale reel cache(s)`,
       );
       for (const id of ids) {
+        // `auto`: a connection that has never synced gets its first batch (and
+        // its paging frontier); everything else gets a top-of-account refresh
+        // that leaves however far the creator has paged untouched.
         await this.mediaQueue.enqueue(id, {
           priority: IG_SYNC_PRIORITY.cron,
-          fromStart: true,
+          mode: 'auto',
         });
       }
     } catch (err) {

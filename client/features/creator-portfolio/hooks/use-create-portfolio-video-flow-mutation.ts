@@ -124,15 +124,19 @@ export function useCreatePortfolioVideoFlowMutation(options?: { preventRedirect?
         return thumbnailPresign.key;
       };
 
-      const [videoKey, thumbnailKey] = await Promise.all([
+      const [video, thumbnailKey] = await Promise.all([
         uploadVideo(),
         uploadThumbnail(),
       ]);
 
       const created = await createPortfolioVideo(
         {
-          videoKey,
+          videoKey: video.key,
           thumbnailKey,
+          // Recorded against the row so a later upload of the same file is
+          // refused before it transfers. Undefined for files over the hashing
+          // cap; the server treats that as "no duplicate check".
+          contentHash: video.contentHash,
           visibilityStatus: visibility,
           ...metadataPatch,
         },

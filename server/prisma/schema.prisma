@@ -936,6 +936,11 @@ model CreatorPortfolioVideo {
   language         String?
   description      String?
   visibilityStatus PortfolioVisibilityStatus @default(PUBLIC)
+  /// SHA-256 hex of the uploaded bytes, supplied by the client. Used only to
+  /// stop the same file being added to one portfolio twice; null for rows
+  /// created before the guard existed, or for files too large to hash in the
+  /// browser. NULLs do not collide under the unique index below.
+  contentHash      String?
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
@@ -943,6 +948,7 @@ model CreatorPortfolioVideo {
   tags          CreatorPortfolioVideoTag[]
   sectionVideos CreatorPortfolioSectionVideo[]
 
+  @@unique([creatorId, contentHash])
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
   @@index([visibilityStatus, industryLabel])

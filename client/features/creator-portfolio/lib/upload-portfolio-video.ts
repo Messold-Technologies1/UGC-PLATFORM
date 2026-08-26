@@ -1,4 +1,5 @@
 import { uploadFileInParts } from "@/lib/s3-multipart-upload";
+import { computeFileSha256 } from "@/lib/file-hash";
 import { presignPortfolioUpload } from "../api/presign-portfolio-upload";
 import {
   abortPortfolioMultipartUpload,
@@ -76,14 +77,24 @@ export async function uploadPortfolioVideo(
   options?: PortfolioApiRequestOptions,
   onProgress?: (fraction: number) => void,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<{ key: string; contentHash?: string }> {
+  // Hashed before anything is uploaded, so a file already in this portfolio is
+  // refused by the create/presign call and no bytes are transferred at all.
+  // Undefined for files over the hashing cap — the server then skips the check.
+  const contentHash = await computeFileSha256(file);
+
   if (file.size > MULTIPART_THRESHOLD_BYTES) {
     const { key } = await uploadFileInParts(
       file,
       {
         create: () =>
           createPortfolioMultipartUpload(
-            { kind: "video", contentType, contentLength: file.size },
+            {
+              kind: "video",
+              contentType,
+              contentLength: file.size,
+              contentHash,
+            },
             options,
           ),
         signPart: (args) => signPortfolioMultipartPart(args, options),
@@ -92,11 +103,11 @@ export async function uploadPortfolioVideo(
       },
       { onProgress, signal },
     );
-    return key;
+    return { key, contentHash };
   }
 
   const presign = await presignPortfolioUpload(
-    { kind: "video", contentType, contentLength: file.size },
+    { kind: "video", contentType, contentLength: file.size, contentHash },
     options,
   );
   await putWithProgress(
@@ -106,5 +117,5 @@ export async function uploadPortfolioVideo(
     onProgress,
     signal,
   );
-  return presign.key;
+  return { key: presign.key, contentHash };
 }

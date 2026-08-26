@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayUnique, IsArray, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { PortfolioActingCreatorDto } from './portfolio-acting-creator.dto';
 
 export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
@@ -29,7 +35,10 @@ export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
   @IsString()
   industryLabel?: string;
 
-  @ApiPropertyOptional({ example: ['testimonial', 'talking head'], type: [String] })
+  @ApiPropertyOptional({
+    example: ['testimonial', 'talking head'],
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
@@ -51,4 +60,3 @@ export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
   @IsIn(['public', 'private'])
   visibilityStatus?: 'public' | 'private';
 }
-

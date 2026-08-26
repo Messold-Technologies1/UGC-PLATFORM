@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PortfolioVisibilityStatus, RoleName } from '@prisma/client';
+import { PortfolioVisibilityStatus, Prisma, RoleName } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
@@ -43,8 +43,9 @@ function toTitleCaseLabel(value: string): string {
   return value
     .trim()
     .replace(/\s+/g, ' ')
-    .replace(/[A-Za-z0-9]+/g, (word) =>
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    .replace(
+      /[A-Za-z0-9]+/g,
+      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
     );
 }
 
@@ -122,6 +123,33 @@ export class CreatorPortfolioService {
     }
   }
 
+  /**
+   * Refuse a video the creator already has, identified by the client-supplied
+   * SHA-256. Called before handing out an upload URL so a duplicate costs no
+   * transfer at all; `@@unique([creatorId, contentHash])` is the real guarantee
+   * and catches races this check cannot.
+   *
+   * Only applies to videos. Thumbnails are derived images and may repeat.
+   */
+  private async assertNoDuplicateContent(
+    creatorId: string,
+    kind: 'video' | 'thumbnail',
+    contentHash: string | undefined,
+  ): Promise<void> {
+    const hash = contentHash?.trim().toLowerCase();
+    if (kind !== 'video' || !hash) return;
+
+    const existing = await this.prisma.creatorPortfolioVideo.findFirst({
+      where: { creatorId, contentHash: hash },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        'This video is already in your portfolio. Pick a different file.',
+      );
+    }
+  }
+
   async presignUpload(
     actingUserId: string,
     dto: PresignPortfolioUploadDto,
@@ -131,6 +159,7 @@ export class CreatorPortfolioService {
       actingUserId,
       targetCreatorProfileId,
     );
+    await this.assertNoDuplicateContent(profile.id, dto.kind, dto.contentHash);
     const kind =
       dto.kind === 'video'
         ? 'creator_portfolio_video'
@@ -165,6 +194,7 @@ export class CreatorPortfolioService {
       actingUserId,
       dto.creatorId,
     );
+    await this.assertNoDuplicateContent(profile.id, dto.kind, dto.contentHash);
     const kind =
       dto.kind === 'video'
         ? 'creator_portfolio_video'
@@ -284,13 +314,21 @@ export class CreatorPortfolioService {
         : Promise.resolve(),
     ]);
 
-    const created = await this.prisma.creatorPortfolioVideo.create({
+    const contentHash = dto.contentHash?.trim().toLowerCase() || null;
+    if (contentHash) {
+      await this.assertNoDuplicateContent(profile.id, 'video', contentHash);
+    }
+
+    const created = await this.createVideoRow({
       data: {
         creatorId: profile.id,
+        contentHash,
         videoKey: dto.videoKey.trim(),
         videoUrl: this.storage.buildCdnUrl(dto.videoKey.trim()),
         thumbnailKey: thumbnailKey ?? null,
-        thumbnailUrl: thumbnailKey ? this.storage.buildCdnUrl(thumbnailKey) : null,
+        thumbnailUrl: thumbnailKey
+          ? this.storage.buildCdnUrl(thumbnailKey)
+          : null,
         industryLabel: industryLabel || null,
         language: language || null,
         description: dto.description?.trim() || null,
@@ -445,7 +483,8 @@ export class CreatorPortfolioService {
           ? toTitleCaseLabel(dto.industryLabel)
           : ''
         : undefined;
-    const language = dto.language !== undefined ? dto.language.trim() : undefined;
+    const language =
+      dto.language !== undefined ? dto.language.trim() : undefined;
 
     // Keep only the writes that must be atomic with the video update inside the
     // transaction: the video's own tags, the video row, and the listing-state
@@ -481,7 +520,9 @@ export class CreatorPortfolioService {
               industryLabel !== undefined ? industryLabel || null : undefined,
             language: language !== undefined ? language || null : undefined,
             description:
-              dto.description !== undefined ? dto.description.trim() || null : undefined,
+              dto.description !== undefined
+                ? dto.description.trim() || null
+                : undefined,
             visibilityStatus: visibility,
           } as any,
           include: { tags: true },
@@ -499,7 +540,11 @@ export class CreatorPortfolioService {
     // the transaction then rolled back. Best-effort — a storage failure must not
     // fail an update the creator has already made, it only leaves an orphan for
     // the reclaim script to sweep.
-    if (nextVideoKey && existing.videoKey && existing.videoKey !== nextVideoKey) {
+    if (
+      nextVideoKey &&
+      existing.videoKey &&
+      existing.videoKey !== nextVideoKey
+    ) {
       await this.deleteStorageObject(
         existing.videoKey,
         `replaced portfolio video ${videoId}`,
@@ -616,6 +661,31 @@ export class CreatorPortfolioService {
     );
   }
 
+  /**
+   * Create the row, translating the (creatorId, contentHash) unique-constraint
+   * violation into the same message as the pre-upload check. That check races:
+   * two uploads of one file can both pass it and only the index stops the
+   * second, so the error surfaces as a 400 rather than a 500.
+   */
+  private async createVideoRow(
+    args: Parameters<PrismaService['creatorPortfolioVideo']['create']>[0],
+  ) {
+    try {
+      return await this.prisma.creatorPortfolioVideo.create(args);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        String(error.meta?.target ?? '').includes('contentHash')
+      ) {
+        throw new BadRequestException(
+          'This video is already in your portfolio. Pick a different file.',
+        );
+      }
+      throw error;
+    }
+  }
+
   /** Remove an S3 object, logging rather than throwing. No-op for a null key. */
   private async deleteStorageObject(
     key: string | null | undefined,
@@ -648,7 +718,6 @@ export class CreatorPortfolioService {
       createdAt: row.createdAt,
     } satisfies PortfolioVideoResponseDto;
   }
-
 
   private readonly sectionInclude = {
     videos: {
@@ -696,9 +765,7 @@ export class CreatorPortfolioService {
     return this.mapSection(section);
   }
 
-  async listMySections(
-    userId: string,
-  ): Promise<PortfolioSectionResponseDto[]> {
+  async listMySections(userId: string): Promise<PortfolioSectionResponseDto[]> {
     const profile = await this.getCreatorProfileOrThrow(userId);
 
     const sections = await this.prisma.creatorPortfolioSection.findMany({
@@ -909,4 +976,3 @@ export class CreatorPortfolioService {
     };
   }
 }
-

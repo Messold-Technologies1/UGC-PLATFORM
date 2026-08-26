@@ -25,6 +25,8 @@ export async function createPortfolioMultipartUpload(
     kind: "video" | "thumbnail";
     contentType: string;
     contentLength: number;
+    /** SHA-256 hex, when the file was small enough to hash. */
+    contentHash?: string;
   },
   options?: PortfolioApiRequestOptions,
 ): Promise<CreateMultipartResponse> {

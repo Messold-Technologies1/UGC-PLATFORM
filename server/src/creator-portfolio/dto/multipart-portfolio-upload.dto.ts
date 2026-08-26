@@ -6,7 +6,9 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   ValidateNested,
@@ -36,6 +38,19 @@ export class CreateMultipartUploadDto extends PortfolioActingCreatorDto {
   @Min(1)
   @Max(PORTFOLIO_VIDEO_MAX_BYTES)
   contentLength!: number;
+
+  @ApiPropertyOptional({
+    example: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    description:
+      'SHA-256 hex of the file. Optional. When sent, a file already in this ' +
+      "creator's portfolio is rejected here, before any part is uploaded.",
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-f0-9]{64}$/i, {
+    message: 'contentHash must be a 64-character hex SHA-256 digest',
+  })
+  contentHash?: string;
 }
 
 export class CreateMultipartUploadResponseDto {

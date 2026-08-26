@@ -510,6 +510,41 @@ export class SocialConnectionsService {
   // Token maintenance (called by refresh cron + opportunistically on sync)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Decrypted, refreshed-if-needed access token for a connection.
+   *
+   * Public wrapper so the media sync can reuse the same token maintenance as
+   * the metrics sync instead of duplicating the refresh/persist dance.
+   */
+  async getFreshAccessToken(conn: SocialConnection): Promise<string> {
+    return this.ensureFreshInstagramToken(conn);
+  }
+
+  /**
+   * Park a connection in ERROR with a reason. Called when Graph reports code
+   * 190 (token expired, invalid or revoked), which no retry can fix — the
+   * creator has to reconnect.
+   */
+  async markConnectionError(
+    connectionId: string,
+    message: string,
+  ): Promise<void> {
+    await this.prisma.socialConnection
+      .update({
+        where: { id: connectionId },
+        data: {
+          status: SocialConnectionStatus.ERROR,
+          lastSyncStatus: 'error',
+          lastSyncError: message.slice(0, 500),
+        },
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `social: could not mark connection ${connectionId} as ERROR: ${(err as Error)?.message}`,
+        ),
+      );
+  }
+
   /** Decrypt the token, refreshing + persisting it if it is near expiry. */
   private async ensureFreshInstagramToken(
     conn: SocialConnection,
@@ -625,9 +660,7 @@ function isProviderAccountTakenError(err: unknown): boolean {
   if (err.code !== 'P2002') return false;
   const target = err.meta?.target;
   if (Array.isArray(target)) {
-    return (
-      target.includes('platform') && target.includes('providerAccountId')
-    );
+    return target.includes('platform') && target.includes('providerAccountId');
   }
   return String(target ?? '').includes('providerAccountId');
 }

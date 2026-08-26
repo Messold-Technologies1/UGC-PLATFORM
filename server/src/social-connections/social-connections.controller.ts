@@ -4,13 +4,16 @@ import {
   Delete,
   Get,
   Logger,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
@@ -33,6 +36,16 @@ import {
   SocialConnectionsResponseDto,
   SocialConnectUrlResponseDto,
 } from './dto/social-connection-response.dto';
+import {
+  InstagramMediaPageDto,
+  InstagramMediaStatusDto,
+  ListInstagramMediaQueryDto,
+} from './dto/instagram-media-response.dto';
+import { InstagramMediaService } from './instagram-media.service';
+import {
+  IG_SYNC_PRIORITY,
+  InstagramMediaQueueService,
+} from './instagram-media-queue.service';
 
 const IG_STATE_COOKIE = 'ig_oauth_state';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -70,6 +83,8 @@ export class SocialConnectionsController {
     private readonly service: SocialConnectionsService,
     private readonly queue: SocialMetricsQueueService,
     private readonly config: ConfigService,
+    private readonly media: InstagramMediaService,
+    private readonly mediaQueue: InstagramMediaQueueService,
   ) {}
 
   @Get('connections')
@@ -84,6 +99,83 @@ export class SocialConnectionsController {
   ): Promise<SocialConnectionsResponseDto> {
     const connections = await this.service.getConnectionsForUser(req.user.id);
     return { connections };
+  }
+
+  @Get('instagram/media')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOperation({
+    summary: "One page of the creator's cached reels",
+    description:
+      'Served entirely from our cache — this never calls the Graph API. A cold ' +
+      'or stale cache responds with status=syncing, returns whatever is cached, ' +
+      'and enqueues a refresh in the background.',
+  })
+  @ApiOkResponse({ type: InstagramMediaPageDto })
+  async listInstagramMedia(
+    @Req() req: Request & { user: { id: string } },
+    @Query() query: ListInstagramMediaQueryDto,
+  ): Promise<InstagramMediaPageDto> {
+    const page = await this.media.getGalleryPage(req.user.id, {
+      cursor: query.cursor,
+      limit: query.limit,
+    });
+
+    // Only the first page triggers a refresh: a creator paging through a stale
+    // cache should not enqueue on every scroll.
+    if (page.status === 'syncing' && !query.cursor) {
+      const connection = await this.media.findConnectionForUser(req.user.id);
+      if (connection) {
+        void this.mediaQueue.enqueue(connection.id, {
+          priority: IG_SYNC_PRIORITY.interactive,
+        });
+      }
+    }
+    return page as InstagramMediaPageDto;
+  }
+
+  @Get('instagram/media/status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Sync progress for the reel cache',
+    description: 'Polling target while the gallery shows its loading state.',
+  })
+  @ApiOkResponse({ type: InstagramMediaStatusDto })
+  async instagramMediaStatus(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<InstagramMediaStatusDto> {
+    return this.media.getSyncStatus(req.user.id);
+  }
+
+  @Post('instagram/media/refresh')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 3, ttl: 60 * 60_000 } })
+  @ApiOperation({
+    summary: 'Force a reel-cache refresh from the first page',
+    description:
+      'Backs the Refresh button. Rate-limited to 3/hour by the HTTP throttle ' +
+      'and again by a stored lastRefreshAt, so the guard survives a throttle ' +
+      'bypass and can report how long is left.',
+  })
+  @ApiOkResponse({ type: InstagramMediaStatusDto })
+  async refreshInstagramMedia(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<InstagramMediaStatusDto> {
+    const connection = await this.media.findConnectionForUser(req.user.id);
+    if (!connection) {
+      throw new NotFoundException('No Instagram account connected');
+    }
+    await this.media.assertRefreshAllowed(connection.id);
+    await this.media.markRefreshRequested(connection.id);
+    void this.mediaQueue.enqueue(connection.id, {
+      priority: IG_SYNC_PRIORITY.interactive,
+      fromStart: true,
+    });
+    return this.media.getSyncStatus(req.user.id);
   }
 
   @Get('creators/:creatorProfileId/instagram/insights')
@@ -117,7 +209,8 @@ export class SocialConnectionsController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: "Admin: re-sync a creator's Instagram now and return fresh insights",
+    summary:
+      "Admin: re-sync a creator's Instagram now and return fresh insights",
   })
   @ApiOkResponse({ type: PublicInstagramInsightsDto })
   async refreshCreatorInstagram(
@@ -180,6 +273,12 @@ export class SocialConnectionsController {
       );
       // Kick off the first metrics sync in the background.
       void this.queue.enqueue(connectionId);
+      // Warm the reel cache too, at a lower priority than anything
+      // interactive, so the gallery is usually ready before they open it.
+      void this.mediaQueue.enqueue(connectionId, {
+        priority: IG_SYNC_PRIORITY.prewarm,
+        fromStart: true,
+      });
       res.redirect(`${returnTo}?instagram=connected`);
     } catch (err) {
       this.logger.warn(

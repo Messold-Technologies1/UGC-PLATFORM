@@ -1651,7 +1651,10 @@ export function CreatorProfileWizard({
                   onAdd={() => setPfSourceOpen(true)}
                   onReplace={(video) => openPortfolioDrawer(video)}
                   onDelete={(video) =>
-                    deletePortfolioMutation.mutate({ videoId: video.id })
+                    deletePortfolioMutation.mutate({
+                      videoId: video.id,
+                      ...(adminMode ? { adminCreatorId: profileId } : {}),
+                    })
                   }
                   disabled={pending}
                   bio={bio}
@@ -1830,7 +1833,10 @@ export function CreatorProfileWizard({
           }
         }}
         onDelete={(video) => {
-          deletePortfolioMutation.mutate({ videoId: video.id });
+          deletePortfolioMutation.mutate({
+            videoId: video.id,
+            ...(adminMode ? { adminCreatorId: profileId } : {}),
+          });
           setPfDrawerOpen(false);
         }}
         isSaving={

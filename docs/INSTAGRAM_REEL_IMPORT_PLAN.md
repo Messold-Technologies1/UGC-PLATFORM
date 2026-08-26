@@ -234,6 +234,29 @@ not something this plan introduces; adding `videoKey` closes it.
   the new one. Rejecting with "this video is still processing" is simpler and
   more honest than trying to cancel the job.
 
+#### No per-video admin review — which is already the case
+
+**Decided: adding a portfolio video needs no admin review.** Uploaded or
+imported, it is live the moment the row is written (or the mirror finishes).
+
+Nothing has to be built or removed for this: `CreatorPortfolioVideo` has **no
+approval or review column**, and `listAllVideosForAdmin` is a read-only viewer —
+there is no per-video approve/reject action anywhere in the codebase. The only
+approval in the system is `CreatorApproval` at the *profile* level.
+
+So the entire change here is one string. `portfolio-step.tsx:175` reads "Upload
+at least 3 **approved** videos to go live" — the sole place in the client that
+promises a video-level gate, and it promises one that has never existed. Reword
+to plain counting (already on the Phase 0 list).
+
+> **The profile-level gate stays.** `isListed = (approval APPROVED) AND
+> completeProfile`, and `completeProfile` requires three public videos
+> (`creator-listing-state.util.ts`). So a creator's first portfolio is still seen
+> by an admin as part of approving the profile; it is the 4th, 10th, 20th video
+> that goes up unreviewed — which is how it already works today. Removing
+> `CreatorApproval` is a different and much larger decision, and this plan does
+> not touch it.
+
 #### A replacement goes live immediately
 
 **Decided: no admin clearance on replace.** The swapped-in video is visible as
@@ -246,9 +269,8 @@ one path around it — a listed creator can swap a vetted video for an unvetted
 one and stay listed. Accepted; replacement is rare, and admin review of the
 profile still catches it on the next pass.
 
-This is scoped to replace and does not change the profile-level approval flow —
-whether a *newly added* video (uploaded or imported) needs review is still open
-question 2.
+Consistent with the section above: added videos are unreviewed, so a replaced
+one should not be held to a stricter bar.
 
 If the position ever changes, the retained `visibilityStatus` column is the
 mechanism: write `PRIVATE` on replace until an admin clears it. No schema work
@@ -298,8 +320,8 @@ directly; Delete keeps its existing disabled state and tooltip at the floor.
 
 - `portfolio-step.tsx:175` reads "Upload at least 3 **approved** videos to go
   live. {publicCount} of 10 uploaded so far." With everything public on
-  creation, `publicCount` is just the video count, and "approved" now promises a
-  gate that no longer exists on this field. Reword to plain counting.
+  creation, `publicCount` is just the video count — and "approved" promises a
+  per-video gate that never existed. Reword to plain counting.
 - `list-creators-query.dto.ts:90` promises free-text search matches on
   "portfolio-video industry & tags". It won't. See below.
 
@@ -823,7 +845,7 @@ Client-side, mirror it: `staleTime: 7 days`, `gcTime: 7 days` on the
 | Creator has 0 reels (photos only) | Explicit empty state naming why — reels only, collabs may be missing |
 | Reel deleted on Instagram after import | Mirror mode: our copy is unaffected. Link mode: playback breaks — mark `FAILED` on a 404 |
 | Same reel imported twice | Blocked by `@@unique([creatorId, igMediaId])`, returned as `skipped` |
-| Reel with music/branding overlays | Still subject to the portfolio confirmation rules ("no watermark, logo or platform branding") — a content review rule enforced by admin review, unrelated to the watermark *service* (§3.5). Show the reminder in the import footer; imported reels are **not** auto-approved |
+| Reel with music/branding overlays | The portfolio confirmation checklist ("no watermark, logo or platform branding") still applies as a rule the creator attests to, and is unrelated to the watermark *service* (§3.5). Show the reminder in the import footer — but note there is no per-video gate enforcing it (§3.4); it surfaces only in profile-level review |
 | Reel under the 1080p bar | We can't reliably read resolution from Graph. Mirror mode can probe with ffmpeg and warn; leave enforcement to admin review as today |
 | Reel > 1 GiB | Rejected by the existing cap; surface as `FAILED` with the reason |
 | Creator's IG account switched to Personal | Graph returns an error → connection `ERROR` → reconnect prompt |
@@ -922,14 +944,11 @@ later phase has to touch.
 
 1. **Mirror or link?** §2 recommends mirror. Needs a call before Phase 1, since
    it decides whether `videoUrl` is ever null in steady state.
-2. **Do imported reels need admin approval like uploads?** Assumed yes (same
-   `visibilityStatus` + review path). Confirm — auto-approving IG reels would
-   be a policy change, not a technical one.
-3. **Sort order in the gallery** — newest first (assumed), or best-performing
+2. **Sort order in the gallery** — newest first (assumed), or best-performing
    first? The latter is available via per-media insights on the scope we already
    hold, at one extra call per page.
-4. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
+3. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
    product reason. Right number?
-5. **Is delete-only acceptable for taking a video down?** Follows from dropping
+4. **Is delete-only acceptable for taking a video down?** Follows from dropping
    the visibility control (§3.4). If moderation ever needs to hide rather than
    delete, the column is still there — it just needs an admin-only writer.

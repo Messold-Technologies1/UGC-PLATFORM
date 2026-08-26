@@ -332,7 +332,7 @@ const WHY = [
   },
 ];
 
-const AVATARS = ["/1.jpg", "/2.jpg", "/3.jpg", "/4.jpg", "/5.jpg"];
+const AVATARS = ["/creators/female-1.png", "/creators/female-2.png", "/creators/female-3.png", "/creators/female-4.jpg", "/creators/female-5.png"];
 
 const BRAND_FAQS = [
   {
@@ -705,7 +705,7 @@ export function BrandsLanding() {
         <div className="mx-auto grid max-w-[1240px] items-end gap-x-[clamp(40px,6vw,88px)] gap-y-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
           <div className="border-foreground shadow-hard bg-card mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border-2 lg:mx-0 lg:max-w-none">
             <Image
-              src="/5.jpg"
+              src="/creators/female-6.jpg"
               alt=""
               width={560}
               height={420}
@@ -713,14 +713,14 @@ export function BrandsLanding() {
             />
             <div className="px-6 pt-[22px] pb-[26px]">
               <div className="font-heading text-[19px] font-bold">
-                Sana Verma
+                Meher Kumar
               </div>
               <div className="text-muted-foreground mb-5 text-[13px]">
-                Skincare · Noida · 9.4k followers
+                Fashion · Delhi · 9.4k followers
               </div>
               <div className="flex flex-col gap-[11px] text-[13px]">
                 {[
-                  { k: "1 UGC video", v: "₹1,900" },
+                  { k: "1 UGC video", v: "₹3,200" },
                   { k: "Delivery", v: "2 days" },
                   { k: "Included", v: "1 revision, raw files" },
                   { k: "Add-ons", v: "Faster delivery" },

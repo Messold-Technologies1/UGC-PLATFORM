@@ -22,11 +22,21 @@ export type InstagramReelApi = {
 export type InstagramMediaPageApi = {
   status: InstagramMediaStatus;
   username: string | null;
-  lastFullSyncAt: string | null;
+  /**
+   * When a sync batch last completed. Not "last full walk" — a batch that
+   * stopped at its reel budget still refreshed the top of the account.
+   */
+  lastSyncedAt: string | null;
   stale: boolean;
   items: InstagramReelApi[];
   /** Opaque keyset cursor — pass straight back, never construct one. */
   nextCursor: string | null;
+  /**
+   * True when Instagram has reels past the end of our cache. Reaching the cache
+   * tail with this set is what offers "Load more"; scrolling within the cache
+   * is free, only that button spends a Graph call.
+   */
+  hasMoreOnInstagram: boolean;
   reelCount: number;
   error: string | null;
 };
@@ -34,7 +44,7 @@ export type InstagramMediaPageApi = {
 export type InstagramMediaSyncStatusApi = {
   status: "idle" | "queued" | "syncing" | "ready" | "error" | "not_connected";
   reelCount: number;
-  lastFullSyncAt: string | null;
+  lastSyncedAt: string | null;
   hasMore: boolean;
   error: string | null;
 };

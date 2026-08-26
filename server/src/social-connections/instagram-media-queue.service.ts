@@ -8,7 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type Job } from 'bullmq';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
 import { withTimeout } from '../util/with-timeout';
-import { InstagramMediaService } from './instagram-media.service';
+import {
+  InstagramMediaService,
+  type IgSyncMode,
+} from './instagram-media.service';
 import { type InstagramUsage } from './instagram.client';
 
 const QUEUE_NAME = 'instagram-media-sync';
@@ -43,7 +46,8 @@ const BREAKER_PAUSE_MS = 15 * 60_000;
 
 interface SyncJobData {
   connectionId: string;
-  fromStart?: boolean;
+  /** See IgSyncMode. Absent (e.g. a job enqueued by an older build) is 'auto'. */
+  mode?: IgSyncMode;
 }
 
 /**
@@ -173,7 +177,7 @@ export class InstagramMediaQueueService
    */
   async enqueue(
     connectionId: string,
-    opts: { priority?: number; fromStart?: boolean } = {},
+    opts: { priority?: number; mode?: IgSyncMode } = {},
   ): Promise<void> {
     if (!this.enabled()) return;
     const priority = opts.priority ?? IG_SYNC_PRIORITY.interactive;
@@ -193,7 +197,7 @@ export class InstagramMediaQueueService
             this.logger.warn(
               `ig-media: orphaned active job ${jobId} — syncing inline`,
             );
-            void this.runDirect(connectionId, 'orphan-active', opts.fromStart);
+            void this.runDirect(connectionId, 'orphan-active', opts.mode);
             return;
           } else {
             this.logger.log(
@@ -204,11 +208,11 @@ export class InstagramMediaQueueService
         }
         await this.queue.add(
           JOB_NAME,
-          { connectionId, fromStart: opts.fromStart },
+          { connectionId, mode: opts.mode },
           { jobId, priority },
         );
         setTimeout(() => {
-          void this.watchdog(connectionId, jobId, opts.fromStart);
+          void this.watchdog(connectionId, jobId, opts.mode);
         }, WATCHDOG_MS);
         return;
       } catch (err) {
@@ -217,7 +221,7 @@ export class InstagramMediaQueueService
         );
       }
     }
-    void this.runDirect(connectionId, 'inline', opts.fromStart);
+    void this.runDirect(connectionId, 'inline', opts.mode);
   }
 
   private async runJob(job: Job<SyncJobData>): Promise<void> {
@@ -225,7 +229,7 @@ export class InstagramMediaQueueService
     const usage = await this.runDirect(
       job.data.connectionId,
       'worker',
-      job.data.fromStart,
+      job.data.mode,
     );
     await this.applyBackpressure(job, usage);
   }
@@ -285,7 +289,7 @@ export class InstagramMediaQueueService
   async runDirect(
     connectionId: string,
     source: string,
-    fromStart?: boolean,
+    mode?: IgSyncMode,
   ): Promise<InstagramUsage | null> {
     // The worker is authoritative and must never be skipped, or a job completes
     // having made zero Graph calls. Only best-effort callers defer.
@@ -298,7 +302,7 @@ export class InstagramMediaQueueService
     this.processing.add(connectionId);
     try {
       const result = await withTimeout(
-        this.media.syncConnectionMedia(connectionId, { fromStart }),
+        this.media.syncConnectionMedia(connectionId, { mode }),
         SYNC_TIMEOUT_MS,
         `ig-media ${source} sync ${connectionId}`,
       );
@@ -342,7 +346,7 @@ export class InstagramMediaQueueService
   private async watchdog(
     connectionId: string,
     jobId: string,
-    fromStart?: boolean,
+    mode?: IgSyncMode,
   ): Promise<void> {
     if (!this.queue) return;
     const job = await withTimeout(
@@ -367,7 +371,7 @@ export class InstagramMediaQueueService
       `ig-media: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
     );
     try {
-      await this.runDirect(connectionId, 'watchdog', fromStart);
+      await this.runDirect(connectionId, 'watchdog', mode);
     } catch {
       // syncConnectionMedia records its own failure in the sync state.
     }

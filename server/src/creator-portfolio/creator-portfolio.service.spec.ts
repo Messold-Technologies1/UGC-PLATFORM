@@ -311,6 +311,7 @@ describe('CreatorPortfolioService video lifecycle', () => {
       count: jest.fn(),
       delete: jest.fn(),
     },
+    instagramMediaItem: { updateMany: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -421,7 +422,9 @@ describe('CreatorPortfolioService video lifecycle', () => {
         creatorId: creatorProfileId,
         videoKey: oldVideoKey,
         thumbnailKey: oldThumbKey,
+        igMediaId: null,
       });
+      prismaMock.instagramMediaItem.updateMany.mockResolvedValue({ count: 0 });
     });
 
     it('swaps in the new key and derives its CDN url', async () => {
@@ -498,6 +501,78 @@ describe('CreatorPortfolioService video lifecycle', () => {
       });
 
       expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+    });
+
+    describe('replacing an imported reel', () => {
+      beforeEach(() => {
+        prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+          id: videoId,
+          creatorId: creatorProfileId,
+          videoKey: oldVideoKey,
+          thumbnailKey: oldThumbKey,
+          igMediaId: '17912345678901234',
+        });
+      });
+
+      it('drops the Instagram provenance the row no longer holds', async () => {
+        await service.updateVideo(creatorUserId, videoId, {
+          videoKey: newVideoKey,
+        });
+
+        expect(txUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              source: 'UPLOAD',
+              assetState: 'READY',
+              igMediaId: null,
+              igPermalink: null,
+              igPostedAt: null,
+              importedAt: null,
+            }),
+          }),
+        );
+      });
+
+      it('un-dims the reel in the picker', async () => {
+        await service.updateVideo(creatorUserId, videoId, {
+          videoKey: newVideoKey,
+        });
+
+        expect(prismaMock.instagramMediaItem.updateMany).toHaveBeenCalledWith({
+          where: { importedVideoId: videoId },
+          data: { importedVideoId: null },
+        });
+      });
+
+      it('still completes the replace when un-dimming fails', async () => {
+        prismaMock.instagramMediaItem.updateMany.mockRejectedValue(
+          new Error('db blip'),
+        );
+
+        await expect(
+          service.updateVideo(creatorUserId, videoId, {
+            videoKey: newVideoKey,
+          }),
+        ).resolves.toBeDefined();
+        expect(txUpdate).toHaveBeenCalled();
+      });
+
+      it('leaves provenance intact on a thumbnail-only update', async () => {
+        // No new video key means the row still holds the reel it was imported
+        // from, so nothing about its origin has changed.
+        await service.updateVideo(creatorUserId, videoId, {
+          thumbnailKey: newThumbKey,
+        });
+
+        expect(txUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.not.objectContaining({ igMediaId: null }),
+          }),
+        );
+        expect(
+          prismaMock.instagramMediaItem.updateMany,
+        ).not.toHaveBeenCalled();
+      });
     });
   });
 });

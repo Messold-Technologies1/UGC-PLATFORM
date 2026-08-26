@@ -128,8 +128,10 @@ export class SocialConnectionsController {
     summary: "One page of the creator's cached reels",
     description:
       'Served entirely from our cache — this never calls the Graph API. A cold ' +
-      'or stale cache responds with status=syncing, returns whatever is cached, ' +
-      'and enqueues a refresh in the background.',
+      'cache (or one aged past its TTL) responds with status=syncing, returns ' +
+      'whatever is cached, and enqueues one batch in the background. A ' +
+      'populated, fresh cache enqueues nothing: extending it past the first ' +
+      'batch is an explicit act (`media/load-more`).',
   })
   @ApiOkResponse({ type: InstagramMediaPageDto })
   async listInstagramMedia(
@@ -141,13 +143,17 @@ export class SocialConnectionsController {
       limit: query.limit,
     });
 
-    // Only the first page triggers a refresh: a creator paging through a stale
-    // cache should not enqueue on every scroll.
+    // Only the first page can trigger a sync, and only when the cache is cold
+    // or has aged out — a populated, fresh cache reads 'ready' and enqueues
+    // nothing, so opening the picker is free however many reels it holds.
+    // `auto` establishes the paging frontier on a first sync and refreshes the
+    // top of the account after that.
     if (page.status === 'syncing' && !query.cursor) {
       const connection = await this.media.findConnectionForUser(req.user.id);
       if (connection) {
         void this.mediaQueue.enqueue(connection.id, {
           priority: IG_SYNC_PRIORITY.interactive,
+          mode: 'auto',
         });
       }
     }
@@ -192,8 +198,37 @@ export class SocialConnectionsController {
     await this.media.markRefreshRequested(connection.id);
     void this.mediaQueue.enqueue(connection.id, {
       priority: IG_SYNC_PRIORITY.interactive,
-      fromStart: true,
+      mode: 'refresh',
     });
+    return this.media.getSyncStatus(req.user.id);
+  }
+
+  @Post('instagram/media/load-more')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 20, ttl: 60 * 60_000 } })
+  @ApiOperation({
+    summary: 'Fetch the next batch of older reels from Instagram',
+    description:
+      'Backs "Load more" once the reader reaches the end of the cache. ' +
+      'Resumes from the stored Graph cursor, so it continues past the last ' +
+      'cached reel rather than re-reading the account from the top. A no-op ' +
+      'when the whole account is already cached.',
+  })
+  @ApiOkResponse({ type: InstagramMediaStatusDto })
+  async loadMoreInstagramMedia(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<InstagramMediaStatusDto> {
+    const connection = await this.media.findConnectionForUser(req.user.id);
+    if (!connection) {
+      throw new NotFoundException('No Instagram account connected');
+    }
+    if (await this.media.hasMoreToFetch(connection.id)) {
+      void this.mediaQueue.enqueue(connection.id, {
+        priority: IG_SYNC_PRIORITY.interactive,
+        mode: 'extend',
+      });
+    }
     return this.media.getSyncStatus(req.user.id);
   }
 
@@ -218,14 +253,15 @@ export class SocialConnectionsController {
       limit: query.limit,
     });
 
-    // As on the creator route, only the first page enqueues, so paging a stale
-    // cache does not re-enqueue per scroll.
+    // As on the creator route: only a cold or aged-out cache enqueues, and only
+    // for the first page.
     if (page.status === 'syncing' && !query.cursor) {
       const connection =
         await this.media.findConnectionForCreatorProfile(creatorProfileId);
       if (connection) {
         void this.mediaQueue.enqueue(connection.id, {
           priority: IG_SYNC_PRIORITY.interactive,
+          mode: 'auto',
         });
       }
     }
@@ -269,8 +305,38 @@ export class SocialConnectionsController {
     await this.media.markRefreshRequested(connection.id);
     void this.mediaQueue.enqueue(connection.id, {
       priority: IG_SYNC_PRIORITY.interactive,
-      fromStart: true,
+      mode: 'refresh',
     });
+    return this.media.getSyncStatusForCreator(creatorProfileId);
+  }
+
+  @Post('creators/:creatorProfileId/instagram/media/load-more')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 40, ttl: 60 * 60_000 } })
+  @ApiOperation({
+    summary: "Admin: fetch the next batch of a creator's older reels",
+    description:
+      "Spends the creator's own rate-limit budget, exactly as the " +
+      'creator-facing route does.',
+  })
+  @ApiOkResponse({ type: InstagramMediaStatusDto })
+  async loadMoreCreatorInstagramMedia(
+    @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
+  ): Promise<InstagramMediaStatusDto> {
+    const connection =
+      await this.media.findConnectionForCreatorProfile(creatorProfileId);
+    if (!connection) {
+      throw new NotFoundException(
+        'This creator has no Instagram account connected',
+      );
+    }
+    if (await this.media.hasMoreToFetch(connection.id)) {
+      void this.mediaQueue.enqueue(connection.id, {
+        priority: IG_SYNC_PRIORITY.interactive,
+        mode: 'extend',
+      });
+    }
     return this.media.getSyncStatusForCreator(creatorProfileId);
   }
 
@@ -388,10 +454,12 @@ export class SocialConnectionsController {
       // Kick off the first metrics sync in the background.
       void this.queue.enqueue(connectionId);
       // Warm the reel cache too, at a lower priority than anything
-      // interactive, so the gallery is usually ready before they open it.
+      // interactive, so the first batch is usually cached before they open the
+      // picker. `auto` is an extend here (nothing synced yet), which is what
+      // establishes the paging frontier for later "Load more" calls.
       void this.mediaQueue.enqueue(connectionId, {
         priority: IG_SYNC_PRIORITY.prewarm,
-        fromStart: true,
+        mode: 'auto',
       });
       res.redirect(`${returnTo}?instagram=connected`);
     } catch (err) {

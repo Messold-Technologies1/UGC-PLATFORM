@@ -982,6 +982,8 @@ model CreatorPortfolioVideo {
 
   creator       CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   sectionVideos CreatorPortfolioSectionVideo[]
+  /// The cached reel(s) pointing at this row, so deleting it un-dims the tile.
+  igMediaItems  InstagramMediaItem[]
 
   @@unique([creatorId, contentHash])
   /// One Instagram reel can only be imported into a portfolio once.
@@ -1360,14 +1362,18 @@ model InstagramMediaItem {
   commentsCount   Int?
   viewCount       Int?
 
-  /// Set once this reel has been imported, so the gallery can dim it.
+  /// Set once this reel has been imported, so the gallery can dim it. A real
+  /// foreign key with ON DELETE SET NULL: when the portfolio video is deleted
+  /// the pointer clears itself and the reel becomes selectable again. As a bare
+  /// uuid this rotted into a dangling id and the tile read "Added" forever.
   importedVideoId String? @db.Uuid
 
   fetchedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connection    SocialConnection       @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  importedVideo CreatorPortfolioVideo? @relation(fields: [importedVideoId], references: [id], onDelete: SetNull)
 
   @@unique([connectionId, igMediaId])
   /// Drives the gallery's keyset pagination (postedAt desc, igMediaId desc).
@@ -1376,7 +1382,7 @@ model InstagramMediaItem {
 }
 
 /// One row per connection: where the page walk got to, and how fresh the cache
-/// is. The 7-day TTL is measured from `lastFullSyncAt`.
+/// is. The 7-day TTL is measured from `lastSyncedAt`.
 model InstagramMediaSyncState {
   connectionId String            @id @db.Uuid
   status       IgMediaSyncStatus @default(IDLE)
@@ -1388,7 +1394,12 @@ model InstagramMediaSyncState {
   pagesFetched Int     @default(0)
   reelCount    Int     @default(0)
 
-  lastFullSyncAt DateTime?
+  /// When a sync batch last completed successfully. Deliberately *not* "last
+  /// full walk": a batch that stops at its reel budget still refreshed the top
+  /// of the account, and `hasMore` already says whether more remains to page
+  /// in. Stamping this only on a complete walk left a 1000-reel account
+  /// permanently "stale", which made the gallery re-sync on every open.
+  lastSyncedAt DateTime?
   /// Rate-limits the manual Refresh button server-side.
   lastRefreshAt DateTime?
   lastError     String?
@@ -1397,7 +1408,7 @@ model InstagramMediaSyncState {
   connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@index([status])
-  @@index([lastFullSyncAt])
+  @@index([lastSyncedAt])
 }
 
 model SocialConnection {

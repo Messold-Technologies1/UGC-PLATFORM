@@ -63,6 +63,24 @@ export async function refreshInstagramReels(
   return data;
 }
 
+/**
+ * Fetch the next batch of older reels from Instagram.
+ *
+ * Only called once the reader has reached the end of the cache — paging within
+ * the cache is free, and this is the one call that spends a Graph request. The
+ * server resumes from its stored cursor, so this continues past the last cached
+ * reel rather than re-reading the account from the top.
+ */
+export async function loadMoreInstagramReels(
+  adminCreatorId?: string,
+): Promise<InstagramMediaSyncStatusApi> {
+  const url = adminCreatorId
+    ? ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_LOAD_MORE_FOR_CREATOR(adminCreatorId)
+    : ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_LOAD_MORE;
+  const { data } = await api.post<InstagramMediaSyncStatusApi>(url);
+  return data;
+}
+
 export async function importInstagramReels(
   igMediaIds: string[],
   options?: { adminCreatorId?: string },

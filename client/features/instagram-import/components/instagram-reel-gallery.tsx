@@ -51,9 +51,11 @@ function formatCount(n: number | null): string | null {
 /**
  * Full-height reel picker.
  *
- * Everything is served from our cache, so scrolling never waits on Instagram.
- * The grid is virtualized because a prolific creator can have hundreds of reels
- * and each tile holds an image.
+ * Everything on screen is served from our cache, so scrolling never waits on
+ * Instagram. Only the first batch is fetched automatically; reaching the end of
+ * the cache offers a "Load more from Instagram" button, which is the sole thing
+ * here that spends a Graph call. The grid is virtualized because a prolific
+ * creator can have hundreds of reels and each tile holds an image.
  */
 export function InstagramReelGallery({
   open,
@@ -106,6 +108,26 @@ export function InstagramReelGallery({
   const syncing = reels.status === "syncing";
   const showSkeleton = reels.isLoading || (syncing && reels.items.length === 0);
 
+  // Rendered at the bottom of the virtualized list, so it shows up exactly when
+  // the reader has run out of cached reels rather than sitting there all along.
+  const fetchMoreBatch = reels.fetchMoreFromInstagram.mutate;
+  const Footer = useCallback(
+    () => (
+      <GridFooter
+        pagingCache={reels.isFetchingNextPage}
+        canFetchMore={reels.canFetchMoreFromInstagram}
+        isFetchingBatch={reels.isFetchingBatch}
+        onFetchMore={fetchMoreBatch}
+      />
+    ),
+    [
+      reels.isFetchingNextPage,
+      reels.canFetchMoreFromInstagram,
+      reels.isFetchingBatch,
+      fetchMoreBatch,
+    ],
+  );
+
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="flex h-[90vh] max-h-[90vh] flex-col gap-0 p-0 sm:max-w-3xl">
@@ -122,7 +144,7 @@ export function InstagramReelGallery({
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {reels.reelCount > 0
-                  ? `${reels.reelCount} reel${reels.reelCount === 1 ? "" : "s"} · updated ${formatRelative(reels.lastFullSyncAt)}`
+                  ? `${reels.reelCount} reel${reels.reelCount === 1 ? "" : "s"} · updated ${formatRelative(reels.lastSyncedAt)}`
                   : adminCreatorId
                     ? "Only reels posted from this account appear here."
                     : "Only reels you posted from this account appear here."}
@@ -198,8 +220,11 @@ export function InstagramReelGallery({
               <VirtuosoGrid
                 style={{ height: "100%" }}
                 totalCount={reels.items.length}
+                // Paging the cache is free, so it happens on scroll. Fetching a
+                // new batch from Instagram is not, and is never triggered here.
                 endReached={reels.loadMore}
                 overscan={200}
+                components={{ Footer }}
                 listClassName="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"
                 itemContent={(index) => {
                   const reel = reels.items[index];
@@ -218,11 +243,6 @@ export function InstagramReelGallery({
                   );
                 }}
               />
-              {reels.isFetchingNextPage ? (
-                <p className="pt-3 text-center text-xs text-muted-foreground">
-                  Loading more…
-                </p>
-              ) : null}
             </>
           )}
         </div>
@@ -255,6 +275,49 @@ export function InstagramReelGallery({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The bottom of the list. Only one of the three states can apply: still paging
+ * the cache, or out of cache with more on Instagram, or genuinely at the end.
+ */
+function GridFooter({
+  pagingCache,
+  canFetchMore,
+  isFetchingBatch,
+  onFetchMore,
+}: {
+  pagingCache: boolean;
+  canFetchMore: boolean;
+  isFetchingBatch: boolean;
+  onFetchMore: () => void;
+}) {
+  if (pagingCache) {
+    return (
+      <p className="py-4 text-center text-xs text-muted-foreground">
+        Loading more…
+      </p>
+    );
+  }
+  if (isFetchingBatch) {
+    return (
+      <p className="flex items-center justify-center gap-1.5 py-4 text-xs text-muted-foreground">
+        <Loader2 className="size-3 animate-spin" aria-hidden />
+        Fetching older reels from Instagram…
+      </p>
+    );
+  }
+  if (!canFetchMore) return null;
+  return (
+    <div className="flex flex-col items-center gap-1.5 py-4">
+      <Button variant="outline" size="sm" onClick={() => onFetchMore()}>
+        Load more from Instagram
+      </Button>
+      <p className="text-[11px] text-muted-foreground">
+        We keep the reels you have already seen — this fetches the next batch.
+      </p>
+    </div>
   );
 }
 

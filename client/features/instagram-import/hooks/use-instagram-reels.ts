@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -15,6 +15,7 @@ import {
   importInstagramReels,
   instagramReelsQueryKeyFor,
   instagramReelsStatusQueryKeyFor,
+  loadMoreInstagramReels,
   refreshInstagramReels,
 } from "../api/instagram-media";
 import type { InstagramMediaPageApi } from "../api/types";
@@ -30,8 +31,16 @@ const SYNC_POLL_MS = 2500;
  * The reel gallery's data source.
  *
  * Reads are cheap and cached for as long as the server caches them, so opening
- * the sheet repeatedly costs nothing. When the server says it is syncing, a
- * light poll runs until it settles and then the list is refetched once.
+ * the sheet repeatedly costs nothing — the server only syncs a cold cache, never
+ * one that is merely stale. When it does report a sync in flight, a light poll
+ * runs until it settles and then the list is refetched once.
+ *
+ * There are two separate "more" mechanisms behind one button, because they cost
+ * very different things:
+ *
+ *  - `hasNextPage` pages within our cache. Free, so it also fires on scroll.
+ *  - `canFetchMoreFromInstagram` asks Instagram for the next batch of older
+ *    reels. One Graph call, so it is never automatic — the reader clicks.
  */
 export function useInstagramReels({
   enabled,
@@ -61,15 +70,22 @@ export function useInstagramReels({
   });
 
   const first = query.data?.pages[0];
+  const pages = query.data?.pages;
+  const last = pages?.[pages.length - 1];
   const serverSyncing = first?.status === "syncing";
+
+  // Set the moment a batch is requested, so the poll starts before the first
+  // page has had a chance to report `syncing` back to us.
+  const [awaitingBatch, setAwaitingBatch] = useState(false);
+  const polling = serverSyncing || awaitingBatch;
 
   // Only poll while something is actually running — a settled gallery makes no
   // background requests at all.
   const statusQuery = useQuery({
     queryKey: statusKey,
     queryFn: () => fetchInstagramReelsStatus(adminCreatorId),
-    enabled: enabled && serverSyncing,
-    refetchInterval: serverSyncing ? SYNC_POLL_MS : false,
+    enabled: enabled && polling,
+    refetchInterval: polling ? SYNC_POLL_MS : false,
   });
 
   const syncSettled =
@@ -77,12 +93,15 @@ export function useInstagramReels({
     statusQuery.data?.status === "error";
 
   useEffect(() => {
-    if (serverSyncing && syncSettled) {
+    if (polling && syncSettled) {
+      setAwaitingBatch(false);
+      // Refetching every page is what makes new reels reachable: the page that
+      // was the cache tail now returns a cursor instead of null.
       void queryClient.invalidateQueries({ queryKey: reelsKey });
     }
     // reelsKey is derived from adminCreatorId, so it is stable per creator.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverSyncing, syncSettled, queryClient, adminCreatorId]);
+  }, [polling, syncSettled, queryClient, adminCreatorId]);
 
   const refresh = useMutation({
     mutationFn: () => refreshInstagramReels(adminCreatorId),
@@ -103,19 +122,40 @@ export function useInstagramReels({
     },
   });
 
+  const fetchMoreFromInstagram = useMutation({
+    mutationFn: () => loadMoreInstagramReels(adminCreatorId),
+    onMutate: () => setAwaitingBatch(true),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: statusKey });
+    },
+    onError: (error: unknown) => {
+      setAwaitingBatch(false);
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ?? "Could not load more reels right now";
+      toast.error(message);
+    },
+  });
+
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
 
+  // Free: another page of what we already hold.
   const loadMore = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) {
       void query.fetchNextPage();
     }
   }, [query]);
 
+  // Costly: the reader is at the end of the cache and Instagram has more. Only
+  // offered once cache paging is exhausted, so a click always does something.
+  const canFetchMoreFromInstagram =
+    Boolean(last?.hasMoreOnInstagram) && !query.hasNextPage && !polling;
+
   return {
     items,
     status: first?.status ?? "syncing",
     username: first?.username ?? null,
-    lastFullSyncAt: first?.lastFullSyncAt ?? null,
+    lastSyncedAt: first?.lastSyncedAt ?? null,
     reelCount: first?.reelCount ?? 0,
     error: first?.error ?? null,
     isLoading: query.isLoading,
@@ -123,6 +163,9 @@ export function useInstagramReels({
     hasNextPage: Boolean(query.hasNextPage),
     isFetchingNextPage: query.isFetchingNextPage,
     loadMore,
+    canFetchMoreFromInstagram,
+    fetchMoreFromInstagram,
+    isFetchingBatch: awaitingBatch || fetchMoreFromInstagram.isPending,
     refresh,
     retry: () => void query.refetch(),
   };

@@ -234,21 +234,25 @@ not something this plan introduces; adding `videoKey` closes it.
   the new one. Rejecting with "this video is still processing" is simpler and
   more honest than trying to cancel the job.
 
-#### The moderation hole replace opens
+#### A replacement goes live immediately
 
-The floor exists so a live profile always carries three *reviewed* videos.
-Replace is the way around it: a listed creator can swap a reviewed video for an
-unreviewed one and stay listed. Three options:
+**Decided: no admin clearance on replace.** The swapped-in video is visible as
+soon as the row is updated (or as soon as its mirror finishes, for a reel). No
+re-review queue, no holding it back.
 
-1. Accept it — replacement is rare and admin review catches it eventually.
-2. **Flag the replacement for re-review** (recommended): on a profile where
-   `isListed` is true, a replace enqueues the video into the admin review queue
-   while leaving it visible.
-3. Hold the replacement until reviewed — the `visibilityStatus` column we kept
-   is exactly the mechanism, writing `PRIVATE` until an admin clears it.
+Recorded so it is a deliberate choice rather than an oversight: the 3-video floor
+exists so a live profile always carries three vetted videos, and replace is the
+one path around it — a listed creator can swap a vetted video for an unvetted
+one and stay listed. Accepted; replacement is rare, and admin review of the
+profile still catches it on the next pass.
 
-(2) is cheapest and keeps the creator unblocked. (3) is available later without
-schema work, which is a further reason the column stays.
+This is scoped to replace and does not change the profile-level approval flow —
+whether a *newly added* video (uploaded or imported) needs review is still open
+question 2.
+
+If the position ever changes, the retained `visibilityStatus` column is the
+mechanism: write `PRIVATE` on replace until an admin clears it. No schema work
+needed.
 
 #### What a tile's actions become
 
@@ -929,6 +933,3 @@ later phase has to touch.
 5. **Is delete-only acceptable for taking a video down?** Follows from dropping
    the visibility control (§3.4). If moderation ever needs to hide rather than
    delete, the column is still there — it just needs an admin-only writer.
-6. **Does a replace on a listed profile go back through review?** §3.4
-   recommends flagging it for re-review while leaving it visible. Otherwise
-   replace is a way around the "three reviewed videos" floor.

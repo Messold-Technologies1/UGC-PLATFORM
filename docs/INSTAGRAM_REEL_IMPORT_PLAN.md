@@ -447,24 +447,103 @@ New `InstagramMediaQueueService`, modelled directly on
 ### 6.3 Mirror job (mirror mode only)
 
 Separate queue `instagram-media-mirror`, one job per imported video, so a slow
-100 MB download never blocks the metadata sync.
+download never blocks the metadata sync.
 
-- `HEAD`/`GET` the `media_url`, stream into S3 under the *existing* key shape
-  `creator-portfolio/{creatorId}/videos/{uuid}.mp4` (add an
-  `instagram_import` storage kind that resolves to the same prefix, so
-  `assertVideoKeyOwner` keeps working unchanged).
-- Stream, don't buffer: add **`@aws-sdk/lib-storage`** and use `Upload` for
-  multipart streaming. A 100 MB buffer per concurrent job will OOM the API pod.
-- Mirror `thumbnail_url` the same way into `.../thumbnails/{uuid}.jpg`; if IG
-  gives no thumbnail, extract frame 1 with the existing ffmpeg helper.
-- Enforce the existing 1 GiB cap and reject non-video content types.
-- On success: set `videoKey`, `videoUrl` (CDN), `thumbnailKey`,
-  `assetState=READY`. On terminal failure after 3 attempts:
-  `assetState=FAILED` with a retry button in the UI. `media_url` may have
-  expired between import and mirror — on a 403 from the CDN, re-run a
-  single-page sync to re-sign the URL and retry once.
+**The browser is never involved.** The existing upload path is browser-driven —
+the API only signs a URL and the bytes go straight from the device to S3. The
+mirror is the opposite shape: our server pulls from Instagram's CDN and pushes to
+S3, and the creator's device has no part in it.
+
+```
+  upload   browser ──presign──> API ;  browser ──PUT bytes──> S3
+  mirror   worker ──GET media_url──> IG CDN ;  worker ──stream──> S3
+```
+
+The import request only creates the row and enqueues. That is why the UI can
+show tiles instantly with the Instagram thumbnail while the video is still
+copying.
+
+#### The copy
+
+```ts
+// 1. Re-sign if the cached URL has gone stale — it was read at sync time,
+//    possibly days ago.
+if (item.urlsExpireAt && item.urlsExpireAt < new Date()) {
+  await this.media.resyncSinglePage(item.connectionId, item.igMediaId);
+  item = await this.reload(item.id);
+}
+
+// 2. Fetch from the IG CDN, host pinned.
+const res = await fetch(assertMetaCdnHost(item.mediaUrl), {
+  signal: AbortSignal.timeout(this.mirrorTimeoutMs()),   // ~120s, not 15s
+  redirect: 'manual',
+});
+
+// 3. Guard before spending bandwidth.
+const len = Number(res.headers.get('content-length'));
+if (len > PORTFOLIO_VIDEO_MAX_BYTES) throw new MirrorTooLargeError(len);
+const contentType = res.headers.get('content-type');   // expect video/mp4
+
+// 4. Stream into S3 multipart — constant memory, not file-sized.
+await new Upload({
+  client: this.storage.rawClient(),
+  params: {
+    Bucket: this.storage.bucketName(),
+    Key: row.videoKey,          // generated at import time — see below
+    Body: res.body,
+    ContentType: contentType,
+  },
+  queueSize: 4,
+  partSize: 10 * 1024 * 1024,
+}).done();
+```
+
+The thumbnail gets different treatment: a ~50 KB JPEG, so it goes through the
+existing `putObjectBuffer` helper. No reason to stream that. If Instagram
+returns no thumbnail, extract frame 1 with the existing ffmpeg helper.
+
+One transaction then sets `videoUrl` (via `buildCdnUrl`), `thumbnailKey` and
+`assetState=READY`. Nothing flips to `READY` until both objects are actually in
+the bucket. Terminal failure after 3 attempts sets `assetState=FAILED` with a
+retry button in the UI.
+
+#### Details that decide whether this works
+
+- **No new storage kind.** `buildObjectKey({ kind: 'creator_portfolio_video',
+  creatorProfileId, contentType })` already returns
+  `creator-portfolio/{creatorId}/videos/{uuid}.mp4` — exactly the prefix
+  `assertVideoKeyOwner` checks. Reuse it as-is.
+- **Generate the key at import time, not in the worker.** `buildObjectKey`
+  calls `randomUUID()`. A worker that generated its own key would, on a retry
+  after a half-finished upload, write to a *new* key and orphan the partial
+  object in the bucket forever. Generate once when the row is created, store it
+  in `videoKey`, and let retries overwrite the same key.
+- **Pin the CDN host.** `media_url` is a URL we fetch from inside our network.
+  It comes from Meta's API so the risk is low, but the discipline is cheap:
+  require https, allowlist `*.cdninstagram.com` and `*.fbcdn.net`, and use
+  `redirect: 'manual'` so a redirect cannot walk us to an internal address.
+  This is the one genuine security consideration in the feature.
+- **Trust the response content-type, not the URL.** Run the CDN's declared type
+  through the existing `validateContentType('creator_portfolio_video', ct)`.
+- **Cap twice.** Check `content-length` before streaming, and abort mid-stream
+  if the actual byte count exceeds 1 GiB anyway, in case the header lies.
 - **Mirror promptly.** The window between reading `media_url` and using it is
-  the risk; enqueue the mirror inside the same request that creates the row.
+  the risk; enqueue inside the same request that creates the row. On a 403 from
+  the CDN, re-sync that page and retry once.
+
+#### Streaming vs buffering
+
+Streaming needs one new dependency, `@aws-sdk/lib-storage`. Buffering needs
+none — `getObjectBuffer`/`putObjectBuffer` already exist, and the watermark
+service already uses exactly that shape on order deliveries that can reach
+1 GiB, so the pattern is proven in this codebase.
+
+A typical 1080p reel is 20–40 MB, so at `IG_MIRROR_CONCURRENCY=2` buffering
+would peak around 100 MB and would very likely be fine. Streaming is still the
+better call — memory stays flat regardless of reel length or concurrency — but
+it is a *strictly better and cheap* choice, not a case of the alternative
+crashing. An earlier draft of this plan claimed buffering "will OOM the API
+pod"; that was overstated.
 
 ### 6.4 Cron
 

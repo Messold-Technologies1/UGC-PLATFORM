@@ -50,11 +50,18 @@ a playable video file).
 | Works with the existing `videoKey` ownership checks | Yes | No |
 | Cost | One-time egress + storage per reel (~10–100 MB) | Ongoing Graph calls forever |
 
-**Recommendation: mirror mode.** It is also what the codebase already assumes —
-`assertVideoKeyOwner()` requires an S3 key under
-`creator-portfolio/{creatorId}/videos/`, and there is already a backfill script
-(`prisma/backfill-seed-portfolio-videos-to-s3.ts`) that moved external URLs into
-S3.
+**Recommendation: mirror mode.** The load-bearing reason is expiry alone: link
+mode means portfolios that go dark within days and a Graph call on every brand
+page view.
+
+It is also what the portfolio module already assumes.
+`assertVideoKeyOwner()` (`creator-portfolio.service.ts:111`) throws unless the
+key starts with `creator-portfolio/{creatorId}/videos/`, and every `createVideo`
+runs `dto.videoKey` through it. That is an authorization check — it stops
+creator A claiming a key under creator B's prefix — so it structurally requires
+the video to be an object in our own bucket. Add that `videoKey`/`videoUrl` are
+non-null required columns and that no code path anywhere plays a portfolio video
+from a foreign URL, and link mode is the one that fights the existing design.
 
 The schema and API below support **both**; the mode is a single env flag
 (`PORTFOLIO_IG_IMPORT_MODE=mirror|link`, default `mirror`). Link mode just skips

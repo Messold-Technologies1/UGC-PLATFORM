@@ -1,0 +1,614 @@
+# Instagram Reel Import — Implementation Plan
+
+Let creators build their portfolio by picking reels straight from their connected
+Instagram account, instead of re-uploading files they already published.
+
+Status: plan / not yet implemented.
+
+---
+
+## 1. What already exists (nothing here is greenfield)
+
+| Piece | Location | Notes |
+|---|---|---|
+| Instagram OAuth (Instagram Login, no FB Page) | `server/src/social-connections/instagram.client.ts` | Long-lived token exchange + refresh already implemented |
+| Token storage, encrypted | `SocialConnection` model, `social-crypto.util.ts` | AES-256-GCM, `SOCIAL_TOKEN_ENC_KEY` |
+| Scopes granted today | `instagram.client.ts` `SCOPES` | `instagram_business_basic`, `instagram_business_manage_insights` |
+| Token auto-refresh cron | `social-metrics.cron.ts` `refreshTokens()` | Daily 03:00 UTC, refreshes near-expiry tokens |
+| BullMQ queue + worker + watchdog pattern | `social-metrics-queue.service.ts`, `jobs/watermark-queue.service.ts` | Inline fallback when `REDIS_URL` is absent |
+| Portfolio CRUD, S3 presign, multipart upload | `server/src/creator-portfolio/*`, `client/features/creator-portfolio/*` | `videoKey` is required and ownership-checked |
+| Portfolio grid + "Add reel" tile | `creator-profile-update/portfolio-components.tsx` → `PortfolioGrid` | `onAdd` currently opens the upload drawer directly |
+| Wizard wiring | `creator-profile-wizard.tsx:1456` `onAdd={() => openPortfolioDrawer(null)}` | This is the single call site to intercept |
+| ffmpeg | `watermark/watermark.service.ts` | Available for thumbnail/transcode work |
+| Rate limiting | `ThrottlerModule` global 100/60s, `@Throttle` per route | Already the house pattern |
+
+**`instagram_business_basic` already covers `GET /me/media`.** No new scope, no new
+App Review submission, no re-consent for already-connected creators.
+
+---
+
+## 2. The one decision that shapes everything
+
+`GET /me/media` returns `media_url` and `thumbnail_url` as **short-lived,
+signed CDN URLs**. Meta documents them as temporary; in practice they expire in
+hours to days. They are not stable identifiers.
+
+So "just save the Instagram link in our DB and play from there" breaks silently
+some days after import — for the creator and, worse, on the public
+brand-facing profile. The only durable IG identifiers are `id` (media id) and
+`permalink` (the `instagram.com/reel/...` page, which is an embed/redirect, not
+a playable video file).
+
+### Two modes, one plan
+
+| | **Mirror mode (recommended)** | **Link mode** |
+|---|---|---|
+| What we store | Video + thumbnail copied into our S3, plus IG provenance (`igMediaId`, `permalink`) | Only IG media id + permalink; `media_url` re-resolved on read |
+| Playback after 7 days | Works | Requires a live Graph call + a valid token |
+| If creator disconnects IG or revokes the token | Portfolio unaffected | Portfolio videos go dark |
+| Public brand-facing profile | Served from CDN like every other video | Every viewer triggers Graph calls → rate-limit exposure on read |
+| Works with the existing watermark pipeline + `videoKey` ownership checks | Yes | No |
+| Cost | One-time egress + storage per reel (~10–100 MB) | Ongoing Graph calls forever |
+
+**Recommendation: mirror mode.** It is also what the codebase already assumes —
+`assertVideoKeyOwner()` requires an S3 key under
+`creator-portfolio/{creatorId}/videos/`, and there is already a backfill script
+(`prisma/backfill-seed-portfolio-videos-to-s3.ts`) that moved external URLs into
+S3.
+
+The schema and API below support **both**; the mode is a single env flag
+(`PORTFOLIO_IG_IMPORT_MODE=mirror|link`, default `mirror`). Link mode just skips
+the mirror job and marks the row `LINK_ONLY`. If you want link-only for launch
+speed, ship it behind that flag and flip to mirror later — the same
+`igMediaId` on the row lets a backfill job mirror rows retroactively.
+
+The rest of this plan assumes mirror mode where the two differ, and flags the
+difference where it matters.
+
+---
+
+## 3. UX flow
+
+### 3.1 "Add reel" becomes a chooser
+
+Today `PortfolioGrid`'s **Add reel** tile calls `onAdd()`, which opens the
+upload drawer. It will instead open a small **source chooser** sheet:
+
+```
+┌──────────────────────────────────────────┐
+│  Add a reel                              │
+│                                          │
+│  ⬆  Upload from your device              │
+│     MP4 or MOV, up to 1 GB               │
+│                                          │
+│  ◎  Choose from Instagram                │
+│     Pick reels you've already posted     │
+│     [Connect Instagram]  ← if unlinked   │
+└──────────────────────────────────────────┘
+```
+
+- **Upload from your device** → the existing flow, unchanged.
+- **Choose from Instagram** → the reel gallery below.
+- If the creator has no ACTIVE Instagram connection, the second option shows
+  **Connect Instagram** and routes to the existing
+  `GET /api/social/instagram/connect-url` flow, returning to the portfolio step
+  afterwards (add a `returnTo` param to the callback redirect so we come back
+  here, not to `/creator/settings/profile`).
+- If the connection is in `ERROR` (token revoked), show **Reconnect Instagram**
+  with a one-line reason.
+
+Skipping the chooser: if IG is already connected and the creator has imported
+before, remember their last choice in `localStorage` and preselect that tab —
+but always show both.
+
+### 3.2 The reel gallery
+
+A full-height drawer/sheet (reuse `vaul`, already a dependency):
+
+- **Header**: `@username · 47 reels` · **Refresh** button · **Last updated 2 days ago**.
+- **Grid**: 9:16 thumbnail tiles, 3 across on mobile / 5 on desktop, virtualized
+  with `react-virtuoso` (already a dependency) + TanStack Query
+  `useInfiniteQuery`.
+- **Infinite scroll**: pages of 24, keyset-paginated out of *our* cache, not
+  out of Graph. Scrolling never blocks on Instagram.
+- **Multi-select**: tap to toggle, a numbered badge shows selection order,
+  sticky footer shows `4 selected · Add to portfolio`. Cap a single batch at
+  **20**.
+- **Already-imported reels** render dimmed with an "Added" chip and are not
+  selectable (we know this from `importedVideoId` on the cache row).
+- **Per tile**: duration, view/like count if available, posted date. Tapping the
+  ⓘ opens the reel's `permalink` in a new tab.
+- **Empty / syncing states**:
+  - First ever open → skeleton grid + "Fetching your reels from Instagram…"
+    while the sync job runs; poll `GET .../media` every 2s (or push over the
+    existing socket.io gateway).
+  - Zero reels → "We couldn't find any reels on @handle. Only reels you posted
+    from this account show up here — collabs and cross-posts may be missing."
+  - Sync failed → the error plus **Try again**.
+
+### 3.3 After selecting
+
+Two sub-flows, pick one:
+
+- **(A) Fast path (recommended for launch):** import immediately with no
+  metadata, using the IG caption as the initial `description`. The reels land in
+  the grid as normal portfolio videos; the creator edits industry/tags/language
+  later with the existing edit drawer. Fewest taps, and the point of this
+  feature is speed.
+- **(B) Guided path:** after selection, show one compact metadata form applied
+  to the whole batch (industry + language + tags), since imported reels are
+  usually from the same niche. Then per-video edits as usual.
+
+Ship (A); (B) is a small follow-up on the same endpoint.
+
+Mirror mode note: imported rows appear immediately with the IG thumbnail and a
+`PROCESSING` state, and flip to playable when the mirror job finishes (seconds
+to a couple of minutes). The existing `Progress` component covers this. The
+creator can leave the page.
+
+---
+
+## 4. Data model
+
+Three additions. All in one migration.
+
+### 4.1 New: `InstagramMediaItem` — the 7-day cache
+
+```prisma
+model InstagramMediaItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  connectionId String   @db.Uuid
+  /// Instagram's stable media id — the only durable IG identifier.
+  igMediaId    String
+  mediaType        String   // VIDEO | IMAGE | CAROUSEL_ALBUM
+  mediaProductType String?  // REELS | FEED | AD
+  permalink        String?
+  caption          String?
+  /// Short-lived signed CDN URLs. Never treated as durable.
+  mediaUrl         String?
+  thumbnailUrl     String?
+  /// When the two URLs above stop working (conservative estimate).
+  urlsExpireAt     DateTime?
+  postedAt         DateTime?
+  durationSeconds  Int?
+  likeCount        Int?
+  commentsCount    Int?
+  viewCount        Int?
+  /// Set once this reel has been imported into the portfolio.
+  importedVideoId  String?  @db.Uuid
+  fetchedAt        DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, igMediaId])
+  /// Drives the gallery's keyset pagination.
+  @@index([connectionId, mediaProductType, postedAt(sort: Desc), igMediaId])
+  @@index([importedVideoId])
+}
+```
+
+### 4.2 New: `InstagramMediaSyncState` — one row per connection
+
+```prisma
+model InstagramMediaSyncState {
+  connectionId   String   @id @db.Uuid
+  status         IgMediaSyncStatus @default(IDLE) // IDLE | QUEUED | SYNCING | READY | ERROR
+  /// Graph `paging.cursors.after` for resuming a partial walk.
+  nextCursor     String?
+  hasMore        Boolean  @default(true)
+  pagesFetched   Int      @default(0)
+  reelCount      Int      @default(0)
+  /// Cache freshness clock — the 7-day TTL is measured from here.
+  lastFullSyncAt DateTime?
+  /// Rate-limits the manual Refresh button server-side.
+  lastRefreshAt  DateTime?
+  lastError      String?
+  updatedAt      DateTime @updatedAt
+
+  connection SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+}
+```
+
+### 4.3 Changed: `CreatorPortfolioVideo` — provenance + processing state
+
+```prisma
+enum PortfolioVideoSource { UPLOAD  INSTAGRAM }
+enum PortfolioVideoAssetState { READY  PROCESSING  FAILED  LINK_ONLY }
+
+model CreatorPortfolioVideo {
+  // ...existing fields...
+  source        PortfolioVideoSource     @default(UPLOAD)
+  assetState    PortfolioVideoAssetState @default(READY)
+  /// IG media id when source = INSTAGRAM. Unique per creator so a reel
+  /// can't be imported twice.
+  igMediaId     String?
+  igPermalink   String?
+  igPostedAt    DateTime?
+  importedAt    DateTime?
+
+  @@unique([creatorId, igMediaId])
+}
+```
+
+**`videoKey`/`videoUrl` must become nullable** so an INSTAGRAM row can exist
+before its mirror finishes (and permanently, in link mode). Every read path
+must tolerate that — `assertVideoKeyOwner` is skipped for IG rows, and the
+public profile query filters to `assetState IN (READY, LINK_ONLY)`.
+
+**Backfill:** all existing rows get `source=UPLOAD`, `assetState=READY`. Safe,
+non-breaking, one `UPDATE`.
+
+---
+
+## 5. API surface
+
+All under the existing `social` and `creator-portfolio` controllers.
+
+| Method | Path | Purpose | Throttle |
+|---|---|---|---|
+| `GET` | `/api/social/instagram/media` | Cache-first, keyset-paginated reels. `?cursor=&limit=24` | 60/min |
+| `POST` | `/api/social/instagram/media/refresh` | Force a re-sync (the Refresh button) | **3/hour** + server-side `lastRefreshAt` guard |
+| `GET` | `/api/social/instagram/media/status` | `{ status, reelCount, lastFullSyncAt, hasMore }` for the polling UI | 120/min |
+| `POST` | `/api/creator-portfolio/videos/import-instagram` | `{ igMediaIds: string[] }` → creates portfolio rows, enqueues mirrors | **10/min** |
+
+### `GET /api/social/instagram/media` response
+
+```jsonc
+{
+  "status": "ready",           // ready | syncing | error | not_connected | reconnect_required
+  "username": "creator.handle",
+  "lastFullSyncAt": "2026-08-24T11:02:00Z",
+  "stale": false,              // true once older than 7 days
+  "items": [
+    {
+      "igMediaId": "17912...",
+      "permalink": "https://www.instagram.com/reel/Cxyz/",
+      "thumbnailUrl": "https://scontent...",   // may be re-signed on read
+      "caption": "GRWM with the new serum",
+      "postedAt": "2026-07-02T04:11:00Z",
+      "durationSeconds": 34,
+      "likeCount": 812,
+      "viewCount": 41203,
+      "alreadyImported": false,
+      "portfolioVideoId": null
+    }
+  ],
+  "nextCursor": "eyJwb3N0ZWRBdCI6..."   // OUR keyset cursor, not Graph's
+}
+```
+
+Rules:
+- Cache empty **or** `lastFullSyncAt` older than 7 days → respond
+  `status: "syncing"` with whatever items we do have, and enqueue a sync. Never
+  call Graph on the request path.
+- The gallery's `nextCursor` is **our** `(postedAt, igMediaId)` keyset cursor
+  over the cache table. Graph's `after` cursor stays server-side in
+  `InstagramMediaSyncState`. Confusing the two is the classic bug here.
+- Thumbnails whose `urlsExpireAt` has passed are served through a redirect
+  endpoint (§7.4) rather than returned dead.
+
+### `POST /api/creator-portfolio/videos/import-instagram`
+
+```jsonc
+// request
+{ "igMediaIds": ["17912...", "17913..."], "visibilityStatus": "public" }
+
+// response
+{
+  "imported": [{ "id": "uuid", "igMediaId": "17912...", "assetState": "PROCESSING" }],
+  "skipped":  [{ "igMediaId": "17913...", "reason": "already_imported" }]
+}
+```
+
+Server-side validation, all of it mandatory:
+- The `igMediaId` must exist in `InstagramMediaItem` **for a connection owned by
+  this creator**. This is the authorization check — it stops a creator importing
+  someone else's reel by guessing an id.
+- `mediaProductType === 'REELS'` (defence in depth; the gallery already filters).
+- Batch size ≤ 20.
+- Dedupe against `@@unique([creatorId, igMediaId])` → `skipped`.
+- After the transaction, call `recomputeCreatorListingState()` — same as
+  `createVideo` does — so importing 3 reels can flip the profile to
+  go-live-eligible.
+
+---
+
+## 6. The fetch pipeline
+
+### 6.1 Graph call
+
+```
+GET https://graph.instagram.com/{version}/me/media
+  ?fields=id,media_type,media_product_type,media_url,thumbnail_url,
+          permalink,caption,timestamp,like_count,comments_count
+  &limit=25
+  &after={cursor}
+  &access_token={token}
+```
+
+- Add `fetchMediaPage(accessToken, cursor?)` to the existing `InstagramClient`,
+  reusing its `timedFetch` (15s abort) and `InstagramApiError` (code 190 →
+  auth error → mark connection `ERROR`).
+- Reuse `ensureFreshInstagramToken()` — token refresh is already solved.
+- **Reels filter is client-side:** `/me/media` has no server-side type filter,
+  so we fetch pages and keep only
+  `media_type === 'VIDEO' && media_product_type === 'REELS'`. Images and
+  carousels are discarded and never stored (per the requirement: videos only).
+- **Page budget:** stop at `IG_MEDIA_MAX_PAGES` (default 12 → 300 media items).
+  A creator with 800 posts doesn't get an unbounded walk; `nextCursor` and
+  `hasMore` persist so a later "load more" resumes instead of restarting.
+- A stale/invalid `after` cursor → clear it and restart the walk from page 1
+  (an upsert on `(connectionId, igMediaId)` makes a restart idempotent).
+
+### 6.2 The queue
+
+New `InstagramMediaQueueService`, modelled directly on
+`SocialMetricsQueueService` (same watchdog, same inline fallback when
+`REDIS_URL` is unset, same fixed-`jobId` dedupe).
+
+- Queue: `instagram-media-sync`, job `sync-media`, `jobId = igmedia-{connectionId}`.
+- `attempts: 3`, exponential backoff base 30s.
+- Job priorities: `1` interactive (creator is staring at the gallery),
+  `5` prewarm (fired from the OAuth callback), `10` cron refresh. BullMQ serves
+  low numbers first, so a creator waiting always jumps the nightly backlog.
+- Each job: resolve token → walk pages → upsert reels → update sync state →
+  optionally emit a socket event so the open gallery re-fetches.
+
+### 6.3 Mirror job (mirror mode only)
+
+Separate queue `instagram-media-mirror`, one job per imported video, so a slow
+100 MB download never blocks the metadata sync.
+
+- `HEAD`/`GET` the `media_url`, stream into S3 under the *existing* key shape
+  `creator-portfolio/{creatorId}/videos/{uuid}.mp4` (add an
+  `instagram_import` storage kind that resolves to the same prefix, so
+  `assertVideoKeyOwner` keeps working unchanged).
+- Stream, don't buffer: add **`@aws-sdk/lib-storage`** and use `Upload` for
+  multipart streaming. A 100 MB buffer per concurrent job will OOM the API pod.
+- Mirror `thumbnail_url` the same way into `.../thumbnails/{uuid}.jpg`; if IG
+  gives no thumbnail, extract frame 1 with the existing ffmpeg helper.
+- Enforce the existing 1 GiB cap and reject non-video content types.
+- On success: set `videoKey`, `videoUrl` (CDN), `thumbnailKey`,
+  `assetState=READY`. On terminal failure after 3 attempts:
+  `assetState=FAILED` with a retry button in the UI. `media_url` may have
+  expired between import and mirror — on a 403 from the CDN, re-run a
+  single-page sync to re-sign the URL and retry once.
+- **Mirror promptly.** The window between reading `media_url` and using it is
+  the risk; enqueue the mirror inside the same request that creates the row.
+
+### 6.4 Cron
+
+Extend `SocialMetricsCron` rather than adding a new one:
+
+```
+@Cron('0 20 * * *')   // 20:00 UTC, offset from the existing 18:30 metrics run
+async refreshStaleMediaCaches()
+```
+
+Enqueue at priority 10 the connections whose `lastFullSyncAt` is older than
+6 days **and** whose creator has opened the gallery in the last 30 days. Don't
+refresh caches nobody looks at — that is free rate-limit budget spent on
+nothing.
+
+---
+
+## 7. Rate limiting: the 100-simultaneous-creators question
+
+### 7.1 What Meta actually enforces
+
+Instagram Platform applies **Business Use Case (BUC) rate limiting** on
+`graph.instagram.com`, on top of an app-level platform limit. Every response
+carries usage telemetry:
+
+- `X-Business-Use-Case-Usage` — per-account JSON with `call_count`,
+  `total_cputime`, `total_time` (each a **percentage of the allowance**) and
+  `estimated_time_to_regain_access` in minutes when throttled.
+- `x-app-usage` — the same three percentages at app level.
+- Throttled requests return HTTP 429 with error code **4** (app-level) or
+  **17** (user-level); code **32** for page-level.
+
+⚠️ **Verify the current numeric formula against Meta's live docs before
+launch** — Meta has changed it more than once, and it differs between
+"Instagram API with Instagram Login" and the older Facebook-Login variant. The
+design below deliberately does not depend on the exact number: we read the
+percentage headers and back off from them, which stays correct if Meta changes
+the formula.
+
+### 7.2 The budget math
+
+For 100 creators all clicking "Choose from Instagram" in the same minute:
+
+| | Calls |
+|---|---|
+| Page walk per creator, typical (≈150 posts, 25/page) | 6 |
+| Token refresh, only if near expiry (rare) | ~0 |
+| **Per creator** | **~6** |
+| **100 creators, cold cache** | **~600** |
+| 100 creators, warm cache (the normal case) | **0** |
+| Nightly cron over 1,000 connections, staggered | ~6,000/day |
+
+600 calls is a small burst, not a volume problem. The risk is **burst rate**,
+not daily total — and it's spread over accounts, since BUC limits are largely
+per-account and each account only spends ~6 calls.
+
+At a global limiter of **5 requests/second**, 600 calls drain in ~2 minutes.
+Every creator sees a spinner for at most that long, and only on their first
+ever open.
+
+### 7.3 Seven layers of defence
+
+Ordered from the request path outward:
+
+1. **Nothing hits Graph on the request path.** `GET .../media` reads Postgres
+   only. A hundred creators browsing is a hundred indexed queries.
+2. **7-day cache.** After the first sync a creator can open the gallery fifty
+   times for zero Graph calls. This alone removes ~99% of the load.
+3. **Per-connection dedupe.** `jobId = igmedia-{connectionId}` means a creator
+   mashing the button, or three browser tabs, produce **one** job. (Reuse the
+   completed/failed-leftover sweep already in
+   `SocialMetricsQueueService.enqueue` — without it a retained finished job
+   silently blocks all future syncs for that connection.)
+4. **Global token bucket.** BullMQ's built-in limiter, app-wide:
+   ```ts
+   new Worker(QUEUE, handler, {
+     connection,
+     concurrency: Number(env.IG_MEDIA_CONCURRENCY ?? 3),
+     limiter: { max: Number(env.IG_MEDIA_RATE_MAX ?? 5), duration: 1000 },
+   })
+   ```
+   This is the hard ceiling. 100 creators cannot outrun it regardless of
+   arrival pattern. Note the existing `BULLMQ_WORKER_ENABLED` convention: on a
+   multi-replica API only one replica runs the worker, which is also what makes
+   this limiter genuinely global.
+5. **Adaptive backoff from the usage headers.** Parse `x-app-usage` and
+   `X-Business-Use-Case-Usage` on every response:
+   - any percentage **> 75** → `await worker.rateLimit(60_000)`, i.e. slow the
+     whole queue for a minute;
+   - any percentage **> 90** → `queue.pause()` for 10 minutes and set a shared
+     Redis key `ig:throttle:until` so every replica honours it;
+   - HTTP 429 → honour `estimated_time_to_regain_access` exactly (it is in
+     minutes), set `ig:throttle:until`, and re-delay the job rather than
+     burning an attempt.
+6. **Circuit breaker.** 5 consecutive 429s → pause the queue 15 minutes, and
+   the gallery shows "Instagram is busy right now — we'll keep trying." Fail
+   visibly and calmly rather than hammering.
+7. **HTTP throttles on our own endpoints.** `@Throttle` on refresh (3/hour) and
+   import (10/min), plus the `lastRefreshAt` DB guard so a refresh survives a
+   throttle bypass and returns `429` with a `Retry-After`.
+
+### 7.4 Handling expired cached URLs
+
+The cache holds URLs that die before the 7-day TTL. Two cheap fixes:
+
+- **Thumbnails** are served through
+  `GET /api/social/instagram/media/:igMediaId/thumbnail`, which 302s to the
+  cached URL when fresh; when `urlsExpireAt` has passed it enqueues a
+  single-page re-sync and 302s to a placeholder. Browsers cache the redirect,
+  so this costs nothing in steady state.
+- **`media_url`** is only ever read by the mirror job, seconds after import.
+  It is not stored in `CreatorPortfolioVideo` and is never sent to a brand.
+
+In **link mode** this problem is unavoidable and permanent: every playback needs
+a fresh `media_url`, so every brand viewing a creator's profile spends Graph
+calls against that creator's budget. That is the strongest argument for mirror
+mode.
+
+### 7.5 New env vars
+
+```
+PORTFOLIO_IG_IMPORT_MODE=mirror     # mirror | link
+IG_MEDIA_SYNC_ENABLED=true
+IG_MEDIA_CONCURRENCY=3              # BullMQ worker concurrency
+IG_MEDIA_RATE_MAX=5                 # global Graph requests per second
+IG_MEDIA_MAX_PAGES=12               # page-walk budget per sync (300 items)
+IG_MEDIA_CACHE_TTL_DAYS=7
+IG_MEDIA_REFRESH_MIN_INTERVAL_MIN=60
+IG_MIRROR_CONCURRENCY=2             # parallel S3 mirrors
+```
+
+All optional with defaults, added to `config/env.validation.ts` in the same
+style as the existing `INSTAGRAM_*` keys.
+
+---
+
+## 8. Cache and refresh semantics
+
+| Trigger | Behaviour |
+|---|---|
+| First gallery open | Enqueue at priority 1, show skeleton, poll status |
+| Open, cache < 7 days | Serve from cache instantly, no Graph call |
+| Open, cache ≥ 7 days | Serve stale cache **immediately** with a "Refreshing…" chip, enqueue in the background. Never make the creator wait on a stale-but-usable cache |
+| **Refresh** button | Force sync from page 1, ignore TTL, but honour the 1-hour `lastRefreshAt` guard → toast "Just refreshed a moment ago — try again in 43 minutes" |
+| Scroll past the cached tail with `hasMore=true` | Enqueue a continuation sync from `nextCursor`, append when it lands |
+| Nightly cron | Refresh caches older than 6 days for recently-active creators only |
+| Creator disconnects Instagram | `onDelete: Cascade` drops cache + sync state. Already-imported portfolio videos survive untouched (mirror mode) |
+| Token revoked mid-sync | Error code 190 → connection `ERROR`, sync state `ERROR`, gallery shows **Reconnect Instagram** |
+
+Client-side, mirror it: `staleTime: 7 days`, `gcTime: 7 days` on the
+`useInfiniteQuery`, keyed by connection id.
+
+---
+
+## 9. Edge cases worth deciding now
+
+| Case | Handling |
+|---|---|
+| Creator has 0 reels (photos only) | Explicit empty state naming why — reels only, collabs may be missing |
+| Reel deleted on Instagram after import | Mirror mode: our copy is unaffected. Link mode: playback breaks — mark `FAILED` on a 404 |
+| Same reel imported twice | Blocked by `@@unique([creatorId, igMediaId])`, returned as `skipped` |
+| Reel with music/branding overlays | Still subject to the existing portfolio confirmation rules ("no watermark, logo or platform branding") and admin review. Show that reminder in the import footer — imported reels are **not** auto-approved |
+| Reel under the 1080p bar | We can't reliably read resolution from Graph. Mirror mode can probe with ffmpeg and warn; leave enforcement to admin review as today |
+| Reel > 1 GiB | Rejected by the existing cap; surface as `FAILED` with the reason |
+| Creator's IG account switched to Personal | Graph returns an error → connection `ERROR` → reconnect prompt |
+| Two creators claim the same IG account | Already blocked by `@@unique([platform, providerAccountId])` and `InstagramAccountAlreadyLinkedError` |
+| No `REDIS_URL` (local dev) | Inline fallback path, exactly like the existing queues |
+| Admin acting on a creator's behalf | The `PortfolioActingCreatorDto` pattern extends to import; admins can trigger a sync for a creator via a new admin route |
+
+---
+
+## 10. Delivery phases
+
+Each phase is independently shippable and leaves `main` green.
+
+### Phase 1 — Schema and provenance
+- Migration: `InstagramMediaItem`, `InstagramMediaSyncState`, the two new enums,
+  new columns on `CreatorPortfolioVideo`, `videoKey`/`videoUrl` nullable.
+- Backfill existing rows to `source=UPLOAD`, `assetState=READY`.
+- Audit every read of `videoKey`/`videoUrl` for the new nullability:
+  `creator-portfolio.service.ts`, `creator-profile.service.ts`
+  (listing/completeness), the public profile DTOs, admin list, `wishlists`,
+  and the client's `PortfolioVideoApi`.
+- New env vars in `config/env.validation.ts`.
+
+### Phase 2 — Graph fetch + queue (backend, no UI)
+- `InstagramClient.fetchMediaPage()` + usage-header parsing.
+- `InstagramMediaService`: page walk, reels filter, upsert, sync-state
+  bookkeeping, keyset pagination for reads.
+- `InstagramMediaQueueService` (copy the `SocialMetricsQueueService` shape,
+  including the watchdog and leftover-job sweep) with limiter and priorities.
+- Endpoints: `GET .../media`, `GET .../media/status`, `POST .../media/refresh`.
+- Prewarm hook in the existing OAuth callback next to
+  `void this.queue.enqueue(connectionId)`.
+- Unit tests: reels filter, page budget, cursor resume, stale-cursor restart,
+  429 backoff, TTL logic. Follow the existing `*.service.spec.ts` style.
+
+### Phase 3 — Import + mirror
+- `POST /videos/import-instagram` with the ownership check, batch cap, dedupe,
+  and `recomputeCreatorListingState()`.
+- Add `@aws-sdk/lib-storage`; `InstagramMirrorQueueService` streaming to S3;
+  `instagram_import` storage kind.
+- Retry endpoint for `FAILED` mirrors.
+
+### Phase 4 — UI
+- Source chooser sheet; intercept `onAdd` in `creator-profile-wizard.tsx:1456`
+  **and** in `creator-portfolio-manager.tsx` (both call sites).
+- `instagram-reel-gallery.tsx`: virtuoso grid, `useInfiniteQuery`, multi-select,
+  refresh, all the states from §3.2.
+- `PROCESSING` / `FAILED` badges in `PortfolioGrid`.
+- `returnTo` support on the IG OAuth callback so connecting mid-wizard returns
+  to the portfolio step.
+
+### Phase 5 — Operations
+- Extend `SocialMetricsCron` with the stale-cache refresh.
+- Structured logs matching the house format
+  (`ig-media: synced {connectionId} — {n} reels, {pages} pages, {ms}ms`).
+- A queue-debug script alongside `server/scripts/README-queue-debug.md`.
+- Load-test the burst: 100 connections enqueued at once, assert the limiter
+  holds and no 429s escape the backoff.
+
+---
+
+## 11. Open questions
+
+1. **Mirror or link?** §2 recommends mirror. Needs a call before Phase 1, since
+   it decides whether `videoUrl` is ever null in steady state.
+2. **Do imported reels need admin approval like uploads?** Assumed yes (same
+   `visibilityStatus` + review path). Confirm — auto-approving IG reels would
+   be a policy change, not a technical one.
+3. **Fast path or guided metadata?** §3.3 recommends the fast path for launch.
+4. **Sort order in the gallery** — newest first (assumed), or best-performing
+   first? The latter is available via per-media insights on the scope we already
+   hold, at one extra call per page.
+5. **Batch cap of 20** — right number?

@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { SocialConnectionsService } from './social-connections.service';
 import { SocialMetricsQueueService } from './social-metrics-queue.service';
+import { InstagramMediaService } from './instagram-media.service';
+import {
+  IG_SYNC_PRIORITY,
+  InstagramMediaQueueService,
+} from './instagram-media-queue.service';
 
 /**
  * Schedules the social-metrics pipeline. Each sync stores a single rolling
@@ -19,11 +24,14 @@ import { SocialMetricsQueueService } from './social-metrics-queue.service';
 export class SocialMetricsCron {
   private readonly logger = new Logger(SocialMetricsCron.name);
   private syncRunning = false;
+  private reelSyncRunning = false;
 
   constructor(
     private readonly config: ConfigService,
     private readonly service: SocialConnectionsService,
     private readonly queue: SocialMetricsQueueService,
+    private readonly media: InstagramMediaService,
+    private readonly mediaQueue: InstagramMediaQueueService,
   ) {}
 
   private enabled(): boolean {
@@ -49,6 +57,45 @@ export class SocialMetricsCron {
       this.logger.error(`social sync failed: ${(err as Error)?.message}`);
     } finally {
       this.syncRunning = false;
+    }
+  }
+
+  /**
+   * Nightly reel-cache refresh, at 20:00 UTC so it does not collide with the
+   * 18:30 metrics pass.
+   *
+   * Only touches caches that already exist. An InstagramMediaSyncState row is
+   * created the first time a creator's gallery is opened, so a creator who has
+   * never used the import feature is never synced — refreshing a cache nobody
+   * looks at is rate-limit budget spent on nothing.
+   *
+   * Enqueued at the lowest priority, so it can never delay a creator waiting on
+   * a spinner or the prewarm that follows an OAuth connect.
+   */
+  @Cron('0 20 * * *')
+  async refreshStaleReelCaches(): Promise<void> {
+    if (!this.enabled()) return;
+    if (this.config.get<string>('IG_MEDIA_SYNC_ENABLED') === 'false') return;
+    if (this.reelSyncRunning) return;
+    this.reelSyncRunning = true;
+    try {
+      // Six days, not seven: refresh just before the TTL expires so a creator
+      // opening the gallery finds it warm rather than mid-sync.
+      const ids = await this.media.listConnectionIdsWithStaleCache(6);
+      if (ids.length === 0) return;
+      this.logger.log(
+        `ig-media cron: enqueuing ${ids.length} stale reel cache(s)`,
+      );
+      for (const id of ids) {
+        await this.mediaQueue.enqueue(id, {
+          priority: IG_SYNC_PRIORITY.cron,
+          fromStart: true,
+        });
+      }
+    } catch (err) {
+      this.logger.error(`ig-media cron failed: ${(err as Error)?.message}`);
+    } finally {
+      this.reelSyncRunning = false;
     }
   }
 

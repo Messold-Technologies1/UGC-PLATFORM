@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { PortfolioActingCreatorDto } from './portfolio-acting-creator.dto';
 
 export class CreatePortfolioSectionDto extends PortfolioActingCreatorDto {
@@ -15,8 +22,7 @@ export class CreatePortfolioSectionDto extends PortfolioActingCreatorDto {
 
   @ApiPropertyOptional({
     example: 0,
-    description:
-      'Display order position (0-based). Defaults to 0 if omitted.',
+    description: 'Display order position (0-based). Defaults to 0 if omitted.',
   })
   @IsOptional()
   @IsInt()

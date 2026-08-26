@@ -12,7 +12,9 @@ import {
   S3Client,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
+import { PassThrough } from 'node:stream';
 import type { Readable } from 'node:stream';
+import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type {
   CompletedUploadPart,
@@ -57,12 +59,17 @@ const MIME_BY_EXT: Record<string, string> = {
 
 function resolveMimeTypeFromObjectKey(key: string): string | null {
   const fileName = key.split('/').pop();
-  const ext = fileName?.includes('.') ? fileName.split('.').pop()?.toLowerCase() : null;
+  const ext = fileName?.includes('.')
+    ? fileName.split('.').pop()?.toLowerCase()
+    : null;
   if (!ext) return null;
   return MIME_BY_EXT[ext] ?? null;
 }
 
-function validateContentType(kind: StorageUploadKind, contentType: string): void {
+function validateContentType(
+  kind: StorageUploadKind,
+  contentType: string,
+): void {
   const ct = contentType.toLowerCase().split(';')[0]?.trim();
   const isImage =
     ct === 'image/jpeg' || ct === 'image/png' || ct === 'image/webp';
@@ -95,10 +102,14 @@ function validateContentType(kind: StorageUploadKind, contentType: string): void
     return;
   }
   if (kind === 'order_delivery_asset') {
-    if (!isImage && !isVideo) throw new Error('Unsupported delivery content type');
+    if (!isImage && !isVideo)
+      throw new Error('Unsupported delivery content type');
     return;
   }
-  if (kind === 'brand_pronunciation_audio' || kind === 'order_chat_voice_message') {
+  if (
+    kind === 'brand_pronunciation_audio' ||
+    kind === 'order_chat_voice_message'
+  ) {
     if (!isAudio) throw new Error('Unsupported audio content type');
     return;
   }
@@ -136,7 +147,8 @@ export class StorageService {
       config.get<number>('S3_MULTIPART_PART_SIZE_BYTES', 10 * 1024 * 1024),
     );
     this.multipartPartSizeBytes =
-      Number.isFinite(configuredPartSize) && configuredPartSize >= 5 * 1024 * 1024
+      Number.isFinite(configuredPartSize) &&
+      configuredPartSize >= 5 * 1024 * 1024
         ? Math.floor(configuredPartSize)
         : 10 * 1024 * 1024;
     this.cdnBaseUrl = normalizeCdnBaseUrl(
@@ -173,11 +185,13 @@ export class StorageService {
     return key.startsWith(`creator-portfolio-signup-temp/${seg}/`);
   }
 
-  buildTempBrandLogoKeyForSignup(email: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+  buildTempBrandLogoKeyForSignup(
+    email: string,
+    extOrContentType: string,
+  ): string {
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
@@ -193,26 +207,30 @@ export class StorageService {
     email: string,
     extOrContentType: string,
   ): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
     return `brand-pronunciation-signup-temp/${this.signupEmailSegment(email)}/${randomUUID()}.${ext}`;
   }
 
-  isTempBrandPronunciationAudioKeyForSignup(email: string, key: string): boolean {
+  isTempBrandPronunciationAudioKeyForSignup(
+    email: string,
+    key: string,
+  ): boolean {
     const seg = this.signupEmailSegment(email);
     return key.startsWith(`brand-pronunciation-signup-temp/${seg}/`);
   }
 
-  buildTempAgencyLogoKeyForSignup(email: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+  buildTempAgencyLogoKeyForSignup(
+    email: string,
+    extOrContentType: string,
+  ): string {
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
@@ -308,7 +326,8 @@ export class StorageService {
       const orderId = input.orderId;
       if (!orderId) throw new Error('orderId is required');
       const rev =
-        typeof input.revisionNumber === 'number' && Number.isFinite(input.revisionNumber)
+        typeof input.revisionNumber === 'number' &&
+        Number.isFinite(input.revisionNumber)
           ? Math.max(0, Math.floor(input.revisionNumber))
           : 0;
       return `order-deliveries/${orderId}/r${rev}/${id}.${ext}`;
@@ -324,10 +343,9 @@ export class StorageService {
   }
 
   buildTempBrandLogoKey(userId: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
@@ -339,10 +357,9 @@ export class StorageService {
   }
 
   buildTempAgencyLogoKey(userId: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
@@ -353,22 +370,31 @@ export class StorageService {
     return key.startsWith(`agency-logo-temp/${userId}/`);
   }
 
-  buildTempBrandPronunciationAudioKey(userId: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+  buildTempBrandPronunciationAudioKey(
+    userId: string,
+    extOrContentType: string,
+  ): string {
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
     return `brand-pronunciation-temp/${userId}/${randomUUID()}.${ext}`;
   }
 
-  isTempBrandPronunciationAudioKeyForUser(userId: string, key: string): boolean {
+  isTempBrandPronunciationAudioKeyForUser(
+    userId: string,
+    key: string,
+  ): boolean {
     return key.startsWith(`brand-pronunciation-temp/${userId}/`);
   }
 
-  isOrderChatVoiceKeyForUser(orderId: string, userId: string, key: string): boolean {
+  isOrderChatVoiceKeyForUser(
+    orderId: string,
+    userId: string,
+    key: string,
+  ): boolean {
     return key.startsWith(`order-chat-voice/${orderId}/${userId}/`);
   }
 
@@ -376,11 +402,13 @@ export class StorageService {
     return resolveMimeTypeFromObjectKey(key);
   }
 
-  buildTempBriefProductImageKey(userId: string, extOrContentType: string): string {
-    const ext =
-      extOrContentType.includes('/')
-        ? extFromContentType(extOrContentType)
-        : extOrContentType.toLowerCase();
+  buildTempBriefProductImageKey(
+    userId: string,
+    extOrContentType: string,
+  ): string {
+    const ext = extOrContentType.includes('/')
+      ? extFromContentType(extOrContentType)
+      : extOrContentType.toLowerCase();
     if (!ext) {
       throw new Error('Unsupported content type');
     }
@@ -695,9 +723,78 @@ export class StorageService {
     }
     const chunks: Buffer[] = [];
     for await (const chunk of body) {
-      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk));
+      chunks.push(
+        typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk),
+      );
     }
     return Buffer.concat(chunks);
+  }
+
+  /**
+   * Stream a body straight into S3 via multipart, so memory stays flat at
+   * roughly one part regardless of how large the source is. Used by the
+   * Instagram mirror, where the source is a CDN response of unknown size.
+   *
+   * Returns the number of bytes written, since a streamed upload is the one
+   * case where the caller cannot know the size up front.
+   */
+  async uploadStream(input: {
+    key: string;
+    body: Readable;
+    contentType: string;
+    /** Abort past this many bytes, in case a declared length was a lie. */
+    maxBytes?: number;
+  }): Promise<{ key: string; bytes: number }> {
+    let bytes = 0;
+    const counted = new PassThrough();
+    let aborted: Error | null = null;
+
+    input.body.on('data', (chunk: Buffer | string) => {
+      bytes += Buffer.byteLength(chunk);
+      if (input.maxBytes != null && bytes > input.maxBytes) {
+        aborted = new Error(
+          `Stream exceeded ${input.maxBytes} bytes — aborting upload`,
+        );
+        input.body.destroy(aborted);
+      }
+    });
+    input.body.pipe(counted);
+
+    const upload = new Upload({
+      client: this.s3,
+      params: {
+        Bucket: this.bucket,
+        Key: input.key,
+        Body: counted,
+        ContentType: input.contentType,
+      },
+      queueSize: 4,
+      partSize: this.multipartPartSizeBytes,
+    });
+
+    try {
+      await upload.done();
+    } catch (err) {
+      // Clean up the partial object: a failed multipart otherwise leaves an
+      // incomplete upload the orphan sweeper cannot see.
+      await this.deleteObjectIfExists(input.key).catch(() => undefined);
+      throw aborted ?? err;
+    }
+    if (aborted) {
+      await this.deleteObjectIfExists(input.key).catch(() => undefined);
+      throw aborted;
+    }
+    return { key: input.key, bytes };
+  }
+
+  /** Raw S3 client, for callers that need a command this service does not wrap. */
+  rawClient(): S3Client {
+    return this.s3;
+  }
+
+  /** Bucket this service writes to. */
+  bucketName(): string {
+    return this.bucket;
   }
 
   /** Upload a buffer to S3 under the given key. */
@@ -717,4 +814,3 @@ export class StorageService {
     return input.key;
   }
 }
-

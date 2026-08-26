@@ -33,7 +33,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogTrigger,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy";
@@ -58,6 +57,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { AddReelSourceSheet } from "@/features/instagram-import/components/add-reel-source-sheet";
+import { InstagramReelGallery } from "@/features/instagram-import/components/instagram-reel-gallery";
+import { useSocialConnectionsQuery } from "@/features/creators/hooks/use-social-connections";
+import { getInstagramConnectUrl } from "@/features/creators/api/social-connections";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Chart as ChartJS,
@@ -83,6 +86,9 @@ function errorMessage(err: unknown): string {
 
 export function CreatorPortfolioManager() {
   const [isUploadOverlayOpen, setIsUploadOverlayOpen] = useState(false);
+  const [isSourceSheetOpen, setIsSourceSheetOpen] = useState(false);
+  const [isReelGalleryOpen, setIsReelGalleryOpen] = useState(false);
+  const [connectingInstagram, setConnectingInstagram] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -164,6 +170,33 @@ export function CreatorPortfolioManager() {
 
     return filtered;
   }, [videos, selectedSort]);
+
+  const socialConnectionsQuery = useSocialConnectionsQuery({ enabled: true });
+  /** Drives the Instagram option in the add-reel chooser. */
+  const instagramChooserState:
+    | "connected"
+    | "not_connected"
+    | "reconnect_required" = (() => {
+    const connection = (socialConnectionsQuery.data ?? []).find(
+      (c) => c.platform === "INSTAGRAM",
+    );
+    if (!connection) return "not_connected";
+    return connection.status === "ACTIVE" ? "connected" : "reconnect_required";
+  })();
+
+  const startInstagramConnect = useCallback(async () => {
+    setConnectingInstagram(true);
+    try {
+      // Come back to this page, not settings, so the creator keeps their place.
+      const url = await getInstagramConnectUrl(
+        `${window.location.pathname}${window.location.search}`,
+      );
+      window.location.href = url;
+    } catch {
+      toast.error("Could not start the Instagram connection");
+      setConnectingInstagram(false);
+    }
+  }, []);
 
   const canDeleteVideos = videos.length > MIN_PORTFOLIO_VIDEOS;
 
@@ -582,19 +615,18 @@ export function CreatorPortfolioManager() {
                 />
               </div>
             </div>
+            <Button
+              variant="outline"
+              className="w-full text-primary border-primary/20 bg-background hover:bg-primary/5 hover:text-primary gap-2"
+              onClick={() => setIsSourceSheetOpen(true)}
+            >
+              <Plus className="size-4" />
+              Add More
+            </Button>
             <Dialog
               open={isUploadOverlayOpen}
               onOpenChange={setIsUploadOverlayOpen}
             >
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full text-primary border-primary/20 bg-background hover:bg-primary/5 hover:text-primary gap-2"
-                >
-                  <Plus className="size-4" />
-                  Add More
-                </Button>
-              </DialogTrigger>
               <DialogContent className="w-[94vw] max-w-[94vw] sm:w-[70vw] sm:max-w-[70vw] max-h-[90vh] overflow-y-auto">
                 <DialogTitle className="sr-only">Add New Work</DialogTitle>
                 <CreatorPortfolioUploadForm
@@ -710,6 +742,30 @@ export function CreatorPortfolioManager() {
           </div>
         </div>
       </div>
+      <AddReelSourceSheet
+        open={isSourceSheetOpen}
+        onOpenChange={setIsSourceSheetOpen}
+        instagramState={instagramChooserState}
+        onUploadFromDevice={() => {
+          setIsSourceSheetOpen(false);
+          setIsUploadOverlayOpen(true);
+        }}
+        onChooseFromInstagram={() => {
+          setIsSourceSheetOpen(false);
+          setIsReelGalleryOpen(true);
+        }}
+        onConnectInstagram={() => {
+          setIsSourceSheetOpen(false);
+          void startInstagramConnect();
+        }}
+        connecting={connectingInstagram}
+      />
+
+      <InstagramReelGallery
+        open={isReelGalleryOpen}
+        onOpenChange={setIsReelGalleryOpen}
+      />
+
       <ManageSectionsModal
         open={isManageSectionsOpen}
         onOpenChange={setIsManageSectionsOpen}

@@ -5,7 +5,14 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PortfolioVisibilityStatus, Prisma, RoleName } from '@prisma/client';
+import {
+  PortfolioVideoAssetState,
+  PortfolioVideoSource,
+  PortfolioVisibilityStatus,
+  Prisma,
+  RoleName,
+} from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
@@ -28,6 +35,13 @@ import {
 } from './dto/portfolio-section-response.dto';
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
 import { MIN_PORTFOLIO_VIDEOS } from '../creator-profile/creator-profile-completeness.util';
+import { playableAssetWhere } from './portfolio-video-asset.util';
+import {
+  type ImportInstagramReelsDto,
+  type ImportInstagramReelsResponseDto,
+  type ImportedReelDto,
+  type SkippedReelDto,
+} from './dto/import-instagram-reels.dto';
 
 const MAX_SECTIONS_PER_CREATOR = 10;
 
@@ -38,6 +52,7 @@ export class CreatorPortfolioService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly config: ConfigService,
   ) {}
 
   private async isAdminUser(userId: string): Promise<boolean> {
@@ -280,6 +295,185 @@ export class CreatorPortfolioService {
     return this.mapVideo(created);
   }
 
+  /**
+   * Turn selected Instagram reels into portfolio videos.
+   *
+   * The authorization boundary is that every id must already be cached against
+   * a connection this creator owns — that is what stops someone importing
+   * another creator's reel by guessing an id. It also means the reel has
+   * already passed the REELS filter during the page walk, which is re-asserted
+   * here as defence in depth.
+   *
+   * Returns immediately: each row is created PROCESSING with its S3 key already
+   * allocated, and the mirror runs on its own queue. Generating the key here
+   * rather than in the worker is what makes a mirror retry overwrite the same
+   * object instead of orphaning a partial one.
+   */
+  async importInstagramReels(
+    actingUserId: string,
+    dto: ImportInstagramReelsDto,
+    targetCreatorProfileId?: string,
+  ): Promise<ImportInstagramReelsResponseDto> {
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
+
+    const cached = await this.prisma.instagramMediaItem.findMany({
+      where: {
+        igMediaId: { in: dto.igMediaIds },
+        connection: { creatorProfileId: profile.id },
+      },
+      select: {
+        id: true,
+        igMediaId: true,
+        permalink: true,
+        postedAt: true,
+        mediaUrl: true,
+        mediaProductType: true,
+        importedVideoId: true,
+      },
+    });
+    const byId = new Map(cached.map((c) => [c.igMediaId, c]));
+
+    const already = await this.prisma.creatorPortfolioVideo.findMany({
+      where: { creatorId: profile.id, igMediaId: { in: dto.igMediaIds } },
+      select: { igMediaId: true },
+    });
+    const alreadyImported = new Set(
+      already.map((a) => a.igMediaId).filter((id): id is string => id != null),
+    );
+
+    const linkOnly =
+      this.config.get<string>('PORTFOLIO_IG_IMPORT_MODE', 'mirror') === 'link';
+
+    const imported: ImportedReelDto[] = [];
+    const skipped: SkippedReelDto[] = [];
+    const toMirror: string[] = [];
+
+    for (const igMediaId of dto.igMediaIds) {
+      const item = byId.get(igMediaId);
+      if (!item) {
+        skipped.push({ igMediaId, reason: 'not_found' });
+        continue;
+      }
+      if (alreadyImported.has(igMediaId)) {
+        skipped.push({ igMediaId, reason: 'already_imported' });
+        continue;
+      }
+      if (item.mediaProductType !== 'REELS') {
+        skipped.push({ igMediaId, reason: 'not_a_reel' });
+        continue;
+      }
+      if (!item.mediaUrl && !linkOnly) {
+        skipped.push({ igMediaId, reason: 'no_media_url' });
+        continue;
+      }
+
+      // Allocate both keys up front so a mirror retry is idempotent.
+      const videoKey = this.storage.buildObjectKey({
+        kind: 'creator_portfolio_video',
+        userId: profile.userId,
+        creatorProfileId: profile.id,
+        contentType: 'video/mp4',
+      });
+      const thumbnailKey = this.storage.buildObjectKey({
+        kind: 'creator_portfolio_thumbnail',
+        userId: profile.userId,
+        creatorProfileId: profile.id,
+        contentType: 'image/jpeg',
+      });
+
+      try {
+        const created = await this.prisma.creatorPortfolioVideo.create({
+          data: {
+            creatorId: profile.id,
+            source: PortfolioVideoSource.INSTAGRAM,
+            assetState: linkOnly
+              ? PortfolioVideoAssetState.LINK_ONLY
+              : PortfolioVideoAssetState.PROCESSING,
+            // In link mode the IG URL is the video; in mirror mode the URL
+            // arrives when the job finishes, so it stays null until then.
+            videoKey: linkOnly ? null : videoKey,
+            videoUrl: linkOnly ? item.mediaUrl : null,
+            thumbnailKey: linkOnly ? null : thumbnailKey,
+            igMediaId,
+            igPermalink: item.permalink,
+            igPostedAt: item.postedAt,
+            importedAt: new Date(),
+            visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+          },
+          select: { id: true, assetState: true },
+        });
+
+        // Dim the reel in the gallery.
+        await this.prisma.instagramMediaItem.update({
+          where: { id: item.id },
+          data: { importedVideoId: created.id },
+        });
+
+        imported.push({
+          id: created.id,
+          igMediaId,
+          assetState: created.assetState,
+        });
+        if (!linkOnly) toMirror.push(created.id);
+      } catch (error) {
+        // The unique index is the real guarantee: two concurrent imports of one
+        // reel can both pass the check above and only it stops the second.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          skipped.push({ igMediaId, reason: 'already_imported' });
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (imported.length > 0) {
+      // A LINK_ONLY import is immediately playable, so it can complete the
+      // three-video rule. A PROCESSING one cannot, and playableAssetWhere()
+      // makes the recompute agree.
+      await recomputeCreatorListingState(this.prisma, profile.id);
+    }
+
+    return {
+      imported,
+      skipped,
+      mirrorVideoIds: toMirror,
+    } as ImportInstagramReelsResponseDto & { mirrorVideoIds: string[] };
+  }
+
+  /**
+   * Guard for the retry endpoint: the video must belong to this creator, be an
+   * Instagram import, and actually be in FAILED. Retrying anything else is
+   * either a mistake or an attempt to re-run a mirror against someone else's row.
+   */
+  async assertOwnedFailedImport(
+    actingUserId: string,
+    videoId: string,
+  ): Promise<void> {
+    const profile = await this.getCreatorProfileOrThrow(actingUserId);
+    const video = await this.prisma.creatorPortfolioVideo.findUnique({
+      where: { id: videoId },
+      select: { creatorId: true, source: true, assetState: true },
+    });
+    if (!video) throw new NotFoundException('Video not found');
+    if (video.creatorId !== profile.id) {
+      throw new ForbiddenException('Not allowed to retry this video');
+    }
+    if (video.source !== PortfolioVideoSource.INSTAGRAM) {
+      throw new BadRequestException('Only Instagram imports are mirrored');
+    }
+    if (video.assetState !== PortfolioVideoAssetState.FAILED) {
+      throw new BadRequestException(
+        `This video is ${video.assetState.toLowerCase()}, not failed — nothing to retry.`,
+      );
+    }
+  }
+
   async listMyVideos(userId: string) {
     const profile = await this.getCreatorProfileOrThrow(userId);
     const rows = await this.prisma.creatorPortfolioVideo.findMany({
@@ -318,6 +512,7 @@ export class CreatorPortfolioService {
       where: {
         creatorId: creator.id,
         visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+        ...playableAssetWhere(),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -525,6 +720,9 @@ export class CreatorPortfolioService {
       creatorId: row.creatorId,
       videoUrl: row.videoUrl,
       thumbnailUrl: row.thumbnailUrl ?? null,
+      source: row.source,
+      assetState: row.assetState,
+      igPermalink: row.igPermalink ?? null,
       visibilityStatus,
       createdAt: row.createdAt,
     } satisfies PortfolioVideoResponseDto;

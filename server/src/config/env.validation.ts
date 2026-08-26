@@ -47,6 +47,34 @@ export const envValidationSchema = Joi.object({
   SOCIAL_TOKEN_ENC_KEY: Joi.string().min(32).optional(),
   /** Instagram Graph API version, e.g. v21.0. */
   INSTAGRAM_GRAPH_VERSION: Joi.string().optional().default('v21.0'),
+
+  // ---- Instagram reel import ----
+  /// mirror = copy the reel into our S3 (default). link = keep IG URLs only.
+  PORTFOLIO_IG_IMPORT_MODE: Joi.string()
+    .valid('mirror', 'link')
+    .optional()
+    .default('mirror'),
+  IG_MEDIA_SYNC_ENABLED: Joi.string().optional(),
+  /// BullMQ worker concurrency for reel-cache syncs.
+  IG_MEDIA_CONCURRENCY: Joi.number().integer().min(1).optional().default(3),
+  /// Hard app-wide ceiling on Graph requests per second.
+  IG_MEDIA_RATE_MAX: Joi.number().integer().min(1).optional().default(5),
+  /// Page-walk budget per sync (25 media per page).
+  IG_MEDIA_MAX_PAGES: Joi.number().integer().min(1).optional().default(12),
+  IG_MEDIA_CACHE_TTL_DAYS: Joi.number().integer().min(1).optional().default(7),
+  IG_MEDIA_REFRESH_MIN_INTERVAL_MIN: Joi.number()
+    .integer()
+    .min(0)
+    .optional()
+    .default(60),
+  /// Parallel S3 mirrors. Each streams a whole reel, so keep this small.
+  IG_MIRROR_CONCURRENCY: Joi.number().integer().min(1).optional().default(2),
+  /// Per-reel download budget. A 100 MB reel on a slow link needs headroom.
+  IG_MIRROR_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .optional()
+    .default(120_000),
   /** Creator onboarding: approval_first (default) or profile_first */
   CREATOR_ONBOARDING_MODE: Joi.string()
     .valid('approval_first', 'profile_first')

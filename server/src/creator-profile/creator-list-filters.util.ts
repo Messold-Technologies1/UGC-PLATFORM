@@ -14,6 +14,7 @@ import {
   ageGroupToAgeRange,
   dateOfBirthRangeForAgeFilter,
 } from './creator-age.util';
+import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 
 const PUBLIC = PortfolioVisibilityStatus.PUBLIC;
 
@@ -247,6 +248,7 @@ export function buildCreatorListRelationsInclude(
 ): Prisma.CreatorProfileInclude {
   const baseWhere: Prisma.CreatorPortfolioVideoWhereInput = {
     visibilityStatus: PUBLIC,
+    ...playableAssetWhere(),
   };
 
   return {

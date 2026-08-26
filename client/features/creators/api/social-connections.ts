@@ -48,10 +48,19 @@ export async function fetchSocialConnections(): Promise<SocialConnectionApi[]> {
   return data.connections ?? [];
 }
 
-/** Authenticated (so tokens refresh) — returns the Instagram authorize URL. */
-export async function getInstagramConnectUrl(): Promise<string> {
+/**
+ * Authenticated (so tokens refresh) — returns the Instagram authorize URL.
+ *
+ * `returnTo` is where the OAuth callback should land afterwards; without it the
+ * creator ends up on profile settings, which loses their place if they started
+ * mid-wizard. The server only honours a same-site path.
+ */
+export async function getInstagramConnectUrl(
+  returnTo?: string,
+): Promise<string> {
   const { data } = await api.get<{ url: string }>(
     ENDPOINTS.SOCIAL.INSTAGRAM_CONNECT_URL,
+    { params: returnTo ? { returnTo } : undefined },
   );
   return data.url;
 }

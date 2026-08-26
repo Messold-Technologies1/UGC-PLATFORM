@@ -75,9 +75,12 @@ function isSeedKey(key: string | null | undefined): boolean {
 }
 
 function needsPortfolioVideoBackfill(video: {
-  videoKey: string;
-  videoUrl: string;
+  videoKey: string | null;
+  videoUrl: string | null;
 }): boolean {
+  // An Instagram import can sit here with no key while its mirror runs, and a
+  // LINK_ONLY row never gets one. Neither is a seed row, so neither is ours.
+  if (!video.videoKey || !video.videoUrl) return false;
   if (isSeedKey(video.videoKey)) return true;
   if (!video.videoKey.startsWith('creator-portfolio/')) return true;
   if (video.videoUrl.includes('commondatastorage.googleapis.com')) return true;
@@ -283,7 +286,8 @@ async function backfillPortfolioVideos(
       thumbnailUrl?: string | null;
     } = {};
 
-    if (needsPortfolioVideoBackfill(video)) {
+    // The predicate already rejected a null videoUrl; narrow for the compiler.
+    if (needsPortfolioVideoBackfill(video) && video.videoUrl) {
       const { body, contentType } = await downloadUrl(video.videoUrl);
       const ext = extFromContentType(contentType);
       const videoKey = `creator-portfolio/${video.creatorId}/videos/${randomUUID()}.${ext}`;

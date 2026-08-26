@@ -47,6 +47,7 @@ import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
 import { useReplacePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-replace-portfolio-video-flow-mutation";
 import { useDeletePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-delete-portfolio-video-mutation";
+import { getInstagramConnectUrl } from "@/features/creators/api/social-connections";
 import { useAuth } from "@/providers/auth-provider";
 import {
   facetSections,
@@ -62,6 +63,8 @@ import {
   type GoLiveSnapshot,
 } from "@/features/creators/lib/go-live-requirements";
 import { PortfolioFileDrawer } from "@/features/creators/components/creator-profile-update/portfolio-components";
+import { AddReelSourceSheet } from "@/features/instagram-import/components/add-reel-source-sheet";
+import { InstagramReelGallery } from "@/features/instagram-import/components/instagram-reel-gallery";
 import {
   areAllGoLivePoliciesAccepted,
   createEmptyGoLivePolicyAcceptance,
@@ -209,6 +212,33 @@ export function CreatorProfileWizard({
         connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
     );
 
+  /** Drives the Instagram option in the add-reel chooser. */
+  const instagramChooserState:
+    | "connected"
+    | "not_connected"
+    | "reconnect_required" = (() => {
+    const connection = (socialConnectionsQuery.data ?? []).find(
+      (c) => c.platform === "INSTAGRAM",
+    );
+    if (!connection) return "not_connected";
+    return connection.status === "ACTIVE" ? "connected" : "reconnect_required";
+  })();
+
+  const [connectingInstagram, setConnectingInstagram] = useState(false);
+  const startInstagramConnect = useCallback(async () => {
+    setConnectingInstagram(true);
+    try {
+      // Come back to this page, not settings, so the creator keeps their place.
+      const url = await getInstagramConnectUrl(
+        `${window.location.pathname}${window.location.search}`,
+      );
+      window.location.href = url;
+    } catch {
+      toast.error("Could not start the Instagram connection");
+      setConnectingInstagram(false);
+    }
+  }, []);
+
   const selectedLanguages = facets.selectedLanguages;
   // "Open to" opt-ins are stored as restrictions. Only surface values that are
   // still part of the current catalog — legacy/stale rows on existing creators
@@ -261,6 +291,10 @@ export function CreatorProfileWizard({
 
   // ---- Portfolio drawer ----
   const [pfDrawerOpen, setPfDrawerOpen] = useState(false);
+  // "Add reel" now asks where the video is coming from before opening either
+  // the file drawer or the Instagram gallery.
+  const [pfSourceOpen, setPfSourceOpen] = useState(false);
+  const [pfGalleryOpen, setPfGalleryOpen] = useState(false);
   const [pfEditingVideo, setPfEditingVideo] =
     useState<PortfolioVideoApi | null>(null);
   const pfVideoInputRef = useRef<HTMLInputElement | null>(null);
@@ -1603,7 +1637,7 @@ export function CreatorProfileWizard({
                   error={portfolioQuery.isError}
                   onRetry={() => void portfolioQuery.refetch()}
                   videos={portfolioQuery.data ?? []}
-                  onAdd={() => openPortfolioDrawer(null)}
+                  onAdd={() => setPfSourceOpen(true)}
                   onReplace={(video) => openPortfolioDrawer(video)}
                   onDelete={(video) =>
                     deletePortfolioMutation.mutate({ videoId: video.id })
@@ -1717,6 +1751,34 @@ export function CreatorProfileWizard({
           ) : null}
         </div>
       </div>
+
+      <AddReelSourceSheet
+        open={pfSourceOpen}
+        onOpenChange={setPfSourceOpen}
+        instagramState={instagramChooserState}
+        onUploadFromDevice={() => {
+          setPfSourceOpen(false);
+          openPortfolioDrawer(null);
+        }}
+        onChooseFromInstagram={() => {
+          setPfSourceOpen(false);
+          setPfGalleryOpen(true);
+        }}
+        onConnectInstagram={() => {
+          setPfSourceOpen(false);
+          // Comes back to this step rather than settings, so the creator does
+          // not lose their place mid-wizard.
+          void startInstagramConnect();
+        }}
+        connecting={connectingInstagram}
+      />
+
+      <InstagramReelGallery
+        open={pfGalleryOpen}
+        onOpenChange={setPfGalleryOpen}
+        adminCreatorId={adminMode ? profileId : undefined}
+        onImported={() => void portfolioQuery.refetch()}
+      />
 
       {/* Portfolio file drawer — add a reel, or replace an existing one */}
       <PortfolioFileDrawer

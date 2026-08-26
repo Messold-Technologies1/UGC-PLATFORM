@@ -402,12 +402,34 @@ export class CreatorPortfolioService {
     );
     const existing = await this.prisma.creatorPortfolioVideo.findUnique({
       where: { id: videoId },
-      select: { id: true, creatorId: true },
+      select: {
+        id: true,
+        creatorId: true,
+        videoKey: true,
+        thumbnailKey: true,
+      },
     });
     if (!existing) throw new NotFoundException('Video not found');
     if (existing.creatorId !== profile.id) {
       throw new ForbiddenException('Not allowed to update this video');
     }
+
+    // ---- Replace-the-file ----
+    // A portfolio at MIN_PORTFOLIO_VIDEOS refuses deletes, so replacing is the
+    // only way to change a video there. The new object is already in S3 under a
+    // fresh key: we never overwrite the old key, because the CDN would keep
+    // serving the previous clip until its TTL expired.
+    const nextVideoKey = dto.videoKey?.trim() || undefined;
+    const nextThumbnailKey = dto.thumbnailKey?.trim() || undefined;
+    if (nextVideoKey) this.assertVideoKeyOwner(profile.id, nextVideoKey);
+    if (nextThumbnailKey) {
+      this.assertThumbnailKeyOwner(profile.id, nextThumbnailKey);
+    }
+
+    // A thumbnail belongs to the clip it was cut from, so a replacement video
+    // that arrives without one clears the old thumbnail instead of inheriting
+    // it — otherwise the grid shows a frame of a video that is no longer there.
+    const clearStaleThumbnail = Boolean(nextVideoKey) && !nextThumbnailKey;
 
     const tags = dto.tags ? normalizeList(dto.tags) : undefined;
     const visibility =
@@ -445,6 +467,16 @@ export class CreatorPortfolioService {
         const video = await tx.creatorPortfolioVideo.update({
           where: { id: videoId },
           data: {
+            videoKey: nextVideoKey,
+            videoUrl: nextVideoKey
+              ? this.storage.buildCdnUrl(nextVideoKey)
+              : undefined,
+            thumbnailKey: clearStaleThumbnail ? null : nextThumbnailKey,
+            thumbnailUrl: clearStaleThumbnail
+              ? null
+              : nextThumbnailKey
+                ? this.storage.buildCdnUrl(nextThumbnailKey)
+                : undefined,
             industryLabel:
               industryLabel !== undefined ? industryLabel || null : undefined,
             language: language !== undefined ? language || null : undefined,
@@ -461,6 +493,29 @@ export class CreatorPortfolioService {
       },
       { timeout: 15000, maxWait: 10000 },
     );
+
+    // Drop the objects the replacement superseded. Deliberately *after* the
+    // transaction commits: doing it inside would delete the still-live video if
+    // the transaction then rolled back. Best-effort — a storage failure must not
+    // fail an update the creator has already made, it only leaves an orphan for
+    // the reclaim script to sweep.
+    if (nextVideoKey && existing.videoKey && existing.videoKey !== nextVideoKey) {
+      await this.deleteStorageObject(
+        existing.videoKey,
+        `replaced portfolio video ${videoId}`,
+      );
+    }
+    const outgoingThumbnailKey = existing.thumbnailKey;
+    if (
+      outgoingThumbnailKey &&
+      (clearStaleThumbnail ||
+        (nextThumbnailKey && outgoingThumbnailKey !== nextThumbnailKey))
+    ) {
+      await this.deleteStorageObject(
+        outgoingThumbnailKey,
+        `replaced portfolio thumbnail ${videoId}`,
+      );
+    }
 
     // Best-effort autocomplete catalog upserts. These are not critical to the
     // video write and do not need to be atomic with it, so they run outside the
@@ -521,7 +576,12 @@ export class CreatorPortfolioService {
     );
     const existing = await this.prisma.creatorPortfolioVideo.findUnique({
       where: { id: videoId },
-      select: { id: true, creatorId: true },
+      select: {
+        id: true,
+        creatorId: true,
+        videoKey: true,
+        thumbnailKey: true,
+      },
     });
     if (!existing) throw new NotFoundException('Video not found');
     if (existing.creatorId !== profile.id) {
@@ -542,6 +602,31 @@ export class CreatorPortfolioService {
     }
 
     await this.prisma.creatorPortfolioVideo.delete({ where: { id: videoId } });
+
+    // The row is gone, so nothing points at these objects any more. Best-effort
+    // and never fatal: the delete the creator asked for has already happened,
+    // and a storage failure here only leaves an orphan behind.
+    await this.deleteStorageObject(
+      existing.videoKey,
+      `deleted portfolio video ${videoId}`,
+    );
+    await this.deleteStorageObject(
+      existing.thumbnailKey,
+      `deleted portfolio thumbnail ${videoId}`,
+    );
+  }
+
+  /** Remove an S3 object, logging rather than throwing. No-op for a null key. */
+  private async deleteStorageObject(
+    key: string | null | undefined,
+    context: string,
+  ): Promise<void> {
+    if (!key) return;
+    await this.storage
+      .deleteObjectIfExists(key)
+      .catch((err) =>
+        this.logger.warn(`Failed to delete ${context} key ${key}: ${err}`),
+      );
   }
 
   private mapVideo(row: any) {

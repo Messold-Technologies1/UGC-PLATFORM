@@ -302,3 +302,208 @@ describe('CreatorPortfolioService admin portfolio access', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+describe('CreatorPortfolioService video lifecycle', () => {
+  const creatorUserId = 'creator-user';
+  const creatorProfileId = 'profile-1';
+  const videoId = 'video-1';
+  const oldVideoKey = `creator-portfolio/${creatorProfileId}/videos/old.mp4`;
+  const oldThumbKey = `creator-portfolio/${creatorProfileId}/thumbnails/old.jpg`;
+  const newVideoKey = `creator-portfolio/${creatorProfileId}/videos/new.mp4`;
+  const newThumbKey = `creator-portfolio/${creatorProfileId}/thumbnails/new.jpg`;
+
+  /** Captures what the transaction wrote so ordering can be asserted. */
+  let txUpdate: jest.Mock;
+  /** Records the call order of the row write vs. the S3 deletes. */
+  let order: string[];
+
+  const prismaMock = {
+    user: { findUnique: jest.fn() },
+    creatorProfile: { findUnique: jest.fn() },
+    creatorPortfolioVideo: {
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
+    },
+    portfolioIndustrySuggestion: { upsert: jest.fn() },
+    portfolioLanguageSuggestion: { createMany: jest.fn() },
+    portfolioTagSuggestion: { createMany: jest.fn() },
+    $transaction: jest.fn(),
+  };
+
+  const storageMock = {
+    buildCdnUrl: jest.fn((k: string) => `https://cdn.example/${k}`),
+    deleteObjectIfExists: jest.fn(),
+  };
+
+  let service: CreatorPortfolioService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    order = [];
+
+    txUpdate = jest.fn(async (args: { data: Record<string, unknown> }) => {
+      order.push('row-write');
+      return {
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoUrl: 'https://cdn.example/whatever.mp4',
+        thumbnailUrl: null,
+        tags: [],
+        visibilityStatus: 'PUBLIC',
+        createdAt: new Date(0),
+        ...args.data,
+      };
+    });
+
+    prismaMock.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          creatorPortfolioVideoTag: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+          creatorPortfolioVideo: { update: txUpdate },
+          creatorProfile: { findUnique: jest.fn().mockResolvedValue(null) },
+        }),
+    );
+
+    storageMock.deleteObjectIfExists.mockImplementation(async (k: string) => {
+      order.push(`s3-delete:${k}`);
+    });
+
+    prismaMock.creatorProfile.findUnique.mockResolvedValue({
+      id: creatorProfileId,
+      userId: creatorUserId,
+    });
+
+    service = new CreatorPortfolioService(
+      prismaMock as never,
+      storageMock as never,
+    );
+  });
+
+  describe('deleteVideo', () => {
+    beforeEach(() => {
+      prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoKey: oldVideoKey,
+        thumbnailKey: oldThumbKey,
+      });
+      prismaMock.creatorPortfolioVideo.count.mockResolvedValue(4);
+      prismaMock.creatorPortfolioVideo.delete.mockResolvedValue({});
+    });
+
+    it('removes the video and thumbnail objects from storage', async () => {
+      await service.deleteVideo(creatorUserId, videoId);
+
+      expect(storageMock.deleteObjectIfExists).toHaveBeenCalledWith(oldVideoKey);
+      expect(storageMock.deleteObjectIfExists).toHaveBeenCalledWith(oldThumbKey);
+    });
+
+    it('still succeeds when storage deletion fails', async () => {
+      storageMock.deleteObjectIfExists.mockRejectedValue(new Error('S3 down'));
+
+      await expect(
+        service.deleteVideo(creatorUserId, videoId),
+      ).resolves.toBeUndefined();
+      expect(prismaMock.creatorPortfolioVideo.delete).toHaveBeenCalled();
+    });
+
+    it('does not touch storage when the floor refuses the delete', async () => {
+      prismaMock.creatorPortfolioVideo.count.mockResolvedValue(3);
+
+      await expect(
+        service.deleteVideo(creatorUserId, videoId),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.creatorPortfolioVideo.delete).not.toHaveBeenCalled();
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateVideo replace', () => {
+    beforeEach(() => {
+      prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoKey: oldVideoKey,
+        thumbnailKey: oldThumbKey,
+      });
+    });
+
+    it('swaps in the new key and derives its CDN url', async () => {
+      await service.updateVideo(creatorUserId, videoId, {
+        videoKey: newVideoKey,
+        thumbnailKey: newThumbKey,
+      });
+
+      expect(txUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            videoKey: newVideoKey,
+            videoUrl: `https://cdn.example/${newVideoKey}`,
+            thumbnailKey: newThumbKey,
+            thumbnailUrl: `https://cdn.example/${newThumbKey}`,
+          }),
+        }),
+      );
+    });
+
+    it('deletes the superseded objects only after the row is written', async () => {
+      await service.updateVideo(creatorUserId, videoId, {
+        videoKey: newVideoKey,
+        thumbnailKey: newThumbKey,
+      });
+
+      expect(order).toEqual([
+        'row-write',
+        `s3-delete:${oldVideoKey}`,
+        `s3-delete:${oldThumbKey}`,
+      ]);
+    });
+
+    it('clears a thumbnail the replacement did not supply', async () => {
+      await service.updateVideo(creatorUserId, videoId, {
+        videoKey: newVideoKey,
+      });
+
+      expect(txUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            thumbnailKey: null,
+            thumbnailUrl: null,
+          }),
+        }),
+      );
+      expect(storageMock.deleteObjectIfExists).toHaveBeenCalledWith(oldThumbKey);
+    });
+
+    it('rejects a replacement key under another creator prefix', async () => {
+      await expect(
+        service.updateVideo(creatorUserId, videoId, {
+          videoKey: 'creator-portfolio/someone-else/videos/new.mp4',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(txUpdate).not.toHaveBeenCalled();
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+    });
+
+    it('leaves storage alone on a metadata-only update', async () => {
+      await service.updateVideo(creatorUserId, videoId, {
+        description: 'just a caption change',
+      });
+
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+    });
+
+    it('keeps the object when the same key is resent', async () => {
+      await service.updateVideo(creatorUserId, videoId, {
+        videoKey: oldVideoKey,
+        thumbnailKey: oldThumbKey,
+      });
+
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+    });
+  });
+});

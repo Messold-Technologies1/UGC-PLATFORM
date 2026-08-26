@@ -145,10 +145,10 @@ creator can leave the page.
 
 ### 3.4 Portfolio videos carry no metadata
 
-**Decision: a portfolio video is a video.** No industry label, no tags, no
-language, no creator-written text. This applies to device uploads and Instagram
-imports alike, and it is the single biggest simplification in this plan — the
-import becomes purely mechanical, and the upload form loses most of its surface.
+**Decision: a portfolio video is a video.** No industry label, no description,
+no tags, no language — and no creator-facing visibility toggle. This applies to
+device uploads and Instagram imports alike, and it is the single biggest
+simplification in this plan.
 
 #### Dropped from the database
 
@@ -156,26 +156,56 @@ import becomes purely mechanical, and the upload form loses most of its surface.
 - Tables `PortfolioIndustrySuggestion`, `PortfolioTagSuggestion`,
   `PortfolioLanguageSuggestion` — the suggestion catalogues have no remaining
   consumer.
-- Columns `CreatorPortfolioVideo.industryLabel` and `.language`.
-- Index `@@index([visibilityStatus, industryLabel])`.
+- Columns `CreatorPortfolioVideo.industryLabel`, `.language`, `.description`.
+- Index `@@index([visibilityStatus, industryLabel])` (replaced by a plain
+  `[creatorId, createdAt]` — which already exists).
 
-#### One field kept, with a different job
+#### `visibilityStatus` stays as a column, loses its control
 
-`description` stays as a **system-populated** column — there is no input for it
-anywhere in the UI. Instagram import seeds it from the reel caption; a device
-upload leaves it null. It serves as the video's alt text and the fallback card
-title in `portfolio-card.tsx`. It is the only one of the four fields with a job
-that isn't metadata, and keeping a nullable column costs nothing. If you want it
-gone too, that is a one-line change to this plan.
+The Public/Private toggle disappears from the UI and every video is created
+`PUBLIC`. The column and the `PortfolioVisibilityStatus` enum **stay**, so all
+of this keeps working untouched:
+
+- the go-live gate that counts public videos
+  (`creator-listing-state.util.ts:85`, `MIN_PORTFOLIO_VIDEOS = 3`);
+- the three public-profile query filters in `creator-profile.service.ts`;
+- the browse-creators filter (`creator-list-filters.util.ts:251`);
+- `wishlists.service.ts:30`.
+
+> **Consequence to accept.** Nothing writes `visibilityStatus` after creation
+> once `updateVideo` is gone (see below), and no admin surface sets it today —
+> `ReviewDrawer.tsx:300` only *reads* it to count public videos. So the column
+> becomes effectively constant `PUBLIC`, and the only way to take a video down
+> is to delete it. Keeping the column costs nothing and leaves the door open if
+> moderation-hiding is ever wanted; it just isn't reachable today.
+
+#### The update endpoint dies with the fields
+
+`UpdatePortfolioVideoDto` contains *only* the five fields being removed —
+`industryLabel`, `tags`, `language`, `description`, `visibilityStatus`. Nothing
+else. With them gone the DTO is empty, so the whole edit path goes:
+
+- `PATCH /api/creator-portfolio/videos/:id` and `updateVideo()` in the service;
+- `update-portfolio-video.dto.ts`;
+- client `api/update-portfolio-video.ts` and
+  `hooks/use-update-portfolio-video-mutation.ts`;
+- `PortfolioEditDrawer` entirely, and the `onEdit` prop threaded into
+  `PortfolioGrid` from both call sites.
+
+A portfolio tile ends up with one action: **delete**. (Last revision of this
+plan said the drawer would collapse to "visibility + thumbnail + delete" — wrong
+on both counts: there is no thumbnail field in the update DTO, and visibility is
+now going too. It collapses to nothing.)
 
 #### Dropped from the server
 
 - The three suggestion routes: `GET suggestions/industries`, `.../tags`,
   `.../languages` (`creator-portfolio.controller.ts:190-207`).
-- The suggestion upserts in `createVideo` and `updateVideo`, and the
-  `normalizeSuggestion` / `toTitleCaseLabel` helpers that exist only for them.
-- DTO fields across `create-portfolio-video.dto.ts`,
-  `update-portfolio-video.dto.ts`, `portfolio-video-response.dto.ts`,
+- The suggestion upserts in `createVideo`, and the `normalizeSuggestion` /
+  `toTitleCaseLabel` helpers that exist only for them.
+- `visibilityStatus` off `CreatePortfolioVideoDto` (currently a *required*
+  `@IsIn(['public','private'])`); the service always writes `PUBLIC`.
+- Fields across `portfolio-video-response.dto.ts`,
   `portfolio-section-response.dto.ts`, `admin-creator-list.dto.ts`,
   `creator-public-list-item.dto.ts`, `creator-profile-response.dto.ts`.
 - Prisma selects in `creator-profile.service.ts` (three query shapes plus two
@@ -186,14 +216,31 @@ gone too, that is a one-line change to this plan.
 - `creator-portfolio-tags-modal.tsx` — delete (289 lines).
 - `hooks/use-portfolio-suggestion-queries.ts` and
   `api/portfolio-suggestion-lists.ts` — delete.
-- `creator-portfolio-upload-form.tsx` — the industry, language, tags and
-  description fields, and with them the `ReactSelect`, `ISO6391` and
+- `creator-portfolio-upload-form.tsx` — the four metadata fields and the
+  visibility control, and with them the `ReactSelect`, `ISO6391` and
   `SuggestionChips` imports.
-- `portfolio-components.tsx` — the metadata half of `PortfolioEditDrawer` and
-  the `pe-pf-ind` industry chip.
+- `portfolio-components.tsx` — `PortfolioEditDrawer`, the `pe-pf-ind` industry
+  chip, and the public/private indicator at line 111.
 - Display sites that read these fields: `portfolio-card.tsx`,
   `public-creator-profile.tsx:1236`, `profile-drawer.tsx:815`,
   `map-profile-to-creator.ts:137`, `creator-account-profile-view.tsx:93`.
+
+#### Two copy fixes this forces
+
+- `portfolio-step.tsx:175` reads "Upload at least 3 **approved** videos to go
+  live. {publicCount} of 10 uploaded so far." With everything public on
+  creation, `publicCount` is just the video count, and "approved" now promises a
+  gate that no longer exists on this field. Reword to plain counting.
+- `list-creators-query.dto.ts:90` promises free-text search matches on
+  "portfolio-video industry & tags". It won't. See below.
+
+#### Losing `description` costs two small things
+
+It was the video's alt text and the fallback card title in
+`portfolio-card.tsx:185`, which now falls through to the literal "Portfolio
+Item". It was also where an imported reel's Instagram caption would have landed;
+now the caption is read for the gallery tile and then discarded. Both are
+acceptable — noting them so neither is a surprise in review.
 
 #### One behaviour change to accept
 
@@ -206,19 +253,13 @@ What still matches: city, state, country, bio, **niche and category facet
 labels** (including custom "Other" text), package names, and open-to
 restrictions. Niche and category are the strong signal for a keyword search, and
 they come from `facetSelections`, not from portfolio videos — so this narrows
-search rather than breaking it. Update the Swagger description at
-`list-creators-query.dto.ts:90`, which currently promises portfolio matching.
+search rather than breaking it.
 
 The brand-facing **filter bar** is unaffected: it reads creator category and
 restriction suggestions, which are separate catalogues.
 
-#### What "Edit" collapses to
-
-With metadata gone, `PortfolioEditDrawer` holds only visibility, thumbnail
-replace and delete. Consider dropping *Edit* from the tile in favour of a
-visibility toggle and a delete action — a drawer for two controls is overhead.
-Sections stay, and become the only way a creator organises their portfolio,
-which is arguably clearer than freeform tags ever were.
+Sections (`CreatorPortfolioSection`) stay, and become the only way a creator
+organises a portfolio — arguably clearer than freeform tags ever were.
 
 ### 3.5 Watermarking was never on this path
 
@@ -387,8 +428,8 @@ Rules:
 ### `POST /api/creator-portfolio/videos/import-instagram`
 
 ```jsonc
-// request — no metadata fields; §3.4 removed them all
-{ "igMediaIds": ["17912...", "17913..."], "visibilityStatus": "public" }
+// request — §3.4 removed every metadata field and the visibility toggle
+{ "igMediaIds": ["17912...", "17913..."] }
 
 // response
 {
@@ -730,20 +771,27 @@ Each phase is independently shippable and leaves `main` green.
 Independent of Instagram, and worth landing first: it shrinks the surface every
 later phase has to touch.
 - Migration: drop `CreatorPortfolioVideoTag`, the three suggestion tables, the
-  `industryLabel` and `language` columns, and the `industryLabel` index.
+  `industryLabel` / `language` / `description` columns, and the `industryLabel`
+  index. `visibilityStatus` stays.
+- Delete the `PATCH videos/:id` route, `updateVideo()`, and
+  `update-portfolio-video.dto.ts` — the DTO is empty once the five fields go.
 - Delete the three suggestion routes, their service methods, and the suggestion
-  upserts in `createVideo`/`updateVideo`.
-- Strip the fields from the seven DTOs and from the Prisma selects in
+  upserts in `createVideo`. Make `createVideo` always write `PUBLIC`.
+- Strip the fields from the remaining DTOs and from the Prisma selects in
   `creator-profile.service.ts`, `wishlists.service.ts` and
   `creator-list-filters.util.ts`.
-- Remove the two portfolio OR clauses from `buildCreatorListSearchWhere()` and
-  correct the Swagger text at `list-creators-query.dto.ts:90`. Update
+- Remove the two portfolio OR clauses from `buildCreatorListSearchWhere()`;
+  correct the Swagger text at `list-creators-query.dto.ts:90` and the go-live
+  copy at `portfolio-step.tsx:175`. Update
   `creator-list-filters.util.spec.ts:155` and
   `creator-portfolio.service.spec.ts` to match.
-- Client: delete the tags modal, the suggestion hook and API module; strip the
-  fields from the upload form, the edit drawer and the six display sites.
+- Client: delete the tags modal, the edit drawer, the suggestion hook/API module
+  and the update mutation; strip the fields and the visibility control from the
+  upload form; drop `onEdit` from `PortfolioGrid` and its two call sites; fix the
+  six display sites.
 - Verify: a brand keyword search still returns sensible results on niche,
-  category, city and bio alone.
+  category, city and bio alone, and a freshly uploaded video is `PUBLIC` and
+  counts toward go-live.
 
 ### Phase 1 — Schema and provenance
 - Migration: `InstagramMediaItem`, `InstagramMediaSyncState`, the two new enums,
@@ -800,10 +848,11 @@ later phase has to touch.
 2. **Do imported reels need admin approval like uploads?** Assumed yes (same
    `visibilityStatus` + review path). Confirm — auto-approving IG reels would
    be a policy change, not a technical one.
-3. **Does `description` survive as a system-only field?** §3.4 keeps it for alt
-   text and the IG caption. Say the word and it goes too.
-4. **Sort order in the gallery** — newest first (assumed), or best-performing
+3. **Sort order in the gallery** — newest first (assumed), or best-performing
    first? The latter is available via per-media insights on the scope we already
    hold, at one extra call per page.
-5. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
+4. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
    product reason. Right number?
+5. **Is delete-only acceptable for taking a video down?** Follows from dropping
+   the visibility control (§3.4). If moderation ever needs to hide rather than
+   delete, the column is still there — it just needs an admin-only writer.

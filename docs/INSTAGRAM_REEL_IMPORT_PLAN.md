@@ -985,26 +985,70 @@ later phase has to touch.
   module; retype the update mutation to send `videoKey`; strip the fields and the
   visibility control from the upload form; rename `onEdit` → `onReplace` on
   `PortfolioGrid` and its two call sites; fix the six display sites.
-- Close the delete leak: `deleteVideo` must `deleteObjectIfExists` the video and
-  thumbnail keys, best-effort and `.catch()`-logged, matching
-  `creator-demo-videos.service.ts:153-176`. Same for the outgoing keys on
-  replace (§3.6).
 - Verify: a brand keyword search still returns sensible results on niche,
   category, city and bio alone; a freshly uploaded video is `PUBLIC` and counts
   toward go-live; and a creator holding exactly three videos can replace one
   (they still cannot delete).
 
-### Phase 0b — S3 hygiene (§3.6)
-Independent of Instagram; can land in parallel with Phase 1.
-- Add `contentHash` + `@@unique([creatorId, contentHash])`; extract the SHA-256
-  helper out of `use-submit-delivery-flow-mutation.ts` into `client/lib`; hash
-  before presigning and reject a duplicate before any bytes move. Skip hashing
-  above the size threshold.
-- Route logged-in portfolio uploads through a temp prefix and reuse
-  `finalizeCreatorPortfolioVideoFromTempKey()` on create; add the 24-hour S3
-  lifecycle expiry on that prefix.
-- Verify: uploading the same file twice is refused at presign; a deleted video
-  leaves no object behind; an abandoned upload expires within a day.
+### Phase 0b — Reclaim S3 storage (§3.6)
+Independent of Instagram, and the only phase that deletes bytes. Nothing in the
+portfolio module removes an S3 object today, so this closes the ongoing leak
+*and* clears the backlog it has already produced.
+
+**The three ongoing paths**
+- `deleteVideo` → after the row is deleted, `deleteObjectIfExists(videoKey)` and
+  `deleteObjectIfExists(thumbnailKey)`. Best-effort, each `.catch()`-logged,
+  exactly the shape of `creator-demo-videos.service.ts:153-176`. A storage
+  failure must never fail the delete the creator already made.
+- `updateVideo` (replace, §3.4) → the same two calls for the **outgoing** keys,
+  after the transaction commits. Never before: if the transaction rolls back
+  you have deleted the video that is still live.
+- Abandoned uploads → presign into a temp prefix and call
+  `finalizeCreatorPortfolioVideoFromTempKey()` on create (the method already
+  exists for the signup path), then put a 24-hour S3 lifecycle expiry on that
+  prefix. The prefix is what makes the lifecycle rule safe — it can never match
+  a live object.
+
+**The existing backlog**
+
+Every portfolio video ever deleted has left its object behind, so there is an
+accumulated set of orphans no lifecycle rule will find (they sit under the live
+`creator-portfolio/` prefix). Clear it with a one-off reconciliation script in
+`server/prisma/`, following the house pattern of the existing
+`backfill-*.ts` scripts — including their `DRY_RUN` env flag and their
+`dbFingerprint()` logging, so it is obvious which database and bucket a run is
+pointed at.
+
+The script lists `creator-portfolio/` and deletes keys with no matching
+`videoKey` or `thumbnailKey` row. Four guards, because this is the one piece of
+this plan that destroys data:
+
+1. **Dry-run by default.** Print the delete list and total bytes; require an
+   explicit env flag to act.
+2. **Grace window.** Skip any object whose `LastModified` is within 48 hours, so
+   an upload in flight — or one whose `POST /videos` has not landed yet — is
+   never a candidate.
+3. **Load the full key set first**, in one query, and abort if it comes back
+   empty or the query errors. An empty key set must never be read as "everything
+   is an orphan".
+4. **Run it after the delete fix ships**, not before, or the backlog starts
+   refilling behind you.
+
+**Verify**
+- Deleting a video leaves no object in the bucket.
+- Replacing a video leaves only the new object; the old key 404s.
+- An upload abandoned before `POST /videos` disappears within a day.
+- The reconciliation script's dry run on a seeded database lists exactly the
+  known orphans and nothing else.
+
+### Phase 0c — Duplicate-upload guard (§3.6)
+- Add `contentHash` and `@@unique([creatorId, contentHash])`.
+- Extract the SHA-256 helper out of `use-submit-delivery-flow-mutation.ts:29-40`
+  into `client/lib`; hash before presigning and reject a duplicate before any
+  bytes move. Skip hashing above the size threshold.
+- Mirror job writes `contentHash` from the stream it is already reading (§6.3).
+- Verify: uploading the same file twice is refused at presign; a file above the
+  threshold still uploads, unhashed.
 
 ### Phase 1 — Schema and provenance
 - Migration: `InstagramMediaItem`, `InstagramMediaSyncState`, the two new enums,

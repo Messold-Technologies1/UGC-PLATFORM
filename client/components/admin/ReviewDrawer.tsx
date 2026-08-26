@@ -163,7 +163,9 @@ function ReviewSection({
             {title}
           </h3>
           {description ? (
-            <p className="mt-0.5 text-xs text-muted-foreground/80">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground/80">
+              {description}
+            </p>
           ) : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -187,7 +189,9 @@ function DetailField({
       <dt className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
         {label}
       </dt>
-      <dd className="text-sm font-medium break-words text-foreground">{children}</dd>
+      <dd className="text-sm font-medium break-words text-foreground">
+        {children}
+      </dd>
     </div>
   );
 }
@@ -212,8 +216,6 @@ function PortfolioGrid({
     id: string;
     videoUrl: string;
     thumbnailUrl?: string | null;
-    industryLabel?: string | null;
-    tags?: string[];
   }>;
 }) {
   if (videos.length === 0) {
@@ -254,23 +256,6 @@ function PortfolioGrid({
                 />
               ) : null}
             </div>
-            {video.industryLabel ? (
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {video.industryLabel}
-              </p>
-            ) : null}
-            {video.tags && video.tags.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {video.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-md border border-border/30 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
         );
       })}
@@ -539,23 +524,26 @@ function ReviewProfileSections({
           {Object.keys(facetsByDimension).length > 0 ? (
             <ReviewSection title="Profile facets">
               <div className="space-y-4">
-                {Object.entries(facetsByDimension).map(([dimension, facets]) => (
-                  <div key={dimension}>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      {FACET_LABELS[dimension] ?? dimension.replace(/_/g, " ")}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {facets.map((facet) => (
-                        <span
-                          key={facet.slug}
-                          className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary"
-                        >
-                          {facet.label}
-                        </span>
-                      ))}
+                {Object.entries(facetsByDimension).map(
+                  ([dimension, facets]) => (
+                    <div key={dimension}>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {FACET_LABELS[dimension] ??
+                          dimension.replace(/_/g, " ")}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {facets.map((facet) => (
+                          <span
+                            key={facet.slug}
+                            className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary"
+                          >
+                            {facet.label}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </ReviewSection>
           ) : null}
@@ -825,7 +813,9 @@ export default function ReviewDrawer({
                 </button>
                 <button
                   className="flex w-full flex-2 items-center justify-center space-x-2 rounded-xl bg-primary py-2 text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:brightness-110 disabled:opacity-50"
-                  onClick={isSelfCompleted ? handleSendForReview : handleApprove}
+                  onClick={
+                    isSelfCompleted ? handleSendForReview : handleApprove
+                  }
                   disabled={isWorking || isLoading}
                 >
                   {(isApproving || isSendingForReview) && (

@@ -70,7 +70,6 @@ function formatINR(value: number): string {
   return `₹${value.toLocaleString("en-IN")}`;
 }
 
-
 type AboutTone =
   | "rose"
   | "violet"
@@ -153,11 +152,7 @@ const ABOUT_TONE: Record<
   },
 };
 
-function AboutSectionsGrid({
-  sections,
-}: {
-  sections: AboutSectionDef[];
-}) {
+function AboutSectionsGrid({ sections }: { sections: AboutSectionDef[] }) {
   if (sections.length === 0) return null;
 
   return (
@@ -213,10 +208,7 @@ function AboutGroup({
               <span>{text}</span>
               {sub && (
                 <span
-                  className={cn(
-                    "shrink-0 text-[10px] font-normal",
-                    t.subText,
-                  )}
+                  className={cn("shrink-0 text-[10px] font-normal", t.subText)}
                 >
                   {sub}
                 </span>
@@ -244,7 +236,6 @@ export function PublicCreatorProfile({
   // OrderModal + Razorpay checkout inside AuthProvider context
   const brandBookHref = `/brand/creators?creatorId=${profile.id}`;
 
-
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,
     limit: 10,
@@ -264,7 +255,8 @@ export function PublicCreatorProfile({
     [portfolioQuery.data],
   );
   const portfolioVideos = useMemo(
-    () => allPortfolioVideos.filter((v) => v.videoUrl !== profile.introVideoUrl),
+    () =>
+      allPortfolioVideos.filter((v) => v.videoUrl !== profile.introVideoUrl),
     [allPortfolioVideos, profile.introVideoUrl],
   );
   const firstPortfolioVideo = allPortfolioVideos[0] ?? null;
@@ -372,9 +364,7 @@ export function PublicCreatorProfile({
       icon: MapPinned,
       label: "On-location shoot",
       tone: profile.onLocationAvailable ? "emerald" : "neutral",
-      items: [
-        profile.onLocationAvailable ? "Available" : "Not available",
-      ],
+      items: [profile.onLocationAvailable ? "Available" : "Not available"],
     });
     if (brandsWorkedWith.length > 0) {
       sections.push({
@@ -416,7 +406,9 @@ export function PublicCreatorProfile({
     [addOns, selectedAddOns],
   );
 
-  const packagePrice = selectedPackage ? toNumber(selectedPackage.priceAmount) : 0;
+  const packagePrice = selectedPackage
+    ? toNumber(selectedPackage.priceAmount)
+    : 0;
   const totalPrice = packagePrice + addOnsTotal;
 
   const toggleAddOn = (id: string) => {
@@ -448,7 +440,9 @@ export function PublicCreatorProfile({
     return buckets;
   }, [reviews]);
 
-  const [playingPortfolioId, setPlayingPortfolioId] = useState<string | null>(null);
+  const [playingPortfolioId, setPlayingPortfolioId] = useState<string | null>(
+    null,
+  );
 
   const handleBookClick = () => {
     router.push(isBrand ? brandBookHref : bookHref);
@@ -456,7 +450,9 @@ export function PublicCreatorProfile({
 
   // Creators are anonymous to brands: the opaque public slug is the only
   // identifier shown — never the real name.
-  const isTopCreator = (profile.totalOrders ?? profile.completedOrders ?? 0) >= 10 || overallRating >= 4.5;
+  const isTopCreator =
+    (profile.totalOrders ?? profile.completedOrders ?? 0) >= 10 ||
+    overallRating >= 4.5;
   const primaryNiche = contentCategories[0]?.label ?? null;
   // Creators are anonymous to brands — no name or handle. Lead with what
   // actually matters: their niche. Fall back to a neutral title.
@@ -475,10 +471,7 @@ export function PublicCreatorProfile({
       {/* HEADER */}
       <header className="sticky top-0 z-40 overflow-visible border-b border-neutral-200/70 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between overflow-visible px-6 py-4">
-          <Link
-            href="/"
-            className="flex items-center gap-3 overflow-visible"
-          >
+          <Link href="/" className="flex items-center gap-3 overflow-visible">
             <span className="flex h-9 shrink-0 items-center overflow-visible sm:h-10">
               {/* eslint-disable-next-line @next/next/no-img-element -- static public asset; matches navbar brand mark */}
               <img
@@ -602,8 +595,14 @@ export function PublicCreatorProfile({
           {/* INTRO REEL */}
           <div>
             <IntroReel
-              src={profile.introVideoUrl ?? firstPortfolioVideo?.videoUrl ?? null}
-              poster={profile.profileImageUrl ?? firstPortfolioVideo?.thumbnailUrl ?? null}
+              src={
+                profile.introVideoUrl ?? firstPortfolioVideo?.videoUrl ?? null
+              }
+              poster={
+                profile.profileImageUrl ??
+                firstPortfolioVideo?.thumbnailUrl ??
+                null
+              }
               label={profile.introVideoUrl ? "Intro reel" : "Portfolio reel"}
             />
           </div>
@@ -674,7 +673,10 @@ export function PublicCreatorProfile({
               <div>
                 <SectionTitle icon={Instagram} title="Instagram audience" />
                 <div className="mt-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-                  <InstagramInsights insights={instagramInsights} variant="full" />
+                  <InstagramInsights
+                    insights={instagramInsights}
+                    variant="full"
+                  />
                 </div>
               </div>
             )}
@@ -767,7 +769,6 @@ export function PublicCreatorProfile({
                 onBook={handleBookClick}
               />
             )}
-
           </aside>
         </div>
       </section>
@@ -818,7 +819,6 @@ export function PublicCreatorProfile({
           </nav>
         </div>
       </footer>
-
     </div>
   );
 }
@@ -849,11 +849,7 @@ function AvatarCard({
     <div className="relative shrink-0">
       <div className="relative size-40 overflow-hidden rounded-3xl border border-neutral-200 bg-neutral-100 shadow-sm sm:size-44">
         {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt=""
-            className="size-full object-cover"
-          />
+          <img src={imageUrl} alt="" className="size-full object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center bg-gradient-to-br from-rose-400 to-pink-500 font-display text-4xl font-bold text-white">
             {initials}
@@ -1190,8 +1186,14 @@ function PortfolioTile({
         playsInline
         preload={inView ? "metadata" : "none"}
         onPlay={() => setPlaying(true)}
-        onPause={() => { setPlaying(false); onStop(); }}
-        onEnded={() => { setPlaying(false); onStop(); }}
+        onPause={() => {
+          setPlaying(false);
+          onStop();
+        }}
+        onEnded={() => {
+          setPlaying(false);
+          onStop();
+        }}
         onLoadedMetadata={(e) => {
           const d = e.currentTarget.duration;
           if (Number.isFinite(d) && d > 0) {
@@ -1224,20 +1226,17 @@ function PortfolioTile({
           className="flex size-12 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg transition hover:bg-white"
           aria-label={playing ? "Pause" : "Play"}
         >
-          {playing
-            ? <Pause className="size-5 fill-neutral-900" strokeWidth={0} />
-            : <Play className="size-5 fill-neutral-900" strokeWidth={0} />
-          }
+          {playing ? (
+            <Pause className="size-5 fill-neutral-900" strokeWidth={0} />
+          ) : (
+            <Play className="size-5 fill-neutral-900" strokeWidth={0} />
+          )}
         </button>
       </div>
 
       {/* Bottom controls: mute + label */}
       <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/70 to-transparent p-3">
-        {video.industryLabel ? (
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/90">
-            {video.industryLabel}
-          </p>
-        ) : <span />}
+        <span />
         {playing && (
           <button
             type="button"
@@ -1245,10 +1244,11 @@ function PortfolioTile({
             className="flex size-7 items-center justify-center rounded-full bg-black/50 text-white transition hover:bg-black/70"
             aria-label={muted ? "Unmute" : "Mute"}
           >
-            {muted
-              ? <VolumeX className="size-3.5" />
-              : <Volume2 className="size-3.5" />
-            }
+            {muted ? (
+              <VolumeX className="size-3.5" />
+            ) : (
+              <Volume2 className="size-3.5" />
+            )}
           </button>
         )}
       </div>
@@ -1270,9 +1270,7 @@ function ReviewCard({
 }) {
   const brandName = review.brand?.brandName ?? "Brand";
   const initial = brandName.charAt(0).toUpperCase();
-  const date = review.createdAt
-    ? timeAgo(new Date(review.createdAt))
-    : "";
+  const date = review.createdAt ? timeAgo(new Date(review.createdAt)) : "";
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -1412,10 +1410,7 @@ function PricingCard({
       <div className="border-t border-neutral-200 px-5 py-4">
         <ul className="space-y-2 text-sm">
           {(selectedPackage.deliverables ?? []).slice(0, 6).map((d) => (
-            <li
-              key={d}
-              className="flex items-start gap-2 text-neutral-700"
-            >
+            <li key={d} className="flex items-start gap-2 text-neutral-700">
               <Check
                 className="mt-0.5 size-4 shrink-0 text-rose-500"
                 strokeWidth={3}
@@ -1522,4 +1517,3 @@ function PriceChip({
     </span>
   );
 }
-

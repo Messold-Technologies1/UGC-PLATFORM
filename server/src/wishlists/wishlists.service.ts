@@ -35,8 +35,6 @@ const creatorWithRelationsInclude = {
       creatorId: true,
       videoUrl: true,
       thumbnailUrl: true,
-      industryLabel: true,
-      tags: { select: { tag: true } },
       createdAt: true,
     },
   },
@@ -68,12 +66,6 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
         creatorId: v.creatorId,
         videoUrl: v.videoUrl,
         thumbnailUrl: v.thumbnailUrl ?? null,
-        industryLabel: v.industryLabel ?? null,
-        tags: Array.isArray(v.tags)
-          ? v.tags
-              .map((t: any) => t?.tag)
-              .filter((x: unknown): x is string => typeof x === 'string')
-          : [],
         createdAt: v.createdAt,
       }))
     : [];
@@ -257,7 +249,8 @@ export class WishlistsService {
     });
 
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
+    if (wishlist.brandId !== brand.id)
+      throw new ForbiddenException('Not your wishlist');
 
     const creators = wishlist.creators.map((wc: any) => ({
       ...mapCreatorToPublicListItem(wc.creator),
@@ -271,7 +264,9 @@ export class WishlistsService {
       id: wishlist.id,
       name: wishlist.name,
       creatorCount: wishlist._count.creators,
-      creatorIds: wishlist.creators.map((wc: { creatorId: string }) => wc.creatorId),
+      creatorIds: wishlist.creators.map(
+        (wc: { creatorId: string }) => wc.creatorId,
+      ),
       shareEnabled: wishlist.shareEnabled,
       shareToken: wishlist.shareToken ?? null,
       sharedAt: wishlist.sharedAt ?? null,
@@ -297,7 +292,8 @@ export class WishlistsService {
       select: { brandId: true },
     });
     if (!existing) throw new NotFoundException('Wishlist not found');
-    if (existing.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
+    if (existing.brandId !== brand.id)
+      throw new ForbiddenException('Not your wishlist');
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -363,9 +359,12 @@ export class WishlistsService {
       select: { brandId: true },
     });
     if (!existing) throw new NotFoundException('Wishlist not found');
-    if (existing.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
+    if (existing.brandId !== brand.id)
+      throw new ForbiddenException('Not your wishlist');
 
-    await this.prisma.brandWishlist.delete({ where: { id: params.wishlistId } });
+    await this.prisma.brandWishlist.delete({
+      where: { id: params.wishlistId },
+    });
   }
 
   /**
@@ -403,7 +402,8 @@ export class WishlistsService {
       select: { brandId: true },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
+    if (wishlist.brandId !== brand.id)
+      throw new ForbiddenException('Not your wishlist');
 
     const selectedAddOnIds = await this.resolveValidAddOnIds(
       params.creatorId,
@@ -444,7 +444,8 @@ export class WishlistsService {
       select: { brandId: true },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
+    if (wishlist.brandId !== brand.id)
+      throw new ForbiddenException('Not your wishlist');
 
     await this.prisma.brandWishlistCreator.deleteMany({
       where: { wishlistId: params.wishlistId, creatorId: params.creatorId },
@@ -466,12 +467,18 @@ export class WishlistsService {
       select: { brandId: true, shareEnabled: true, shareToken: true },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id) throw new ForbiddenException('Not your wishlist');
+    if (wishlist.brandId !== brand.id)
+      throw new ForbiddenException('Not your wishlist');
 
-    let updated: { shareEnabled: boolean; shareToken: string | null; sharedAt: Date | null };
+    let updated: {
+      shareEnabled: boolean;
+      shareToken: string | null;
+      sharedAt: Date | null;
+    };
 
     if (!wishlist.shareEnabled) {
-      const token = wishlist.shareToken ?? crypto.randomUUID().replace(/-/g, '');
+      const token =
+        wishlist.shareToken ?? crypto.randomUUID().replace(/-/g, '');
       updated = await this.prisma.brandWishlist.update({
         where: { id: params.wishlistId },
         data: {
@@ -503,7 +510,7 @@ export class WishlistsService {
       where: { shareToken: params.shareToken, shareEnabled: true },
       include: {
         brand: {
-          select: { brandName: true, logoUrl: true , contactFullName: true},
+          select: { brandName: true, logoUrl: true, contactFullName: true },
         },
         creators: {
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -516,7 +523,8 @@ export class WishlistsService {
       },
     });
 
-    if (!wishlist) throw new NotFoundException('Wishlist not found or sharing is disabled');
+    if (!wishlist)
+      throw new NotFoundException('Wishlist not found or sharing is disabled');
 
     const creators = wishlist.creators.map((wc: any) =>
       mapCreatorToPublicListItem(wc.creator),
@@ -562,7 +570,9 @@ export class WishlistsService {
     }
 
     if (source.brandId === brand.id) {
-      throw new ConflictException('This shortlist already belongs to your brand');
+      throw new ConflictException(
+        'This shortlist already belongs to your brand',
+      );
     }
 
     const creatorIds = source.creators.map((row) => row.creatorId);
@@ -570,8 +580,11 @@ export class WishlistsService {
       throw new BadRequestException('This shortlist has no creators to import');
     }
 
-    const hasWishlistId = typeof params.dto.wishlistId === 'string' && params.dto.wishlistId.length > 0;
-    const hasName = typeof params.dto.name === 'string' && params.dto.name.trim().length > 0;
+    const hasWishlistId =
+      typeof params.dto.wishlistId === 'string' &&
+      params.dto.wishlistId.length > 0;
+    const hasName =
+      typeof params.dto.name === 'string' && params.dto.name.trim().length > 0;
 
     if (hasWishlistId === hasName) {
       throw new BadRequestException('Provide either wishlistId or name');
@@ -616,7 +629,9 @@ export class WishlistsService {
         };
       } catch (err: any) {
         if (err?.code === 'P2002') {
-          throw new ConflictException('A wishlist with that name already exists');
+          throw new ConflictException(
+            'A wishlist with that name already exists',
+          );
         }
         throw err;
       }

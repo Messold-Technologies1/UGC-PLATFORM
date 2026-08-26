@@ -140,13 +140,16 @@ export const ENDPOINTS = {
     DETAIL: (id: string) => `/api/wishlists/${encodeURIComponent(id)}`,
     UPDATE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}`,
     DELETE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}`,
-    ADD_CREATOR: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/creators`,
+    ADD_CREATOR: (id: string) =>
+      `/api/wishlists/${encodeURIComponent(id)}/creators`,
     REMOVE_CREATOR: (wishlistId: string, creatorId: string) =>
       `/api/wishlists/${encodeURIComponent(wishlistId)}/creators/${encodeURIComponent(creatorId)}`,
-    TOGGLE_SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
+    TOGGLE_SHARE: (id: string) =>
+      `/api/wishlists/${encodeURIComponent(id)}/share`,
     SHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
     UNSHARE: (id: string) => `/api/wishlists/${encodeURIComponent(id)}/share`,
-    PUBLIC: (shareToken: string) => `/api/wishlists/public/${encodeURIComponent(shareToken)}`,
+    PUBLIC: (shareToken: string) =>
+      `/api/wishlists/public/${encodeURIComponent(shareToken)}`,
     IMPORT_SHARED: (shareToken: string) =>
       `/api/wishlists/public/${encodeURIComponent(shareToken)}/import`,
   },
@@ -167,31 +170,29 @@ export const ENDPOINTS = {
   },
   CREATOR_PORTFOLIO: {
     UPLOADS_PRESIGN: "/api/creator-portfolio/uploads/presign",
-    UPLOADS_MULTIPART_CREATE:
-      "/api/creator-portfolio/uploads/multipart/create",
+    UPLOADS_MULTIPART_CREATE: "/api/creator-portfolio/uploads/multipart/create",
     UPLOADS_MULTIPART_SIGN_PART:
       "/api/creator-portfolio/uploads/multipart/sign-part",
     UPLOADS_MULTIPART_COMPLETE:
       "/api/creator-portfolio/uploads/multipart/complete",
-    UPLOADS_MULTIPART_ABORT:
-      "/api/creator-portfolio/uploads/multipart/abort",
+    UPLOADS_MULTIPART_ABORT: "/api/creator-portfolio/uploads/multipart/abort",
     VIDEOS: "/api/creator-portfolio/videos",
     VIDEOS_ME: "/api/creator-portfolio/videos/me",
     VIDEOS_ADMIN: "/api/creator-portfolio/videos/admin",
     SECTIONS: "/api/creator-portfolio/sections",
     SECTIONS_ME: "/api/creator-portfolio/sections/me",
-    SECTION_DETAIL: (id: string) => `/api/creator-portfolio/sections/${encodeURIComponent(id)}`,
+    SECTION_DETAIL: (id: string) =>
+      `/api/creator-portfolio/sections/${encodeURIComponent(id)}`,
     SECTIONS_REORDER: "/api/creator-portfolio/sections/reorder",
-    SECTION_VIDEOS: (id: string) => `/api/creator-portfolio/sections/${encodeURIComponent(id)}/videos`,
-    SECTION_VIDEO_DETAIL: (sectionId: string, videoId: string) => `/api/creator-portfolio/sections/${encodeURIComponent(sectionId)}/videos/${encodeURIComponent(videoId)}`,
-    PUBLIC_SECTIONS: (creatorId: string) => `/api/creator-portfolio/creators/${encodeURIComponent(creatorId)}/sections`,
-    SUGGESTIONS_INDUSTRIES: "/api/creator-portfolio/suggestions/industries",
-    SUGGESTIONS_TAGS: "/api/creator-portfolio/suggestions/tags",
-    SUGGESTIONS_LANGUAGES: "/api/creator-portfolio/suggestions/languages",
+    SECTION_VIDEOS: (id: string) =>
+      `/api/creator-portfolio/sections/${encodeURIComponent(id)}/videos`,
+    SECTION_VIDEO_DETAIL: (sectionId: string, videoId: string) =>
+      `/api/creator-portfolio/sections/${encodeURIComponent(sectionId)}/videos/${encodeURIComponent(videoId)}`,
+    PUBLIC_SECTIONS: (creatorId: string) =>
+      `/api/creator-portfolio/creators/${encodeURIComponent(creatorId)}/sections`,
   },
   LEGAL_PAGES: {
-    BY_SLUG: (slug: string) =>
-      `/api/legal-pages/${encodeURIComponent(slug)}`,
+    BY_SLUG: (slug: string) => `/api/legal-pages/${encodeURIComponent(slug)}`,
   },
   ADMIN: {
     CREATORS: {

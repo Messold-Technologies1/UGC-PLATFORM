@@ -42,30 +42,6 @@ import {
   normalizeRestrictionSuggestion,
 } from './creator-restriction-suggestions';
 
-const portfolioIndustryLabels = [
-  'Coworking',
-  'Clinic',
-  'Salon',
-  'Gym',
-  'Restaurant',
-  'Real Estate',
-  'Fashion',
-  'Skincare',
-];
-
-const portfolioTags = [
-  'testimonial',
-  'founder intro',
-  'office tour',
-  'walkthrough',
-  'talking head',
-  'aesthetic reel',
-  'product demo',
-  'voiceover',
-  'luxury',
-  'relatable',
-];
-
 function normalizeSuggestion(value: string): string {
   return normalizeRestrictionSuggestion(value);
 }
@@ -93,10 +69,9 @@ async function seedRolesAndPermissions(): Promise<void> {
     ),
   );
 
-  for (const [roleName, permissionNames] of Object.entries(permissionsByRole) as [
-    RoleName,
-    string[],
-  ][]) {
+  for (const [roleName, permissionNames] of Object.entries(
+    permissionsByRole,
+  ) as [RoleName, string[]][]) {
     const role = await db.role.findUniqueOrThrow({
       where: { name: roleName },
       select: { id: true },
@@ -135,25 +110,6 @@ async function seedCreatorSuggestions(): Promise<void> {
   });
 }
 
-async function seedPortfolioSuggestions(): Promise<void> {
-  for (const name of portfolioIndustryLabels) {
-    const normalizedName = normalizeSuggestion(name);
-    await db.portfolioIndustrySuggestion.upsert({
-      where: { normalizedName },
-      create: { name, normalizedName },
-      update: { name },
-    });
-  }
-
-  await db.portfolioTagSuggestion.createMany({
-    data: portfolioTags.map((name) => ({
-      name,
-      normalizedName: normalizeSuggestion(name),
-    })),
-    skipDuplicates: true,
-  });
-}
-
 async function seedBootstrapAdmin(): Promise<void> {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
@@ -171,7 +127,9 @@ async function seedBootstrapAdmin(): Promise<void> {
     select: { id: true },
   });
   if (!adminRole) {
-    throw new Error('Missing ADMIN role. seedRolesAndPermissions must run first.');
+    throw new Error(
+      'Missing ADMIN role. seedRolesAndPermissions must run first.',
+    );
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -218,7 +176,6 @@ async function main(): Promise<void> {
   await seedCreatorFacetOptions(prisma);
   await seedCreatorAddOnOptions(prisma);
   await seedCreatorSuggestions();
-  await seedPortfolioSuggestions();
   await seedBootstrapAdmin();
 }
 

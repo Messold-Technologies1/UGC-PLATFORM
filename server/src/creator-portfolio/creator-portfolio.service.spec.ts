@@ -23,14 +23,7 @@ describe('CreatorPortfolioService admin portfolio access', () => {
     },
     $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn({
-        creatorPortfolioVideoTag: {
-          deleteMany: jest.fn(),
-          createMany: jest.fn(),
-        },
         creatorPortfolioVideo: { update: jest.fn() },
-        portfolioIndustrySuggestion: { upsert: jest.fn() },
-        portfolioLanguageSuggestion: { createMany: jest.fn() },
-        portfolioTagSuggestion: { createMany: jest.fn() },
       }),
     ),
   };
@@ -119,9 +112,6 @@ describe('CreatorPortfolioService admin portfolio access', () => {
       creatorId: creatorProfileId,
       videoUrl: 'https://cdn.example/v.mp4',
       thumbnailUrl: null,
-      industryLabel: 'Beauty',
-      language: null,
-      description: null,
       visibilityStatus: 'PUBLIC',
       tags: [],
       createdAt: new Date(),
@@ -129,10 +119,6 @@ describe('CreatorPortfolioService admin portfolio access', () => {
     prismaMock.$transaction.mockImplementationOnce(
       (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
-          creatorPortfolioVideoTag: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(),
-          },
           creatorPortfolioVideo: {
             update: txUpdate,
             count: jest.fn().mockResolvedValue(3),
@@ -158,16 +144,13 @@ describe('CreatorPortfolioService admin portfolio access', () => {
             }),
             update: jest.fn(),
           },
-          portfolioIndustrySuggestion: { upsert: jest.fn() },
-          portfolioLanguageSuggestion: { createMany: jest.fn() },
-          portfolioTagSuggestion: { createMany: jest.fn() },
         }),
     );
 
     const result = await service.updateVideo(
       adminUserId,
       'video-1',
-      { industryLabel: 'Beauty' },
+      { videoKey: `creator-portfolio/${creatorProfileId}/videos/new.mp4` },
       creatorProfileId,
     );
 
@@ -193,7 +176,7 @@ describe('CreatorPortfolioService admin portfolio access', () => {
       service.updateVideo(
         adminUserId,
         'video-1',
-        { description: 'Updated' },
+        { videoKey: `creator-portfolio/${creatorProfileId}/videos/new.mp4` },
         creatorProfileId,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -210,9 +193,6 @@ describe('CreatorPortfolioService admin portfolio access', () => {
         creatorId: creatorProfileId,
         videoUrl: 'https://cdn.example/v1.mp4',
         thumbnailUrl: null,
-        industryLabel: null,
-        language: null,
-        description: null,
         visibilityStatus: 'PUBLIC',
         tags: [],
         createdAt: new Date(),
@@ -222,9 +202,6 @@ describe('CreatorPortfolioService admin portfolio access', () => {
         creatorId: creatorProfileId,
         videoUrl: 'https://cdn.example/v2.mp4',
         thumbnailUrl: null,
-        industryLabel: null,
-        language: null,
-        description: null,
         visibilityStatus: 'PRIVATE',
         tags: [],
         createdAt: new Date(),
@@ -328,9 +305,6 @@ describe('CreatorPortfolioService video lifecycle', () => {
       count: jest.fn(),
       delete: jest.fn(),
     },
-    portfolioIndustrySuggestion: { upsert: jest.fn() },
-    portfolioLanguageSuggestion: { createMany: jest.fn() },
-    portfolioTagSuggestion: { createMany: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -370,10 +344,6 @@ describe('CreatorPortfolioService video lifecycle', () => {
     prismaMock.$transaction.mockImplementation(
       async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
-          creatorPortfolioVideoTag: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(),
-          },
           creatorPortfolioVideo: { update: txUpdate },
           creatorProfile: { findUnique: jest.fn().mockResolvedValue(null) },
         }),
@@ -508,7 +478,7 @@ describe('CreatorPortfolioService video lifecycle', () => {
 
     it('leaves storage alone on a metadata-only update', async () => {
       await service.updateVideo(creatorUserId, videoId, {
-        description: 'just a caption change',
+        thumbnailKey: oldThumbKey,
       });
 
       expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
@@ -533,11 +503,14 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
 
   const prismaMock = {
     user: { findUnique: jest.fn() },
-    creatorProfile: { findUnique: jest.fn() },
-    creatorPortfolioVideo: { findFirst: jest.fn(), create: jest.fn() },
-    portfolioIndustrySuggestion: { upsert: jest.fn() },
-    portfolioLanguageSuggestion: { createMany: jest.fn() },
-    portfolioTagSuggestion: { createMany: jest.fn() },
+    // createVideo now always writes PUBLIC, so every create runs the
+    // listing-state recompute — which reads and may write the profile.
+    creatorProfile: { findUnique: jest.fn(), update: jest.fn() },
+    creatorPortfolioVideo: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
+    },
   };
 
   const storageMock = {
@@ -651,7 +624,6 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
 
     await service.createVideo(creatorUserId, {
       videoKey,
-      visibilityStatus: 'private',
       contentHash: hash.toUpperCase(),
     });
 
@@ -676,7 +648,6 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
     await expect(
       service.createVideo(creatorUserId, {
         videoKey,
-        visibilityStatus: 'private',
         contentHash: hash,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -692,7 +663,6 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
     await expect(
       service.createVideo(creatorUserId, {
         videoKey,
-        visibilityStatus: 'private',
       }),
     ).rejects.toBe(other);
   });

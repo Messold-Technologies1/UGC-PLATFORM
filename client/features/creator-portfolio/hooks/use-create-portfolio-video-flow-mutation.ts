@@ -1,18 +1,11 @@
 import { useRouter } from "next/navigation";
-import {
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { portfolioMyVideosQueryKey } from "../api/list-my-portfolio-videos";
 import { portfolioAdminVideosQueryKey } from "../api/list-admin-portfolio-videos";
 import { publicPortfolioVideosByCreatorQueryKey } from "../api/list-public-portfolio-videos";
 import { createPortfolioVideo } from "../api/create-portfolio-video";
-import {
-  type UpdatePortfolioVideoPayload,
-  updatePortfolioVideo,
-} from "../api/update-portfolio-video";
 import {
   presignPortfolioUpload,
   putPortfolioFileToPresignedUrl,
@@ -26,8 +19,6 @@ import {
 type CreatePortfolioVideoFlowVariables = {
   videoFile: File;
   thumbnailFile: File | null;
-  visibility: "public" | "private";
-  metadataPatch: UpdatePortfolioVideoPayload | null;
   adminCreatorId?: string;
   /** Reports video upload progress as a 0..1 fraction. */
   onProgress?: (fraction: number) => void;
@@ -82,7 +73,9 @@ function getUploadErrorMessage(error: unknown): string {
   return "Something went wrong";
 }
 
-export function useCreatePortfolioVideoFlowMutation(options?: { preventRedirect?: boolean }) {
+export function useCreatePortfolioVideoFlowMutation(options?: {
+  preventRedirect?: boolean;
+}) {
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -91,8 +84,6 @@ export function useCreatePortfolioVideoFlowMutation(options?: { preventRedirect?
     mutationFn: async ({
       videoFile,
       thumbnailFile,
-      visibility,
-      metadataPatch,
       adminCreatorId,
       onProgress,
     }: CreatePortfolioVideoFlowVariables) => {
@@ -137,8 +128,6 @@ export function useCreatePortfolioVideoFlowMutation(options?: { preventRedirect?
           // refused before it transfers. Undefined for files over the hashing
           // cap; the server treats that as "no duplicate check".
           contentHash: video.contentHash,
-          visibilityStatus: visibility,
-          ...metadataPatch,
         },
         requestOptions,
       );

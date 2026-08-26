@@ -15,22 +15,9 @@ export class PortfolioVideoResponseDto {
   })
   thumbnailUrl?: string | null;
 
-  @ApiPropertyOptional({ example: 'gym' })
-  industryLabel?: string | null;
-
-  @ApiProperty({ type: [String], example: ['testimonial'] })
-  tags!: string[];
-
-  @ApiPropertyOptional({ example: 'English' })
-  language?: string | null;
-
-  @ApiPropertyOptional({ example: 'Short description' })
-  description?: string | null;
-
   @ApiProperty({ enum: ['public', 'private'], example: 'public' })
   visibilityStatus!: 'public' | 'private';
 
   @ApiProperty()
   createdAt!: Date;
 }
-

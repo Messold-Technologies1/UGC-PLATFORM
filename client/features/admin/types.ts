@@ -65,8 +65,6 @@ export interface CreatorPortfolioVideoPreviewResponseDto {
   creatorId: string;
   videoUrl: string;
   thumbnailUrl?: string | null;
-  industryLabel?: string | null;
-  tags: string[];
   createdAt: string;
 }
 
@@ -246,8 +244,7 @@ export interface AdminFeatureCreatorDto {
   featuredUntil?: string | null;
 }
 
-export interface RejectedCreatorApprovalListItemDto
-  extends PendingCreatorApprovalListItemDto {
+export interface RejectedCreatorApprovalListItemDto extends PendingCreatorApprovalListItemDto {
   rejectionReason?: string | null;
   rejectedAt?: string | null;
 }

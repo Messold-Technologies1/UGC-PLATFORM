@@ -57,8 +57,6 @@ export type CreatorPortfolioVideoPreviewApi = {
   creatorId: string;
   videoUrl: string;
   thumbnailUrl?: string | null;
-  industryLabel?: string | null;
-  tags: string[];
   createdAt: string;
 };
 

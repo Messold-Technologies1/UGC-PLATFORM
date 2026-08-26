@@ -812,7 +812,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     () =>
       portfolioVideos.map((video) => ({
         id: video.id,
-        label: video.industryLabel || "UGC",
+        label: "UGC",
         videoUrl: video.videoUrl,
         thumbnailUrl: video.thumbnailUrl,
       })),
@@ -828,11 +828,29 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     if (isProfileLoading && open) {
       return (
         <>
-          <div className={`browse-scrim${open ? " show" : ""}`} onClick={onClose} aria-hidden="true" />
-          <div className={`browse-drawer${open ? " show" : ""}`} role="dialog" aria-modal="true">
-            <button type="button" className="dr-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+          <div
+            className={`browse-scrim${open ? " show" : ""}`}
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          <div
+            className={`browse-drawer${open ? " show" : ""}`}
+            role="dialog"
+            aria-modal="true"
+          >
+            <button
+              type="button"
+              className="dr-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
             <div className="drawer-scroll" ref={scrollRef}>
-               <div className="dr-section" style={{ paddingTop: 18 }}><SkeletonBlock height={200} /><SkeletonBlock height={100} style={{marginTop: 20}} /></div>
+              <div className="dr-section" style={{ paddingTop: 18 }}>
+                <SkeletonBlock height={200} />
+                <SkeletonBlock height={100} style={{ marginTop: 20 }} />
+              </div>
             </div>
           </div>
         </>
@@ -840,7 +858,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     }
     return null;
   }
-
 
   const publicProfilePath = creatorPublicProfilePathForProfile({
     publicSlug: profileApi?.publicSlug,
@@ -1004,9 +1021,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               creatorId={activeId}
               creatorName={c?.name ?? ""}
               creatorImageUrl={c?.thumbnail}
-              creatorCategory={
-                c?.categories?.[0] || c?.category || null
-              }
+              creatorCategory={c?.categories?.[0] || c?.category || null}
               creatorCity={
                 c?.location && c.location !== "Location not set"
                   ? c.location
@@ -1018,15 +1033,13 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
             type="button"
             className={`dr-btn dr-btn-primary flex-1 ${
               c.available === false ||
-              (!landingPage &&
-                (!profile || isProfileLoading || isProfileError))
+              (!landingPage && (!profile || isProfileLoading || isProfileError))
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }`}
             disabled={
               c.available === false ||
-              (!landingPage &&
-                (!profile || isProfileLoading || isProfileError))
+              (!landingPage && (!profile || isProfileLoading || isProfileError))
             }
             onClick={() => {
               if (c.available === false) {

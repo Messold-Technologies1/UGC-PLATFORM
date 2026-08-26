@@ -19,12 +19,14 @@ import {
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
+  ApiResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { CreatePortfolioVideoDto } from './dto/create-portfolio-video.dto';
@@ -52,11 +54,19 @@ import { AddSectionVideosDto } from './dto/add-section-videos.dto';
 import { RemoveSectionVideoQueryDto } from './dto/remove-section-video.dto';
 import { ReorderSectionsDto } from './dto/reorder-sections.dto';
 import { CreatorPortfolioService } from './creator-portfolio.service';
+import { InstagramMirrorQueueService } from './instagram-mirror-queue.service';
+import {
+  ImportInstagramReelsDto,
+  ImportInstagramReelsResponseDto,
+} from './dto/import-instagram-reels.dto';
 
 @ApiTags('Creator Portfolio')
 @Controller('creator-portfolio')
 export class CreatorPortfolioController {
-  constructor(private readonly service: CreatorPortfolioService) {}
+  constructor(
+    private readonly service: CreatorPortfolioService,
+    private readonly mirrorQueue: InstagramMirrorQueueService,
+  ) {}
 
   @Post('uploads/presign')
   @UseGuards(JwtAuthGuard)
@@ -150,6 +160,56 @@ export class CreatorPortfolioController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<PortfolioVideoResponseDto> {
     return this.service.createVideo(req.user.id, dto, dto.creatorId);
+  }
+
+  @Post('videos/import-instagram')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Import selected Instagram reels as portfolio videos',
+    description:
+      'Every id must already be cached against a connection this creator owns; ' +
+      'that check is the authorization boundary. Returns immediately — in mirror ' +
+      'mode the rows come back PROCESSING and flip to READY when their bytes are ' +
+      'in S3.',
+  })
+  @ApiOkResponse({ type: ImportInstagramReelsResponseDto })
+  async importInstagramReels(
+    @Body() dto: ImportInstagramReelsDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<ImportInstagramReelsResponseDto> {
+    const result = await this.service.importInstagramReels(
+      req.user.id,
+      dto,
+      dto.creatorId,
+    );
+    const { mirrorVideoIds = [], ...response } =
+      result as ImportInstagramReelsResponseDto & { mirrorVideoIds?: string[] };
+    // Enqueued after the response is built so a queue hiccup cannot fail an
+    // import that already happened; the watchdog picks up anything dropped.
+    void this.mirrorQueue.enqueueMany(mirrorVideoIds);
+    return response;
+  }
+
+  @Post('videos/:id/retry-mirror')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Retry a failed Instagram mirror',
+    description:
+      'Re-queues the copy for a video parked in FAILED. The S3 key was fixed at ' +
+      'import time, so a retry overwrites rather than orphaning a partial object.',
+  })
+  @ApiResponse({ status: 202, description: 'Mirror re-queued' })
+  async retryMirror(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<{ requeued: true }> {
+    await this.service.assertOwnedFailedImport(req.user.id, id);
+    void this.mirrorQueue.enqueue(id);
+    return { requeued: true };
   }
 
   @Get('videos/me')

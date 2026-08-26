@@ -201,7 +201,7 @@ export class InstagramMediaService {
       Date.now() - lastFullSyncAt.getTime() > this.cacheTtlMs();
 
     return {
-      status: this.galleryStatus(state, page.length, stale),
+      status: this.galleryStatus(state, stale),
       username: connection.username,
       lastFullSyncAt,
       stale,
@@ -236,7 +236,6 @@ export class InstagramMediaService {
 
   private galleryStatus(
     state: { status: IgMediaSyncStatus; lastError: string | null } | null,
-    itemCount: number,
     stale: boolean,
   ): GalleryPage['status'] {
     if (state?.status === IgMediaSyncStatus.ERROR) return 'error';
@@ -246,8 +245,12 @@ export class InstagramMediaService {
     ) {
       return 'syncing';
     }
-    // Nothing cached yet, or too old to trust — the caller will enqueue.
-    if (itemCount === 0 || stale) return 'syncing';
+    // Never synced, or too old to trust — the caller will enqueue. `stale`
+    // already covers "never synced" (no lastFullSyncAt). A completed, fresh
+    // sync is 'ready' even with zero items: a creator can genuinely have no
+    // reels, and reporting 'syncing' for that forever made the controller
+    // re-enqueue a sync on every single page load, in an unbroken loop.
+    if (stale) return 'syncing';
     return 'ready';
   }
 

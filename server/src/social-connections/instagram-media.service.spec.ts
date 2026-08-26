@@ -306,6 +306,25 @@ describe('InstagramMediaService', () => {
       expect(result.items[0]!.alreadyImported).toBe(false);
     });
 
+    it('reports ready for a fresh sync that found zero reels, instead of resyncing forever', async () => {
+      // A completed, still-fresh walk that legitimately found nothing must not
+      // report 'syncing' — that previously made the controller re-enqueue a
+      // sync on every single page load, in a loop that never settled.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        status: IgMediaSyncStatus.READY,
+        lastFullSyncAt: new Date(),
+        reelCount: 0,
+        lastError: null,
+      });
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.status).toBe('ready');
+      expect(result.stale).toBe(false);
+      expect(result.items).toHaveLength(0);
+    });
+
     it('returns a stale cache immediately, flagged for a background refresh', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
         status: IgMediaSyncStatus.READY,

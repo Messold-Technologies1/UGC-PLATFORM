@@ -47,7 +47,7 @@ a playable video file).
 | Playback after 7 days | Works | Requires a live Graph call + a valid token |
 | If creator disconnects IG or revokes the token | Portfolio unaffected | Portfolio videos go dark |
 | Public brand-facing profile | Served from CDN like every other video | Every viewer triggers Graph calls → rate-limit exposure on read |
-| Works with the existing watermark pipeline + `videoKey` ownership checks | Yes | No |
+| Works with the existing `videoKey` ownership checks | Yes | No |
 | Cost | One-time egress + storage per reel (~10–100 MB) | Ongoing Graph calls forever |
 
 **Recommendation: mirror mode.** It is also what the codebase already assumes —
@@ -128,23 +128,109 @@ A full-height drawer/sheet (reuse `vaul`, already a dependency):
 
 ### 3.3 After selecting
 
-Two sub-flows, pick one:
-
-- **(A) Fast path (recommended for launch):** import immediately with no
-  metadata, using the IG caption as the initial `description`. The reels land in
-  the grid as normal portfolio videos; the creator edits industry/tags/language
-  later with the existing edit drawer. Fewest taps, and the point of this
-  feature is speed.
-- **(B) Guided path:** after selection, show one compact metadata form applied
-  to the whole batch (industry + language + tags), since imported reels are
-  usually from the same niche. Then per-video edits as usual.
-
-Ship (A); (B) is a small follow-up on the same endpoint.
+Import immediately. There is no metadata step — see §3.4. The selected reels
+become portfolio videos and appear in the grid at once.
 
 Mirror mode note: imported rows appear immediately with the IG thumbnail and a
 `PROCESSING` state, and flip to playable when the mirror job finishes (seconds
 to a couple of minutes). The existing `Progress` component covers this. The
 creator can leave the page.
+
+### 3.4 Portfolio videos carry no metadata
+
+**Decision: a portfolio video is a video.** No industry label, no tags, no
+language, no creator-written text. This applies to device uploads and Instagram
+imports alike, and it is the single biggest simplification in this plan — the
+import becomes purely mechanical, and the upload form loses most of its surface.
+
+#### Dropped from the database
+
+- Table `CreatorPortfolioVideoTag` — gone entirely.
+- Tables `PortfolioIndustrySuggestion`, `PortfolioTagSuggestion`,
+  `PortfolioLanguageSuggestion` — the suggestion catalogues have no remaining
+  consumer.
+- Columns `CreatorPortfolioVideo.industryLabel` and `.language`.
+- Index `@@index([visibilityStatus, industryLabel])`.
+
+#### One field kept, with a different job
+
+`description` stays as a **system-populated** column — there is no input for it
+anywhere in the UI. Instagram import seeds it from the reel caption; a device
+upload leaves it null. It serves as the video's alt text and the fallback card
+title in `portfolio-card.tsx`. It is the only one of the four fields with a job
+that isn't metadata, and keeping a nullable column costs nothing. If you want it
+gone too, that is a one-line change to this plan.
+
+#### Dropped from the server
+
+- The three suggestion routes: `GET suggestions/industries`, `.../tags`,
+  `.../languages` (`creator-portfolio.controller.ts:190-207`).
+- The suggestion upserts in `createVideo` and `updateVideo`, and the
+  `normalizeSuggestion` / `toTitleCaseLabel` helpers that exist only for them.
+- DTO fields across `create-portfolio-video.dto.ts`,
+  `update-portfolio-video.dto.ts`, `portfolio-video-response.dto.ts`,
+  `portfolio-section-response.dto.ts`, `admin-creator-list.dto.ts`,
+  `creator-public-list-item.dto.ts`, `creator-profile-response.dto.ts`.
+- Prisma selects in `creator-profile.service.ts` (three query shapes plus two
+  mapping sites), `wishlists.service.ts`, `creator-list-filters.util.ts`.
+
+#### Dropped from the client
+
+- `creator-portfolio-tags-modal.tsx` — delete (289 lines).
+- `hooks/use-portfolio-suggestion-queries.ts` and
+  `api/portfolio-suggestion-lists.ts` — delete.
+- `creator-portfolio-upload-form.tsx` — the industry, language, tags and
+  description fields, and with them the `ReactSelect`, `ISO6391` and
+  `SuggestionChips` imports.
+- `portfolio-components.tsx` — the metadata half of `PortfolioEditDrawer` and
+  the `pe-pf-ind` industry chip.
+- Display sites that read these fields: `portfolio-card.tsx`,
+  `public-creator-profile.tsx:1236`, `profile-drawer.tsx:815`,
+  `map-profile-to-creator.ts:137`, `creator-account-profile-view.tsx:93`.
+
+#### One behaviour change to accept
+
+`buildCreatorListSearchWhere()` (`creator-list-filters.util.ts:290-300`) has two
+OR clauses that match a brand's free-text search against portfolio
+`industryLabel` and tags. Those go away, so free-text search no longer matches
+on them.
+
+What still matches: city, state, country, bio, **niche and category facet
+labels** (including custom "Other" text), package names, and open-to
+restrictions. Niche and category are the strong signal for a keyword search, and
+they come from `facetSelections`, not from portfolio videos — so this narrows
+search rather than breaking it. Update the Swagger description at
+`list-creators-query.dto.ts:90`, which currently promises portfolio matching.
+
+The brand-facing **filter bar** is unaffected: it reads creator category and
+restriction suggestions, which are separate catalogues.
+
+#### What "Edit" collapses to
+
+With metadata gone, `PortfolioEditDrawer` holds only visibility, thumbnail
+replace and delete. Consider dropping *Edit* from the tile in favour of a
+visibility toggle and a delete action — a drawer for two controls is overhead.
+Sections stay, and become the only way a creator organises their portfolio,
+which is arguably clearer than freeform tags ever were.
+
+### 3.5 Watermarking was never on this path
+
+The watermark service is the **order delivery** pipeline.
+`WatermarkQueueService` is keyed by `deliveryId` and is driven from
+`orders.service.ts` and `order-delivery-asset.dto.ts`;
+`grep -rn watermark server/src/creator-portfolio` returns nothing.
+
+So there is nothing to remove for portfolio — and the delivery watermark must
+**stay**, since it is what protects a paid deliverable before the brand
+approves it. This plan does not touch it.
+
+The mirror job writes straight to S3 under the existing portfolio key prefix and
+never enters the watermark queue.
+
+One thing to keep separate: the portfolio confirmation checklist ("no watermark,
+logo or platform branding") is a *content review rule* about what is burned into
+the creator's own video. Admin review enforces it; the watermark service has
+nothing to do with it. Imported reels are still subject to it.
 
 ---
 
@@ -212,6 +298,8 @@ model InstagramMediaSyncState {
 ```
 
 ### 4.3 Changed: `CreatorPortfolioVideo` — provenance + processing state
+
+Alongside the metadata columns dropped in §3.4:
 
 ```prisma
 enum PortfolioVideoSource { UPLOAD  INSTAGRAM }
@@ -292,7 +380,7 @@ Rules:
 ### `POST /api/creator-portfolio/videos/import-instagram`
 
 ```jsonc
-// request
+// request — no metadata fields; §3.4 removed them all
 { "igMediaIds": ["17912...", "17913..."], "visibilityStatus": "public" }
 
 // response
@@ -538,7 +626,7 @@ Client-side, mirror it: `staleTime: 7 days`, `gcTime: 7 days` on the
 | Creator has 0 reels (photos only) | Explicit empty state naming why — reels only, collabs may be missing |
 | Reel deleted on Instagram after import | Mirror mode: our copy is unaffected. Link mode: playback breaks — mark `FAILED` on a 404 |
 | Same reel imported twice | Blocked by `@@unique([creatorId, igMediaId])`, returned as `skipped` |
-| Reel with music/branding overlays | Still subject to the existing portfolio confirmation rules ("no watermark, logo or platform branding") and admin review. Show that reminder in the import footer — imported reels are **not** auto-approved |
+| Reel with music/branding overlays | Still subject to the portfolio confirmation rules ("no watermark, logo or platform branding") — a content review rule enforced by admin review, unrelated to the watermark *service* (§3.5). Show the reminder in the import footer; imported reels are **not** auto-approved |
 | Reel under the 1080p bar | We can't reliably read resolution from Graph. Mirror mode can probe with ffmpeg and warn; leave enforcement to admin review as today |
 | Reel > 1 GiB | Rejected by the existing cap; surface as `FAILED` with the reason |
 | Creator's IG account switched to Personal | Graph returns an error → connection `ERROR` → reconnect prompt |
@@ -551,6 +639,25 @@ Client-side, mirror it: `staleTime: 7 days`, `gcTime: 7 days` on the
 ## 10. Delivery phases
 
 Each phase is independently shippable and leaves `main` green.
+
+### Phase 0 — Strip portfolio metadata
+Independent of Instagram, and worth landing first: it shrinks the surface every
+later phase has to touch.
+- Migration: drop `CreatorPortfolioVideoTag`, the three suggestion tables, the
+  `industryLabel` and `language` columns, and the `industryLabel` index.
+- Delete the three suggestion routes, their service methods, and the suggestion
+  upserts in `createVideo`/`updateVideo`.
+- Strip the fields from the seven DTOs and from the Prisma selects in
+  `creator-profile.service.ts`, `wishlists.service.ts` and
+  `creator-list-filters.util.ts`.
+- Remove the two portfolio OR clauses from `buildCreatorListSearchWhere()` and
+  correct the Swagger text at `list-creators-query.dto.ts:90`. Update
+  `creator-list-filters.util.spec.ts:155` and
+  `creator-portfolio.service.spec.ts` to match.
+- Client: delete the tags modal, the suggestion hook and API module; strip the
+  fields from the upload form, the edit drawer and the six display sites.
+- Verify: a brand keyword search still returns sensible results on niche,
+  category, city and bio alone.
 
 ### Phase 1 — Schema and provenance
 - Migration: `InstagramMediaItem`, `InstagramMediaSyncState`, the two new enums,
@@ -607,8 +714,10 @@ Each phase is independently shippable and leaves `main` green.
 2. **Do imported reels need admin approval like uploads?** Assumed yes (same
    `visibilityStatus` + review path). Confirm — auto-approving IG reels would
    be a policy change, not a technical one.
-3. **Fast path or guided metadata?** §3.3 recommends the fast path for launch.
+3. **Does `description` survive as a system-only field?** §3.4 keeps it for alt
+   text and the IG caption. Say the word and it goes too.
 4. **Sort order in the gallery** — newest first (assumed), or best-performing
    first? The latter is available via per-media insights on the scope we already
    hold, at one extra call per page.
-5. **Batch cap of 20** — right number?
+5. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
+   product reason. Right number?

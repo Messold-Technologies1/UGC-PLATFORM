@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import {
+  AlertTriangle,
   Bookmark,
   Check,
   CheckCircle,
+  Loader2,
   RefreshCw,
   Play,
   Plus,
@@ -16,7 +18,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
-import type { UpdatePortfolioVideoPayload } from "@/features/creator-portfolio/api/update-portfolio-video";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 
@@ -56,7 +57,8 @@ export function PortfolioGrid({
       {videos.map((video, idx) => (
         <div className="pe-pf-card" key={video.id}>
           <div className="pe-pf-reel">
-            {video.videoUrl ? (
+            {video.assetState === "PROCESSING" ||
+            video.assetState === "FAILED" ? null : video.videoUrl ? (
               <video
                 src={video.videoUrl}
                 poster={video.thumbnailUrl ?? undefined}
@@ -96,6 +98,18 @@ export function PortfolioGrid({
               </div>
             )}
             <div className="pe-pf-scrim" style={{ pointerEvents: "none" }} />
+
+            {video.assetState === "PROCESSING" ? (
+              <span className="pe-pf-state" data-state="processing">
+                <Loader2 size={10} className="pe-pf-spin" aria-hidden />
+                Processing
+              </span>
+            ) : video.assetState === "FAILED" ? (
+              <span className="pe-pf-state" data-state="failed">
+                <AlertTriangle size={10} aria-hidden />
+                Failed
+              </span>
+            ) : null}
 
             <span
               className="pe-pf-vis"

@@ -720,6 +720,9 @@ export class CreatorPortfolioService {
       creatorId: row.creatorId,
       videoUrl: row.videoUrl,
       thumbnailUrl: row.thumbnailUrl ?? null,
+      source: row.source,
+      assetState: row.assetState,
+      igPermalink: row.igPermalink ?? null,
       visibilityStatus,
       createdAt: row.createdAt,
     } satisfies PortfolioVideoResponseDto;

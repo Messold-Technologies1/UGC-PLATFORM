@@ -48,6 +48,25 @@ import {
 } from './instagram-media-queue.service';
 
 const IG_STATE_COOKIE = 'ig_oauth_state';
+/** Where to send the creator after the callback (see sanitizeReturnPath). */
+const IG_RETURN_COOKIE = 'ig_oauth_return';
+
+/**
+ * Accept only a root-relative path on our own site.
+ *
+ * Anything with a scheme, a protocol-relative `//host` prefix, or a backslash
+ * (which some browsers normalise to `/`) is discarded, so neither a caller nor
+ * a tampered cookie can redirect the creator off-site after connecting.
+ */
+export function sanitizeReturnPath(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (!value.startsWith('/')) return null;
+  if (value.startsWith('//')) return null;
+  if (value.includes('\\')) return null;
+  if (/^\/+\s*[a-z][a-z0-9+.-]*:/i.test(value)) return null;
+  return value;
+}
 const isProduction = process.env.NODE_ENV === 'production';
 // Optional shared parent domain (e.g. ".gocollab.io") so the CSRF cookie set on
 // the app origin still rides along to the api origin when they are different
@@ -231,11 +250,21 @@ export class SocialConnectionsController {
   async instagramConnectUrl(
     @Req() req: Request & { user: { id: string } },
     @Res({ passthrough: true }) res: Response,
+    @Query('returnTo') returnTo?: string,
   ): Promise<SocialConnectUrlResponseDto> {
     const { url, nonce } = await this.service.buildInstagramConnectUrl(
       req.user.id,
     );
     res.cookie(IG_STATE_COOKIE, nonce, stateCookieOptions());
+    // Remembered in a cookie rather than round-tripped through Meta: `state`
+    // already carries the signed nonce, and Meta echoes it verbatim, so
+    // appending caller data there would put it on a third party's URL.
+    if (returnTo) {
+      res.cookie(IG_RETURN_COOKIE, sanitizeReturnPath(returnTo), {
+        ...stateCookieOptions(),
+        path: '/api/social',
+      });
+    }
     return { url };
   }
 
@@ -253,7 +282,15 @@ export class SocialConnectionsController {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const returnTo = `${frontendUrl}/creator/settings/profile`;
+    // Where to land afterwards. Only a same-site path is honoured, so a
+    // tampered cookie cannot turn the callback into an open redirect.
+    const requestedPath = sanitizeReturnPath(readCookie(req, IG_RETURN_COOKIE));
+    const returnTo = `${frontendUrl}${requestedPath ?? '/creator/settings/profile'}`;
+    res.cookie(IG_RETURN_COOKIE, '', {
+      ...stateCookieOptions(),
+      path: '/api/social',
+      maxAge: 0,
+    });
 
     const code = req.query.code as string | undefined;
     const state = req.query.state as string | undefined;

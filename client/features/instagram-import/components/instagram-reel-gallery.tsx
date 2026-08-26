@@ -20,7 +20,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
-import { useImportInstagramReels, useInstagramReels } from "../hooks/use-instagram-reels";
+import {
+  useImportInstagramReels,
+  useInstagramReels,
+} from "../hooks/use-instagram-reels";
 import type { InstagramReelApi } from "../api/types";
 
 /** Server-side cap on one import; selecting past it is blocked in the UI too. */
@@ -64,25 +67,22 @@ export function InstagramReelGallery({
   onImported?: () => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
-  const reels = useInstagramReels({ enabled: open });
+  const reels = useInstagramReels({ enabled: open, adminCreatorId });
   const importMutation = useImportInstagramReels({ adminCreatorId });
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const atCap = selected.length >= MAX_SELECTION;
 
-  const toggle = useCallback(
-    (reel: InstagramReelApi) => {
-      if (reel.alreadyImported) return;
-      setSelected((prev) => {
-        if (prev.includes(reel.igMediaId)) {
-          return prev.filter((id) => id !== reel.igMediaId);
-        }
-        if (prev.length >= MAX_SELECTION) return prev;
-        return [...prev, reel.igMediaId];
-      });
-    },
-    [],
-  );
+  const toggle = useCallback((reel: InstagramReelApi) => {
+    if (reel.alreadyImported) return;
+    setSelected((prev) => {
+      if (prev.includes(reel.igMediaId)) {
+        return prev.filter((id) => id !== reel.igMediaId);
+      }
+      if (prev.length >= MAX_SELECTION) return prev;
+      return [...prev, reel.igMediaId];
+    });
+  }, []);
 
   const close = useCallback(
     (next: boolean) => {
@@ -114,12 +114,18 @@ export function InstagramReelGallery({
             <div className="min-w-0">
               <DialogTitle className="flex items-center gap-2 text-base">
                 <Instagram className="size-4 shrink-0" aria-hidden />
-                {reels.username ? `@${reels.username}` : "Your reels"}
+                {reels.username
+                  ? `@${reels.username}`
+                  : adminCreatorId
+                    ? "Creator's reels"
+                    : "Your reels"}
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {reels.reelCount > 0
                   ? `${reels.reelCount} reel${reels.reelCount === 1 ? "" : "s"} · updated ${formatRelative(reels.lastFullSyncAt)}`
-                  : "Only reels you posted from this account appear here."}
+                  : adminCreatorId
+                    ? "Only reels posted from this account appear here."
+                    : "Only reels you posted from this account appear here."}
               </DialogDescription>
             </div>
             <Button
@@ -142,13 +148,21 @@ export function InstagramReelGallery({
           {reels.status === "not_connected" ? (
             <EmptyState
               title="No Instagram account connected"
-              body="Connect Instagram from your profile settings to browse your reels here."
+              body={
+                adminCreatorId
+                  ? "This creator has not connected Instagram, so there are no reels to browse. Only they can link the account."
+                  : "Connect Instagram from your profile settings to browse your reels here."
+              }
             />
           ) : reels.status === "reconnect_required" ? (
             <EmptyState
               icon="warn"
               title="Instagram needs reconnecting"
-              body="Your Instagram access expired or was revoked. Reconnect from profile settings to browse your reels."
+              body={
+                adminCreatorId
+                  ? "This creator's Instagram access expired or was revoked. They will need to reconnect before their reels can be browsed."
+                  : "Your Instagram access expired or was revoked. Reconnect from profile settings to browse your reels."
+              }
             />
           ) : reels.isError || reels.status === "error" ? (
             <EmptyState
@@ -166,7 +180,7 @@ export function InstagramReelGallery({
           ) : reels.items.length === 0 ? (
             <EmptyState
               title="We couldn't find any reels"
-              body={`Only reels you posted from ${reels.username ? `@${reels.username}` : "this account"} show up here — collabs and cross-posts may be missing.`}
+              body={`Only reels posted from ${reels.username ? `@${reels.username}` : "this account"} show up here — collabs and cross-posts may be missing.`}
               action={
                 <Button variant="outline" size="sm" onClick={reels.retry}>
                   Check again

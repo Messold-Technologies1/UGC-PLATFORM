@@ -41,6 +41,14 @@ export interface GalleryItem {
   portfolioVideoId: string | null;
 }
 
+export interface SyncStatus {
+  status: string;
+  reelCount: number;
+  lastFullSyncAt: Date | null;
+  hasMore: boolean;
+  error: string | null;
+}
+
 export interface GalleryPage {
   status:
     | 'ready'
@@ -156,15 +164,59 @@ export class InstagramMediaService {
   }
 
   /**
-   * Serve one page of the gallery from the cache. Never calls Graph: a cold or
-   * stale cache reports its state so the caller can enqueue a sync and the UI
-   * can show what it has meanwhile.
+   * A specific creator's Instagram connection, for admin-scoped reads. Route
+   * guards do the authorization; this only resolves.
    */
+  async findConnectionForCreatorProfile(creatorProfileId: string) {
+    return this.prisma.socialConnection.findUnique({
+      where: {
+        creatorProfileId_platform: {
+          creatorProfileId,
+          platform: SocialPlatform.INSTAGRAM,
+        },
+      },
+    });
+  }
+
+  /** Gallery for the signed-in creator's own account. */
   async getGalleryPage(
     userId: string,
     opts: { cursor?: string; limit?: number } = {},
   ): Promise<GalleryPage> {
-    const connection = await this.findConnectionForUser(userId);
+    return this.buildGalleryPage(
+      await this.findConnectionForUser(userId),
+      opts,
+    );
+  }
+
+  /**
+   * Gallery for a named creator, so an admin can browse and import on their
+   * behalf. Reads the creator's own cache and uses the creator's own token, so
+   * the admin never needs an Instagram account of their own.
+   */
+  async getGalleryPageForCreator(
+    creatorProfileId: string,
+    opts: { cursor?: string; limit?: number } = {},
+  ): Promise<GalleryPage> {
+    return this.buildGalleryPage(
+      await this.findConnectionForCreatorProfile(creatorProfileId),
+      opts,
+    );
+  }
+
+  /**
+   * Serve one page of the gallery from the cache. Never calls Graph: a cold or
+   * stale cache reports its state so the caller can enqueue a sync and the UI
+   * can show what it has meanwhile.
+   */
+  private async buildGalleryPage(
+    connection: {
+      id: string;
+      username: string | null;
+      status: SocialConnectionStatus;
+    } | null,
+    opts: { cursor?: string; limit?: number } = {},
+  ): Promise<GalleryPage> {
     if (!connection) {
       return this.emptyPage('not_connected');
     }
@@ -282,15 +334,21 @@ export class InstagramMediaService {
     };
   }
 
-  /** Sync progress for the polling endpoint. */
-  async getSyncStatus(userId: string): Promise<{
-    status: string;
-    reelCount: number;
-    lastFullSyncAt: Date | null;
-    hasMore: boolean;
-    error: string | null;
-  }> {
-    const connection = await this.findConnectionForUser(userId);
+  /** Sync progress for the polling endpoint (own account). */
+  async getSyncStatus(userId: string): Promise<SyncStatus> {
+    return this.buildSyncStatus(await this.findConnectionForUser(userId));
+  }
+
+  /** Sync progress for a named creator, for the admin gallery. */
+  async getSyncStatusForCreator(creatorProfileId: string): Promise<SyncStatus> {
+    return this.buildSyncStatus(
+      await this.findConnectionForCreatorProfile(creatorProfileId),
+    );
+  }
+
+  private async buildSyncStatus(
+    connection: { id: string } | null,
+  ): Promise<SyncStatus> {
     if (!connection) {
       return {
         status: 'not_connected',

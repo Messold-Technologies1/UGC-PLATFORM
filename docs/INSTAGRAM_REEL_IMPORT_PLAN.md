@@ -50,9 +50,9 @@ a playable video file).
 | Works with the existing `videoKey` ownership checks | Yes | No |
 | Cost | One-time egress + storage per reel (~10–100 MB) | Ongoing Graph calls forever |
 
-**Recommendation: mirror mode.** The load-bearing reason is expiry alone: link
-mode means portfolios that go dark within days and a Graph call on every brand
-page view.
+**Decided: mirror mode.** The load-bearing reason is expiry alone: link mode
+means portfolios that go dark within days and a Graph call on every brand page
+view.
 
 It is also what the portfolio module already assumes.
 `assertVideoKeyOwner()` (`creator-portfolio.service.ts:111`) throws unless the
@@ -63,14 +63,10 @@ the video to be an object in our own bucket. Add that `videoKey`/`videoUrl` are
 non-null required columns and that no code path anywhere plays a portfolio video
 from a foreign URL, and link mode is the one that fights the existing design.
 
-The schema and API below support **both**; the mode is a single env flag
-(`PORTFOLIO_IG_IMPORT_MODE=mirror|link`, default `mirror`). Link mode just skips
-the mirror job and marks the row `LINK_ONLY`. If you want link-only for launch
-speed, ship it behind that flag and flip to mirror later — the same
-`igMediaId` on the row lets a backfill job mirror rows retroactively.
-
-The rest of this plan assumes mirror mode where the two differ, and flags the
-difference where it matters.
+The schema below keeps `LINK_ONLY` in `PortfolioVideoAssetState` and the
+`PORTFOLIO_IG_IMPORT_MODE` flag, so link mode stays reachable as an escape hatch
+— but mirror is the built path and the default. The rest of this plan assumes
+it.
 
 ---
 
@@ -373,6 +369,104 @@ nothing to do with it. Imported reels are still subject to it.
 
 ---
 
+### 3.6 S3 lifecycle: delete, replace, and duplicate uploads
+
+Two questions worth asking before Phase 0, because the answers are "no" and
+"no".
+
+### Nothing deletes portfolio objects from S3 today
+
+`deleteVideo` (`creator-portfolio.service.ts:513-545`) ends at
+`prisma.creatorPortfolioVideo.delete()`. There is **no** `deleteObjectIfExists`
+call anywhere in `creator-portfolio.service.ts` — the only storage calls it makes
+are presign, multipart and `buildCdnUrl`. So every deleted portfolio video leaves
+its video object *and* its thumbnail in the bucket forever.
+
+This is an oversight, not a retention policy, and the codebase proves it:
+
+| Module | On replace | On delete |
+|---|---|---|
+| `creator-demo-videos.service.ts:153-176` | deletes old video + thumbnail | deletes video + thumbnail |
+| `brand-profile.service.ts:625-632` | deletes old logo / audio | deletes them |
+| **`creator-portfolio.service.ts`** | *(no replace exists yet)* | **deletes nothing** |
+
+Creator demo videos are the same shape of record — a video key plus a thumbnail
+key — and they clean up on both paths. Portfolio simply never did.
+
+> Adjacent, out of scope: the creator **intro video** has the same leak.
+> `creator-profile.service.ts:2466` assigns `data.introVideoKey = nextIntroVideoKey`
+> with no delete of the previous key. Worth a follow-up ticket; this plan does not
+> touch it.
+
+### Three leaks to close
+
+1. **Delete** → after the row is deleted, best-effort
+   `deleteObjectIfExists(videoKey)` and `deleteObjectIfExists(thumbnailKey)`,
+   each `.catch()`-logged in the style of
+   `creator-demo-videos.service.ts:153`. Never let a storage failure fail the
+   delete the creator already made.
+2. **Replace** (§3.4) → same thing for the *outgoing* keys, after the
+   transaction commits. Already specified there; restated because it is the same
+   fix.
+3. **Abandoned upload** → a creator can presign, PUT the bytes to S3, then never
+   call `POST /videos`. That orphan has no database row at all, so no
+   application code can find it by looking at the DB.
+
+Leak 3 needs one of:
+
+- **Presign into a temp prefix and finalize on create.** The pattern already
+  exists in this codebase —
+  `storage.finalizeCreatorPortfolioVideoFromTempKey()` copies from
+  `creator-portfolio-signup-temp/…` to the final key and deletes the temp
+  object. Extend it to the logged-in upload path and put a 24-hour S3 lifecycle
+  expiry on the temp prefix. Cleanest, and the temp prefix makes the lifecycle
+  rule safe — it can never touch a live object.
+- Or a reconciliation job that lists `creator-portfolio/{creatorId}/videos/` and
+  deletes keys with no matching row. Works, but a bug in the diff deletes live
+  portfolio videos. Prefer the temp prefix.
+
+### Nothing stops the same video being uploaded twice
+
+Every presign calls `buildObjectKey`, which mints a fresh `randomUUID()`. Upload
+the same file five times and you get five objects and five portfolio rows. There
+is no content hash on `CreatorPortfolioVideo` and no check of any kind.
+
+**The pattern to copy already exists**, for order deliveries
+(`orders.service.ts:1527-1564`): the client computes a SHA-256 and the server
+rejects a hash duplicated inside one submission, or already present in an
+earlier revision of the same order. The client-side helper is there too, at
+`use-submit-delivery-flow-mutation.ts:29-40`, using
+`crypto.subtle.digest("SHA-256", buffer)`.
+
+For portfolio:
+
+```prisma
+contentHash String?   // SHA-256 hex of the uploaded bytes
+@@unique([creatorId, contentHash])
+```
+
+- The client hashes the file **before** uploading and sends the hash with the
+  presign request. If the creator already has that hash, reject there — so the
+  bytes are never uploaded at all. That is the real win: not deduplicating
+  storage after the fact, but never spending the transfer.
+- Instagram imports already have their own guard,
+  `@@unique([creatorId, igMediaId])`. In mirror mode the job can also hash the
+  bytes it streams, which catches the mixed case — a creator who imports a reel
+  *and* uploads the same file from their phone.
+- **Two caveats, both real.** The hash is client-supplied, so it prevents
+  accidental re-uploads, not determined ones — same as the delivery flow, which
+  treats `sha256` as optional throughout. And `crypto.subtle.digest` needs the
+  whole file in an `ArrayBuffer`, which is a problem at the 1 GiB portfolio cap:
+  hash only below a size threshold (~200 MB) and skip above it. Dedupe stays
+  best-effort by design.
+
+This is deliberately **not** content-addressed storage. Using the hash as the S3
+key would deduplicate bytes across creators, but it breaks the
+`creator-portfolio/{creatorId}/videos/` prefix that `assertVideoKeyOwner`
+depends on for authorization. Not worth it.
+
+---
+
 ## 4. Data model
 
 Three additions. All in one migration.
@@ -454,8 +548,11 @@ model CreatorPortfolioVideo {
   igPermalink   String?
   igPostedAt    DateTime?
   importedAt    DateTime?
+  /// SHA-256 hex of the uploaded bytes — duplicate guard (§3.6).
+  contentHash   String?
 
   @@unique([creatorId, igMediaId])
+  @@unique([creatorId, contentHash])
 }
 ```
 
@@ -670,6 +767,10 @@ retry button in the UI.
 - **Mirror promptly.** The window between reading `media_url` and using it is
   the risk; enqueue inside the same request that creates the row. On a 403 from
   the CDN, re-sync that page and retry once.
+- **Hash while streaming.** Pipe the body through a SHA-256 digest on its way to
+  S3 and write the result to `contentHash` (§3.6). It costs nothing on a stream
+  we are already reading, and it catches the mixed case: a creator who imports a
+  reel and also uploads the same file from their phone.
 
 #### Streaming vs buffering
 
@@ -884,10 +985,26 @@ later phase has to touch.
   module; retype the update mutation to send `videoKey`; strip the fields and the
   visibility control from the upload form; rename `onEdit` → `onReplace` on
   `PortfolioGrid` and its two call sites; fix the six display sites.
+- Close the delete leak: `deleteVideo` must `deleteObjectIfExists` the video and
+  thumbnail keys, best-effort and `.catch()`-logged, matching
+  `creator-demo-videos.service.ts:153-176`. Same for the outgoing keys on
+  replace (§3.6).
 - Verify: a brand keyword search still returns sensible results on niche,
   category, city and bio alone; a freshly uploaded video is `PUBLIC` and counts
   toward go-live; and a creator holding exactly three videos can replace one
   (they still cannot delete).
+
+### Phase 0b — S3 hygiene (§3.6)
+Independent of Instagram; can land in parallel with Phase 1.
+- Add `contentHash` + `@@unique([creatorId, contentHash])`; extract the SHA-256
+  helper out of `use-submit-delivery-flow-mutation.ts` into `client/lib`; hash
+  before presigning and reject a duplicate before any bytes move. Skip hashing
+  above the size threshold.
+- Route logged-in portfolio uploads through a temp prefix and reuse
+  `finalizeCreatorPortfolioVideoFromTempKey()` on create; add the 24-hour S3
+  lifecycle expiry on that prefix.
+- Verify: uploading the same file twice is refused at presign; a deleted video
+  leaves no object behind; an abandoned upload expires within a day.
 
 ### Phase 1 — Schema and provenance
 - Migration: `InstagramMediaItem`, `InstagramMediaSyncState`, the two new enums,
@@ -942,13 +1059,11 @@ later phase has to touch.
 
 ## 11. Open questions
 
-1. **Mirror or link?** §2 recommends mirror. Needs a call before Phase 1, since
-   it decides whether `videoUrl` is ever null in steady state.
-2. **Sort order in the gallery** — newest first (assumed), or best-performing
+1. **Sort order in the gallery** — newest first (assumed), or best-performing
    first? The latter is available via per-media insights on the scope we already
    hold, at one extra call per page.
-3. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
+2. **Batch cap of 20** — chosen to bound one import's mirror load, not for any
    product reason. Right number?
-4. **Is delete-only acceptable for taking a video down?** Follows from dropping
+3. **Is delete-only acceptable for taking a video down?** Follows from dropping
    the visibility control (§3.4). If moderation ever needs to hide rather than
    delete, the column is still there — it just needs an admin-only writer.

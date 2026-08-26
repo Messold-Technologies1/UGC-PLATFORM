@@ -37,7 +37,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy";
-import { CreatorPortfolioTagsModal } from "./creator-portfolio-tags-modal";
 import { CreatorPortfolioSectionsView } from "./creator-portfolio-sections-view";
 import { ManageSectionsModal } from "./manage-sections-modal";
 import { VideoSectionAssignmentModal } from "./video-section-assignment-modal";
@@ -60,7 +59,6 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -90,33 +88,29 @@ export function CreatorPortfolioManager() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [editingTagsVideo, setEditingTagsVideo] =
-    useState<PortfolioVideoApi | null>(null);
   const [showBanner, setShowBanner] = useState(true);
-  
-  const activeTab = searchParams?.get("tab") === "sections" ? "sections" : "all";
-  
+
+  const activeTab =
+    searchParams?.get("tab") === "sections" ? "sections" : "all";
+
   const [isManageSectionsOpen, setIsManageSectionsOpen] = useState(false);
   const [assignVideoId, setAssignVideoId] = useState<string | null>(null);
   // const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [selectedCategory, setSelectedCategory] = useState("all-categories");
   const [selectedSort, setSelectedSort] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(6);
 
-  const setActiveTab = useCallback((tab: string) => {
-    const params = new URLSearchParams(searchParams?.toString() || "");
-    if (tab === "all") {
-      params.delete("tab");
-    } else {
-      params.set("tab", tab);
-    }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [searchParams, pathname, router]);
-
-  const handleCategoryChange = useCallback((value: string) => {
-    setSelectedCategory(value);
-    setVisibleCount(6);
-  }, []);
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      const params = new URLSearchParams(searchParams?.toString() || "");
+      if (tab === "all") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, pathname, router],
+  );
 
   const handleSortChange = useCallback((value: string) => {
     setSelectedSort(value);
@@ -157,59 +151,8 @@ export function CreatorPortfolioManager() {
     }
   }, [profileQuery.data]);
 
-  const availableCategories = useMemo(() => {
-    const categories = new Set<string>();
-    videos.forEach((v) => {
-      if (v.industryLabel) categories.add(v.industryLabel.trim());
-      if (v.tags) {
-        v.tags.forEach((tag) => categories.add(tag.trim()));
-      }
-    });
-    return Array.from(categories).sort((a, b) => a.localeCompare(b));
-  }, [videos]);
-
-  const topCategoriesData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    videos.forEach((v) => {
-      if (v.industryLabel) {
-        const cat = v.industryLabel.trim();
-        counts[cat] = (counts[cat] || 0) + 1;
-      }
-      if (v.tags) {
-        v.tags.forEach((tag) => {
-          const cat = tag.trim();
-          counts[cat] = (counts[cat] || 0) + 1;
-        });
-      }
-    });
-
-    const sorted = Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-
-    const topSum = sorted.reduce((sum, [, count]) => sum + count, 0);
-    const colors = ["#3b82f6", "#fbbf24", "#10b981", "#ec4899", "#8b5cf6"];
-
-    return sorted.map(([name, count], index) => ({
-      name,
-      count,
-      percentage: topSum > 0 ? Math.round((count / topSum) * 100) : 0,
-      color: colors[index % colors.length],
-    }));
-  }, [videos]);
-
   const displayedVideos = useMemo(() => {
-    let filtered = [...videos];
-
-    if (selectedCategory !== "all-categories") {
-      filtered = filtered.filter((v) => {
-        const matchesIndustry = v.industryLabel?.trim() === selectedCategory;
-        const matchesTag = v.tags?.some(
-          (tag) => tag.trim() === selectedCategory,
-        );
-        return matchesIndustry || matchesTag;
-      });
-    }
+    const filtered = [...videos];
 
     filtered.sort((a, b) => {
       const timeA = new Date(a.createdAt).getTime();
@@ -220,7 +163,7 @@ export function CreatorPortfolioManager() {
     });
 
     return filtered;
-  }, [videos, selectedCategory, selectedSort]);
+  }, [videos, selectedSort]);
 
   const canDeleteVideos = videos.length > MIN_PORTFOLIO_VIDEOS;
 
@@ -230,17 +173,15 @@ export function CreatorPortfolioManager() {
         toast.error(
           `A portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos`,
           {
-            description:
-              "Replace an existing video instead of deleting one.",
+            description: "Replace an existing video instead of deleting one.",
           },
         );
         return;
       }
 
-      const label = video.description?.trim() || "this video";
       if (
         !window.confirm(
-          `Remove "${label}" from your portfolio? This cannot be undone.`,
+          "Remove this video from your portfolio? This cannot be undone.",
         )
       ) {
         return;
@@ -374,10 +315,7 @@ export function CreatorPortfolioManager() {
                     <TooltipTrigger asChild>
                       {/* Wrapping span keeps hover/focus flowing to the tooltip
                           even though the button itself is disabled. */}
-                      <span
-                        tabIndex={0}
-                        className="basis-full sm:basis-auto"
-                      >
+                      <span tabIndex={0} className="basis-full sm:basis-auto">
                         <Button
                           variant="outline"
                           disabled
@@ -440,230 +378,179 @@ export function CreatorPortfolioManager() {
           ) : (
             <>
               <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Select
-                value={selectedCategory}
-                onValueChange={handleCategoryChange}
-              >
-                <SelectTrigger className="w-[140px] bg-background">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-categories">All Categories</SelectItem>
-                  {availableCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedSort} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-[130px] bg-background">
-                  <SelectValue placeholder="Newest First" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="flex min-h-80 items-center justify-center rounded-lg border border-dashed border-border/80 bg-background">
-              <Spinner className="size-8 text-muted-foreground" />
-            </div>
-          ) : videos.length === 0 ? (
-            <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-background">
-              <div className="mb-4 flex size-14 items-center justify-center rounded-lg bg-primary/10">
-                <ImageIcon className="size-6 text-primary" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <Select value={selectedSort} onValueChange={handleSortChange}>
+                    <SelectTrigger className="w-[130px] bg-background">
+                      <SelectValue placeholder="Newest First" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <p className="text-sm font-medium">Your portfolio is empty</p>
-              <p className="mt-1 max-w-xs text-center text-xs text-muted-foreground">
-                Upload videos to your best UGC content to attract brand deals.
-              </p>
-              <Button size="sm" className="mt-4 gap-1.5" asChild>
-                <Link href="/creator/portfolio/upload">
-                  <Plus className="size-3.5" />
-                  Upload your first piece
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <>
-              {displayedVideos.length === 0 && videos.length > 0 ? (
-                <div className="col-span-full py-12 text-center text-muted-foreground text-sm">
-                  No videos match your selected filters.
+
+              {loading ? (
+                <div className="flex min-h-80 items-center justify-center rounded-lg border border-dashed border-border/80 bg-background">
+                  <Spinner className="size-8 text-muted-foreground" />
                 </div>
-              ) : (
-                <div
-                  className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                  data-tour="creator-portfolio-cards"
-                >
-                  {displayedVideos.slice(0, visibleCount).map((v, index) => {
-                    const updateDuration = (video: HTMLVideoElement | null) => {
-                      if (video && video.duration && isFinite(video.duration)) {
-                        const minutes = Math.floor(video.duration / 60);
-                        const seconds = Math.floor(video.duration % 60);
-                        const formatted = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-                        const pill =
-                          video.parentElement?.querySelector(".duration-pill");
-                        if (pill && pill.textContent !== formatted)
-                          pill.textContent = formatted;
-                      }
-                    };
-
-                    return (
-                      <div
-                        key={v.id}
-                        className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:shadow-md"
-                        data-tour={
-                          index === 0 ? "creator-portfolio-card" : undefined
-                        }
-                      >
-                        <div
-                          className="relative aspect-video overflow-hidden bg-muted w-full rounded-t-lg group"
-                          onMouseEnter={(e) => {
-                            const vid = e.currentTarget.querySelector("video");
-                            if (vid) vid.setAttribute("controls", "true");
-                          }}
-                          onMouseLeave={(e) => {
-                            const vid = e.currentTarget.querySelector("video");
-                            if (vid) vid.removeAttribute("controls");
-                          }}
-                        >
-                          <video
-                            className="absolute inset-0 h-full w-full object-cover"
-                            src={v.videoUrl}
-                            poster={v.thumbnailUrl ?? undefined}
-                            preload="metadata"
-                            playsInline
-                            ref={updateDuration}
-                            onLoadedMetadata={(e) =>
-                              updateDuration(e.currentTarget)
-                            }
-                            onDurationChange={(e) =>
-                              updateDuration(e.currentTarget)
-                            }
-                          />
-
-                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
-                            <span className="flex size-10 items-center justify-center rounded-full bg-white/20 shadow-sm backdrop-blur-md">
-                              <Play
-                                className="ml-0.5 size-4 text-white"
-                                aria-hidden
-                              />
-                            </span>
-                          </div>
-
-                          <span className="duration-pill pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-0">
-                            0:00
-                          </span>
-                        </div>
-
-                        <div className="p-4 flex flex-col gap-3 flex-1">
-                          <div className="flex flex-col gap-2 mt-auto">
-                            <div className="flex flex-wrap items-center gap-2">
-                              {v.industryLabel && (
-                                <span className="inline-flex items-center rounded-md bg-blue-50/80 px-2.5 py-1 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-700/20 dark:bg-blue-900/30 dark:text-blue-300 dark:ring-blue-800 shadow-sm transition-colors hover:bg-blue-100/80">
-                                  {v.industryLabel}
-                                </span>
-                              )}
-                              {v.language && (
-                                <span className="inline-flex items-center rounded-md bg-purple-50/80 px-2.5 py-1 text-[10px] font-semibold text-purple-700 ring-1 ring-inset ring-purple-700/20 dark:bg-purple-900/30 dark:text-purple-300 dark:ring-purple-800 shadow-sm transition-colors hover:bg-purple-100/80">
-                                  {v.language}
-                                </span>
-                              )}
-                            </div>
-
-                            {v.tags && v.tags.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                {v.tags.map((tag, i) => {
-                                  const colors = [
-                                    "bg-emerald-50/80 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-800 hover:bg-emerald-100/80",
-                                    "bg-amber-50/80 text-amber-800 ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-amber-800 hover:bg-amber-100/80",
-                                    "bg-pink-50/80 text-pink-700 ring-pink-700/20 dark:bg-pink-900/30 dark:text-pink-300 dark:ring-pink-800 hover:bg-pink-100/80",
-                                    "bg-indigo-50/80 text-indigo-700 ring-indigo-700/20 dark:bg-indigo-900/30 dark:text-indigo-300 dark:ring-indigo-800 hover:bg-indigo-100/80",
-                                  ];
-                                  const colorClass = colors[i % colors.length];
-                                  return (
-                                    <span
-                                      key={i}
-                                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ring-1 ring-inset shadow-sm transition-colors ${colorClass}`}
-                                    >
-                                      {tag}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            <div className="flex items-center gap-2 mt-auto">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="flex-1 border-2 border-dotted border-muted-foreground/40 bg-transparent text-muted-foreground hover:border-muted-foreground hover:bg-transparent text-xs h-8 justify-start px-2"
-                                onClick={() => setEditingTagsVideo(v)}
-                                data-tour={
-                                  index === 0
-                                    ? "creator-portfolio-edit-tags"
-                                    : undefined
-                                }
-                              >
-                                <Plus className="size-3 mr-1.5" />
-                                {v.tags && v.tags.length > 0
-                                  ? "edit tags"
-                                  : "add tags for better search"}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="shrink-0 h-8 w-8 text-muted-foreground bg-transparent hover:bg-muted/50 hover:text-foreground"
-                                onClick={() => setAssignVideoId(v.id)}
-                                title="Add to section"
-                              >
-                                <FolderPlus className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
-                                disabled={deletingId === v.id || !canDeleteVideos}
-                                onClick={() => void handleDelete(v)}
-                                title={
-                                  canDeleteVideos
-                                    ? "Delete video"
-                                    : `Your portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos — replace one instead of deleting.`
-                                }
-                              >
-                                {deletingId === v.id ? (
-                                  <Spinner className="size-4" />
-                                ) : (
-                                  <Trash2 className="size-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {displayedVideos.length > visibleCount && (
-                <div className="pt-4 flex justify-center pb-8">
-                  <Button
-                    variant="outline"
-                    className="bg-background min-w-[140px]"
-                    onClick={() => setVisibleCount((prev) => prev + 6)}
-                  >
-                    Load More
+              ) : videos.length === 0 ? (
+                <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-background">
+                  <div className="mb-4 flex size-14 items-center justify-center rounded-lg bg-primary/10">
+                    <ImageIcon className="size-6 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium">Your portfolio is empty</p>
+                  <p className="mt-1 max-w-xs text-center text-xs text-muted-foreground">
+                    Upload videos to your best UGC content to attract brand
+                    deals.
+                  </p>
+                  <Button size="sm" className="mt-4 gap-1.5" asChild>
+                    <Link href="/creator/portfolio/upload">
+                      <Plus className="size-3.5" />
+                      Upload your first piece
+                    </Link>
                   </Button>
                 </div>
+              ) : (
+                <>
+                  {displayedVideos.length === 0 && videos.length > 0 ? (
+                    <div className="col-span-full py-12 text-center text-muted-foreground text-sm">
+                      No videos match your selected filters.
+                    </div>
+                  ) : (
+                    <div
+                      className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                      data-tour="creator-portfolio-cards"
+                    >
+                      {displayedVideos
+                        .slice(0, visibleCount)
+                        .map((v, index) => {
+                          const updateDuration = (
+                            video: HTMLVideoElement | null,
+                          ) => {
+                            if (
+                              video &&
+                              video.duration &&
+                              isFinite(video.duration)
+                            ) {
+                              const minutes = Math.floor(video.duration / 60);
+                              const seconds = Math.floor(video.duration % 60);
+                              const formatted = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+                              const pill =
+                                video.parentElement?.querySelector(
+                                  ".duration-pill",
+                                );
+                              if (pill && pill.textContent !== formatted)
+                                pill.textContent = formatted;
+                            }
+                          };
+
+                          return (
+                            <div
+                              key={v.id}
+                              className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:shadow-md"
+                              data-tour={
+                                index === 0
+                                  ? "creator-portfolio-card"
+                                  : undefined
+                              }
+                            >
+                              <div
+                                className="relative aspect-video overflow-hidden bg-muted w-full rounded-t-lg group"
+                                onMouseEnter={(e) => {
+                                  const vid =
+                                    e.currentTarget.querySelector("video");
+                                  if (vid) vid.setAttribute("controls", "true");
+                                }}
+                                onMouseLeave={(e) => {
+                                  const vid =
+                                    e.currentTarget.querySelector("video");
+                                  if (vid) vid.removeAttribute("controls");
+                                }}
+                              >
+                                <video
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  src={v.videoUrl}
+                                  poster={v.thumbnailUrl ?? undefined}
+                                  preload="metadata"
+                                  playsInline
+                                  ref={updateDuration}
+                                  onLoadedMetadata={(e) =>
+                                    updateDuration(e.currentTarget)
+                                  }
+                                  onDurationChange={(e) =>
+                                    updateDuration(e.currentTarget)
+                                  }
+                                />
+
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
+                                  <span className="flex size-10 items-center justify-center rounded-full bg-white/20 shadow-sm backdrop-blur-md">
+                                    <Play
+                                      className="ml-0.5 size-4 text-white"
+                                      aria-hidden
+                                    />
+                                  </span>
+                                </div>
+
+                                <span className="duration-pill pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-0">
+                                  0:00
+                                </span>
+                              </div>
+
+                              <div className="p-4 flex flex-col gap-3 flex-1">
+                                <div className="flex flex-col gap-2 mt-auto">
+                                  <div className="flex items-center gap-2 mt-auto">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="shrink-0 h-8 w-8 text-muted-foreground bg-transparent hover:bg-muted/50 hover:text-foreground"
+                                      onClick={() => setAssignVideoId(v.id)}
+                                      title="Add to section"
+                                    >
+                                      <FolderPlus className="size-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
+                                      disabled={
+                                        deletingId === v.id || !canDeleteVideos
+                                      }
+                                      onClick={() => void handleDelete(v)}
+                                      title={
+                                        canDeleteVideos
+                                          ? "Delete video"
+                                          : `Your portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos — replace one instead of deleting.`
+                                      }
+                                    >
+                                      {deletingId === v.id ? (
+                                        <Spinner className="size-4" />
+                                      ) : (
+                                        <Trash2 className="size-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                  {displayedVideos.length > visibleCount && (
+                    <div className="pt-4 flex justify-center pb-8">
+                      <Button
+                        variant="outline"
+                        className="bg-background min-w-[140px]"
+                        onClick={() => setVisibleCount((prev) => prev + 6)}
+                      >
+                        Load More
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
             </>
           )}
         </div>
@@ -716,73 +603,6 @@ export function CreatorPortfolioManager() {
                 />
               </DialogContent>
             </Dialog>
-          </div>
-
-          <div className="rounded-lg border border-border bg-background p-5">
-            <h3 className="font-semibold text-sm mb-6">Top Categories</h3>
-            {topCategoriesData.length > 0 ? (
-              <div className="flex items-center gap-6 mb-6">
-                <div className="relative shrink-0">
-                  <div className="size-[100px]">
-                    <Doughnut
-                      data={{
-                        labels: topCategoriesData.map((d) => d.name),
-                        datasets: [
-                          {
-                            data: topCategoriesData.map((d) => d.count),
-                            backgroundColor: topCategoriesData.map(
-                              (d) => d.color,
-                            ),
-                            borderWidth: 0,
-                            hoverOffset: 4,
-                          },
-                        ],
-                      }}
-                      options={{
-                        cutout: "72%",
-                        plugins: {
-                          legend: { display: false },
-                          tooltip: { enabled: true },
-                        },
-                        maintainAspectRatio: false,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2.5 w-full">
-                  {topCategoriesData.map((item) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        ></span>
-                        <span
-                          className="text-muted-foreground line-clamp-1"
-                          title={item.name}
-                        >
-                          {item.name}
-                        </span>
-                      </div>
-                      <span className="font-medium">{item.percentage}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[100px] text-muted-foreground text-xs bg-muted/20 rounded-lg mb-6 border border-dashed border-border/50">
-                No categories yet
-              </div>
-            )}
-            {/* <Link
-              href="#"
-              className="text-xs font-semibold text-primary hover:underline flex items-center justify-center mt-2"
-            >
-              Manage Categories &gt;
-            </Link> */}
           </div>
 
           <div
@@ -890,13 +710,6 @@ export function CreatorPortfolioManager() {
           </div>
         </div>
       </div>
-      <CreatorPortfolioTagsModal
-        video={editingTagsVideo}
-        open={!!editingTagsVideo}
-        onOpenChange={(open) => {
-          if (!open) setEditingTagsVideo(null);
-        }}
-      />
       <ManageSectionsModal
         open={isManageSectionsOpen}
         onOpenChange={setIsManageSectionsOpen}

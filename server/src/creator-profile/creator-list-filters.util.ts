@@ -228,8 +228,6 @@ const portfolioSelect = {
   creatorId: true,
   videoUrl: true,
   thumbnailUrl: true,
-  industryLabel: true,
-  tags: { select: { tag: true } },
   createdAt: true,
 } as const;
 
@@ -256,7 +254,12 @@ export function buildCreatorListRelationsInclude(
     profileLanguages: { include: { option: { select: facetOptionSelect } } },
     restrictions: { select: { restriction: true } },
     packages: {
-      select: { name: true, priceAmount: true, deliveryDays: true, deliverables: true },
+      select: {
+        name: true,
+        priceAmount: true,
+        deliveryDays: true,
+        deliverables: true,
+      },
     },
     portfolioVideos: {
       where: baseWhere,
@@ -287,17 +290,6 @@ export function buildCreatorListSearchWhere(
       { stateName: like },
       { countryName: like },
       { bio: like },
-      // Portfolio video industry label + tags (PUBLIC videos only, so a hidden
-      // video can't surface a creator).
-      { portfolioVideos: { some: { visibilityStatus: PUBLIC, industryLabel: like } } },
-      {
-        portfolioVideos: {
-          some: {
-            visibilityStatus: PUBLIC,
-            tags: { some: { tag: like } },
-          },
-        },
-      },
       // Niche / facet labels (and any free-text "Other" custom label).
       {
         facetSelections: {

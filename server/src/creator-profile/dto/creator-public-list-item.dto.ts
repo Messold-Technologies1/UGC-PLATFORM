@@ -41,12 +41,6 @@ export class CreatorPublicListPortfolioVideoDto {
   })
   thumbnailUrl?: string | null;
 
-  @ApiPropertyOptional({ example: 'fitness' })
-  industryLabel?: string | null;
-
-  @ApiProperty({ type: [String], example: ['testimonial', 'skincare'] })
-  tags!: string[];
-
   @ApiProperty()
   createdAt!: Date;
 }
@@ -84,7 +78,8 @@ export class CreatorPublicListItemDto {
   introVideoUrl?: string | null;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/creator-profile/<id>/profile-image/<uuid>.jpg',
+    example:
+      'https://cdn.example.com/creator-profile/<id>/profile-image/<uuid>.jpg',
     description: 'Public profile image URL for discovery cards (optional).',
   })
   profileImageUrl?: string | null;
@@ -122,7 +117,10 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ example: 12, description: 'Number of brand reviews received' })
   reviewCount!: number;
 
-  @ApiProperty({ example: 24, description: 'Total orders assigned to this creator' })
+  @ApiProperty({
+    example: 24,
+    description: 'Total orders assigned to this creator',
+  })
   totalOrders!: number;
 
   @ApiProperty({
@@ -146,7 +144,6 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ type: () => [CreatorPublicListFacetDto] })
   facetSelections!: CreatorPublicListFacetDto[];
 
-
   @ApiProperty({ type: [String], example: ['swimwear / beachwear'] })
   restrictions!: string[];
 
@@ -166,14 +163,16 @@ export class CreatorPublicListItemDto {
   @ApiPropertyOptional({
     example: '2026-08-10',
     nullable: true,
-    description: 'Unavailable range start when a schedule exists (active or upcoming)',
+    description:
+      'Unavailable range start when a schedule exists (active or upcoming)',
   })
   unavailableFrom?: string | null;
 
   @ApiPropertyOptional({
     example: '2026-08-20',
     nullable: true,
-    description: 'Unavailable range end when a schedule exists (active or upcoming)',
+    description:
+      'Unavailable range end when a schedule exists (active or upcoming)',
   })
   unavailableTo?: string | null;
 }

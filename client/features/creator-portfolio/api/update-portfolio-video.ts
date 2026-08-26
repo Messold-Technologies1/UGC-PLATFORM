@@ -1,5 +1,5 @@
 import api from "@/lib/api";
-import { ENDPOINTS, creatorPortfolioVideoPath } from "@/lib/endpoints";
+import { creatorPortfolioVideoPath } from "@/lib/endpoints";
 import type { PortfolioApiRequestOptions, PortfolioVideoApi } from "./types";
 
 export type UpdatePortfolioVideoPayload = {
@@ -11,11 +11,6 @@ export type UpdatePortfolioVideoPayload = {
   videoKey?: string;
   /** Thumbnail for the replacement. Omitting it clears the outgoing one. */
   thumbnailKey?: string;
-  industryLabel?: string;
-  tags?: string[];
-  language?: string;
-  description?: string;
-  visibilityStatus?: "public" | "private";
 };
 
 export async function updatePortfolioVideo(
@@ -28,9 +23,6 @@ export async function updatePortfolioVideo(
     ? { ...payload, creatorId: options.adminCreatorId }
     : payload;
 
-  const { data } = await api.patch<PortfolioVideoApi>(
-    endpoint,
-    finalPayload,
-  );
+  const { data } = await api.patch<PortfolioVideoApi>(endpoint, finalPayload);
   return data;
 }

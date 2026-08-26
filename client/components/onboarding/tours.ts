@@ -243,16 +243,14 @@ const BRAND_ROUTES: TourRoute[] = [
         {
           icon: "✏️",
           title: "Wishlist name",
-          content:
-            "Click the title to rename this list anytime.",
+          content: "Click the title to rename this list anytime.",
           selector: BRAND_WISHLISTS.title,
           side: "bottom-left",
         },
         {
           icon: "➕",
           title: "Add creators",
-          content:
-            "Browse the marketplace and save creators to this wishlist.",
+          content: "Browse the marketplace and save creators to this wishlist.",
           selector: BRAND_WISHLISTS.addCreators,
           side: "bottom",
           pointerPadding: 10,
@@ -261,8 +259,7 @@ const BRAND_ROUTES: TourRoute[] = [
         {
           icon: "➖",
           title: "Remove creators",
-          content:
-            "Remove creators you no longer want in this shortlist.",
+          content: "Remove creators you no longer want in this shortlist.",
           selector: BRAND_WISHLISTS.removeCreators,
           side: "bottom",
           pointerPadding: 10,
@@ -281,8 +278,7 @@ const BRAND_ROUTES: TourRoute[] = [
         {
           icon: "🔒",
           title: "Make private",
-          content:
-            "Disable sharing and revoke public access to this list.",
+          content: "Disable sharing and revoke public access to this list.",
           selector: BRAND_WISHLISTS.makePrivate,
           side: "bottom",
           pointerPadding: 10,
@@ -291,8 +287,7 @@ const BRAND_ROUTES: TourRoute[] = [
         {
           icon: "📝",
           title: "Rename wishlist",
-          content:
-            "Quickly rename this list without clicking the title.",
+          content: "Quickly rename this list without clicking the title.",
           selector: BRAND_WISHLISTS.rename,
           side: "bottom",
           pointerPadding: 10,
@@ -301,8 +296,7 @@ const BRAND_ROUTES: TourRoute[] = [
         {
           icon: "🗑️",
           title: "Delete wishlist",
-          content:
-            "Permanently delete this list and all saved creators in it.",
+          content: "Permanently delete this list and all saved creators in it.",
           selector: BRAND_WISHLISTS.delete,
           side: "bottom",
           pointerPadding: 10,
@@ -386,8 +380,7 @@ const CREATOR_ROUTES: TourRoute[] = [
         {
           icon: "👋",
           title: "Welcome to your dashboard",
-          content:
-            "Your activity, earnings, and recent updates at a glance.",
+          content: "Your activity, earnings, and recent updates at a glance.",
           selector: '[data-tour="creator-dashboard-header"]',
           side: "bottom",
         },
@@ -472,8 +465,7 @@ const CREATOR_ROUTES: TourRoute[] = [
         {
           icon: "📤",
           title: "Delivered",
-          content:
-            "Content you've submitted and is waiting for brand review.",
+          content: "Content you've submitted and is waiting for brand review.",
           selector: CREATOR_ORDERS_TAB.delivered,
           side: "bottom-left",
           pointerPadding: 10,
@@ -489,7 +481,8 @@ const CREATOR_ROUTES: TourRoute[] = [
         {
           icon: "🚫",
           title: "Cancelled",
-          content: "Declined, refunded, or disputed orders are kept here for your records.",
+          content:
+            "Declined, refunded, or disputed orders are kept here for your records.",
           selector: CREATOR_ORDERS_TAB.cancelled,
           side: "bottom-right",
         },
@@ -583,14 +576,6 @@ const CREATOR_ROUTES: TourRoute[] = [
           side: "top",
         },
         {
-          icon: "🏷️",
-          title: "Edit tags",
-          content:
-            "Add/edit tags on each video to improve search & discovery. This helps brands find you for the right briefs.",
-          selector: '[data-tour="creator-portfolio-edit-tags"]',
-          side: "top",
-        },
-        {
           icon: "💡",
           title: "Tips to get more orders",
           content:
@@ -649,8 +634,7 @@ const CREATOR_ROUTES: TourRoute[] = [
         {
           icon: "📊",
           title: "Performance stats",
-          content:
-            "Track your orders, earnings, and ratings at a glance.",
+          content: "Track your orders, earnings, and ratings at a glance.",
           selector: CREATOR_PROFILE.stats,
           side: "bottom",
         },

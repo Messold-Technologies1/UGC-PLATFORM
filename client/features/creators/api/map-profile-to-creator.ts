@@ -110,7 +110,6 @@ function parseRating(value: string | number | null | undefined): number {
   return Number.isFinite(rating) ? rating : 0;
 }
 
-
 function buildTags(profile: ListingProfileApi): string[] {
   return getContentCategoryLabels(profile);
 }
@@ -134,8 +133,6 @@ export function mapProfileToListingCreator(
     introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
   const previewVideoThumbnail =
     trimString(firstPortfolioVideo?.thumbnailUrl) || null;
-  const industryLabel =
-    trimString(firstPortfolioVideo?.industryLabel) || undefined;
 
   return {
     id: profile.id,
@@ -161,7 +158,6 @@ export function mapProfileToListingCreator(
     gender: normalizeGender(profile.gender),
     category,
     categories,
-    industryLabel,
     languages: getProfileLanguages(profile),
     deliveryDays: minDeliveryDays(
       profile.packages as Array<{ deliveryDays?: number }> | undefined,
@@ -174,7 +170,8 @@ export function mapProfileToListingCreator(
           }
         | undefined;
       if (!firstPkg) return true;
-      if (typeof firstPkg.basicEditing === "boolean") return firstPkg.basicEditing;
+      if (typeof firstPkg.basicEditing === "boolean")
+        return firstPkg.basicEditing;
       if (Array.isArray(firstPkg.deliverables)) {
         return firstPkg.deliverables.includes("Basic editing");
       }

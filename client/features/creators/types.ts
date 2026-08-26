@@ -20,7 +20,6 @@ export interface Creator {
   category: string;
 
   categories: string[];
-  industryLabel?: string;
   languages: string[];
   deliveryDays: number;
   basicEditing?: boolean;

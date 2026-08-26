@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Bookmark,
   Check,
   CheckCircle,
-  Pencil,
+  RefreshCw,
   Play,
   Plus,
   X,
@@ -14,16 +14,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { PeSelectField } from "./shared-components";
 
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import type { UpdatePortfolioVideoPayload } from "@/features/creator-portfolio/api/update-portfolio-video";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
-import {
-  capitalizeFirstLetter,
-  toTitleCaseLabel,
-} from "@/lib/string-lists";
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -37,12 +32,13 @@ export type CreatorProfileUpdateFormProps = {
 
 export function PortfolioGrid({
   videos,
-  onEdit,
+  onReplace,
   onDelete,
   onAdd,
 }: {
   videos: PortfolioVideoApi[];
-  onEdit: (video: PortfolioVideoApi) => void;
+  /** Swap this entry's file. The only way to change a video at the floor. */
+  onReplace: (video: PortfolioVideoApi) => void;
   onDelete?: (video: PortfolioVideoApi) => void;
   onAdd: () => void;
 }) {
@@ -96,9 +92,7 @@ export function PortfolioGrid({
                   placeItems: "center",
                 }}
               >
-                <span className="pe-pf-mono">
-                  {(video.industryLabel ?? "V")[0]?.toUpperCase() ?? "V"}
-                </span>
+                <span className="pe-pf-mono">V</span>
               </div>
             )}
             <div className="pe-pf-scrim" style={{ pointerEvents: "none" }} />
@@ -129,10 +123,10 @@ export function PortfolioGrid({
               <button
                 type="button"
                 className="pe-pf-edit-btn"
-                onClick={() => onEdit(video)}
+                onClick={() => onReplace(video)}
                 style={{ pointerEvents: "auto" }}
               >
-                <Pencil size={13} /> Edit
+                <RefreshCw size={13} /> Replace
               </button>
               {onDelete && (
                 <button
@@ -154,24 +148,6 @@ export function PortfolioGrid({
               )}
             </div>
           </div>
-
-          <div className="pe-pf-meta">
-            {video.industryLabel ? (
-              <div className="pe-pf-ind">{video.industryLabel}</div>
-            ) : null}
-            {video.description ? (
-              <div className="pe-pf-desc">{video.description}</div>
-            ) : null}
-            {video.tags?.length ? (
-              <div className="pe-pf-tags">
-                {video.tags.slice(0, 3).map((tag) => (
-                  <span className="pe-pf-tag" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
         </div>
       ))}
 
@@ -185,101 +161,7 @@ export function PortfolioGrid({
   );
 }
 
-export function TagEditor({
-  tags,
-  suggestions,
-  onChange,
-  placeholder = "Add tag…",
-}: {
-  tags: string[];
-  suggestions: string[];
-  onChange: (tags: string[]) => void;
-  placeholder?: string;
-}) {
-  const [inputValue, setInputValue] = useState("");
-  const [focused, setFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  function addTag(tag: string) {
-    const trimmed = capitalizeFirstLetter(tag.trim());
-    if (!trimmed) return;
-    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return;
-    onChange([...tags, trimmed]);
-    setInputValue("");
-  }
-
-  function removeTag(tag: string) {
-    onChange(tags.filter((t) => t !== tag));
-  }
-
-  return (
-    <div>
-      <div
-        className="pe-tageditor"
-        data-focus={focused}
-        onClick={() => inputRef.current?.focus()}
-      >
-        {tags.map((tag) => (
-          <span className="pe-tagpill" key={tag}>
-            {tag}
-            <button
-              type="button"
-              className="pe-tagpill-x"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeTag(tag);
-              }}
-              aria-label={`Remove ${tag}`}
-            >
-              <X size={10} />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          className="pe-taginput"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addTag(inputValue);
-            }
-            if (e.key === "Backspace" && !inputValue && tags.length) {
-              removeTag(tags[tags.length - 1]!);
-            }
-          }}
-          placeholder={tags.length === 0 ? placeholder : ""}
-        />
-      </div>
-
-      {suggestions.length > 0 ? (
-        <div className="pe-tag-suggest">
-          {suggestions.map((sg) => {
-            const used = tags.some(
-              (t) => t.toLowerCase() === sg.toLowerCase(),
-            );
-            return (
-              <button
-                type="button"
-                key={sg}
-                className="pe-tag-suggest-btn"
-                data-used={used}
-                onClick={() => addTag(sg)}
-              >
-                + {sg}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-export function PortfolioEditDrawer({
+export function PortfolioFileDrawer({
   video,
   open,
   onClose,
@@ -289,9 +171,6 @@ export function PortfolioEditDrawer({
   thumbInputRef,
   onSelectVideoFile,
   onSelectThumbFile,
-  industrySuggestions,
-  tagSuggestions,
-  languageOptions,
   onSave,
   onDelete,
   isSaving,
@@ -305,32 +184,13 @@ export function PortfolioEditDrawer({
   thumbInputRef: React.RefObject<HTMLInputElement | null>;
   onSelectVideoFile: (file: File | null) => void;
   onSelectThumbFile: (file: File | null) => void;
-  industrySuggestions: string[];
-  tagSuggestions: string[];
-  languageOptions: Array<{ value: string; label: string }>;
-  onSave: (form: UpdatePortfolioVideoPayload) => void;
+  /** Called with the picked files. Create when video == null, else replace. */
+  onSave: () => void;
   onDelete: (video: PortfolioVideoApi) => void;
   isSaving: boolean;
 }) {
   const isCreate = video == null;
-  const [industry, setIndustry] = useState(
-    toTitleCaseLabel(video?.industryLabel ?? ""),
-  );
-  const [description, setDescription] = useState(video?.description ?? "");
-  const [tags, setTags] = useState<string[]>(video?.tags ?? []);
-  const [language, setLanguage] = useState(video?.language ?? "");
-  const [visibility, setVisibility] = useState<"public" | "private">(
-    video?.visibilityStatus ?? "public",
-  );
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    setIndustry(toTitleCaseLabel(video?.industryLabel ?? ""));
-    setDescription(video?.description ?? "");
-    setTags(video?.tags ?? []);
-    setLanguage(video?.language ?? "");
-    setVisibility(video?.visibilityStatus ?? "public");
-  }, [video]);
 
   useEffect(() => {
     if (videoFile) {
@@ -342,16 +202,6 @@ export function PortfolioEditDrawer({
     }
   }, [videoFile]);
 
-  function handleSave() {
-    onSave({
-      industryLabel: industry ? toTitleCaseLabel(industry) : undefined,
-      description: description || undefined,
-      tags,
-      language: language || undefined,
-      visibilityStatus: visibility,
-    });
-  }
-
   const BG_GRAD = "linear-gradient(135deg,#6366f1,#a78bfa)";
 
   return (
@@ -360,7 +210,7 @@ export function PortfolioEditDrawer({
 
       <div className="pe-dr" data-open={open}>
         <div className="pe-dr-head">
-          <h3>{isCreate ? "Add reel" : "Edit reel"}</h3>
+          <h3>{isCreate ? "Add reel" : "Replace reel"}</h3>
           <button
             type="button"
             className="pe-dr-close"
@@ -543,69 +393,6 @@ export function PortfolioEditDrawer({
               </div>
             </div>
           </div>
-
-          <PeSelectField
-            id="pf-industry"
-            label="Industry"
-            value={industry}
-            placeholder="Select industry…"
-            onChange={setIndustry}
-            allowClear
-            options={industrySuggestions.map((s) => ({ value: s, label: s }))}
-          />
-
-          <div className="pe-field">
-            <label>Description</label>
-            <textarea
-              className="pe-textarea"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of this reel…"
-              maxLength={500}
-            />
-          </div>
-
-          <div className="pe-field">
-            <label>Tags</label>
-            <TagEditor
-              tags={tags}
-              suggestions={tagSuggestions.slice(0, 12)}
-              onChange={setTags}
-              placeholder="Add tag…"
-            />
-          </div>
-
-          <PeSelectField
-            id="pf-language"
-            label="Language"
-            value={language}
-            placeholder="Select language…"
-            onChange={setLanguage}
-            allowClear
-            options={languageOptions}
-          />
-
-          <div className="pe-field">
-            <label>Visibility</label>
-            <div className="pe-seg">
-              <button
-                type="button"
-                data-active={visibility === "public"}
-                data-variant="public"
-                onClick={() => setVisibility("public")}
-              >
-                <CheckCircle size={14} /> Public
-              </button>
-              <button
-                type="button"
-                data-active={visibility === "private"}
-                onClick={() => setVisibility("private")}
-              >
-                <Bookmark size={14} /> Private
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="pe-dr-foot">
@@ -638,8 +425,8 @@ export function PortfolioEditDrawer({
             <button
               type="button"
               className="pe-btn pe-btn-primary"
-              onClick={handleSave}
-              disabled={isSaving || (isCreate && !videoFile)}
+              onClick={onSave}
+              disabled={isSaving || !videoFile}
             >
               {isSaving ? (
                 <>
@@ -649,7 +436,7 @@ export function PortfolioEditDrawer({
               ) : (
                 <>
                   <Check size={16} />
-                  {isCreate ? "Upload & Save" : "Save changes"}
+                  {isCreate ? "Upload & Save" : "Replace video"}
                 </>
               )}
             </button>

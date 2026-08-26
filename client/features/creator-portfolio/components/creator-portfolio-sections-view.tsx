@@ -1,10 +1,18 @@
-import { useState, useEffect } from "react";
-import { useMyPortfolioSectionsQuery, useRemoveVideoFromSectionMutation } from "../hooks/use-portfolio-sections";
-import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
+import { useState } from "react";
+import {
+  useMyPortfolioSectionsQuery,
+  useRemoveVideoFromSectionMutation,
+} from "../hooks/use-portfolio-sections";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { Play, FolderPlus, Trash2, ArrowLeft, Image as ImageIcon, Plus } from "lucide-react";
+import {
+  Play,
+  FolderPlus,
+  Trash2,
+  ArrowLeft,
+  Image as Plus,
+} from "lucide-react";
 import { BulkAddVideosModal } from "./bulk-add-videos-modal";
 import {
   Dialog,
@@ -52,14 +60,23 @@ function SectionCover({ videos }: { videos: any[] }) {
     return (
       <div className="relative aspect-video w-full overflow-hidden flex gap-0.5 bg-background border-b p-1">
         <div className="w-2/3 h-full relative overflow-hidden rounded-l-md">
-          {renderMedia(videos[0], "transition-transform duration-500 group-hover:scale-105")}
+          {renderMedia(
+            videos[0],
+            "transition-transform duration-500 group-hover:scale-105",
+          )}
         </div>
         <div className="w-1/3 h-full flex flex-col gap-0.5">
           <div className="h-1/2 w-full relative overflow-hidden rounded-tr-md">
-            {renderMedia(videos[1], "transition-transform duration-500 group-hover:scale-105")}
+            {renderMedia(
+              videos[1],
+              "transition-transform duration-500 group-hover:scale-105",
+            )}
           </div>
           <div className="h-1/2 w-full relative overflow-hidden rounded-br-md">
-            {renderMedia(videos[2], "transition-transform duration-500 group-hover:scale-105")}
+            {renderMedia(
+              videos[2],
+              "transition-transform duration-500 group-hover:scale-105",
+            )}
             {videos.length > 3 && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-semibold backdrop-blur-sm">
                 +{videos.length - 3}
@@ -75,10 +92,16 @@ function SectionCover({ videos }: { videos: any[] }) {
     return (
       <div className="relative aspect-video w-full overflow-hidden flex gap-0.5 bg-background border-b p-1">
         <div className="w-1/2 h-full relative overflow-hidden rounded-l-md">
-          {renderMedia(videos[0], "transition-transform duration-500 group-hover:scale-105")}
+          {renderMedia(
+            videos[0],
+            "transition-transform duration-500 group-hover:scale-105",
+          )}
         </div>
         <div className="w-1/2 h-full relative overflow-hidden rounded-r-md">
-          {renderMedia(videos[1], "transition-transform duration-500 group-hover:scale-105")}
+          {renderMedia(
+            videos[1],
+            "transition-transform duration-500 group-hover:scale-105",
+          )}
         </div>
       </div>
     );
@@ -87,7 +110,10 @@ function SectionCover({ videos }: { videos: any[] }) {
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-background border-b p-1">
       <div className="w-full h-full relative overflow-hidden rounded-md">
-        {renderMedia(videos[0], "transition-transform duration-500 group-hover:scale-105")}
+        {renderMedia(
+          videos[0],
+          "transition-transform duration-500 group-hover:scale-105",
+        )}
       </div>
     </div>
   );
@@ -95,7 +121,6 @@ function SectionCover({ videos }: { videos: any[] }) {
 
 export function CreatorPortfolioSectionsView() {
   const { data: sections = [], isLoading } = useMyPortfolioSectionsQuery();
-  const { data: allVideos = [] } = useMyPortfolioVideosQuery();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -114,7 +139,10 @@ export function CreatorPortfolioSectionsView() {
   };
 
   const removeMut = useRemoveVideoFromSectionMutation();
-  const [videoToRemove, setVideoToRemove] = useState<{ sectionId: string; videoId: string } | null>(null);
+  const [videoToRemove, setVideoToRemove] = useState<{
+    sectionId: string;
+    videoId: string;
+  } | null>(null);
   const [isBulkAddModalOpen, setIsBulkAddModalOpen] = useState(false);
 
   if (isLoading) {
@@ -133,7 +161,8 @@ export function CreatorPortfolioSectionsView() {
         </div>
         <p className="text-sm font-medium">No sections created yet</p>
         <p className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
-          Group your portfolio into sections like "UGC Ads" or "Testimonials" to help brands find exactly what they need.
+          Group your portfolio into sections like "UGC Ads" or "Testimonials" to
+          help brands find exactly what they need.
         </p>
       </div>
     );
@@ -158,10 +187,17 @@ export function CreatorPortfolioSectionsView() {
             <ArrowLeft className="size-5" />
           </Button>
           <div className="flex-1">
-            <h3 className="text-xl font-semibold tracking-tight">{section.name}</h3>
-            <p className="text-sm text-muted-foreground">{section.videos.length} items</p>
+            <h3 className="text-xl font-semibold tracking-tight">
+              {section.name}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {section.videos.length} items
+            </p>
           </div>
-          <Button onClick={() => setIsBulkAddModalOpen(true)} className="gap-2 shrink-0">
+          <Button
+            onClick={() => setIsBulkAddModalOpen(true)}
+            className="gap-2 shrink-0"
+          >
             <Plus className="size-4" />
             Add Videos
           </Button>
@@ -174,14 +210,13 @@ export function CreatorPortfolioSectionsView() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {section.videos.map((v) => {
-              const fullVideo = allVideos.find((av) => av.id === v.videoId);
-              
               const updateDuration = (video: HTMLVideoElement | null) => {
                 if (video && video.duration && isFinite(video.duration)) {
                   const minutes = Math.floor(video.duration / 60);
                   const seconds = Math.floor(video.duration % 60);
                   const formatted = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-                  const pill = video.parentElement?.querySelector(".duration-pill");
+                  const pill =
+                    video.parentElement?.querySelector(".duration-pill");
                   if (pill && pill.textContent !== formatted)
                     pill.textContent = formatted;
                 }
@@ -216,7 +251,10 @@ export function CreatorPortfolioSectionsView() {
 
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
                       <span className="flex size-10 items-center justify-center rounded-full bg-white/20 shadow-sm backdrop-blur-md">
-                        <Play className="ml-0.5 size-4 text-white" aria-hidden />
+                        <Play
+                          className="ml-0.5 size-4 text-white"
+                          aria-hidden
+                        />
                       </span>
                     </div>
 
@@ -230,7 +268,10 @@ export function CreatorPortfolioSectionsView() {
                       className="absolute top-3 right-3 h-8 w-8 rounded-full opacity-0 translate-y-[-10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 shadow-lg"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setVideoToRemove({ sectionId: section.id, videoId: v.videoId });
+                        setVideoToRemove({
+                          sectionId: section.id,
+                          videoId: v.videoId,
+                        });
                       }}
                       title="Remove from section"
                       disabled={removeMut.isPending}
@@ -238,44 +279,24 @@ export function CreatorPortfolioSectionsView() {
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
-
-                  <div className="p-4 bg-card flex-1 flex flex-col justify-center">
-                    {fullVideo?.tags && fullVideo.tags.length > 0 ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {fullVideo.tags.map((tag, i) => {
-                          const colors = [
-                            "bg-emerald-50 text-emerald-700 ring-emerald-600/30 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-800",
-                            "bg-amber-50 text-amber-700 ring-amber-600/30 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800",
-                            "bg-pink-50 text-pink-700 ring-pink-600/30 dark:bg-pink-900/30 dark:text-pink-400 dark:ring-pink-800",
-                            "bg-indigo-50 text-indigo-700 ring-indigo-600/30 dark:bg-indigo-900/30 dark:text-indigo-400 dark:ring-indigo-800",
-                          ];
-                          const colorClass = colors[i % colors.length];
-                          return (
-                            <span
-                              key={i}
-                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset transition-colors ${colorClass}`}
-                            >
-                              {tag}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground italic">No tags assigned</div>
-                    )}
-                  </div>
                 </div>
               );
             })}
           </div>
         )}
 
-        <Dialog open={!!videoToRemove} onOpenChange={(open) => { if (!open) setVideoToRemove(null); }}>
+        <Dialog
+          open={!!videoToRemove}
+          onOpenChange={(open) => {
+            if (!open) setVideoToRemove(null);
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Remove from Section</DialogTitle>
               <DialogDescription>
-                Are you sure you want to remove this video from this section? It will still remain in your 'All Works' tab.
+                Are you sure you want to remove this video from this section? It
+                will still remain in your 'All Works' tab.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -286,7 +307,10 @@ export function CreatorPortfolioSectionsView() {
                 variant="destructive"
                 onClick={() => {
                   if (videoToRemove) {
-                    removeMut.mutate({ sectionId: videoToRemove.sectionId, videoId: videoToRemove.videoId });
+                    removeMut.mutate({
+                      sectionId: videoToRemove.sectionId,
+                      videoId: videoToRemove.videoId,
+                    });
                     setVideoToRemove(null);
                   }
                 }}
@@ -318,7 +342,7 @@ export function CreatorPortfolioSectionsView() {
             <div className="relative">
               <SectionCover videos={section.videos} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 pointer-events-none" />
-              
+
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-white pointer-events-none">
                 <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2 py-1 rounded-md text-xs font-medium shadow-sm">
                   <Play className="size-3" />
@@ -326,7 +350,7 @@ export function CreatorPortfolioSectionsView() {
                 </div>
               </div>
             </div>
-            
+
             <div className="py-3 px-4 flex flex-col items-center bg-card">
               <h3 className="font-semibold text-base tracking-tight group-hover:text-primary transition-colors text-center w-full truncate">
                 {section.name}

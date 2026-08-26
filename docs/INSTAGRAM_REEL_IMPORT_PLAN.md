@@ -179,23 +179,83 @@ of this keeps working untouched:
 > is to delete it. Keeping the column costs nothing and leaves the door open if
 > moderation-hiding is ever wanted; it just isn't reachable today.
 
-#### The update endpoint dies with the fields
+#### The update endpoint survives, repurposed as Replace
 
-`UpdatePortfolioVideoDto` contains *only* the five fields being removed —
-`industryLabel`, `tags`, `language`, `description`, `visibilityStatus`. Nothing
-else. With them gone the DTO is empty, so the whole edit path goes:
+`UpdatePortfolioVideoDto` today contains *only* the five fields being removed —
+`industryLabel`, `tags`, `language`, `description`, `visibilityStatus` — and
+`updateVideo()` writes nothing else. So the endpoint does not die; it keeps its
+route and gets one new field instead:
 
-- `PATCH /api/creator-portfolio/videos/:id` and `updateVideo()` in the service;
-- `update-portfolio-video.dto.ts`;
-- client `api/update-portfolio-video.ts` and
-  `hooks/use-update-portfolio-video-mutation.ts`;
-- `PortfolioEditDrawer` entirely, and the `onEdit` prop threaded into
-  `PortfolioGrid` from both call sites.
+```ts
+export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
+  @IsString() videoKey!: string;          // the replacement, already in S3
+  @IsOptional() @IsString() thumbnailKey?: string;
+}
+```
 
-A portfolio tile ends up with one action: **delete**. (Last revision of this
-plan said the drawer would collapse to "visibility + thumbnail + delete" — wrong
-on both counts: there is no thumbnail field in the update DTO, and visibility is
-now going too. It collapses to nothing.)
+**This finishes something the product currently only promises.** The
+minimum-videos floor is already enforced in both layers:
+
+- `creator-portfolio.service.ts:535-542` throws
+  `A portfolio must keep at least 3 videos. Replace an existing video instead of
+  deleting it.`
+- `creator-portfolio-manager.tsx:225` computes
+  `canDeleteVideos = videos.length > MIN_PORTFOLIO_VIDEOS`, and the tooltip at
+  line 637 reads "replace one instead of deleting."
+
+Both tell the creator to replace — and `updateVideo` has no `videoKey`, so
+replacing is not possible. **A creator sitting on exactly three videos can
+currently neither delete nor replace one.** That is a pre-existing dead end,
+not something this plan introduces; adding `videoKey` closes it.
+
+#### How replace behaves
+
+- **Always a new S3 key, never an overwrite.** The upload presigns a fresh uuid
+  key as usual. Reusing the old key would leave the CDN serving the *old* video
+  until its TTL expires, so brands would keep seeing the replaced clip. A new
+  key means a new URL and an immediate swap.
+- Run the new key through the same `assertVideoKeyOwner(profile.id, videoKey)`
+  as create.
+- Keep the existing transaction — the row update plus
+  `recomputeCreatorListingState(tx, profile.id)`. Then, *outside* it and
+  best-effort, `deleteObjectIfExists()` the old video and thumbnail keys, in the
+  same spirit as the existing non-critical work after that transaction.
+- **Replace offers both sources**, same as add: device upload or a reel from the
+  Instagram gallery. Replacing from the gallery re-runs the mirror job and the
+  row goes back to `PROCESSING`.
+- **Replacing an Instagram-sourced row clears its provenance.** Set
+  `source` to whatever the replacement is, and null out `igMediaId`,
+  `igPermalink` and `igPostedAt`. Also clear `importedVideoId` on the
+  `InstagramMediaItem` cache row — otherwise the gallery keeps showing that reel
+  as "Added" and `@@unique([creatorId, igMediaId])` blocks ever importing it
+  again.
+- **Reject replace while `assetState = PROCESSING`.** An in-flight mirror job
+  would otherwise finish *after* the replace and write its own `videoKey` over
+  the new one. Rejecting with "this video is still processing" is simpler and
+  more honest than trying to cancel the job.
+
+#### The moderation hole replace opens
+
+The floor exists so a live profile always carries three *reviewed* videos.
+Replace is the way around it: a listed creator can swap a reviewed video for an
+unreviewed one and stay listed. Three options:
+
+1. Accept it — replacement is rare and admin review catches it eventually.
+2. **Flag the replacement for re-review** (recommended): on a profile where
+   `isListed` is true, a replace enqueues the video into the admin review queue
+   while leaving it visible.
+3. Hold the replacement until reviewed — the `visibilityStatus` column we kept
+   is exactly the mechanism, writing `PRIVATE` until an admin clears it.
+
+(2) is cheapest and keeps the creator unblocked. (3) is available later without
+schema work, which is a further reason the column stays.
+
+#### What a tile's actions become
+
+Two, not a drawer: **Replace** and **Delete**. Replace opens the source chooser
+directly; Delete keeps its existing disabled state and tooltip at the floor.
+`PortfolioEditDrawer` still goes — there is no longer anything to edit — but
+`onEdit` on `PortfolioGrid` becomes `onReplace`.
 
 #### Dropped from the server
 
@@ -218,9 +278,14 @@ now going too. It collapses to nothing.)
   `api/portfolio-suggestion-lists.ts` — delete.
 - `creator-portfolio-upload-form.tsx` — the four metadata fields and the
   visibility control, and with them the `ReactSelect`, `ISO6391` and
-  `SuggestionChips` imports.
+  `SuggestionChips` imports. The form itself stays: it is now also the
+  device-upload half of Replace.
 - `portfolio-components.tsx` — `PortfolioEditDrawer`, the `pe-pf-ind` industry
-  chip, and the public/private indicator at line 111.
+  chip, and the public/private indicator at line 111. `onEdit` on
+  `PortfolioGrid` becomes `onReplace`.
+- `hooks/use-update-portfolio-video-mutation.ts` and
+  `api/update-portfolio-video.ts` **stay**, retyped to send `videoKey` instead
+  of metadata.
 - Display sites that read these fields: `portfolio-card.tsx`,
   `public-creator-profile.tsx:1236`, `profile-drawer.tsx:815`,
   `map-profile-to-creator.ts:137`, `creator-account-profile-view.tsx:93`.
@@ -388,6 +453,7 @@ All under the existing `social` and `creator-portfolio` controllers.
 | `POST` | `/api/social/instagram/media/refresh` | Force a re-sync (the Refresh button) | **3/hour** + server-side `lastRefreshAt` guard |
 | `GET` | `/api/social/instagram/media/status` | `{ status, reelCount, lastFullSyncAt, hasMore }` for the polling UI | 120/min |
 | `POST` | `/api/creator-portfolio/videos/import-instagram` | `{ igMediaIds: string[] }` → creates portfolio rows, enqueues mirrors | **10/min** |
+| `PATCH` | `/api/creator-portfolio/videos/:id` | **Repurposed:** replace a video's file (§3.4) | 20/min |
 
 ### `GET /api/social/instagram/media` response
 
@@ -773,8 +839,11 @@ later phase has to touch.
 - Migration: drop `CreatorPortfolioVideoTag`, the three suggestion tables, the
   `industryLabel` / `language` / `description` columns, and the `industryLabel`
   index. `visibilityStatus` stays.
-- Delete the `PATCH videos/:id` route, `updateVideo()`, and
-  `update-portfolio-video.dto.ts` — the DTO is empty once the five fields go.
+- Repurpose `PATCH videos/:id`: strip the five fields from
+  `UpdatePortfolioVideoDto`, add `videoKey` (+ optional `thumbnailKey`), and
+  rewrite `updateVideo()` as a replace — ownership-check the new key, swap it in,
+  then best-effort delete the old objects. This closes the existing dead end
+  where a creator at the 3-video floor can neither delete nor replace.
 - Delete the three suggestion routes, their service methods, and the suggestion
   upserts in `createVideo`. Make `createVideo` always write `PUBLIC`.
 - Strip the fields from the remaining DTOs and from the Prisma selects in
@@ -785,13 +854,14 @@ later phase has to touch.
   copy at `portfolio-step.tsx:175`. Update
   `creator-list-filters.util.spec.ts:155` and
   `creator-portfolio.service.spec.ts` to match.
-- Client: delete the tags modal, the edit drawer, the suggestion hook/API module
-  and the update mutation; strip the fields and the visibility control from the
-  upload form; drop `onEdit` from `PortfolioGrid` and its two call sites; fix the
-  six display sites.
+- Client: delete the tags modal, the edit drawer and the suggestion hook/API
+  module; retype the update mutation to send `videoKey`; strip the fields and the
+  visibility control from the upload form; rename `onEdit` → `onReplace` on
+  `PortfolioGrid` and its two call sites; fix the six display sites.
 - Verify: a brand keyword search still returns sensible results on niche,
-  category, city and bio alone, and a freshly uploaded video is `PUBLIC` and
-  counts toward go-live.
+  category, city and bio alone; a freshly uploaded video is `PUBLIC` and counts
+  toward go-live; and a creator holding exactly three videos can replace one
+  (they still cannot delete).
 
 ### Phase 1 — Schema and provenance
 - Migration: `InstagramMediaItem`, `InstagramMediaSyncState`, the two new enums,
@@ -821,6 +891,9 @@ later phase has to touch.
 - Add `@aws-sdk/lib-storage`; `InstagramMirrorQueueService` streaming to S3;
   `instagram_import` storage kind.
 - Retry endpoint for `FAILED` mirrors.
+- Replace-from-Instagram: reuse the same mirror path, clear `importedVideoId` on
+  the cache row of the reel being replaced, and reject a replace while the row is
+  `PROCESSING`.
 
 ### Phase 4 — UI
 - Source chooser sheet; intercept `onAdd` in `creator-profile-wizard.tsx:1456`
@@ -856,3 +929,6 @@ later phase has to touch.
 5. **Is delete-only acceptable for taking a video down?** Follows from dropping
    the visibility control (§3.4). If moderation ever needs to hide rather than
    delete, the column is still there — it just needs an admin-only writer.
+6. **Does a replace on a listed profile go back through review?** §3.4
+   recommends flagging it for re-review while leaving it visible. Otherwise
+   replace is a way around the "three reviewed videos" floor.

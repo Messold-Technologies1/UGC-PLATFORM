@@ -13,8 +13,8 @@ import {
   fetchInstagramReels,
   fetchInstagramReelsStatus,
   importInstagramReels,
-  instagramReelsQueryKey,
-  instagramReelsStatusQueryKey,
+  instagramReelsQueryKeyFor,
+  instagramReelsStatusQueryKeyFor,
   refreshInstagramReels,
 } from "../api/instagram-media";
 import type { InstagramMediaPageApi } from "../api/types";
@@ -33,13 +33,26 @@ const SYNC_POLL_MS = 2500;
  * the sheet repeatedly costs nothing. When the server says it is syncing, a
  * light poll runs until it settles and then the list is refetched once.
  */
-export function useInstagramReels({ enabled }: { enabled: boolean }) {
+export function useInstagramReels({
+  enabled,
+  adminCreatorId,
+}: {
+  enabled: boolean;
+  /** Set to browse a named creator's reels as an admin. */
+  adminCreatorId?: string;
+}) {
   const queryClient = useQueryClient();
+  const reelsKey = instagramReelsQueryKeyFor(adminCreatorId);
+  const statusKey = instagramReelsStatusQueryKeyFor(adminCreatorId);
 
   const query = useInfiniteQuery({
-    queryKey: instagramReelsQueryKey,
+    queryKey: reelsKey,
     queryFn: ({ pageParam }: { pageParam: string | null }) =>
-      fetchInstagramReels({ cursor: pageParam, limit: PAGE_SIZE }),
+      fetchInstagramReels({
+        cursor: pageParam,
+        limit: PAGE_SIZE,
+        adminCreatorId,
+      }),
     initialPageParam: null as string | null,
     getNextPageParam: (last: InstagramMediaPageApi) => last.nextCursor,
     enabled,
@@ -53,34 +66,39 @@ export function useInstagramReels({ enabled }: { enabled: boolean }) {
   // Only poll while something is actually running — a settled gallery makes no
   // background requests at all.
   const statusQuery = useQuery({
-    queryKey: instagramReelsStatusQueryKey,
-    queryFn: fetchInstagramReelsStatus,
+    queryKey: statusKey,
+    queryFn: () => fetchInstagramReelsStatus(adminCreatorId),
     enabled: enabled && serverSyncing,
     refetchInterval: serverSyncing ? SYNC_POLL_MS : false,
   });
 
   const syncSettled =
-    statusQuery.data?.status === "ready" || statusQuery.data?.status === "error";
+    statusQuery.data?.status === "ready" ||
+    statusQuery.data?.status === "error";
 
   useEffect(() => {
     if (serverSyncing && syncSettled) {
-      void queryClient.invalidateQueries({ queryKey: instagramReelsQueryKey });
+      void queryClient.invalidateQueries({ queryKey: reelsKey });
     }
-  }, [serverSyncing, syncSettled, queryClient]);
+    // reelsKey is derived from adminCreatorId, so it is stable per creator.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverSyncing, syncSettled, queryClient, adminCreatorId]);
 
   const refresh = useMutation({
-    mutationFn: refreshInstagramReels,
+    mutationFn: () => refreshInstagramReels(adminCreatorId),
     onSuccess: () => {
-      toast.success("Refreshing your reels from Instagram…");
-      void queryClient.invalidateQueries({
-        queryKey: instagramReelsStatusQueryKey,
-      });
+      toast.success(
+        adminCreatorId
+          ? "Refreshing this creator's reels from Instagram…"
+          : "Refreshing your reels from Instagram…",
+      );
+      void queryClient.invalidateQueries({ queryKey: statusKey });
     },
     onError: (error: unknown) => {
       // The server's guard message says how long is left, so surface it as-is.
       const message =
-        (error as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Could not refresh right now";
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ?? "Could not refresh right now";
       toast.error(message);
     },
   });
@@ -131,10 +149,13 @@ export function useImportInstagramReels(options?: { adminCreatorId?: string }) {
         (s) => s.reason === "already_imported",
       ).length;
       if (alreadyIn > 0) {
+        const where = options?.adminCreatorId
+          ? "the portfolio"
+          : "your portfolio";
         toast.info(
           alreadyIn === 1
-            ? "1 reel was already in your portfolio"
-            : `${alreadyIn} reels were already in your portfolio`,
+            ? `1 reel was already in ${where}`
+            : `${alreadyIn} reels were already in ${where}`,
         );
       }
       const failed = result.skipped.length - alreadyIn;
@@ -147,7 +168,9 @@ export function useImportInstagramReels(options?: { adminCreatorId?: string }) {
       }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: portfolioMyVideosQueryKey }),
-        queryClient.invalidateQueries({ queryKey: instagramReelsQueryKey }),
+        queryClient.invalidateQueries({
+          queryKey: instagramReelsQueryKeyFor(options?.adminCreatorId),
+        }),
       ]);
     },
     onError: (error: unknown) => {

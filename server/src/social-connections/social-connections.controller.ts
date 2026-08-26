@@ -197,6 +197,83 @@ export class SocialConnectionsController {
     return this.media.getSyncStatus(req.user.id);
   }
 
+  @Get('creators/:creatorProfileId/instagram/media')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOperation({
+    summary: "Admin: one page of a creator's cached reels",
+    description:
+      'Same cache-first read as the creator-facing route, scoped to a named ' +
+      'creator so an admin can browse and import on their behalf. Uses the ' +
+      "creator's own connection and token — the admin needs no Instagram account.",
+  })
+  @ApiOkResponse({ type: InstagramMediaPageDto })
+  async listCreatorInstagramMedia(
+    @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
+    @Query() query: ListInstagramMediaQueryDto,
+  ): Promise<InstagramMediaPageDto> {
+    const page = await this.media.getGalleryPageForCreator(creatorProfileId, {
+      cursor: query.cursor,
+      limit: query.limit,
+    });
+
+    // As on the creator route, only the first page enqueues, so paging a stale
+    // cache does not re-enqueue per scroll.
+    if (page.status === 'syncing' && !query.cursor) {
+      const connection =
+        await this.media.findConnectionForCreatorProfile(creatorProfileId);
+      if (connection) {
+        void this.mediaQueue.enqueue(connection.id, {
+          priority: IG_SYNC_PRIORITY.interactive,
+        });
+      }
+    }
+    return page as InstagramMediaPageDto;
+  }
+
+  @Get('creators/:creatorProfileId/instagram/media/status')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Admin: reel-cache sync progress for a creator' })
+  @ApiOkResponse({ type: InstagramMediaStatusDto })
+  async creatorInstagramMediaStatus(
+    @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
+  ): Promise<InstagramMediaStatusDto> {
+    return this.media.getSyncStatusForCreator(creatorProfileId);
+  }
+
+  @Post('creators/:creatorProfileId/instagram/media/refresh')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60 * 60_000 } })
+  @ApiOperation({
+    summary: 'Admin: force a reel-cache refresh for a creator',
+    description:
+      "Spends the creator's own rate-limit budget, so the per-connection " +
+      'interval guard still applies — an admin refresh is not a way around it.',
+  })
+  @ApiOkResponse({ type: InstagramMediaStatusDto })
+  async refreshCreatorInstagramMedia(
+    @Param('creatorProfileId', new ParseUUIDPipe()) creatorProfileId: string,
+  ): Promise<InstagramMediaStatusDto> {
+    const connection =
+      await this.media.findConnectionForCreatorProfile(creatorProfileId);
+    if (!connection) {
+      throw new NotFoundException(
+        'This creator has no Instagram account connected',
+      );
+    }
+    await this.media.assertRefreshAllowed(connection.id);
+    await this.media.markRefreshRequested(connection.id);
+    void this.mediaQueue.enqueue(connection.id, {
+      priority: IG_SYNC_PRIORITY.interactive,
+      fromStart: true,
+    });
+    return this.media.getSyncStatusForCreator(creatorProfileId);
+  }
+
   @Get('creators/:creatorProfileId/instagram/insights')
   @ApiOperation({
     summary: 'Public Instagram audience insights for a creator',

@@ -23,4 +23,17 @@ export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
   @IsOptional()
   @IsString()
   thumbnailKey?: string;
+
+  @ApiPropertyOptional({
+    example: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    description:
+      'SHA-256 hex of the replacement video, as sent to the presign call. Recorded against ' +
+      "the row so the replacement can't later be re-added as a duplicate, and so this row " +
+      'stops being checked against its old file. Omit when the client could not hash the ' +
+      'file (e.g. it exceeds the hashing size cap) — the stored hash is then cleared rather ' +
+      'than left pointing at the outgoing clip.',
+  })
+  @IsOptional()
+  @IsString()
+  contentHash?: string;
 }

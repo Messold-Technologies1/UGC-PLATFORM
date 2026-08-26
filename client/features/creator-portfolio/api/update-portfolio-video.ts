@@ -11,6 +11,13 @@ export type UpdatePortfolioVideoPayload = {
   videoKey?: string;
   /** Thumbnail for the replacement. Omitting it clears the outgoing one. */
   thumbnailKey?: string;
+  /**
+   * SHA-256 of the replacement video. Overwrites the row's stored hash so a
+   * later duplicate check compares against the file actually in this slot,
+   * not the one it replaced. Omit when the file couldn't be hashed client-side
+   * (e.g. over the hashing size cap) — the server then clears the stored hash.
+   */
+  contentHash?: string;
 };
 
 export async function updatePortfolioVideo(

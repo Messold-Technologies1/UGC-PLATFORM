@@ -83,10 +83,14 @@ export function useReplacePortfolioVideoFlowMutation() {
       }
 
       // Sending no thumbnailKey clears the old one server-side — correct here,
-      // since it was cut from the clip being replaced.
+      // since it was cut from the clip being replaced. contentHash goes along
+      // for the same reason: the row must stop being checked against the file
+      // it no longer holds. `video.contentHash` is undefined when the file
+      // was too large to hash client-side, and the server clears the column
+      // in that case rather than leave the outgoing file's hash in place.
       return updatePortfolioVideo(
         videoId,
-        { videoKey: video.key, thumbnailKey },
+        { videoKey: video.key, thumbnailKey, contentHash: video.contentHash },
         requestOptions,
       );
     },

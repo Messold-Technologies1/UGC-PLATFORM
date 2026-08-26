@@ -115,12 +115,17 @@ export class CreatorPortfolioService {
     creatorId: string,
     kind: 'video' | 'thumbnail',
     contentHash: string | undefined,
+    excludeVideoId?: string,
   ): Promise<void> {
     const hash = contentHash?.trim().toLowerCase();
     if (kind !== 'video' || !hash) return;
 
     const existing = await this.prisma.creatorPortfolioVideo.findFirst({
-      where: { creatorId, contentHash: hash },
+      where: {
+        creatorId,
+        contentHash: hash,
+        ...(excludeVideoId ? { id: { not: excludeVideoId } } : {}),
+      },
       select: { id: true },
     });
     if (existing) {
@@ -366,34 +371,37 @@ export class CreatorPortfolioService {
     // it — otherwise the grid shows a frame of a video that is no longer there.
     const clearStaleThumbnail = Boolean(nextVideoKey) && !nextThumbnailKey;
 
-    // The only thing an update can change now is the file itself, so the
-    // transaction is just the row write plus the listing-state recompute. The
-    // raised timeout is kept: this ran long enough under production load to
-    // trip P2028.
-    const updated = await this.prisma.$transaction(
-      async (tx) => {
-        const video = await tx.creatorPortfolioVideo.update({
-          where: { id: videoId },
-          data: {
-            videoKey: nextVideoKey,
-            videoUrl: nextVideoKey
-              ? this.storage.buildCdnUrl(nextVideoKey)
-              : undefined,
-            thumbnailKey: clearStaleThumbnail ? null : nextThumbnailKey,
-            thumbnailUrl: clearStaleThumbnail
-              ? null
-              : nextThumbnailKey
-                ? this.storage.buildCdnUrl(nextThumbnailKey)
-                : undefined,
-          },
-        });
+    // A replacement's hash must overwrite the row's old one, never sit beside
+    // it: leaving the previous file's hash in place after a swap made this row
+    // permanently invisible to duplicate checks (it stopped matching future
+    // uploads of *this* clip, and kept falsely matching the clip it no longer
+    // holds). No hash from the client (over the hashing cap) clears the column
+    // instead of leaving a stale value — an unchecked upload beats a wrong one.
+    const nextContentHash = nextVideoKey
+      ? dto.contentHash?.trim().toLowerCase() || null
+      : undefined;
+    if (nextVideoKey && nextContentHash) {
+      await this.assertNoDuplicateContent(
+        profile.id,
+        'video',
+        nextContentHash,
+        videoId,
+      );
+    }
 
-        await recomputeCreatorListingState(tx, profile.id);
-
-        return video;
-      },
-      { timeout: 15000, maxWait: 10000 },
-    );
+    const updated = await this.updateVideoRow(videoId, profile.id, {
+      videoKey: nextVideoKey,
+      videoUrl: nextVideoKey
+        ? this.storage.buildCdnUrl(nextVideoKey)
+        : undefined,
+      contentHash: nextContentHash,
+      thumbnailKey: clearStaleThumbnail ? null : nextThumbnailKey,
+      thumbnailUrl: clearStaleThumbnail
+        ? null
+        : nextThumbnailKey
+          ? this.storage.buildCdnUrl(nextThumbnailKey)
+          : undefined,
+    });
 
     // Drop the objects the replacement superseded. Deliberately *after* the
     // transaction commits: doing it inside would delete the still-live video if
@@ -477,27 +485,58 @@ export class CreatorPortfolioService {
   }
 
   /**
-   * Create the row, translating the (creatorId, contentHash) unique-constraint
-   * violation into the same message as the pre-upload check. That check races:
-   * two uploads of one file can both pass it and only the index stops the
-   * second, so the error surfaces as a 400 rather than a 500.
+   * Translate the (creatorId, contentHash) unique-constraint violation into
+   * the same message as the pre-upload check. That check races: two uploads
+   * of one file can both pass it and only the index stops the second, so the
+   * error surfaces as a 400 rather than a 500.
    */
+  private rethrowContentHashConflict(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      String(error.meta?.target ?? '').includes('contentHash')
+    ) {
+      throw new BadRequestException(
+        'This video is already in your portfolio. Pick a different file.',
+      );
+    }
+    throw error;
+  }
+
   private async createVideoRow(
     args: Parameters<PrismaService['creatorPortfolioVideo']['create']>[0],
   ) {
     try {
       return await this.prisma.creatorPortfolioVideo.create(args);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002' &&
-        String(error.meta?.target ?? '').includes('contentHash')
-      ) {
-        throw new BadRequestException(
-          'This video is already in your portfolio. Pick a different file.',
-        );
-      }
-      throw error;
+      this.rethrowContentHashConflict(error);
+    }
+  }
+
+  /**
+   * Update the row plus the listing-state recompute in one transaction. The
+   * raised timeout is kept: this ran long enough under production load to
+   * trip P2028.
+   */
+  private async updateVideoRow(
+    videoId: string,
+    creatorId: string,
+    data: Prisma.CreatorPortfolioVideoUpdateInput,
+  ) {
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const video = await tx.creatorPortfolioVideo.update({
+            where: { id: videoId },
+            data,
+          });
+          await recomputeCreatorListingState(tx, creatorId);
+          return video;
+        },
+        { timeout: 15000, maxWait: 10000 },
+      );
+    } catch (error) {
+      this.rethrowContentHashConflict(error);
     }
   }
 

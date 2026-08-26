@@ -367,6 +367,66 @@ describe('InstagramMediaService', () => {
       expect(decodeGalleryCursor(result.nextCursor!).igMediaId).toBe('2');
     });
 
+    it('resolves an admin read by creator profile, not by signed-in user', async () => {
+      // The admin path must never fall back to the caller's own profile — that
+      // is how an admin would silently be shown their own (absent) reels.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue(null);
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);
+
+      await service.getGalleryPageForCreator('profile-42');
+
+      expect(prismaMock.creatorProfile.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.socialConnection.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            creatorProfileId_platform: {
+              creatorProfileId: 'profile-42',
+              platform: 'INSTAGRAM',
+            },
+          },
+        }),
+      );
+    });
+
+    it('reports not_connected for a creator with no Instagram link', async () => {
+      prismaMock.socialConnection.findUnique.mockResolvedValue(null);
+      const result = await service.getGalleryPageForCreator('profile-42');
+      expect(result.status).toBe('not_connected');
+      expect(result.items).toEqual([]);
+    });
+
+    it('serves the creator own cache on the admin path', async () => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        status: IgMediaSyncStatus.READY,
+        lastFullSyncAt: new Date(),
+        reelCount: 1,
+        lastError: null,
+      });
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+        {
+          igMediaId: 'r1',
+          permalink: null,
+          thumbnailUrl: null,
+          caption: null,
+          postedAt: new Date(),
+          durationSeconds: null,
+          likeCount: null,
+          viewCount: null,
+          importedVideoId: null,
+        },
+      ]);
+
+      const result = await service.getGalleryPageForCreator('profile-42');
+
+      expect(result.status).toBe('ready');
+      expect(result.items).toHaveLength(1);
+      expect(prismaMock.instagramMediaItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ connectionId }),
+        }),
+      );
+    });
+
     it('only queries reels', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue(null);
       prismaMock.instagramMediaItem.findMany.mockResolvedValue([]);

@@ -25,6 +25,7 @@ export function AddReelSourceSheet({
   instagramState,
   onConnectInstagram,
   connecting = false,
+  onBehalfOfCreator = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,9 +35,17 @@ export function AddReelSourceSheet({
   instagramState: "connected" | "not_connected" | "reconnect_required";
   onConnectInstagram: () => void;
   connecting?: boolean;
+  /**
+   * Admin acting for a creator. Switches the copy out of second person, and
+   * makes an unlinked account a dead end rather than an offer — only the
+   * creator can complete an Instagram login.
+   */
+  onBehalfOfCreator?: boolean;
 }) {
   const connected = instagramState === "connected";
   const needsReconnect = instagramState === "reconnect_required";
+  // An admin cannot connect for them, so there is nothing to click.
+  const canAct = connected || !onBehalfOfCreator;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,7 +53,9 @@ export function AddReelSourceSheet({
         <DialogHeader>
           <DialogTitle>Add a reel</DialogTitle>
           <DialogDescription>
-            Upload a new file, or pick something you have already posted.
+            {onBehalfOfCreator
+              ? "Upload a file, or pick something this creator has already posted."
+              : "Upload a new file, or pick something you have already posted."}
           </DialogDescription>
         </DialogHeader>
 
@@ -70,7 +81,8 @@ export function AddReelSourceSheet({
           <button
             type="button"
             onClick={connected ? onChooseFromInstagram : onConnectInstagram}
-            disabled={connecting}
+            disabled={connecting || !canAct}
+            aria-disabled={connecting || !canAct}
             className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-muted-foreground/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
           >
             <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500/15 to-orange-400/15">
@@ -86,18 +98,23 @@ export function AddReelSourceSheet({
               </span>
               <span className="block text-xs text-muted-foreground">
                 {connected
-                  ? "Pick reels you have already posted"
-                  : needsReconnect
-                    ? "Reconnect Instagram to browse your reels"
-                    : "Connect Instagram to browse your reels"}
+                  ? onBehalfOfCreator
+                    ? "Browse the reels they have already posted"
+                    : "Pick reels you have already posted"
+                  : onBehalfOfCreator
+                    ? "This creator has not connected Instagram yet"
+                    : needsReconnect
+                      ? "Reconnect Instagram to browse your reels"
+                      : "Connect Instagram to browse your reels"}
               </span>
             </span>
           </button>
         </div>
 
         <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground">
-          Whatever you add still has to be your own work, in 1080p or better,
-          with no watermark, logo or platform branding.
+          {onBehalfOfCreator
+            ? "Anything added here still has to be the creator's own work, in 1080p or better, with no watermark, logo or platform branding."
+            : "Whatever you add still has to be your own work, in 1080p or better, with no watermark, logo or platform branding."}
         </p>
       </DialogContent>
     </Dialog>

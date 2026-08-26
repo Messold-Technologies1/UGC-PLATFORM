@@ -6,40 +6,60 @@ import type {
   InstagramMediaSyncStatusApi,
 } from "./types";
 
-export const instagramReelsQueryKey = ["instagram", "reels"] as const;
-export const instagramReelsStatusQueryKey = [
-  "instagram",
-  "reels",
-  "status",
-] as const;
+/**
+ * An admin browsing on a creator's behalf reads the same cache through
+ * admin-guarded routes. The query key carries the creator id so one admin
+ * session can hold several creators' galleries without them colliding.
+ */
+export function instagramReelsQueryKeyFor(adminCreatorId?: string) {
+  return adminCreatorId
+    ? (["instagram", "reels", adminCreatorId] as const)
+    : (["instagram", "reels"] as const);
+}
+
+export function instagramReelsStatusQueryKeyFor(adminCreatorId?: string) {
+  return adminCreatorId
+    ? (["instagram", "reels", "status", adminCreatorId] as const)
+    : (["instagram", "reels", "status"] as const);
+}
+
+export const instagramReelsQueryKey = instagramReelsQueryKeyFor();
+export const instagramReelsStatusQueryKey = instagramReelsStatusQueryKeyFor();
 
 export async function fetchInstagramReels(params: {
   cursor?: string | null;
   limit?: number;
+  adminCreatorId?: string;
 }): Promise<InstagramMediaPageApi> {
-  const { data } = await api.get<InstagramMediaPageApi>(
-    ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA,
-    {
-      params: {
-        ...(params.cursor ? { cursor: params.cursor } : {}),
-        ...(params.limit ? { limit: params.limit } : {}),
-      },
+  const url = params.adminCreatorId
+    ? ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_FOR_CREATOR(params.adminCreatorId)
+    : ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA;
+  const { data } = await api.get<InstagramMediaPageApi>(url, {
+    params: {
+      ...(params.cursor ? { cursor: params.cursor } : {}),
+      ...(params.limit ? { limit: params.limit } : {}),
     },
-  );
+  });
   return data;
 }
 
-export async function fetchInstagramReelsStatus(): Promise<InstagramMediaSyncStatusApi> {
-  const { data } = await api.get<InstagramMediaSyncStatusApi>(
-    ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_STATUS,
-  );
+export async function fetchInstagramReelsStatus(
+  adminCreatorId?: string,
+): Promise<InstagramMediaSyncStatusApi> {
+  const url = adminCreatorId
+    ? ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_STATUS_FOR_CREATOR(adminCreatorId)
+    : ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_STATUS;
+  const { data } = await api.get<InstagramMediaSyncStatusApi>(url);
   return data;
 }
 
-export async function refreshInstagramReels(): Promise<InstagramMediaSyncStatusApi> {
-  const { data } = await api.post<InstagramMediaSyncStatusApi>(
-    ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_REFRESH,
-  );
+export async function refreshInstagramReels(
+  adminCreatorId?: string,
+): Promise<InstagramMediaSyncStatusApi> {
+  const url = adminCreatorId
+    ? ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_REFRESH_FOR_CREATOR(adminCreatorId)
+    : ENDPOINTS.SOCIAL.INSTAGRAM_MEDIA_REFRESH;
+  const { data } = await api.post<InstagramMediaSyncStatusApi>(url);
   return data;
 }
 

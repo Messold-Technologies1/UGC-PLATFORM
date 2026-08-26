@@ -45,12 +45,8 @@ import type { ResolveFacetOtherResponse } from "@/features/creators/api/resolve-
 import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
-import { useUpdatePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-update-portfolio-video-mutation";
+import { useReplacePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-replace-portfolio-video-flow-mutation";
 import { useDeletePortfolioVideoMutation } from "@/features/creator-portfolio/hooks/use-delete-portfolio-video-mutation";
-import {
-  usePortfolioIndustrySuggestionsQuery,
-  usePortfolioTagSuggestionsQuery,
-} from "@/features/creator-portfolio/hooks/use-portfolio-suggestion-queries";
 import { useAuth } from "@/providers/auth-provider";
 import {
   facetSections,
@@ -59,14 +55,13 @@ import {
   PACKAGE_MAX_DELIVERY_DAYS,
   type PackageDraft,
 } from "@/features/creators/hooks/creator-profile-form-utils";
-import { capitalizeFirstLetter, toTitleCaseLabel } from "@/lib/string-lists";
 import {
   computeGoLiveMissing,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_SECONDARY_NICHES,
   type GoLiveSnapshot,
 } from "@/features/creators/lib/go-live-requirements";
-import { PortfolioEditDrawer } from "@/features/creators/components/creator-profile-update/portfolio-components";
+import { PortfolioFileDrawer } from "@/features/creators/components/creator-profile-update/portfolio-components";
 import {
   areAllGoLivePoliciesAccepted,
   createEmptyGoLivePolicyAcceptance,
@@ -124,9 +119,13 @@ export function CreatorProfileWizard({
     : (user?.email ?? "");
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [triedContinue, setTriedContinue] = useState<Partial<Record<WizardStepId, boolean>>>({});
+  const [triedContinue, setTriedContinue] = useState<
+    Partial<Record<WizardStepId, boolean>>
+  >({});
   const [completed, setCompleted] = useState<Set<WizardStepId>>(new Set());
-  const [submitted, setSubmitted] = useState(() => Boolean(initialProfile.completeProfile));
+  const [submitted, setSubmitted] = useState(() =>
+    Boolean(initialProfile.completeProfile),
+  );
 
   // An already-live (or admin-edited) profile behaves like a free editor:
   // every step is reachable from the rail, filled steps show as done, and each
@@ -162,8 +161,16 @@ export function CreatorProfileWizard({
   );
 
   const enabled = adminMode || Boolean(user);
-  const profileImage = useCreatorProfileImage({ mode: "update", profileId, initialProfile });
-  const introVideo = useCreatorIntroVideo({ mode: "update", profileId, initialProfile });
+  const profileImage = useCreatorProfileImage({
+    mode: "update",
+    profileId,
+    initialProfile,
+  });
+  const introVideo = useCreatorIntroVideo({
+    mode: "update",
+    profileId,
+    initialProfile,
+  });
   const location = useCreatorLocationForm({ initialProfile, adminMode });
   const facets = useCreatorFacetsForm({ initialProfile, enabled });
   const packages = useCreatorPackagesForm({ initialProfile });
@@ -182,11 +189,11 @@ export function CreatorProfileWizard({
     staleTime: 2 * 60_000,
   });
   const portfolioQuery = adminMode ? adminPortfolioQuery : myPortfolioQuery;
-  const createPortfolioMutation = useCreatePortfolioVideoFlowMutation({ preventRedirect: true });
-  const updatePortfolioMutation = useUpdatePortfolioVideoMutation();
+  const createPortfolioMutation = useCreatePortfolioVideoFlowMutation({
+    preventRedirect: true,
+  });
+  const replacePortfolioMutation = useReplacePortfolioVideoFlowMutation();
   const deletePortfolioMutation = useDeletePortfolioVideoMutation();
-  const industrySuggestionsQuery = usePortfolioIndustrySuggestionsQuery({ enabled });
-  const tagSuggestionsQuery = usePortfolioTagSuggestionsQuery({ enabled });
 
   // An active Instagram connection is required to go live. The connections
   // endpoint returns the signed-in user's own accounts, so only gate on it for
@@ -210,7 +217,9 @@ export function CreatorProfileWizard({
     () =>
       (initialProfile.restrictions ?? [])
         .map((row) => row.restriction)
-        .filter((name) => (OPEN_TO_OPTIONS as readonly string[]).includes(name)),
+        .filter((name) =>
+          (OPEN_TO_OPTIONS as readonly string[]).includes(name),
+        ),
   );
   const toggleRestriction = useCallback((name: string) => {
     setSelectedRestrictions((current) =>
@@ -225,8 +234,8 @@ export function CreatorProfileWizard({
   const [languageConfirmed, setLanguageConfirmed] = useState<boolean>(
     () => (initialProfile.profileLanguages ?? []).length > 0,
   );
-  const [introConfirmed, setIntroConfirmed] = useState<boolean>(
-    () => Boolean(introVideo.introVideoPreviewUrl),
+  const [introConfirmed, setIntroConfirmed] = useState<boolean>(() =>
+    Boolean(introVideo.introVideoPreviewUrl),
   );
   const [packageDefaultsConfirmed, setPackageDefaultsConfirmed] = useState(
     () => Boolean(initialProfile.completeProfile) || adminMode,
@@ -238,12 +247,12 @@ export function CreatorProfileWizard({
     () => Boolean(initialProfile.completeProfile) || adminMode,
   );
   const markAddonsReviewed = useCallback(() => setAddonsReviewed(true), []);
-  const [goLivePolicies, setGoLivePolicies] = useState<GoLivePolicyAcceptanceState>(
-    () =>
+  const [goLivePolicies, setGoLivePolicies] =
+    useState<GoLivePolicyAcceptanceState>(() =>
       createEmptyGoLivePolicyAcceptance(
         Boolean(initialProfile.completeProfile) || adminMode,
       ),
-  );
+    );
   const [packageErrors, setPackageErrors] = useState<{
     priceAmount?: string;
     deliveryDays?: string;
@@ -252,11 +261,16 @@ export function CreatorProfileWizard({
 
   // ---- Portfolio drawer ----
   const [pfDrawerOpen, setPfDrawerOpen] = useState(false);
-  const [pfEditingVideo, setPfEditingVideo] = useState<PortfolioVideoApi | null>(null);
+  const [pfEditingVideo, setPfEditingVideo] =
+    useState<PortfolioVideoApi | null>(null);
   const pfVideoInputRef = useRef<HTMLInputElement | null>(null);
   const pfThumbInputRef = useRef<HTMLInputElement | null>(null);
-  const [pfPendingVideoFile, setPfPendingVideoFile] = useState<File | null>(null);
-  const [pfPendingThumbFile, setPfPendingThumbFile] = useState<File | null>(null);
+  const [pfPendingVideoFile, setPfPendingVideoFile] = useState<File | null>(
+    null,
+  );
+  const [pfPendingThumbFile, setPfPendingThumbFile] = useState<File | null>(
+    null,
+  );
 
   const openPortfolioDrawer = useCallback((video: PortfolioVideoApi | null) => {
     setPfEditingVideo(video);
@@ -265,21 +279,14 @@ export function CreatorProfileWizard({
     setPfDrawerOpen(true);
   }, []);
 
-  const portfolioIndustrySuggestions = useMemo(
-    () => (industrySuggestionsQuery.data ?? []).map((n) => toTitleCaseLabel(n)),
-    [industrySuggestionsQuery.data],
-  );
-  const portfolioTagSuggestions = useMemo(
-    () => (tagSuggestionsQuery.data ?? []).map((n) => capitalizeFirstLetter(n)),
-    [tagSuggestionsQuery.data],
-  );
-
   const selectedLanguageCount = selectedLanguages.length;
 
   // ---- Save mutation ----
-  const pendingActionRef = useRef<
-    { completeId: WizardStepId; nextIndex: number; goLive?: boolean } | null
-  >(null);
+  const pendingActionRef = useRef<{
+    completeId: WizardStepId;
+    nextIndex: number;
+    goLive?: boolean;
+  } | null>(null);
   const submitMutation = useSubmitCreatorProfileMutation({
     mode: "update",
     profileId,
@@ -299,7 +306,8 @@ export function CreatorProfileWizard({
       setDirty(false);
       if (action.goLive) setSubmitted(true);
       setActiveIndex(action.nextIndex);
-      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+      if (typeof window !== "undefined")
+        window.scrollTo({ top: 0, behavior: "smooth" });
     },
   });
   const pending = submitMutation.isPending;
@@ -398,13 +406,19 @@ export function CreatorProfileWizard({
   }, []);
 
   const facetLabelsFor = useCallback(
-    (dimension: "CONTENT_CATEGORY" | "CREATOR_TYPE" | "OCCUPATION" | "LANGUAGE") => {
+    (
+      dimension:
+        | "CONTENT_CATEGORY"
+        | "CREATOR_TYPE"
+        | "OCCUPATION"
+        | "LANGUAGE",
+    ) => {
       const options = facets.facetOptionsByDimension[dimension] ?? [];
       const bySlug = new Map(options.map((o) => [o.slug, o.label]));
       const slugs =
         dimension === "LANGUAGE"
           ? selectedLanguages
-          : facets.selectedFacets[dimension] ?? [];
+          : (facets.selectedFacets[dimension] ?? []);
       return slugs.map((slug) => bySlug.get(slug) ?? slug);
     },
     [facets.facetOptionsByDimension, facets.selectedFacets, selectedLanguages],
@@ -480,12 +494,15 @@ export function CreatorProfileWizard({
   // ---- Derived ----
   const languageLabelBySlug = useMemo(() => {
     const map = new Map<string, string>();
-    for (const opt of facets.facetOptionsByDimension.LANGUAGE ?? []) map.set(opt.slug, opt.label);
+    for (const opt of facets.facetOptionsByDimension.LANGUAGE ?? [])
+      map.set(opt.slug, opt.label);
     return map;
   }, [facets.facetOptionsByDimension.LANGUAGE]);
 
   const publicPortfolioCount = useMemo(
-    () => (portfolioQuery.data ?? []).filter((v) => v.visibilityStatus === "public").length,
+    () =>
+      (portfolioQuery.data ?? []).filter((v) => v.visibilityStatus === "public")
+        .length,
     [portfolioQuery.data],
   );
 
@@ -507,8 +524,7 @@ export function CreatorProfileWizard({
     return dims.some((dim) => {
       const slugs = facets.selectedFacets[dim] ?? [];
       return (
-        slugs.includes("other") &&
-        !(facets.customFacetLabels[dim] ?? "").trim()
+        slugs.includes("other") && !(facets.customFacetLabels[dim] ?? "").trim()
       );
     });
   }, [facets.selectedFacets, facets.customFacetLabels]);
@@ -535,7 +551,9 @@ export function CreatorProfileWizard({
       hasLanguage: selectedLanguageCount > 0,
       hasBio: bio.trim().length >= BIO_MIN_CHARS,
       hasNiche,
-      hasPackage: Boolean(validatePackagePrice(packages.packageDraft.priceAmount) === undefined),
+      hasPackage: Boolean(
+        validatePackagePrice(packages.packageDraft.priceAmount) === undefined,
+      ),
       hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
       hasInstagram: instagramConnected,
       portfolioCount: (portfolioQuery.data ?? []).length,
@@ -613,7 +631,10 @@ export function CreatorProfileWizard({
     instagramConnected,
   ]);
 
-  const goLiveMissing = useMemo(() => computeGoLiveMissing(goLiveSnapshot), [goLiveSnapshot]);
+  const goLiveMissing = useMemo(
+    () => computeGoLiveMissing(goLiveSnapshot),
+    [goLiveSnapshot],
+  );
 
   // Whether a step's requirements are already met by the current data. Drives
   // the rail check-marks so a filled/live profile shows its progress on load,
@@ -692,7 +713,9 @@ export function CreatorProfileWizard({
             dimension: section.dimension,
             slug,
             // CONTENT_CATEGORY is ordered: index 0 = primary, rest = secondary.
-            ...(section.dimension === "CONTENT_CATEGORY" ? { rank: index } : {}),
+            ...(section.dimension === "CONTENT_CATEGORY"
+              ? { rank: index }
+              : {}),
             ...(slug === "other" && customLabel ? { customLabel } : {}),
           });
         });
@@ -765,7 +788,8 @@ export function CreatorProfileWizard({
     (id: WizardStepId): string[] => {
       const missing: string[] = [];
       if (id === "about") {
-        if (!profileImage.profileImagePreviewUrl) missing.push("a profile photo");
+        if (!profileImage.profileImagePreviewUrl)
+          missing.push("a profile photo");
         if (!displayName.trim()) missing.push("your full name");
         if (!dateOfBirth) missing.push("date of birth");
         if (!gender) missing.push("gender");
@@ -796,7 +820,9 @@ export function CreatorProfileWizard({
         if (!introVideo.introVideoPreviewUrl) missing.push("an intro video");
         else if (!introConfirmed) missing.push("the intro video confirmation");
       } else if (id === "pricing") {
-        const priceErr = validatePackagePrice(packages.packageDraft.priceAmount);
+        const priceErr = validatePackagePrice(
+          packages.packageDraft.priceAmount,
+        );
         if (priceErr) missing.push("a valid starting price");
         if (!packageDefaultsConfirmed)
           missing.push("confirmation of the package defaults");
@@ -846,76 +872,158 @@ export function CreatorProfileWizard({
     return {
       about: tried.about
         ? {
-            photo: !profileImage.profileImagePreviewUrl ? "Upload a profile photo — brands need to see you." : undefined,
-            displayName: !displayName.trim() ? "Please enter your full name." : undefined,
-            dateOfBirth: !dateOfBirth ? "Please add your date of birth." : !isEighteenPlus ? "Creators must be at least 18 years old." : undefined,
+            photo: !profileImage.profileImagePreviewUrl
+              ? "Upload a profile photo — brands need to see you."
+              : undefined,
+            displayName: !displayName.trim()
+              ? "Please enter your full name."
+              : undefined,
+            dateOfBirth: !dateOfBirth
+              ? "Please add your date of birth."
+              : !isEighteenPlus
+                ? "Creators must be at least 18 years old."
+                : undefined,
             gender: !gender ? "Please select your gender." : undefined,
-            instagram: !instagramConnected ? "Connect your Instagram account to continue." : undefined,
+            instagram: !instagramConnected
+              ? "Connect your Instagram account to continue."
+              : undefined,
           }
         : {},
       base: tried.base
         ? {
-            city: !location.city.trim() ? "Please select your city." : undefined,
-            shippingAddress: !shippingAddress.trim() ? "Add your shipping address so brands can send products to you." : undefined,
-            language: selectedLanguageCount === 0 ? "Add at least one language." : undefined,
-            languageConfirmed: selectedLanguageCount > 0 && !languageConfirmed ? "Please confirm your languages." : undefined,
+            city: !location.city.trim()
+              ? "Please select your city."
+              : undefined,
+            shippingAddress: !shippingAddress.trim()
+              ? "Add your shipping address so brands can send products to you."
+              : undefined,
+            language:
+              selectedLanguageCount === 0
+                ? "Add at least one language."
+                : undefined,
+            languageConfirmed:
+              selectedLanguageCount > 0 && !languageConfirmed
+                ? "Please confirm your languages."
+                : undefined,
           }
         : {},
       identity: tried.identity
         ? {
-            primaryNiche: !facets.primaryNiche ? "Choose your primary niche." : undefined,
-            secondaryNiches: facets.secondaryNiches.length < REQUIRED_SECONDARY_NICHES ? `Pick ${REQUIRED_SECONDARY_NICHES} secondary niches.` : undefined,
-            creatorType: facetCount("CREATOR_TYPE") === 0 ? "Select your creator type." : undefined,
-            occupation: facetCount("OCCUPATION") === 0 ? "Select your occupation." : undefined,
-            appearance: facetCount("APPEARANCE") === 0 ? "Select your appearance." : undefined,
-            restrictions: selectedRestrictions.length === 0 ? "Choose at least one category you're comfortable with." : undefined,
-            blankOther: identityHasBlankOther ? 'Fill in your "Other" selection.' : undefined,
+            primaryNiche: !facets.primaryNiche
+              ? "Choose your primary niche."
+              : undefined,
+            secondaryNiches:
+              facets.secondaryNiches.length < REQUIRED_SECONDARY_NICHES
+                ? `Pick ${REQUIRED_SECONDARY_NICHES} secondary niches.`
+                : undefined,
+            creatorType:
+              facetCount("CREATOR_TYPE") === 0
+                ? "Select your creator type."
+                : undefined,
+            occupation:
+              facetCount("OCCUPATION") === 0
+                ? "Select your occupation."
+                : undefined,
+            appearance:
+              facetCount("APPEARANCE") === 0
+                ? "Select your appearance."
+                : undefined,
+            restrictions:
+              selectedRestrictions.length === 0
+                ? "Choose at least one category you're comfortable with."
+                : undefined,
+            blankOther: identityHasBlankOther
+              ? 'Fill in your "Other" selection.'
+              : undefined,
           }
         : {},
       portfolio: tried.portfolio
         ? {
-            bio: bio.trim().length < BIO_MIN_CHARS ? `Your bio needs at least ${BIO_MIN_CHARS} characters (${bio.trim().length} so far).` : undefined,
-            confirmed: !portfolioConfirmed ? "Confirm your portfolio videos meet the requirements." : undefined,
+            bio:
+              bio.trim().length < BIO_MIN_CHARS
+                ? `Your bio needs at least ${BIO_MIN_CHARS} characters (${bio.trim().length} so far).`
+                : undefined,
+            confirmed: !portfolioConfirmed
+              ? "Confirm your portfolio videos meet the requirements."
+              : undefined,
           }
         : {},
       "intro-video": tried["intro-video"]
         ? {
-            video: !introVideo.introVideoPreviewUrl ? "Upload your intro video to continue." : undefined,
-            confirmed: introVideo.introVideoPreviewUrl && !introConfirmed ? "Confirm your video meets the requirements." : undefined,
+            video: !introVideo.introVideoPreviewUrl
+              ? "Upload your intro video to continue."
+              : undefined,
+            confirmed:
+              introVideo.introVideoPreviewUrl && !introConfirmed
+                ? "Confirm your video meets the requirements."
+                : undefined,
           }
         : {},
       pricing: tried.pricing
         ? {
             deliveryDays: (() => {
               const d = Number(packages.packageDraft.deliveryDays);
-              if (!packages.packageDraft.deliveryDays || !Number.isInteger(d) || d < PACKAGE_MIN_DELIVERY_DAYS || d > PACKAGE_MAX_DELIVERY_DAYS)
+              if (
+                !packages.packageDraft.deliveryDays ||
+                !Number.isInteger(d) ||
+                d < PACKAGE_MIN_DELIVERY_DAYS ||
+                d > PACKAGE_MAX_DELIVERY_DAYS
+              )
                 return `Delivery must be between ${PACKAGE_MIN_DELIVERY_DAYS} and ${PACKAGE_MAX_DELIVERY_DAYS} days.`;
               return undefined;
             })(),
-            defaultsConfirmed: !packageDefaultsConfirmed ? "Confirm you can deliver the package defaults." : undefined,
-            addOnPrices: !addOns.mandatoryAddOnsPriced ? "Enter prices for the required add-ons." : undefined,
+            defaultsConfirmed: !packageDefaultsConfirmed
+              ? "Confirm you can deliver the package defaults."
+              : undefined,
+            addOnPrices: !addOns.mandatoryAddOnsPriced
+              ? "Enter prices for the required add-ons."
+              : undefined,
           }
         : {},
     };
   }, [
     triedContinue,
     profileImage.profileImagePreviewUrl,
-    displayName, dateOfBirth, isEighteenPlus, gender, location.city, shippingAddress,
-    selectedLanguageCount, languageConfirmed, instagramConnected,
-    facets.primaryNiche, facets.secondaryNiches, facetCount,
-    selectedRestrictions, identityHasBlankOther,
-    bio, portfolioConfirmed, introVideo.introVideoPreviewUrl, introConfirmed,
+    displayName,
+    dateOfBirth,
+    isEighteenPlus,
+    gender,
+    location.city,
+    shippingAddress,
+    selectedLanguageCount,
+    languageConfirmed,
+    instagramConnected,
+    facets.primaryNiche,
+    facets.secondaryNiches,
+    facetCount,
+    selectedRestrictions,
+    identityHasBlankOther,
+    bio,
+    portfolioConfirmed,
+    introVideo.introVideoPreviewUrl,
+    introConfirmed,
     packages.packageDraft.deliveryDays,
-    packageDefaultsConfirmed, addOns.mandatoryAddOnsPriced,
+    packageDefaultsConfirmed,
+    addOns.mandatoryAddOnsPriced,
   ]);
 
   const persist = useCallback(
-    (opts: { completeId: WizardStepId; nextIndex: number; includePackages?: boolean; goLive?: boolean }) => {
-      if (introVideo.uploadingIntroVideo || profileImage.uploadingProfileImage) {
+    (opts: {
+      completeId: WizardStepId;
+      nextIndex: number;
+      includePackages?: boolean;
+      goLive?: boolean;
+    }) => {
+      if (
+        introVideo.uploadingIntroVideo ||
+        profileImage.uploadingProfileImage
+      ) {
         toast.error("Hang on — an upload is still finishing.");
         return;
       }
-      const payload = buildPayload(Boolean(opts.includePackages) || Boolean(opts.goLive));
+      const payload = buildPayload(
+        Boolean(opts.includePackages) || Boolean(opts.goLive),
+      );
       if (!payload) {
         toast.error("Check your pricing details before continuing.");
         return;
@@ -931,7 +1039,12 @@ export function CreatorProfileWizard({
           : payload,
       });
     },
-    [buildPayload, introVideo.uploadingIntroVideo, profileImage.uploadingProfileImage, submitMutation],
+    [
+      buildPayload,
+      introVideo.uploadingIntroVideo,
+      profileImage.uploadingProfileImage,
+      submitMutation,
+    ],
   );
 
   const handleContinue = useCallback(() => {
@@ -971,7 +1084,17 @@ export function CreatorProfileWizard({
       nextIndex: Math.min(activeIndex + 1, steps.length - 1),
       includePackages: id === "pricing",
     });
-  }, [activeStep.id, validateStep, isEighteenPlus, goLiveMissing, persist, activeIndex, onExit, steps.length, stepIndex]);
+  }, [
+    activeStep.id,
+    validateStep,
+    isEighteenPlus,
+    goLiveMissing,
+    persist,
+    activeIndex,
+    onExit,
+    steps.length,
+    stepIndex,
+  ]);
 
   // Edit mode: save the current step, then advance to the next one (clamped to
   // the last step, so saving the final step just stays put).
@@ -992,7 +1115,14 @@ export function CreatorProfileWizard({
       nextIndex: Math.min(activeIndex + 1, steps.length - 1),
       includePackages: id === "pricing",
     });
-  }, [activeStep.id, validateStep, isEighteenPlus, persist, activeIndex, steps.length]);
+  }, [
+    activeStep.id,
+    validateStep,
+    isEighteenPlus,
+    persist,
+    activeIndex,
+    steps.length,
+  ]);
 
   // The primary footer button: in edit mode the editable steps save in place;
   // review/go-live keep their submit/exit behavior, and onboarding keeps its
@@ -1031,7 +1161,14 @@ export function CreatorProfileWizard({
       setDirty(false);
       setActiveIndex(index);
     },
-    [steps, activeIndex, completed, canEditFreely, stepFilled, confirmLeaveIfDirty],
+    [
+      steps,
+      activeIndex,
+      completed,
+      canEditFreely,
+      stepFilled,
+      confirmLeaveIfDirty,
+    ],
   );
 
   const handleMobileNext = useCallback(() => {
@@ -1059,22 +1196,31 @@ export function CreatorProfileWizard({
   ]);
 
   // Package editor onChange with live price validation (mirrors the long form).
-  const onPackageChange = useCallback((draft: PackageDraft) => {
-    packages.setPackageDraft(draft);
-    setPackageErrors((prev) => ({ ...prev, priceAmount: validatePackagePrice(draft.priceAmount) }));
-  }, [packages]);
+  const onPackageChange = useCallback(
+    (draft: PackageDraft) => {
+      packages.setPackageDraft(draft);
+      setPackageErrors((prev) => ({
+        ...prev,
+        priceAmount: validatePackagePrice(draft.priceAmount),
+      }));
+    },
+    [packages],
+  );
 
   // ---- Review rows ----
   const reviewRows = useMemo<ReviewRow[]>(() => {
     const languageSummary = selectedLanguages
       .map((slug) => languageLabelBySlug.get(slug) ?? slug)
       .join(", ");
-    const locationSummary = [location.city, location.stateName, location.countryName]
+    const locationSummary = [
+      location.city,
+      location.stateName,
+      location.countryName,
+    ]
       .filter(Boolean)
       .join(", ");
 
-    const aboutOk =
-      displayName.trim() && dateOfBirth && gender;
+    const aboutOk = displayName.trim() && dateOfBirth && gender;
     const baseOk =
       location.city.trim() &&
       shippingAddress.trim() &&
@@ -1094,9 +1240,7 @@ export function CreatorProfileWizard({
         stepId: "about",
         title: "About You",
         status: aboutOk ? "complete" : "incomplete",
-        details: [
-          { label: "Name", value: displayName.trim() || "—" },
-        ],
+        details: [{ label: "Name", value: displayName.trim() || "—" }],
       },
       {
         stepId: "base",
@@ -1123,7 +1267,11 @@ export function CreatorProfileWizard({
       {
         stepId: "portfolio",
         title: "Portfolio",
-        status: !bioOk ? "incomplete" : publicPortfolioCount >= 3 ? "complete" : "improve",
+        status: !bioOk
+          ? "incomplete"
+          : publicPortfolioCount >= 3
+            ? "complete"
+            : "improve",
         summary: !bioOk
           ? "Add your creator story to continue."
           : `${publicPortfolioCount} of 10 videos. ${
@@ -1178,9 +1326,7 @@ export function CreatorProfileWizard({
   // In editor mode, editable steps get a "save this step" reminder + a Save
   // button in the header (in addition to the footer one).
   const showStepSave =
-    canEditFreely &&
-    activeStep.id !== "review" &&
-    activeStep.id !== "go-live";
+    canEditFreely && activeStep.id !== "review" && activeStep.id !== "go-live";
   const isLastStep = activeIndex >= steps.length - 1;
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
@@ -1210,9 +1356,7 @@ export function CreatorProfileWizard({
             type="button"
             className="cw-mobile-nav"
             disabled={
-              pending ||
-              uploadingMedia ||
-              activeIndex >= steps.length - 1
+              pending || uploadingMedia || activeIndex >= steps.length - 1
             }
             onClick={handleMobileNext}
             aria-label="Next step"
@@ -1384,7 +1528,9 @@ export function CreatorProfileWizard({
                   onCityChange={location.setCity}
                   shippingAddress={shippingAddress}
                   onShippingAddressChange={setShippingAddress}
-                  languageOptions={facets.facetOptionsByDimension.LANGUAGE ?? []}
+                  languageOptions={
+                    facets.facetOptionsByDimension.LANGUAGE ?? []
+                  }
                   selectedLanguages={selectedLanguages}
                   languagesLoading={facets.facetOptionsQuery.isLoading}
                   onToggleLanguage={(slug) => {
@@ -1421,7 +1567,9 @@ export function CreatorProfileWizard({
                     facets.setCustomFacetLabel(dimension, value);
                     if (otherNotices[dimension]) dismissOtherNotice(dimension);
                   }}
-                  onCommitOther={(dimension) => void handleCommitOther(dimension)}
+                  onCommitOther={(dimension) =>
+                    void handleCommitOther(dimension)
+                  }
                   resolvingOtherDim={resolvingOtherDim}
                   otherNotices={otherNotices}
                   onDismissOtherNotice={dismissOtherNotice}
@@ -1442,7 +1590,9 @@ export function CreatorProfileWizard({
                   videoPreviewUrl={introVideo.introVideoPreviewUrl}
                   uploading={introVideo.uploadingIntroVideo}
                   fileInputRef={introVideo.introVideoInputRef}
-                  onSelectFile={(file) => void introVideo.handleIntroVideoSelected(file)}
+                  onSelectFile={(file) =>
+                    void introVideo.handleIntroVideoSelected(file)
+                  }
                   confirmed={introConfirmed}
                   onConfirmedChange={setIntroConfirmed}
                   errors={stepErrors["intro-video"]}
@@ -1454,8 +1604,10 @@ export function CreatorProfileWizard({
                   onRetry={() => void portfolioQuery.refetch()}
                   videos={portfolioQuery.data ?? []}
                   onAdd={() => openPortfolioDrawer(null)}
-                  onEdit={(video) => openPortfolioDrawer(video)}
-                  onDelete={(video) => deletePortfolioMutation.mutate({ videoId: video.id })}
+                  onReplace={(video) => openPortfolioDrawer(video)}
+                  onDelete={(video) =>
+                    deletePortfolioMutation.mutate({ videoId: video.id })
+                  }
                   disabled={pending}
                   bio={bio}
                   onBioChange={(v) => {
@@ -1478,7 +1630,9 @@ export function CreatorProfileWizard({
                   onPackageChange={onPackageChange}
                   packageErrors={{
                     ...packageErrors,
-                    deliveryDays: packageErrors.deliveryDays ?? stepErrors.pricing?.deliveryDays,
+                    deliveryDays:
+                      packageErrors.deliveryDays ??
+                      stepErrors.pricing?.deliveryDays,
                   }}
                   addOnOptions={addOns.addOnOptions}
                   selectedAddOnSlugs={addOns.selectedAddOnSlugs}
@@ -1488,7 +1642,9 @@ export function CreatorProfileWizard({
                   addOnsError={addOns.addOnOptionsQuery.isError}
                   onAddOnsRetry={() => void addOns.addOnOptionsQuery.refetch()}
                   onToggleAddOn={(option) => addOns.toggleAddOn(option)}
-                  onAddOnDraftChange={(slug, patch) => addOns.updateAddOnDraft(slug, patch)}
+                  onAddOnDraftChange={(slug, patch) =>
+                    addOns.updateAddOnDraft(slug, patch)
+                  }
                   defaultsConfirmed={packageDefaultsConfirmed}
                   onDefaultsConfirmedChange={setPackageDefaultsConfirmed}
                   addonsReviewed={addonsReviewed}
@@ -1520,7 +1676,9 @@ export function CreatorProfileWizard({
           {activeStep.id !== "go-live" ? (
             <div className="cw-foot">
               {canEditFreely ? (
-                <span className="cw-foot-note">Save each step after you edit it.</span>
+                <span className="cw-foot-note">
+                  Save each step after you edit it.
+                </span>
               ) : null}
               <div className="cw-foot-actions">
                 <button
@@ -1560,8 +1718,8 @@ export function CreatorProfileWizard({
         </div>
       </div>
 
-      {/* Portfolio editor drawer */}
-      <PortfolioEditDrawer
+      {/* Portfolio file drawer — add a reel, or replace an existing one */}
+      <PortfolioFileDrawer
         video={pfEditingVideo}
         open={pfDrawerOpen}
         onClose={() => setPfDrawerOpen(false)}
@@ -1571,42 +1729,41 @@ export function CreatorProfileWizard({
         thumbInputRef={pfThumbInputRef}
         onSelectVideoFile={setPfPendingVideoFile}
         onSelectThumbFile={setPfPendingThumbFile}
-        industrySuggestions={portfolioIndustrySuggestions}
-        tagSuggestions={portfolioTagSuggestions}
-        languageOptions={(facets.facetOptionsByDimension.LANGUAGE ?? []).map((lang) => ({
-          value: lang.slug,
-          label: lang.label,
-        }))}
-        onSave={(form) => {
+        onSave={() => {
+          if (!pfPendingVideoFile) {
+            toast.error("Please select a video file first.");
+            return;
+          }
+          const admin = adminMode ? { adminCreatorId: profileId } : {};
           if (pfEditingVideo) {
-            updatePortfolioMutation.mutate(
+            replacePortfolioMutation.mutate(
               {
                 videoId: pfEditingVideo.id,
-                payload: form,
-                ...(adminMode ? { adminCreatorId: profileId } : {}),
-              },
-              { onSuccess: () => setPfDrawerOpen(false) },
-            );
-          } else if (pfPendingVideoFile) {
-            createPortfolioMutation.mutate(
-              {
                 videoFile: pfPendingVideoFile,
                 thumbnailFile: pfPendingThumbFile,
-                visibility: form.visibilityStatus ?? "public",
-                metadataPatch: form,
-                ...(adminMode ? { adminCreatorId: profileId } : {}),
+                ...admin,
               },
               { onSuccess: () => setPfDrawerOpen(false) },
             );
           } else {
-            toast.error("Please select a video file first.");
+            createPortfolioMutation.mutate(
+              {
+                videoFile: pfPendingVideoFile,
+                thumbnailFile: pfPendingThumbFile,
+                ...admin,
+              },
+              { onSuccess: () => setPfDrawerOpen(false) },
+            );
           }
         }}
         onDelete={(video) => {
           deletePortfolioMutation.mutate({ videoId: video.id });
           setPfDrawerOpen(false);
         }}
-        isSaving={createPortfolioMutation.isPending || updatePortfolioMutation.isPending}
+        isSaving={
+          createPortfolioMutation.isPending ||
+          replacePortfolioMutation.isPending
+        }
       />
     </div>
   );

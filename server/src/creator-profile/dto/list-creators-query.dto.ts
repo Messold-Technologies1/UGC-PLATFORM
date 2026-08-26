@@ -30,7 +30,11 @@ function toOptionalNonNegativeNumber(value: unknown): number | undefined {
 class MaxPriceGteMinPriceConstraint implements ValidatorConstraintInterface {
   validate(maxPrice: unknown, args: ValidationArguments): boolean {
     const o = args.object as { minPrice?: number };
-    if (o.minPrice === undefined || maxPrice === undefined || maxPrice === null) {
+    if (
+      o.minPrice === undefined ||
+      maxPrice === undefined ||
+      maxPrice === null
+    ) {
       return true;
     }
     return Number(maxPrice) >= Number(o.minPrice);
@@ -44,9 +48,7 @@ class MaxPriceGteMinPriceConstraint implements ValidatorConstraintInterface {
 function toTrimmedStringArray(value: unknown): string[] | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   if (Array.isArray(value)) {
-    const out = value
-      .map((v) => String(v).trim())
-      .filter(Boolean);
+    const out = value.map((v) => String(v).trim()).filter(Boolean);
     return out.length ? out : undefined;
   }
   if (typeof value === 'string') {
@@ -76,7 +78,11 @@ function toOptionalBoolean(value: unknown): boolean | undefined {
 
 function trimOrUndefined(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
-  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+  if (
+    typeof value !== 'string' &&
+    typeof value !== 'number' &&
+    typeof value !== 'boolean'
+  ) {
     return undefined;
   }
   const s = String(value).trim();
@@ -87,7 +93,7 @@ export class ListCreatorsQueryDto {
   @ApiPropertyOptional({
     example: 'fashion',
     description:
-      'Free-text keyword search (case-insensitive substring). Matches location, bio, niche/category labels, portfolio-video industry & tags, package names, and open-to restrictions. Never matches the creator name.',
+      'Free-text keyword search (case-insensitive substring). Matches location, bio, niche/category labels, package names, and open-to restrictions. Never matches the creator name.',
   })
   @IsOptional()
   @Transform(({ value }) => trimOrUndefined(value))
@@ -128,7 +134,8 @@ export class ListCreatorsQueryDto {
 
   @ApiPropertyOptional({
     example: 18,
-    description: 'Minimum completed age (uses dateOfBirth). Combine with maxAge.',
+    description:
+      'Minimum completed age (uses dateOfBirth). Combine with maxAge.',
   })
   @IsOptional()
   @Type(() => Number)
@@ -150,7 +157,8 @@ export class ListCreatorsQueryDto {
 
   @ApiPropertyOptional({
     enum: CreatorAgeGroup,
-    description: 'Predefined age band (combined with minAge/maxAge using intersection).',
+    description:
+      'Predefined age band (combined with minAge/maxAge using intersection).',
   })
   @IsOptional()
   @IsEnum(CreatorAgeGroup)

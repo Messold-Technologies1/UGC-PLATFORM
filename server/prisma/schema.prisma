@@ -932,9 +932,6 @@ model CreatorPortfolioVideo {
   videoUrl         String
   thumbnailKey     String?
   thumbnailUrl     String?
-  industryLabel    String?
-  language         String?
-  description      String?
   visibilityStatus PortfolioVisibilityStatus @default(PUBLIC)
   /// SHA-256 hex of the uploaded bytes, supplied by the client. Used only to
   /// stop the same file being added to one portfolio twice; null for rows
@@ -945,25 +942,11 @@ model CreatorPortfolioVideo {
   updatedAt        DateTime                  @updatedAt
 
   creator       CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  tags          CreatorPortfolioVideoTag[]
   sectionVideos CreatorPortfolioSectionVideo[]
 
   @@unique([creatorId, contentHash])
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
-  @@index([visibilityStatus, industryLabel])
-}
-
-model CreatorPortfolioVideoTag {
-  id        String   @id @default(uuid()) @db.Uuid
-  videoId   String   @db.Uuid
-  tag       String
-  createdAt DateTime @default(now())
-
-  video CreatorPortfolioVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
-
-  @@unique([videoId, tag])
-  @@index([tag])
 }
 
 model CreatorPortfolioSection {
@@ -1005,27 +988,6 @@ model CreatorDemoVideo {
   updatedAt    DateTime @updatedAt
 
   @@index([active, sortOrder])
-}
-
-model PortfolioIndustrySuggestion {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String
-  normalizedName String   @unique
-  createdAt      DateTime @default(now())
-}
-
-model PortfolioTagSuggestion {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String
-  normalizedName String   @unique
-  createdAt      DateTime @default(now())
-}
-
-model PortfolioLanguageSuggestion {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String
-  normalizedName String   @unique
-  createdAt      DateTime @default(now())
 }
 
 model CreatorApproval {

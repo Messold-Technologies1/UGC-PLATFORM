@@ -11,7 +11,14 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function PortfolioCard({ video }: { video: PortfolioVideoApi }) {
+export function PortfolioCard({
+  video,
+  isIntro = false,
+}: {
+  video: PortfolioVideoApi;
+  /** Set for the synthesized intro-video card, which is not a portfolio row. */
+  isIntro?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -101,7 +108,7 @@ export function PortfolioCard({ video }: { video: PortfolioVideoApi }) {
           <div className="size-full bg-gradient-to-br from-gray-200 to-gray-300" />
         )}
 
-        {video.tags?.includes("Intro") && (
+        {isIntro && (
           <div className="absolute left-3 top-3 z-20 rounded-lg bg-black px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
             Intro
           </div>
@@ -182,19 +189,17 @@ export function PortfolioCard({ video }: { video: PortfolioVideoApi }) {
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-semibold text-foreground">
-          {video.description || video.industryLabel || "Portfolio Item"}
+          {isIntro ? "Intro Video" : "Portfolio Item"}
         </p>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
       </div>
 
       <div className="mt-1 flex items-center gap-1.5">
         <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
-          {video.industryLabel
-            ? video.industryLabel.charAt(0).toUpperCase()
-            : "V"}
+          {isIntro ? "I" : "V"}
         </span>
         <span className="truncate text-xs text-muted-foreground">
-          {video.tags?.[0] || "UGC Video"}
+          {isIntro ? "Intro" : "UGC Video"}
         </span>
       </div>
     </div>

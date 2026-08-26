@@ -109,7 +109,9 @@ export class CreatorPortfolioController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Finalize a multipart upload once all parts are done' })
+  @ApiOperation({
+    summary: 'Finalize a multipart upload once all parts are done',
+  })
   @ApiCreatedResponse({ type: CompleteMultipartUploadResponseDto })
   async completeMultipartUpload(
     @Body() dto: CompleteMultipartUploadDto,
@@ -123,7 +125,9 @@ export class CreatorPortfolioController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({ description: 'Multipart upload aborted' })
-  @ApiOperation({ summary: 'Cancel a multipart upload and discard uploaded parts' })
+  @ApiOperation({
+    summary: 'Cancel a multipart upload and discard uploaded parts',
+  })
   async abortMultipartUpload(
     @Body() dto: AbortMultipartUploadDto,
     @Req() req: Request & { user: { id: string } },
@@ -187,35 +191,16 @@ export class CreatorPortfolioController {
     return this.service.listPublicVideosByCreatorId(creatorId);
   }
 
-  @Get('suggestions/industries')
-  @ApiOkResponse({ type: [String] })
-  @ApiOperation({ summary: 'List industry label suggestions' })
-  async listIndustrySuggestions(): Promise<string[]> {
-    return this.service.listIndustrySuggestions();
-  }
-
-  @Get('suggestions/tags')
-  @ApiOkResponse({ type: [String] })
-  @ApiOperation({ summary: 'List tag suggestions' })
-  async listTagSuggestions(): Promise<string[]> {
-    return this.service.listTagSuggestions();
-  }
-
-  @Get('suggestions/languages')
-  @ApiOkResponse({ type: [String] })
-  @ApiOperation({ summary: 'List language suggestions' })
-  async listLanguageSuggestions(): Promise<string[]> {
-    return this.service.listLanguageSuggestions();
-  }
-
   @Patch('videos/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: PortfolioVideoResponseDto })
   @ApiOperation({
-    summary: 'Update portfolio video metadata/visibility',
+    summary: "Replace a portfolio video's file",
     description:
-      'Creators update their own videos. Admins may pass creatorId when updating on behalf of a creator.',
+      'Swaps the clip on an existing entry, keeping its place in the portfolio — the only ' +
+      'way to change a video once the portfolio is at the minimum-videos floor, where ' +
+      'deleting is refused. Admins may pass creatorId to act for a creator.',
   })
   async updateVideo(
     @Param('id', ParseUUIDPipe) id: string,
@@ -242,8 +227,6 @@ export class CreatorPortfolioController {
   ): Promise<void> {
     await this.service.deleteVideo(req.user.id, id, query.creatorId);
   }
-
-
 
   @Post('sections')
   @UseGuards(JwtAuthGuard)

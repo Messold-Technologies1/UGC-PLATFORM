@@ -86,8 +86,7 @@ export class CreatorPackageResponseDto {
 
   @ApiProperty({
     example: 2,
-    description:
-      'Maximum number of revision cycles included in this package.',
+    description: 'Maximum number of revision cycles included in this package.',
   })
   maxRevisions!: number;
 }
@@ -122,12 +121,6 @@ export class CreatorPortfolioVideoPreviewResponseDto {
     example: 'https://cdn.example.com/creator-portfolio/...jpg',
   })
   thumbnailUrl?: string | null;
-
-  @ApiPropertyOptional({ example: 'fitness' })
-  industryLabel?: string | null;
-
-  @ApiProperty({ type: [String], example: ['testimonial', 'skincare'] })
-  tags!: string[];
 
   @ApiProperty()
   createdAt!: Date;
@@ -172,7 +165,8 @@ export class CreatorProfileResponseDto {
   introVideoUrl?: string | null;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/creator-profile/<id>/profile-image/<uuid>.jpg',
+    example:
+      'https://cdn.example.com/creator-profile/<id>/profile-image/<uuid>.jpg',
     description: 'CDN URL for the creator profile image (optional).',
   })
   profileImageUrl?: string | null;
@@ -195,7 +189,9 @@ export class CreatorProfileResponseDto {
   @ApiPropertyOptional({ example: '1995-04-15' })
   dateOfBirth?: string | null;
 
-  @ApiPropertyOptional({ description: 'Completed age in years (from dateOfBirth).' })
+  @ApiPropertyOptional({
+    description: 'Completed age in years (from dateOfBirth).',
+  })
   age?: number | null;
 
   @ApiPropertyOptional({ enum: CreatorAgeGroup })
@@ -297,7 +293,6 @@ export class CreatorProfileResponseDto {
 
   @ApiProperty({ type: () => [CreatorFacetSelectionResponseDto] })
   facetSelections!: CreatorFacetSelectionResponseDto[];
-
 
   @ApiProperty({ type: () => [CreatorRestrictionResponseDto] })
   restrictions!: CreatorRestrictionResponseDto[];

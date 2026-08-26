@@ -188,7 +188,7 @@ export function BulkAddVideosModal({ sectionId, isOpen, onClose }: Props) {
                           Video
                         </div>
                         <p className="text-xs font-medium line-clamp-2 leading-tight drop-shadow-md">
-                          {video.description || "Untitled Video"}
+                          Portfolio video
                         </p>
                       </div>
                     </div>

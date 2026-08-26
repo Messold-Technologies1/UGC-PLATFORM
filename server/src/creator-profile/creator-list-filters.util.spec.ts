@@ -71,8 +71,6 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-
-
     it('filters by package price range when min and max set', () => {
       const q: ListCreatorsQueryDto = { minPrice: 100, maxPrice: 500 };
       expect(buildListCreatorsWhere(q)).toEqual({
@@ -137,7 +135,7 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('searches across location, bio, niche, portfolio industry/tags, packages and restrictions — never the creator name', () => {
+    it('searches across location, bio, niche, packages and restrictions — never the creator name or portfolio videos', () => {
       const like = { contains: 'fashion', mode: 'insensitive' };
       expect(buildListCreatorsWhere({ search: 'fashion' })).toEqual({
         AND: [
@@ -148,22 +146,6 @@ describe('creator-list-filters.util', () => {
               { stateName: like },
               { countryName: like },
               { bio: like },
-              {
-                portfolioVideos: {
-                  some: {
-                    visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
-                    industryLabel: like,
-                  },
-                },
-              },
-              {
-                portfolioVideos: {
-                  some: {
-                    visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
-                    tags: { some: { tag: like } },
-                  },
-                },
-              },
               {
                 facetSelections: {
                   some: {
@@ -203,7 +185,6 @@ describe('creator-list-filters.util', () => {
         },
       });
     });
-
   });
 
   describe('buildAdminCreatorApprovalSearchWhere', () => {

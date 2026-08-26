@@ -25,7 +25,7 @@ export type PortfolioStepProps = {
   onRetry: () => void;
   videos: PortfolioVideoApi[];
   onAdd: () => void;
-  onEdit: (video: PortfolioVideoApi) => void;
+  onReplace: (video: PortfolioVideoApi) => void;
   onDelete: (video: PortfolioVideoApi) => void;
   disabled: boolean;
   bio: string;
@@ -46,7 +46,7 @@ export function PortfolioStep({
   onRetry,
   videos,
   onAdd,
-  onEdit,
+  onReplace,
   onDelete,
   disabled,
   bio,
@@ -60,7 +60,6 @@ export function PortfolioStep({
   onConfirmedChange,
   errors = {},
 }: PortfolioStepProps) {
-  const publicCount = videos.filter((v) => v.visibilityStatus === "public").length;
   const bioLen = bio.trim().length;
   const [exampleOpen, setExampleOpen] = useState(false);
   return (
@@ -113,8 +112,8 @@ export function PortfolioStep({
           <div className="cw-ai-notice" role="status">
             <Sparkles size={15} aria-hidden className="cw-ai-notice-icon" />
             <span>
-              Fresh from AI, this is a solid first draft, but it doesn&apos;t know
-              your vibe yet. Tweak a line or two so it sounds unmistakably{" "}
+              Fresh from AI, this is a solid first draft, but it doesn&apos;t
+              know your vibe yet. Tweak a line or two so it sounds unmistakably{" "}
               <strong>you</strong>.
             </span>
             <button
@@ -128,7 +127,10 @@ export function PortfolioStep({
           </div>
         ) : null}
         {errors.bio ? (
-          <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.bio}</p>
+          <p className="cw-field-warn">
+            <AlertTriangle size={13} aria-hidden />
+            {errors.bio}
+          </p>
         ) : null}
         <div className="cw-bio-foot">
           <span
@@ -165,26 +167,36 @@ export function PortfolioStep({
           Your portfolio videos <span className="cw-req">*</span>
         </label>
         <span className="cw-facet-help">
-          Upload your best work (minimum 3 videos). This is what brands browse before they book
-          you.
+          Upload your best work (minimum 3 videos). This is what brands browse
+          before they book you.
         </span>
       </div>
 
-      {publicCount < 3 ? (
+      {videos.length < 3 ? (
         <div className="cw-portfolio-note">
-          Upload at least 3 approved videos to go live. {publicCount} of 10
-          uploaded so far — creators with 10+ pieces get 3× more orders.
+          Upload at least 3 videos to go live. {videos.length} of 10 uploaded so
+          far — creators with 10+ pieces get 3× more orders.
         </div>
       ) : null}
 
       {loading ? (
-        <CatalogStatus loading error={false} label="portfolio videos" onRetry={onRetry} />
+        <CatalogStatus
+          loading
+          error={false}
+          label="portfolio videos"
+          onRetry={onRetry}
+        />
       ) : error ? (
-        <CatalogStatus loading={false} error label="portfolio videos" onRetry={onRetry} />
+        <CatalogStatus
+          loading={false}
+          error
+          label="portfolio videos"
+          onRetry={onRetry}
+        />
       ) : (
         <PortfolioGrid
           videos={videos}
-          onEdit={onEdit}
+          onReplace={onReplace}
           onDelete={onDelete}
           onAdd={onAdd}
         />

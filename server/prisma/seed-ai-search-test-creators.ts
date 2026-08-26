@@ -41,6 +41,13 @@ type Persona = {
       string[]
     >
   >;
+  /**
+   * Only the length is used — it decides how many portfolio videos the persona
+   * gets. The per-item fields are no longer persisted: portfolio videos carry
+   * no industry label, tags or description. Kept as inline documentation of
+   * each persona's intended niche; the searchable signal now comes from
+   * `contentCategory`, which is written as a CONTENT_CATEGORY facet.
+   */
   portfolio: Array<{
     industryLabel: string;
     tags: string[];
@@ -966,10 +973,24 @@ const RESTRICTION_CYCLE = [
 
 const OPTIONAL_FACET_POOL = {
   appearance: ['midsize', 'slim_lean', 'athletic_fit', 'plus_size_curvy'],
-  contentStyle: ['talking_to_camera', 'product_demo', 'ugc_ad_style', 'aesthetic_cinematic'],
-  capability: ['can_shoot_at_home', 'can_shoot_outdoor', 'can_travel_on_location'],
+  contentStyle: [
+    'talking_to_camera',
+    'product_demo',
+    'ugc_ad_style',
+    'aesthetic_cinematic',
+  ],
+  capability: [
+    'can_shoot_at_home',
+    'can_shoot_outdoor',
+    'can_travel_on_location',
+  ],
   lifeStyle: ['parent', 'pet_owner', 'outdoor_travel', 'luxury_lifestyle'],
-  occupation: ['full_time_creator', 'fitness_trainer', 'teacher', 'entrepreneur'],
+  occupation: [
+    'full_time_creator',
+    'fitness_trainer',
+    'teacher',
+    'entrepreneur',
+  ],
   canCreateWith: ['pets', 'child', 'partner', 'friends'],
   aiContentPermission: ['ai_subtitles', 'ai_voice_cleanup'],
 } as const;
@@ -994,11 +1015,15 @@ function buildExtraPersonas(targetTotal: number): Persona[] {
     if (i % 5 === 0) optionalFacets.lifeStyle = ['pet_owner'];
     if (i % 2 === 0)
       optionalFacets.appearance = [
-        OPTIONAL_FACET_POOL.appearance[i % OPTIONAL_FACET_POOL.appearance.length]!,
+        OPTIONAL_FACET_POOL.appearance[
+          i % OPTIONAL_FACET_POOL.appearance.length
+        ]!,
       ];
     if (i % 3 === 0)
       optionalFacets.contentStyle = [
-        OPTIONAL_FACET_POOL.contentStyle[i % OPTIONAL_FACET_POOL.contentStyle.length]!,
+        OPTIONAL_FACET_POOL.contentStyle[
+          i % OPTIONAL_FACET_POOL.contentStyle.length
+        ]!,
       ];
 
     const industry = combo.industries[i % combo.industries.length]!;
@@ -1013,11 +1038,12 @@ function buildExtraPersonas(targetTotal: number): Persona[] {
       creatorType: [CREATOR_TYPE_CYCLE[i % CREATOR_TYPE_CYCLE.length]!],
       contentCategory: combo.contentCategory,
       categoryExperience: combo.categoryExperience,
-      languages:
-        i % 2 === 0 ? ['english', 'hindi'] : ['hindi', 'english'],
+      languages: i % 2 === 0 ? ['english', 'hindi'] : ['hindi', 'english'],
       optionalFacets,
       restrictions:
-        i % 6 === 0 ? [RESTRICTION_CYCLE[i % RESTRICTION_CYCLE.length]!] : undefined,
+        i % 6 === 0
+          ? [RESTRICTION_CYCLE[i % RESTRICTION_CYCLE.length]!]
+          : undefined,
       portfolio: [
         {
           industryLabel: industry,
@@ -1058,7 +1084,10 @@ function dbFingerprint(): string {
 }
 
 type FacetMaps = {
-  byDimensionSlug: Map<string, { id: string; dimension: CreatorFacetDimension }>;
+  byDimensionSlug: Map<
+    string,
+    { id: string; dimension: CreatorFacetDimension }
+  >;
 };
 
 async function loadFacetMaps(): Promise<FacetMaps> {
@@ -1135,7 +1164,8 @@ async function seedOneCreator(
   creatorRoleId: string,
   passwordHash: string,
 ): Promise<'created' | 'skipped'> {
-  const email = `ai-search-${persona.seedKey}@${TEST_EMAIL_DOMAIN}`.toLowerCase();
+  const email =
+    `ai-search-${persona.seedKey}@${TEST_EMAIL_DOMAIN}`.toLowerCase();
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -1274,24 +1304,15 @@ async function seedOneCreator(
     }
 
     for (let v = 0; v < persona.portfolio.length; v++) {
-      const item = persona.portfolio[v]!;
-      const video = await tx.creatorPortfolioVideo.create({
+      await tx.creatorPortfolioVideo.create({
         data: {
           creatorId: creatorProfile.id,
           videoKey: `seed/${persona.seedKey}/video-${v + 1}.mp4`,
           videoUrl: SAMPLE_VIDEOS[(index + v) % SAMPLE_VIDEOS.length]!,
           thumbnailUrl: `https://i.pravatar.cc/640?u=${encodeURIComponent(`${persona.seedKey}-v${v}`)}`,
           thumbnailKey: `seed/${persona.seedKey}/thumb-${v + 1}.jpg`,
-          industryLabel: item.industryLabel,
-          description: item.description,
-          language: persona.languages[0] ?? 'english',
           visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
         },
-      });
-
-      await tx.creatorPortfolioVideoTag.createMany({
-        data: item.tags.map((tag) => ({ videoId: video.id, tag })),
-        skipDuplicates: true,
       });
     }
 

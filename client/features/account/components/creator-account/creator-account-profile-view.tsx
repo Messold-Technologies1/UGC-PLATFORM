@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+
+/**
+ * A portfolio card can also render the creator's intro video, which is not a
+ * portfolio row — it is synthesized here and marked so the card can label it.
+ */
+type DisplayVideo = PortfolioVideoApi & { isIntro?: boolean };
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { CreatorPayoutDetailsBanner } from "@/components/dashboard/creator-payout-details-banner";
 import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
@@ -82,18 +88,16 @@ export function CreatorAccountProfileView({
   const isApproved = profile.approvalStatus === "APPROVED";
   const canPreviewPublicProfile = Boolean(publicProfilePath) && isApproved;
 
-  let displayVideos = [...videos];
+  let displayVideos: DisplayVideo[] = [...videos];
   if (profile.introVideoUrl) {
-    const introVideo: PortfolioVideoApi = {
+    const introVideo: DisplayVideo = {
       id: "intro-video",
       creatorId: profile.userId,
       videoUrl: profile.introVideoUrl,
       thumbnailUrl: null,
-      tags: ["Intro"],
-      industryLabel: "Intro",
-      description: "Intro Video",
       visibilityStatus: "public",
       createdAt: profile.createdAt || new Date().toISOString(),
+      isIntro: true,
     };
     displayVideos = [
       introVideo,
@@ -107,8 +111,13 @@ export function CreatorAccountProfileView({
     .filter(Boolean)
     .join(", ");
 
-  const contentCategories = profile.facetSelections?.filter(f => f.dimension === "CONTENT_CATEGORY").slice(0, 7) || [];
-  const allTags = contentCategories.map((c) => c.label.replace(/\s*\/\s*/g, " & "));
+  const contentCategories =
+    profile.facetSelections
+      ?.filter((f) => f.dimension === "CONTENT_CATEGORY")
+      .slice(0, 7) || [];
+  const allTags = contentCategories.map((c) =>
+    c.label.replace(/\s*\/\s*/g, " & "),
+  );
   const displayTags = tagsExpanded ? allTags : allTags.slice(0, 3);
   const extraTagsCount = tagsExpanded ? 0 : Math.max(0, allTags.length - 3);
 
@@ -277,126 +286,151 @@ export function CreatorAccountProfileView({
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-6 xl:flex-row xl:items-stretch">
-                <div className="min-w-0 flex-1 text-center sm:text-left sm:pr-36">
-                  <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start">
-                    <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-                      {profile.displayName}
-                    </h2>
-                    <VerifiedBadge />
-                  </div>
+                  <div className="min-w-0 flex-1 text-center sm:text-left sm:pr-36">
+                    <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start">
+                      <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+                        {profile.displayName}
+                      </h2>
+                      <VerifiedBadge />
+                    </div>
 
-                  <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm sm:justify-start">
-                    {/* <Badge className="rounded-full border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100">
+                    <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm sm:justify-start">
+                      {/* <Badge className="rounded-full border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100">
                       Top Creator
                     </Badge> */}
-                   
-                    <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      {locationString || "Location not set"}
-                    </span>
-                    {profile.profileLanguages &&
-                      profile.profileLanguages.length > 0 && (
-                        <>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
-                            {profile.profileLanguages
-                              .map((language) => language.label)
-                              .join(", ")}
-                          </span>
-                        </>
-                      )}
+
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                        {locationString || "Location not set"}
+                      </span>
+                      {profile.profileLanguages &&
+                        profile.profileLanguages.length > 0 && (
+                          <>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              {profile.profileLanguages
+                                .map((language) => language.label)
+                                .join(", ")}
+                            </span>
+                          </>
+                        )}
+                    </div>
+
+                    <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                      {profile.bio || "No bio provided."}
+                    </p>
+
+                    <motion.div
+                      layout
+                      className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start"
+                    >
+                      <AnimatePresence>
+                        {displayTags.map((tag: string, index: number) => (
+                          <motion.span
+                            layout
+                            key={tag}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{
+                              duration: 0.2,
+                              delay: index >= 3 ? (index - 3) * 0.05 : 0,
+                            }}
+                            className="rounded-full border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-blue-200 hover:bg-blue-50/50 shadow-sm"
+                          >
+                            {tag}
+                          </motion.span>
+                        ))}
+                        {extraTagsCount > 0 && (
+                          <motion.button
+                            layout
+                            key="expand-button"
+                            type="button"
+                            onClick={() => setTagsExpanded(true)}
+                            exit={{
+                              opacity: 0,
+                              scale: 0.8,
+                              width: 0,
+                              padding: 0,
+                              margin: 0,
+                              overflow: "hidden",
+                            }}
+                            transition={{ duration: 0.2 }}
+                            className="rounded-full border border-border bg-muted/30 px-3.5 py-1.5 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            +{extraTagsCount}
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
                   </div>
 
-                  <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-                    {profile.bio || "No bio provided."}
-                  </p>
-
-                  <motion.div layout className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                    <AnimatePresence>
-                      {displayTags.map((tag: string, index: number) => (
-                        <motion.span
-                          layout
-                          key={tag}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.2, delay: index >= 3 ? (index - 3) * 0.05 : 0 }}
-                          className="rounded-full border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-blue-200 hover:bg-blue-50/50 shadow-sm"
+                  <div className="flex w-full shrink-0 flex-col justify-end gap-3 pb-1 xl:w-auto">
+                    <div className="flex flex-col gap-2 sm:flex-row xl:flex-row xl:items-center xl:gap-3">
+                      {canPreviewPublicProfile ? (
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none"
+                          asChild
                         >
-                          {tag}
-                        </motion.span>
-                      ))}
-                      {extraTagsCount > 0 && (
-                        <motion.button
-                          layout
-                          key="expand-button"
-                          type="button"
-                          onClick={() => setTagsExpanded(true)}
-                          exit={{ opacity: 0, scale: 0.8, width: 0, padding: 0, margin: 0, overflow: "hidden" }}
-                          transition={{ duration: 0.2 }}
-                          className="rounded-full border border-border bg-muted/30 px-3.5 py-1.5 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 transition-colors cursor-pointer whitespace-nowrap"
-                        >
-                          +{extraTagsCount}
-                        </motion.button>
+                          <Link
+                            href={publicProfilePath ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-tour="creator-profile-preview"
+                          >
+                            <Pencil className="size-3.5" />
+                            Preview Public Profile
+                            <ExternalLink className="size-3.5 opacity-60" />
+                          </Link>
+                        </Button>
+                      ) : (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {/* Wrapping span keeps hover/focus events flowing to the
+                                tooltip even though the button itself is disabled. */}
+                              <span
+                                tabIndex={0}
+                                data-tour="creator-profile-preview"
+                                className="w-full sm:flex-1 xl:w-auto xl:flex-none"
+                              >
+                                <Button
+                                  variant="outline"
+                                  size="lg"
+                                  disabled
+                                  aria-disabled
+                                  className="pointer-events-none w-full gap-2 opacity-50"
+                                >
+                                  <Pencil className="size-3.5" />
+                                  Preview Public Profile
+                                  <ExternalLink className="size-3.5 opacity-60" />
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Available once your profile is approved
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
-                    </AnimatePresence>
-                  </motion.div>
-                </div>
-
-                <div className="flex w-full shrink-0 flex-col justify-end gap-3 pb-1 xl:w-auto">
-                  <div className="flex flex-col gap-2 sm:flex-row xl:flex-row xl:items-center xl:gap-3">
-                    {canPreviewPublicProfile ? (
-                      <Button variant="outline" size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none"
+                        asChild
+                      >
                         <Link
-                          href={publicProfilePath ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-tour="creator-profile-preview"
+                          href="/creator/settings/profile"
+                          data-tour="creator-profile-edit"
                         >
                           <Pencil className="size-3.5" />
-                          Preview Public Profile
-                          <ExternalLink className="size-3.5 opacity-60" />
+                          Edit Profile
                         </Link>
                       </Button>
-                    ) : (
-                      <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            {/* Wrapping span keeps hover/focus events flowing to the
-                                tooltip even though the button itself is disabled. */}
-                            <span
-                              tabIndex={0}
-                              data-tour="creator-profile-preview"
-                              className="w-full sm:flex-1 xl:w-auto xl:flex-none"
-                            >
-                              <Button
-                                variant="outline"
-                                size="lg"
-                                disabled
-                                aria-disabled
-                                className="pointer-events-none w-full gap-2 opacity-50"
-                              >
-                                <Pencil className="size-3.5" />
-                                Preview Public Profile
-                                <ExternalLink className="size-3.5 opacity-60" />
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Available once your profile is approved
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    <Button size="lg" className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none" asChild>
-                      <Link href="/creator/settings/profile" data-tour="creator-profile-edit">
-                        <Pencil className="size-3.5" />
-                        Edit Profile
-                      </Link>
-                    </Button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
           </motion.section>
 
           <motion.section
@@ -411,7 +445,10 @@ export function CreatorAccountProfileView({
                   <StatCard stat={stat} />
                 </div>
                 {i < statsList.length - 1 && (
-                  <Separator orientation="vertical" className="hidden h-auto my-6 xl:block" />
+                  <Separator
+                    orientation="vertical"
+                    className="hidden h-auto my-6 xl:block"
+                  />
                 )}
               </Fragment>
             ))}
@@ -446,7 +483,8 @@ export function CreatorAccountProfileView({
                       </motion.p>
                     </AnimatePresence>
 
-                    {(profile.bio.length > 180 || profile.bio.split('\n').length > 4) && (
+                    {(profile.bio.length > 180 ||
+                      profile.bio.split("\n").length > 4) && (
                       <button
                         onClick={() => setAboutExpanded((prev) => !prev)}
                         className="mt-4 text-sm font-semibold text-primary transition-colors hover:underline"
@@ -459,9 +497,12 @@ export function CreatorAccountProfileView({
                 ) : (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-8 bg-muted/30">
                     <MessageSquareText className="size-6 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm font-medium text-foreground">No bio provided</p>
+                    <p className="text-sm font-medium text-foreground">
+                      No bio provided
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1 text-center max-w-[250px]">
-                      Add a short bio to let brands know more about your style and personality.
+                      Add a short bio to let brands know more about your style
+                      and personality.
                     </p>
                   </div>
                 )}
@@ -475,7 +516,9 @@ export function CreatorAccountProfileView({
                 <li className="flex items-center gap-2.5 text-sm">
                   {/* <Phone className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
-                    <strong className="text-foreground font-semibold">Phone:</strong>{" "}
+                    <strong className="text-foreground font-semibold">
+                      Phone:
+                    </strong>{" "}
                     {profile.phone ?? "Not specified"}
                   </span>
                 </li>
@@ -483,7 +526,9 @@ export function CreatorAccountProfileView({
                 <li className="flex items-center gap-2.5 text-sm">
                   {/* <Mail className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
-                    <strong className="text-foreground font-semibold">Email:</strong>{" "}
+                    <strong className="text-foreground font-semibold">
+                      Email:
+                    </strong>{" "}
                     {profile.contactEmail ?? "Not specified"}
                   </span>
                 </li>
@@ -491,7 +536,9 @@ export function CreatorAccountProfileView({
                 <li className="flex items-center gap-2.5 text-sm">
                   {/* <User className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
-                    <strong className="text-foreground font-semibold">Gender:</strong>{" "}
+                    <strong className="text-foreground font-semibold">
+                      Gender:
+                    </strong>{" "}
                     {genderLabel ?? "Not specified"}
                   </span>
                 </li>
@@ -499,14 +546,18 @@ export function CreatorAccountProfileView({
                 <li className="flex items-center gap-2.5 text-sm">
                   {/* <Calendar className="size-5 shrink-0 text-blue-600" strokeWidth={2} /> */}
                   <span className="text-muted-foreground">
-                    <strong className="text-foreground font-semibold">Age:</strong>{" "}
+                    <strong className="text-foreground font-semibold">
+                      Age:
+                    </strong>{" "}
                     {ageDisplay ?? "Not specified"}
                   </span>
                 </li>
                 {(profile.restrictions?.length ?? 0) > 0 && (
                   <li className="flex items-center gap-2.5 text-sm">
                     <span className="text-muted-foreground">
-                      <strong className="text-foreground font-semibold">Open to:</strong>{" "}
+                      <strong className="text-foreground font-semibold">
+                        Open to:
+                      </strong>{" "}
                       {profile
                         .restrictions!.map((row) =>
                           formatContentPreferenceLabel(row.restriction),
@@ -515,7 +566,6 @@ export function CreatorAccountProfileView({
                     </span>
                   </li>
                 )}
-
               </ul>
             </section>
 
@@ -549,14 +599,22 @@ export function CreatorAccountProfileView({
                   )}
                 >
                   {topVideos.map((video) => (
-                    <PortfolioCard key={video.id} video={video} />
+                    <PortfolioCard
+                      key={video.id}
+                      video={video}
+                      isIntro={video.isIntro}
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="mt-5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-10 bg-muted/30">
                   <Video className="size-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-medium text-foreground">No portfolio items</p>
-                  <p className="text-xs text-muted-foreground mt-1">Upload videos to showcase your work.</p>
+                  <p className="text-sm font-medium text-foreground">
+                    No portfolio items
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload videos to showcase your work.
+                  </p>
                 </div>
               )}
             </section>
@@ -753,7 +811,9 @@ export function CreatorAccountProfileView({
             ) : (
               <div className="mt-4 flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-8 bg-muted/30">
                 <ClipboardList className="size-6 text-muted-foreground/40 mb-2" />
-                <p className="text-sm font-medium text-foreground">No categories</p>
+                <p className="text-sm font-medium text-foreground">
+                  No categories
+                </p>
                 <p className="text-xs text-muted-foreground mt-1 text-center max-w-[200px]">
                   Select categories to show brands what you create.
                 </p>

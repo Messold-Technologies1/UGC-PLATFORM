@@ -86,9 +86,7 @@ import type {
 } from './dto/suggested-creators-response.dto';
 
 /** Orders counted as successfully completed for creator stats. */
-const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
-  OrderStatus.ACCEPTED
-];
+const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [OrderStatus.ACCEPTED];
 
 /**
  * Scalar CreatorProfile columns actually read by mapCreatorPublicListItemDto.
@@ -132,8 +130,6 @@ const creatorProfileWithRelationsInclude = {
       creatorId: true,
       videoUrl: true,
       thumbnailUrl: true,
-      industryLabel: true,
-      tags: { select: { tag: true } },
       createdAt: true,
     },
   },
@@ -189,7 +185,6 @@ const pendingCreatorApprovalInclude = {
       creatorId: true,
       videoUrl: true,
       thumbnailUrl: true,
-      tags: { select: { tag: true } },
       createdAt: true,
     },
   },
@@ -215,7 +210,6 @@ const adminCreatorListInclude = {
       creatorId: true,
       videoUrl: true,
       thumbnailUrl: true,
-      tags: { select: { tag: true } },
       createdAt: true,
     },
   },
@@ -358,14 +352,20 @@ export class CreatorProfileService {
     });
   }
 
-  private assertIntroVideoKeyOwner(creatorProfileId: string, key: string): void {
+  private assertIntroVideoKeyOwner(
+    creatorProfileId: string,
+    key: string,
+  ): void {
     const prefix = `creator-profile/${creatorProfileId}/intro/`;
     if (!key.startsWith(prefix)) {
       throw new BadRequestException('Invalid introVideoKey');
     }
   }
 
-  private assertProfileImageKeyOwner(creatorProfileId: string, key: string): void {
+  private assertProfileImageKeyOwner(
+    creatorProfileId: string,
+    key: string,
+  ): void {
     const prefix = `creator-profile/${creatorProfileId}/profile-image/`;
     if (!key.startsWith(prefix)) {
       throw new BadRequestException('Invalid profileImageKey');
@@ -457,7 +457,7 @@ export class CreatorProfileService {
         rank: row.rank ?? 0,
         customLabel: row.customLabel ?? null,
       })),
-    
+
       restrictions: (mapped.restrictions ?? []).map((r) => ({
         id: r.id,
         restriction: r.restriction,
@@ -502,9 +502,7 @@ export class CreatorProfileService {
 
   private async countCreatorOrdersBatch(
     creatorProfileIds: string[],
-  ): Promise<
-    Map<string, { totalOrders: number; completedOrders: number }>
-  > {
+  ): Promise<Map<string, { totalOrders: number; completedOrders: number }>> {
     const uniqueIds = [...new Set(creatorProfileIds.filter(Boolean))];
     const counts = new Map<
       string,
@@ -623,7 +621,9 @@ export class CreatorProfileService {
 
       const n = Number(a.priceAmount);
       if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
-        throw new BadRequestException('Add-on priceAmount must be a whole number.');
+        throw new BadRequestException(
+          'Add-on priceAmount must be a whole number.',
+        );
       }
 
       if (rule.fixedPrice != null) {
@@ -816,7 +816,9 @@ export class CreatorProfileService {
       throw new BadRequestException('Only one primary niche is allowed.');
     }
     if (nicheSecondary > 2) {
-      throw new BadRequestException('At most two secondary niches are allowed.');
+      throw new BadRequestException(
+        'At most two secondary niches are allowed.',
+      );
     }
 
     return rows;
@@ -1040,7 +1042,10 @@ export class CreatorProfileService {
     ])) as [number, number];
 
     const featuredSkip = Math.min(skip, featuredTotal);
-    const featuredTake = Math.max(0, Math.min(limit, featuredTotal - featuredSkip));
+    const featuredTake = Math.max(
+      0,
+      Math.min(limit, featuredTotal - featuredSkip),
+    );
     const regularSkip = Math.max(0, skip - featuredTotal);
     const regularTake = Math.max(0, limit - featuredTake);
 
@@ -1164,7 +1169,9 @@ export class CreatorProfileService {
 
     const categorySlugs = (anchor.facetSelections ?? [])
       .map((row: { option?: { slug?: string } | null }) => row.option?.slug)
-      .filter((s: unknown): s is string => typeof s === 'string' && s.length > 0);
+      .filter(
+        (s: unknown): s is string => typeof s === 'string' && s.length > 0,
+      );
 
     if (categorySlugs.length === 0) {
       return { items: [] };
@@ -1221,7 +1228,9 @@ export class CreatorProfileService {
     };
   }
 
-  private mapSuggestedCreatorListItemDto(profile: any): SuggestedCreatorListItemDto {
+  private mapSuggestedCreatorListItemDto(
+    profile: any,
+  ): SuggestedCreatorListItemDto {
     const pkg = Array.isArray(profile.packages) ? profile.packages[0] : null;
     const rawPrice = pkg?.priceAmount;
     let priceAmount: string | null = null;
@@ -1276,12 +1285,6 @@ export class CreatorProfileService {
           creatorId: v.creatorId,
           videoUrl: v.videoUrl,
           thumbnailUrl: v.thumbnailUrl ?? null,
-          industryLabel: v.industryLabel ?? null,
-          tags: Array.isArray(v.tags)
-            ? v.tags
-                .map((t: any) => t?.tag)
-                .filter((x: unknown): x is string => typeof x === 'string')
-            : [],
           createdAt: v.createdAt,
         }))
       : [];
@@ -1340,12 +1343,12 @@ export class CreatorProfileService {
         : [],
       packages: Array.isArray(profile.packages)
         ? profile.packages.map((pkg: any) => {
-          const deliverables = Array.isArray(pkg?.deliverables)
-            ? pkg.deliverables
-            : [];
-          const basicEditing = deliverables.some(
-            (d: unknown) => d === 'Basic editing',
-          );
+            const deliverables = Array.isArray(pkg?.deliverables)
+              ? pkg.deliverables
+              : [];
+            const basicEditing = deliverables.some(
+              (d: unknown) => d === 'Basic editing',
+            );
             return {
               name: String(pkg?.name ?? ''),
               priceAmount:
@@ -1457,14 +1460,12 @@ export class CreatorProfileService {
         creatorId: string;
         videoUrl: string;
         thumbnailUrl?: string | null;
-        tags?: { tag: string }[];
         createdAt: Date;
       }) => ({
         id: v.id,
         creatorId: v.creatorId,
         videoUrl: v.videoUrl,
         thumbnailUrl: v.thumbnailUrl ?? null,
-        tags: (v.tags ?? []).map((t) => t.tag).filter(Boolean),
         createdAt: v.createdAt,
       }),
     );
@@ -1486,8 +1487,7 @@ export class CreatorProfileService {
       driveLink: profile.driveLink ?? null,
       contentCategories,
       portfolioVideos,
-      approvalStatus:
-        profile.creatorApproval?.status ?? ApprovalStatus.PENDING,
+      approvalStatus: profile.creatorApproval?.status ?? ApprovalStatus.PENDING,
       submittedAt: profile.createdAt,
     };
   }
@@ -1548,7 +1548,12 @@ export class CreatorProfileService {
     const skip = (page - 1) * limit;
 
     if (query.segment === AdminCreatorListSegment.FEATURED) {
-      return this.listFeaturedCreators({ page, limit, skip, search: query.search });
+      return this.listFeaturedCreators({
+        page,
+        limit,
+        skip,
+        search: query.search,
+      });
     }
 
     const where = buildAdminCreatorsListWhere(query.segment, query.search);
@@ -1651,7 +1656,9 @@ export class CreatorProfileService {
       throw new BadRequestException('Only listed creators can be featured');
     }
 
-    const featuredUntil = dto.featuredUntil ? new Date(dto.featuredUntil) : null;
+    const featuredUntil = dto.featuredUntil
+      ? new Date(dto.featuredUntil)
+      : null;
     if (featuredUntil && Number.isNaN(featuredUntil.getTime())) {
       throw new BadRequestException('featuredUntil must be a valid ISO date');
     }
@@ -2483,11 +2490,7 @@ export class CreatorProfileService {
             tx,
             resolvedFacetSelections,
           );
-          await this.replaceFacetSelections(
-            tx,
-            creatorProfileId,
-            facetRows,
-          );
+          await this.replaceFacetSelections(tx, creatorProfileId, facetRows);
         }
 
         if (dto.profileLanguages !== undefined) {
@@ -2495,11 +2498,7 @@ export class CreatorProfileService {
             tx,
             dto.profileLanguages,
           );
-          await this.replaceProfileLanguages(
-            tx,
-            creatorProfileId,
-            langRows,
-          );
+          await this.replaceProfileLanguages(tx, creatorProfileId, langRows);
         }
 
         if (dto.restrictions) {
@@ -2675,12 +2674,10 @@ export class CreatorProfileService {
     const rows = await this.prisma.creatorFacetOption.findMany({
       where: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, label: true , slug: true},
+      select: { id: true, label: true, slug: true },
     });
     return rows.map((r) => ({ id: r.id, name: r.label, slug: r.slug }));
   }
-
- 
 
   async listRestrictionSuggestions(): Promise<CreatorSuggestionItemDto[]> {
     const suggestions = (await (

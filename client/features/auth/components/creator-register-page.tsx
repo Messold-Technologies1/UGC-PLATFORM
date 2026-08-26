@@ -1,40 +1,46 @@
 "use client";
 
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { CreatorRegisterForm } from "./creator-register-form";
 
 /**
  * Creator signup shell (/register/creator).
  *
- * Owns the page chrome from the Creator Registration design — the headline
- * above the form and the sticky right-hand rail. The form itself stays in
- * CreatorRegisterForm.
+ * Owns the page chrome — headline above the form and the sticky right-hand
+ * rail. The form itself stays in CreatorRegisterForm.
  */
 
-const LINK_CARRIES = [
-  "Your work",
-  "Your rates",
-  "Your services",
-  "Delivery time",
-  "Add-ons",
-  "Reviews",
+const BENEFITS = [
+  {
+    title: "Brands find you",
+    note: "Search by category, city and budget — you show up when you match.",
+  },
+  {
+    title: "The order arrives ready",
+    note: "Brief, price and due date in one place. No rate-card ping-pong.",
+  },
+  {
+    title: "Payout when you deliver",
+    note: "Held when the brand books you, released after you deliver.",
+  },
 ];
 
-const NEXT_STEPS = [
+const EARN_STEPS = [
   {
     n: "01",
-    title: "Add your work",
-    note: "Four to six pieces is enough to start getting found.",
+    title: "Go live",
+    note: "Add your work, rates and delivery time. Brands can find you the same day.",
   },
   {
     n: "02",
-    title: "Set your rates and services",
-    note: "Your price, your delivery time, your add-ons — all editable later.",
+    title: "Get the order",
+    note: "A brand books a package. You accept and start — no chasing, no unpaid samples.",
   },
   {
     n: "03",
-    title: "Publish and share your link",
-    note: "One URL for your Instagram bio and every brand enquiry.",
+    title: "Create. Get paid.",
+    note: "Deliver the content. Protected payout follows according to platform policy.",
   },
 ];
 
@@ -47,12 +53,12 @@ export function CreatorRegisterPage() {
         <div className="grid items-start gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-x-20">
           {/* FORM */}
           <div>
-            <h1 className="mb-2 text-[1.5rem] leading-tight font-bold tracking-[-0.03em] md:text-left text-center text-balance sm:text-[1.7rem]">
+            <h1 className="mb-2 text-center text-[1.5rem] leading-tight font-bold tracking-[-0.03em] text-balance sm:text-[1.7rem] md:text-left">
               Create your creator profile
             </h1>
-            <p className="text-muted-foreground mb-6 max-w-[460px] text-sm leading-relaxed text-pretty text-center md:text-left">
-              Takes a minute to start. Your work, rates, and services come
-              after — you stay in control of all of it.
+            <p className="text-muted-foreground mb-6 max-w-[460px] text-center text-sm leading-relaxed text-pretty md:text-left">
+              Takes a minute to start. Once you&rsquo;re live, brands can find
+              you and place orders — you stay in control of rates and work.
             </p>
 
             <CreatorRegisterForm />
@@ -82,65 +88,83 @@ export function CreatorRegisterPage() {
           {/* RAIL */}
           <div>
             <div className="lg:sticky lg:top-24">
-              <div className="rounded-2xl border border-deep-pink/30 bg-[#FFF5F7] px-8 py-8 sm:px-9 sm:py-9">
-                <p className="mb-6 text-[22px] leading-[1.2] font-bold tracking-[-0.03em] text-[#181313] sm:text-[24px]">
-                  The last time you&rsquo;ll type
+              <div className="rounded-2xl border border-deep-pink/30 bg-[#FFF5F7] px-6 py-5 sm:px-7 sm:py-6">
+                <p className="mb-4 text-[20px] leading-[1.2] font-bold tracking-[-0.03em] text-[#181313] sm:text-[22px]">
+                  Get paid for creating.
                   <br />
-                  your rates into a DM.
+                  Not for chasing brands.
                 </p>
 
-                <div className="mb-7 flex flex-col gap-2">
-                  <div className="max-w-[88%] self-start rounded-[18px_18px_18px_5px] border border-[#EDE8EA] bg-white px-4 py-3 text-[14px] leading-snug text-[#6F6A6E]">
-                    Hi! Can you share your portfolio, rates and delivery time?
+                <div className="mb-4 rounded-[14px] border border-[#EDE8EA] bg-white px-4 py-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-bold tracking-[0.12em] text-[#8B8489] uppercase">
+                      New order
+                    </span>
+                    <span className="rounded-full bg-deep-pink/10 px-2.5 py-1 text-[11px] font-bold text-deep-pink">
+                      Payment held
+                    </span>
                   </div>
-                  <div className="max-w-[90%] self-end rounded-[18px_18px_5px_18px] bg-[#181313] px-4 py-2.5 text-[13.5px] leading-snug text-white">
-                    Everything&rsquo;s here →{" "}
-                    <span className="font-medium underline underline-offset-2">
-                      gocollab.in/yourname
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div>
+                      <div className="text-[14px] font-bold text-[#181313]">
+                        1 reel + 2 stories · Beauty
+                      </div>
+                      <div className="mt-1 text-[12.5px] text-[#8B8489]">
+                        Delhi · due in 4 days
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-[15px] font-bold text-[#181313]">
+                      ₹3,200
                     </span>
                   </div>
                 </div>
 
-                <div>
-                  <div className="mb-3.5 text-[11px] font-bold tracking-[0.14em] text-[#8B8489] uppercase">
-                    That one link carries
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {LINK_CARRIES.map((c) => (
-                      <span
-                        key={c}
-                        className="rounded-full border border-[#E8E4E6] bg-white px-3.5 py-1.5 text-[13.5px] font-medium text-[#181313]"
-                      >
-                        {c}
+                <div className="flex flex-col gap-2.5">
+                  {BENEFITS.map((b) => (
+                    <div key={b.title} className="flex items-start gap-2.5">
+                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-deep-pink/10">
+                        <Check
+                          className="size-2.5 text-deep-pink"
+                          strokeWidth={3}
+                          aria-hidden
+                        />
                       </span>
-                    ))}
-                  </div>
+                      <div>
+                        <div className="text-[14px] font-bold text-[#181313]">
+                          {b.title}
+                        </div>
+                        <div className="text-[13px] leading-snug text-[#8B8489]">
+                          {b.note}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className={`${railCard} mt-8 border-t border-[#E8E4E6] pt-8`}>
-                <div className="mb-5 text-[11px] font-bold tracking-[0.14em] text-[#8B8489] uppercase">
-                  Right after you sign up
+              <div className={`${railCard} mt-5 border-t border-[#E8E4E6] pt-5`}>
+                <div className="mb-3.5 text-[11px] font-bold tracking-[0.14em] text-[#8B8489] uppercase">
+                  From profile to payout
                 </div>
-                <div className="flex flex-col gap-5">
-                  {NEXT_STEPS.map((n) => (
+                <div className="flex flex-col gap-3.5">
+                  {EARN_STEPS.map((n) => (
                     <div key={n.n} className="flex items-start gap-3">
-                      <span className="shrink-0 text-[15px] font-bold text-deep-pink">
+                      <span className="shrink-0 text-[14px] font-bold text-deep-pink">
                         {n.n}
                       </span>
                       <div>
-                        <div className="text-[15px] font-bold text-[#181313]">
+                        <div className="text-[14px] font-bold text-[#181313]">
                           {n.title}
                         </div>
-                        <div className="mt-0.5 text-[14px] leading-snug text-[#8B8489]">
+                        <div className="mt-0.5 text-[13px] leading-snug text-[#8B8489]">
                           {n.note}
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="mt-6 text-[13px] text-[#8B8489]">
-                  Most creators finish in under 15 minutes.
+                <p className="mt-4 text-[13px] text-[#8B8489]">
+                  Free to join. You earn when a brand places an order.
                 </p>
               </div>
             </div>

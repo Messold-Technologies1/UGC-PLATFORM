@@ -6,6 +6,8 @@ import type { PortfolioApiRequestOptions, PortfolioVideoApi } from "./types";
 export type CreatePortfolioVideoPayload = {
   videoKey: string;
   thumbnailKey?: string;
+  /** SHA-256 hex of the uploaded video, when it was small enough to hash. */
+  contentHash?: string;
   industryLabel?: string;
   tags?: string[];
   language?: string;

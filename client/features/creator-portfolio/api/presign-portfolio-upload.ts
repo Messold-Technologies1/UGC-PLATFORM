@@ -6,6 +6,9 @@ export type PresignPortfolioUploadPayload = {
   kind: "video" | "thumbnail";
   contentType: string;
   contentLength?: number;
+  /** SHA-256 hex. Omitted when the file could not be hashed; the server then
+   *  skips the duplicate check. */
+  contentHash?: string;
 };
 
 

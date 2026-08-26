@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
-import { StickyCardScroll } from "@/components/landing/marketing/sticky-card-scroll";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -43,9 +42,9 @@ const HERO_SEARCH = [
 ];
 
 const HERO_MATCHES = [
-  { img: "/1.jpg", name: "Aditi R.", city: "Delhi", price: "₹2,400" },
-  { img: "/5.jpg", name: "Sana V.", city: "Noida", price: "₹1,900" },
-  { img: "/3.jpg", name: "Meher K.", city: "Delhi", price: "₹3,200" },
+  { img: "/creators/female-3.png", name: "Aditi R.", city: "Delhi", price: "₹2,400" },
+  { img: "/creators/female-7.jpg", name: "Sana V.", city: "Noida", price: "₹1,900" },
+  { img: "/creators/female-1.png", name: "Meher K.", city: "Delhi", price: "₹3,200" },
 ];
 
 const CHAOS = [
@@ -72,31 +71,31 @@ const DASHBOARD = [
     name: "Riya Sharma",
     brief: "1 UGC video · Skincare launch",
     status: "In Progress",
-    img: "/4.jpg",
+    img: "/creators/female-1.png",
   },
   {
     name: "Arjun Verma",
     brief: "2 reels · Fitness range",
     status: "Awaiting Shipment",
-    img: "/2.jpg",
+    img: "/creators/male-1.jpg",
   },
   {
     name: "Mehak Walia",
     brief: "1 reel + 3 stories · Haircare",
     status: "Delivered",
-    img: "/3.jpg",
+    img: "/creators/female-3.png",
   },
   {
     name: "Ananya Singh",
     brief: "3 product videos · Baby care",
     status: "Revision",
-    img: "/1.jpg",
+    img: "/creators/female-4.jpg",
   },
   {
     name: "Rahul Nair",
     brief: "1 UGC ad · Audio launch",
     status: "Completed",
-    img: "/5.jpg",
+    img: "/creators/male-2.jpg",
   },
 ];
 
@@ -109,91 +108,162 @@ const ANSWERED = [
   "What’s included?",
 ];
 
-/** The conversational search line — plain words plus highlighted fields. */
-const CONVERSATIONAL: { label: string; field: boolean }[] = [
-  { label: "I need", field: false },
-  { label: "Female Beauty Creators", field: true },
-  { label: "in", field: false },
-  { label: "Delhi NCR", field: true },
-  { label: "with a budget of", field: false },
-  { label: "₹3,000–₹7,500", field: true },
-  { label: "who can deliver within", field: false },
-  { label: "5 Days", field: true },
+type SearchMatch = {
+  img: string;
+  name: string;
+  category: string;
+  city: string;
+  followers: string;
+  price: string;
+  delivery: string;
+};
+
+/** The conversational search line — static words plus typed field values. */
+const SEARCH_EXAMPLES: {
+  who: string;
+  where: string;
+  budget: string;
+  when: string;
+  matches: SearchMatch[];
+}[] = [
+  {
+    who: "Female Beauty Creators",
+    where: "Delhi NCR",
+    budget: "₹3,000–₹7,500",
+    when: "5 Days",
+    matches: [
+      {
+        img: "/creators/female-1.png",
+        name: "Aditi Rathore",
+        category: "Beauty",
+        city: "Delhi",
+        followers: "42k",
+        price: "₹2,400",
+        delivery: "3 days",
+      },
+      {
+        img: "/creators/female-2.png",
+        name: "Sana Verma",
+        category: "Skincare",
+        city: "Noida",
+        followers: "9.4k",
+        price: "₹1,900",
+        delivery: "2 days",
+      },
+      {
+        img: "/creators/female-3.png",
+        name: "Meher Kaur",
+        category: "Beauty",
+        city: "Delhi",
+        followers: "76k",
+        price: "₹3,200",
+        delivery: "4 days",
+      },
+      {
+        img: "/creators/female-4.jpg",
+        name: "Riya Sharma",
+        category: "Makeup",
+        city: "Gurugram",
+        followers: "31k",
+        price: "₹2,100",
+        delivery: "3 days",
+      },
+    ],
+  },
+  {
+    who: "Male Fitness Creators",
+    where: "Mumbai",
+    budget: "₹5,000–₹12,000",
+    when: "7 Days",
+    matches: [
+      {
+        img: "/creators/male-3.png",
+        name: "Arjun Mehta",
+        category: "Fitness",
+        city: "Mumbai",
+        followers: "38k",
+        price: "₹6,500",
+        delivery: "5 days",
+      },
+      {
+        img: "/creators/male-1.jpg",
+        name: "Kabir Shah",
+        category: "Fitness",
+        city: "Navi Mumbai",
+        followers: "21k",
+        price: "₹5,200",
+        delivery: "4 days",
+      },
+      {
+        img: "/creators/male-2.jpg",
+        name: "Rohan Iyer",
+        category: "Wellness",
+        city: "Mumbai",
+        followers: "54k",
+        price: "₹8,400",
+        delivery: "6 days",
+      },
+    ],
+  },
+  {
+    who: "Food & Beverage Creators",
+    where: "Bangalore",
+    budget: "₹2,500–₹8,000",
+    when: "3 Days",
+    matches: [
+      {
+        img: "/creators/female-5.png",
+        name: "Ananya Joshi",
+        category: "Food",
+        city: "Bangalore",
+        followers: "29k",
+        price: "₹3,600",
+        delivery: "2 days",
+      },
+      {
+        img: "/creators/female-6.jpg",
+        name: "Ishita Kapoor",
+        category: "F&B",
+        city: "Bangalore",
+        followers: "18k",
+        price: "₹2,850",
+        delivery: "3 days",
+      },
+      {
+        img: "/creators/female-7.jpg",
+        name: "Tanvi Iyer",
+        category: "Food",
+        city: "Whitefield",
+        followers: "13k",
+        price: "₹2,400",
+        delivery: "2 days",
+      },
+      {
+        img: "/creators/couple.png",
+        name: "Aarav & Mira",
+        category: "Lifestyle",
+        city: "Bangalore",
+        followers: "22k",
+        price: "₹4,800",
+        delivery: "3 days",
+      },
+    ],
+  },
 ];
 
-const MATCHES = [
-  {
-    img: "/1.jpg",
-    name: "Aditi Rathore",
-    category: "Beauty",
-    city: "Delhi",
-    followers: "42k",
-    price: "₹2,400",
-    delivery: "3 days",
-  },
-  {
-    img: "/5.jpg",
-    name: "Sana Verma",
-    category: "Skincare",
-    city: "Noida",
-    followers: "9.4k",
-    price: "₹1,900",
-    delivery: "2 days",
-  },
-  {
-    img: "/3.jpg",
-    name: "Meher Kaur",
-    category: "Beauty",
-    city: "Delhi",
-    followers: "76k",
-    price: "₹3,200",
-    delivery: "4 days",
-  },
-  {
-    img: "/4.jpg",
-    name: "Riya Sharma",
-    category: "Beauty",
-    city: "Gurugram",
-    followers: "31k",
-    price: "₹2,100",
-    delivery: "3 days",
-  },
-  {
-    img: "/2.jpg",
-    name: "Ishita Kapoor",
-    category: "Makeup",
-    city: "Noida",
-    followers: "18k",
-    price: "₹2,850",
-    delivery: "5 days",
-  },
-  {
-    img: "/1.jpg",
-    name: "Tanvi Iyer",
-    category: "Skincare",
-    city: "Delhi",
-    followers: "13k",
-    price: "₹1,750",
-    delivery: "3 days",
-  },
-  {
-    img: "/3.jpg",
-    name: "Nikita Bose",
-    category: "Haircare",
-    city: "Faridabad",
-    followers: "24k",
-    price: "₹3,400",
-    delivery: "4 days",
-  },
-  {
-    img: "/5.jpg",
-    name: "Aarohi Sen",
-    category: "Beauty",
-    city: "Delhi",
-    followers: "55k",
-    price: "₹4,200",
-    delivery: "5 days",
-  },
+const SEARCH_FIELDS = ["who", "where", "budget", "when"] as const;
+
+type SearchField = (typeof SEARCH_FIELDS)[number];
+
+const SEARCH_LINE: ({ text: string } | { field: SearchField })[] = [
+  { text: "I need" },
+  { field: "who" },
+  { text: "in" },
+  { field: "where" },
+  { text: "with a budget of" },
+  { field: "budget" },
+  { text: "who can deliver within" },
+  { field: "when" },
 ];
 
 const KNOW_ITEMS = [
@@ -236,14 +306,14 @@ const ORDER_FLOW = [
 ];
 
 const HIRE_FOR = [
-  { title: "UGC Ads", img: "/4.jpg" },
-  { title: "Product Videos", img: "/2.jpg" },
-  { title: "Instagram Reels", img: "/3.jpg" },
-  { title: "Influencer Collaborations", img: "/1.jpg" },
-  { title: "Product Photography", img: "/5.jpg" },
-  { title: "Website Content", img: "/2.jpg" },
-  { title: "Campaign Content", img: "/4.jpg" },
-  { title: "Product Launches", img: "/1.jpg" },
+  { title: "UGC Ads", img: "/creators/female-3.png" },
+  { title: "Product Videos", img: "/creators/female-6.jpg" },
+  { title: "Instagram Reels", img: "/creators/female-1.png" },
+  { title: "Influencer Collaborations", img: "/creators/male-1.jpg" },
+  { title: "Product Photography", img: "/creators/male-3.png" },
+  { title: "Website Content", img: "/creators/female-2.png" },
+  { title: "Campaign Content", img: "/creators/female-7.jpg" },
+  { title: "Product Launches", img: "/creators/male-2.jpg" },
 ];
 
 const WHY = [
@@ -318,8 +388,141 @@ function flowDot(index: number, last: boolean) {
   return index < 5 ? "bg-pink" : "bg-pink/35";
 }
 
+const pillText =
+  "font-heading text-[clamp(19px,3vw,38px)] leading-[1.32] tracking-[-0.02em]";
+
+function ConversationalSearch({
+  example,
+  onExampleChange,
+}: {
+  example: number;
+  onExampleChange: (index: number) => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  const [fieldIdx, setFieldIdx] = useState(0);
+  const [chars, setChars] = useState(0);
+  const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.35 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const last = SEARCH_FIELDS.length - 1;
+      setFieldIdx(last);
+      setChars(SEARCH_EXAMPLES[0][SEARCH_FIELDS[last]].length);
+      setPhase("hold");
+      return;
+    }
+    if (!inView) return;
+
+    const values = SEARCH_FIELDS.map((key) => SEARCH_EXAMPLES[example][key]);
+    const current = values[fieldIdx];
+    const delay =
+      phase === "hold" ? 1800 : phase === "out" ? 28 : 46;
+
+    const t = window.setTimeout(() => {
+      if (phase === "in") {
+        if (chars < current.length) setChars(chars + 1);
+        else if (fieldIdx < SEARCH_FIELDS.length - 1) {
+          setFieldIdx(fieldIdx + 1);
+          setChars(0);
+        } else {
+          setPhase("hold");
+        }
+      } else if (phase === "hold") {
+        setPhase("out");
+      } else if (chars > 0) {
+        setChars(chars - 1);
+      } else if (fieldIdx > 0) {
+        const prev = fieldIdx - 1;
+        setFieldIdx(prev);
+        setChars(values[prev].length);
+        } else {
+          onExampleChange((example + 1) % SEARCH_EXAMPLES.length);
+          setFieldIdx(0);
+          setChars(0);
+          setPhase("in");
+        }
+    }, delay);
+
+    return () => window.clearTimeout(t);
+  }, [chars, example, fieldIdx, inView, onExampleChange, phase]);
+
+  const shown = (key: SearchField) => {
+    const i = SEARCH_FIELDS.indexOf(key);
+    const full = SEARCH_EXAMPLES[example][key];
+    if (phase === "hold") return full;
+    if (phase === "in") {
+      if (i < fieldIdx) return full;
+      if (i === fieldIdx) return full.slice(0, chars);
+      return "";
+    }
+    if (i > fieldIdx) return "";
+    if (i === fieldIdx) return full.slice(0, chars);
+    return full;
+  };
+
+  const caretOn = (key: SearchField) =>
+    inView && phase !== "hold" && SEARCH_FIELDS[fieldIdx] === key;
+
+  return (
+    <div
+      ref={rootRef}
+      className="mb-[clamp(28px,3.4vw,40px)] flex flex-wrap items-center gap-x-3.5 gap-y-2.5"
+      aria-live="polite"
+    >
+      {SEARCH_LINE.map((part) => {
+        if ("text" in part) {
+          return (
+            <span
+              key={part.text}
+              className={cn(pillText, "text-background/50 font-normal")}
+            >
+              {part.text}
+            </span>
+          );
+        }
+
+        const text = shown(part.field);
+        const active = caretOn(part.field);
+        if (!text && !active) return null;
+
+        return (
+          <span
+            key={part.field}
+            className={cn(
+              pillText,
+              "text-background border-background/15 bg-background/7 inline-flex min-h-[1.32em] items-center rounded-[14px] border px-4 py-2 font-bold",
+            )}
+          >
+            {text}
+            {active ? (
+              <span
+                className="bg-background ml-[3px] inline-block h-[0.78em] w-[2px] shrink-0 animate-gc-caret"
+                aria-hidden
+              />
+            ) : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 export function BrandsLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [searchExample, setSearchExample] = useState(0);
+  const searchMatches = SEARCH_EXAMPLES[searchExample].matches;
 
   return (
     <div className="bg-grain text-foreground bg-background">
@@ -499,52 +702,49 @@ export function BrandsLanding() {
 
       {/* 3. EVERYTHING ALREADY ANSWERED */}
       <section className={cn("px-6", sectionPadY)}>
-        <div className="mx-auto max-w-[1240px]">
-          <StickyCardScroll
-            className="gap-[clamp(32px,4vw,56px)] lg:grid-cols-[0.8fr_1.2fr]"
-            card={
-              <div className="border-foreground shadow-hard bg-card mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border-2 lg:mx-0 lg:max-w-none">
-                <Image
-                  src="/5.jpg"
-                  alt=""
-                  width={560}
-                  height={420}
-                  className="aspect-[4/3] w-full object-cover"
-                />
-                <div className="px-6 pt-[22px] pb-[26px]">
-                  <div className="font-heading text-[19px] font-bold">
-                    Sana Verma
-                  </div>
-                  <div className="text-muted-foreground mb-5 text-[13px]">
-                    Skincare · Noida · 9.4k followers
-                  </div>
-                  <div className="flex flex-col gap-[11px] text-[13px]">
-                    {[
-                      { k: "1 UGC video", v: "₹1,900" },
-                      { k: "Delivery", v: "2 days" },
-                      { k: "Included", v: "1 revision, raw files" },
-                      { k: "Add-ons", v: "Faster delivery" },
-                    ].map((row) => (
-                      <div key={row.k} className="flex justify-between gap-3">
-                        <span className="text-muted-foreground">{row.k}</span>
-                        <span className="font-heading text-right font-bold">
-                          {row.v}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+        <div className="mx-auto grid max-w-[1240px] items-end gap-x-[clamp(40px,6vw,88px)] gap-y-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+          <div className="border-foreground shadow-hard bg-card mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border-2 lg:mx-0 lg:max-w-none">
+            <Image
+              src="/5.jpg"
+              alt=""
+              width={560}
+              height={420}
+              className="aspect-[4/3] w-full object-cover"
+            />
+            <div className="px-6 pt-[22px] pb-[26px]">
+              <div className="font-heading text-[19px] font-bold">
+                Sana Verma
               </div>
-            }
-          >
-            <h2 className="font-heading mb-[clamp(28px,3.5vw,40px)] text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+              <div className="text-muted-foreground mb-5 text-[13px]">
+                Skincare · Noida · 9.4k followers
+              </div>
+              <div className="flex flex-col gap-[11px] text-[13px]">
+                {[
+                  { k: "1 UGC video", v: "₹1,900" },
+                  { k: "Delivery", v: "2 days" },
+                  { k: "Included", v: "1 revision, raw files" },
+                  { k: "Add-ons", v: "Faster delivery" },
+                ].map((row) => (
+                  <div key={row.k} className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{row.k}</span>
+                    <span className="font-heading text-right font-bold">
+                      {row.v}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-heading mb-4 text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
               Everything you normally ask a creator. Already answered.
             </h2>
             <div className="grid gap-x-[clamp(28px,4vw,56px)] sm:grid-cols-2">
               {ANSWERED.map((a) => (
                 <div
                   key={a}
-                  className="border-foreground/15 flex items-baseline justify-between gap-4 border-t py-[clamp(17px,2.1vw,23px)]"
+                  className="border-foreground/15 flex items-baseline justify-between gap-4 border-t py-3"
                 >
                   <span className="text-muted-foreground text-[15px] leading-[1.4]">
                     &ldquo;{a}&rdquo;
@@ -555,11 +755,11 @@ export function BrandsLanding() {
                 </div>
               ))}
             </div>
-            <h3 className="font-heading mt-[clamp(32px,4vw,48px)] text-[clamp(1.35rem,2.4vw,2rem)] leading-[1.14] font-bold tracking-[-0.02em] text-balance">
+            <h3 className="font-heading mt-5 text-[clamp(1.9rem,3.4vw,2.9rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
               Spend your time choosing creators. Not collecting information
               from them.
             </h3>
-          </StickyCardScroll>
+          </div>
         </div>
       </section>
 
@@ -573,25 +773,10 @@ export function BrandsLanding() {
             Search like you&rsquo;re actually hiring for a campaign.
           </h2>
           <div className="border-background/30 bg-background/5 mb-[clamp(32px,4vw,48px)] rounded-[26px] border-2 p-[clamp(24px,3vw,40px)]">
-            <div className="mb-[clamp(28px,3.4vw,40px)] flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
-              {CONVERSATIONAL.map((c) =>
-                c.field ? (
-                  <span
-                    key={c.label}
-                    className="font-heading text-background border-background/15 bg-background/7 rounded-[14px] border px-4 py-2 text-[clamp(19px,3vw,38px)] leading-[1.32] font-bold tracking-[-0.02em]"
-                  >
-                    {c.label}
-                  </span>
-                ) : (
-                  <span
-                    key={c.label}
-                    className="font-heading text-background/50 text-[clamp(19px,3vw,38px)] leading-[1.32] font-normal tracking-[-0.02em]"
-                  >
-                    {c.label}
-                  </span>
-                ),
-              )}
-            </div>
+            <ConversationalSearch
+              example={searchExample}
+              onExampleChange={setSearchExample}
+            />
             <PillButton
               href="/register/brand"
               className={cn(plumCta, "px-[30px] py-4 text-[15px]")}
@@ -599,8 +784,12 @@ export function BrandsLanding() {
               Show Me Creators
             </PillButton>
           </div>
-          <div className={carousel}>
-            {MATCHES.map((c, i) => (
+          <div className="text-background/45 mb-4 text-[13px]">
+            {searchMatches.length} creators match ·{" "}
+            {SEARCH_EXAMPLES[searchExample].where}
+          </div>
+          <div key={SEARCH_EXAMPLES[searchExample].who} className={carousel}>
+            {searchMatches.map((c, i) => (
               <div
                 key={`${c.name}-${i}`}
                 className={cn(carouselItem, lift, "overflow-hidden rounded-md")}

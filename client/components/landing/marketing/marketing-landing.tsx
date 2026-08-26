@@ -38,26 +38,26 @@ const HERO_FILTERS = ["Beauty", "Delhi", "₹3K–₹10K", "≤5 Days"];
 
 const HERO_CARDS = [
   {
-    img: "/1.jpg",
+    img: "/creators/female-3.png",
     name: "Aditi R.",
     meta: "Beauty · Delhi",
     price: "₹2,400",
     rating: "4.9",
   },
   {
-    img: "/3.jpg",
-    name: "Meher K.",
-    meta: "Fashion · Delhi",
-    price: "₹3,200",
-    rating: "4.8",
+    img: "/creators/male-2.jpg",
+    name: "Arjun V.",
+    meta: "Fitness · Pune",
+    price: "₹4,500",
+    rating: "4.7",
   },
   {
-    img: "/5.jpg",
-    name: "Sana V.",
-    meta: "Skincare · Noida",
-    price: "₹1,900",
-    rating: "5.0",
-  },
+    img: "/creators/female-6.jpg",
+    name: "Mehak & Arjun",
+    meta: "Couple · Delhi",
+    price: "₹3,400",
+    rating: "4.9",
+  },  
 ];
 
 const BRAND_NAMES = [
@@ -86,9 +86,9 @@ const CREATOR_BENEFITS = [
 ];
 
 const MINI_BRAND_CARDS = [
-  { img: "/2.jpg", price: "₹1,599" },
-  { img: "/4.jpg", price: "₹2,750" },
-  { img: "/5.jpg", price: "₹3,400" },
+  { img: "/creators/female-4.jpg", price: "₹1,599" },
+  { img: "/creators/female-5.png", price: "₹2,750" },
+  { img: "/creators/male-1.jpg", price: "₹3,400" },
 ];
 
 const OLD_WAY = [
@@ -139,7 +139,7 @@ const MP_FILTERS = [
 
 const MARKETPLACE = [
   {
-    img: "/1.jpg",
+    img: "/creators/female-1.png",
     name: "Aditi Rathore",
     category: "Beauty",
     city: "Delhi",
@@ -148,7 +148,7 @@ const MARKETPLACE = [
     delivery: "3 days",
   },
   {
-    img: "/2.jpg",
+    img: "/creators/male-2.jpg",
     name: "Nikhil Menon",
     category: "Tech",
     city: "Bengaluru",
@@ -157,7 +157,7 @@ const MARKETPLACE = [
     delivery: "5 days",
   },
   {
-    img: "/3.jpg",
+    img: "/creators/female-3.png",
     name: "Meher Kaur",
     category: "Fashion",
     city: "Delhi",
@@ -166,7 +166,7 @@ const MARKETPLACE = [
     delivery: "4 days",
   },
   {
-    img: "/4.jpg",
+    img: "/creators/female-5.png",
     name: "Riya Sharma",
     category: "Food",
     city: "Mumbai",
@@ -175,7 +175,7 @@ const MARKETPLACE = [
     delivery: "3 days",
   },
   {
-    img: "/5.jpg",
+    img: "/creators/female-2.png",
     name: "Sana Verma",
     category: "Skincare",
     city: "Noida",
@@ -184,7 +184,7 @@ const MARKETPLACE = [
     delivery: "2 days",
   },
   {
-    img: "/2.jpg",
+    img: "/creators/male-3.png",
     name: "Arjun Verma",
     category: "Fitness",
     city: "Pune",
@@ -193,7 +193,7 @@ const MARKETPLACE = [
     delivery: "6 days",
   },
   {
-    img: "/4.jpg",
+    img: "/creators/female-4.jpg",
     name: "Ananya Singh",
     category: "Parenting",
     city: "Jaipur",
@@ -202,7 +202,7 @@ const MARKETPLACE = [
     delivery: "4 days",
   },
   {
-    img: "/1.jpg",
+    img: "/creators/female-7.jpg",
     name: "Tanvi Iyer",
     category: "Lifestyle",
     city: "Chennai",
@@ -258,7 +258,7 @@ const TESTIMONIALS = [
       "I don’t have to explain my pricing and services to every brand separately anymore.",
     name: "Meher Kaur",
     role: "Fashion creator, Delhi",
-    img: "/3.jpg",
+    img: "/creators/female-3.png",
   },
   {
     tag: "BRAND",
@@ -266,7 +266,7 @@ const TESTIMONIALS = [
       "Instead of asking ten creators the same questions, I can compare everything before I decide.",
     name: "Priya Nambiar",
     role: "Marketing lead, D2C skincare",
-    img: "/5.jpg",
+    img: "/creators/female-6.jpg",
   },
 ];
 
@@ -542,7 +542,7 @@ export function MarketingLanding() {
               </div>
               <div className="bg-background/5 mb-7 flex items-center gap-3.5 rounded-2xl p-4">
                 <Image
-                  src="/3.jpg"
+                  src="/creators/female-3.png"
                   alt=""
                   width={56}
                   height={56}

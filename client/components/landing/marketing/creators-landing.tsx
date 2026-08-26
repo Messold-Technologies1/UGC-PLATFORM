@@ -132,32 +132,32 @@ const BRAND_NAMES = [
 ];
 
 const ASPIRATION_CARDS = [
-  { img: "/1.jpg", name: "Aditi Rathore", meta: "Beauty · Delhi" },
-  { img: "/5.jpg", name: "Sana Verma", meta: "Skincare · Noida" },
-  { img: "/2.jpg", name: "Nikhil Menon", meta: "Tech · Bengaluru" },
-  { img: "/4.jpg", name: "Riya Sharma", meta: "Food · Mumbai" },
+  { img: "/creators/female-1.png", name: "Aditi Rathore", meta: "Beauty · Delhi" },
+  { img: "/creators/female-2.png", name: "Sana Verma", meta: "Skincare · Noida" },
+  { img: "/creators/male-2.jpg", name: "Nikhil Menon", meta: "Tech · Bengaluru" },
+  { img: "/creators/female-5.png", name: "Riya Sharma", meta: "Food · Mumbai" },
 ];
 
 const CREATOR_TYPES = [
   {
     title: "UGC Creators",
     desc: "Brands need your content, not necessarily your audience.",
-    img: "/4.jpg",
+    img: "/creators/female-1.png",
   },
   {
     title: "Nano Creators",
     desc: "Smaller audience. Strong community.",
-    img: "/5.jpg",
+    img: "/creators/female-4.jpg",
   },
   {
     title: "Micro Creators",
     desc: "Niche audience and engaged followers.",
-    img: "/2.jpg",
+    img: "/creators/male-1.jpg",
   },
   {
     title: "Influencers",
     desc: "Collaborate using your content and audience.",
-    img: "/3.jpg",
+    img: "/creators/female-7.jpg",
   },
 ];
 
@@ -182,7 +182,13 @@ const STEPS = [
   "Complete & earn",
 ];
 
-const AVATARS = ["/1.jpg", "/2.jpg", "/3.jpg", "/4.jpg", "/5.jpg"];
+const AVATARS = [
+  "/creators/female-1.png",
+  "/creators/male-1.jpg",
+  "/creators/female-2.png",
+  "/creators/male-3.png",
+  "/creators/female-3.png",
+];
 
 const TESTIMONIALS = [
   {
@@ -190,21 +196,21 @@ const TESTIMONIALS = [
       "Earlier I was sending my portfolio separately to every brand. Now everything they need to know is on my profile.",
     name: "Meher Kaur",
     role: "Fashion creator, Delhi",
-    img: "/3.jpg",
+    img: "/creators/female-3.png",
   },
   {
     quote:
       "Brands can understand my services and pricing before approaching me.",
     name: "Sana Verma",
     role: "Skincare creator, Noida",
-    img: "/5.jpg",
+    img: "/creators/female-2.png",
   },
   {
     quote:
       "I can focus more on creating instead of constantly searching for collaborations.",
     name: "Riya Sharma",
     role: "Food creator, Mumbai",
-    img: "/4.jpg",
+    img: "/creators/female-5.png",
   },
 ];
 
@@ -301,7 +307,7 @@ export function CreatorsLanding() {
           <div className="relative">
             <div className="shadow-hard overflow-hidden rounded-[28px]">
               <Image
-                src="/4.jpg"
+                src="/creators/female-6.jpg"
                 alt="Creator filming content"
                 width={720}
                 height={540}
@@ -480,7 +486,7 @@ export function CreatorsLanding() {
               )}
             >
               <Image
-                src="/3.jpg"
+                src="/creators/female-3.png"
                 alt=""
                 width={560}
                 height={420}
@@ -499,7 +505,7 @@ export function CreatorsLanding() {
                   Fashion &amp; Beauty · Delhi · 76k followers
                 </div>
                 <div className="mb-5 grid grid-cols-3 gap-2">
-                  {["/1.jpg", "/2.jpg", "/5.jpg"].map((src) => (
+                  {["/creators/female-5.png", "/creators/female-6.jpg", "/creators/female-7.jpg"].map((src) => (
                     <Image
                       key={src}
                       src={src}
@@ -852,7 +858,7 @@ export function CreatorsLanding() {
           </div>
           <div className="relative aspect-[4/3] lg:aspect-auto lg:min-h-[280px]">
             <Image
-              src="/1.jpg"
+              src="/creators/female-3.png"
               alt=""
               fill
               sizes="(max-width: 1024px) 100vw, 45vw"

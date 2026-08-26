@@ -79,6 +79,7 @@ import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-resp
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 import { recomputeCreatorListingState } from './creator-listing-state.util';
+import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import type {
   SuggestedCreatorListItemDto,
@@ -122,7 +123,10 @@ const creatorProfileWithRelationsInclude = {
   creatorApproval: true,
   unavailability: { select: { startsOn: true, endsOn: true } },
   portfolioVideos: {
-    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    where: {
+      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+      ...playableAssetWhere(),
+    },
     orderBy: { createdAt: 'desc' },
     take: 1,
     select: {
@@ -177,7 +181,10 @@ const pendingCreatorApprovalInclude = {
   facetSelections: { include: { option: true } },
   creatorApproval: true,
   portfolioVideos: {
-    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    where: {
+      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+      ...playableAssetWhere(),
+    },
     orderBy: { createdAt: 'asc' },
     take: 20,
     select: {
@@ -202,7 +209,10 @@ const adminCreatorListInclude = {
     select: { priceAmount: true },
   },
   portfolioVideos: {
-    where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+    where: {
+      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+      ...playableAssetWhere(),
+    },
     orderBy: { createdAt: 'asc' as const },
     take: 20,
     select: {
@@ -1210,7 +1220,10 @@ export class CreatorProfileService {
           },
         },
         portfolioVideos: {
-          where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+          where: {
+      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+      ...playableAssetWhere(),
+    },
           orderBy: { createdAt: 'asc' },
           take: 1,
           select: {
@@ -1810,7 +1823,10 @@ export class CreatorProfileService {
         packages: { select: { id: true } },
         addOns: { select: { name: true } },
         portfolioVideos: {
-          where: { visibilityStatus: PortfolioVisibilityStatus.PUBLIC },
+          where: {
+      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+      ...playableAssetWhere(),
+    },
           select: { id: true },
         },
         socialConnections: {

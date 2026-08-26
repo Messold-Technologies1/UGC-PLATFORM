@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { evaluateProfileCompleteness } from './creator-profile-completeness.util';
 import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
+import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 
 /**
  * Single source of truth for the `completeProfile` latch and the derived
@@ -83,6 +84,9 @@ export async function recomputeCreatorListingState(
       where: {
         creatorId: creatorProfileId,
         visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+        // A still-mirroring import has no playable bytes yet, so it must not
+        // let a creator go live on three empty players.
+        ...playableAssetWhere(),
       },
     });
 

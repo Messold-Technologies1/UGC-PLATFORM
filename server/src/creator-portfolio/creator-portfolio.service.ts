@@ -28,6 +28,7 @@ import {
 } from './dto/portfolio-section-response.dto';
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
 import { MIN_PORTFOLIO_VIDEOS } from '../creator-profile/creator-profile-completeness.util';
+import { playableAssetWhere } from './portfolio-video-asset.util';
 
 const MAX_SECTIONS_PER_CREATOR = 10;
 
@@ -318,6 +319,7 @@ export class CreatorPortfolioService {
       where: {
         creatorId: creator.id,
         visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+        ...playableAssetWhere(),
       },
       orderBy: { createdAt: 'desc' },
     });

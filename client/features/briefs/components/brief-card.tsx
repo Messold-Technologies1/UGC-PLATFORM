@@ -1,8 +1,38 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Calendar, FileText, Video, Send, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Calendar,
+  Eye,
+  FileText,
+  MoreVertical,
+  Pencil,
+  Send,
+  Trash2,
+  Video,
+  ArrowRight,
+} from "lucide-react";
 import type { Brief } from "@/features/briefs/api/types";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { useDeleteBriefMutation } from "@/features/briefs/hooks/use-delete-brief-mutation";
 import styles from "./brief-studio.module.css";
 import { formatContentType, formatDuration, formatTone } from "../lib/format-enums";
 
@@ -47,6 +77,16 @@ interface BriefCardProps {
 }
 
 export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardProps) {
+  const router = useRouter();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  const deleteMutation = useDeleteBriefMutation({
+    onSuccess: () => setIsDeleteOpen(false),
+  });
+  const isDeleting = deleteMutation.isPending;
+
+  const editHref = `/brand/briefs/create?briefId=${brief.id}`;
+
   const color = categoryColor(brief.industry);
   const contentLabel =
     brief.contentType.length > 0 ? formatContentType(brief.contentType[0]) : "Brief";
@@ -56,7 +96,6 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
 
   return (
     <article className={styles.briefCard}>
-      
       <div className={styles.briefTop}>
         <div
           className={styles.briefIcon}
@@ -78,6 +117,36 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
             {brief.brandName ?? "Brand"} · {contentLabel}
           </div>
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={styles.briefMenuBtn}
+              aria-label="Brief options"
+            >
+              <MoreVertical size={16} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onClick={() => router.push(`/brand/briefs/${brief.id}`)}>
+              <Eye size={14} />
+              View brief
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(editHref)}>
+              <Pencil size={14} />
+              Edit brief
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setIsDeleteOpen(true)}
+            >
+              <Trash2 size={14} />
+              Delete brief
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className={styles.briefMeta}>
@@ -99,14 +168,24 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
           {formatRelativeDate(brief.createdAt)}
         </span>
         {mode === "submit" ? (
-          <button
-            type="button"
-            className={styles.useTemplateBtn}
-            onClick={() => onSubmitBrief?.(brief)}
-          >
-            <Send size={14} />
-            Submit this brief
-          </button>
+          <div className={styles.briefFootActions}>
+            <Link
+              href={`/brand/briefs/${brief.id}`}
+              className={styles.viewBriefBtn}
+              style={{ textDecoration: "none" }}
+            >
+              <Eye size={14} />
+              View
+            </Link>
+            <button
+              type="button"
+              className={styles.useTemplateBtn}
+              onClick={() => onSubmitBrief?.(brief)}
+            >
+              <Send size={14} />
+              Submit this brief
+            </button>
+          </div>
         ) : (
           <Link
             href={`/brand/briefs/${brief.id}`}
@@ -118,6 +197,53 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
           </Link>
         )}
       </div>
+
+      <Dialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          if (isDeleting) return;
+          setIsDeleteOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this brief?</DialogTitle>
+            <DialogDescription>
+              &ldquo;{brief.productName || "Untitled Brief"}&rdquo; will be
+              permanently deleted. This cannot be undone. Briefs already
+              attached to an order can&rsquo;t be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isDeleting}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate(brief.id)}
+              disabled={isDeleting}
+              className="rounded-xl font-bold"
+            >
+              {isDeleting ? (
+                <>
+                  <Spinner className="mr-2 size-4" aria-hidden />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 size-4" />
+                  Delete brief
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }

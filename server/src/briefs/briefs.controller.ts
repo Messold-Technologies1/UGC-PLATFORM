@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -26,6 +28,7 @@ import { BriefsService } from './briefs.service';
 import { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import { CreateBriefDto } from './dto/create-brief.dto';
 import { CreateBriefResponseDto } from './dto/create-brief-response.dto';
+import { UpdateBriefDto } from './dto/update-brief.dto';
 import { ListBriefsResponseDto } from './dto/list-briefs-response.dto';
 import { AttachBriefToOrderDto } from './dto/attach-brief-to-order.dto';
 import { AttachBriefToOrdersDto } from './dto/attach-brief-to-orders.dto';
@@ -143,6 +146,47 @@ export class BriefsController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<BriefDto> {
     return this.briefsService.getBriefForBrand({
+      ...brandActorParams(req),
+      briefId: id,
+    });
+  }
+
+  @Patch(':id')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiOperation({
+    summary: 'Update a saved brief (brand only)',
+    description:
+      'Updates only the provided fields. Pass a new productImageKey (temp upload key) to replace the product image.',
+  })
+  @ApiOkResponse({ type: BriefDto })
+  async updateBrief(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateBriefDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BriefDto> {
+    return this.briefsService.updateBrief({
+      ...brandActorParams(req),
+      briefId: id,
+      dto,
+    });
+  }
+
+  @Delete(':id')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete a saved brief (brand only)',
+    description:
+      'Permanently deletes a saved brief. Fails if the brief is attached to any order.',
+  })
+  @ApiNoContentResponse({ description: 'Brief deleted' })
+  async deleteBrief(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.briefsService.deleteBrief({
       ...brandActorParams(req),
       briefId: id,
     });

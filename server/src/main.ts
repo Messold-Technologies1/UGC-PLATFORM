@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -50,7 +50,10 @@ async function bootstrap() {
   const origin =
     !configuredOrigin || configuredOrigin.trim() === '*'
       ? true
-      : configuredOrigin.split(',').map((s) => s.trim()).filter(Boolean);
+      : configuredOrigin
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
   app.enableCors({ origin, credentials: true });
 
   app.useGlobalPipes(
@@ -98,6 +101,38 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port, '0.0.0.0');
 }
+
+/**
+ * Keep a stray rejected promise from killing the process.
+ *
+ * Node's default since v15 is to treat an unhandled rejection as fatal, and
+ * `start:prod` runs a bare `node dist/main.js` with no override. The queue
+ * services fire their inline/watchdog fallbacks as `void this.run…(…)` — those
+ * paths rethrow, so one failing Instagram sync or watermark run could take the
+ * API down. Each call site now guards itself, but a global net matters more than
+ * the individual guards: the next `void somePromise()` anyone writes is covered
+ * without having to remember.
+ *
+ * Deliberately does not exit. A background job failing is not a reason to drop
+ * in-flight HTTP requests, and the logged stack is what makes it debuggable.
+ */
+function installProcessSafetyNet(): void {
+  const logger = new Logger('Process');
+
+  process.on('unhandledRejection', (reason: unknown) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    logger.error(`Unhandled promise rejection: ${err.message}`, err.stack);
+  });
+
+  // An uncaught *exception* leaves the process in an unknown state, so this only
+  // logs it — the platform's restart is still the right outcome, but now there
+  // is a line saying why.
+  process.on('uncaughtException', (err: Error) => {
+    logger.error(`Uncaught exception: ${err.message}`, err.stack);
+  });
+}
+
+installProcessSafetyNet();
 
 bootstrap().catch((err: unknown) => {
   console.error(err);

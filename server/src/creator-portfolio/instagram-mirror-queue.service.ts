@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
+import { shouldRunInline } from '../jobs/bullmq-watchdog.util';
 import { withTimeout } from '../util/with-timeout';
 import { InstagramMirrorService } from './instagram-mirror.service';
 
@@ -97,9 +98,27 @@ export class InstagramMirrorQueueService
       this.logger.error(
         `ig-mirror: job ${job?.id} failed (attempt ${job?.attemptsMade}): ${err?.message}`,
       );
+      // Out of attempts: close the loop, or the row stays PROCESSING for good.
+      const attempts = job?.opts?.attempts ?? 1;
+      if (job && (job.attemptsMade ?? 0) >= attempts) {
+        void this.mirror
+          .failAfterRetries(job.data.videoId, err?.message ?? 'unknown error')
+          .catch((e: unknown) =>
+            this.logger.error(
+              `ig-mirror: could not park ${job.data.videoId} as failed: ${(e as Error)?.message}`,
+            ),
+          );
+      }
     });
     this.worker.on('error', (err) => {
       this.logger.error(`ig-mirror worker error: ${err?.message}`);
+    });
+    this.worker.on('ioredis:close', () => {
+      // The other queues warn about this; without it a dropped blocking
+      // connection here is invisible and mirrors silently stop being consumed.
+      this.logger.warn(
+        'ig-mirror: worker Redis connection closed — jobs may sit in `wait` until it recovers',
+      );
     });
 
     await this.worker.waitUntilReady();
@@ -144,20 +163,49 @@ export class InstagramMirrorQueueService
         );
       }
     }
-    void this.runDirect(videoId, 'inline');
+    void this.runInlineGuarded(videoId, 'inline');
   }
 
   async runDirect(videoId: string, source: string): Promise<void> {
     if (source !== 'worker' && this.processing.has(videoId)) return;
     this.processing.add(videoId);
+    const startedAt = Date.now();
     try {
       await withTimeout(
         this.mirror.mirrorVideo(videoId),
         MIRROR_TIMEOUT_MS,
         `ig-mirror ${source} ${videoId}`,
       );
+    } catch (err) {
+      // This path had no catch at all, so a failed mirror outside the worker
+      // produced no log line anywhere.
+      this.logger.error(
+        `ig-mirror: ${source} mirror failed for ${videoId} after ${Date.now() - startedAt}ms: ${(err as Error)?.message}`,
+      );
+      throw err;
     } finally {
       this.processing.delete(videoId);
+    }
+  }
+
+  /**
+   * runDirect for the fire-and-forget callers.
+   *
+   * Two jobs: keep a `void` call from becoming a fatal unhandled rejection, and
+   * park the row as FAILED — there is no BullMQ retry budget on this path, so
+   * this failure is already terminal and PROCESSING would otherwise be
+   * permanent.
+   */
+  private async runInlineGuarded(
+    videoId: string,
+    source: string,
+  ): Promise<void> {
+    try {
+      await this.runDirect(videoId, source);
+    } catch (err) {
+      await this.mirror
+        .failAfterRetries(videoId, (err as Error)?.message ?? 'unknown error')
+        .catch(() => undefined);
     }
   }
 
@@ -175,12 +223,21 @@ export class InstagramMirrorQueueService
           'ig-mirror watchdog getState',
         ).catch(() => 'unknown')
       : 'missing';
-    if (state === 'completed') return;
-    if (state === 'active' && this.processing.has(videoId)) return;
+    if (
+      !shouldRunInline({
+        state,
+        runningLocally: this.processing.has(videoId),
+        hasLocalWorker: this.worker != null,
+      })
+    ) {
+      return;
+    }
 
     this.logger.warn(
       `ig-mirror: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — mirroring directly`,
     );
-    await this.runDirect(videoId, 'watchdog').catch(() => undefined);
+    // Guarded rather than swallowed: the row is parked as FAILED so the picker
+    // stops promising a video that is never coming.
+    await this.runInlineGuarded(videoId, 'watchdog');
   }
 }

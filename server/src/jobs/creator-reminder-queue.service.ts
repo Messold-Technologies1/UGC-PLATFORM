@@ -54,7 +54,7 @@ export class CreatorReminderQueueService
     this.redisUrl = config.get<string>('REDIS_URL');
   }
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     if (!this.reminders.isEnabled()) {
       this.logger.log('creator completion reminders disabled');
       return;
@@ -78,6 +78,9 @@ export class CreatorReminderQueueService
         removeOnFail: 1000,
       },
     });
+    // The other queues all wait here. Without it onModuleInit resolves before
+    // Redis is actually usable, so the first enqueue can race the connection.
+    await this.queue.waitUntilReady();
 
     const workerEnabled =
       this.config.get<string>('BULLMQ_WORKER_ENABLED', 'true') !== 'false';
@@ -103,6 +106,13 @@ export class CreatorReminderQueueService
     this.worker.on('error', (err) => {
       this.logger.error(`creator reminders: worker error: ${err?.message}`);
     });
+    this.worker.on('ioredis:close', () => {
+      this.logger.warn(
+        'creator reminders: worker Redis connection closed — jobs may sit in `wait` until it recovers',
+      );
+    });
+
+    await this.worker.waitUntilReady();
     this.logger.log('creator reminders: delayed-job queue + worker started');
   }
 

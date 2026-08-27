@@ -9,6 +9,7 @@ import { Queue, Worker } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { WatermarkService } from '../watermark/watermark.service';
 import { buildBullmqConnection } from './bullmq-redis.connection';
+import { shouldRunInline } from './bullmq-watchdog.util';
 
 const QUEUE_NAME = 'delivery-watermark';
 const JOB_NAME = 'watermark-delivery';
@@ -267,12 +268,26 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
         this.logger.error(
           `watermark: enqueue failed for ${deliveryId}: ${(err as Error)?.message} (direct process fallback)`,
         );
-        void this.processDeliveryDirect(deliveryId, 'enqueue-fallback');
+        void this.runInlineGuarded(deliveryId, 'enqueue-fallback');
         return;
       }
     }
 
-    void this.processDeliveryDirect(deliveryId, 'inline');
+    void this.runInlineGuarded(deliveryId, 'inline');
+  }
+
+  /**
+   * processDeliveryDirect for the fire-and-forget callers. It rethrows so the
+   * worker can retry, but a `void` call has nowhere to put that and Node treats
+   * an unhandled rejection as fatal. Safe to swallow: the failure is logged, the
+   * row is already `failed` (or `dead` once the budget is spent), and the
+   * reconcile poller re-drives anything recoverable.
+   */
+  private async runInlineGuarded(
+    deliveryId: string,
+    source: string,
+  ): Promise<void> {
+    await this.processDeliveryDirect(deliveryId, source).catch(() => undefined);
   }
 
   /**
@@ -290,7 +305,9 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
    */
   private async claimForProcessing(deliveryId: string): Promise<number | null> {
     const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS);
-    const rows = await this.prisma.$queryRaw<Array<{ previewAttempts: number }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{ previewAttempts: number }>
+    >`
       UPDATE "OrderDelivery"
       SET "previewStatus" = 'processing',
           "previewAttempts" = "previewAttempts" + 1,
@@ -390,8 +407,15 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
           'watchdog getState',
         ).catch(() => 'unknown')
       : 'missing';
-    if (state === 'completed') return;
-    if (state === 'active' && this.processing.has(deliveryId)) return;
+    if (
+      !shouldRunInline({
+        state,
+        runningLocally: this.processing.has(deliveryId),
+        hasLocalWorker: this.worker != null,
+      })
+    ) {
+      return;
+    }
 
     this.logger.warn(
       `watermark: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — direct process`,
@@ -401,8 +425,12 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     void this.logWorkerDiagnostics();
     try {
       await this.processDeliveryDirect(deliveryId, 'watchdog');
-    } catch {
-      // watermarkDelivery logs; reconcile poller will retry
+    } catch (err) {
+      // processDeliveryDirect logs the cause; this says the rescue also failed,
+      // which is what distinguishes "one bad run" from "nothing is working".
+      this.logger.error(
+        `watermark: watchdog run also failed for ${deliveryId}: ${(err as Error)?.message}`,
+      );
     } finally {
       // The worker never consumed this job (still `wait`/`delayed`). Clear the
       // leftover under the fixed jobId so a later-recovering worker doesn't

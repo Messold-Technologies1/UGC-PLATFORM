@@ -302,6 +302,19 @@ export class InstagramMirrorService {
     }
   }
 
+  /**
+   * Park the row as FAILED once the retry budget is spent.
+   *
+   * Only terminal errors flip a row to FAILED inside `mirrorVideo`; a transient
+   * one rethrows so BullMQ can retry. Nothing then closed the loop when those
+   * retries ran out, so a row could sit in PROCESSING forever — showing a
+   * permanent "still being saved" badge, and (now that the picker waits on a
+   * socket event rather than polling) a spinner that never clears.
+   */
+  async failAfterRetries(videoId: string, reason: string): Promise<void> {
+    await this.fail(videoId, `retries exhausted — ${reason}`);
+  }
+
   /** Park the row as FAILED so the UI can offer a retry. */
   private async fail(videoId: string, reason: string): Promise<void> {
     this.logger.warn(`ig-mirror: ${videoId} failed terminally — ${reason}`);

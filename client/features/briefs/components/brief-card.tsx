@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, FileText, Video, ClipboardCopy, ArrowRight } from "lucide-react";
+import { Calendar, FileText, Video, Send, ArrowRight } from "lucide-react";
 import type { Brief } from "@/features/briefs/api/types";
 import styles from "./brief-studio.module.css";
 import { formatContentType, formatDuration, formatTone } from "../lib/format-enums";
@@ -42,11 +42,11 @@ function formatRelativeDate(iso: string): string {
 
 interface BriefCardProps {
   brief: Brief;
-  mode?: "template" | "link";
-  onUseTemplate?: (brief: Brief) => void;
+  mode?: "submit" | "link";
+  onSubmitBrief?: (brief: Brief) => void;
 }
 
-export function BriefCard({ brief, mode = "template", onUseTemplate }: BriefCardProps) {
+export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardProps) {
   const color = categoryColor(brief.industry);
   const contentLabel =
     brief.contentType.length > 0 ? formatContentType(brief.contentType[0]) : "Brief";
@@ -98,14 +98,14 @@ export function BriefCard({ brief, mode = "template", onUseTemplate }: BriefCard
           <Calendar size={13} />
           {formatRelativeDate(brief.createdAt)}
         </span>
-        {mode === "template" ? (
+        {mode === "submit" ? (
           <button
             type="button"
             className={styles.useTemplateBtn}
-            onClick={() => onUseTemplate?.(brief)}
+            onClick={() => onSubmitBrief?.(brief)}
           >
-            <ClipboardCopy size={14} />
-            Use template
+            <Send size={14} />
+            Submit this brief
           </button>
         ) : (
           <Link

@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { OrderStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class ListOrdersQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
@@ -17,4 +18,12 @@ export class ListOrdersQueryDto {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @ApiPropertyOptional({
+    enum: OrderStatus,
+    description: 'Filter orders by lifecycle status',
+  })
+  @IsOptional()
+  @IsEnum(OrderStatus)
+  status?: OrderStatus;
 }

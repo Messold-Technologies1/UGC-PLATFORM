@@ -3,7 +3,9 @@
 import { useCallback, useState, useMemo } from "react";
 import { isAxiosError } from "axios";
 import {
+  AlertTriangle,
   Image as ImageIcon,
+  Loader2,
   Play,
   Plus,
   FolderPlus,
@@ -30,11 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { CreatorPortfolioUploadForm } from "./creator-portfolio-upload-form.lazy";
 import { CreatorPortfolioSectionsView } from "./creator-portfolio-sections-view";
 import { ManageSectionsModal } from "./manage-sections-modal";
@@ -511,33 +509,65 @@ export function CreatorPortfolioManager() {
                                   if (vid) vid.removeAttribute("controls");
                                 }}
                               >
-                                <video
-                                  className="absolute inset-0 h-full w-full object-cover"
-                                  src={v.videoUrl}
-                                  poster={v.thumbnailUrl ?? undefined}
-                                  preload="metadata"
-                                  playsInline
-                                  ref={updateDuration}
-                                  onLoadedMetadata={(e) =>
-                                    updateDuration(e.currentTarget)
-                                  }
-                                  onDurationChange={(e) =>
-                                    updateDuration(e.currentTarget)
-                                  }
-                                />
-
-                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
-                                  <span className="flex size-10 items-center justify-center rounded-full bg-white/20 shadow-sm backdrop-blur-md">
-                                    <Play
-                                      className="ml-0.5 size-4 text-white"
-                                      aria-hidden
+                                {/* An import has no file to play until its
+                                    mirror finishes, so a player here would be
+                                    an empty box with no explanation. */}
+                                {v.assetState === "PROCESSING" ||
+                                v.assetState === "FAILED" ? (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-3 text-center">
+                                    {v.assetState === "PROCESSING" ? (
+                                      <>
+                                        <Loader2
+                                          className="size-4 animate-spin text-muted-foreground"
+                                          aria-hidden
+                                        />
+                                        <span className="text-[11px] font-medium text-muted-foreground">
+                                          Saving from Instagram…
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertTriangle
+                                          className="size-4 text-destructive"
+                                          aria-hidden
+                                        />
+                                        <span className="text-[11px] font-medium text-destructive">
+                                          Could not be saved
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <video
+                                      className="absolute inset-0 h-full w-full object-cover"
+                                      src={v.videoUrl ?? undefined}
+                                      poster={v.thumbnailUrl ?? undefined}
+                                      preload="metadata"
+                                      playsInline
+                                      ref={updateDuration}
+                                      onLoadedMetadata={(e) =>
+                                        updateDuration(e.currentTarget)
+                                      }
+                                      onDurationChange={(e) =>
+                                        updateDuration(e.currentTarget)
+                                      }
                                     />
-                                  </span>
-                                </div>
 
-                                <span className="duration-pill pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-0">
-                                  0:00
-                                </span>
+                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
+                                      <span className="flex size-10 items-center justify-center rounded-full bg-white/20 shadow-sm backdrop-blur-md">
+                                        <Play
+                                          className="ml-0.5 size-4 text-white"
+                                          aria-hidden
+                                        />
+                                      </span>
+                                    </div>
+
+                                    <span className="duration-pill pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-0">
+                                      0:00
+                                    </span>
+                                  </>
+                                )}
                               </div>
 
                               <div className="p-4 flex flex-col gap-3 flex-1">

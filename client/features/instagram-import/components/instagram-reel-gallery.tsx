@@ -118,6 +118,7 @@ export function InstagramReelGallery({
         pagingCache={reels.isFetchingNextPage}
         canFetchMore={reels.canFetchMoreFromInstagram}
         isFetchingBatch={reels.isFetchingBatch}
+        queued={reels.syncPhase === "queued"}
         onFetchMore={fetchMoreBatch}
       />
     ),
@@ -125,6 +126,7 @@ export function InstagramReelGallery({
       reels.isFetchingNextPage,
       reels.canFetchMoreFromInstagram,
       reels.isFetchingBatch,
+      reels.syncPhase,
       fetchMoreBatch,
     ],
   );
@@ -199,7 +201,7 @@ export function InstagramReelGallery({
               }
             />
           ) : showSkeleton ? (
-            <SkeletonGrid />
+            <SkeletonGrid queued={reels.syncPhase === "queued"} />
           ) : reels.items.length === 0 ? (
             <EmptyState
               title="We couldn't find any reels"
@@ -215,7 +217,9 @@ export function InstagramReelGallery({
               {syncing ? (
                 <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" aria-hidden />
-                  Checking Instagram for new reels…
+                  {reels.syncPhase === "queued"
+                    ? "Waiting for Instagram — this can take a few minutes when a lot of creators are importing at once."
+                    : "Checking Instagram for new reels…"}
                 </p>
               ) : null}
 
@@ -322,11 +326,13 @@ function GridFooter({
   pagingCache,
   canFetchMore,
   isFetchingBatch,
+  queued,
   onFetchMore,
 }: {
   pagingCache: boolean;
   canFetchMore: boolean;
   isFetchingBatch: boolean;
+  queued?: boolean;
   onFetchMore: () => void;
 }) {
   if (pagingCache) {
@@ -340,7 +346,9 @@ function GridFooter({
     return (
       <p className="flex items-center justify-center gap-1.5 py-4 text-xs text-muted-foreground">
         <Loader2 className="size-3 animate-spin" aria-hidden />
-        Fetching older reels from Instagram…
+        {queued
+          ? "Queued — fetching older reels shortly…"
+          : "Fetching older reels from Instagram…"}
       </p>
     );
   }
@@ -465,12 +473,16 @@ function ReelTile({
   );
 }
 
-function SkeletonGrid() {
+function SkeletonGrid({ queued }: { queued?: boolean }) {
   return (
     <div>
       <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="size-3 animate-spin" aria-hidden />
-        Fetching your reels from Instagram…
+        {/* A queued sync is waiting behind the rate limiter, which under load is
+            minutes. Saying "fetching" for that long reads as broken. */}
+        {queued
+          ? "You're in the queue — we'll start fetching your reels in a moment."
+          : "Fetching your reels from Instagram…"}
       </p>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (

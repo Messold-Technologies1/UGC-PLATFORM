@@ -23,7 +23,11 @@ import { PortfolioRealtimeNotifier } from './portfolio-realtime.notifier';
       inject: [ConfigService],
     }),
   ],
-  providers: [PaymentsGateway, OrderRealtimeNotifier, PortfolioRealtimeNotifier],
+  providers: [
+    PaymentsGateway,
+    OrderRealtimeNotifier,
+    PortfolioRealtimeNotifier,
+  ],
   exports: [OrderRealtimeNotifier, PortfolioRealtimeNotifier],
 })
 export class RealtimeModule {}

@@ -1,5 +1,11 @@
 "use client";
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { usePathname } from "next/navigation";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,9 +29,8 @@ import type {
   DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
 import { portfolioVideosBaseQueryKey } from "@/features/creator-portfolio/lib/asset-state";
-import {
-  brandOrderDeliveriesQueryKey,
-} from "@/features/orders/api/get-brand-order-deliveries";
+import { instagramReelsBaseQueryKey } from "@/features/instagram-import/api/instagram-media";
+import { brandOrderDeliveriesQueryKey } from "@/features/orders/api/get-brand-order-deliveries";
 import { brandOrderDetailsQueryKey } from "@/features/orders/api/get-brand-order-details";
 import { creatorOrderDetailsQueryKey } from "@/features/orders/api/get-creator-order-details";
 import { getCreatorOrdersPageHref } from "@/features/orders/components/creator-order-detail/creator-orders-tabs";
@@ -78,6 +83,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({
         queryKey: portfolioVideosBaseQueryKey,
       });
+      void queryClient.invalidateQueries({
+        queryKey: instagramReelsBaseQueryKey,
+      });
     };
 
     const onConnectError = async () => {
@@ -86,9 +94,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       try {
         await api.post(ENDPOINTS.AUTH.REFRESH);
         s.connect();
-      } catch {
-       
-      }
+      } catch {}
     };
 
     const rolePath = user.primaryRole?.toLowerCase() || "";
@@ -108,7 +114,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const onOrderPayment = (e: OrderPaymentEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+      queryClient.invalidateQueries({
+        queryKey: ["orders", "brief", e.orderId],
+      });
 
       const isCreator = user.primaryRole === "CREATOR";
       if (isCreator && e.kind === "captured") {
@@ -139,7 +147,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const onBriefSubmitted = (e: OrderBriefSubmittedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+      queryClient.invalidateQueries({
+        queryKey: ["orders", "brief", e.orderId],
+      });
 
       if (user.primaryRole !== "CREATOR") return;
 
@@ -163,7 +173,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const onBriefAccepted = (e: OrderBriefAcceptedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-      queryClient.invalidateQueries({ queryKey: ["orders", "brief", e.orderId] });
+      queryClient.invalidateQueries({
+        queryKey: ["orders", "brief", e.orderId],
+      });
 
       const creatorLabel = e.creatorName?.trim() || "Creator";
       const description = `${creatorLabel} accepted your brief`;
@@ -214,8 +226,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const onRevisionRequested = (e: OrderRevisionRequestedEvent) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
-      const description =
-        e.note?.trim() || `Order ${e.orderId.slice(0, 8)}...`;
+      const description = e.note?.trim() || `Order ${e.orderId.slice(0, 8)}...`;
 
       toast.info(`Revision ${e.revisionNumber} requested`, {
         description,
@@ -294,10 +305,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "success",
         title,
         description,
-        link: orderNotificationLink(
-          e.orderId,
-          e.restoredStatus ?? undefined,
-        ),
+        link: orderNotificationLink(e.orderId, e.restoredStatus ?? undefined),
       });
     };
 
@@ -314,6 +322,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    // A reel-cache batch settled. One invalidate covers the gallery pages and
+    // the status read, for both the creator's own view and an admin's.
+    const onReelSync = () => {
+      void queryClient.invalidateQueries({
+        queryKey: instagramReelsBaseQueryKey,
+      });
+    };
 
     const onChatMessage = (e: OrderChatMessageEvent) => {
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
@@ -327,7 +342,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         type: "info",
         title: "New chat message",
         description: `Order ${e.orderId.slice(0, 8)}...`,
-        link: rolePath ? `/${rolePath}/messages?orderId=${e.orderId}` : undefined,
+        link: rolePath
+          ? `/${rolePath}/messages?orderId=${e.orderId}`
+          : undefined,
       });
     };
 
@@ -344,6 +361,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.dispute_resolved", onDisputeResolved);
     s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("portfolio.video_asset_updated", onPortfolioAsset);
+    s.on("instagram.reel_sync_updated", onReelSync);
     s.on("chat.message", onChatMessage);
 
     s.connect();
@@ -362,6 +380,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.dispute_resolved", onDisputeResolved);
       s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("portfolio.video_asset_updated", onPortfolioAsset);
+      s.off("instagram.reel_sync_updated", onReelSync);
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };

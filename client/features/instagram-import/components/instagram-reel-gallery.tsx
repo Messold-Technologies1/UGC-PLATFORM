@@ -132,7 +132,7 @@ export function InstagramReelGallery({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="flex h-[90vh] max-h-[90vh] flex-col gap-0 p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b border-border px-5 py-4">
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <DialogTitle className="flex items-center gap-2 text-base">
@@ -167,7 +167,7 @@ export function InstagramReelGallery({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-hidden px-5 py-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
           {reels.status === "not_connected" ? (
             <EmptyState
               title="No Instagram account connected"
@@ -220,38 +220,40 @@ export function InstagramReelGallery({
               ) : null}
 
               <UnavailableReelsNotice count={reels.unavailableCount} />
-              <VirtuosoGrid
-                style={{ height: "100%" }}
-                totalCount={reels.items.length}
-                // Paging the cache is free, so it happens on scroll. Fetching a
-                // new batch from Instagram is not, and is never triggered here.
-                endReached={reels.loadMore}
-                overscan={200}
-                components={{ Footer }}
-                listClassName="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"
-                itemContent={(index) => {
-                  const reel = reels.items[index];
-                  if (!reel) return null;
-                  const order = selected.indexOf(reel.igMediaId);
-                  return (
-                    <ReelTile
-                      reel={reel}
-                      selectionOrder={order >= 0 ? order + 1 : null}
-                      disabled={
-                        reel.alreadyImported ||
-                        !reel.importable ||
-                        (atCap && !selectedSet.has(reel.igMediaId))
-                      }
-                      onToggle={() => toggle(reel)}
-                    />
-                  );
-                }}
-              />
+              <div className="min-h-0 flex-1">
+                <VirtuosoGrid
+                  style={{ height: "100%" }}
+                  totalCount={reels.items.length}
+                  // Paging the cache is free, so it happens on scroll. Fetching a
+                  // new batch from Instagram is not, and is never triggered here.
+                  endReached={reels.loadMore}
+                  overscan={200}
+                  components={{ Footer }}
+                  listClassName="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"
+                  itemContent={(index) => {
+                    const reel = reels.items[index];
+                    if (!reel) return null;
+                    const order = selected.indexOf(reel.igMediaId);
+                    return (
+                      <ReelTile
+                        reel={reel}
+                        selectionOrder={order >= 0 ? order + 1 : null}
+                        disabled={
+                          reel.alreadyImported ||
+                          !reel.importable ||
+                          (atCap && !selectedSet.has(reel.igMediaId))
+                        }
+                        onToggle={() => toggle(reel)}
+                      />
+                    );
+                  }}
+                />
+              </div>
             </>
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-3">
           <p className="text-xs text-muted-foreground">
             {selected.length > 0
               ? `${selected.length} selected${atCap ? ` (max ${MAX_SELECTION})` : ""}`
@@ -295,7 +297,7 @@ export function InstagramReelGallery({
 function UnavailableReelsNotice({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+    <div className="mb-3 flex shrink-0 items-start gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
       <Lock className="mt-px size-3.5 shrink-0 text-amber-900" aria-hidden />
       <p className="text-[11.5px] leading-relaxed text-amber-950">
         <span className="font-semibold">
@@ -344,7 +346,7 @@ function GridFooter({
   }
   if (!canFetchMore) return null;
   return (
-    <div className="flex flex-col items-center gap-1.5 py-4">
+    <div className="flex flex-col items-center gap-1.5 py-5 pb-8">
       <Button variant="outline" size="sm" onClick={() => onFetchMore()}>
         Load more from Instagram
       </Button>

@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import type { CreateBriefDto } from './dto/create-brief.dto';
+import type { UpdateBriefDto } from './dto/update-brief.dto';
 import type { BriefDto } from './dto/brief.dto';
 import type {
   AttachBriefToOrderResultDto,
@@ -307,6 +308,160 @@ export class BriefsService {
     if (brief.brandId !== brand.id) throw new ForbiddenException('Not your brief');
 
     return mapBriefRow(brief);
+  }
+
+  async updateBrief(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    briefId: string;
+    dto: UpdateBriefDto;
+  }): Promise<BriefDto> {
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const existing = await this.prisma.brief.findUnique({
+      where: { id: params.briefId },
+    });
+    if (!existing) throw new NotFoundException('Brief not found');
+    if (existing.brandId !== brand.id)
+      throw new ForbiddenException('Not your brief');
+
+    const dto = params.dto;
+    const isProduct = dto.isProduct ?? existing.isProduct;
+    const shipsPhysical =
+      isProduct &&
+      (dto.willShipPhysicalProductToCreator ??
+        existing.willShipPhysicalProductToCreator);
+
+    if (!isProduct && dto.willShipPhysicalProductToCreator) {
+      throw new BadRequestException(
+        'willShipPhysicalProductToCreator is only allowed for product briefs',
+      );
+    }
+
+    // Optional replacement product image (must be a fresh temp upload key).
+    const providedImageKey = dto.productImageKey?.trim();
+    let finalizeImageKey: string | null = null;
+    if (providedImageKey) {
+      if (!isProduct) {
+        throw new BadRequestException(
+          'productImageKey is only allowed for product briefs',
+        );
+      }
+      this.assertTempBriefProductImageKeyOwner(
+        params.actorUserId,
+        providedImageKey,
+      );
+      finalizeImageKey = providedImageKey;
+    }
+
+    const script = normalizeScriptInput(dto.script);
+
+    const data: Record<string, unknown> = {
+      isProduct,
+      willShipPhysicalProductToCreator: shipsPhysical,
+    };
+    const setIfDefined = (key: keyof UpdateBriefDto): void => {
+      if (dto[key] !== undefined) data[key as string] = dto[key];
+    };
+    setIfDefined('brandName');
+    setIfDefined('industry');
+    setIfDefined('brandLogoKey');
+    setIfDefined('brandLogoUrl');
+    setIfDefined('brandPronunciationAudioKey');
+    setIfDefined('brandPronunciationAudioUrl');
+    setIfDefined('productName');
+    setIfDefined('productDescription');
+    setIfDefined('productPageUrl');
+    setIfDefined('shootLocationKind');
+    setIfDefined('shootLocationAddress');
+    setIfDefined('durationBucket');
+    setIfDefined('contentType');
+    setIfDefined('toneStyle');
+    setIfDefined('keyNoteToInclude');
+    setIfDefined('ctaNote');
+    setIfDefined('finalNotes');
+    if (dto.referenceLinks !== undefined) {
+      data.referenceLinks = (dto.referenceLinks ?? []) as unknown;
+    }
+    if (script !== undefined) {
+      data.script = script as unknown;
+    }
+
+    // Switching to a service brief clears any existing product image.
+    if (dto.isProduct === false && existing.productImageKey) {
+      data.productImageKey = null;
+      data.productImageUrl = null;
+      await this.storage.deleteObjectIfExists(existing.productImageKey);
+    }
+
+    await this.prisma.brief.update({
+      where: { id: existing.id },
+      data: data as any,
+    });
+
+    if (finalizeImageKey) {
+      const finalKey = await this.storage.finalizeBriefProductImageKey({
+        tempKey: finalizeImageKey,
+        briefId: existing.id,
+        deleteTemp: true,
+      });
+      await this.prisma.brief.update({
+        where: { id: existing.id },
+        data: {
+          productImageKey: finalKey,
+          productImageUrl: this.storage.buildCdnUrl(finalKey),
+        },
+      });
+      if (existing.productImageKey && existing.productImageKey !== finalKey) {
+        await this.storage.deleteObjectIfExists(existing.productImageKey);
+      }
+    }
+
+    const updated = await this.prisma.brief.findUnique({
+      where: { id: existing.id },
+    });
+    if (!updated) throw new NotFoundException('Brief not found');
+    return mapBriefRow(updated);
+  }
+
+  async deleteBrief(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    briefId: string;
+  }): Promise<void> {
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const existing = await this.prisma.brief.findUnique({
+      where: { id: params.briefId },
+      select: { id: true, brandId: true, productImageKey: true },
+    });
+    if (!existing) throw new NotFoundException('Brief not found');
+    if (existing.brandId !== brand.id)
+      throw new ForbiddenException('Not your brief');
+
+    // A brief attached to an order backs that order's creative record
+    // (Order.briefId). Deleting it would strip the brief the creator works
+    // from, so block deletion while any order references it.
+    const referencingOrders = await this.prisma.order.count({
+      where: { briefId: existing.id },
+    });
+    if (referencingOrders > 0) {
+      throw new BadRequestException(
+        'This brief is attached to one or more orders and cannot be deleted.',
+      );
+    }
+
+    await this.prisma.brief.delete({ where: { id: existing.id } });
+
+    if (existing.productImageKey) {
+      await this.storage.deleteObjectIfExists(existing.productImageKey);
+    }
   }
 
   async attachBriefToOrder(params: {

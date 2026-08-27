@@ -43,6 +43,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
+import { useUpdateBriefMutation } from "@/features/briefs/hooks/use-update-brief-mutation";
+import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
@@ -402,8 +404,18 @@ function CreateBriefPageContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const isFromOrder = !!orderId;
-  const draftStorageKey = `brief-create-draft:${orderId ?? "standalone"}`;
+  const editBriefId = searchParams.get("briefId");
+  const isEditMode = !!editBriefId;
+  const draftStorageKey = `brief-create-draft:${
+    editBriefId ? `edit-${editBriefId}` : orderId ?? "standalone"
+  }`;
   const productImageInputRef = useRef<HTMLInputElement | null>(null);
+  const originalProductImageKeyRef = useRef<string | null>(null);
+  const prefilledEditIdRef = useRef<string | null>(null);
+
+  const { data: editBrief } = useGetBriefQuery(editBriefId ?? "", {
+    enabled: isEditMode,
+  });
 
   const { data: orderDetailsData, isLoading: isOrderLoading } =
     useGetBrandOrderDetailsQuery(orderId ?? "", {
@@ -507,6 +519,15 @@ function CreateBriefPageContent() {
     },
   });
 
+  const updateBriefMutation = useUpdateBriefMutation({
+    onSuccess: (updated) => {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(draftStorageKey);
+      }
+      router.push(`/brand/briefs/${updated.id}`);
+    },
+  });
+
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
       router.push(`/brand/orders/${orderId}`);
@@ -594,6 +615,24 @@ function CreateBriefPageContent() {
   }, [brandProfileState, form]);
 
   const onSubmit = (data: CreateBriefValues) => {
+    if (isEditMode && editBriefId) {
+      const payload: Partial<CreateBriefPayload> = toCreateBriefPayload(
+        data,
+        true,
+      );
+      // The stored product image key is finalized (not a temp upload key).
+      // Only send productImageKey when the user actually replaced the image,
+      // otherwise the backend would reject the non-temp key.
+      const currentImageKey = data.productImageKey?.trim();
+      if (
+        !currentImageKey ||
+        currentImageKey === originalProductImageKeyRef.current
+      ) {
+        delete payload.productImageKey;
+      }
+      updateBriefMutation.mutate({ id: editBriefId, payload });
+      return;
+    }
     createBriefMutation.mutate(toCreateBriefPayload(data, needsBrandName));
   };
 
@@ -622,7 +661,8 @@ function CreateBriefPageContent() {
     }
   };
 
-  const isSubmitting = createBriefMutation.isPending;
+  const isSubmitting =
+    createBriefMutation.isPending || updateBriefMutation.isPending;
   const isSubmittingBrief = submitBriefMutation.isPending;
   const isPronunciationUploadPending = uploadPronunciationMutation.isPending;
   const isProductImageUploadPending = uploadProductImageMutation.isPending;
@@ -662,8 +702,57 @@ function CreateBriefPageContent() {
     });
   };
 
+  // Prefill the form from the brief being edited (once, when it loads).
+  useEffect(() => {
+    if (!isEditMode || !editBrief) return;
+    if (prefilledEditIdRef.current === editBrief.id) return;
+    prefilledEditIdRef.current = editBrief.id;
+
+    const script = (editBrief.script ?? null) as unknown as {
+      mode?: ScriptOptionValue;
+      text?: string;
+    } | null;
+
+    form.reset({
+      ...createBriefDefaultValues,
+      brandName: editBrief.brandName ?? "",
+      industry: editBrief.industry ?? "",
+      brandLogoUrl: editBrief.brandLogoUrl ?? "",
+      brandPronunciationAudioKey: editBrief.brandPronunciationAudioKey ?? "",
+      brandPronunciationAudioUrl: editBrief.brandPronunciationAudioUrl ?? "",
+      productName: editBrief.productName ?? "",
+      productDescription: editBrief.productDescription ?? "",
+      productPageUrl: editBrief.productPageUrl ?? "",
+      productImageKey: editBrief.productImageKey ?? "",
+      productImageUrl: editBrief.productImageUrl ?? "",
+      isProduct: editBrief.isProduct ?? true,
+      willShipPhysicalProductToCreator:
+        editBrief.willShipPhysicalProductToCreator ?? false,
+      shootLocationKind: editBrief.shootLocationKind ?? undefined,
+      shootLocationAddress: editBrief.shootLocationAddress ?? "",
+      durationBucket: editBrief.durationBucket ?? undefined,
+      contentType:
+        editBrief.contentType && editBrief.contentType.length > 0
+          ? editBrief.contentType
+          : createBriefDefaultValues.contentType,
+      toneStyle:
+        editBrief.toneStyle && editBrief.toneStyle.length > 0
+          ? editBrief.toneStyle
+          : createBriefDefaultValues.toneStyle,
+      keyNoteToInclude: editBrief.keyNoteToInclude ?? "",
+      ctaNote: editBrief.ctaNote ?? "",
+      referenceLinks: (editBrief.referenceLinks ?? []).join("\n"),
+      scriptOption: script?.mode ?? "CREATOR_WRITES",
+      scriptText: script?.text ?? "",
+      finalNotes: editBrief.finalNotes ?? "",
+    });
+    originalProductImageKeyRef.current = editBrief.productImageKey ?? null;
+  }, [isEditMode, editBrief, form]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Editing loads live brief data, not a local draft.
+    if (isEditMode) return;
 
     const rawDraft = window.localStorage.getItem(draftStorageKey);
     if (!rawDraft) return;
@@ -778,9 +867,12 @@ function CreateBriefPageContent() {
                 <Pen size={19} />
               </div>
               <div>
-                <h2 className={styles.panelHeadTitle}>New brief</h2>
+                <h2 className={styles.panelHeadTitle}>
+                  {isEditMode ? "Edit brief" : "New brief"}
+                </h2>
                 <div className={styles.panelHeadSub}>
-                  {watchProductName?.trim() || "Untitled brief"} · draft
+                  {watchProductName?.trim() || "Untitled brief"} ·{" "}
+                  {isEditMode ? "editing" : "draft"}
                 </div>
               </div>
               <div className={styles.panelHeadActions}>
@@ -1583,20 +1675,22 @@ function CreateBriefPageContent() {
             </div>
 
             <div className={styles.panelFoot}>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSaveDraft}
-                disabled={
-                  isSubmitting ||
-                  isUploadPending ||
-                  isSubmittingBrief ||
-                  Boolean(savedBriefId)
-                }
-                className="rounded-xl font-bold bg-white text-foreground"
-              >
-                <FileText className="mr-2 size-4" /> Save as draft
-              </Button>
+              {!isEditMode && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSaveDraft}
+                  disabled={
+                    isSubmitting ||
+                    isUploadPending ||
+                    isSubmittingBrief ||
+                    Boolean(savedBriefId)
+                  }
+                  className="rounded-xl font-bold bg-white text-foreground"
+                >
+                  <FileText className="mr-2 size-4" /> Save as draft
+                </Button>
+              )}
               <div className={styles.panelFootSpacer} />
               <Button
                 type="submit"
@@ -1626,7 +1720,11 @@ function CreateBriefPageContent() {
                   </>
                 ) : (
                   <>
-                    {savedBriefId ? "Brief Saved" : "Create brief"}
+                    {isEditMode
+                      ? "Update brief"
+                      : savedBriefId
+                        ? "Brief Saved"
+                        : "Create brief"}
                     {!savedBriefId && !isSubmitting && !isUploadPending && (
                       <ArrowRight className="ml-2 size-4" />
                     )}

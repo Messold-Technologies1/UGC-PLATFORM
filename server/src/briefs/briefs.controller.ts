@@ -28,6 +28,8 @@ import { CreateBriefDto } from './dto/create-brief.dto';
 import { CreateBriefResponseDto } from './dto/create-brief-response.dto';
 import { ListBriefsResponseDto } from './dto/list-briefs-response.dto';
 import { AttachBriefToOrderDto } from './dto/attach-brief-to-order.dto';
+import { AttachBriefToOrdersDto } from './dto/attach-brief-to-orders.dto';
+import { AttachBriefToOrdersResponseDto } from './dto/attach-brief-to-orders-response.dto';
 import { BriefDto } from './dto/brief.dto';
 import {
   PresignBriefProductImageUploadDto,
@@ -106,6 +108,28 @@ export class BriefsController {
       ...brandActorParams(req),
       briefId: id,
       orderId: dto.orderId,
+    });
+  }
+
+  @Post(':id/attach-to-orders')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Attach a saved brief to multiple orders',
+    description:
+      'Links an existing saved brief to many orders awaiting brief submission in one action and starts each delivery timeline. Orders are processed independently; the response reports a per-order outcome.',
+  })
+  @ApiOkResponse({ type: AttachBriefToOrdersResponseDto })
+  async attachBriefToOrders(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AttachBriefToOrdersDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AttachBriefToOrdersResponseDto> {
+    return this.briefsService.attachBriefToOrders({
+      ...brandActorParams(req),
+      briefId: id,
+      orderIds: dto.orderIds,
     });
   }
 

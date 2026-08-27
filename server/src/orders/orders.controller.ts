@@ -83,6 +83,7 @@ export class OrdersController {
       ...brandActorParams(req),
       page: query.page,
       limit: query.limit,
+      status: query.status,
     });
   }
 

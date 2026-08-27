@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -72,6 +72,7 @@ import {
   ExistingBriefsSidebar,
   BriefsDrawerButton,
 } from "@/features/briefs/components/existing-briefs-sidebar";
+import { SubmitBriefToOrdersDialog } from "@/features/briefs/components/submit-brief-to-orders-dialog";
 import styles from "@/features/briefs/components/brief-studio.module.css";
 
 const shootLocationKinds = [
@@ -487,6 +488,9 @@ function CreateBriefPageContent() {
     },
   });
   const [savedBriefId, setSavedBriefId] = useState<string | null>(null);
+  const [submitDialogBriefId, setSubmitDialogBriefId] = useState<string | null>(
+    null,
+  );
 
   const createBriefMutation = useCreateBriefMutation({
     onSuccess: (result) => {
@@ -723,51 +727,11 @@ function CreateBriefPageContent() {
     name: "productName",
   });
 
-  const applyTemplate = useCallback(
-    (brief: Brief) => {
-      const opts = { shouldDirty: true, shouldValidate: true } as const;
-
-      form.setValue("brandName", brief.brandName ?? "", opts);
-      form.setValue("industry", brief.industry ?? "", opts);
-      form.setValue("brandLogoUrl", brief.brandLogoUrl ?? "", opts);
-
-      form.setValue("productName", brief.productName ?? "", opts);
-      form.setValue("productDescription", brief.productDescription ?? "", opts);
-      form.setValue("productPageUrl", brief.productPageUrl ?? "", opts);
-      form.setValue("isProduct", brief.isProduct ?? true, opts);
-      form.setValue(
-        "willShipPhysicalProductToCreator",
-        brief.willShipPhysicalProductToCreator ?? false,
-        opts,
-      );
-      if (brief.shootLocationKind) {
-        form.setValue("shootLocationKind", brief.shootLocationKind, opts);
-      }
-      form.setValue("shootLocationAddress", brief.shootLocationAddress ?? "", opts);
-      if (brief.durationBucket) {
-        form.setValue("durationBucket", brief.durationBucket, opts);
-      }
-      if (brief.contentType && brief.contentType.length > 0) {
-        form.setValue("contentType", brief.contentType, opts);
-      }
-      if (brief.toneStyle && brief.toneStyle.length > 0) {
-        form.setValue("toneStyle", brief.toneStyle, opts);
-      }
-      form.setValue("keyNoteToInclude", brief.keyNoteToInclude ?? "", opts);
-      form.setValue("ctaNote", brief.ctaNote ?? "", opts);
-      form.setValue(
-        "referenceLinks",
-        (brief.referenceLinks ?? []).join("\n"),
-        opts,
-      );
-      form.setValue("finalNotes", brief.finalNotes ?? "", opts);
-
-      toast.success(
-        `Loaded "${brief.productName || "brief"}" into the form`,
-      );
-    },
-    [form],
-  );
+  // A saved brief picked from the sidebar/drawer opens the order picker so it
+  // can be submitted to one or more orders awaiting a brief.
+  const handleSubmitExistingBrief = (brief: Brief) => {
+    setSubmitDialogBriefId(brief.id);
+  };
 
   const scriptOptions = [
     {
@@ -820,7 +784,7 @@ function CreateBriefPageContent() {
                 </div>
               </div>
               <div className={styles.panelHeadActions}>
-                <BriefsDrawerButton onUseTemplate={applyTemplate} />
+                <BriefsDrawerButton onSubmitBrief={handleSubmitExistingBrief} />
                 <button
                   type="button"
                   className={styles.panelHeadAction}
@@ -1672,9 +1636,18 @@ function CreateBriefPageContent() {
             </div>
           </section>
 
-          <ExistingBriefsSidebar onUseTemplate={applyTemplate} />
+          <ExistingBriefsSidebar onSubmitBrief={handleSubmitExistingBrief} />
         </div>
       </div>
+
+      <SubmitBriefToOrdersDialog
+        briefId={submitDialogBriefId}
+        open={submitDialogBriefId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSubmitDialogBriefId(null);
+        }}
+        preselectOrderId={orderId}
+      />
     </div>
   );
 }

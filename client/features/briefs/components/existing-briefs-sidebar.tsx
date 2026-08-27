@@ -15,11 +15,11 @@ import {
 import styles from "./brief-studio.module.css";
 
 interface ExistingBriefsSidebarProps {
-  onUseTemplate: (brief: Brief) => void;
+  onSubmitBrief: (brief: Brief) => void;
 }
 
 export function ExistingBriefsSidebar({
-  onUseTemplate,
+  onSubmitBrief,
 }: ExistingBriefsSidebarProps) {
   const { data, isLoading, isError } = useListBriefsQuery({
     staleTime: 2 * 60_000,
@@ -32,14 +32,14 @@ export function ExistingBriefsSidebar({
         briefs={briefs}
         isLoading={isLoading}
         isError={isError}
-        onUseTemplate={onUseTemplate}
+        onSubmitBrief={onSubmitBrief}
       />
     </section>
   );
 }
 
 export function BriefsDrawerButton({
-  onUseTemplate,
+  onSubmitBrief,
 }: ExistingBriefsSidebarProps) {
   const { data, isLoading, isError } = useListBriefsQuery({
     staleTime: 2 * 60_000,
@@ -47,8 +47,8 @@ export function BriefsDrawerButton({
   const briefs = data?.items ?? [];
   const [open, setOpen] = useState(false);
 
-  const handleUseTemplate = (brief: Brief) => {
-    onUseTemplate(brief);
+  const handleSubmitBrief = (brief: Brief) => {
+    onSubmitBrief(brief);
     setOpen(false);
   };
 
@@ -74,7 +74,7 @@ export function BriefsDrawerButton({
           briefs={briefs}
           isLoading={isLoading}
           isError={isError}
-          onUseTemplate={handleUseTemplate}
+          onSubmitBrief={handleSubmitBrief}
           renderClose
         />
       </DrawerContent>
@@ -86,7 +86,7 @@ interface BriefsPanelContentProps {
   briefs: Brief[];
   isLoading: boolean;
   isError: boolean;
-  onUseTemplate: (brief: Brief) => void;
+  onSubmitBrief: (brief: Brief) => void;
   renderClose?: boolean;
 }
 
@@ -94,7 +94,7 @@ function BriefsPanelContent({
   briefs,
   isLoading,
   isError,
-  onUseTemplate,
+  onSubmitBrief,
   renderClose = false,
 }: BriefsPanelContentProps) {
   return (
@@ -106,7 +106,7 @@ function BriefsPanelContent({
         <div>
           <h2 className={styles.panelHeadTitle}>Your briefs</h2>
           <div className={styles.panelHeadSub}>
-            Reuse a template to start faster
+            Submit a saved brief to your orders
           </div>
         </div>
         <span className={styles.panelHeadCount}>{briefs.length}</span>
@@ -150,7 +150,7 @@ function BriefsPanelContent({
               <BriefCard
                 key={brief.id}
                 brief={brief}
-                onUseTemplate={onUseTemplate}
+                onSubmitBrief={onSubmitBrief}
               />
             ))}
           </div>

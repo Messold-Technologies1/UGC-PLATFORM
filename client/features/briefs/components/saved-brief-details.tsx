@@ -38,6 +38,7 @@ import {
   formatContentType,
 } from "../lib/format-enums";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
+import { SubmitBriefToOrdersDialog } from "@/features/briefs/components/submit-brief-to-orders-dialog";
 import styles from "@/features/briefs/components/brief-studio.module.css";
 import { cn } from "@/lib/utils";
 
@@ -80,6 +81,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   const existingBriefs = listBriefsData?.items ?? [];
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
@@ -445,8 +447,42 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
               </div>
             </section>
           )}
+
+          {!isFromOrder && (
+            <section className={cn(styles.panel, styles.rightPanel)}>
+              <div className={styles.panelHead}>
+                <div className={styles.panelHeadIconPrimary}>
+                  <Package size={19} />
+                </div>
+                <div>
+                  <h2 className={styles.panelHeadTitle}>Submit brief</h2>
+                  <div className={styles.panelHeadSub}>Send to your orders</div>
+                </div>
+              </div>
+              <div className={styles.panelBody}>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Submit this brief to one or more orders that are awaiting a
+                  brief.
+                </p>
+                <Button
+                  onClick={() => setIsPickerOpen(true)}
+                  className="w-full rounded-xl font-bold px-8 py-3 shadow-sm transition-all hover:opacity-90 bg-emerald-600 hover:bg-emerald-700 text-white h-12"
+                >
+                  <Send className="mr-2 size-4" />
+                  Submit this brief
+                </Button>
+              </div>
+            </section>
+          )}
         </div>
       </div>
+
+      <SubmitBriefToOrdersDialog
+        briefId={briefId}
+        open={isPickerOpen}
+        onOpenChange={setIsPickerOpen}
+        onSubmitted={() => router.push("/brand/orders")}
+      />
 
       <Dialog
         open={isConfirmOpen}

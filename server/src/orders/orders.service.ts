@@ -2923,6 +2923,7 @@ export class OrdersService {
     brandProfileId?: string | null;
     page?: number;
     limit?: number;
+    status?: OrderStatus;
   }): Promise<BrandOrdersListResponseDto> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -2932,7 +2933,10 @@ export class OrdersService {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
-    const where = { brandId: brand.id };
+    const where: Prisma.OrderWhereInput = {
+      brandId: brand.id,
+      ...(params.status ? { status: params.status } : {}),
+    };
 
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.order.count({ where }),

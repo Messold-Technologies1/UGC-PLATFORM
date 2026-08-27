@@ -17,6 +17,8 @@ export interface BrandOrdersListResponse {
 export interface GetBrandOrdersParams {
   page?: number;
   limit?: number;
+  /** Filter by order lifecycle status, e.g. "BRIEF_SUBMISSION_PENDING". */
+  status?: string;
 }
 
 export async function getBrandOrders(params?: GetBrandOrdersParams) {

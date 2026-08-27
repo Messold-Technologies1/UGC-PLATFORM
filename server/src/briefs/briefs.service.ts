@@ -17,6 +17,10 @@ import { StorageService } from '../storage/storage.service';
 import type { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response.dto';
 import type { CreateBriefDto } from './dto/create-brief.dto';
 import type { BriefDto } from './dto/brief.dto';
+import type {
+  AttachBriefToOrderResultDto,
+  AttachBriefToOrdersResponseDto,
+} from './dto/attach-brief-to-orders-response.dto';
 import type { PresignBriefProductImageUploadDto } from './dto/presign-brief-product-image-upload.dto';
 import type { PresignBriefProductImageUploadResponseDto } from './dto/presign-brief-product-image-upload.dto';
 
@@ -329,5 +333,91 @@ export class BriefsService {
       orderId: params.orderId,
       briefId: params.briefId,
     });
+  }
+
+  /**
+   * Attach one saved brief to many orders in a single action. The brief is
+   * validated once (ownership + product-image requirement); each order is then
+   * submitted independently so one bad order (already briefed, not found)
+   * never blocks the rest. Per-order side effects (timeline start, realtime,
+   * email) are handled by the reused OrdersService.submitBrief.
+   */
+  async attachBriefToOrders(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    briefId: string;
+    orderIds: string[];
+  }): Promise<AttachBriefToOrdersResponseDto> {
+    const { brand } = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const brief = await this.prisma.brief.findFirst({
+      where: { id: params.briefId, brandId: brand.id },
+      select: { id: true, isProduct: true, productImageKey: true },
+    });
+    if (!brief) throw new NotFoundException('Brief not found');
+    if (brief.isProduct && !brief.productImageKey?.trim()) {
+      throw new BadRequestException(
+        'Brief must include a product image before it can be submitted to orders for product campaigns',
+      );
+    }
+
+    // De-duplicate while preserving the caller's order.
+    const orderIds = Array.from(new Set(params.orderIds));
+
+    const results: AttachBriefToOrderResultDto[] = [];
+    for (const orderId of orderIds) {
+      try {
+        const order = await this.prisma.order.findUnique({
+          where: { id: orderId },
+          select: {
+            id: true,
+            brandId: true,
+            status: true,
+            briefSubmittedAt: true,
+          },
+        });
+        if (!order || order.brandId !== brand.id) {
+          results.push({
+            orderId,
+            status: 'FAILED',
+            message: 'Order not found',
+          });
+          continue;
+        }
+        if (order.status !== 'BRIEF_SUBMISSION_PENDING' || order.briefSubmittedAt) {
+          results.push({
+            orderId,
+            status: 'SKIPPED',
+            message: 'Order is not awaiting a brief',
+          });
+          continue;
+        }
+
+        await this.ordersService.submitBrief({
+          actorUserId: params.actorUserId,
+          brandProfileId: params.brandProfileId,
+          orderId,
+          briefId: params.briefId,
+        });
+        results.push({ orderId, status: 'SUBMITTED' });
+      } catch (err) {
+        results.push({
+          orderId,
+          status: 'FAILED',
+          message:
+            err instanceof Error ? err.message : 'Failed to submit brief',
+        });
+      }
+    }
+
+    return {
+      results,
+      submittedCount: results.filter((r) => r.status === 'SUBMITTED').length,
+      skippedCount: results.filter((r) => r.status === 'SKIPPED').length,
+      failedCount: results.filter((r) => r.status === 'FAILED').length,
+    };
   }
 }

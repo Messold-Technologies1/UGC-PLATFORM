@@ -296,19 +296,17 @@ function UnavailableReelsNotice({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
-      <Lock className="mt-px size-3.5 shrink-0 text-amber-600" aria-hidden />
-      <p className="text-[11.5px] leading-relaxed">
+      <Lock className="mt-px size-3.5 shrink-0 text-amber-900" aria-hidden />
+      <p className="text-[11.5px] leading-relaxed text-amber-950">
         <span className="font-semibold">
           {count === 1
-            ? "1 reel can't be added from here"
-            : `${count} reels can't be added from here`}
+            ? "Instagram locked this one."
+            : `Instagram locked ${count} of these.`}
         </span>{" "}
-        <span className="text-muted-foreground">
-          Instagram doesn&apos;t let us download reels that use licensed audio,
-          so they&apos;re greyed out below. To use one, save it from Instagram
-          to your device and add it with{" "}
-          <span className="font-medium">Upload from your device</span>.
-        </span>
+        {count === 1
+          ? "Licensed audio, so we can't download it — that's why it's greyed out. Want it anyway? Save it from Instagram, then add it with"
+          : "Licensed audio, so we can't download them — that's why they're greyed out. Want one? Save it from Instagram, then add it with"}{" "}
+        <span className="font-medium">Upload from your device</span>.
       </p>
     </div>
   );

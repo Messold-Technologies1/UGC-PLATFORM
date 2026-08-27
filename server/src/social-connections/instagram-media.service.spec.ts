@@ -97,6 +97,7 @@ describe('InstagramMediaService', () => {
     getFreshAccessToken: jest.fn().mockResolvedValue('token'),
     markConnectionError: jest.fn(),
   };
+  const realtimeMock = { emitReelSyncUpdated: jest.fn() };
 
   let service: InstagramMediaService;
 
@@ -114,6 +115,7 @@ describe('InstagramMediaService', () => {
     prismaMock.creatorProfile.findUnique.mockResolvedValue({ id: 'profile-1' });
     prismaMock.socialConnection.findUnique.mockResolvedValue({
       id: connectionId,
+      creatorProfileId: 'profile-1',
       username: 'creator.handle',
       status: 'ACTIVE',
     });
@@ -123,6 +125,7 @@ describe('InstagramMediaService', () => {
       configMock as never,
       instagramMock as never,
       connectionsMock as never,
+      realtimeMock as never,
     );
   });
 
@@ -368,6 +371,76 @@ describe('InstagramMediaService', () => {
       );
     });
 
+    it('announces a finished batch so the picker can stop waiting', async () => {
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(
+        page([reel('1')], null),
+      );
+      prismaMock.instagramMediaItem.count.mockResolvedValue(1);
+
+      await service.syncConnectionMedia(connectionId);
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creatorProfileId: 'profile-1',
+          status: 'ready',
+          reelCount: 1,
+          hasMore: false,
+        }),
+      );
+    });
+
+    it('announces a failed batch too, so the spinner does not hang', async () => {
+      instagramMock.fetchMediaPage.mockRejectedValue(new Error('Graph down'));
+
+      await expect(service.syncConnectionMedia(connectionId)).rejects.toThrow(
+        'Graph down',
+      );
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creatorProfileId: 'profile-1',
+          status: 'error',
+          error: 'Graph down',
+        }),
+      );
+    });
+
+    it('announces a no-op extend, which spends no Graph call at all', async () => {
+      // Load more on a fully cached account: nothing to fetch, but the reader
+      // is already looking at a spinner.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: null,
+        hasMore: false,
+        lastSyncedAt: new Date(),
+      });
+
+      await service.syncConnectionMedia(connectionId, { mode: 'extend' });
+
+      expect(instagramMock.fetchMediaPage).not.toHaveBeenCalled();
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'ready', hasMore: false }),
+      );
+    });
+
+    it('reports the stored frontier after a refresh, not the batch view', async () => {
+      // A refresh walks the top and leaves the frontier alone, so it must not
+      // tell the client the account has been exhausted.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: 'deep-frontier',
+        hasMore: true,
+        lastSyncedAt: new Date(),
+      });
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(
+        page([reel('1')], null),
+      );
+
+      await service.syncConnectionMedia(connectionId, { mode: 'refresh' });
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'ready', hasMore: true }),
+      );
+    });
+
     it('records the failure on the sync state and rethrows', async () => {
       instagramMock.fetchMediaPage.mockRejectedValue(new Error('Graph down'));
 
@@ -382,47 +455,159 @@ describe('InstagramMediaService', () => {
   });
 
   describe('resetStuckSyncs', () => {
+    const stuckRow = (connectionId: string) => ({
+      connectionId,
+      connection: { creatorProfileId: `profile-for-${connectionId}` },
+    });
+
     it('clears a sync left claiming to be in flight', async () => {
       // Nothing else recovers these: status is only moved by the walk
       // finishing or failing, so a process dying mid-walk leaves it SYNCING
       // for good — and the picker waits on that state.
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([
+        stuckRow('conn-a'),
+        stuckRow('conn-b'),
+      ]);
       prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
         count: 2,
       });
 
       await expect(service.resetStuckSyncs()).resolves.toBe(2);
 
+      const read =
+        prismaMock.instagramMediaSyncState.findMany.mock.calls[0]![0];
+      expect(read.where.status).toEqual({ in: ['SYNCING', 'QUEUED'] });
+      expect(read.where.updatedAt.lte).toBeInstanceOf(Date);
+
       const { where, data } =
         prismaMock.instagramMediaSyncState.updateMany.mock.calls[0]![0];
-      expect(where.status).toEqual({ in: ['SYNCING', 'QUEUED'] });
-      expect(where.updatedAt.lte).toBeInstanceOf(Date);
+      expect(where).toEqual({ connectionId: { in: ['conn-a', 'conn-b'] } });
       expect(data.status).toBe('ERROR');
       expect(data.lastError).toMatch(/Refresh/);
     });
 
-    it('does nothing when no sync is stuck', async () => {
+    it('tells each creator, so the picker stops waiting', async () => {
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([
+        stuckRow('conn-a'),
+        stuckRow('conn-b'),
+      ]);
       prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
-        count: 0,
+        count: 2,
       });
 
+      await service.resetStuckSyncs();
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledTimes(2);
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creatorProfileId: 'profile-for-conn-a',
+          status: 'error',
+        }),
+      );
+    });
+
+    it('writes nothing when no sync is stuck', async () => {
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([]);
+
       await expect(service.resetStuckSyncs()).resolves.toBe(0);
+      expect(
+        prismaMock.instagramMediaSyncState.updateMany,
+      ).not.toHaveBeenCalled();
+      expect(realtimeMock.emitReelSyncUpdated).not.toHaveBeenCalled();
     });
 
     it('refuses a stuck window shorter than a minute', async () => {
       // Too short and it would abort a sync that is merely slow — the queue
       // deliberately holds jobs for minutes under backpressure.
       configValues.IG_MEDIA_STUCK_SYNC_MS = 1_000;
-      prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
-        count: 0,
-      });
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([]);
 
       await service.resetStuckSyncs();
 
-      const { where } =
-        prismaMock.instagramMediaSyncState.updateMany.mock.calls[0]![0];
+      const read =
+        prismaMock.instagramMediaSyncState.findMany.mock.calls[0]![0];
       expect(
-        Date.now() - (where.updatedAt.lte as Date).getTime(),
+        Date.now() - (read.where.updatedAt.lte as Date).getTime(),
       ).toBeGreaterThanOrEqual(59_000);
+    });
+  });
+
+  describe('gallery importability', () => {
+    const row = (over: Record<string, unknown> = {}) => ({
+      igMediaId: '1',
+      permalink: null,
+      thumbnailUrl: 'https://scontent.cdninstagram.com/1.jpg',
+      caption: null,
+      postedAt: new Date('2026-07-01T00:00:00Z'),
+      durationSeconds: null,
+      likeCount: null,
+      viewCount: null,
+      importedVideoId: null,
+      mediaUrl: 'https://scontent.cdninstagram.com/1.mp4',
+      ...over,
+    });
+
+    beforeEach(() => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        status: IgMediaSyncStatus.READY,
+        lastSyncedAt: new Date(),
+        hasMore: false,
+        reelCount: 2,
+        lastError: null,
+      });
+    });
+
+    it('marks a reel with a media url importable', async () => {
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([row()]);
+      prismaMock.instagramMediaItem.count.mockResolvedValue(0);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.items[0]!.importable).toBe(true);
+    });
+
+    it('marks a reel Instagram withheld the file for as not importable', async () => {
+      // The thumbnail still comes back, which is why these look normal in the
+      // picker and have to be flagged explicitly.
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+        row({ mediaUrl: null }),
+      ]);
+      prismaMock.instagramMediaItem.count.mockResolvedValue(1);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.items[0]!.importable).toBe(false);
+      expect(result.items[0]!.thumbnailUrl).not.toBeNull();
+    });
+
+    it('counts the unavailable reels across the whole cache on the first page', async () => {
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([row()]);
+      prismaMock.instagramMediaItem.count.mockResolvedValue(7);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.unavailableCount).toBe(7);
+      expect(prismaMock.instagramMediaItem.count).toHaveBeenCalledWith({
+        where: {
+          connectionId,
+          mediaProductType: 'REELS',
+          mediaUrl: null,
+        },
+      });
+    });
+
+    it('does not recount on a later page', async () => {
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([row()]);
+
+      const result = await service.getGalleryPage(userId, {
+        cursor: encodeGalleryCursor({
+          postedAt: new Date('2026-07-02T00:00:00Z'),
+          igMediaId: '9',
+        }),
+      });
+
+      expect(result.unavailableCount).toBeNull();
+      expect(prismaMock.instagramMediaItem.count).not.toHaveBeenCalled();
     });
   });
 

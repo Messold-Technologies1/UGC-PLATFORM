@@ -11,6 +11,13 @@ import type {
  * admin-guarded routes. The query key carries the creator id so one admin
  * session can hold several creators' galleries without them colliding.
  */
+/**
+ * Prefix shared by every reel query — the gallery pages and the status read, for
+ * both the creator's own view and an admin's. One invalidate against this
+ * refreshes whichever is mounted, which is what the realtime handler needs.
+ */
+export const instagramReelsBaseQueryKey = ["instagram", "reels"] as const;
+
 export function instagramReelsQueryKeyFor(adminCreatorId?: string) {
   return adminCreatorId
     ? (["instagram", "reels", adminCreatorId] as const)

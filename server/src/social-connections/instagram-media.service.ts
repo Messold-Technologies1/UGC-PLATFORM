@@ -15,6 +15,7 @@ import {
   type InstagramUsage,
 } from './instagram.client';
 import { SocialConnectionsService } from './social-connections.service';
+import { PortfolioRealtimeNotifier } from '../realtime/portfolio-realtime.notifier';
 
 /** Instagram's own label for a reel, as returned in `media_product_type`. */
 const REELS_PRODUCT_TYPE = 'REELS';
@@ -59,6 +60,17 @@ export interface GalleryItem {
   viewCount: number | null;
   alreadyImported: boolean;
   portfolioVideoId: string | null;
+  /**
+   * False when Instagram gave us no downloadable file for this reel, so there is
+   * nothing to import. Meta omits `media_url` for media containing copyrighted
+   * material — licensed audio on a reel being the common case — while still
+   * returning `thumbnail_url`, which is why such a reel looks perfectly normal
+   * in the picker.
+   *
+   * A snapshot: a copyright flag can be applied or lifted later, so a Refresh
+   * can change this.
+   */
+  importable: boolean;
 }
 
 export interface SyncStatus {
@@ -94,6 +106,13 @@ export interface GalleryPage {
    */
   hasMoreOnInstagram: boolean;
   reelCount: number;
+  /**
+   * Cached reels Instagram will not let us download (see GalleryItem.importable),
+   * across the whole cache rather than just this page. Computed for the first
+   * page only — null afterwards — because it exists to size one banner, not to
+   * be recounted on every scroll.
+   */
+  unavailableCount: number | null;
   error: string | null;
 }
 
@@ -158,6 +177,7 @@ export class InstagramMediaService {
     private readonly config: ConfigService,
     private readonly instagram: InstagramClient,
     private readonly connections: SocialConnectionsService,
+    private readonly realtime: PortfolioRealtimeNotifier,
   ) {}
 
   cacheTtlMs(): number {
@@ -291,6 +311,19 @@ export class InstagramMediaService {
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
 
+    // Only on the first page: the banner needs one number, and recounting it
+    // for every scroll would be a query per page for a value that does not
+    // change as the reader moves down the list.
+    const unavailableCount = opts.cursor
+      ? null
+      : await this.prisma.instagramMediaItem.count({
+          where: {
+            connectionId: connection.id,
+            mediaProductType: REELS_PRODUCT_TYPE,
+            mediaUrl: null,
+          },
+        });
+
     const lastSyncedAt = state?.lastSyncedAt ?? null;
     const stale =
       !lastSyncedAt || Date.now() - lastSyncedAt.getTime() > this.cacheTtlMs();
@@ -309,6 +342,7 @@ export class InstagramMediaService {
       // default to true rather than claiming the account ends here.
       hasMoreOnInstagram: state?.hasMore ?? true,
       reelCount: state?.reelCount ?? page.length,
+      unavailableCount,
       error: state?.lastError ?? null,
     };
   }
@@ -363,6 +397,7 @@ export class InstagramMediaService {
       nextCursor: null,
       hasMoreOnInstagram: false,
       reelCount: 0,
+      unavailableCount: null,
       error: null,
     };
   }
@@ -379,6 +414,7 @@ export class InstagramMediaService {
       viewCount: row.viewCount,
       alreadyImported: row.importedVideoId != null,
       portfolioVideoId: row.importedVideoId,
+      importable: row.mediaUrl != null,
     };
   }
 
@@ -531,6 +567,13 @@ export class InstagramMediaService {
       this.logger.log(
         `ig-media: extend skipped for ${connectionId} — account fully cached`,
       );
+      // A no-op still has to be announced: the picker put up a spinner the
+      // moment the reader pressed Load more, and only an event takes it down.
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: connection.creatorProfileId,
+        status: 'ready',
+        hasMore: false,
+      });
       return { reels: 0, pages: 0, usage: null };
     }
 
@@ -620,6 +663,15 @@ export class InstagramMediaService {
       this.logger.log(
         `ig-media: ${mode} ${connectionId} — ${reels} reel(s) this batch, ${reelCount} cached, ${pages} page(s), more=${hasMore}, ${Date.now() - startedAt}ms`,
       );
+
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: connection.creatorProfileId,
+        status: 'ready',
+        reelCount,
+        // A refresh leaves the frontier alone, so report what the state still
+        // says rather than this batch's local view of it.
+        hasMore: mode === 'extend' ? hasMore : (state?.hasMore ?? true),
+      });
       return { reels, pages, usage };
     } catch (err) {
       const message = (err as Error)?.message ?? 'unknown error';
@@ -630,6 +682,13 @@ export class InstagramMediaService {
       if (err instanceof InstagramApiError && err.isAuthError) {
         await this.connections.markConnectionError(connectionId, message);
       }
+      // Failures matter more than successes here — without this the spinner
+      // stays up until the client's slow backstop notices.
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: connection.creatorProfileId,
+        status: 'error',
+        error: message,
+      });
       throw err;
     }
   }
@@ -704,23 +763,45 @@ export class InstagramMediaService {
    */
   async resetStuckSyncs(): Promise<number> {
     const staleBefore = new Date(Date.now() - this.stuckSyncMs());
-    const { count } = await this.prisma.instagramMediaSyncState.updateMany({
+    // Read first, so the creators can be told. updateMany reports a count and
+    // nothing else, and a state reset nobody hears about still leaves the
+    // picker waiting on an event that is never coming.
+    const stuck = await this.prisma.instagramMediaSyncState.findMany({
       where: {
         status: { in: [IgMediaSyncStatus.SYNCING, IgMediaSyncStatus.QUEUED] },
         updatedAt: { lte: staleBefore },
       },
+      select: {
+        connectionId: true,
+        connection: { select: { creatorProfileId: true } },
+      },
+      take: 50,
+    });
+    if (stuck.length === 0) return 0;
+
+    await this.prisma.instagramMediaSyncState.updateMany({
+      where: { connectionId: { in: stuck.map((row) => row.connectionId) } },
       data: {
         status: IgMediaSyncStatus.ERROR,
         lastError:
           'The sync stopped without finishing. Press Refresh to try again.',
       },
     });
-    if (count === 0) return 0;
+
+    for (const row of stuck) {
+      // Never throws — it logs and moves on, so one bad notification cannot
+      // stop the rest of the sweep.
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: row.connection.creatorProfileId,
+        status: 'error',
+        error: 'The sync stopped without finishing.',
+      });
+    }
 
     this.logger.warn(
-      `ig-media: reset ${count} stuck sync(s) that never finished`,
+      `ig-media: reset ${stuck.length} stuck sync(s) that never finished`,
     );
-    return count;
+    return stuck.length;
   }
 
   /** How long a SYNCING/QUEUED state must sit before it counts as abandoned. */

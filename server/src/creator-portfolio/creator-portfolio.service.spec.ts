@@ -957,6 +957,43 @@ describe('CreatorPortfolioService Instagram import', () => {
     ]);
   });
 
+  it('skips a reel Instagram gave no media_url for', async () => {
+    // Meta omits media_url for media containing copyrighted material —
+    // licensed audio on a reel — so there is no file to fetch.
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+      cached({ mediaUrl: null }),
+    ]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.imported).toEqual([]);
+    expect(result.skipped).toEqual([
+      { igMediaId: 'reel-1', reason: 'no_media_url' },
+    ]);
+    expect(prismaMock.creatorPortfolioVideo.create).not.toHaveBeenCalled();
+  });
+
+  it('skips it in link mode too, rather than storing a null videoUrl', async () => {
+    // This used to fall through: link mode created a LINK_ONLY row with
+    // videoUrl null, and LINK_ONLY counts as playable, so it surfaced on the
+    // public profile as an empty player.
+    mode = 'link';
+    prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+      cached({ mediaUrl: null }),
+    ]);
+
+    const result = await service.importInstagramReels(creatorUserId, {
+      igMediaIds: ['reel-1'],
+    });
+
+    expect(result.skipped).toEqual([
+      { igMediaId: 'reel-1', reason: 'no_media_url' },
+    ]);
+    expect(prismaMock.creatorPortfolioVideo.create).not.toHaveBeenCalled();
+  });
+
   it('hands back exactly the videos needing a mirror', async () => {
     prismaMock.instagramMediaItem.findMany.mockResolvedValue([
       cached(),

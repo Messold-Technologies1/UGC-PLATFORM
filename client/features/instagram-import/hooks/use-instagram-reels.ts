@@ -24,16 +24,28 @@ import { portfolioMyVideosQueryKey } from "@/features/creator-portfolio/api/list
 const PAGE_SIZE = 24;
 /** Matches the server's cache TTL, so the client does not refetch sooner. */
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-/** How often to poll while the server reports a sync in flight. */
-const SYNC_POLL_MS = 2500;
+/**
+ * Slow backstop while a sync is in flight.
+ *
+ * Completion arrives over the socket (`instagram.reel_sync_updated`), so this is
+ * not how we learn a batch finished — it is the guard against a lost event
+ * leaving the picker spinning forever. Deliberately slow: at the old 2.5s a tab
+ * burned ~360 requests across a 15-minute breaker pause, all of them saying
+ * "still working". At 90s it is ~10, and the queue legitimately holds a sync
+ * that long, so a re-check is the only way to tell "still queued" from "we
+ * missed the event".
+ */
+const SYNC_BACKSTOP_MS = 90_000;
 
 /**
  * The reel gallery's data source.
  *
  * Reads are cheap and cached for as long as the server caches them, so opening
  * the sheet repeatedly costs nothing — the server only syncs a cold cache, never
- * one that is merely stale. When it does report a sync in flight, a light poll
- * runs until it settles and then the list is refetched once.
+ * one that is merely stale. When a sync is in flight, the server pushes its
+ * result over the socket and RealtimeProvider refreshes this query; the status
+ * read here only supplies the queued-vs-fetching wording, plus a slow backstop
+ * against a lost event.
  *
  * There are two separate "more" mechanisms behind one button, because they cost
  * very different things:
@@ -74,34 +86,42 @@ export function useInstagramReels({
   const last = pages?.[pages.length - 1];
   const serverSyncing = first?.status === "syncing";
 
-  // Set the moment a batch is requested, so the poll starts before the first
-  // page has had a chance to report `syncing` back to us.
+  // Set the moment a batch is requested, so the spinner goes up before the
+  // first page has had a chance to report `syncing` back to us.
   const [awaitingBatch, setAwaitingBatch] = useState(false);
-  const polling = serverSyncing || awaitingBatch;
+  const waiting = serverSyncing || awaitingBatch;
 
-  // Only poll while something is actually running — a settled gallery makes no
-  // background requests at all.
+  // Read once when the wait starts (for the queued-vs-fetching wording) and then
+  // only on the slow backstop. A settled gallery makes no background requests.
   const statusQuery = useQuery({
     queryKey: statusKey,
     queryFn: () => fetchInstagramReelsStatus(adminCreatorId),
-    enabled: enabled && polling,
-    refetchInterval: polling ? SYNC_POLL_MS : false,
+    enabled: enabled && waiting,
+    refetchInterval: waiting ? SYNC_BACKSTOP_MS : false,
   });
 
   const syncSettled =
     statusQuery.data?.status === "ready" ||
     statusQuery.data?.status === "error";
+  // The socket handler invalidates this query's whole key prefix, so a settled
+  // first page is the other way the wait ends.
+  const pageSettled = first?.status === "ready" || first?.status === "error";
 
   useEffect(() => {
-    if (polling && syncSettled) {
+    if (awaitingBatch && (syncSettled || pageSettled)) {
       setAwaitingBatch(false);
+    }
+  }, [awaitingBatch, syncSettled, pageSettled]);
+
+  useEffect(() => {
+    if (serverSyncing && syncSettled) {
       // Refetching every page is what makes new reels reachable: the page that
       // was the cache tail now returns a cursor instead of null.
       void queryClient.invalidateQueries({ queryKey: reelsKey });
     }
     // reelsKey is derived from adminCreatorId, so it is stable per creator.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [polling, syncSettled, queryClient, adminCreatorId]);
+  }, [serverSyncing, syncSettled, queryClient, adminCreatorId]);
 
   const refresh = useMutation({
     mutationFn: () => refreshInstagramReels(adminCreatorId),
@@ -149,7 +169,7 @@ export function useInstagramReels({
   // Costly: the reader is at the end of the cache and Instagram has more. Only
   // offered once cache paging is exhausted, so a click always does something.
   const canFetchMoreFromInstagram =
-    Boolean(last?.hasMoreOnInstagram) && !query.hasNextPage && !polling;
+    Boolean(last?.hasMoreOnInstagram) && !query.hasNextPage && !waiting;
 
   return {
     items,
@@ -157,6 +177,13 @@ export function useInstagramReels({
     username: first?.username ?? null,
     lastSyncedAt: first?.lastSyncedAt ?? null,
     reelCount: first?.reelCount ?? 0,
+    unavailableCount: first?.unavailableCount ?? 0,
+    /**
+     * `queued` means the sync is waiting its turn behind the rate limiter,
+     * which under load is minutes rather than seconds — worth saying, because a
+     * bare spinner for that long reads as broken.
+     */
+    syncPhase: statusQuery.data?.status === "queued" ? "queued" : "fetching",
     error: first?.error ?? null,
     isLoading: query.isLoading,
     isError: query.isError,
@@ -207,7 +234,24 @@ export function useImportInstagramReels(options?: { adminCreatorId?: string }) {
             : `${alreadyIn} reels were already in ${where}`,
         );
       }
-      const failed = result.skipped.length - alreadyIn;
+      // The picker refuses to select these, but the cache can go stale between
+      // load and submit — and an unexplained failure here is what sent us
+      // looking at the network tab in the first place.
+      const unavailable = result.skipped.filter(
+        (s) => s.reason === "no_media_url",
+      ).length;
+      if (unavailable > 0) {
+        toast.error(
+          unavailable === 1
+            ? "1 reel can't be downloaded from Instagram"
+            : `${unavailable} reels can't be downloaded from Instagram`,
+          {
+            description:
+              "Instagram blocks downloads for reels with licensed audio. Save them from Instagram and add them with Upload from your device.",
+          },
+        );
+      }
+      const failed = result.skipped.length - alreadyIn - unavailable;
       if (failed > 0) {
         toast.error(
           failed === 1

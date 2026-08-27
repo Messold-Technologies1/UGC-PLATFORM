@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Instagram,
   Loader2,
+  Lock,
   RefreshCw,
 } from "lucide-react";
 import {
@@ -76,7 +77,7 @@ export function InstagramReelGallery({
   const atCap = selected.length >= MAX_SELECTION;
 
   const toggle = useCallback((reel: InstagramReelApi) => {
-    if (reel.alreadyImported) return;
+    if (reel.alreadyImported || !reel.importable) return;
     setSelected((prev) => {
       if (prev.includes(reel.igMediaId)) {
         return prev.filter((id) => id !== reel.igMediaId);
@@ -117,6 +118,7 @@ export function InstagramReelGallery({
         pagingCache={reels.isFetchingNextPage}
         canFetchMore={reels.canFetchMoreFromInstagram}
         isFetchingBatch={reels.isFetchingBatch}
+        queued={reels.syncPhase === "queued"}
         onFetchMore={fetchMoreBatch}
       />
     ),
@@ -124,6 +126,7 @@ export function InstagramReelGallery({
       reels.isFetchingNextPage,
       reels.canFetchMoreFromInstagram,
       reels.isFetchingBatch,
+      reels.syncPhase,
       fetchMoreBatch,
     ],
   );
@@ -131,7 +134,7 @@ export function InstagramReelGallery({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="flex h-[90vh] max-h-[90vh] flex-col gap-0 p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b border-border px-5 py-4">
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <DialogTitle className="flex items-center gap-2 text-base">
@@ -166,7 +169,7 @@ export function InstagramReelGallery({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-hidden px-5 py-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
           {reels.status === "not_connected" ? (
             <EmptyState
               title="No Instagram account connected"
@@ -198,7 +201,7 @@ export function InstagramReelGallery({
               }
             />
           ) : showSkeleton ? (
-            <SkeletonGrid />
+            <SkeletonGrid queued={reels.syncPhase === "queued"} />
           ) : reels.items.length === 0 ? (
             <EmptyState
               title="We couldn't find any reels"
@@ -214,40 +217,47 @@ export function InstagramReelGallery({
               {syncing ? (
                 <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" aria-hidden />
-                  Checking Instagram for new reels…
+                  {reels.syncPhase === "queued"
+                    ? "Waiting for Instagram — this can take a few minutes when a lot of creators are importing at once."
+                    : "Checking Instagram for new reels…"}
                 </p>
               ) : null}
-              <VirtuosoGrid
-                style={{ height: "100%" }}
-                totalCount={reels.items.length}
-                // Paging the cache is free, so it happens on scroll. Fetching a
-                // new batch from Instagram is not, and is never triggered here.
-                endReached={reels.loadMore}
-                overscan={200}
-                components={{ Footer }}
-                listClassName="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"
-                itemContent={(index) => {
-                  const reel = reels.items[index];
-                  if (!reel) return null;
-                  const order = selected.indexOf(reel.igMediaId);
-                  return (
-                    <ReelTile
-                      reel={reel}
-                      selectionOrder={order >= 0 ? order + 1 : null}
-                      disabled={
-                        reel.alreadyImported ||
-                        (atCap && !selectedSet.has(reel.igMediaId))
-                      }
-                      onToggle={() => toggle(reel)}
-                    />
-                  );
-                }}
-              />
+
+              <UnavailableReelsNotice count={reels.unavailableCount} />
+              <div className="min-h-0 flex-1">
+                <VirtuosoGrid
+                  style={{ height: "100%" }}
+                  totalCount={reels.items.length}
+                  // Paging the cache is free, so it happens on scroll. Fetching a
+                  // new batch from Instagram is not, and is never triggered here.
+                  endReached={reels.loadMore}
+                  overscan={200}
+                  components={{ Footer }}
+                  listClassName="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"
+                  itemContent={(index) => {
+                    const reel = reels.items[index];
+                    if (!reel) return null;
+                    const order = selected.indexOf(reel.igMediaId);
+                    return (
+                      <ReelTile
+                        reel={reel}
+                        selectionOrder={order >= 0 ? order + 1 : null}
+                        disabled={
+                          reel.alreadyImported ||
+                          !reel.importable ||
+                          (atCap && !selectedSet.has(reel.igMediaId))
+                        }
+                        onToggle={() => toggle(reel)}
+                      />
+                    );
+                  }}
+                />
+              </div>
             </>
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-3">
           <p className="text-xs text-muted-foreground">
             {selected.length > 0
               ? `${selected.length} selected${atCap ? ` (max ${MAX_SELECTION})` : ""}`
@@ -279,6 +289,36 @@ export function InstagramReelGallery({
 }
 
 /**
+ * Explains the reels the picker will not let you select.
+ *
+ * Instagram withholds the video file for media containing copyrighted material
+ * — most often licensed audio on a reel — while still handing over the
+ * thumbnail. So these look completely normal here, and before this notice
+ * existed selecting them produced a bare "3 reels could not be added". The only
+ * way to get one into a portfolio is to save it from Instagram and upload it,
+ * which is what this says.
+ */
+function UnavailableReelsNotice({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <div className="mb-3 flex shrink-0 items-start gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+      <Lock className="mt-px size-3.5 shrink-0 text-amber-900" aria-hidden />
+      <p className="text-[11.5px] leading-relaxed text-amber-950">
+        <span className="font-semibold">
+          {count === 1
+            ? "Instagram locked this one."
+            : `Instagram locked ${count} of these.`}
+        </span>{" "}
+        {count === 1
+          ? "Licensed audio, so we can't download it — that's why it's greyed out. Want it anyway? Save it from Instagram, then add it with"
+          : "Licensed audio, so we can't download them — that's why they're greyed out. Want one? Save it from Instagram, then add it with"}{" "}
+        <span className="font-medium">Upload from your device</span>.
+      </p>
+    </div>
+  );
+}
+
+/**
  * The bottom of the list. Only one of the three states can apply: still paging
  * the cache, or out of cache with more on Instagram, or genuinely at the end.
  */
@@ -286,11 +326,13 @@ function GridFooter({
   pagingCache,
   canFetchMore,
   isFetchingBatch,
+  queued,
   onFetchMore,
 }: {
   pagingCache: boolean;
   canFetchMore: boolean;
   isFetchingBatch: boolean;
+  queued?: boolean;
   onFetchMore: () => void;
 }) {
   if (pagingCache) {
@@ -304,13 +346,15 @@ function GridFooter({
     return (
       <p className="flex items-center justify-center gap-1.5 py-4 text-xs text-muted-foreground">
         <Loader2 className="size-3 animate-spin" aria-hidden />
-        Fetching older reels from Instagram…
+        {queued
+          ? "Queued — fetching older reels shortly…"
+          : "Fetching older reels from Instagram…"}
       </p>
     );
   }
   if (!canFetchMore) return null;
   return (
-    <div className="flex flex-col items-center gap-1.5 py-4">
+    <div className="flex flex-col items-center gap-1.5 py-5 pb-8">
       <Button variant="outline" size="sm" onClick={() => onFetchMore()}>
         Load more from Instagram
       </Button>
@@ -345,9 +389,16 @@ function ReelTile({
         aria-label={
           reel.alreadyImported
             ? "Already in your portfolio"
-            : selected
-              ? "Deselect this reel"
-              : "Select this reel"
+            : !reel.importable
+              ? "Instagram does not allow downloading this reel"
+              : selected
+                ? "Deselect this reel"
+                : "Select this reel"
+        }
+        title={
+          !reel.importable && !reel.alreadyImported
+            ? "Instagram won't let us download this reel — usually licensed audio. Save it from Instagram and upload it from your device."
+            : undefined
         }
         className="absolute inset-0 size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed"
       >
@@ -360,7 +411,9 @@ function ReelTile({
             alt=""
             loading="lazy"
             className={`size-full object-cover transition-opacity ${
-              reel.alreadyImported ? "opacity-40" : "group-hover:opacity-90"
+              reel.alreadyImported || !reel.importable
+                ? "opacity-40"
+                : "group-hover:opacity-90"
             }`}
           />
         ) : (
@@ -375,6 +428,11 @@ function ReelTile({
           {reel.alreadyImported ? (
             <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
               Added
+            </span>
+          ) : !reel.importable ? (
+            <span className="flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              <Lock className="size-2.5" aria-hidden />
+              Unavailable
             </span>
           ) : selected ? (
             <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -415,12 +473,16 @@ function ReelTile({
   );
 }
 
-function SkeletonGrid() {
+function SkeletonGrid({ queued }: { queued?: boolean }) {
   return (
     <div>
       <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="size-3 animate-spin" aria-hidden />
-        Fetching your reels from Instagram…
+        {/* A queued sync is waiting behind the rate limiter, which under load is
+            minutes. Saying "fetching" for that long reads as broken. */}
+        {queued
+          ? "You're in the queue — we'll start fetching your reels in a moment."
+          : "Fetching your reels from Instagram…"}
       </p>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (

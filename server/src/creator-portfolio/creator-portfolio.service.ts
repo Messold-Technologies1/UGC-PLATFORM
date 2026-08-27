@@ -370,7 +370,11 @@ export class CreatorPortfolioService {
         skipped.push({ igMediaId, reason: 'not_a_reel' });
         continue;
       }
-      if (!item.mediaUrl && !linkOnly) {
+      // No downloadable file means there is nothing to import in either mode.
+      // Link mode used to fall through here and create a LINK_ONLY row with a
+      // null videoUrl — which counts as playable, so it reached the public
+      // profile as an empty player.
+      if (!item.mediaUrl) {
         skipped.push({ igMediaId, reason: 'no_media_url' });
         continue;
       }

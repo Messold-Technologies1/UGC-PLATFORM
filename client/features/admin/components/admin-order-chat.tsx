@@ -109,7 +109,12 @@ export function AdminOrderChat({
     messagesQuery.error?.message ||
     "Unable to load the order chat.";
 
+  // The chat is only surfaced while an order is disputed — that's when the
+  // admin needs to join the brand/creator conversation. Once a dispute is
+  // resolved, keep showing it only if messages already exist so history
+  // already visible to the admin never disappears; otherwise stay hidden.
   if (isInitialLoading) {
+    if (!isDisputed) return null;
     return (
       <AdminOrderChatShell className={className}>
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -121,6 +126,7 @@ export function AdminOrderChat({
   }
 
   if (stateQuery.isError || messagesQuery.isError || !state) {
+    if (!isDisputed) return null;
     return (
       <AdminOrderChatShell className={className}>
         <div className="flex max-w-md flex-col items-center gap-3">
@@ -168,6 +174,12 @@ export function AdminOrderChat({
     messagesQuery.data?.pages.map((page) => page.items) ?? [],
   );
   const hasMessages = messages.length > 0;
+
+  // Outside a dispute, only keep the section around when there's message
+  // history to preserve — never surface an empty chat box for an order that
+  // isn't disputed.
+  if (!isDisputed && !hasMessages) return null;
+
   const showChatPanel = chatOpen || hasMessages;
 
   // While the order is disputed, the admin joins the brand/creator conversation

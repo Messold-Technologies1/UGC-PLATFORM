@@ -44,6 +44,7 @@ import {
   useRejectAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
+import { AdminOrderBriefAccordion } from "@/features/admin/components/admin-order-brief-accordion";
 import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
 import TrackingTimeline, {
   TimelineItem,
@@ -699,6 +700,10 @@ export default function AdminOrderDetailsPage() {
               </Card>
             </motion.div>
           ) : null}
+
+          <motion.div variants={itemVariants}>
+            <AdminOrderBriefAccordion orderId={order.id} order={order} />
+          </motion.div>
 
           <motion.div variants={itemVariants}>
             <AdminOrderChat
